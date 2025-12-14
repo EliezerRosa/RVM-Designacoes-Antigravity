@@ -1,0 +1,19 @@
+# RVM Designações Backend - Dependências Python
+
+# Framework Web
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# PDF Processing
+pypdf>=6.4.0
+reportlab>=4.4.5
+
+# Validation
+pydantic>=2.5.0
+
+# OpenAI para IA (opcional)
+openai>=1.0.0
+
+# Utilidades
+python-dotenv>=1.0.0
+python-multipart>=0.0.6
