@@ -2,7 +2,11 @@ import type { Publisher, Participation } from '../types';
 
 // Detect if we're running locally (dev) or on GitHub Pages (prod)
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const GATEWAY_URL = IS_LOCAL ? 'http://localhost:8000/api/save' : null;
+
+// TODO: After Vercel deploy, replace 'YOUR_VERCEL_PROJECT' with actual project name
+const VERCEL_URL = 'https://rvm-designacoes-antigravity.vercel.app/api/save';
+const GATEWAY_URL = IS_LOCAL ? 'http://localhost:8000/api/save' : VERCEL_URL;
+
 const RAW_BASE_URL = 'https://raw.githubusercontent.com/EliezerRosa/RVM-Designacoes-Antigravity/main/src/data';
 
 // Track if gateway is available
