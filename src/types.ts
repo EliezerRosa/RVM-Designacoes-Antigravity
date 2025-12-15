@@ -25,7 +25,8 @@ export interface PublisherPrivilegesBySection {
 
 export interface PublisherAvailability {
     mode: 'always' | 'never';
-    exceptionDates: string[];
+    exceptionDates: string[];    // Datas Indisponíveis (quando mode='always', são as exceções negativas)
+    availableDates: string[];    // Datas Disponíveis (quando mode='never', são as exceções positivas)
 }
 
 export interface Publisher {
