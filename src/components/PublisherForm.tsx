@@ -37,6 +37,8 @@ const emptyPublisher: Publisher = {
     privilegesBySection: { ...defaultPrivilegesBySection },
     availability: { mode: 'always', exceptionDates: [] },
     aliases: [],
+    isNotQualified: false,
+    requestedNoParticipation: false,
 }
 
 export default function PublisherForm({ publisher, onSave, onCancel }: PublisherFormProps) {
@@ -179,6 +181,32 @@ export default function PublisherForm({ publisher, onSave, onCancel }: Publisher
                                         onChange={handleChange}
                                     />
                                     Apenas Ajudante
+                                </label>
+                            </div>
+                        </div>
+
+                        <h4 style={{ marginBottom: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)', color: 'var(--color-warning)' }}>
+                            🚫 Status de Participação
+                        </h4>
+                        <div className="form-group">
+                            <div className="checkbox-group">
+                                <label className="checkbox-item" style={{ color: formData.isNotQualified ? 'var(--color-warning)' : 'inherit' }}>
+                                    <input
+                                        type="checkbox"
+                                        name="isNotQualified"
+                                        checked={formData.isNotQualified || false}
+                                        onChange={handleChange}
+                                    />
+                                    ⚠️ Não Apto / Não Assiste Reunião
+                                </label>
+                                <label className="checkbox-item" style={{ color: formData.requestedNoParticipation ? 'var(--color-warning)' : 'inherit' }}>
+                                    <input
+                                        type="checkbox"
+                                        name="requestedNoParticipation"
+                                        checked={formData.requestedNoParticipation || false}
+                                        onChange={handleChange}
+                                    />
+                                    🙅 Pediu para Não Participar
                                 </label>
                             </div>
                         </div>

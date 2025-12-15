@@ -44,6 +44,9 @@ export interface Publisher {
     privilegesBySection: PublisherPrivilegesBySection;
     availability: PublisherAvailability;
     aliases: string[];
+    // Status flags from EMR categories
+    isNotQualified?: boolean;          // "NÃO APTOS OU NÃO ASSISTEM REUNIÃO"
+    requestedNoParticipation?: boolean; // "PEDIRAM PARA NÃO PARTICIPAR"
 }
 
 // ===== PARTICIPACOES =====
