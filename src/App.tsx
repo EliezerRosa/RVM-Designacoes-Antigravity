@@ -6,6 +6,7 @@ import PublisherForm from './components/PublisherForm'
 import Dashboard from './components/Dashboard'
 import AssignmentGenerator from './components/AssignmentGenerator'
 import { initialPublishers } from './data/initialPublishers'
+import { api } from './services/api'
 
 import HistoryImporter from './components/HistoryImporter'
 
@@ -13,64 +14,124 @@ type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard')
+
+  // Data State
   const [publishers, setPublishers] = useState<Publisher[]>([])
   const [participations, setParticipations] = useState<Participation[]>([])
+
+  // UI State
   const [showPublisherForm, setShowPublisherForm] = useState(false)
   const [editingPublisher, setEditingPublisher] = useState<Publisher | null>(null)
+
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
   // Carregar dados iniciais
   useEffect(() => {
+    async function loadData() {
+      setIsLoading(true)
+      try {
+        console.log("Loading data from API...")
+        // Parallel fetch with fallback
+        const [pubs, parts] = await Promise.all([
+          api.loadPublishers().catch(err => {
+            console.warn("API load failed (publishers), falling back to local.", err)
+            // Fallback to local file if API fails (e.g. file doesn't exist yet)
+            return initialPublishers as Publisher[];
+          }),
+          api.loadParticipations().catch(err => {
+            console.warn("API load failed (participations), falling back to empty.", err)
+            return []
+          })
+        ])
+
+        setPublishers(pubs)
+        setParticipations(parts)
+      } catch (error) {
+        console.error("Critical error loading data", error)
+        setStatusMessage("Erro crítico ao carregar dados.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
     loadData()
   }, [])
 
-  const loadData = async () => {
-    setIsLoading(true)
+  // Helper to persist publishers
+  const persistPublishers = async (newPublishers: Publisher[]) => {
+    setPublishers(newPublishers) // Optimistic update
+    setIsSaving(true)
+    setStatusMessage("Salvando alterações...")
     try {
-      // Tentar carregar do localStorage
-      const savedPublishers = localStorage.getItem('rvm_publishers')
-      const savedParticipations = localStorage.getItem('rvm_participations')
-
-      if (savedPublishers) {
-        setPublishers(JSON.parse(savedPublishers))
-      } else {
-        // Carregar dados iniciais do arquivo VARÕES
-        setPublishers(initialPublishers as Publisher[])
-        localStorage.setItem('rvm_publishers', JSON.stringify(initialPublishers))
-      }
-
-      if (savedParticipations) {
-        setParticipations(JSON.parse(savedParticipations))
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error)
+      await api.savePublishers(newPublishers)
+      setStatusMessage("✅ Alterações enviadas para processamento")
+      setTimeout(() => setStatusMessage(null), 3000)
+    } catch (e) {
+      console.error(e)
+      setStatusMessage("❌ Erro ao salvar dados!")
+    } finally {
+      setIsSaving(false)
     }
-    setIsLoading(false)
   }
 
-  const handleHistoryImport = (newPublishers: Publisher[], updatedExistingPublishers: Publisher[], newParticipations: Participation[]) => {
-    // Merge publishers logic
-    let currentPublishers = [...publishers];
+  // Helper to persist participations
+  const persistParticipations = async (newParticipations: Participation[]) => {
+    setParticipations(newParticipations)
+    setIsSaving(true)
+    setStatusMessage("Salvando participações...")
+    try {
+      await api.saveParticipations(newParticipations)
+      setStatusMessage("✅ Participações salvas")
+      setTimeout(() => setStatusMessage(null), 3000)
+    } catch (e) {
+      console.error(e)
+      setStatusMessage("❌ Erro ao salvar participações")
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
-    // Apply updates to existing
-    updatedExistingPublishers.forEach(update => {
-      const idx = currentPublishers.findIndex(p => p.id === update.id);
-      if (idx !== -1) {
-        currentPublishers[idx] = update;
+  const handleHistoryImport = async (newPublishers: Publisher[], updatedExistingPublishers: Publisher[], newParticipations: Participation[]) => {
+    // 1. Merge Publishers
+    let finalPublishers = [...publishers]
+
+    // Apply updates
+    updatedExistingPublishers.forEach(updated => {
+      finalPublishers = finalPublishers.map(p => p.id === updated.id ? updated : p)
+    })
+
+    // Add new
+    newPublishers.forEach(np => {
+      if (!finalPublishers.find(p => p.id === np.id)) {
+        finalPublishers.push(np);
       }
-    });
+    })
 
-    const finalPublishers = [...currentPublishers, ...newPublishers];
-    setPublishers(finalPublishers);
-    localStorage.setItem('rvm_publishers', JSON.stringify(finalPublishers));
+    // 2. Merge Participations
+    const finalParticipations = [...participations, ...newParticipations]
 
-    // Merge participations
-    const updatedParticipations = [...participations, ...newParticipations];
-    setParticipations(updatedParticipations);
-    localStorage.setItem('rvm_participations', JSON.stringify(updatedParticipations));
+    // Update State & Save
+    setPublishers(finalPublishers)
+    setParticipations(finalParticipations)
+    setActiveTab('dashboard')
 
-    setActiveTab('dashboard');
-    alert(`Importação concluída!\n\n${newPublishers.length} novos publicadores.\n${updatedExistingPublishers.length} publicadores atualizados.\n${newParticipations.length} participações importadas.`);
+    setIsSaving(true)
+    setStatusMessage("Sincronizando importação...")
+
+    try {
+      // We do sequential or parallel save? Parallel is fine they are different blocks.
+      await Promise.all([
+        api.savePublishers(finalPublishers),
+        api.saveParticipations(finalParticipations)
+      ])
+      setStatusMessage("✅ Importação concluída e enviada!")
+      setTimeout(() => setStatusMessage(null), 5000)
+    } catch (e) {
+      setStatusMessage("❌ Erro na sincronização da importação")
+    } finally {
+      setIsSaving(false)
+    }
   };
 
   const savePublisher = (publisher: Publisher) => {
@@ -81,8 +142,8 @@ function App() {
       publisher.id = crypto.randomUUID()
       updated = [...publishers, publisher]
     }
-    setPublishers(updated)
-    localStorage.setItem('rvm_publishers', JSON.stringify(updated))
+
+    persistPublishers(updated)
     setShowPublisherForm(false)
     setEditingPublisher(null)
   }
@@ -90,8 +151,7 @@ function App() {
   const deletePublisher = (publisher: Publisher) => {
     if (confirm(`Remover ${publisher.name}?`)) {
       const updated = publishers.filter(p => p.id !== publisher.id)
-      setPublishers(updated)
-      localStorage.setItem('rvm_publishers', JSON.stringify(updated))
+      persistPublishers(updated)
     }
   }
 
@@ -101,20 +161,17 @@ function App() {
   }
 
   const saveParticipation = (participation: Participation) => {
-    participation.id = crypto.randomUUID()
-    const updated = [...participations, participation]
-    setParticipations(updated)
-    localStorage.setItem('rvm_participations', JSON.stringify(updated))
+    // Update or Add
+    const filtered = participations.filter(p => p.id !== participation.id)
+    const newParts = [...filtered, participation]
+    persistParticipations(newParts)
   }
-
-  // Render main content with persistence
-  // We use hidden divs for persistence
 
   if (isLoading) {
     return (
       <div className="loading-screen">
         <div className="spinner"></div>
-        <p>Carregando...</p>
+        <p>Carregando dados do servidor...</p>
       </div>
     )
   }
@@ -126,6 +183,15 @@ function App() {
           <h1>RVM Designações</h1>
           <span className="subtitle">Sistema Unificado</span>
         </div>
+
+        {/* Status Indicator */}
+        {statusMessage && (
+          <div style={{ marginLeft: '20px', fontSize: '0.9em', color: isSaving ? '#fff' : '#4caf50', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isSaving && <div className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px' }}></div>}
+            {statusMessage}
+          </div>
+        )}
+
         <nav className="main-nav">
           <button
             className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
