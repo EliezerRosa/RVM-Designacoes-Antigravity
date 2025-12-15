@@ -64,15 +64,33 @@ function App() {
         let newCount = 0;
         let updatedCount = 0;
 
-        // Merge: update existing with local data (like phones), add new ones
+        // Merge: update existing with local data (phone, condition, status flags)
         const mergedPubs = pubs.map(p => {
           const localPub = localPubsMap.get(p.id);
           if (localPub) {
-            // Check if local has more data (e.g., phone number)
-            if (localPub.phone && !p.phone) {
+            // Check if local has newer/more data that should override Supabase
+            const updates: Partial<Publisher> = {};
+
+            // Sync phone if local has it
+            if (localPub.phone && localPub.phone !== p.phone) {
+              updates.phone = localPub.phone;
+            }
+            // Sync condition (Ancião, Servo Ministerial, etc.)
+            if (localPub.condition && localPub.condition !== p.condition) {
+              updates.condition = localPub.condition;
+            }
+            // Sync status flags
+            if (localPub.isNotQualified !== undefined && localPub.isNotQualified !== p.isNotQualified) {
+              updates.isNotQualified = localPub.isNotQualified;
+            }
+            if (localPub.requestedNoParticipation !== undefined && localPub.requestedNoParticipation !== p.requestedNoParticipation) {
+              updates.requestedNoParticipation = localPub.requestedNoParticipation;
+            }
+
+            if (Object.keys(updates).length > 0) {
               needsSync = true;
               updatedCount++;
-              return { ...p, phone: localPub.phone };
+              return { ...p, ...updates };
             }
           }
           return p;

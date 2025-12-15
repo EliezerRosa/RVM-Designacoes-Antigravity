@@ -73,6 +73,33 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                 {publisher.isBaptized && <span title="Batizado">✓ Batizado</span>}
                                 {!publisher.isServing && <span style={{ color: 'var(--warning-500)', marginLeft: 'var(--spacing-sm)' }}>Inativo</span>}
                             </div>
+                            {/* Status flags from EMR */}
+                            {(publisher.isNotQualified || publisher.requestedNoParticipation) && (
+                                <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                    {publisher.isNotQualified && (
+                                        <span style={{
+                                            color: 'var(--warning-500)',
+                                            background: 'rgba(245, 158, 11, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem'
+                                        }}>
+                                            ⚠️ Não Apto
+                                        </span>
+                                    )}
+                                    {publisher.requestedNoParticipation && (
+                                        <span style={{
+                                            color: 'var(--warning-500)',
+                                            background: 'rgba(245, 158, 11, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem'
+                                        }}>
+                                            🙅 Não Participa
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
