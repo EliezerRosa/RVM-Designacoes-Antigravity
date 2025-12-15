@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Publisher, Participation } from '../types';
 import { ParticipationType } from '../types';
 import { importedHistory } from '../data/importedHistory';
+import { api } from '../services/api';
 
 interface Props {
     publishers: Publisher[];
@@ -32,6 +33,22 @@ const PART_MAPPING: Record<string, ParticipationType> = {
 export default function HistoryImporter({ publishers, onImport, onCancel }: Props) {
     const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
     const [selectedName, setSelectedName] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Load saved resolutions from Supabase on mount
+    useEffect(() => {
+        async function loadResolutions() {
+            try {
+                const saved = await api.getSetting<Record<string, Resolution>>('historyResolutions', {});
+                setResolutions(saved);
+            } catch (e) {
+                console.warn('Failed to load saved resolutions', e);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        loadResolutions();
+    }, []);
 
     // Group unknown names from imported history
     const unknownNames = useMemo(() => {
@@ -46,8 +63,16 @@ export default function HistoryImporter({ publishers, onImport, onCancel }: Prop
         return importedHistory.unknown_names.sort((a, b) => b.count - a.count);
     }, []);
 
-    const handleResolve = (name: string, resolution: Resolution) => {
-        setResolutions(prev => ({ ...prev, [name]: resolution }));
+    const handleResolve = async (name: string, resolution: Resolution) => {
+        const newResolutions = { ...resolutions, [name]: resolution };
+        setResolutions(newResolutions);
+
+        // Persist to Supabase
+        try {
+            await api.setSetting('historyResolutions', newResolutions);
+        } catch (e) {
+            console.warn('Failed to save resolution', e);
+        }
     };
 
     const getStatus = (name: string) => {
@@ -188,199 +213,209 @@ export default function HistoryImporter({ publishers, onImport, onCancel }: Prop
     return (
         <div className="history-importer" style={{ padding: '20px', color: '#fff' }}>
             <h2>Importar Histórico e Resolver Nomes</h2>
-            <div style={{ display: 'flex', gap: '20px', height: '600px' }}>
-                {/* List */}
-                <div style={{ width: '300px', overflowY: 'auto', borderRight: '1px solid #444' }}>
-                    {unknownNames.map((item) => (
-                        <div
-                            key={item.name}
-                            onClick={() => setSelectedName(item.name)}
-                            style={{
-                                padding: '10px',
-                                cursor: 'pointer',
-                                background: selectedName === item.name ? '#333' : 'transparent',
-                                borderBottom: '1px solid #222'
-                            }}
-                        >
-                            {getStatus(item.name)} {item.name} <span style={{ opacity: 0.6 }}>({item.count})</span>
-                        </div>
-                    ))}
+            {isLoading ? (
+                <div style={{ textAlign: 'center', padding: '40px' }}>
+                    <div className="spinner" style={{ margin: '0 auto' }}></div>
+                    <p>Carregando resoluções salvas...</p>
                 </div>
-
-                {/* Detail */}
-                <div style={{ flex: 1, padding: '20px' }}>
-                    {selectedName ? (
-                        <div>
-                            <h3>Resolver: {selectedName}</h3>
-                            <p>Encontrado {unknownNames.find(n => n.name === selectedName)?.count} vezes nas pautas.</p>
-
-                            <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {/* Suggestion Block */}
-                                {(() => {
-                                    // 1. Try exact match against current publishers
-                                    const exactMatch = publishers.find(p => p.name.toLowerCase() === selectedName.toLowerCase());
-
-                                    // 2. Fallback to static best_guess
-                                    const unknownEntry = unknownNames.find(n => n.name === selectedName);
-                                    let suggestedPub = exactMatch;
-
-                                    if (!suggestedPub && unknownEntry?.best_guess) {
-                                        suggestedPub = publishers.find(p => p.name === unknownEntry.best_guess);
-                                    }
-
-                                    if (suggestedPub) {
-                                        const isExact = suggestedPub.name.toLowerCase() === selectedName.toLowerCase();
-
-                                        return (
-                                            <div style={{
-                                                background: isExact ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
-                                                padding: '15px',
-                                                borderRadius: '8px',
-                                                border: `1px solid ${isExact ? 'rgba(76, 175, 80, 0.3)' : 'rgba(33, 150, 243, 0.3)'}`,
-                                                marginBottom: '15px'
-                                            }}>
-                                                <p style={{ margin: '0 0 10px 0', fontSize: '0.9em', color: isExact ? '#81c784' : '#64b5f6', fontWeight: 'bold' }}>
-                                                    {isExact ? '✅ Correspondência exata encontrada:' : '💡 Sugestão encontrada (Similar):'}
-                                                </p>
-
-                                                <div style={{ fontSize: '1.1em', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ color: '#aaa' }}>{selectedName}</span>
-                                                    <span>→</span>
-                                                    <strong style={{ color: '#fff' }}>{suggestedPub.name}</strong>
-                                                </div>
-
-                                                <div style={{ display: 'flex', gap: '10px' }}>
-                                                    <button
-                                                        onClick={() => handleResolve(selectedName, { type: 'map', targetId: suggestedPub!.id })}
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: '8px 12px',
-                                                            background: '#444',
-                                                            border: '1px solid #666',
-                                                            color: '#fff',
-                                                            borderRadius: '4px',
-                                                            cursor: 'pointer',
-                                                            textAlign: 'center'
-                                                        }}
-                                                        title="Mantém o nome que já está no cadastro"
-                                                    >
-                                                        Vincular
-                                                        <div style={{ fontSize: '0.7em', color: '#aaa', marginTop: '4px' }}>
-                                                            Manter "{suggestedPub.name}"
-                                                        </div>
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => handleResolve(selectedName, { type: 'map', targetId: suggestedPub!.id, updateExistingName: true })}
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: '8px 12px',
-                                                            background: isExact ? '#2e7d32' : '#1565c0',
-                                                            border: 'none',
-                                                            color: '#fff',
-                                                            borderRadius: '4px',
-                                                            cursor: 'pointer',
-                                                            textAlign: 'center'
-                                                        }}
-                                                        title="Atualiza o cadastro com o nome vindo do histórico"
-                                                    >
-                                                        Vincular e Renomear
-                                                        <div style={{ fontSize: '0.7em', color: 'rgba(255,255,255,0.8)', marginTop: '4px' }}>
-                                                            Usar "{selectedName}"
-                                                        </div>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-
-                                <label>
-                                    <input
-                                        type="radio"
-                                        name="resType"
-                                        checked={currentResolution?.type === 'map'}
-                                        onChange={() => handleResolve(selectedName, { type: 'map', targetId: '' })}
-                                    />
-                                    Mapear para Existente
-                                </label>
-                                {currentResolution?.type === 'map' && (
-                                    <div style={{ marginLeft: '25px' }}>
-                                        <select
-                                            value={currentResolution.targetId || ''}
-                                            onChange={e => handleResolve(selectedName, { type: 'map', targetId: e.target.value })}
-                                            style={{ background: '#222', color: '#fff', padding: '5px', width: '90%' }}
-                                        >
-                                            <option value="">Selecione...</option>
-                                            {publishers
-                                                .slice()
-                                                .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
-                                                .map(p => (
-                                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                                ))}
-                                        </select>
-
-                                        {currentResolution.targetId && (
-                                            <div style={{ marginTop: '8px' }}>
-                                                <label style={{ fontSize: '0.9em', color: '#ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={!!currentResolution.updateExistingName}
-                                                        onChange={e => handleResolve(selectedName, { ...currentResolution, updateExistingName: e.target.checked })}
-                                                    />
-                                                    Atualizar cadastro para usar nome: "<strong>{selectedName}</strong>"
-                                                </label>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                <label>
-                                    <input
-                                        type="radio"
-                                        name="resType"
-                                        checked={currentResolution?.type === 'create'}
-                                        onChange={() => handleResolve(selectedName, { type: 'create', newPublisherData: { name: selectedName } })}
-                                    />
-                                    Criar Novo Publicador
-                                </label>
-                                {currentResolution?.type === 'create' && (
-                                    <div style={{ marginLeft: '25px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                        <input
-                                            type="text"
-                                            value={currentResolution.newPublisherData?.name || ''}
-                                            onChange={e => handleResolve(selectedName, { ...currentResolution, newPublisherData: { ...currentResolution.newPublisherData, name: e.target.value } })}
-                                            placeholder="Nome"
-                                            style={{ background: '#222', color: '#fff', padding: '5px', width: '90%' }}
-                                        />
-                                        <select
-                                            value={currentResolution.newPublisherData?.gender || 'brother'}
-                                            onChange={e => handleResolve(selectedName, { ...currentResolution, newPublisherData: { ...currentResolution.newPublisherData, gender: e.target.value as any } })}
-                                            style={{ background: '#222', color: '#fff', padding: '5px', width: '90%' }}
-                                        >
-                                            <option value="brother">Irmão</option>
-                                            <option value="sister">Irmã</option>
-                                        </select>
-                                    </div>
-                                )}
-
-                                <label>
-                                    <input
-                                        type="radio"
-                                        name="resType"
-                                        checked={currentResolution?.type === 'ignore'}
-                                        onChange={() => handleResolve(selectedName, { type: 'ignore' })}
-                                    />
-                                    Ignorar (Não importar)
-                                </label>
+            ) : (
+                <div style={{ display: 'flex', gap: '20px', height: '600px' }}>
+                    {/* List */}
+                    <div style={{ width: '300px', overflowY: 'auto', borderRight: '1px solid #444' }}>
+                        <div style={{ padding: '8px', borderBottom: '1px solid #444', fontSize: '0.85em', color: '#888' }}>
+                            ✅ Resolvido: {Object.keys(resolutions).length} / {unknownNames.length}
+                        </div>
+                        {unknownNames.map((item) => (
+                            <div
+                                key={item.name}
+                                onClick={() => setSelectedName(item.name)}
+                                style={{
+                                    padding: '10px',
+                                    cursor: 'pointer',
+                                    background: selectedName === item.name ? '#333' : 'transparent',
+                                    borderBottom: '1px solid #222'
+                                }}
+                            >
+                                {getStatus(item.name)} {item.name} <span style={{ opacity: 0.6 }}>({item.count})</span>
                             </div>
-                        </div>
-                    ) : (
-                        <p>Selecione um nome à esquerda para resolver.</p>
-                    )}
+                        ))}
+                    </div>
+
+                    {/* Detail */}
+                    <div style={{ flex: 1, padding: '20px' }}>
+                        {selectedName ? (
+                            <div>
+                                <h3>Resolver: {selectedName}</h3>
+                                <p>Encontrado {unknownNames.find(n => n.name === selectedName)?.count} vezes nas pautas.</p>
+
+                                <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {/* Suggestion Block */}
+                                    {(() => {
+                                        // 1. Try exact match against current publishers
+                                        const exactMatch = publishers.find(p => p.name.toLowerCase() === selectedName.toLowerCase());
+
+                                        // 2. Fallback to static best_guess
+                                        const unknownEntry = unknownNames.find(n => n.name === selectedName);
+                                        let suggestedPub = exactMatch;
+
+                                        if (!suggestedPub && unknownEntry?.best_guess) {
+                                            suggestedPub = publishers.find(p => p.name === unknownEntry.best_guess);
+                                        }
+
+                                        if (suggestedPub) {
+                                            const isExact = suggestedPub.name.toLowerCase() === selectedName.toLowerCase();
+
+                                            return (
+                                                <div style={{
+                                                    background: isExact ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
+                                                    padding: '15px',
+                                                    borderRadius: '8px',
+                                                    border: `1px solid ${isExact ? 'rgba(76, 175, 80, 0.3)' : 'rgba(33, 150, 243, 0.3)'}`,
+                                                    marginBottom: '15px'
+                                                }}>
+                                                    <p style={{ margin: '0 0 10px 0', fontSize: '0.9em', color: isExact ? '#81c784' : '#64b5f6', fontWeight: 'bold' }}>
+                                                        {isExact ? '✅ Correspondência exata encontrada:' : '💡 Sugestão encontrada (Similar):'}
+                                                    </p>
+
+                                                    <div style={{ fontSize: '1.1em', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ color: '#aaa' }}>{selectedName}</span>
+                                                        <span>→</span>
+                                                        <strong style={{ color: '#fff' }}>{suggestedPub.name}</strong>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        <button
+                                                            onClick={() => handleResolve(selectedName, { type: 'map', targetId: suggestedPub!.id })}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '8px 12px',
+                                                                background: '#444',
+                                                                border: '1px solid #666',
+                                                                color: '#fff',
+                                                                borderRadius: '4px',
+                                                                cursor: 'pointer',
+                                                                textAlign: 'center'
+                                                            }}
+                                                            title="Mantém o nome que já está no cadastro"
+                                                        >
+                                                            Vincular
+                                                            <div style={{ fontSize: '0.7em', color: '#aaa', marginTop: '4px' }}>
+                                                                Manter "{suggestedPub.name}"
+                                                            </div>
+                                                        </button>
+
+                                                        <button
+                                                            onClick={() => handleResolve(selectedName, { type: 'map', targetId: suggestedPub!.id, updateExistingName: true })}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '8px 12px',
+                                                                background: isExact ? '#2e7d32' : '#1565c0',
+                                                                border: 'none',
+                                                                color: '#fff',
+                                                                borderRadius: '4px',
+                                                                cursor: 'pointer',
+                                                                textAlign: 'center'
+                                                            }}
+                                                            title="Atualiza o cadastro com o nome vindo do histórico"
+                                                        >
+                                                            Vincular e Renomear
+                                                            <div style={{ fontSize: '0.7em', color: 'rgba(255,255,255,0.8)', marginTop: '4px' }}>
+                                                                Usar "{selectedName}"
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+
+                                    <label>
+                                        <input
+                                            type="radio"
+                                            name="resType"
+                                            checked={currentResolution?.type === 'map'}
+                                            onChange={() => handleResolve(selectedName, { type: 'map', targetId: '' })}
+                                        />
+                                        Mapear para Existente
+                                    </label>
+                                    {currentResolution?.type === 'map' && (
+                                        <div style={{ marginLeft: '25px' }}>
+                                            <select
+                                                value={currentResolution.targetId || ''}
+                                                onChange={e => handleResolve(selectedName, { type: 'map', targetId: e.target.value })}
+                                                style={{ background: '#222', color: '#fff', padding: '5px', width: '90%' }}
+                                            >
+                                                <option value="">Selecione...</option>
+                                                {publishers
+                                                    .slice()
+                                                    .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
+                                                    .map(p => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                            </select>
+
+                                            {currentResolution.targetId && (
+                                                <div style={{ marginTop: '8px' }}>
+                                                    <label style={{ fontSize: '0.9em', color: '#ddd', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!currentResolution.updateExistingName}
+                                                            onChange={e => handleResolve(selectedName, { ...currentResolution, updateExistingName: e.target.checked })}
+                                                        />
+                                                        Atualizar cadastro para usar nome: "<strong>{selectedName}</strong>"
+                                                    </label>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <label>
+                                        <input
+                                            type="radio"
+                                            name="resType"
+                                            checked={currentResolution?.type === 'create'}
+                                            onChange={() => handleResolve(selectedName, { type: 'create', newPublisherData: { name: selectedName } })}
+                                        />
+                                        Criar Novo Publicador
+                                    </label>
+                                    {currentResolution?.type === 'create' && (
+                                        <div style={{ marginLeft: '25px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                            <input
+                                                type="text"
+                                                value={currentResolution.newPublisherData?.name || ''}
+                                                onChange={e => handleResolve(selectedName, { ...currentResolution, newPublisherData: { ...currentResolution.newPublisherData, name: e.target.value } })}
+                                                placeholder="Nome"
+                                                style={{ background: '#222', color: '#fff', padding: '5px', width: '90%' }}
+                                            />
+                                            <select
+                                                value={currentResolution.newPublisherData?.gender || 'brother'}
+                                                onChange={e => handleResolve(selectedName, { ...currentResolution, newPublisherData: { ...currentResolution.newPublisherData, gender: e.target.value as any } })}
+                                                style={{ background: '#222', color: '#fff', padding: '5px', width: '90%' }}
+                                            >
+                                                <option value="brother">Irmão</option>
+                                                <option value="sister">Irmã</option>
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    <label>
+                                        <input
+                                            type="radio"
+                                            name="resType"
+                                            checked={currentResolution?.type === 'ignore'}
+                                            onChange={() => handleResolve(selectedName, { type: 'ignore' })}
+                                        />
+                                        Ignorar (Não importar)
+                                    </label>
+                                </div>
+                            </div>
+                        ) : (
+                            <p>Selecione um nome à esquerda para resolver.</p>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
                 <button onClick={onCancel} style={{ padding: '10px 20px', background: '#444', border: 'none', color: '#fff', cursor: 'pointer' }}>Cancelar</button>
