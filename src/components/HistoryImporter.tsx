@@ -51,6 +51,19 @@ export default function HistoryImporter({ publishers, participations, onImport, 
         loadResolutions();
     }, []);
 
+    // Filter state - 'all' | 'resolved' | 'imported' | 'pending'
+    const [statusFilter, setStatusFilter] = useState<'all' | 'resolved' | 'imported' | 'pending'>('all');
+
+    // Build a map of names to their actual participation count from database
+    const participationCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        participations.forEach(p => {
+            const normalizedName = p.publisherName.toLowerCase().trim();
+            counts[normalizedName] = (counts[normalizedName] || 0) + 1;
+        });
+        return counts;
+    }, [participations]);
+
     // Build a set of names that already have participations in the database
     const importedNames = useMemo(() => {
         const names = new Set<string>();
@@ -60,6 +73,22 @@ export default function HistoryImporter({ publishers, participations, onImport, 
         });
         return names;
     }, [participations]);
+
+    // Get actual count from database for a name
+    const getActualCount = (name: string): number => {
+        const normalizedName = name.toLowerCase().trim();
+        // Direct match
+        if (participationCounts[normalizedName]) {
+            return participationCounts[normalizedName];
+        }
+        // Fuzzy match
+        for (const [key, count] of Object.entries(participationCounts)) {
+            if (key.includes(normalizedName) || normalizedName.includes(key)) {
+                return count;
+            }
+        }
+        return 0;
+    };
 
     // Group unknown names from imported history
     const unknownNames = useMemo(() => {
@@ -87,19 +116,38 @@ export default function HistoryImporter({ publishers, participations, onImport, 
     };
 
     // Check if a name has been processed (either has resolution or has participations)
-    const getStatus = (name: string) => {
+    const getStatus = (name: string): 'resolved' | 'imported' | 'pending' => {
         // Check if already has participations in database (approximately)
         const normalizedName = name.toLowerCase().trim();
         const hasParticipations = importedNames.has(normalizedName) ||
             Array.from(importedNames).some(n => n.includes(normalizedName) || normalizedName.includes(n));
 
-        if (resolutions[name]) return '✅';  // Explicitly resolved
-        if (hasParticipations) return '📥';   // Already has participations imported
-        return '⚠️';  // Needs resolution
+        if (resolutions[name]) return 'resolved';
+        if (hasParticipations) return 'imported';
+        return 'pending';
     };
 
-    // Count resolved + imported
-    const resolvedCount = unknownNames.filter(item => getStatus(item.name) !== '⚠️').length;
+    // Get icon for status
+    const getStatusIcon = (status: 'resolved' | 'imported' | 'pending') => {
+        if (status === 'resolved') return '✅';
+        if (status === 'imported') return '📥';
+        return '⚠️';
+    };
+
+    // Filter the list based on status
+    const filteredNames = useMemo(() => {
+        if (statusFilter === 'all') return unknownNames;
+        return unknownNames.filter(item => getStatus(item.name) === statusFilter);
+    }, [unknownNames, statusFilter, resolutions, importedNames]);
+
+    // Count by status
+    const counts = useMemo(() => ({
+        resolved: unknownNames.filter(item => getStatus(item.name) === 'resolved').length,
+        imported: unknownNames.filter(item => getStatus(item.name) === 'imported').length,
+        pending: unknownNames.filter(item => getStatus(item.name) === 'pending').length,
+    }), [unknownNames, resolutions, importedNames]);
+
+    const resolvedCount = counts.resolved + counts.imported;
 
     const currentResolution = selectedName ? resolutions[selectedName] : null;
 
@@ -242,27 +290,96 @@ export default function HistoryImporter({ publishers, participations, onImport, 
             ) : (
                 <div style={{ display: 'flex', gap: '20px', height: '600px' }}>
                     {/* List */}
-                    <div style={{ width: '300px', overflowY: 'auto', borderRight: '1px solid #444' }}>
-                        <div style={{ padding: '8px', borderBottom: '1px solid #444', fontSize: '0.85em', color: '#888' }}>
-                            Processado: {resolvedCount} / {unknownNames.length}
-                            <div style={{ fontSize: '0.75em', marginTop: '4px' }}>
-                                ✅ resolvido • 📥 importado • ⚠️ pendente
+                    <div style={{ width: '350px', overflowY: 'auto', borderRight: '1px solid #444' }}>
+                        <div style={{ padding: '8px', borderBottom: '1px solid #444' }}>
+                            <div style={{ fontSize: '0.85em', color: '#888', marginBottom: '8px' }}>
+                                Processado: {resolvedCount} / {unknownNames.length}
+                            </div>
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={() => setStatusFilter('all')}
+                                    style={{
+                                        padding: '4px 8px',
+                                        fontSize: '0.75em',
+                                        cursor: 'pointer',
+                                        background: statusFilter === 'all' ? '#007bff' : '#444',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '4px'
+                                    }}
+                                >
+                                    Todos ({unknownNames.length})
+                                </button>
+                                <button
+                                    onClick={() => setStatusFilter('resolved')}
+                                    style={{
+                                        padding: '4px 8px',
+                                        fontSize: '0.75em',
+                                        cursor: 'pointer',
+                                        background: statusFilter === 'resolved' ? '#28a745' : '#444',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '4px'
+                                    }}
+                                >
+                                    ✅ Resolvido ({counts.resolved})
+                                </button>
+                                <button
+                                    onClick={() => setStatusFilter('imported')}
+                                    style={{
+                                        padding: '4px 8px',
+                                        fontSize: '0.75em',
+                                        cursor: 'pointer',
+                                        background: statusFilter === 'imported' ? '#17a2b8' : '#444',
+                                        color: '#fff',
+                                        border: 'none',
+                                        borderRadius: '4px'
+                                    }}
+                                >
+                                    📥 Importado ({counts.imported})
+                                </button>
+                                <button
+                                    onClick={() => setStatusFilter('pending')}
+                                    style={{
+                                        padding: '4px 8px',
+                                        fontSize: '0.75em',
+                                        cursor: 'pointer',
+                                        background: statusFilter === 'pending' ? '#ffc107' : '#444',
+                                        color: statusFilter === 'pending' ? '#333' : '#fff',
+                                        border: 'none',
+                                        borderRadius: '4px'
+                                    }}
+                                >
+                                    ⚠️ Pendente ({counts.pending})
+                                </button>
                             </div>
                         </div>
-                        {unknownNames.map((item) => (
-                            <div
-                                key={item.name}
-                                onClick={() => setSelectedName(item.name)}
-                                style={{
-                                    padding: '10px',
-                                    cursor: 'pointer',
-                                    background: selectedName === item.name ? '#333' : 'transparent',
-                                    borderBottom: '1px solid #222'
-                                }}
-                            >
-                                {getStatus(item.name)} {item.name} <span style={{ opacity: 0.6 }}>({item.count})</span>
-                            </div>
-                        ))}
+                        {filteredNames.map((item) => {
+                            const status = getStatus(item.name);
+                            const actualCount = getActualCount(item.name);
+                            return (
+                                <div
+                                    key={item.name}
+                                    onClick={() => setSelectedName(item.name)}
+                                    style={{
+                                        padding: '10px',
+                                        cursor: 'pointer',
+                                        background: selectedName === item.name ? '#333' : 'transparent',
+                                        borderBottom: '1px solid #222'
+                                    }}
+                                >
+                                    {getStatusIcon(status)} {item.name}
+                                    <span style={{ opacity: 0.6, marginLeft: '4px' }}>
+                                        ({item.count})
+                                        {actualCount > 0 && (
+                                            <span style={{ color: '#17a2b8', marginLeft: '4px' }}>
+                                                → BD: {actualCount}
+                                            </span>
+                                        )}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Detail */}
