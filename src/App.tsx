@@ -79,12 +79,12 @@ function App() {
             if (localPub.condition && localPub.condition !== p.condition) {
               updates.condition = localPub.condition;
             }
-            // Sync status flags
-            if (localPub.isNotQualified !== undefined && localPub.isNotQualified !== p.isNotQualified) {
-              updates.isNotQualified = localPub.isNotQualified;
+            // Sync status flags - sync if local has TRUE value that Supabase doesn't have
+            if (localPub.isNotQualified === true && p.isNotQualified !== true) {
+              updates.isNotQualified = true;
             }
-            if (localPub.requestedNoParticipation !== undefined && localPub.requestedNoParticipation !== p.requestedNoParticipation) {
-              updates.requestedNoParticipation = localPub.requestedNoParticipation;
+            if (localPub.requestedNoParticipation === true && p.requestedNoParticipation !== true) {
+              updates.requestedNoParticipation = true;
             }
 
             if (Object.keys(updates).length > 0) {
