@@ -203,7 +203,7 @@ export default function HistoryImporter({ publishers, participations, onImport, 
                         canParticipateInMinistry: true,
                         canParticipateInLife: false,
                     },
-                    availability: { mode: "always", exceptionDates: [] },
+                    availability: { mode: "always", exceptionDates: [], availableDates: [] },
                     aliases: [name],
                 };
                 newPublishers.push(pub);

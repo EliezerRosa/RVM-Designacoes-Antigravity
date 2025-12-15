@@ -36,7 +36,7 @@ const emptyPublisher: Publisher = {
     canPairWithNonParent: true,
     privileges: { ...defaultPrivileges },
     privilegesBySection: { ...defaultPrivilegesBySection },
-    availability: { mode: 'always', exceptionDates: [] },
+    availability: { mode: 'always', exceptionDates: [], availableDates: [] },
     aliases: [],
     isNotQualified: false,
     requestedNoParticipation: false,
@@ -45,6 +45,7 @@ const emptyPublisher: Publisher = {
 export default function PublisherForm({ publisher, publishers, onSave, onCancel }: PublisherFormProps) {
     const [formData, setFormData] = useState<Publisher>(publisher || { ...emptyPublisher })
     const [newExceptionDate, setNewExceptionDate] = useState('')
+    const [newAvailableDate, setNewAvailableDate] = useState('')
 
     useEffect(() => {
         if (publisher) {
@@ -294,15 +295,22 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        if (newExceptionDate && !formData.availability.exceptionDates.includes(newExceptionDate)) {
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                availability: {
-                                                    ...prev.availability,
-                                                    exceptionDates: [...prev.availability.exceptionDates, newExceptionDate].sort()
-                                                }
-                                            }));
-                                            setNewExceptionDate('');
+                                        if (newExceptionDate) {
+                                            // Check for conflict with available dates
+                                            if (formData.availability.availableDates?.includes(newExceptionDate)) {
+                                                alert('⚠️ Esta data já está na lista de Disponíveis. Remova-a primeiro.');
+                                                return;
+                                            }
+                                            if (!formData.availability.exceptionDates.includes(newExceptionDate)) {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    availability: {
+                                                        ...prev.availability,
+                                                        exceptionDates: [...prev.availability.exceptionDates, newExceptionDate].sort()
+                                                    }
+                                                }));
+                                                setNewExceptionDate('');
+                                            }
                                         }
                                     }}
                                     style={{
@@ -363,6 +371,106 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                             ) : (
                                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                                     Nenhuma data indisponível cadastrada. O publicador está disponível em todas as datas.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Available Dates (Positive Scale) */}
+                        <div className="form-group">
+                            <label className="form-label" style={{ color: 'var(--success-500)' }}>✅ Datas Disponíveis (Escala Positiva)</label>
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                                <input
+                                    type="date"
+                                    value={newAvailableDate}
+                                    onChange={(e) => setNewAvailableDate(e.target.value)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '8px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (newAvailableDate) {
+                                            // Check for conflict with unavailable dates
+                                            if (formData.availability.exceptionDates.includes(newAvailableDate)) {
+                                                alert('⚠️ Esta data já está na lista de Indisponíveis. Remova-a primeiro.');
+                                                return;
+                                            }
+                                            if (!formData.availability.availableDates?.includes(newAvailableDate)) {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    availability: {
+                                                        ...prev.availability,
+                                                        availableDates: [...(prev.availability.availableDates || []), newAvailableDate].sort()
+                                                    }
+                                                }));
+                                                setNewAvailableDate('');
+                                            }
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: 'var(--success-500)',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    ➕ Adicionar
+                                </button>
+                            </div>
+
+                            {formData.availability.availableDates && formData.availability.availableDates.length > 0 ? (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {formData.availability.availableDates.map((date, idx) => (
+                                        <span
+                                            key={idx}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '4px 10px',
+                                                borderRadius: '16px',
+                                                background: 'rgba(34, 197, 94, 0.1)',
+                                                color: 'var(--success-500)',
+                                                fontSize: '0.85rem',
+                                            }}
+                                        >
+                                            ✅ {new Date(date + 'T00:00').toLocaleDateString('pt-BR')}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        availability: {
+                                                            ...prev.availability,
+                                                            availableDates: (prev.availability.availableDates || []).filter(d => d !== date)
+                                                        }
+                                                    }));
+                                                }}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: 'var(--success-500)',
+                                                    cursor: 'pointer',
+                                                    padding: '0 2px',
+                                                    fontSize: '1rem',
+                                                }}
+                                            >
+                                                ✕
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    Nenhuma data específica marcada como disponível.
                                 </p>
                             )}
                         </div>
