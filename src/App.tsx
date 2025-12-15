@@ -27,14 +27,24 @@ function App() {
   const [isSaving, setIsSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
-  // Carregar dados iniciais
+  // Persist active tab to Supabase
+  const handleTabChange = async (tab: ActiveTab) => {
+    setActiveTab(tab)
+    try {
+      await api.setSetting('activeTab', tab)
+    } catch (e) {
+      console.warn('Failed to save active tab preference', e)
+    }
+  }
+
+  // Carregar dados iniciais e UI state
   useEffect(() => {
     async function loadData() {
       setIsLoading(true)
       try {
         console.log("Loading data from API...")
         // Parallel fetch with fallback
-        const [pubs, parts] = await Promise.all([
+        const [pubs, parts, savedTab] = await Promise.all([
           api.loadPublishers().catch(err => {
             console.warn("API load failed (publishers), falling back to local.", err)
             // Fallback to local file if API fails (e.g. file doesn't exist yet)
@@ -43,11 +53,13 @@ function App() {
           api.loadParticipations().catch(err => {
             console.warn("API load failed (participations), falling back to empty.", err)
             return []
-          })
+          }),
+          api.getSetting<ActiveTab>('activeTab', 'dashboard').catch(() => 'dashboard' as ActiveTab)
         ])
 
         setPublishers(pubs)
         setParticipations(parts)
+        setActiveTab(savedTab)
       } catch (error) {
         console.error("Critical error loading data", error)
         setStatusMessage("Erro crítico ao carregar dados.")
@@ -114,7 +126,7 @@ function App() {
     // Update State & Save
     setPublishers(finalPublishers)
     setParticipations(finalParticipations)
-    setActiveTab('dashboard')
+    handleTabChange('dashboard')
 
     setIsSaving(true)
     setStatusMessage("Sincronizando importação...")
@@ -199,31 +211,31 @@ function App() {
         <nav className="main-nav">
           <button
             className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleTabChange('dashboard')}
           >
             📊 Dashboard
           </button>
           <button
             className={`nav-btn ${activeTab === 'publishers' ? 'active' : ''}`}
-            onClick={() => setActiveTab('publishers')}
+            onClick={() => handleTabChange('publishers')}
           >
             👥 Publicadores
           </button>
           <button
             className={`nav-btn ${activeTab === 'assignments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('assignments')}
+            onClick={() => handleTabChange('assignments')}
           >
             📝 Designações
           </button>
           <button
             className={`nav-btn ${activeTab === 's89' ? 'active' : ''}`}
-            onClick={() => setActiveTab('s89')}
+            onClick={() => handleTabChange('s89')}
           >
             📄 S-89
           </button>
           <button
             className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('history')}
+            onClick={() => handleTabChange('history')}
             title="Importar Histórico"
           >
             ⚙️ Histórico
@@ -276,7 +288,7 @@ function App() {
           <HistoryImporter
             publishers={publishers}
             onImport={handleHistoryImport}
-            onCancel={() => setActiveTab('dashboard')}
+            onCancel={() => handleTabChange('dashboard')}
           />
         </div>
       </main>
