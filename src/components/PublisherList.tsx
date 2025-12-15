@@ -11,6 +11,8 @@ type FilterCondition = 'all' | 'Ancião' | 'Servo Ministerial' | 'Publicador';
 type FilterGender = 'all' | 'brother' | 'sister';
 type FilterStatus = 'all' | 'active' | 'inactive';
 type FilterFlag = 'all' | 'notQualified' | 'noParticipation' | 'normal';
+type FilterHelper = 'all' | 'helperOnly' | 'fullParticipation';
+type FilterAgeGroup = 'all' | 'Adulto' | 'Jovem' | 'Criança';
 
 export default function PublisherList({ publishers, onEdit, onDelete }: PublisherListProps) {
     const [searchTerm, setSearchTerm] = useState('')
@@ -18,6 +20,8 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
     const [filterGender, setFilterGender] = useState<FilterGender>('all')
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
     const [filterFlag, setFilterFlag] = useState<FilterFlag>('all')
+    const [filterHelper, setFilterHelper] = useState<FilterHelper>('all')
+    const [filterAgeGroup, setFilterAgeGroup] = useState<FilterAgeGroup>('all')
     const [showFilters, setShowFilters] = useState(false)
 
     const filteredPublishers = publishers.filter(p => {
@@ -43,10 +47,18 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
             (filterFlag === 'noParticipation' && p.requestedNoParticipation) ||
             (filterFlag === 'normal' && !p.isNotQualified && !p.requestedNoParticipation);
 
-        return matchesSearch && matchesCondition && matchesGender && matchesStatus && matchesFlag;
+        // Helper filter
+        const matchesHelper = filterHelper === 'all' ||
+            (filterHelper === 'helperOnly' && p.isHelperOnly) ||
+            (filterHelper === 'fullParticipation' && !p.isHelperOnly);
+
+        // Age group filter
+        const matchesAgeGroup = filterAgeGroup === 'all' || p.ageGroup === filterAgeGroup;
+
+        return matchesSearch && matchesCondition && matchesGender && matchesStatus && matchesFlag && matchesHelper && matchesAgeGroup;
     });
 
-    const activeFiltersCount = [filterCondition, filterGender, filterStatus, filterFlag]
+    const activeFiltersCount = [filterCondition, filterGender, filterStatus, filterFlag, filterHelper, filterAgeGroup]
         .filter(f => f !== 'all').length;
 
     const clearFilters = () => {
@@ -54,6 +66,8 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
         setFilterGender('all');
         setFilterStatus('all');
         setFilterFlag('all');
+        setFilterHelper('all');
+        setFilterAgeGroup('all');
         setSearchTerm('');
     };
 
@@ -195,6 +209,37 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                             </select>
                         </div>
 
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Participação
+                            </label>
+                            <select
+                                value={filterHelper}
+                                onChange={e => setFilterHelper(e.target.value as FilterHelper)}
+                                style={selectStyle}
+                            >
+                                <option value="all">Todos</option>
+                                <option value="fullParticipation">🎤 Participação Completa</option>
+                                <option value="helperOnly">🤝 Apenas Ajudante</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Faixa Etária
+                            </label>
+                            <select
+                                value={filterAgeGroup}
+                                onChange={e => setFilterAgeGroup(e.target.value as FilterAgeGroup)}
+                                style={selectStyle}
+                            >
+                                <option value="all">Todas</option>
+                                <option value="Adulto">👨 Adulto</option>
+                                <option value="Jovem">🧑 Jovem</option>
+                                <option value="Criança">👶 Criança</option>
+                            </select>
+                        </div>
+
                         {activeFiltersCount > 0 && (
                             <button
                                 onClick={clearFilters}
@@ -240,38 +285,112 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
 
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
                             {publisher.phone && <div>📱 {publisher.phone}</div>}
-                            <div style={{ marginTop: 'var(--spacing-xs)' }}>
-                                {publisher.isBaptized && <span title="Batizado">✓ Batizado</span>}
-                                {!publisher.isServing && <span style={{ color: 'var(--warning-500)', marginLeft: 'var(--spacing-sm)' }}>Inativo</span>}
+
+                            {/* Status and Info Badges Container */}
+                            <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                {/* Age Group Badge */}
+                                {publisher.ageGroup !== 'Adulto' && (
+                                    <span style={{
+                                        color: 'var(--primary-500)',
+                                        background: 'rgba(59, 130, 246, 0.1)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }}>
+                                        {publisher.ageGroup === 'Jovem' ? '🧑 Jovem' : '👶 Criança'}
+                                    </span>
+                                )}
+
+                                {/* Baptized */}
+                                {publisher.isBaptized && (
+                                    <span style={{
+                                        color: 'var(--success-500)',
+                                        background: 'rgba(34, 197, 94, 0.1)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }}>
+                                        ✓ Batizado
+                                    </span>
+                                )}
+
+                                {/* Inactive */}
+                                {!publisher.isServing && (
+                                    <span style={{
+                                        color: 'var(--warning-500)',
+                                        background: 'rgba(245, 158, 11, 0.1)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }}>
+                                        ⏸️ Inativo
+                                    </span>
+                                )}
+
+                                {/* Helper Only */}
+                                {publisher.isHelperOnly && (
+                                    <span style={{
+                                        color: 'var(--info-500)',
+                                        background: 'rgba(14, 165, 233, 0.1)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }}>
+                                        🤝 Apenas Ajudante
+                                    </span>
+                                )}
+
+                                {/* Can pair with non-parent */}
+                                {publisher.ageGroup !== 'Adulto' && publisher.canPairWithNonParent && (
+                                    <span style={{
+                                        color: 'var(--success-500)',
+                                        background: 'rgba(34, 197, 94, 0.1)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }} title="Liberado pelos pais para participar com outro par">
+                                        👨‍👩‍👧 Liberado p/ Outros
+                                    </span>
+                                )}
+
+                                {/* Not Qualified */}
+                                {publisher.isNotQualified && (
+                                    <span style={{
+                                        color: 'var(--warning-500)',
+                                        background: 'rgba(245, 158, 11, 0.1)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }}>
+                                        ⚠️ Não Apto
+                                    </span>
+                                )}
+
+                                {/* No Participation */}
+                                {publisher.requestedNoParticipation && (
+                                    <span style={{
+                                        color: 'var(--warning-500)',
+                                        background: 'rgba(245, 158, 11, 0.1)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }}>
+                                        🙅 Não Participa
+                                    </span>
+                                )}
                             </div>
-                            {/* Status flags from EMR */}
-                            {(publisher.isNotQualified || publisher.requestedNoParticipation) && (
-                                <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                    {publisher.isNotQualified && (
-                                        <span style={{
-                                            color: 'var(--warning-500)',
-                                            background: 'rgba(245, 158, 11, 0.1)',
-                                            padding: '2px 6px',
-                                            borderRadius: '4px',
-                                            fontSize: '0.75rem'
-                                        }}>
-                                            ⚠️ Não Apto
-                                        </span>
-                                    )}
-                                    {publisher.requestedNoParticipation && (
-                                        <span style={{
-                                            color: 'var(--warning-500)',
-                                            background: 'rgba(245, 158, 11, 0.1)',
-                                            padding: '2px 6px',
-                                            borderRadius: '4px',
-                                            fontSize: '0.75rem'
-                                        }}>
-                                            🙅 Não Participa
-                                        </span>
-                                    )}
+
+                            {/* Parent info for young publishers */}
+                            {publisher.parentIds && publisher.parentIds.length > 0 && (
+                                <div style={{ marginTop: 'var(--spacing-xs)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    👨‍👩‍👧 Responsáveis: {publisher.parentIds.map(id => {
+                                        const parent = publishers.find(p => p.id === id);
+                                        return parent?.name || id;
+                                    }).join(', ')}
                                 </div>
                             )}
                         </div>
+
 
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                             <strong>Privilégios:</strong>
