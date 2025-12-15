@@ -1,44 +1,31 @@
-export const config = {
-    runtime: 'edge',
-};
+// Vercel Serverless Function (Node.js runtime, not Edge)
+// Path: /api/save
 
-export default async function handler(request) {
+export default async function handler(req, res) {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
     // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
-        return new Response(null, {
-            status: 200,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            },
-        });
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
-    if (request.method !== 'POST') {
-        return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-            status: 405,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        });
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const data = await request.json();
-        const { block_id, content } = data;
+        const { block_id, content } = req.body;
 
         if (!block_id || content === undefined) {
-            return new Response(JSON.stringify({ error: 'Missing block_id or content' }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            });
+            return res.status(400).json({ error: 'Missing block_id or content' });
         }
 
         const token = process.env.GITHUB_TOKEN;
         if (!token) {
-            return new Response(JSON.stringify({ error: 'Server misconfiguration: No token' }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            });
+            return res.status(500).json({ error: 'Server misconfiguration: No token' });
         }
 
         const owner = process.env.REPO_OWNER || 'EliezerRosa';
@@ -62,25 +49,16 @@ export default async function handler(request) {
         );
 
         if (githubResponse.status === 204) {
-            return new Response(JSON.stringify({
+            return res.status(200).json({
                 status: 'accepted',
                 message: 'Transação enfileirada no Atomic Writer',
                 block_id,
-            }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             });
         } else {
             const errorText = await githubResponse.text();
-            return new Response(JSON.stringify({ error: `GitHub API error: ${errorText}` }), {
-                status: githubResponse.status,
-                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            });
+            return res.status(githubResponse.status).json({ error: `GitHub API error: ${errorText}` });
         }
     } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        });
+        return res.status(500).json({ error: e.message });
     }
 }
