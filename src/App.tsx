@@ -57,28 +57,46 @@ function App() {
           api.getSetting<ActiveTab>('activeTab', 'dashboard').catch(() => 'dashboard' as ActiveTab)
         ])
 
-        // Auto-sync: if local file has more publishers than Supabase, merge them
+        // Auto-sync: merge local publishers data with Supabase
         const localPubs = initialPublishers as Publisher[];
-        if (localPubs.length > pubs.length) {
-          console.log(`Auto-sync: local has ${localPubs.length}, Supabase has ${pubs.length}. Merging...`);
+        const localPubsMap = new Map(localPubs.map(p => [p.id, p]));
+        let needsSync = false;
+        let newCount = 0;
+        let updatedCount = 0;
 
-          // Create a map of existing IDs
-          const existingIds = new Set(pubs.map(p => p.id));
-
-          // Find publishers that are in local but not in Supabase
-          const newPubs = localPubs.filter(p => !existingIds.has(p.id));
-
-          if (newPubs.length > 0) {
-            console.log(`Adding ${newPubs.length} new publishers to Supabase...`);
-            const mergedPubs = [...pubs, ...newPubs];
-            await api.savePublishers(mergedPubs);
-            setPublishers(mergedPubs);
-            setStatusMessage(`✅ Sincronizado: ${newPubs.length} novos publicadores adicionados`);
-          } else {
-            setPublishers(pubs);
+        // Merge: update existing with local data (like phones), add new ones
+        const mergedPubs = pubs.map(p => {
+          const localPub = localPubsMap.get(p.id);
+          if (localPub) {
+            // Check if local has more data (e.g., phone number)
+            if (localPub.phone && !p.phone) {
+              needsSync = true;
+              updatedCount++;
+              return { ...p, phone: localPub.phone };
+            }
           }
+          return p;
+        });
+
+        // Add publishers that exist locally but not in Supabase
+        const existingIds = new Set(pubs.map(p => p.id));
+        const newPubs = localPubs.filter(p => !existingIds.has(p.id));
+        if (newPubs.length > 0) {
+          needsSync = true;
+          newCount = newPubs.length;
+          mergedPubs.push(...newPubs);
+        }
+
+        if (needsSync) {
+          console.log(`Auto-sync: adding ${newCount} new, updating ${updatedCount} existing`);
+          await api.savePublishers(mergedPubs);
+          setPublishers(mergedPubs);
+          const msgs = [];
+          if (newCount > 0) msgs.push(`${newCount} novos`);
+          if (updatedCount > 0) msgs.push(`${updatedCount} atualizados`);
+          setStatusMessage(`✅ Sincronizado: ${msgs.join(', ')}`);
         } else {
-          setPublishers(pubs)
+          setPublishers(pubs);
         }
 
         setParticipations(parts)
