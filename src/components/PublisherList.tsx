@@ -7,13 +7,65 @@ interface PublisherListProps {
     onDelete: (publisher: Publisher) => void
 }
 
+type FilterCondition = 'all' | 'Ancião' | 'Servo Ministerial' | 'Publicador';
+type FilterGender = 'all' | 'brother' | 'sister';
+type FilterStatus = 'all' | 'active' | 'inactive';
+type FilterFlag = 'all' | 'notQualified' | 'noParticipation' | 'normal';
+
 export default function PublisherList({ publishers, onEdit, onDelete }: PublisherListProps) {
     const [searchTerm, setSearchTerm] = useState('')
+    const [filterCondition, setFilterCondition] = useState<FilterCondition>('all')
+    const [filterGender, setFilterGender] = useState<FilterGender>('all')
+    const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
+    const [filterFlag, setFilterFlag] = useState<FilterFlag>('all')
+    const [showFilters, setShowFilters] = useState(false)
 
-    const filteredPublishers = publishers.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.condition.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const filteredPublishers = publishers.filter(p => {
+        // Text search
+        const matchesSearch = searchTerm === '' ||
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.condition.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // Condition filter
+        const matchesCondition = filterCondition === 'all' || p.condition === filterCondition;
+
+        // Gender filter
+        const matchesGender = filterGender === 'all' || p.gender === filterGender;
+
+        // Status filter
+        const matchesStatus = filterStatus === 'all' ||
+            (filterStatus === 'active' && p.isServing) ||
+            (filterStatus === 'inactive' && !p.isServing);
+
+        // Flag filter
+        const matchesFlag = filterFlag === 'all' ||
+            (filterFlag === 'notQualified' && p.isNotQualified) ||
+            (filterFlag === 'noParticipation' && p.requestedNoParticipation) ||
+            (filterFlag === 'normal' && !p.isNotQualified && !p.requestedNoParticipation);
+
+        return matchesSearch && matchesCondition && matchesGender && matchesStatus && matchesFlag;
+    });
+
+    const activeFiltersCount = [filterCondition, filterGender, filterStatus, filterFlag]
+        .filter(f => f !== 'all').length;
+
+    const clearFilters = () => {
+        setFilterCondition('all');
+        setFilterGender('all');
+        setFilterStatus('all');
+        setFilterFlag('all');
+        setSearchTerm('');
+    };
+
+    const selectStyle = {
+        padding: '8px 12px',
+        borderRadius: '6px',
+        border: '1px solid var(--border-color)',
+        background: 'var(--bg-secondary)',
+        color: 'var(--text-primary)',
+        fontSize: '0.9rem',
+        minWidth: '140px',
+    };
 
     if (publishers.length === 0) {
         return (
@@ -30,14 +82,15 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
 
     return (
         <div>
-            <div style={{ marginBottom: '20px' }}>
+            {/* Search and Filter Toggle */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
                 <input
                     type="text"
                     placeholder="🔍 Buscar publicador..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
                     style={{
-                        width: '100%',
+                        flex: 1,
                         padding: '12px',
                         borderRadius: '8px',
                         border: '1px solid var(--border-color)',
@@ -46,7 +99,125 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                         fontSize: '1rem'
                     }}
                 />
+                <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    style={{
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        border: showFilters ? '2px solid var(--primary-500)' : '1px solid var(--border-color)',
+                        background: showFilters ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-secondary)',
+                        color: showFilters ? 'var(--primary-500)' : 'var(--text-primary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                    }}
+                >
+                    🎛️ Filtros {activeFiltersCount > 0 && <span style={{
+                        background: 'var(--primary-500)',
+                        color: 'white',
+                        borderRadius: '50%',
+                        padding: '2px 8px',
+                        fontSize: '0.8rem'
+                    }}>{activeFiltersCount}</span>}
+                </button>
             </div>
+
+            {/* Filter Panel */}
+            {showFilters && (
+                <div style={{
+                    padding: '16px',
+                    marginBottom: '16px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)'
+                }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Condição
+                            </label>
+                            <select
+                                value={filterCondition}
+                                onChange={e => setFilterCondition(e.target.value as FilterCondition)}
+                                style={selectStyle}
+                            >
+                                <option value="all">Todas</option>
+                                <option value="Ancião">👔 Ancião</option>
+                                <option value="Servo Ministerial">📋 Servo Ministerial</option>
+                                <option value="Publicador">👤 Publicador</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Gênero
+                            </label>
+                            <select
+                                value={filterGender}
+                                onChange={e => setFilterGender(e.target.value as FilterGender)}
+                                style={selectStyle}
+                            >
+                                <option value="all">Todos</option>
+                                <option value="brother">👔 Irmãos</option>
+                                <option value="sister">👗 Irmãs</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Status
+                            </label>
+                            <select
+                                value={filterStatus}
+                                onChange={e => setFilterStatus(e.target.value as FilterStatus)}
+                                style={selectStyle}
+                            >
+                                <option value="all">Todos</option>
+                                <option value="active">✅ Ativos</option>
+                                <option value="inactive">⏸️ Inativos</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Situação Especial
+                            </label>
+                            <select
+                                value={filterFlag}
+                                onChange={e => setFilterFlag(e.target.value as FilterFlag)}
+                                style={selectStyle}
+                            >
+                                <option value="all">Todas</option>
+                                <option value="normal">✅ Normal</option>
+                                <option value="notQualified">⚠️ Não Apto</option>
+                                <option value="noParticipation">🙅 Não Participa</option>
+                            </select>
+                        </div>
+
+                        {activeFiltersCount > 0 && (
+                            <button
+                                onClick={clearFilters}
+                                style={{
+                                    padding: '8px 12px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: 'var(--danger-500)',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                }}
+                            >
+                                ✖ Limpar Filtros
+                            </button>
+                        )}
+                    </div>
+
+                    <div style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        Mostrando <strong>{filteredPublishers.length}</strong> de <strong>{publishers.length}</strong> publicadores
+                    </div>
+                </div>
+            )}
 
             <div className="publisher-grid">
                 {filteredPublishers.map(publisher => (
