@@ -161,6 +161,10 @@ function App() {
   }
 
   const saveParticipation = (participation: Participation) => {
+    // Generate ID if empty
+    if (!participation.id) {
+      participation.id = crypto.randomUUID()
+    }
     // Update or Add
     const filtered = participations.filter(p => p.id !== participation.id)
     const newParts = [...filtered, participation]
