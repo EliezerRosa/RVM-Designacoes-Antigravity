@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { Publisher, Participation } from '../types';
 import { ParticipationType } from '../types';
 import { importedHistory } from '../data/importedHistory';

@@ -1,4 +1,4 @@
-import { Publisher, Participation } from '../types';
+import type { Publisher, Participation } from '../types';
 
 const GATEWAY_URL = 'http://localhost:8000/api/save';
 const RAW_BASE_URL = 'https://raw.githubusercontent.com/EliezerRosa/RVM-Designacoes-Antigravity/main/src/data';
