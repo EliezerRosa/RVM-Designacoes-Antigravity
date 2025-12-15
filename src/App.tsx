@@ -356,6 +356,7 @@ function App() {
       {showPublisherForm && (
         <PublisherForm
           publisher={editingPublisher}
+          publishers={publishers}
           onSave={savePublisher}
           onCancel={() => {
             setShowPublisherForm(false)

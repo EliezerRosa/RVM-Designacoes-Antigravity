@@ -12,7 +12,7 @@ type FilterGender = 'all' | 'brother' | 'sister';
 type FilterStatus = 'all' | 'active' | 'inactive';
 type FilterFlag = 'all' | 'notQualified' | 'noParticipation' | 'normal';
 type FilterHelper = 'all' | 'helperOnly' | 'fullParticipation';
-type FilterAgeGroup = 'all' | 'Adulto' | 'Jovem' | 'Criança';
+type FilterAgeGroup = 'all' | 'Adulto' | 'Jovem' | 'Crianca';
 
 export default function PublisherList({ publishers, onEdit, onDelete }: PublisherListProps) {
     const [searchTerm, setSearchTerm] = useState('')
@@ -236,7 +236,7 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                 <option value="all">Todas</option>
                                 <option value="Adulto">👨 Adulto</option>
                                 <option value="Jovem">🧑 Jovem</option>
-                                <option value="Criança">👶 Criança</option>
+                                <option value="Crianca">👶 Criança</option>
                             </select>
                         </div>
 
@@ -297,7 +297,7 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                         borderRadius: '4px',
                                         fontSize: '0.75rem'
                                     }}>
-                                        {publisher.ageGroup === 'Jovem' ? '🧑 Jovem' : '👶 Criança'}
+                                        {publisher.ageGroup === 'Jovem' ? '🧑 Jovem' : '👶 Crianca'}
                                     </span>
                                 )}
 

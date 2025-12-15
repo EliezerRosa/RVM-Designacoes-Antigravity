@@ -3,6 +3,7 @@ import type { Publisher, PublisherPrivileges, PublisherPrivilegesBySection } fro
 
 interface PublisherFormProps {
     publisher: Publisher | null
+    publishers: Publisher[]  // All publishers for parent selection
     onSave: (publisher: Publisher) => void
     onCancel: () => void
 }
@@ -41,8 +42,9 @@ const emptyPublisher: Publisher = {
     requestedNoParticipation: false,
 }
 
-export default function PublisherForm({ publisher, onSave, onCancel }: PublisherFormProps) {
+export default function PublisherForm({ publisher, publishers, onSave, onCancel }: PublisherFormProps) {
     const [formData, setFormData] = useState<Publisher>(publisher || { ...emptyPublisher })
+    const [newExceptionDate, setNewExceptionDate] = useState('')
 
     useEffect(() => {
         if (publisher) {
@@ -209,6 +211,160 @@ export default function PublisherForm({ publisher, onSave, onCancel }: Publisher
                                     🙅 Pediu para Não Participar
                                 </label>
                             </div>
+                        </div>
+
+                        {/* Youth & Parent Settings - only visible for non-adults */}
+                        {(formData.ageGroup === 'Jovem' || formData.ageGroup === 'Crianca') && (
+                            <>
+                                <h4 style={{ marginBottom: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)', color: 'var(--primary-500)' }}>
+                                    👨‍👩‍👧 Configurações de Jovem/Criança
+                                </h4>
+                                <div className="form-group">
+                                    <div className="checkbox-group">
+                                        <label className="checkbox-item">
+                                            <input
+                                                type="checkbox"
+                                                name="canPairWithNonParent"
+                                                checked={formData.canPairWithNonParent}
+                                                onChange={handleChange}
+                                            />
+                                            ✅ Liberado(a) pelos pais para participar com outro par (não apenas com os pais)
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Pais/Responsáveis</label>
+                                    <select
+                                        multiple
+                                        value={formData.parentIds || []}
+                                        onChange={(e) => {
+                                            const selected = Array.from(e.target.selectedOptions, option => option.value);
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                parentIds: selected
+                                            }));
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            minHeight: '120px',
+                                            padding: '8px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-color)',
+                                            background: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                        }}
+                                    >
+                                        {publishers
+                                            .filter(p => p.ageGroup === 'Adulto' && p.id !== formData.id)
+                                            .map(p => (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.name} ({p.gender === 'brother' ? 'Irmão' : 'Irmã'})
+                                                </option>
+                                            ))
+                                        }
+                                    </select>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                        Ctrl+Click para selecionar múltiplos. Selecione os pais ou responsáveis deste jovem/criança.
+                                    </p>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Availability Settings */}
+                        <h4 style={{ marginBottom: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)', color: 'var(--info-500)' }}>
+                            📅 Disponibilidade
+                        </h4>
+                        <div className="form-group">
+                            <label className="form-label">Datas Indisponíveis</label>
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                                <input
+                                    type="date"
+                                    value={newExceptionDate}
+                                    onChange={(e) => setNewExceptionDate(e.target.value)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '8px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (newExceptionDate && !formData.availability.exceptionDates.includes(newExceptionDate)) {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                availability: {
+                                                    ...prev.availability,
+                                                    exceptionDates: [...prev.availability.exceptionDates, newExceptionDate].sort()
+                                                }
+                                            }));
+                                            setNewExceptionDate('');
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: 'var(--primary-500)',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    ➕ Adicionar
+                                </button>
+                            </div>
+
+                            {formData.availability.exceptionDates.length > 0 ? (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {formData.availability.exceptionDates.map((date, idx) => (
+                                        <span
+                                            key={idx}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '4px 10px',
+                                                borderRadius: '16px',
+                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                color: 'var(--danger-500)',
+                                                fontSize: '0.85rem',
+                                            }}
+                                        >
+                                            📅 {new Date(date + 'T00:00').toLocaleDateString('pt-BR')}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        availability: {
+                                                            ...prev.availability,
+                                                            exceptionDates: prev.availability.exceptionDates.filter(d => d !== date)
+                                                        }
+                                                    }));
+                                                }}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: 'var(--danger-500)',
+                                                    cursor: 'pointer',
+                                                    padding: '0 2px',
+                                                    fontSize: '1rem',
+                                                }}
+                                            >
+                                                ✕
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    Nenhuma data indisponível cadastrada. O publicador está disponível em todas as datas.
+                                </p>
+                            )}
                         </div>
 
                         <h4 style={{ marginBottom: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)' }}>
