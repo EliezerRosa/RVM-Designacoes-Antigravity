@@ -133,17 +133,27 @@ def main():
     
     print(f"\n📊 Total corrigido: {fixed_count} nomes concatenados")
     
-    # Processar unknown_names também
-    new_unknown = []
+    # Processar unknown_names - agregar por nome
+    name_counts: dict[str, int] = {}
     for u in data.get("unknown_names", []):
         name = u.get("name", "")
         main_name, assistant = split_concatenated_name(name)
+        count = u.get("count", 1)
         
+        # Agregar nome principal
+        name_counts[main_name] = name_counts.get(main_name, 0) + count
+        
+        # Agregar ajudante se houver
         if assistant:
-            new_unknown.append({"name": main_name, "count": u.get("count", 1), "best_guess": main_name})
-            new_unknown.append({"name": assistant, "count": u.get("count", 1), "best_guess": assistant})
-        else:
-            new_unknown.append(u)
+            name_counts[assistant] = name_counts.get(assistant, 0) + count
+    
+    # Converter para lista
+    new_unknown = [
+        {"name": name, "count": count, "best_guess": name}
+        for name, count in sorted(name_counts.items(), key=lambda x: -x[1])
+    ]
+    
+    print(f"📊 Total de nomes únicos: {len(new_unknown)}")
     
     # Atualizar dados
     data["participations"] = new_participations

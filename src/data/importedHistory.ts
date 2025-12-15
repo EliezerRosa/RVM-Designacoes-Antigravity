@@ -5371,64 +5371,394 @@ export const importedHistory = {
   ],
   "unknown_names": [
     {
+      "name": "Diego Fontana",
+      "count": 24,
+      "best_guess": "Diego Fontana"
+    },
+    {
+      "name": "Alexsandro Lopes",
+      "count": 21,
+      "best_guess": "Alexsandro Lopes"
+    },
+    {
       "name": "Marcos Vinícios",
       "count": 17,
-      "best_guess": "Marcos Vinícius",
-      "score": 0.9333333333333333
+      "best_guess": "Marcos Vinícios"
     },
     {
-      "name": "Rozelita Sales",
-      "count": 1,
-      "best_guess": "Rozelita Sales"
+      "name": "Patrick Oliveira",
+      "count": 15,
+      "best_guess": "Patrick Oliveira"
     },
     {
-      "name": "Keyla Costa",
-      "count": 1,
-      "best_guess": "Keyla Costa"
+      "name": "Daniel Silva",
+      "count": 14,
+      "best_guess": "Daniel Silva"
     },
     {
-      "name": "Yngrid França",
-      "count": 1,
-      "best_guess": "Yngrid França"
-    },
-    {
-      "name": "Wanderleia Santos",
-      "count": 1,
-      "best_guess": "Wanderleia Santos"
-    },
-    {
-      "name": "Tainá Reis",
-      "count": 1,
-      "best_guess": "Tainá Reis"
-    },
-    {
-      "name": "Vitoria Emanuelle",
-      "count": 1,
-      "best_guess": "Vitoria Emanuelle"
+      "name": "Emerson Souza",
+      "count": 14,
+      "best_guess": "Emerson Souza"
     },
     {
       "name": "Júnior Fouraux",
-      "count": 12,
-      "best_guess": "José Luiz Fouraux",
-      "score": 0.6451612903225806
+      "count": 13,
+      "best_guess": "Júnior Fouraux"
     },
     {
       "name": "André Luiz",
+      "count": 11,
+      "best_guess": "André Luiz"
+    },
+    {
+      "name": "Felipe Oliveira",
       "count": 9,
-      "best_guess": "André Luz",
-      "score": 0.9473684210526315
+      "best_guess": "Felipe Oliveira"
     },
     {
       "name": "Juberto Santos",
       "count": 8,
-      "best_guess": "Jeane Pinto Gomes",
-      "score": 0.45161290322580644
+      "best_guess": "Juberto Santos"
+    },
+    {
+      "name": "Victor Correa",
+      "count": 8,
+      "best_guess": "Victor Correa"
+    },
+    {
+      "name": "Rozelita Sales",
+      "count": 7,
+      "best_guess": "Rozelita Sales"
+    },
+    {
+      "name": "Gabriel Fouraux",
+      "count": 7,
+      "best_guess": "Gabriel Fouraux"
+    },
+    {
+      "name": "Eryck Segall",
+      "count": 7,
+      "best_guess": "Eryck Segall"
+    },
+    {
+      "name": "Mario Porto",
+      "count": 7,
+      "best_guess": "Mario Porto"
+    },
+    {
+      "name": "Yngrid França",
+      "count": 6,
+      "best_guess": "Yngrid França"
+    },
+    {
+      "name": "Terezinha Oliveira",
+      "count": 6,
+      "best_guess": "Terezinha Oliveira"
+    },
+    {
+      "name": "Suellen Correa",
+      "count": 6,
+      "best_guess": "Suellen Correa"
+    },
+    {
+      "name": "Maria de Lourdes",
+      "count": 6,
+      "best_guess": "Maria de Lourdes"
+    },
+    {
+      "name": "Keyla Costa",
+      "count": 5,
+      "best_guess": "Keyla Costa"
+    },
+    {
+      "name": "Vitoria Emanuelle",
+      "count": 5,
+      "best_guess": "Vitoria Emanuelle"
+    },
+    {
+      "name": "Sandra Duarte",
+      "count": 5,
+      "best_guess": "Sandra Duarte"
+    },
+    {
+      "name": "Edna Costa",
+      "count": 5,
+      "best_guess": "Edna Costa"
+    },
+    {
+      "name": "Débora Cristine",
+      "count": 5,
+      "best_guess": "Débora Cristine"
+    },
+    {
+      "name": "Waleska Nascimento",
+      "count": 5,
+      "best_guess": "Waleska Nascimento"
+    },
+    {
+      "name": "Neuza Campanha",
+      "count": 5,
+      "best_guess": "Neuza Campanha"
+    },
+    {
+      "name": "Raquel Oliveira",
+      "count": 5,
+      "best_guess": "Raquel Oliveira"
+    },
+    {
+      "name": "Marcela Resmann",
+      "count": 5,
+      "best_guess": "Marcela Resmann"
+    },
+    {
+      "name": "Mylena Balieira",
+      "count": 5,
+      "best_guess": "Mylena Balieira"
+    },
+    {
+      "name": "Wanderleia Santos",
+      "count": 4,
+      "best_guess": "Wanderleia Santos"
     },
     {
       "name": "Saymon Schultz",
+      "count": 4,
+      "best_guess": "Saymon Schultz"
+    },
+    {
+      "name": "Marilene Queiroz",
+      "count": 4,
+      "best_guess": "Marilene Queiroz"
+    },
+    {
+      "name": "Getúlio Rastoldo",
+      "count": 4,
+      "best_guess": "Getúlio Rastoldo"
+    },
+    {
+      "name": "Dayse Campos",
+      "count": 4,
+      "best_guess": "Dayse Campos"
+    },
+    {
+      "name": "Érika Segall",
+      "count": 4,
+      "best_guess": "Érika Segall"
+    },
+    {
+      "name": "Beatriz Pessoa",
+      "count": 4,
+      "best_guess": "Beatriz Pessoa"
+    },
+    {
+      "name": "Larissa Queiroz",
+      "count": 4,
+      "best_guess": "Larissa Queiroz"
+    },
+    {
+      "name": "Margarete Venturin",
+      "count": 4,
+      "best_guess": "Margarete Venturin"
+    },
+    {
+      "name": "José Luiz",
+      "count": 4,
+      "best_guess": "José Luiz"
+    },
+    {
+      "name": "Julianne Pereira",
       "count": 3,
-      "best_guess": "Gerusa Souza",
-      "score": 0.46153846153846156
+      "best_guess": "Julianne Pereira"
+    },
+    {
+      "name": "Jacyra Eugênio",
+      "count": 3,
+      "best_guess": "Jacyra Eugênio"
+    },
+    {
+      "name": "Eliana Souza",
+      "count": 3,
+      "best_guess": "Eliana Souza"
+    },
+    {
+      "name": "João Paulo",
+      "count": 3,
+      "best_guess": "João Paulo"
+    },
+    {
+      "name": "Erick José",
+      "count": 3,
+      "best_guess": "Erick José"
+    },
+    {
+      "name": "Gustavo Rangel",
+      "count": 3,
+      "best_guess": "Gustavo Rangel"
+    },
+    {
+      "name": "Maria Izabel",
+      "count": 3,
+      "best_guess": "Maria Izabel"
+    },
+    {
+      "name": "Mara Rúbia",
+      "count": 3,
+      "best_guess": "Mara Rúbia"
+    },
+    {
+      "name": "Geysa Nascimento",
+      "count": 3,
+      "best_guess": "Geysa Nascimento"
+    },
+    {
+      "name": "Nanci Celia",
+      "count": 3,
+      "best_guess": "Nanci Celia"
+    },
+    {
+      "name": "Gérbera Nascimento",
+      "count": 3,
+      "best_guess": "Gérbera Nascimento"
+    },
+    {
+      "name": "Malena Colangero",
+      "count": 3,
+      "best_guess": "Malena Colangero"
+    },
+    {
+      "name": "Márcia Bragança",
+      "count": 3,
+      "best_guess": "Márcia Bragança"
+    },
+    {
+      "name": "Ivone Balieira",
+      "count": 3,
+      "best_guess": "Ivone Balieira"
+    },
+    {
+      "name": "Vinícius Pessanha",
+      "count": 3,
+      "best_guess": "Vinícius Pessanha"
+    },
+    {
+      "name": "Fernando Balieira",
+      "count": 3,
+      "best_guess": "Fernando Balieira"
+    },
+    {
+      "name": "Edmilson Pessanha",
+      "count": 3,
+      "best_guess": "Edmilson Pessanha"
+    },
+    {
+      "name": "Michele Camillo",
+      "count": 3,
+      "best_guess": "Michele Camillo"
+    },
+    {
+      "name": "Reica Santana",
+      "count": 3,
+      "best_guess": "Reica Santana"
+    },
+    {
+      "name": "Ágatha Nascimento",
+      "count": 3,
+      "best_guess": "Ágatha Nascimento"
+    },
+    {
+      "name": "Daniel Carneiro",
+      "count": 3,
+      "best_guess": "Daniel Carneiro"
+    },
+    {
+      "name": "Elina Mendes",
+      "count": 3,
+      "best_guess": "Elina Mendes"
+    },
+    {
+      "name": "Tainá Reis",
+      "count": 2,
+      "best_guess": "Tainá Reis"
+    },
+    {
+      "name": "Josyane Vieira",
+      "count": 2,
+      "best_guess": "Josyane Vieira"
+    },
+    {
+      "name": "Ágatha do Nascimento",
+      "count": 2,
+      "best_guess": "Ágatha do Nascimento"
+    },
+    {
+      "name": "Ana Paula",
+      "count": 2,
+      "best_guess": "Ana Paula"
+    },
+    {
+      "name": "Gérson Santos",
+      "count": 2,
+      "best_guess": "Gérson Santos"
+    },
+    {
+      "name": "Daniele Santos",
+      "count": 2,
+      "best_guess": "Daniele Santos"
+    },
+    {
+      "name": "Erica Vaz",
+      "count": 2,
+      "best_guess": "Erica Vaz"
+    },
+    {
+      "name": "Felipe de Oliveira",
+      "count": 2,
+      "best_guess": "Felipe de Oliveira"
+    },
+    {
+      "name": "Eryck José",
+      "count": 2,
+      "best_guess": "Eryck José"
+    },
+    {
+      "name": "Luciana Cândida",
+      "count": 2,
+      "best_guess": "Luciana Cândida"
+    },
+    {
+      "name": "Célia Regina",
+      "count": 2,
+      "best_guess": "Célia Regina"
+    },
+    {
+      "name": "Isabelle Cruz",
+      "count": 2,
+      "best_guess": "Isabelle Cruz"
+    },
+    {
+      "name": "José Fouraux",
+      "count": 2,
+      "best_guess": "José Fouraux"
+    },
+    {
+      "name": "Ariane Bello",
+      "count": 2,
+      "best_guess": "Ariane Bello"
+    },
+    {
+      "name": "Claudio Vieira",
+      "count": 2,
+      "best_guess": "Claudio Vieira"
+    },
+    {
+      "name": "Carlos Augusto",
+      "count": 2,
+      "best_guess": "Carlos Augusto"
+    },
+    {
+      "name": "Luciana Alves",
+      "count": 2,
+      "best_guess": "Luciana Alves"
     },
     {
       "name": "Saniyuriss Reis",
@@ -5436,36 +5766,9 @@ export const importedHistory = {
       "best_guess": "Saniyuriss Reis"
     },
     {
-      "name": "Julianne Pereira",
-      "count": 1,
-      "best_guess": "Julianne Pereira"
-    },
-    {
-      "name": "Josyane Vieira",
-      "count": 1,
-      "best_guess": "Josyane Vieira"
-    },
-    {
-      "name": "Jacyra Eugênio",
-      "count": 1,
-      "best_guess": "Jacyra Eugênio"
-    },
-    {
-      "name": "Diego Fontana",
-      "count": 24,
-      "best_guess": "Diego Resmann",
-      "score": 0.6153846153846154
-    },
-    {
       "name": "Hidelmar Amorim",
       "count": 1,
-      "best_guess": "Lídia Ramos",
-      "score": 0.46153846153846156
-    },
-    {
-      "name": "Sandra Duarte",
-      "count": 1,
-      "best_guess": "Sandra Duarte"
+      "best_guess": "Hidelmar Amorim"
     },
     {
       "name": "Olívia Porto",
@@ -5483,49 +5786,14 @@ export const importedHistory = {
       "best_guess": "Ana Paula Oliveira"
     },
     {
-      "name": "Edna Costa",
-      "count": 1,
-      "best_guess": "Edna Costa"
-    },
-    {
-      "name": "Marilene Queiroz",
-      "count": 1,
-      "best_guess": "Marilene Queiroz"
-    },
-    {
       "name": "Vitor Ramos",
       "count": 1,
-      "best_guess": "Lídia Ramos",
-      "score": 0.6363636363636364
-    },
-    {
-      "name": "Alexsandro Lopes",
-      "count": 19,
-      "best_guess": "Alexandre Lopes",
-      "score": 0.9032258064516129
+      "best_guess": "Vitor Ramos"
     },
     {
       "name": "Domingos O",
       "count": 1,
-      "best_guess": "Domingos Oliveira",
-      "score": 0.7407407407407407
-    },
-    {
-      "name": "Getúlio Rastoldo",
-      "count": 4,
-      "best_guess": "Antônio Nascimento",
-      "score": 0.47058823529411764
-    },
-    {
-      "name": "Eliana Souza",
-      "count": 1,
-      "best_guess": "Gerusa Souza",
-      "score": 0.6666666666666666
-    },
-    {
-      "name": "Wanderleia Santos",
-      "count": 1,
-      "best_guess": "Wanderleia Santos"
+      "best_guess": "Domingos O"
     },
     {
       "name": "Elza Elena",
@@ -5533,118 +5801,9 @@ export const importedHistory = {
       "best_guess": "Elza Elena"
     },
     {
-      "name": "Daniel Silva",
-      "count": 11,
-      "best_guess": "Raquel Elvira",
-      "score": 0.56
-    },
-    {
-      "name": "Terezinha Oliveira",
-      "count": 1,
-      "best_guess": "Terezinha Oliveira"
-    },
-    {
-      "name": "Débora Cristine",
-      "count": 1,
-      "best_guess": "Débora Cristine"
-    },
-    {
-      "name": "Vitoria Emanuelle",
-      "count": 1,
-      "best_guess": "Vitoria Emanuelle"
-    },
-    {
-      "name": "Dayse Campos",
-      "count": 1,
-      "best_guess": "Dayse Campos"
-    },
-    {
-      "name": "Waleska Nascimento",
-      "count": 1,
-      "best_guess": "Waleska Nascimento"
-    },
-    {
-      "name": "Ágatha do Nascimento",
-      "count": 1,
-      "best_guess": "Ágatha do Nascimento"
-    },
-    {
-      "name": "Felipe Oliveira",
-      "count": 8,
-      "best_guess": "Filipe Oliveira",
-      "score": 0.9333333333333333
-    },
-    {
-      "name": "Emerson Souza",
-      "count": 14,
-      "best_guess": "Gerusa Souza",
-      "score": 0.72
-    },
-    {
-      "name": "João Paulo",
-      "count": 2,
-      "best_guess": "João Mendes",
-      "score": 0.47619047619047616
-    },
-    {
-      "name": "Ana Paula",
-      "count": 1,
-      "best_guess": "Ana Paula"
-    },
-    {
-      "name": "Tainá Reis",
-      "count": 1,
-      "best_guess": "Tainá Reis"
-    },
-    {
-      "name": "Érika Segall",
-      "count": 1,
-      "best_guess": "Érika Segall"
-    },
-    {
-      "name": "Terezinha Oliveira",
-      "count": 1,
-      "best_guess": "Terezinha Oliveira"
-    },
-    {
-      "name": "Erick José",
-      "count": 3,
-      "best_guess": "Eliezer Rosa",
-      "score": 0.45454545454545453
-    },
-    {
-      "name": "Gabriel Fouraux",
-      "count": 6,
-      "best_guess": "Tatiana Muriel Fouraux",
-      "score": 0.7027027027027027
-    },
-    {
-      "name": "Eliana Souza",
-      "count": 1,
-      "best_guess": "Eliana Souza"
-    },
-    {
-      "name": "Neuza Campanha",
-      "count": 1,
-      "best_guess": "Neuza Campanha"
-    },
-    {
-      "name": "Victor Correa",
-      "count": 6,
-      "best_guess": "Vitor Correia",
-      "score": 0.9230769230769231
-    },
-    {
-      "name": "Gustavo Rangel",
-      "count": 3,
-      "best_guess": "Diego Resmann",
-      "score": 0.4444444444444444
-    },
-    {
       "name": "Elza Elena Priscila",
       "count": 1,
-      "best_guess": "Luiz Alexandrino",
-      "score": 0.45714285714285713
+      "best_guess": "Elza Elena Priscila"
     },
     {
       "name": "Dione Guimarães",
@@ -5657,50 +5816,9 @@ export const importedHistory = {
       "best_guess": "Olívia Maria"
     },
     {
-      "name": "Edna Costa",
-      "count": 1,
-      "best_guess": "Edna Costa"
-    },
-    {
-      "name": "Raquel Oliveira",
-      "count": 1,
-      "best_guess": "Raquel Oliveira"
-    },
-    {
-      "name": "Gérson Santos",
-      "count": 2,
-      "best_guess": "Emerson França",
-      "score": 0.5185185185185185
-    },
-    {
       "name": "Deusedir Amorim",
       "count": 1,
       "best_guess": "Deusedir Amorim"
-    },
-    {
-      "name": "Suellen Correa",
-      "count": 1,
-      "best_guess": "Suellen Correa"
-    },
-    {
-      "name": "Débora Cristine",
-      "count": 2,
-      "best_guess": "Débora Cristine"
-    },
-    {
-      "name": "Rozelita Sales",
-      "count": 2,
-      "best_guess": "Rozelita Sales"
-    },
-    {
-      "name": "Daniele Santos",
-      "count": 1,
-      "best_guess": "Daniele Santos"
-    },
-    {
-      "name": "Yngrid França",
-      "count": 1,
-      "best_guess": "Yngrid França"
     },
     {
       "name": "Edlena Longo",
@@ -5708,79 +5826,19 @@ export const importedHistory = {
       "best_guess": "Edlena Longo"
     },
     {
-      "name": "Wanderleia Santos",
-      "count": 1,
-      "best_guess": "Wanderleia Santos"
-    },
-    {
-      "name": "Erica Vaz",
-      "count": 1,
-      "best_guess": "Erica Vaz"
-    },
-    {
-      "name": "Waleska Nascimento",
-      "count": 1,
-      "best_guess": "Waleska Nascimento"
-    },
-    {
-      "name": "André Luiz",
-      "count": 1,
-      "best_guess": "André Luiz"
-    },
-    {
-      "name": "Raquel Oliveira",
-      "count": 1,
-      "best_guess": "Raquel Oliveira"
-    },
-    {
-      "name": "Patrick Oliveira",
-      "count": 13,
-      "best_guess": "Patrick de Oliveira",
-      "score": 0.9142857142857143
-    },
-    {
       "name": "Daniele Santos  Josyane",
       "count": 1,
-      "best_guess": "Aila Rosana Porto",
-      "score": 0.45
+      "best_guess": "Daniele Santos  Josyane"
     },
     {
       "name": "Keylla Costa Edna",
       "count": 1,
-      "best_guess": "Aila Rosana Porto",
-      "score": 0.47058823529411764
+      "best_guess": "Keylla Costa Edna"
     },
     {
       "name": "Márcia Bragança Neuza",
       "count": 1,
-      "best_guess": "Emerson França",
-      "score": 0.45714285714285713
-    },
-    {
-      "name": "Beatriz Pessoa",
-      "count": 1,
-      "best_guess": "Beatriz Pessoa"
-    },
-    {
-      "name": "Maria Izabel",
-      "count": 1,
-      "best_guess": "Maria Izabel"
-    },
-    {
-      "name": "Felipe de Oliveira",
-      "count": 2,
-      "best_guess": "Filipe Oliveira",
-      "score": 0.8484848484848485
-    },
-    {
-      "name": "Larissa Queiroz",
-      "count": 1,
-      "best_guess": "Larissa Queiroz"
-    },
-    {
-      "name": "Suellen Correa",
-      "count": 1,
-      "best_guess": "Suellen Correa"
+      "best_guess": "Márcia Bragança Neuza"
     },
     {
       "name": "Laramara Rosa",
@@ -5788,42 +5846,14 @@ export const importedHistory = {
       "best_guess": "Laramara Rosa"
     },
     {
-      "name": "Waleska Nascimento",
-      "count": 1,
-      "best_guess": "Waleska Nascimento"
-    },
-    {
       "name": "Daniel Carneiro Sandra",
       "count": 1,
-      "best_guess": "Daniel Figueiredo",
-      "score": 0.5641025641025641
+      "best_guess": "Daniel Carneiro Sandra"
     },
     {
       "name": "Luciana Cândida Tatiana",
       "count": 1,
-      "best_guess": "Aparecida Baldi",
-      "score": 0.47368421052631576
-    },
-    {
-      "name": "Eryck José",
-      "count": 2,
-      "best_guess": "Eliezer Rosa",
-      "score": 0.45454545454545453
-    },
-    {
-      "name": "João Paulo",
-      "count": 1,
-      "best_guess": "João Paulo"
-    },
-    {
-      "name": "Erica Vaz",
-      "count": 1,
-      "best_guess": "Erica Vaz"
-    },
-    {
-      "name": "Margarete Venturin",
-      "count": 1,
-      "best_guess": "Margarete Venturin"
+      "best_guess": "Luciana Cândida Tatiana"
     },
     {
       "name": "Erika Segall",
@@ -5831,50 +5861,9 @@ export const importedHistory = {
       "best_guess": "Erika Segall"
     },
     {
-      "name": "Mara Rúbia",
-      "count": 1,
-      "best_guess": "Mara Rúbia"
-    },
-    {
-      "name": "Marilene Queiroz",
-      "count": 1,
-      "best_guess": "Marilene Queiroz"
-    },
-    {
-      "name": "Geysa Nascimento",
-      "count": 1,
-      "best_guess": "Geysa Nascimento"
-    },
-    {
-      "name": "Nanci Celia",
-      "count": 1,
-      "best_guess": "Nanci Celia"
-    },
-    {
-      "name": "Gérbera Nascimento",
-      "count": 2,
-      "best_guess": "Gérbera Nascimento"
-    },
-    {
-      "name": "Maria de Lourdes",
-      "count": 2,
-      "best_guess": "Maria de Lourdes"
-    },
-    {
-      "name": "Malena Colangero",
-      "count": 1,
-      "best_guess": "Malena Colangero"
-    },
-    {
-      "name": "Beatriz Pessoa",
-      "count": 1,
-      "best_guess": "Beatriz Pessoa"
-    },
-    {
       "name": "Patrick de O",
       "count": 1,
-      "best_guess": "Patrick de Oliveira",
-      "score": 0.7741935483870968
+      "best_guess": "Patrick de O"
     },
     {
       "name": "Ivone Gonçalves",
@@ -5882,96 +5871,14 @@ export const importedHistory = {
       "best_guess": "Ivone Gonçalves"
     },
     {
-      "name": "Marcela Resmann",
-      "count": 1,
-      "best_guess": "Marcela Resmann"
-    },
-    {
-      "name": "Jacyra Eugênio",
-      "count": 1,
-      "best_guess": "Jacyra Eugênio"
-    },
-    {
-      "name": "Keyla Costa",
-      "count": 1,
-      "best_guess": "Keyla Costa"
-    },
-    {
       "name": "Josyane Cristina Vieira",
       "count": 1,
       "best_guess": "Josyane Cristina Vieira"
     },
     {
-      "name": "Julianne Pereira",
-      "count": 1,
-      "best_guess": "Julianne Pereira"
-    },
-    {
-      "name": "Márcia Bragança",
-      "count": 1,
-      "best_guess": "Márcia Bragança"
-    },
-    {
-      "name": "Ágatha do Nascimento",
-      "count": 1,
-      "best_guess": "Ágatha do Nascimento"
-    },
-    {
-      "name": "Victor Correa",
-      "count": 1,
-      "best_guess": "Victor Correa"
-    },
-    {
-      "name": "Alexsandro Lopes",
-      "count": 1,
-      "best_guess": "Alexsandro Lopes"
-    },
-    {
       "name": "Maria Izabel Priscila",
       "count": 1,
-      "best_guess": "Israel Vieira",
-      "score": 0.47058823529411764
-    },
-    {
-      "name": "Dayse Campos",
-      "count": 1,
-      "best_guess": "Dayse Campos"
-    },
-    {
-      "name": "Marcela Resmann",
-      "count": 1,
-      "best_guess": "Marcela Resmann"
-    },
-    {
-      "name": "Ivone Balieira",
-      "count": 1,
-      "best_guess": "Ivone Balieira"
-    },
-    {
-      "name": "Mylena Balieira",
-      "count": 1,
-      "best_guess": "Mylena Balieira"
-    },
-    {
-      "name": "Vitoria Emanuelle",
-      "count": 1,
-      "best_guess": "Vitoria Emanuelle"
-    },
-    {
-      "name": "Yngrid França",
-      "count": 1,
-      "best_guess": "Yngrid França"
-    },
-    {
-      "name": "Vinícius Pessanha",
-      "count": 2,
-      "best_guess": "Vinicius Pessanha",
-      "score": 0.9411764705882353
-    },
-    {
-      "name": "Waleska Nascimento",
-      "count": 1,
-      "best_guess": "Waleska Nascimento"
+      "best_guess": "Maria Izabel Priscila"
     },
     {
       "name": "Márcia Rosa",
@@ -5979,40 +5886,9 @@ export const importedHistory = {
       "best_guess": "Márcia Rosa"
     },
     {
-      "name": "Raquel Oliveira",
-      "count": 1,
-      "best_guess": "Raquel Oliveira"
-    },
-    {
-      "name": "Rozelita Sales",
-      "count": 1,
-      "best_guess": "Rozelita Sales"
-    },
-    {
-      "name": "Luciana Cândida",
-      "count": 1,
-      "best_guess": "Luciana Cândida"
-    },
-    {
-      "name": "Célia Regina",
-      "count": 1,
-      "best_guess": "Célia Regina"
-    },
-    {
-      "name": "Fernando Balieira",
-      "count": 2,
-      "best_guess": "Fernando Pessoa",
-      "score": 0.6875
-    },
-    {
       "name": "Julianne Cravo",
       "count": 1,
       "best_guess": "Julianne Cravo"
-    },
-    {
-      "name": "Daniel Silva",
-      "count": 1,
-      "best_guess": "Daniel Silva"
     },
     {
       "name": "Jeane Pinto",
@@ -6020,243 +5896,9 @@ export const importedHistory = {
       "best_guess": "Jeane Pinto"
     },
     {
-      "name": "Larissa Queiroz",
-      "count": 1,
-      "best_guess": "Larissa Queiroz"
-    },
-    {
-      "name": "Isabelle Cruz",
-      "count": 1,
-      "best_guess": "Isabelle Cruz"
-    },
-    {
-      "name": "Beatriz Pessoa",
-      "count": 1,
-      "best_guess": "Beatriz Pessoa"
-    },
-    {
-      "name": "José Fouraux",
-      "count": 2,
-      "best_guess": "José Luiz Fouraux",
-      "score": 0.8275862068965517
-    },
-    {
-      "name": "Edmilson Pessanha",
-      "count": 3,
-      "best_guess": "Vitor Pessanha",
-      "score": 0.7096774193548387
-    },
-    {
-      "name": "Maria de Lourdes",
-      "count": 1,
-      "best_guess": "Maria de Lourdes"
-    },
-    {
-      "name": "Nanci Celia",
-      "count": 1,
-      "best_guess": "Nanci Celia"
-    },
-    {
-      "name": "Michele Camillo",
-      "count": 1,
-      "best_guess": "Michele Camillo"
-    },
-    {
-      "name": "Reica Santana",
-      "count": 1,
-      "best_guess": "Reica Santana"
-    },
-    {
-      "name": "Mylena Balieira",
-      "count": 1,
-      "best_guess": "Mylena Balieira"
-    },
-    {
-      "name": "Ivone Balieira",
-      "count": 1,
-      "best_guess": "Ivone Balieira"
-    },
-    {
-      "name": "Yngrid França",
-      "count": 1,
-      "best_guess": "Yngrid França"
-    },
-    {
-      "name": "Terezinha Oliveira",
-      "count": 1,
-      "best_guess": "Terezinha Oliveira"
-    },
-    {
-      "name": "Sandra Duarte",
-      "count": 1,
-      "best_guess": "Sandra Duarte"
-    },
-    {
-      "name": "Wanderleia Santos",
-      "count": 1,
-      "best_guess": "Wanderleia Santos"
-    },
-    {
-      "name": "Terezinha Oliveira",
-      "count": 1,
-      "best_guess": "Terezinha Oliveira"
-    },
-    {
-      "name": "Rozelita Sales",
-      "count": 1,
-      "best_guess": "Rozelita Sales"
-    },
-    {
-      "name": "Marilene Queiroz",
-      "count": 1,
-      "best_guess": "Marilene Queiroz"
-    },
-    {
-      "name": "Neuza Campanha",
-      "count": 1,
-      "best_guess": "Neuza Campanha"
-    },
-    {
-      "name": "Keyla Costa",
-      "count": 1,
-      "best_guess": "Keyla Costa"
-    },
-    {
-      "name": "Daniele Santos",
-      "count": 1,
-      "best_guess": "Daniele Santos"
-    },
-    {
-      "name": "Érika Segall",
-      "count": 1,
-      "best_guess": "Érika Segall"
-    },
-    {
-      "name": "Edna Costa",
-      "count": 1,
-      "best_guess": "Edna Costa"
-    },
-    {
-      "name": "Felipe Oliveira",
-      "count": 1,
-      "best_guess": "Felipe Oliveira"
-    },
-    {
-      "name": "Eryck Segall",
-      "count": 1,
-      "best_guess": "Eryck Segall"
-    },
-    {
-      "name": "Marcela Resmann",
-      "count": 1,
-      "best_guess": "Marcela Resmann"
-    },
-    {
-      "name": "Ágatha Nascimento",
-      "count": 1,
-      "best_guess": "Ágatha Nascimento"
-    },
-    {
-      "name": "Eryck Segall",
-      "count": 5,
-      "best_guess": "Rock Legal",
-      "score": 0.7272727272727273
-    },
-    {
-      "name": "Margarete Venturin",
-      "count": 1,
-      "best_guess": "Margarete Venturin"
-    },
-    {
-      "name": "Raquel Oliveira",
-      "count": 1,
-      "best_guess": "Raquel Oliveira"
-    },
-    {
-      "name": "Ágatha Nascimento",
-      "count": 1,
-      "best_guess": "Ágatha Nascimento"
-    },
-    {
-      "name": "Suellen Correa",
-      "count": 1,
-      "best_guess": "Suellen Correa"
-    },
-    {
-      "name": "Fernando Balieira",
-      "count": 1,
-      "best_guess": "Fernando Balieira"
-    },
-    {
-      "name": "Patrick Oliveira",
-      "count": 1,
-      "best_guess": "Patrick Oliveira"
-    },
-    {
-      "name": "Ariane Bello",
-      "count": 1,
-      "best_guess": "Ariane Bello"
-    },
-    {
-      "name": "Mara Rúbia",
-      "count": 1,
-      "best_guess": "Mara Rúbia"
-    },
-    {
-      "name": "Claudio Vieira",
-      "count": 2,
-      "best_guess": "Israel Vieira",
-      "score": 0.5925925925925926
-    },
-    {
-      "name": "Reica Santana",
-      "count": 1,
-      "best_guess": "Reica Santana"
-    },
-    {
-      "name": "Ana Paula",
-      "count": 1,
-      "best_guess": "Ana Paula"
-    },
-    {
-      "name": "Neuza Campanha",
-      "count": 1,
-      "best_guess": "Neuza Campanha"
-    },
-    {
-      "name": "Keyla Costa",
-      "count": 1,
-      "best_guess": "Keyla Costa"
-    },
-    {
-      "name": "Nanci Celia",
-      "count": 1,
-      "best_guess": "Nanci Celia"
-    },
-    {
-      "name": "Débora Cristine",
-      "count": 1,
-      "best_guess": "Débora Cristine"
-    },
-    {
-      "name": "Célia Regina",
-      "count": 1,
-      "best_guess": "Célia Regina"
-    },
-    {
       "name": "Josyane Cristina",
       "count": 1,
       "best_guess": "Josyane Cristina"
-    },
-    {
-      "name": "Malena Colangero",
-      "count": 1,
-      "best_guess": "Malena Colangero"
-    },
-    {
-      "name": "Dayse Campos",
-      "count": 1,
-      "best_guess": "Dayse Campos"
     },
     {
       "name": "Saniyuriss Bernardes",
@@ -6264,281 +5906,24 @@ export const importedHistory = {
       "best_guess": "Saniyuriss Bernardes"
     },
     {
-      "name": "Luciana Cândida",
-      "count": 1,
-      "best_guess": "Luciana Cândida"
-    },
-    {
-      "name": "Mario Porto",
-      "count": 7,
-      "best_guess": "Mário Porto",
-      "score": 0.9090909090909091
-    },
-    {
-      "name": "Sandra Duarte",
-      "count": 2,
-      "best_guess": "Sandra Duarte"
-    },
-    {
-      "name": "Rozelita Sales",
-      "count": 2,
-      "best_guess": "Rozelita Sales"
-    },
-    {
-      "name": "Michele Camillo",
-      "count": 1,
-      "best_guess": "Michele Camillo"
-    },
-    {
-      "name": "Maria de Lourdes",
-      "count": 1,
-      "best_guess": "Maria de Lourdes"
-    },
-    {
-      "name": "Daniel Carneiro",
-      "count": 1,
-      "best_guess": "Daniel Carneiro"
-    },
-    {
-      "name": "Daniel Silva",
-      "count": 1,
-      "best_guess": "Daniel Silva"
-    },
-    {
-      "name": "Terezinha Oliveira",
-      "count": 1,
-      "best_guess": "Terezinha Oliveira"
-    },
-    {
       "name": "Iná Trancoso",
       "count": 1,
       "best_guess": "Iná Trancoso"
     },
     {
-      "name": "Júnior Fouraux",
-      "count": 1,
-      "best_guess": "Júnior Fouraux"
-    },
-    {
-      "name": "Gabriel Fouraux",
-      "count": 1,
-      "best_guess": "Gabriel Fouraux"
-    },
-    {
       "name": "Antônio Nasc",
       "count": 1,
-      "best_guess": "Antônio Nascimento",
-      "score": 0.8
-    },
-    {
-      "name": "Márcia Bragança",
-      "count": 1,
-      "best_guess": "Márcia Bragança"
-    },
-    {
-      "name": "Julianne Pereira",
-      "count": 1,
-      "best_guess": "Julianne Pereira"
-    },
-    {
-      "name": "Beatriz Pessoa",
-      "count": 1,
-      "best_guess": "Beatriz Pessoa"
-    },
-    {
-      "name": "Yngrid França",
-      "count": 1,
-      "best_guess": "Yngrid França"
-    },
-    {
-      "name": "Eliana Souza",
-      "count": 1,
-      "best_guess": "Eliana Souza"
-    },
-    {
-      "name": "Mylena Balieira",
-      "count": 1,
-      "best_guess": "Mylena Balieira"
-    },
-    {
-      "name": "Maria Izabel",
-      "count": 1,
-      "best_guess": "Maria Izabel"
-    },
-    {
-      "name": "Elina Mendes",
-      "count": 1,
-      "best_guess": "Elina Mendes"
-    },
-    {
-      "name": "José Luiz",
-      "count": 4,
-      "best_guess": "José Luiz Fouraux",
-      "score": 0.6923076923076923
+      "best_guess": "Antônio Nasc"
     },
     {
       "name": "Erick Segal",
       "count": 1,
-      "best_guess": "Rock Legal",
-      "score": 0.7619047619047619
-    },
-    {
-      "name": "Carlos Augusto",
-      "count": 2,
-      "best_guess": "Carlos Ramos",
-      "score": 0.6923076923076923
-    },
-    {
-      "name": "Michele Camillo",
-      "count": 1,
-      "best_guess": "Michele Camillo"
-    },
-    {
-      "name": "Dayse Campos",
-      "count": 1,
-      "best_guess": "Dayse Campos"
-    },
-    {
-      "name": "Daniel Carneiro",
-      "count": 2,
-      "best_guess": "Daniel Figueiredo",
-      "score": 0.6875
-    },
-    {
-      "name": "Reica Santana",
-      "count": 1,
-      "best_guess": "Reica Santana"
-    },
-    {
-      "name": "Keyla Costa",
-      "count": 1,
-      "best_guess": "Keyla Costa"
-    },
-    {
-      "name": "Neuza Campanha",
-      "count": 1,
-      "best_guess": "Neuza Campanha"
-    },
-    {
-      "name": "Raquel Oliveira",
-      "count": 1,
-      "best_guess": "Raquel Oliveira"
+      "best_guess": "Erick Segal"
     },
     {
       "name": "Nanci Celia Priscila",
       "count": 1,
-      "best_guess": "Marcela Gomes Coelho",
-      "score": 0.45
-    },
-    {
-      "name": "Ariane Bello",
-      "count": 1,
-      "best_guess": "Ariane Bello"
-    },
-    {
-      "name": "Mylena Balieira",
-      "count": 1,
-      "best_guess": "Mylena Balieira"
-    },
-    {
-      "name": "Débora Cristine",
-      "count": 1,
-      "best_guess": "Débora Cristine"
-    },
-    {
-      "name": "Mara Rúbia",
-      "count": 1,
-      "best_guess": "Mara Rúbia"
-    },
-    {
-      "name": "Ágatha Nascimento",
-      "count": 1,
-      "best_guess": "Ágatha Nascimento"
-    },
-    {
-      "name": "Larissa Queiroz",
-      "count": 1,
-      "best_guess": "Larissa Queiroz"
-    },
-    {
-      "name": "Luciana Alves",
-      "count": 1,
-      "best_guess": "Luciana Alves"
-    },
-    {
-      "name": "Isabelle Cruz",
-      "count": 1,
-      "best_guess": "Isabelle Cruz"
-    },
-    {
-      "name": "Maria de Lourdes",
-      "count": 1,
-      "best_guess": "Maria de Lourdes"
-    },
-    {
-      "name": "Jacyra Eugênio",
-      "count": 1,
-      "best_guess": "Jacyra Eugênio"
-    },
-    {
-      "name": "Marcela Resmann",
-      "count": 1,
-      "best_guess": "Marcela Resmann"
-    },
-    {
-      "name": "Malena Colangero",
-      "count": 1,
-      "best_guess": "Malena Colangero"
-    },
-    {
-      "name": "Waleska Nascimento",
-      "count": 1,
-      "best_guess": "Waleska Nascimento"
-    },
-    {
-      "name": "Marilene Queiroz",
-      "count": 1,
-      "best_guess": "Marilene Queiroz"
-    },
-    {
-      "name": "Vitoria Emanuelle",
-      "count": 1,
-      "best_guess": "Vitoria Emanuelle"
-    },
-    {
-      "name": "Margarete Venturin",
-      "count": 1,
-      "best_guess": "Margarete Venturin"
-    },
-    {
-      "name": "Terezinha Oliveira",
-      "count": 1,
-      "best_guess": "Terezinha Oliveira"
-    },
-    {
-      "name": "Ivone Balieira",
-      "count": 1,
-      "best_guess": "Ivone Balieira"
-    },
-    {
-      "name": "Érika Segall",
-      "count": 1,
-      "best_guess": "Érika Segall"
-    },
-    {
-      "name": "Gérbera Nascimento",
-      "count": 1,
-      "best_guess": "Gérbera Nascimento"
-    },
-    {
-      "name": "Yngrid França",
-      "count": 1,
-      "best_guess": "Yngrid França"
-    },
-    {
-      "name": "Geysa Nascimento",
-      "count": 1,
-      "best_guess": "Geysa Nascimento"
+      "best_guess": "Nanci Celia Priscila"
     },
     {
       "name": "Sirlene Ramos",
@@ -6546,55 +5931,14 @@ export const importedHistory = {
       "best_guess": "Sirlene Ramos"
     },
     {
-      "name": "Edna Costa",
-      "count": 1,
-      "best_guess": "Edna Costa"
-    },
-    {
-      "name": "Suellen Correa",
-      "count": 2,
-      "best_guess": "Suellen Correa"
-    },
-    {
-      "name": "Elina Mendes",
-      "count": 2,
-      "best_guess": "Elina Mendes"
-    },
-    {
-      "name": "Patrick Oliveira",
-      "count": 1,
-      "best_guess": "Patrick Oliveira"
-    },
-    {
       "name": "Junior Fouraux",
       "count": 1,
       "best_guess": "Junior Fouraux"
     },
     {
-      "name": "Edna Costa",
-      "count": 1,
-      "best_guess": "Edna Costa"
-    },
-    {
-      "name": "Neuza Campanha",
-      "count": 1,
-      "best_guess": "Neuza Campanha"
-    },
-    {
-      "name": "Alexsandro Lopes",
-      "count": 1,
-      "best_guess": "Alexsandro Lopes"
-    },
-    {
-      "name": "Victor Correa",
-      "count": 1,
-      "best_guess": "Victor Correa"
-    },
-    {
       "name": "Oração:   Victor Correa",
       "count": 1,
-      "best_guess": "Vitor Correia",
-      "score": 0.6666666666666666
+      "best_guess": "Oração:   Victor Correa"
     },
     {
       "name": "Luciana Marques",
@@ -6602,79 +5946,9 @@ export const importedHistory = {
       "best_guess": "Luciana Marques"
     },
     {
-      "name": "Sandra Duarte",
-      "count": 1,
-      "best_guess": "Sandra Duarte"
-    },
-    {
-      "name": "Margarete Venturin",
-      "count": 1,
-      "best_guess": "Margarete Venturin"
-    },
-    {
-      "name": "Suellen Correa",
-      "count": 1,
-      "best_guess": "Suellen Correa"
-    },
-    {
-      "name": "Geysa Nascimento",
-      "count": 1,
-      "best_guess": "Geysa Nascimento"
-    },
-    {
-      "name": "Vitoria Emanuelle",
-      "count": 1,
-      "best_guess": "Vitoria Emanuelle"
-    },
-    {
-      "name": "Daniel Silva",
-      "count": 1,
-      "best_guess": "Daniel Silva"
-    },
-    {
-      "name": "André Luiz",
-      "count": 1,
-      "best_guess": "André Luiz"
-    },
-    {
-      "name": "Mylena Balieira",
-      "count": 1,
-      "best_guess": "Mylena Balieira"
-    },
-    {
-      "name": "Larissa Queiroz",
-      "count": 1,
-      "best_guess": "Larissa Queiroz"
-    },
-    {
       "name": "Isabelle Cruz Silva",
       "count": 1,
       "best_guess": "Isabelle Cruz Silva"
-    },
-    {
-      "name": "Érika Segall",
-      "count": 1,
-      "best_guess": "Érika Segall"
-    },
-    {
-      "name": "Saymon Schultz",
-      "count": 1,
-      "best_guess": "Saymon Schultz"
-    },
-    {
-      "name": "Maria de Lourdes",
-      "count": 1,
-      "best_guess": "Maria de Lourdes"
-    },
-    {
-      "name": "Eryck Segall",
-      "count": 1,
-      "best_guess": "Eryck Segall"
-    },
-    {
-      "name": "Vinícius Pessanha",
-      "count": 1,
-      "best_guess": "Vinícius Pessanha"
     },
     {
       "name": "Inêz Monteiro",
@@ -6682,41 +5956,14 @@ export const importedHistory = {
       "best_guess": "Inêz Monteiro"
     },
     {
-      "name": "Márcia Bragança",
-      "count": 1,
-      "best_guess": "Márcia Bragança"
-    },
-    {
-      "name": "Maria Izabel",
-      "count": 1,
-      "best_guess": "Maria Izabel"
-    },
-    {
-      "name": "Luciana Alves",
-      "count": 1,
-      "best_guess": "Luciana Alves"
-    },
-    {
       "name": "Domingos  Oliveira",
       "count": 1,
-      "best_guess": "Domingos Oliveira",
-      "score": 0.9714285714285714
-    },
-    {
-      "name": "Marcela Resmann",
-      "count": 1,
-      "best_guess": "Marcela Resmann"
-    },
-    {
-      "name": "Josyane Vieira",
-      "count": 1,
-      "best_guess": "Josyane Vieira"
+      "best_guess": "Domingos  Oliveira"
     },
     {
       "name": "Edmilson M",
       "count": 1,
-      "best_guess": "Edmilson Monteiro",
-      "score": 0.7407407407407407
+      "best_guess": "Edmilson M"
     }
   ]
 };
