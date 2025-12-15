@@ -57,7 +57,30 @@ function App() {
           api.getSetting<ActiveTab>('activeTab', 'dashboard').catch(() => 'dashboard' as ActiveTab)
         ])
 
-        setPublishers(pubs)
+        // Auto-sync: if local file has more publishers than Supabase, merge them
+        const localPubs = initialPublishers as Publisher[];
+        if (localPubs.length > pubs.length) {
+          console.log(`Auto-sync: local has ${localPubs.length}, Supabase has ${pubs.length}. Merging...`);
+
+          // Create a map of existing IDs
+          const existingIds = new Set(pubs.map(p => p.id));
+
+          // Find publishers that are in local but not in Supabase
+          const newPubs = localPubs.filter(p => !existingIds.has(p.id));
+
+          if (newPubs.length > 0) {
+            console.log(`Adding ${newPubs.length} new publishers to Supabase...`);
+            const mergedPubs = [...pubs, ...newPubs];
+            await api.savePublishers(mergedPubs);
+            setPublishers(mergedPubs);
+            setStatusMessage(`✅ Sincronizado: ${newPubs.length} novos publicadores adicionados`);
+          } else {
+            setPublishers(pubs);
+          }
+        } else {
+          setPublishers(pubs)
+        }
+
         setParticipations(parts)
         setActiveTab(savedTab)
       } catch (error) {
