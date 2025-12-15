@@ -287,6 +287,7 @@ function App() {
         <div style={{ display: activeTab === 'history' ? 'block' : 'none' }}>
           <HistoryImporter
             publishers={publishers}
+            participations={participations}
             onImport={handleHistoryImport}
             onCancel={() => handleTabChange('dashboard')}
           />

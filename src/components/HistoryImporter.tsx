@@ -6,6 +6,7 @@ import { api } from '../services/api';
 
 interface Props {
     publishers: Publisher[];
+    participations: Participation[];  // Add this to check already imported
     onImport: (newPublishers: Publisher[], updatedPublishers: Publisher[], newParticipations: Participation[]) => void;
     onCancel: () => void;
 }
@@ -30,7 +31,7 @@ const PART_MAPPING: Record<string, ParticipationType> = {
     'Dirigente/Oração Final': ParticipationType.DIRIGENTE,
 };
 
-export default function HistoryImporter({ publishers, onImport, onCancel }: Props) {
+export default function HistoryImporter({ publishers, participations, onImport, onCancel }: Props) {
     const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
     const [selectedName, setSelectedName] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -49,6 +50,16 @@ export default function HistoryImporter({ publishers, onImport, onCancel }: Prop
         }
         loadResolutions();
     }, []);
+
+    // Build a set of names that already have participations in the database
+    const importedNames = useMemo(() => {
+        const names = new Set<string>();
+        participations.forEach(p => {
+            // Normalize name for comparison
+            names.add(p.publisherName.toLowerCase().trim());
+        });
+        return names;
+    }, [participations]);
 
     // Group unknown names from imported history
     const unknownNames = useMemo(() => {
@@ -75,10 +86,20 @@ export default function HistoryImporter({ publishers, onImport, onCancel }: Prop
         }
     };
 
+    // Check if a name has been processed (either has resolution or has participations)
     const getStatus = (name: string) => {
-        if (resolutions[name]) return '✅';
-        return '⚠️';
+        // Check if already has participations in database (approximately)
+        const normalizedName = name.toLowerCase().trim();
+        const hasParticipations = importedNames.has(normalizedName) ||
+            Array.from(importedNames).some(n => n.includes(normalizedName) || normalizedName.includes(n));
+
+        if (resolutions[name]) return '✅';  // Explicitly resolved
+        if (hasParticipations) return '📥';   // Already has participations imported
+        return '⚠️';  // Needs resolution
     };
+
+    // Count resolved + imported
+    const resolvedCount = unknownNames.filter(item => getStatus(item.name) !== '⚠️').length;
 
     const currentResolution = selectedName ? resolutions[selectedName] : null;
 
@@ -223,7 +244,10 @@ export default function HistoryImporter({ publishers, onImport, onCancel }: Prop
                     {/* List */}
                     <div style={{ width: '300px', overflowY: 'auto', borderRight: '1px solid #444' }}>
                         <div style={{ padding: '8px', borderBottom: '1px solid #444', fontSize: '0.85em', color: '#888' }}>
-                            ✅ Resolvido: {Object.keys(resolutions).length} / {unknownNames.length}
+                            Processado: {resolvedCount} / {unknownNames.length}
+                            <div style={{ fontSize: '0.75em', marginTop: '4px' }}>
+                                ✅ resolvido • 📥 importado • ⚠️ pendente
+                            </div>
                         </div>
                         {unknownNames.map((item) => (
                             <div
