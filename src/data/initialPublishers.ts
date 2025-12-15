@@ -858,8 +858,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -868,6 +866,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "33",
@@ -887,8 +887,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -897,6 +895,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "34",
@@ -916,8 +916,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -926,6 +924,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "35",
@@ -945,8 +945,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -955,6 +953,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "36",
@@ -974,8 +974,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -984,6 +982,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "37",
@@ -1003,8 +1003,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1013,6 +1011,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "38",
@@ -1032,8 +1032,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1042,6 +1040,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "39",
@@ -1061,8 +1061,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1071,6 +1069,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "40",
@@ -1090,8 +1090,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1127,6 +1125,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "42",
@@ -1173,8 +1173,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1183,6 +1181,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "44",
@@ -1202,8 +1202,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1212,6 +1210,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "45",
@@ -1231,8 +1231,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1241,6 +1239,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "46",
@@ -1260,8 +1260,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1270,6 +1268,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "47",
@@ -1289,8 +1289,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1299,6 +1297,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "48",
@@ -1318,8 +1318,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1328,6 +1326,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "49",
@@ -1347,8 +1347,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1357,6 +1355,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "50",
@@ -1376,8 +1376,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: false,
@@ -1386,6 +1384,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "51",
@@ -2053,8 +2053,6 @@ export const initialPublishers = [
             canReadCBS: true,
             canPray: true,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: true,
@@ -2063,6 +2061,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "76",
@@ -3351,8 +3351,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: true,
@@ -3388,6 +3386,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "125",
@@ -3407,8 +3407,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: true,
@@ -3417,6 +3415,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "126",
@@ -3436,8 +3436,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: true,
@@ -3473,6 +3471,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "128",
@@ -3500,6 +3500,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "129",
@@ -3527,6 +3529,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "130",
@@ -3546,8 +3550,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: true,
-        requestedNoParticipation: false,
         },
         privilegesBySection: {
             canParticipateInTreasures: true,
@@ -3556,6 +3558,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: true,
+        requestedNoParticipation: false,
     },
     {
         id: "131",
@@ -3575,8 +3579,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: true,
@@ -3604,8 +3606,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: true,
@@ -3614,6 +3614,8 @@ export const initialPublishers = [
         },
         availability: { mode: "always" as const, exceptionDates: [] },
         aliases: [],
+        isNotQualified: false,
+        requestedNoParticipation: true,
     },
     {
         id: "133",
@@ -3633,8 +3635,6 @@ export const initialPublishers = [
             canReadCBS: false,
             canPray: false,
             canPreside: false,
-        isNotQualified: false,
-        requestedNoParticipation: true,
         },
         privilegesBySection: {
             canParticipateInTreasures: true,
