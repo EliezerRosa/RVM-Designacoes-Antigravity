@@ -38,8 +38,7 @@ export const importedHistory = {
       "raw_name": "Rozelita Sales",
       "matched_publisher_id": null,
       "match_score": 0.47368421052631576,
-      "match_name": "Eliezer Rosa",
-      "_was_split": true
+      "match_name": "Eliezer Rosa"
     },
     {
       "week": "SEMANA  4 -10 DE NOVEMBRO | SALMO 105 Presidente: Eliezer Rosa",
@@ -47,8 +46,7 @@ export const importedHistory = {
       "raw_name": "Keyla Costa",
       "matched_publisher_id": null,
       "match_score": 0.47368421052631576,
-      "match_name": "Eliezer Rosa",
-      "_was_split": true
+      "match_name": "Eliezer Rosa"
     },
     {
       "week": "SEMANA  4 -10 DE NOVEMBRO | SALMO 105 Presidente: Eliezer Rosa",
@@ -56,8 +54,7 @@ export const importedHistory = {
       "raw_name": "Yngrid França",
       "matched_publisher_id": null,
       "match_score": 0.425531914893617,
-      "match_name": "Luiz Alexandrino",
-      "_was_split": true
+      "match_name": "Luiz Alexandrino"
     },
     {
       "week": "SEMANA  4 -10 DE NOVEMBRO | SALMO 105 Presidente: Eliezer Rosa",
@@ -65,13 +62,20 @@ export const importedHistory = {
       "raw_name": "Wanderleia Santos",
       "matched_publisher_id": null,
       "match_score": 0.425531914893617,
-      "match_name": "Luiz Alexandrino",
-      "_was_split": true
+      "match_name": "Luiz Alexandrino"
     },
     {
       "week": "SEMANA  4 -10 DE NOVEMBRO | SALMO 105 Presidente: Eliezer Rosa",
       "part": "Parte Desconhecida",
-      "raw_name": "Tainá Reis Vitoria Emanuelle",
+      "raw_name": "Tainá Reis",
+      "matched_publisher_id": null,
+      "match_score": 0.42857142857142855,
+      "match_name": "Vitor Pessanha"
+    },
+    {
+      "week": "SEMANA  4 -10 DE NOVEMBRO | SALMO 105 Presidente: Eliezer Rosa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Vitoria Emanuelle",
       "matched_publisher_id": null,
       "match_score": 0.42857142857142855,
       "match_name": "Vitor Pessanha"
@@ -191,7 +195,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  18 -24 DE NOVEMBRO | SALMOS 107- 108 Presidente: Marcos Vinícios",
       "part": "Parte Desconhecida",
-      "raw_name": "Saniyuriss Reis Julianne Pereira",
+      "raw_name": "Saniyuriss Reis",
+      "matched_publisher_id": null,
+      "match_score": 0.4444444444444444,
+      "match_name": "Israel Vieira"
+    },
+    {
+      "week": "SEMANA  18 -24 DE NOVEMBRO | SALMOS 107- 108 Presidente: Marcos Vinícios",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Julianne Pereira",
       "matched_publisher_id": null,
       "match_score": 0.4444444444444444,
       "match_name": "Israel Vieira"
@@ -199,7 +211,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  18 -24 DE NOVEMBRO | SALMOS 107- 108 Presidente: Marcos Vinícios",
       "part": "Parte Desconhecida",
-      "raw_name": "Josyane Vieira Jacyra Eugênio",
+      "raw_name": "Josyane Vieira",
+      "matched_publisher_id": null,
+      "match_score": 0.47619047619047616,
+      "match_name": "Israel Vieira"
+    },
+    {
+      "week": "SEMANA  18 -24 DE NOVEMBRO | SALMOS 107- 108 Presidente: Marcos Vinícios",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Jacyra Eugênio",
       "matched_publisher_id": null,
       "match_score": 0.47619047619047616,
       "match_name": "Israel Vieira"
@@ -271,7 +291,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  25 DE NOV–1 DE DEZ | SALMOS 109-1 12 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Sandra Duarte Olívia Porto",
+      "raw_name": "Sandra Duarte",
+      "matched_publisher_id": null,
+      "match_score": 0.5454545454545454,
+      "match_name": "Olívia Maria Porto"
+    },
+    {
+      "week": "SEMANA  25 DE NOV–1 DE DEZ | SALMOS 109-1 12 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Olívia Porto",
       "matched_publisher_id": null,
       "match_score": 0.5454545454545454,
       "match_name": "Olívia Maria Porto"
@@ -279,7 +307,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  25 DE NOV–1 DE DEZ | SALMOS 109-1 12 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Solange Telles Ana Paula Oliveira",
+      "raw_name": "Solange Telles",
+      "matched_publisher_id": null,
+      "match_score": 0.6428571428571429,
+      "match_name": "Solange Telles Pessanha"
+    },
+    {
+      "week": "SEMANA  25 DE NOV–1 DE DEZ | SALMOS 109-1 12 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Ana Paula Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.6428571428571429,
       "match_name": "Solange Telles Pessanha"
@@ -287,7 +323,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  25 DE NOV–1 DE DEZ | SALMOS 109-1 12 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Edna Costa Marilene Queiroz",
+      "raw_name": "Edna Costa",
+      "matched_publisher_id": null,
+      "match_score": 0.6190476190476191,
+      "match_name": "Edmardo Queiroz"
+    },
+    {
+      "week": "SEMANA  25 DE NOV–1 DE DEZ | SALMOS 109-1 12 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Marilene Queiroz",
       "matched_publisher_id": null,
       "match_score": 0.6190476190476191,
       "match_name": "Edmardo Queiroz"
@@ -447,7 +491,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  9-15 DE DEZEMBRO | SALMO 1 19: 1 - 56 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Wanderleia Santos Elza Elena",
+      "raw_name": "Wanderleia Santos",
+      "matched_publisher_id": null,
+      "match_score": 0.4,
+      "match_name": "Domingos Oliveira"
+    },
+    {
+      "week": "SEMANA  9-15 DE DEZEMBRO | SALMO 1 19: 1 - 56 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Elza Elena",
       "matched_publisher_id": null,
       "match_score": 0.4,
       "match_name": "Domingos Oliveira"
@@ -511,7 +563,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 16 -22 DE DEZEMBRO | SALMO 1 19: 57- 120 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Terezinha Oliveira Débora Cristine",
+      "raw_name": "Terezinha Oliveira",
+      "matched_publisher_id": null,
+      "match_score": 0.5306122448979592,
+      "match_name": "Renato Oliveira"
+    },
+    {
+      "week": "SEMANA 16 -22 DE DEZEMBRO | SALMO 1 19: 57- 120 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Débora Cristine",
       "matched_publisher_id": null,
       "match_score": 0.5306122448979592,
       "match_name": "Renato Oliveira"
@@ -519,7 +579,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 16 -22 DE DEZEMBRO | SALMO 1 19: 57- 120 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Vitoria Emanuelle Dayse Campos",
+      "raw_name": "Vitoria Emanuelle",
+      "matched_publisher_id": null,
+      "match_score": 0.45454545454545453,
+      "match_name": "Vitor Pessanha"
+    },
+    {
+      "week": "SEMANA 16 -22 DE DEZEMBRO | SALMO 1 19: 57- 120 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Dayse Campos",
       "matched_publisher_id": null,
       "match_score": 0.45454545454545453,
       "match_name": "Vitor Pessanha"
@@ -527,7 +595,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 16 -22 DE DEZEMBRO | SALMO 1 19: 57- 120 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Waleska Nascimento Ágatha do Nascimento",
+      "raw_name": "Waleska Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.5263157894736842,
+      "match_name": "Antônio Nascimento"
+    },
+    {
+      "week": "SEMANA 16 -22 DE DEZEMBRO | SALMO 1 19: 57- 120 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Ágatha do Nascimento",
       "matched_publisher_id": null,
       "match_score": 0.5263157894736842,
       "match_name": "Antônio Nascimento"
@@ -599,7 +675,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 23-29 DE DEZEMBRO | SALMO 119:121-176 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Ana Paula Tainá Reis",
+      "raw_name": "Ana Paula",
+      "matched_publisher_id": null,
+      "match_score": 0.4864864864864865,
+      "match_name": "Jeane Pinto Gomes"
+    },
+    {
+      "week": "SEMANA 23-29 DE DEZEMBRO | SALMO 119:121-176 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Tainá Reis",
       "matched_publisher_id": null,
       "match_score": 0.4864864864864865,
       "match_name": "Jeane Pinto Gomes"
@@ -607,7 +691,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 23-29 DE DEZEMBRO | SALMO 119:121-176 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Érika Segall Terezinha Oliveira",
+      "raw_name": "Érika Segall",
+      "matched_publisher_id": null,
+      "match_score": 0.5652173913043478,
+      "match_name": "Renato Oliveira"
+    },
+    {
+      "week": "SEMANA 23-29 DE DEZEMBRO | SALMO 119:121-176 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Terezinha Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.5652173913043478,
       "match_name": "Renato Oliveira"
@@ -679,7 +771,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 30 DE DEZ–5 DE JANEIRO | SALMO 120-126 Presidente: Eliezer Rosa",
       "part": "Parte Desconhecida",
-      "raw_name": "Eliana Souza Neuza Campanha",
+      "raw_name": "Eliana Souza",
+      "matched_publisher_id": null,
+      "match_score": 0.4897959183673469,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 30 DE DEZ–5 DE JANEIRO | SALMO 120-126 Presidente: Eliezer Rosa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Neuza Campanha",
       "matched_publisher_id": null,
       "match_score": 0.4897959183673469,
       "match_name": "Lamara Rosa Nascimento"
@@ -751,7 +851,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  13 -19 DE JANEIRO | SALMOS 135 - 137 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Dione Guimarães Olívia Maria",
+      "raw_name": "Dione Guimarães",
+      "matched_publisher_id": null,
+      "match_score": 0.5217391304347826,
+      "match_name": "Olívia Maria Porto"
+    },
+    {
+      "week": "SEMANA  13 -19 DE JANEIRO | SALMOS 135 - 137 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Olívia Maria",
       "matched_publisher_id": null,
       "match_score": 0.5217391304347826,
       "match_name": "Olívia Maria Porto"
@@ -759,7 +867,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  13 -19 DE JANEIRO | SALMOS 135 - 137 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Edna Costa Raquel Oliveira",
+      "raw_name": "Edna Costa",
+      "matched_publisher_id": null,
+      "match_score": 0.6341463414634146,
+      "match_name": "Renato Oliveira"
+    },
+    {
+      "week": "SEMANA  13 -19 DE JANEIRO | SALMOS 135 - 137 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Raquel Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.6341463414634146,
       "match_name": "Renato Oliveira"
@@ -839,7 +955,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  20-26 DE JANEIRO | SALMOS 138 - 139 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Deusedir Amorim Suellen Correa",
+      "raw_name": "Deusedir Amorim",
+      "matched_publisher_id": null,
+      "match_score": 0.46511627906976744,
+      "match_name": "Vitor Correia"
+    },
+    {
+      "week": "SEMANA  20-26 DE JANEIRO | SALMOS 138 - 139 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Suellen Correa",
       "matched_publisher_id": null,
       "match_score": 0.46511627906976744,
       "match_name": "Vitor Correia"
@@ -847,7 +971,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  20-26 DE JANEIRO | SALMOS 138 - 139 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Débora Cristine Rozelita Sales",
+      "raw_name": "Débora Cristine",
+      "matched_publisher_id": null,
+      "match_score": 0.576271186440678,
+      "match_name": "Brenda Cristine Cunha Pacheco"
+    },
+    {
+      "week": "SEMANA  20-26 DE JANEIRO | SALMOS 138 - 139 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Rozelita Sales",
       "matched_publisher_id": null,
       "match_score": 0.576271186440678,
       "match_name": "Brenda Cristine Cunha Pacheco"
@@ -919,7 +1051,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  27 DE JAN– 2 DE FEV | SALMOS 140 - 143 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Daniele Santos Yngrid França",
+      "raw_name": "Daniele Santos",
+      "matched_publisher_id": null,
+      "match_score": 0.47619047619047616,
+      "match_name": "Emerson França"
+    },
+    {
+      "week": "SEMANA  27 DE JAN– 2 DE FEV | SALMOS 140 - 143 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Yngrid França",
       "matched_publisher_id": null,
       "match_score": 0.47619047619047616,
       "match_name": "Emerson França"
@@ -927,7 +1067,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  27 DE JAN– 2 DE FEV | SALMOS 140 - 143 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Edlena Longo Wanderleia Santos",
+      "raw_name": "Edlena Longo",
+      "matched_publisher_id": null,
+      "match_score": 0.4444444444444444,
+      "match_name": "Alexandre Lopes"
+    },
+    {
+      "week": "SEMANA  27 DE JAN– 2 DE FEV | SALMOS 140 - 143 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Wanderleia Santos",
       "matched_publisher_id": null,
       "match_score": 0.4444444444444444,
       "match_name": "Alexandre Lopes"
@@ -935,7 +1083,15 @@ export const importedHistory = {
     {
       "week": "SEMANA  27 DE JAN– 2 DE FEV | SALMOS 140 - 143 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Erica Vaz Waleska Nascimento",
+      "raw_name": "Erica Vaz",
+      "matched_publisher_id": null,
+      "match_score": 0.64,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA  27 DE JAN– 2 DE FEV | SALMOS 140 - 143 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Waleska Nascimento",
       "matched_publisher_id": null,
       "match_score": 0.64,
       "match_name": "Lamara Rosa Nascimento"
@@ -1018,8 +1174,7 @@ export const importedHistory = {
       "raw_name": "André Luiz",
       "matched_publisher_id": null,
       "match_score": 0.6222222222222222,
-      "match_name": "Patrick de Oliveira",
-      "_was_split": true
+      "match_name": "Patrick de Oliveira"
     },
     {
       "week": "SEMANA 3-9 DE FEVEREIRO | SALMOS 144 - 146  Presidente: Marcos Vinícios",
@@ -1027,8 +1182,7 @@ export const importedHistory = {
       "raw_name": "Raquel Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.6222222222222222,
-      "match_name": "Patrick de Oliveira",
-      "_was_split": true
+      "match_name": "Patrick de Oliveira"
     },
     {
       "week": "SEMANA 3-9 DE FEVEREIRO | SALMOS 144 - 146  Presidente: Marcos Vinícios",
@@ -1201,7 +1355,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 17-23 DE FEVEREIRO | PROVÉRBIOS 1 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Beatriz Pessoa Maria Izabel",
+      "raw_name": "Beatriz Pessoa",
+      "matched_publisher_id": null,
+      "match_score": 0.43902439024390244,
+      "match_name": "Antônio Miguel"
+    },
+    {
+      "week": "SEMANA 17-23 DE FEVEREIRO | PROVÉRBIOS 1 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Maria Izabel",
       "matched_publisher_id": null,
       "match_score": 0.43902439024390244,
       "match_name": "Antônio Miguel"
@@ -1276,8 +1438,7 @@ export const importedHistory = {
       "raw_name": "Larissa Queiroz",
       "matched_publisher_id": null,
       "match_score": 0.46511627906976744,
-      "match_name": "Raquel Elvira",
-      "_was_split": true
+      "match_name": "Raquel Elvira"
     },
     {
       "week": "SEMANA 24 DE FEV– 2 DE MARÇO | PROVÉRBIOS 2 Presidente: Diego Fontana",
@@ -1285,13 +1446,20 @@ export const importedHistory = {
       "raw_name": "Suellen Correa",
       "matched_publisher_id": null,
       "match_score": 0.46511627906976744,
-      "match_name": "Raquel Elvira",
-      "_was_split": true
+      "match_name": "Raquel Elvira"
     },
     {
       "week": "SEMANA 24 DE FEV– 2 DE MARÇO | PROVÉRBIOS 2 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Laramara Rosa Waleska Nascimento",
+      "raw_name": "Laramara Rosa",
+      "matched_publisher_id": null,
+      "match_score": 0.8148148148148148,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 24 DE FEV– 2 DE MARÇO | PROVÉRBIOS 2 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Waleska Nascimento",
       "matched_publisher_id": null,
       "match_score": 0.8148148148148148,
       "match_name": "Lamara Rosa Nascimento"
@@ -1451,7 +1619,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 10-16 DE MARÇO | PROVÉRBIOS 4 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "João Paulo Erica Vaz",
+      "raw_name": "João Paulo",
+      "matched_publisher_id": null,
+      "match_score": 0.42424242424242425,
+      "match_name": "Raquel Elvira"
+    },
+    {
+      "week": "SEMANA 10-16 DE MARÇO | PROVÉRBIOS 4 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Erica Vaz",
       "matched_publisher_id": null,
       "match_score": 0.42424242424242425,
       "match_name": "Raquel Elvira"
@@ -1459,7 +1635,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 10-16 DE MARÇO | PROVÉRBIOS 4 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Margarete Venturin Erika Segall",
+      "raw_name": "Margarete Venturin",
+      "matched_publisher_id": null,
+      "match_score": 0.4090909090909091,
+      "match_name": "Israel Vieira"
+    },
+    {
+      "week": "SEMANA 10-16 DE MARÇO | PROVÉRBIOS 4 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Erika Segall",
       "matched_publisher_id": null,
       "match_score": 0.4090909090909091,
       "match_name": "Israel Vieira"
@@ -1467,7 +1651,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 10-16 DE MARÇO | PROVÉRBIOS 4 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Mara Rúbia Marilene Queiroz",
+      "raw_name": "Mara Rúbia",
+      "matched_publisher_id": null,
+      "match_score": 0.5306122448979592,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 10-16 DE MARÇO | PROVÉRBIOS 4 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Marilene Queiroz",
       "matched_publisher_id": null,
       "match_score": 0.5306122448979592,
       "match_name": "Lamara Rosa Nascimento"
@@ -1531,7 +1723,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 17- 23 DE MARÇO | PROVÉRBIOS 5 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Geysa Nascimento Nanci Celia",
+      "raw_name": "Geysa Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.5217391304347826,
+      "match_name": "Antônio Nascimento"
+    },
+    {
+      "week": "SEMANA 17- 23 DE MARÇO | PROVÉRBIOS 5 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Nanci Celia",
       "matched_publisher_id": null,
       "match_score": 0.5217391304347826,
       "match_name": "Antônio Nascimento"
@@ -1539,7 +1739,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 17- 23 DE MARÇO | PROVÉRBIOS 5 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Gérbera Nascimento Maria de Lourdes",
+      "raw_name": "Gérbera Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.49122807017543857,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 17- 23 DE MARÇO | PROVÉRBIOS 5 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Maria de Lourdes",
       "matched_publisher_id": null,
       "match_score": 0.49122807017543857,
       "match_name": "Lamara Rosa Nascimento"
@@ -1547,7 +1755,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 17- 23 DE MARÇO | PROVÉRBIOS 5 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Malena Colangero Beatriz Pessoa",
+      "raw_name": "Malena Colangero",
+      "matched_publisher_id": null,
+      "match_score": 0.5185185185185185,
+      "match_name": "Solange Telles Pessanha"
+    },
+    {
+      "week": "SEMANA 17- 23 DE MARÇO | PROVÉRBIOS 5 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Beatriz Pessoa",
       "matched_publisher_id": null,
       "match_score": 0.5185185185185185,
       "match_name": "Solange Telles Pessanha"
@@ -1611,7 +1827,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 24 - 30 DE MARÇO | PROVÉRBIOS 6 Presidente: Fernando Pessoa",
       "part": "Parte Desconhecida",
-      "raw_name": "Ivone Gonçalves Marcela Resmann",
+      "raw_name": "Ivone Gonçalves",
+      "matched_publisher_id": null,
+      "match_score": 0.5454545454545454,
+      "match_name": "Diego Resmann"
+    },
+    {
+      "week": "SEMANA 24 - 30 DE MARÇO | PROVÉRBIOS 6 Presidente: Fernando Pessoa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Marcela Resmann",
       "matched_publisher_id": null,
       "match_score": 0.5454545454545454,
       "match_name": "Diego Resmann"
@@ -1622,8 +1846,7 @@ export const importedHistory = {
       "raw_name": "Jacyra Eugênio",
       "matched_publisher_id": null,
       "match_score": 0.37209302325581395,
-      "match_name": "Jeane Pinto Gomes",
-      "_was_split": true
+      "match_name": "Jeane Pinto Gomes"
     },
     {
       "week": "SEMANA 24 - 30 DE MARÇO | PROVÉRBIOS 6 Presidente: Fernando Pessoa",
@@ -1631,13 +1854,20 @@ export const importedHistory = {
       "raw_name": "Keyla Costa",
       "matched_publisher_id": null,
       "match_score": 0.37209302325581395,
-      "match_name": "Jeane Pinto Gomes",
-      "_was_split": true
+      "match_name": "Jeane Pinto Gomes"
     },
     {
       "week": "SEMANA 24 - 30 DE MARÇO | PROVÉRBIOS 6 Presidente: Fernando Pessoa",
       "part": "Parte Desconhecida",
-      "raw_name": "Josyane Cristina Vieira Julianne Pereira",
+      "raw_name": "Josyane Cristina Vieira",
+      "matched_publisher_id": null,
+      "match_score": 0.4126984126984127,
+      "match_name": "Solange Telles Pessanha"
+    },
+    {
+      "week": "SEMANA 24 - 30 DE MARÇO | PROVÉRBIOS 6 Presidente: Fernando Pessoa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Julianne Pereira",
       "matched_publisher_id": null,
       "match_score": 0.4126984126984127,
       "match_name": "Solange Telles Pessanha"
@@ -1717,7 +1947,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 31 DE MARÇO– 6 DE ABRIL | PROVÉRBIOS 7 Presidente: Marcos Vinícius",
       "part": "Parte Desconhecida",
-      "raw_name": "Márcia Bragança Ágatha do Nascimento",
+      "raw_name": "Márcia Bragança",
+      "matched_publisher_id": null,
+      "match_score": 0.5555555555555556,
+      "match_name": "Antônio Nascimento"
+    },
+    {
+      "week": "SEMANA 31 DE MARÇO– 6 DE ABRIL | PROVÉRBIOS 7 Presidente: Marcos Vinícius",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Ágatha do Nascimento",
       "matched_publisher_id": null,
       "match_score": 0.5555555555555556,
       "match_name": "Antônio Nascimento"
@@ -1728,8 +1966,7 @@ export const importedHistory = {
       "raw_name": "Victor Correa",
       "matched_publisher_id": null,
       "match_score": 0.6222222222222222,
-      "match_name": "Alexandre Lopes",
-      "_was_split": true
+      "match_name": "Alexandre Lopes"
     },
     {
       "week": "SEMANA 31 DE MARÇO– 6 DE ABRIL | PROVÉRBIOS 7 Presidente: Marcos Vinícius",
@@ -1737,8 +1974,7 @@ export const importedHistory = {
       "raw_name": "Alexsandro Lopes",
       "matched_publisher_id": null,
       "match_score": 0.6222222222222222,
-      "match_name": "Alexandre Lopes",
-      "_was_split": true
+      "match_name": "Alexandre Lopes"
     },
     {
       "week": "SEMANA 31 DE MARÇO– 6 DE ABRIL | PROVÉRBIOS 7 Presidente: Marcos Vinícius",
@@ -1879,7 +2115,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 14 -20 DE ABRIL | PROVÉRBIOS 9 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Dayse Campos Marcela Resmann",
+      "raw_name": "Dayse Campos",
+      "matched_publisher_id": null,
+      "match_score": 0.5365853658536586,
+      "match_name": "Diego Resmann"
+    },
+    {
+      "week": "SEMANA 14 -20 DE ABRIL | PROVÉRBIOS 9 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Marcela Resmann",
       "matched_publisher_id": null,
       "match_score": 0.5365853658536586,
       "match_name": "Diego Resmann"
@@ -1887,7 +2131,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 14 -20 DE ABRIL | PROVÉRBIOS 9 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Ivone Balieira Mylena Balieira",
+      "raw_name": "Ivone Balieira",
+      "matched_publisher_id": null,
+      "match_score": 0.5454545454545454,
+      "match_name": "Ivone Oliveira"
+    },
+    {
+      "week": "SEMANA 14 -20 DE ABRIL | PROVÉRBIOS 9 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Mylena Balieira",
       "matched_publisher_id": null,
       "match_score": 0.5454545454545454,
       "match_name": "Ivone Oliveira"
@@ -1898,8 +2150,7 @@ export const importedHistory = {
       "raw_name": "Vitoria Emanuelle",
       "matched_publisher_id": null,
       "match_score": 0.4888888888888889,
-      "match_name": "Emerson França",
-      "_was_split": true
+      "match_name": "Emerson França"
     },
     {
       "week": "SEMANA 14 -20 DE ABRIL | PROVÉRBIOS 9 Presidente: Marcos Rogério",
@@ -1907,8 +2158,7 @@ export const importedHistory = {
       "raw_name": "Yngrid França",
       "matched_publisher_id": null,
       "match_score": 0.4888888888888889,
-      "match_name": "Emerson França",
-      "_was_split": true
+      "match_name": "Emerson França"
     },
     {
       "week": "SEMANA 14 -20 DE ABRIL | PROVÉRBIOS 9 Presidente: Marcos Rogério",
@@ -1993,7 +2243,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 28 DE ABRIL– 4 DE MAIO | PROVÉRBIOS 11 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Waleska Nascimento Márcia Rosa",
+      "raw_name": "Waleska Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.5384615384615384,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 28 DE ABRIL– 4 DE MAIO | PROVÉRBIOS 11 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Márcia Rosa",
       "matched_publisher_id": null,
       "match_score": 0.5384615384615384,
       "match_name": "Lamara Rosa Nascimento"
@@ -2004,8 +2262,7 @@ export const importedHistory = {
       "raw_name": "Raquel Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.5116279069767442,
-      "match_name": "Raquel Elvira",
-      "_was_split": true
+      "match_name": "Raquel Elvira"
     },
     {
       "week": "SEMANA 28 DE ABRIL– 4 DE MAIO | PROVÉRBIOS 11 Presidente: Renato Oliveira",
@@ -2013,13 +2270,20 @@ export const importedHistory = {
       "raw_name": "Rozelita Sales",
       "matched_publisher_id": null,
       "match_score": 0.5116279069767442,
-      "match_name": "Raquel Elvira",
-      "_was_split": true
+      "match_name": "Raquel Elvira"
     },
     {
       "week": "SEMANA 28 DE ABRIL– 4 DE MAIO | PROVÉRBIOS 11 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Luciana Cândida Célia Regina",
+      "raw_name": "Luciana Cândida",
+      "matched_publisher_id": null,
+      "match_score": 0.47058823529411764,
+      "match_name": "Célia Regina Figueiredo"
+    },
+    {
+      "week": "SEMANA 28 DE ABRIL– 4 DE MAIO | PROVÉRBIOS 11 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Célia Regina",
       "matched_publisher_id": null,
       "match_score": 0.47058823529411764,
       "match_name": "Célia Regina Figueiredo"
@@ -2091,7 +2355,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 5 -11 DE MAIO | PROVÉRBIOS 12 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Julianne Cravo Daniel Silva",
+      "raw_name": "Julianne Cravo",
+      "matched_publisher_id": null,
+      "match_score": 0.4583333333333333,
+      "match_name": "Rosa da Silva Miranda"
+    },
+    {
+      "week": "SEMANA 5 -11 DE MAIO | PROVÉRBIOS 12 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Daniel Silva",
       "matched_publisher_id": null,
       "match_score": 0.4583333333333333,
       "match_name": "Rosa da Silva Miranda"
@@ -2099,7 +2371,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 5 -11 DE MAIO | PROVÉRBIOS 12 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Jeane Pinto Larissa Queiroz",
+      "raw_name": "Jeane Pinto",
+      "matched_publisher_id": null,
+      "match_score": 0.5909090909090909,
+      "match_name": "Jeane Pinto Gomes"
+    },
+    {
+      "week": "SEMANA 5 -11 DE MAIO | PROVÉRBIOS 12 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Larissa Queiroz",
       "matched_publisher_id": null,
       "match_score": 0.5909090909090909,
       "match_name": "Jeane Pinto Gomes"
@@ -2107,7 +2387,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 5 -11 DE MAIO | PROVÉRBIOS 12 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Isabelle Cruz Beatriz Pessoa",
+      "raw_name": "Isabelle Cruz",
+      "matched_publisher_id": null,
+      "match_score": 0.47058823529411764,
+      "match_name": "Solange Telles Pessanha"
+    },
+    {
+      "week": "SEMANA 5 -11 DE MAIO | PROVÉRBIOS 12 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Beatriz Pessoa",
       "matched_publisher_id": null,
       "match_score": 0.47058823529411764,
       "match_name": "Solange Telles Pessanha"
@@ -2195,7 +2483,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 12-18 DE MAIO | PROVÉRBIOS 13 Presidente: Fernando Pessoa",
       "part": "Parte Desconhecida",
-      "raw_name": "Maria de Lourdes Nanci Celia",
+      "raw_name": "Maria de Lourdes",
+      "matched_publisher_id": null,
+      "match_score": 0.52,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 12-18 DE MAIO | PROVÉRBIOS 13 Presidente: Fernando Pessoa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Nanci Celia",
       "matched_publisher_id": null,
       "match_score": 0.52,
       "match_name": "Lamara Rosa Nascimento"
@@ -2203,7 +2499,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 12-18 DE MAIO | PROVÉRBIOS 13 Presidente: Fernando Pessoa",
       "part": "Parte Desconhecida",
-      "raw_name": "Michele Camillo Reica Santana",
+      "raw_name": "Michele Camillo",
+      "matched_publisher_id": null,
+      "match_score": 0.47619047619047616,
+      "match_name": "Diego Resmann"
+    },
+    {
+      "week": "SEMANA 12-18 DE MAIO | PROVÉRBIOS 13 Presidente: Fernando Pessoa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Reica Santana",
       "matched_publisher_id": null,
       "match_score": 0.47619047619047616,
       "match_name": "Diego Resmann"
@@ -2291,7 +2595,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 19-25 DE MAIO | PROVÉRBIOS 14 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Mylena Balieira Ivone Balieira",
+      "raw_name": "Mylena Balieira",
+      "matched_publisher_id": null,
+      "match_score": 0.5454545454545454,
+      "match_name": "Ivone Oliveira"
+    },
+    {
+      "week": "SEMANA 19-25 DE MAIO | PROVÉRBIOS 14 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Ivone Balieira",
       "matched_publisher_id": null,
       "match_score": 0.5454545454545454,
       "match_name": "Ivone Oliveira"
@@ -2302,8 +2614,7 @@ export const importedHistory = {
       "raw_name": "Yngrid França",
       "matched_publisher_id": null,
       "match_score": 0.5531914893617021,
-      "match_name": "Renato Oliveira",
-      "_was_split": true
+      "match_name": "Renato Oliveira"
     },
     {
       "week": "SEMANA 19-25 DE MAIO | PROVÉRBIOS 14 Presidente: Domingos Oliveira",
@@ -2311,13 +2622,20 @@ export const importedHistory = {
       "raw_name": "Terezinha Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.5531914893617021,
-      "match_name": "Renato Oliveira",
-      "_was_split": true
+      "match_name": "Renato Oliveira"
     },
     {
       "week": "SEMANA 19-25 DE MAIO | PROVÉRBIOS 14 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Sandra Duarte Wanderleia Santos",
+      "raw_name": "Sandra Duarte",
+      "matched_publisher_id": null,
+      "match_score": 0.43333333333333335,
+      "match_name": "Brenda Cristine Cunha Pacheco"
+    },
+    {
+      "week": "SEMANA 19-25 DE MAIO | PROVÉRBIOS 14 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Wanderleia Santos",
       "matched_publisher_id": null,
       "match_score": 0.43333333333333335,
       "match_name": "Brenda Cristine Cunha Pacheco"
@@ -2368,8 +2686,7 @@ export const importedHistory = {
       "raw_name": "Terezinha Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.5416666666666666,
-      "match_name": "Renato Oliveira",
-      "_was_split": true
+      "match_name": "Renato Oliveira"
     },
     {
       "week": "SEMANA 26 DE MAIO–1 DE JUNHO | PROVÉRBIOS 15 Presidente: Israel Vieira",
@@ -2377,13 +2694,20 @@ export const importedHistory = {
       "raw_name": "Rozelita Sales",
       "matched_publisher_id": null,
       "match_score": 0.5416666666666666,
-      "match_name": "Renato Oliveira",
-      "_was_split": true
+      "match_name": "Renato Oliveira"
     },
     {
       "week": "SEMANA 26 DE MAIO–1 DE JUNHO | PROVÉRBIOS 15 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Marilene Queiroz Neuza Campanha",
+      "raw_name": "Marilene Queiroz",
+      "matched_publisher_id": null,
+      "match_score": 0.4782608695652174,
+      "match_name": "Edmardo Queiroz"
+    },
+    {
+      "week": "SEMANA 26 DE MAIO–1 DE JUNHO | PROVÉRBIOS 15 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Neuza Campanha",
       "matched_publisher_id": null,
       "match_score": 0.4782608695652174,
       "match_name": "Edmardo Queiroz"
@@ -2394,8 +2718,7 @@ export const importedHistory = {
       "raw_name": "Keyla Costa",
       "matched_publisher_id": null,
       "match_score": 0.425531914893617,
-      "match_name": "Rosa da Silva Miranda",
-      "_was_split": true
+      "match_name": "Rosa da Silva Miranda"
     },
     {
       "week": "SEMANA 26 DE MAIO–1 DE JUNHO | PROVÉRBIOS 15 Presidente: Israel Vieira",
@@ -2403,8 +2726,7 @@ export const importedHistory = {
       "raw_name": "Daniele Santos",
       "matched_publisher_id": null,
       "match_score": 0.425531914893617,
-      "match_name": "Rosa da Silva Miranda",
-      "_was_split": true
+      "match_name": "Rosa da Silva Miranda"
     },
     {
       "week": "SEMANA 26 DE MAIO–1 DE JUNHO | PROVÉRBIOS 15 Presidente: Israel Vieira",
@@ -2473,7 +2795,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 2- 8 DE JUNHO | PROVÉRBIOS 16 Presidente: Eliezer Rosa",
       "part": "Parte Desconhecida",
-      "raw_name": "Érika Segall Edna Costa",
+      "raw_name": "Érika Segall",
+      "matched_publisher_id": null,
+      "match_score": 0.5,
+      "match_name": "Aila Rosana Porto"
+    },
+    {
+      "week": "SEMANA 2- 8 DE JUNHO | PROVÉRBIOS 16 Presidente: Eliezer Rosa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Edna Costa",
       "matched_publisher_id": null,
       "match_score": 0.5,
       "match_name": "Aila Rosana Porto"
@@ -2484,8 +2814,7 @@ export const importedHistory = {
       "raw_name": "Felipe Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.6511627906976745,
-      "match_name": "Filipe Oliveira",
-      "_was_split": true
+      "match_name": "Filipe Oliveira"
     },
     {
       "week": "SEMANA 2- 8 DE JUNHO | PROVÉRBIOS 16 Presidente: Eliezer Rosa",
@@ -2493,8 +2822,7 @@ export const importedHistory = {
       "raw_name": "Eryck Segall",
       "matched_publisher_id": null,
       "match_score": 0.6511627906976745,
-      "match_name": "Filipe Oliveira",
-      "_was_split": true
+      "match_name": "Filipe Oliveira"
     },
     {
       "week": "SEMANA 2- 8 DE JUNHO | PROVÉRBIOS 16 Presidente: Eliezer Rosa",
@@ -2571,7 +2899,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 9-15 DE JUNHO | PROVÉRBIOS 17 Presidente: Marcos Vinícios",
       "part": "Parte Desconhecida",
-      "raw_name": "Marcela Resmann Ágatha Nascimento",
+      "raw_name": "Marcela Resmann",
+      "matched_publisher_id": null,
+      "match_score": 0.6909090909090909,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 9-15 DE JUNHO | PROVÉRBIOS 17 Presidente: Marcos Vinícios",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Ágatha Nascimento",
       "matched_publisher_id": null,
       "match_score": 0.6909090909090909,
       "match_name": "Lamara Rosa Nascimento"
@@ -2659,7 +2995,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 16 - 22 DE JUNHO | PROVÉRBIOS 18 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Margarete Venturin Raquel Oliveira",
+      "raw_name": "Margarete Venturin",
+      "matched_publisher_id": null,
+      "match_score": 0.5660377358490566,
+      "match_name": "Patrick de Oliveira"
+    },
+    {
+      "week": "SEMANA 16 - 22 DE JUNHO | PROVÉRBIOS 18 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Raquel Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.5660377358490566,
       "match_name": "Patrick de Oliveira"
@@ -2667,7 +3011,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 16 - 22 DE JUNHO | PROVÉRBIOS 18 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Ágatha Nascimento Suellen Correa",
+      "raw_name": "Ágatha Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.52,
+      "match_name": "Antônio Nascimento"
+    },
+    {
+      "week": "SEMANA 16 - 22 DE JUNHO | PROVÉRBIOS 18 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Suellen Correa",
       "matched_publisher_id": null,
       "match_score": 0.52,
       "match_name": "Antônio Nascimento"
@@ -2675,7 +3027,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 16 - 22 DE JUNHO | PROVÉRBIOS 18 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Fernando Balieira Patrick Oliveira",
+      "raw_name": "Fernando Balieira",
+      "matched_publisher_id": null,
+      "match_score": 0.6037735849056604,
+      "match_name": "Patrick de Oliveira"
+    },
+    {
+      "week": "SEMANA 16 - 22 DE JUNHO | PROVÉRBIOS 18 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Patrick Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.6037735849056604,
       "match_name": "Patrick de Oliveira"
@@ -2763,7 +3123,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 23 -29 DE JUNHO | PROVÉRBIOS 19 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Ariane Bello Mara Rúbia",
+      "raw_name": "Ariane Bello",
+      "matched_publisher_id": null,
+      "match_score": 0.43478260869565216,
+      "match_name": "Solange Telles Pessanha"
+    },
+    {
+      "week": "SEMANA 23 -29 DE JUNHO | PROVÉRBIOS 19 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Mara Rúbia",
       "matched_publisher_id": null,
       "match_score": 0.43478260869565216,
       "match_name": "Solange Telles Pessanha"
@@ -2843,7 +3211,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 30 DE JUNH– 6 DE JULHO | PROVÉRBIOS 20 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Reica Santana Ana Paula",
+      "raw_name": "Reica Santana",
+      "matched_publisher_id": null,
+      "match_score": 0.5,
+      "match_name": "Brenda Cristine Cunha Pacheco"
+    },
+    {
+      "week": "SEMANA 30 DE JUNH– 6 DE JULHO | PROVÉRBIOS 20 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Ana Paula",
       "matched_publisher_id": null,
       "match_score": 0.5,
       "match_name": "Brenda Cristine Cunha Pacheco"
@@ -2851,7 +3227,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 30 DE JUNH– 6 DE JULHO | PROVÉRBIOS 20 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Neuza Campanha Keyla Costa",
+      "raw_name": "Neuza Campanha",
+      "matched_publisher_id": null,
+      "match_score": 0.4,
+      "match_name": "Brenda Cristine Cunha Pacheco"
+    },
+    {
+      "week": "SEMANA 30 DE JUNH– 6 DE JULHO | PROVÉRBIOS 20 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Keyla Costa",
       "matched_publisher_id": null,
       "match_score": 0.4,
       "match_name": "Brenda Cristine Cunha Pacheco"
@@ -2859,7 +3243,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 30 DE JUNH– 6 DE JULHO | PROVÉRBIOS 20 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Nanci Celia Débora Cristine",
+      "raw_name": "Nanci Celia",
+      "matched_publisher_id": null,
+      "match_score": 0.45454545454545453,
+      "match_name": "Aila Rosana Porto"
+    },
+    {
+      "week": "SEMANA 30 DE JUNH– 6 DE JULHO | PROVÉRBIOS 20 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Débora Cristine",
       "matched_publisher_id": null,
       "match_score": 0.45454545454545453,
       "match_name": "Aila Rosana Porto"
@@ -2939,7 +3331,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 7-13 DE JULHO | PROVÉRBIOS 21 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Célia Regina Josyane Cristina",
+      "raw_name": "Célia Regina",
+      "matched_publisher_id": null,
+      "match_score": 0.5769230769230769,
+      "match_name": "Célia Regina Figueiredo"
+    },
+    {
+      "week": "SEMANA 7-13 DE JULHO | PROVÉRBIOS 21 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Josyane Cristina",
       "matched_publisher_id": null,
       "match_score": 0.5769230769230769,
       "match_name": "Célia Regina Figueiredo"
@@ -2947,7 +3347,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 7-13 DE JULHO | PROVÉRBIOS 21 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Malena Colangero Dayse Campos",
+      "raw_name": "Malena Colangero",
+      "matched_publisher_id": null,
+      "match_score": 0.45454545454545453,
+      "match_name": "Alexandre Lopes"
+    },
+    {
+      "week": "SEMANA 7-13 DE JULHO | PROVÉRBIOS 21 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Dayse Campos",
       "matched_publisher_id": null,
       "match_score": 0.45454545454545453,
       "match_name": "Alexandre Lopes"
@@ -2955,7 +3363,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 7-13 DE JULHO | PROVÉRBIOS 21 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Saniyuriss Bernardes Luciana Cândida",
+      "raw_name": "Saniyuriss Bernardes",
+      "matched_publisher_id": null,
+      "match_score": 0.4,
+      "match_name": "Patrick de Oliveira"
+    },
+    {
+      "week": "SEMANA 7-13 DE JULHO | PROVÉRBIOS 21 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Luciana Cândida",
       "matched_publisher_id": null,
       "match_score": 0.4,
       "match_name": "Patrick de Oliveira"
@@ -3027,7 +3443,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 14 - 20 DE JULHO | PROVÉRBIOS 22 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Sandra Duarte Rozelita Sales",
+      "raw_name": "Sandra Duarte",
+      "matched_publisher_id": null,
+      "match_score": 0.42857142857142855,
+      "match_name": "Samuel Almeida"
+    },
+    {
+      "week": "SEMANA 14 - 20 DE JULHO | PROVÉRBIOS 22 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Rozelita Sales",
       "matched_publisher_id": null,
       "match_score": 0.42857142857142855,
       "match_name": "Samuel Almeida"
@@ -3035,7 +3459,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 14 - 20 DE JULHO | PROVÉRBIOS 22 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Michele Camillo Maria de Lourdes",
+      "raw_name": "Michele Camillo",
+      "matched_publisher_id": null,
+      "match_score": 0.43478260869565216,
+      "match_name": "Gabriel Camilo"
+    },
+    {
+      "week": "SEMANA 14 - 20 DE JULHO | PROVÉRBIOS 22 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Maria de Lourdes",
       "matched_publisher_id": null,
       "match_score": 0.43478260869565216,
       "match_name": "Gabriel Camilo"
@@ -3115,7 +3547,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 21-27 DE JULHO | PROVÉRBIOS 23 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Daniel Carneiro Daniel Silva",
+      "raw_name": "Daniel Carneiro",
+      "matched_publisher_id": null,
+      "match_score": 0.4888888888888889,
+      "match_name": "Daniel Figueiredo"
+    },
+    {
+      "week": "SEMANA 21-27 DE JULHO | PROVÉRBIOS 23 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Daniel Silva",
       "matched_publisher_id": null,
       "match_score": 0.4888888888888889,
       "match_name": "Daniel Figueiredo"
@@ -3123,7 +3563,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 21-27 DE JULHO | PROVÉRBIOS 23 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Terezinha Oliveira Iná Trancoso",
+      "raw_name": "Terezinha Oliveira",
+      "matched_publisher_id": null,
+      "match_score": 0.5652173913043478,
+      "match_name": "Renato Oliveira"
+    },
+    {
+      "week": "SEMANA 21-27 DE JULHO | PROVÉRBIOS 23 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Iná Trancoso",
       "matched_publisher_id": null,
       "match_score": 0.5652173913043478,
       "match_name": "Renato Oliveira"
@@ -3134,8 +3582,7 @@ export const importedHistory = {
       "raw_name": "Júnior Fouraux",
       "matched_publisher_id": null,
       "match_score": 0.5384615384615384,
-      "match_name": "Tatiana Muriel Fouraux",
-      "_was_split": true
+      "match_name": "Tatiana Muriel Fouraux"
     },
     {
       "week": "SEMANA 21-27 DE JULHO | PROVÉRBIOS 23 Presidente: Renato Oliveira",
@@ -3143,8 +3590,7 @@ export const importedHistory = {
       "raw_name": "Gabriel Fouraux",
       "matched_publisher_id": null,
       "match_score": 0.5384615384615384,
-      "match_name": "Tatiana Muriel Fouraux",
-      "_was_split": true
+      "match_name": "Tatiana Muriel Fouraux"
     },
     {
       "week": "SEMANA 21-27 DE JULHO | PROVÉRBIOS 23 Presidente: Renato Oliveira",
@@ -3205,7 +3651,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 4 -10 DE AGOSTO | PROVÉRBIOS 25 Presidente: Eliezer Rosa",
       "part": "Parte Desconhecida",
-      "raw_name": "Márcia Bragança Julianne Pereira",
+      "raw_name": "Márcia Bragança",
+      "matched_publisher_id": null,
+      "match_score": 0.425531914893617,
+      "match_name": "Renato Oliveira"
+    },
+    {
+      "week": "SEMANA 4 -10 DE AGOSTO | PROVÉRBIOS 25 Presidente: Eliezer Rosa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Julianne Pereira",
       "matched_publisher_id": null,
       "match_score": 0.425531914893617,
       "match_name": "Renato Oliveira"
@@ -3213,7 +3667,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 4 -10 DE AGOSTO | PROVÉRBIOS 25 Presidente: Eliezer Rosa",
       "part": "Parte Desconhecida",
-      "raw_name": "Beatriz Pessoa Yngrid França",
+      "raw_name": "Beatriz Pessoa",
+      "matched_publisher_id": null,
+      "match_score": 0.5714285714285714,
+      "match_name": "Emerson França"
+    },
+    {
+      "week": "SEMANA 4 -10 DE AGOSTO | PROVÉRBIOS 25 Presidente: Eliezer Rosa",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Yngrid França",
       "matched_publisher_id": null,
       "match_score": 0.5714285714285714,
       "match_name": "Emerson França"
@@ -3269,7 +3731,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 11-17 DE AGOSTO | PROVÉRBIOS 26 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Eliana Souza Mylena Balieira",
+      "raw_name": "Eliana Souza",
+      "matched_publisher_id": null,
+      "match_score": 0.46511627906976744,
+      "match_name": "Filipe Oliveira"
+    },
+    {
+      "week": "SEMANA 11-17 DE AGOSTO | PROVÉRBIOS 26 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Mylena Balieira",
       "matched_publisher_id": null,
       "match_score": 0.46511627906976744,
       "match_name": "Filipe Oliveira"
@@ -3277,7 +3747,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 11-17 DE AGOSTO | PROVÉRBIOS 26 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Maria Izabel Elina Mendes",
+      "raw_name": "Maria Izabel",
+      "matched_publisher_id": null,
+      "match_score": 0.4864864864864865,
+      "match_name": "Tânia Mendes"
+    },
+    {
+      "week": "SEMANA 11-17 DE AGOSTO | PROVÉRBIOS 26 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Elina Mendes",
       "matched_publisher_id": null,
       "match_score": 0.4864864864864865,
       "match_name": "Tânia Mendes"
@@ -3357,7 +3835,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 18 - 24 DE AGOSTO | PROVÉRBIOS 27 Presidente: Marcos Vinícios",
       "part": "Parte Desconhecida",
-      "raw_name": "Michele Camillo Dayse Campos",
+      "raw_name": "Michele Camillo",
+      "matched_publisher_id": null,
+      "match_score": 0.5,
+      "match_name": "Carlos Ramos"
+    },
+    {
+      "week": "SEMANA 18 - 24 DE AGOSTO | PROVÉRBIOS 27 Presidente: Marcos Vinícios",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Dayse Campos",
       "matched_publisher_id": null,
       "match_score": 0.5,
       "match_name": "Carlos Ramos"
@@ -3445,7 +3931,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 25 - 31 DE AGOSTO | PROVÉRBIOS 28 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Sandra Duarte Rozelita Sales",
+      "raw_name": "Sandra Duarte",
+      "matched_publisher_id": null,
+      "match_score": 0.42857142857142855,
+      "match_name": "Samuel Almeida"
+    },
+    {
+      "week": "SEMANA 25 - 31 DE AGOSTO | PROVÉRBIOS 28 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Rozelita Sales",
       "matched_publisher_id": null,
       "match_score": 0.42857142857142855,
       "match_name": "Samuel Almeida"
@@ -3453,7 +3947,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 25 - 31 DE AGOSTO | PROVÉRBIOS 28 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Reica Santana Keyla Costa",
+      "raw_name": "Reica Santana",
+      "matched_publisher_id": null,
+      "match_score": 0.47619047619047616,
+      "match_name": "Aila Rosana Porto"
+    },
+    {
+      "week": "SEMANA 25 - 31 DE AGOSTO | PROVÉRBIOS 28 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Keyla Costa",
       "matched_publisher_id": null,
       "match_score": 0.47619047619047616,
       "match_name": "Aila Rosana Porto"
@@ -3461,7 +3963,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 25 - 31 DE AGOSTO | PROVÉRBIOS 28 Presidente: Marcos Rogério",
       "part": "Parte Desconhecida",
-      "raw_name": "Neuza Campanha Raquel Oliveira",
+      "raw_name": "Neuza Campanha",
+      "matched_publisher_id": null,
+      "match_score": 0.5306122448979592,
+      "match_name": "Patrick de Oliveira"
+    },
+    {
+      "week": "SEMANA 25 - 31 DE AGOSTO | PROVÉRBIOS 28 Presidente: Marcos Rogério",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Raquel Oliveira",
       "matched_publisher_id": null,
       "match_score": 0.5306122448979592,
       "match_name": "Patrick de Oliveira"
@@ -3549,7 +4059,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 1-7 DE SETEMBRO | PROVÉRBIOS 29 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Ariane Bello Mylena Balieira",
+      "raw_name": "Ariane Bello",
+      "matched_publisher_id": null,
+      "match_score": 0.5238095238095238,
+      "match_name": "Ivone Oliveira"
+    },
+    {
+      "week": "SEMANA 1-7 DE SETEMBRO | PROVÉRBIOS 29 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Mylena Balieira",
       "matched_publisher_id": null,
       "match_score": 0.5238095238095238,
       "match_name": "Ivone Oliveira"
@@ -3557,7 +4075,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 1-7 DE SETEMBRO | PROVÉRBIOS 29 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Débora Cristine Mara Rúbia",
+      "raw_name": "Débora Cristine",
+      "matched_publisher_id": null,
+      "match_score": 0.5818181818181818,
+      "match_name": "Brenda Cristine Cunha Pacheco"
+    },
+    {
+      "week": "SEMANA 1-7 DE SETEMBRO | PROVÉRBIOS 29 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Mara Rúbia",
       "matched_publisher_id": null,
       "match_score": 0.5818181818181818,
       "match_name": "Brenda Cristine Cunha Pacheco"
@@ -3565,7 +4091,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 1-7 DE SETEMBRO | PROVÉRBIOS 29 Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Ágatha Nascimento  Larissa Queiroz",
+      "raw_name": "Ágatha Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.5,
+      "match_name": "Antônio Nascimento"
+    },
+    {
+      "week": "SEMANA 1-7 DE SETEMBRO | PROVÉRBIOS 29 Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Larissa Queiroz",
       "matched_publisher_id": null,
       "match_score": 0.5,
       "match_name": "Antônio Nascimento"
@@ -3645,7 +4179,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 8 -14 DE SETEMBRO | PROVÉRBIOS 30 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Luciana Alves Isabelle Cruz",
+      "raw_name": "Luciana Alves",
+      "matched_publisher_id": null,
+      "match_score": 0.43137254901960786,
+      "match_name": "Maria José Tonon da Cruz"
+    },
+    {
+      "week": "SEMANA 8 -14 DE SETEMBRO | PROVÉRBIOS 30 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Isabelle Cruz",
       "matched_publisher_id": null,
       "match_score": 0.43137254901960786,
       "match_name": "Maria José Tonon da Cruz"
@@ -3653,7 +4195,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 8 -14 DE SETEMBRO | PROVÉRBIOS 30 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Maria de Lourdes Jacyra Eugênio",
+      "raw_name": "Maria de Lourdes",
+      "matched_publisher_id": null,
+      "match_score": 0.4528301886792453,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 8 -14 DE SETEMBRO | PROVÉRBIOS 30 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Jacyra Eugênio",
       "matched_publisher_id": null,
       "match_score": 0.4528301886792453,
       "match_name": "Lamara Rosa Nascimento"
@@ -3661,7 +4211,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 8 -14 DE SETEMBRO | PROVÉRBIOS 30 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Marcela Resmann Malena Colangero",
+      "raw_name": "Marcela Resmann",
+      "matched_publisher_id": null,
+      "match_score": 0.5769230769230769,
+      "match_name": "Marcela Gomes Coelho"
+    },
+    {
+      "week": "SEMANA 8 -14 DE SETEMBRO | PROVÉRBIOS 30 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Malena Colangero",
       "matched_publisher_id": null,
       "match_score": 0.5769230769230769,
       "match_name": "Marcela Gomes Coelho"
@@ -3733,7 +4291,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 15 -21 DE SETEMBRO | PROVÉRBIOS 31 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Waleska Nascimento Marilene Queiroz",
+      "raw_name": "Waleska Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.49122807017543857,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 15 -21 DE SETEMBRO | PROVÉRBIOS 31 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Marilene Queiroz",
       "matched_publisher_id": null,
       "match_score": 0.49122807017543857,
       "match_name": "Lamara Rosa Nascimento"
@@ -3741,7 +4307,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 15 -21 DE SETEMBRO | PROVÉRBIOS 31 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Vitoria Emanuelle Margarete Venturin",
+      "raw_name": "Vitoria Emanuelle",
+      "matched_publisher_id": null,
+      "match_score": 0.40816326530612246,
+      "match_name": "Vitor Correia"
+    },
+    {
+      "week": "SEMANA 15 -21 DE SETEMBRO | PROVÉRBIOS 31 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Margarete Venturin",
       "matched_publisher_id": null,
       "match_score": 0.40816326530612246,
       "match_name": "Vitor Correia"
@@ -3749,7 +4323,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 15 -21 DE SETEMBRO | PROVÉRBIOS 31 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Terezinha Oliveira Ivone Balieira",
+      "raw_name": "Terezinha Oliveira",
+      "matched_publisher_id": null,
+      "match_score": 0.5416666666666666,
+      "match_name": "Renato Oliveira"
+    },
+    {
+      "week": "SEMANA 15 -21 DE SETEMBRO | PROVÉRBIOS 31 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Ivone Balieira",
       "matched_publisher_id": null,
       "match_score": 0.5416666666666666,
       "match_name": "Renato Oliveira"
@@ -3829,7 +4411,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 22-28 DE SETEMBRO ECLESIASTES 1 - 2 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Érika Segall Gérbera Nascimento",
+      "raw_name": "Érika Segall",
+      "matched_publisher_id": null,
+      "match_score": 0.6037735849056604,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 22-28 DE SETEMBRO ECLESIASTES 1 - 2 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Gérbera Nascimento",
       "matched_publisher_id": null,
       "match_score": 0.6037735849056604,
       "match_name": "Lamara Rosa Nascimento"
@@ -3837,7 +4427,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 22-28 DE SETEMBRO ECLESIASTES 1 - 2 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Yngrid França Geysa Nascimento",
+      "raw_name": "Yngrid França",
+      "matched_publisher_id": null,
+      "match_score": 0.6153846153846154,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 22-28 DE SETEMBRO ECLESIASTES 1 - 2 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Geysa Nascimento",
       "matched_publisher_id": null,
       "match_score": 0.6153846153846154,
       "match_name": "Lamara Rosa Nascimento"
@@ -3845,7 +4443,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 22-28 DE SETEMBRO ECLESIASTES 1 - 2 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Sirlene Ramos Edna Costa",
+      "raw_name": "Sirlene Ramos",
+      "matched_publisher_id": null,
+      "match_score": 0.5365853658536586,
+      "match_name": "Aila Rosana Porto"
+    },
+    {
+      "week": "SEMANA 22-28 DE SETEMBRO ECLESIASTES 1 - 2 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Edna Costa",
       "matched_publisher_id": null,
       "match_score": 0.5365853658536586,
       "match_name": "Aila Rosana Porto"
@@ -3853,7 +4459,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 22-28 DE SETEMBRO ECLESIASTES 1 - 2 Presidente: Renato Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Suellen Correa Elina Mendes",
+      "raw_name": "Suellen Correa",
+      "matched_publisher_id": null,
+      "match_score": 0.5128205128205128,
+      "match_name": "Tânia Mendes"
+    },
+    {
+      "week": "SEMANA 22-28 DE SETEMBRO ECLESIASTES 1 - 2 Presidente: Renato Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Elina Mendes",
       "matched_publisher_id": null,
       "match_score": 0.5128205128205128,
       "match_name": "Tânia Mendes"
@@ -3925,7 +4539,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 29 DE SET– 5 DE OUT | ECLESIASTES 3 - 4 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Suellen Correa Elina Mendes",
+      "raw_name": "Suellen Correa",
+      "matched_publisher_id": null,
+      "match_score": 0.5128205128205128,
+      "match_name": "Tânia Mendes"
+    },
+    {
+      "week": "SEMANA 29 DE SET– 5 DE OUT | ECLESIASTES 3 - 4 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Elina Mendes",
       "matched_publisher_id": null,
       "match_score": 0.5128205128205128,
       "match_name": "Tânia Mendes"
@@ -3933,7 +4555,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 29 DE SET– 5 DE OUT | ECLESIASTES 3 - 4 Presidente: Domingos Oliveira",
       "part": "Parte Desconhecida",
-      "raw_name": "Patrick Oliveira Junior Fouraux",
+      "raw_name": "Patrick Oliveira",
+      "matched_publisher_id": null,
+      "match_score": 0.64,
+      "match_name": "Patrick de Oliveira"
+    },
+    {
+      "week": "SEMANA 29 DE SET– 5 DE OUT | ECLESIASTES 3 - 4 Presidente: Domingos Oliveira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Junior Fouraux",
       "matched_publisher_id": null,
       "match_score": 0.64,
       "match_name": "Patrick de Oliveira"
@@ -4021,7 +4651,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 6 -12 DE OUTUBRO | ECLESIASTES 5 - 6 Presidente: Israel Vieira",
       "part": "Parte Desconhecida",
-      "raw_name": "Edna Costa Neuza Campanha",
+      "raw_name": "Edna Costa",
+      "matched_publisher_id": null,
+      "match_score": 0.5185185185185185,
+      "match_name": "Brenda Cristine Cunha Pacheco"
+    },
+    {
+      "week": "SEMANA 6 -12 DE OUTUBRO | ECLESIASTES 5 - 6 Presidente: Israel Vieira",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Neuza Campanha",
       "matched_publisher_id": null,
       "match_score": 0.5185185185185185,
       "match_name": "Brenda Cristine Cunha Pacheco"
@@ -4032,8 +4670,7 @@ export const importedHistory = {
       "raw_name": "Alexsandro Lopes",
       "matched_publisher_id": null,
       "match_score": 0.6222222222222222,
-      "match_name": "Alexandre Lopes",
-      "_was_split": true
+      "match_name": "Alexandre Lopes"
     },
     {
       "week": "SEMANA 6 -12 DE OUTUBRO | ECLESIASTES 5 - 6 Presidente: Israel Vieira",
@@ -4041,8 +4678,7 @@ export const importedHistory = {
       "raw_name": "Victor Correa",
       "matched_publisher_id": null,
       "match_score": 0.6222222222222222,
-      "match_name": "Alexandre Lopes",
-      "_was_split": true
+      "match_name": "Alexandre Lopes"
     },
     {
       "week": "SEMANA 6 -12 DE OUTUBRO | ECLESIASTES 5 - 6 Presidente: Israel Vieira",
@@ -4119,7 +4755,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 13 -19 DE OUTUBRO | ECLESIASTES 7- 8 Presidente: José Luiz Fouraux",
       "part": "Parte Desconhecida",
-      "raw_name": "Luciana Marques Sandra Duarte",
+      "raw_name": "Luciana Marques",
+      "matched_publisher_id": null,
+      "match_score": 0.47058823529411764,
+      "match_name": "Tatiana Muriel Fouraux"
+    },
+    {
+      "week": "SEMANA 13 -19 DE OUTUBRO | ECLESIASTES 7- 8 Presidente: José Luiz Fouraux",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Sandra Duarte",
       "matched_publisher_id": null,
       "match_score": 0.47058823529411764,
       "match_name": "Tatiana Muriel Fouraux"
@@ -4127,7 +4771,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 13 -19 DE OUTUBRO | ECLESIASTES 7- 8 Presidente: José Luiz Fouraux",
       "part": "Parte Desconhecida",
-      "raw_name": "Margarete Venturin Suellen Correa",
+      "raw_name": "Margarete Venturin",
+      "matched_publisher_id": null,
+      "match_score": 0.42857142857142855,
+      "match_name": "Solange Telles Pessanha"
+    },
+    {
+      "week": "SEMANA 13 -19 DE OUTUBRO | ECLESIASTES 7- 8 Presidente: José Luiz Fouraux",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Suellen Correa",
       "matched_publisher_id": null,
       "match_score": 0.42857142857142855,
       "match_name": "Solange Telles Pessanha"
@@ -4135,7 +4787,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 13 -19 DE OUTUBRO | ECLESIASTES 7- 8 Presidente: José Luiz Fouraux",
       "part": "Parte Desconhecida",
-      "raw_name": "Gérbera Nascimento Maria de Lourdes",
+      "raw_name": "Gérbera Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.49122807017543857,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 13 -19 DE OUTUBRO | ECLESIASTES 7- 8 Presidente: José Luiz Fouraux",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Maria de Lourdes",
       "matched_publisher_id": null,
       "match_score": 0.49122807017543857,
       "match_name": "Lamara Rosa Nascimento"
@@ -4143,7 +4803,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 13 -19 DE OUTUBRO | ECLESIASTES 7- 8 Presidente: José Luiz Fouraux",
       "part": "Parte Desconhecida",
-      "raw_name": "Débora Cristine Rozelita Sales",
+      "raw_name": "Débora Cristine",
+      "matched_publisher_id": null,
+      "match_score": 0.576271186440678,
+      "match_name": "Brenda Cristine Cunha Pacheco"
+    },
+    {
+      "week": "SEMANA 13 -19 DE OUTUBRO | ECLESIASTES 7- 8 Presidente: José Luiz Fouraux",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Rozelita Sales",
       "matched_publisher_id": null,
       "match_score": 0.576271186440678,
       "match_name": "Brenda Cristine Cunha Pacheco"
@@ -4223,7 +4891,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 20 -26 DE OUTUBRO | ECLESIASTES 9 - 10 Presidente: Edmilson Monteiro",
       "part": "Parte Desconhecida",
-      "raw_name": "Geysa Nascimento Vitoria Emanuelle",
+      "raw_name": "Geysa Nascimento",
+      "matched_publisher_id": null,
+      "match_score": 0.4642857142857143,
+      "match_name": "Lamara Rosa Nascimento"
+    },
+    {
+      "week": "SEMANA 20 -26 DE OUTUBRO | ECLESIASTES 9 - 10 Presidente: Edmilson Monteiro",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Vitoria Emanuelle",
       "matched_publisher_id": null,
       "match_score": 0.4642857142857143,
       "match_name": "Lamara Rosa Nascimento"
@@ -4234,8 +4910,7 @@ export const importedHistory = {
       "raw_name": "Daniel Silva",
       "matched_publisher_id": null,
       "match_score": 0.5625,
-      "match_name": "André Luz",
-      "_was_split": true
+      "match_name": "André Luz"
     },
     {
       "week": "SEMANA 20 -26 DE OUTUBRO | ECLESIASTES 9 - 10 Presidente: Edmilson Monteiro",
@@ -4243,8 +4918,7 @@ export const importedHistory = {
       "raw_name": "André Luiz",
       "matched_publisher_id": null,
       "match_score": 0.5625,
-      "match_name": "André Luz",
-      "_was_split": true
+      "match_name": "André Luz"
     },
     {
       "week": "SEMANA 20 -26 DE OUTUBRO | ECLESIASTES 9 - 10 Presidente: Edmilson Monteiro",
@@ -4313,7 +4987,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 27 DE OUT– 2 DE NOV | ECLESIASTES 11-12 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Mylena Balieira Larissa Queiroz",
+      "raw_name": "Mylena Balieira",
+      "matched_publisher_id": null,
+      "match_score": 0.5084745762711864,
+      "match_name": "Melissa Rachel Porto Queiroz"
+    },
+    {
+      "week": "SEMANA 27 DE OUT– 2 DE NOV | ECLESIASTES 11-12 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Larissa Queiroz",
       "matched_publisher_id": null,
       "match_score": 0.5084745762711864,
       "match_name": "Melissa Rachel Porto Queiroz"
@@ -4321,7 +5003,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 27 DE OUT– 2 DE NOV | ECLESIASTES 11-12 Presidente: Edmardo Queiroz",
       "part": "Parte Desconhecida",
-      "raw_name": "Isabelle Cruz Silva Érika Segall",
+      "raw_name": "Isabelle Cruz Silva",
+      "matched_publisher_id": null,
+      "match_score": 0.49056603773584906,
+      "match_name": "Rosa da Silva Miranda"
+    },
+    {
+      "week": "SEMANA 27 DE OUT– 2 DE NOV | ECLESIASTES 11-12 Presidente: Edmardo Queiroz",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Érika Segall",
       "matched_publisher_id": null,
       "match_score": 0.49056603773584906,
       "match_name": "Rosa da Silva Miranda"
@@ -4409,7 +5099,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 3 -9 DE NOVEMBRO | CÂNTICO DE  SALOMÃO 1 - 2",
       "part": "Parte Desconhecida",
-      "raw_name": "Saymon Schultz Maria de Lourdes",
+      "raw_name": "Saymon Schultz",
+      "matched_publisher_id": null,
+      "match_score": 0.4489795918367347,
+      "match_name": "Olívia Maria Porto"
+    },
+    {
+      "week": "SEMANA 3 -9 DE NOVEMBRO | CÂNTICO DE  SALOMÃO 1 - 2",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Maria de Lourdes",
       "matched_publisher_id": null,
       "match_score": 0.4489795918367347,
       "match_name": "Olívia Maria Porto"
@@ -4417,7 +5115,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 3 -9 DE NOVEMBRO | CÂNTICO DE  SALOMÃO 1 - 2",
       "part": "Parte Desconhecida",
-      "raw_name": "Eryck Segall Vinícius Pessanha",
+      "raw_name": "Eryck Segall",
+      "matched_publisher_id": null,
+      "match_score": 0.6808510638297872,
+      "match_name": "Vinicius Pessanha"
+    },
+    {
+      "week": "SEMANA 3 -9 DE NOVEMBRO | CÂNTICO DE  SALOMÃO 1 - 2",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Vinícius Pessanha",
       "matched_publisher_id": null,
       "match_score": 0.6808510638297872,
       "match_name": "Vinicius Pessanha"
@@ -4505,7 +5211,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 10-16 DE NOVEMBRO | CÂNTICO DE  SALOMÃO 3 - 5",
       "part": "Parte Desconhecida",
-      "raw_name": "Inêz Monteiro Márcia Bragança",
+      "raw_name": "Inêz Monteiro",
+      "matched_publisher_id": null,
+      "match_score": 0.4782608695652174,
+      "match_name": "Edmilson Monteiro"
+    },
+    {
+      "week": "SEMANA 10-16 DE NOVEMBRO | CÂNTICO DE  SALOMÃO 3 - 5",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Márcia Bragança",
       "matched_publisher_id": null,
       "match_score": 0.4782608695652174,
       "match_name": "Edmilson Monteiro"
@@ -4513,7 +5227,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 10-16 DE NOVEMBRO | CÂNTICO DE  SALOMÃO 3 - 5",
       "part": "Parte Desconhecida",
-      "raw_name": "Maria Izabel Luciana Alves",
+      "raw_name": "Maria Izabel",
+      "matched_publisher_id": null,
+      "match_score": 0.43902439024390244,
+      "match_name": "Aparecida Baldi"
+    },
+    {
+      "week": "SEMANA 10-16 DE NOVEMBRO | CÂNTICO DE  SALOMÃO 3 - 5",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Luciana Alves",
       "matched_publisher_id": null,
       "match_score": 0.43902439024390244,
       "match_name": "Aparecida Baldi"
@@ -4593,7 +5315,15 @@ export const importedHistory = {
     {
       "week": "SEMANA 24 - 30 DE NOVEMBRO ISAÍAS 1 - 2  Presidente: Diego Fontana",
       "part": "Parte Desconhecida",
-      "raw_name": "Marcela Resmann Josyane Vieira",
+      "raw_name": "Marcela Resmann",
+      "matched_publisher_id": null,
+      "match_score": 0.52,
+      "match_name": "Marcela Gomes Coelho"
+    },
+    {
+      "week": "SEMANA 24 - 30 DE NOVEMBRO ISAÍAS 1 - 2  Presidente: Diego Fontana",
+      "part": "Parte Desconhecida (Ajudante)",
+      "raw_name": "Josyane Vieira",
       "matched_publisher_id": null,
       "match_score": 0.52,
       "match_name": "Marcela Gomes Coelho"
@@ -4667,10 +5397,14 @@ export const importedHistory = {
       "best_guess": "Wanderleia Santos"
     },
     {
-      "name": "Tainá Reis Vitoria Emanuelle",
+      "name": "Tainá Reis",
       "count": 1,
-      "best_guess": "Vitor Pessanha",
-      "score": 0.42857142857142855
+      "best_guess": "Tainá Reis"
+    },
+    {
+      "name": "Vitoria Emanuelle",
+      "count": 1,
+      "best_guess": "Vitoria Emanuelle"
     },
     {
       "name": "Júnior Fouraux",
@@ -4697,16 +5431,24 @@ export const importedHistory = {
       "score": 0.46153846153846156
     },
     {
-      "name": "Saniyuriss Reis Julianne Pereira",
+      "name": "Saniyuriss Reis",
       "count": 1,
-      "best_guess": "Israel Vieira",
-      "score": 0.4444444444444444
+      "best_guess": "Saniyuriss Reis"
     },
     {
-      "name": "Josyane Vieira Jacyra Eugênio",
+      "name": "Julianne Pereira",
       "count": 1,
-      "best_guess": "Israel Vieira",
-      "score": 0.47619047619047616
+      "best_guess": "Julianne Pereira"
+    },
+    {
+      "name": "Josyane Vieira",
+      "count": 1,
+      "best_guess": "Josyane Vieira"
+    },
+    {
+      "name": "Jacyra Eugênio",
+      "count": 1,
+      "best_guess": "Jacyra Eugênio"
     },
     {
       "name": "Diego Fontana",
@@ -4721,22 +5463,34 @@ export const importedHistory = {
       "score": 0.46153846153846156
     },
     {
-      "name": "Sandra Duarte Olívia Porto",
+      "name": "Sandra Duarte",
       "count": 1,
-      "best_guess": "Olívia Maria Porto",
-      "score": 0.5454545454545454
+      "best_guess": "Sandra Duarte"
     },
     {
-      "name": "Solange Telles Ana Paula Oliveira",
+      "name": "Olívia Porto",
       "count": 1,
-      "best_guess": "Solange Telles Pessanha",
-      "score": 0.6428571428571429
+      "best_guess": "Olívia Porto"
     },
     {
-      "name": "Edna Costa Marilene Queiroz",
+      "name": "Solange Telles",
       "count": 1,
-      "best_guess": "Edmardo Queiroz",
-      "score": 0.6190476190476191
+      "best_guess": "Solange Telles"
+    },
+    {
+      "name": "Ana Paula Oliveira",
+      "count": 1,
+      "best_guess": "Ana Paula Oliveira"
+    },
+    {
+      "name": "Edna Costa",
+      "count": 1,
+      "best_guess": "Edna Costa"
+    },
+    {
+      "name": "Marilene Queiroz",
+      "count": 1,
+      "best_guess": "Marilene Queiroz"
     },
     {
       "name": "Vitor Ramos",
@@ -4769,10 +5523,14 @@ export const importedHistory = {
       "score": 0.6666666666666666
     },
     {
-      "name": "Wanderleia Santos Elza Elena",
+      "name": "Wanderleia Santos",
       "count": 1,
-      "best_guess": "Domingos Oliveira",
-      "score": 0.4
+      "best_guess": "Wanderleia Santos"
+    },
+    {
+      "name": "Elza Elena",
+      "count": 1,
+      "best_guess": "Elza Elena"
     },
     {
       "name": "Daniel Silva",
@@ -4781,22 +5539,34 @@ export const importedHistory = {
       "score": 0.56
     },
     {
-      "name": "Terezinha Oliveira Débora Cristine",
+      "name": "Terezinha Oliveira",
       "count": 1,
-      "best_guess": "Renato Oliveira",
-      "score": 0.5306122448979592
+      "best_guess": "Terezinha Oliveira"
     },
     {
-      "name": "Vitoria Emanuelle Dayse Campos",
+      "name": "Débora Cristine",
       "count": 1,
-      "best_guess": "Vitor Pessanha",
-      "score": 0.45454545454545453
+      "best_guess": "Débora Cristine"
     },
     {
-      "name": "Waleska Nascimento Ágatha do Nascimento",
+      "name": "Vitoria Emanuelle",
       "count": 1,
-      "best_guess": "Antônio Nascimento",
-      "score": 0.5263157894736842
+      "best_guess": "Vitoria Emanuelle"
+    },
+    {
+      "name": "Dayse Campos",
+      "count": 1,
+      "best_guess": "Dayse Campos"
+    },
+    {
+      "name": "Waleska Nascimento",
+      "count": 1,
+      "best_guess": "Waleska Nascimento"
+    },
+    {
+      "name": "Ágatha do Nascimento",
+      "count": 1,
+      "best_guess": "Ágatha do Nascimento"
     },
     {
       "name": "Felipe Oliveira",
@@ -4817,16 +5587,24 @@ export const importedHistory = {
       "score": 0.47619047619047616
     },
     {
-      "name": "Ana Paula Tainá Reis",
+      "name": "Ana Paula",
       "count": 1,
-      "best_guess": "Jeane Pinto Gomes",
-      "score": 0.4864864864864865
+      "best_guess": "Ana Paula"
     },
     {
-      "name": "Érika Segall Terezinha Oliveira",
+      "name": "Tainá Reis",
       "count": 1,
-      "best_guess": "Renato Oliveira",
-      "score": 0.5652173913043478
+      "best_guess": "Tainá Reis"
+    },
+    {
+      "name": "Érika Segall",
+      "count": 1,
+      "best_guess": "Érika Segall"
+    },
+    {
+      "name": "Terezinha Oliveira",
+      "count": 1,
+      "best_guess": "Terezinha Oliveira"
     },
     {
       "name": "Erick José",
@@ -4841,10 +5619,14 @@ export const importedHistory = {
       "score": 0.7027027027027027
     },
     {
-      "name": "Eliana Souza Neuza Campanha",
+      "name": "Eliana Souza",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.4897959183673469
+      "best_guess": "Eliana Souza"
+    },
+    {
+      "name": "Neuza Campanha",
+      "count": 1,
+      "best_guess": "Neuza Campanha"
     },
     {
       "name": "Victor Correa",
@@ -4865,16 +5647,24 @@ export const importedHistory = {
       "score": 0.45714285714285713
     },
     {
-      "name": "Dione Guimarães Olívia Maria",
+      "name": "Dione Guimarães",
       "count": 1,
-      "best_guess": "Olívia Maria Porto",
-      "score": 0.5217391304347826
+      "best_guess": "Dione Guimarães"
     },
     {
-      "name": "Edna Costa Raquel Oliveira",
+      "name": "Olívia Maria",
       "count": 1,
-      "best_guess": "Renato Oliveira",
-      "score": 0.6341463414634146
+      "best_guess": "Olívia Maria"
+    },
+    {
+      "name": "Edna Costa",
+      "count": 1,
+      "best_guess": "Edna Costa"
+    },
+    {
+      "name": "Raquel Oliveira",
+      "count": 1,
+      "best_guess": "Raquel Oliveira"
     },
     {
       "name": "Gérson Santos",
@@ -4883,34 +5673,54 @@ export const importedHistory = {
       "score": 0.5185185185185185
     },
     {
-      "name": "Deusedir Amorim Suellen Correa",
+      "name": "Deusedir Amorim",
       "count": 1,
-      "best_guess": "Vitor Correia",
-      "score": 0.46511627906976744
+      "best_guess": "Deusedir Amorim"
     },
     {
-      "name": "Débora Cristine Rozelita Sales",
+      "name": "Suellen Correa",
+      "count": 1,
+      "best_guess": "Suellen Correa"
+    },
+    {
+      "name": "Débora Cristine",
       "count": 2,
-      "best_guess": "Brenda Cristine Cunha Pacheco",
-      "score": 0.576271186440678
+      "best_guess": "Débora Cristine"
     },
     {
-      "name": "Daniele Santos Yngrid França",
-      "count": 1,
-      "best_guess": "Emerson França",
-      "score": 0.47619047619047616
+      "name": "Rozelita Sales",
+      "count": 2,
+      "best_guess": "Rozelita Sales"
     },
     {
-      "name": "Edlena Longo Wanderleia Santos",
+      "name": "Daniele Santos",
       "count": 1,
-      "best_guess": "Alexandre Lopes",
-      "score": 0.4444444444444444
+      "best_guess": "Daniele Santos"
     },
     {
-      "name": "Erica Vaz Waleska Nascimento",
+      "name": "Yngrid França",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.64
+      "best_guess": "Yngrid França"
+    },
+    {
+      "name": "Edlena Longo",
+      "count": 1,
+      "best_guess": "Edlena Longo"
+    },
+    {
+      "name": "Wanderleia Santos",
+      "count": 1,
+      "best_guess": "Wanderleia Santos"
+    },
+    {
+      "name": "Erica Vaz",
+      "count": 1,
+      "best_guess": "Erica Vaz"
+    },
+    {
+      "name": "Waleska Nascimento",
+      "count": 1,
+      "best_guess": "Waleska Nascimento"
     },
     {
       "name": "André Luiz",
@@ -4947,10 +5757,14 @@ export const importedHistory = {
       "score": 0.45714285714285713
     },
     {
-      "name": "Beatriz Pessoa Maria Izabel",
+      "name": "Beatriz Pessoa",
       "count": 1,
-      "best_guess": "Antônio Miguel",
-      "score": 0.43902439024390244
+      "best_guess": "Beatriz Pessoa"
+    },
+    {
+      "name": "Maria Izabel",
+      "count": 1,
+      "best_guess": "Maria Izabel"
     },
     {
       "name": "Felipe de Oliveira",
@@ -4969,10 +5783,14 @@ export const importedHistory = {
       "best_guess": "Suellen Correa"
     },
     {
-      "name": "Laramara Rosa Waleska Nascimento",
+      "name": "Laramara Rosa",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.8148148148148148
+      "best_guess": "Laramara Rosa"
+    },
+    {
+      "name": "Waleska Nascimento",
+      "count": 1,
+      "best_guess": "Waleska Nascimento"
     },
     {
       "name": "Daniel Carneiro Sandra",
@@ -4993,40 +5811,64 @@ export const importedHistory = {
       "score": 0.45454545454545453
     },
     {
-      "name": "João Paulo Erica Vaz",
+      "name": "João Paulo",
       "count": 1,
-      "best_guess": "Raquel Elvira",
-      "score": 0.42424242424242425
+      "best_guess": "João Paulo"
     },
     {
-      "name": "Margarete Venturin Erika Segall",
+      "name": "Erica Vaz",
       "count": 1,
-      "best_guess": "Israel Vieira",
-      "score": 0.4090909090909091
+      "best_guess": "Erica Vaz"
     },
     {
-      "name": "Mara Rúbia Marilene Queiroz",
+      "name": "Margarete Venturin",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.5306122448979592
+      "best_guess": "Margarete Venturin"
     },
     {
-      "name": "Geysa Nascimento Nanci Celia",
+      "name": "Erika Segall",
       "count": 1,
-      "best_guess": "Antônio Nascimento",
-      "score": 0.5217391304347826
+      "best_guess": "Erika Segall"
     },
     {
-      "name": "Gérbera Nascimento Maria de Lourdes",
+      "name": "Mara Rúbia",
+      "count": 1,
+      "best_guess": "Mara Rúbia"
+    },
+    {
+      "name": "Marilene Queiroz",
+      "count": 1,
+      "best_guess": "Marilene Queiroz"
+    },
+    {
+      "name": "Geysa Nascimento",
+      "count": 1,
+      "best_guess": "Geysa Nascimento"
+    },
+    {
+      "name": "Nanci Celia",
+      "count": 1,
+      "best_guess": "Nanci Celia"
+    },
+    {
+      "name": "Gérbera Nascimento",
       "count": 2,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.49122807017543857
+      "best_guess": "Gérbera Nascimento"
     },
     {
-      "name": "Malena Colangero Beatriz Pessoa",
+      "name": "Maria de Lourdes",
+      "count": 2,
+      "best_guess": "Maria de Lourdes"
+    },
+    {
+      "name": "Malena Colangero",
       "count": 1,
-      "best_guess": "Solange Telles Pessanha",
-      "score": 0.5185185185185185
+      "best_guess": "Malena Colangero"
+    },
+    {
+      "name": "Beatriz Pessoa",
+      "count": 1,
+      "best_guess": "Beatriz Pessoa"
     },
     {
       "name": "Patrick de O",
@@ -5035,10 +5877,14 @@ export const importedHistory = {
       "score": 0.7741935483870968
     },
     {
-      "name": "Ivone Gonçalves Marcela Resmann",
+      "name": "Ivone Gonçalves",
       "count": 1,
-      "best_guess": "Diego Resmann",
-      "score": 0.5454545454545454
+      "best_guess": "Ivone Gonçalves"
+    },
+    {
+      "name": "Marcela Resmann",
+      "count": 1,
+      "best_guess": "Marcela Resmann"
     },
     {
       "name": "Jacyra Eugênio",
@@ -5051,16 +5897,24 @@ export const importedHistory = {
       "best_guess": "Keyla Costa"
     },
     {
-      "name": "Josyane Cristina Vieira Julianne Pereira",
+      "name": "Josyane Cristina Vieira",
       "count": 1,
-      "best_guess": "Solange Telles Pessanha",
-      "score": 0.4126984126984127
+      "best_guess": "Josyane Cristina Vieira"
     },
     {
-      "name": "Márcia Bragança Ágatha do Nascimento",
+      "name": "Julianne Pereira",
       "count": 1,
-      "best_guess": "Antônio Nascimento",
-      "score": 0.5555555555555556
+      "best_guess": "Julianne Pereira"
+    },
+    {
+      "name": "Márcia Bragança",
+      "count": 1,
+      "best_guess": "Márcia Bragança"
+    },
+    {
+      "name": "Ágatha do Nascimento",
+      "count": 1,
+      "best_guess": "Ágatha do Nascimento"
     },
     {
       "name": "Victor Correa",
@@ -5079,16 +5933,24 @@ export const importedHistory = {
       "score": 0.47058823529411764
     },
     {
-      "name": "Dayse Campos Marcela Resmann",
+      "name": "Dayse Campos",
       "count": 1,
-      "best_guess": "Diego Resmann",
-      "score": 0.5365853658536586
+      "best_guess": "Dayse Campos"
     },
     {
-      "name": "Ivone Balieira Mylena Balieira",
+      "name": "Marcela Resmann",
       "count": 1,
-      "best_guess": "Ivone Oliveira",
-      "score": 0.5454545454545454
+      "best_guess": "Marcela Resmann"
+    },
+    {
+      "name": "Ivone Balieira",
+      "count": 1,
+      "best_guess": "Ivone Balieira"
+    },
+    {
+      "name": "Mylena Balieira",
+      "count": 1,
+      "best_guess": "Mylena Balieira"
     },
     {
       "name": "Vitoria Emanuelle",
@@ -5107,10 +5969,14 @@ export const importedHistory = {
       "score": 0.9411764705882353
     },
     {
-      "name": "Waleska Nascimento Márcia Rosa",
+      "name": "Waleska Nascimento",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.5384615384615384
+      "best_guess": "Waleska Nascimento"
+    },
+    {
+      "name": "Márcia Rosa",
+      "count": 1,
+      "best_guess": "Márcia Rosa"
     },
     {
       "name": "Raquel Oliveira",
@@ -5123,10 +5989,14 @@ export const importedHistory = {
       "best_guess": "Rozelita Sales"
     },
     {
-      "name": "Luciana Cândida Célia Regina",
+      "name": "Luciana Cândida",
       "count": 1,
-      "best_guess": "Célia Regina Figueiredo",
-      "score": 0.47058823529411764
+      "best_guess": "Luciana Cândida"
+    },
+    {
+      "name": "Célia Regina",
+      "count": 1,
+      "best_guess": "Célia Regina"
     },
     {
       "name": "Fernando Balieira",
@@ -5135,22 +6005,34 @@ export const importedHistory = {
       "score": 0.6875
     },
     {
-      "name": "Julianne Cravo Daniel Silva",
+      "name": "Julianne Cravo",
       "count": 1,
-      "best_guess": "Rosa da Silva Miranda",
-      "score": 0.4583333333333333
+      "best_guess": "Julianne Cravo"
     },
     {
-      "name": "Jeane Pinto Larissa Queiroz",
+      "name": "Daniel Silva",
       "count": 1,
-      "best_guess": "Jeane Pinto Gomes",
-      "score": 0.5909090909090909
+      "best_guess": "Daniel Silva"
     },
     {
-      "name": "Isabelle Cruz Beatriz Pessoa",
+      "name": "Jeane Pinto",
       "count": 1,
-      "best_guess": "Solange Telles Pessanha",
-      "score": 0.47058823529411764
+      "best_guess": "Jeane Pinto"
+    },
+    {
+      "name": "Larissa Queiroz",
+      "count": 1,
+      "best_guess": "Larissa Queiroz"
+    },
+    {
+      "name": "Isabelle Cruz",
+      "count": 1,
+      "best_guess": "Isabelle Cruz"
+    },
+    {
+      "name": "Beatriz Pessoa",
+      "count": 1,
+      "best_guess": "Beatriz Pessoa"
     },
     {
       "name": "José Fouraux",
@@ -5165,22 +6047,34 @@ export const importedHistory = {
       "score": 0.7096774193548387
     },
     {
-      "name": "Maria de Lourdes Nanci Celia",
+      "name": "Maria de Lourdes",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.52
+      "best_guess": "Maria de Lourdes"
     },
     {
-      "name": "Michele Camillo Reica Santana",
+      "name": "Nanci Celia",
       "count": 1,
-      "best_guess": "Diego Resmann",
-      "score": 0.47619047619047616
+      "best_guess": "Nanci Celia"
     },
     {
-      "name": "Mylena Balieira Ivone Balieira",
+      "name": "Michele Camillo",
       "count": 1,
-      "best_guess": "Ivone Oliveira",
-      "score": 0.5454545454545454
+      "best_guess": "Michele Camillo"
+    },
+    {
+      "name": "Reica Santana",
+      "count": 1,
+      "best_guess": "Reica Santana"
+    },
+    {
+      "name": "Mylena Balieira",
+      "count": 1,
+      "best_guess": "Mylena Balieira"
+    },
+    {
+      "name": "Ivone Balieira",
+      "count": 1,
+      "best_guess": "Ivone Balieira"
     },
     {
       "name": "Yngrid França",
@@ -5193,10 +6087,14 @@ export const importedHistory = {
       "best_guess": "Terezinha Oliveira"
     },
     {
-      "name": "Sandra Duarte Wanderleia Santos",
+      "name": "Sandra Duarte",
       "count": 1,
-      "best_guess": "Brenda Cristine Cunha Pacheco",
-      "score": 0.43333333333333335
+      "best_guess": "Sandra Duarte"
+    },
+    {
+      "name": "Wanderleia Santos",
+      "count": 1,
+      "best_guess": "Wanderleia Santos"
     },
     {
       "name": "Terezinha Oliveira",
@@ -5209,10 +6107,14 @@ export const importedHistory = {
       "best_guess": "Rozelita Sales"
     },
     {
-      "name": "Marilene Queiroz Neuza Campanha",
+      "name": "Marilene Queiroz",
       "count": 1,
-      "best_guess": "Edmardo Queiroz",
-      "score": 0.4782608695652174
+      "best_guess": "Marilene Queiroz"
+    },
+    {
+      "name": "Neuza Campanha",
+      "count": 1,
+      "best_guess": "Neuza Campanha"
     },
     {
       "name": "Keyla Costa",
@@ -5225,10 +6127,14 @@ export const importedHistory = {
       "best_guess": "Daniele Santos"
     },
     {
-      "name": "Érika Segall Edna Costa",
+      "name": "Érika Segall",
       "count": 1,
-      "best_guess": "Aila Rosana Porto",
-      "score": 0.5
+      "best_guess": "Érika Segall"
+    },
+    {
+      "name": "Edna Costa",
+      "count": 1,
+      "best_guess": "Edna Costa"
     },
     {
       "name": "Felipe Oliveira",
@@ -5241,10 +6147,14 @@ export const importedHistory = {
       "best_guess": "Eryck Segall"
     },
     {
-      "name": "Marcela Resmann Ágatha Nascimento",
+      "name": "Marcela Resmann",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.6909090909090909
+      "best_guess": "Marcela Resmann"
+    },
+    {
+      "name": "Ágatha Nascimento",
+      "count": 1,
+      "best_guess": "Ágatha Nascimento"
     },
     {
       "name": "Eryck Segall",
@@ -5253,28 +6163,44 @@ export const importedHistory = {
       "score": 0.7272727272727273
     },
     {
-      "name": "Margarete Venturin Raquel Oliveira",
+      "name": "Margarete Venturin",
       "count": 1,
-      "best_guess": "Patrick de Oliveira",
-      "score": 0.5660377358490566
+      "best_guess": "Margarete Venturin"
     },
     {
-      "name": "Ágatha Nascimento Suellen Correa",
+      "name": "Raquel Oliveira",
       "count": 1,
-      "best_guess": "Antônio Nascimento",
-      "score": 0.52
+      "best_guess": "Raquel Oliveira"
     },
     {
-      "name": "Fernando Balieira Patrick Oliveira",
+      "name": "Ágatha Nascimento",
       "count": 1,
-      "best_guess": "Patrick de Oliveira",
-      "score": 0.6037735849056604
+      "best_guess": "Ágatha Nascimento"
     },
     {
-      "name": "Ariane Bello Mara Rúbia",
+      "name": "Suellen Correa",
       "count": 1,
-      "best_guess": "Solange Telles Pessanha",
-      "score": 0.43478260869565216
+      "best_guess": "Suellen Correa"
+    },
+    {
+      "name": "Fernando Balieira",
+      "count": 1,
+      "best_guess": "Fernando Balieira"
+    },
+    {
+      "name": "Patrick Oliveira",
+      "count": 1,
+      "best_guess": "Patrick Oliveira"
+    },
+    {
+      "name": "Ariane Bello",
+      "count": 1,
+      "best_guess": "Ariane Bello"
+    },
+    {
+      "name": "Mara Rúbia",
+      "count": 1,
+      "best_guess": "Mara Rúbia"
     },
     {
       "name": "Claudio Vieira",
@@ -5283,40 +6209,64 @@ export const importedHistory = {
       "score": 0.5925925925925926
     },
     {
-      "name": "Reica Santana Ana Paula",
+      "name": "Reica Santana",
       "count": 1,
-      "best_guess": "Brenda Cristine Cunha Pacheco",
-      "score": 0.5
+      "best_guess": "Reica Santana"
     },
     {
-      "name": "Neuza Campanha Keyla Costa",
+      "name": "Ana Paula",
       "count": 1,
-      "best_guess": "Brenda Cristine Cunha Pacheco",
-      "score": 0.4
+      "best_guess": "Ana Paula"
     },
     {
-      "name": "Nanci Celia Débora Cristine",
+      "name": "Neuza Campanha",
       "count": 1,
-      "best_guess": "Aila Rosana Porto",
-      "score": 0.45454545454545453
+      "best_guess": "Neuza Campanha"
     },
     {
-      "name": "Célia Regina Josyane Cristina",
+      "name": "Keyla Costa",
       "count": 1,
-      "best_guess": "Célia Regina Figueiredo",
-      "score": 0.5769230769230769
+      "best_guess": "Keyla Costa"
     },
     {
-      "name": "Malena Colangero Dayse Campos",
+      "name": "Nanci Celia",
       "count": 1,
-      "best_guess": "Alexandre Lopes",
-      "score": 0.45454545454545453
+      "best_guess": "Nanci Celia"
     },
     {
-      "name": "Saniyuriss Bernardes Luciana Cândida",
+      "name": "Débora Cristine",
       "count": 1,
-      "best_guess": "Patrick de Oliveira",
-      "score": 0.4
+      "best_guess": "Débora Cristine"
+    },
+    {
+      "name": "Célia Regina",
+      "count": 1,
+      "best_guess": "Célia Regina"
+    },
+    {
+      "name": "Josyane Cristina",
+      "count": 1,
+      "best_guess": "Josyane Cristina"
+    },
+    {
+      "name": "Malena Colangero",
+      "count": 1,
+      "best_guess": "Malena Colangero"
+    },
+    {
+      "name": "Dayse Campos",
+      "count": 1,
+      "best_guess": "Dayse Campos"
+    },
+    {
+      "name": "Saniyuriss Bernardes",
+      "count": 1,
+      "best_guess": "Saniyuriss Bernardes"
+    },
+    {
+      "name": "Luciana Cândida",
+      "count": 1,
+      "best_guess": "Luciana Cândida"
     },
     {
       "name": "Mario Porto",
@@ -5325,28 +6275,44 @@ export const importedHistory = {
       "score": 0.9090909090909091
     },
     {
-      "name": "Sandra Duarte Rozelita Sales",
+      "name": "Sandra Duarte",
       "count": 2,
-      "best_guess": "Samuel Almeida",
-      "score": 0.42857142857142855
+      "best_guess": "Sandra Duarte"
     },
     {
-      "name": "Michele Camillo Maria de Lourdes",
-      "count": 1,
-      "best_guess": "Gabriel Camilo",
-      "score": 0.43478260869565216
+      "name": "Rozelita Sales",
+      "count": 2,
+      "best_guess": "Rozelita Sales"
     },
     {
-      "name": "Daniel Carneiro Daniel Silva",
+      "name": "Michele Camillo",
       "count": 1,
-      "best_guess": "Daniel Figueiredo",
-      "score": 0.4888888888888889
+      "best_guess": "Michele Camillo"
     },
     {
-      "name": "Terezinha Oliveira Iná Trancoso",
+      "name": "Maria de Lourdes",
       "count": 1,
-      "best_guess": "Renato Oliveira",
-      "score": 0.5652173913043478
+      "best_guess": "Maria de Lourdes"
+    },
+    {
+      "name": "Daniel Carneiro",
+      "count": 1,
+      "best_guess": "Daniel Carneiro"
+    },
+    {
+      "name": "Daniel Silva",
+      "count": 1,
+      "best_guess": "Daniel Silva"
+    },
+    {
+      "name": "Terezinha Oliveira",
+      "count": 1,
+      "best_guess": "Terezinha Oliveira"
+    },
+    {
+      "name": "Iná Trancoso",
+      "count": 1,
+      "best_guess": "Iná Trancoso"
     },
     {
       "name": "Júnior Fouraux",
@@ -5365,28 +6331,44 @@ export const importedHistory = {
       "score": 0.8
     },
     {
-      "name": "Márcia Bragança Julianne Pereira",
+      "name": "Márcia Bragança",
       "count": 1,
-      "best_guess": "Renato Oliveira",
-      "score": 0.425531914893617
+      "best_guess": "Márcia Bragança"
     },
     {
-      "name": "Beatriz Pessoa Yngrid França",
+      "name": "Julianne Pereira",
       "count": 1,
-      "best_guess": "Emerson França",
-      "score": 0.5714285714285714
+      "best_guess": "Julianne Pereira"
     },
     {
-      "name": "Eliana Souza Mylena Balieira",
+      "name": "Beatriz Pessoa",
       "count": 1,
-      "best_guess": "Filipe Oliveira",
-      "score": 0.46511627906976744
+      "best_guess": "Beatriz Pessoa"
     },
     {
-      "name": "Maria Izabel Elina Mendes",
+      "name": "Yngrid França",
       "count": 1,
-      "best_guess": "Tânia Mendes",
-      "score": 0.4864864864864865
+      "best_guess": "Yngrid França"
+    },
+    {
+      "name": "Eliana Souza",
+      "count": 1,
+      "best_guess": "Eliana Souza"
+    },
+    {
+      "name": "Mylena Balieira",
+      "count": 1,
+      "best_guess": "Mylena Balieira"
+    },
+    {
+      "name": "Maria Izabel",
+      "count": 1,
+      "best_guess": "Maria Izabel"
+    },
+    {
+      "name": "Elina Mendes",
+      "count": 1,
+      "best_guess": "Elina Mendes"
     },
     {
       "name": "José Luiz",
@@ -5407,10 +6389,14 @@ export const importedHistory = {
       "score": 0.6923076923076923
     },
     {
-      "name": "Michele Camillo Dayse Campos",
+      "name": "Michele Camillo",
       "count": 1,
-      "best_guess": "Carlos Ramos",
-      "score": 0.5
+      "best_guess": "Michele Camillo"
+    },
+    {
+      "name": "Dayse Campos",
+      "count": 1,
+      "best_guess": "Dayse Campos"
     },
     {
       "name": "Daniel Carneiro",
@@ -5419,16 +6405,24 @@ export const importedHistory = {
       "score": 0.6875
     },
     {
-      "name": "Reica Santana Keyla Costa",
+      "name": "Reica Santana",
       "count": 1,
-      "best_guess": "Aila Rosana Porto",
-      "score": 0.47619047619047616
+      "best_guess": "Reica Santana"
     },
     {
-      "name": "Neuza Campanha Raquel Oliveira",
+      "name": "Keyla Costa",
       "count": 1,
-      "best_guess": "Patrick de Oliveira",
-      "score": 0.5306122448979592
+      "best_guess": "Keyla Costa"
+    },
+    {
+      "name": "Neuza Campanha",
+      "count": 1,
+      "best_guess": "Neuza Campanha"
+    },
+    {
+      "name": "Raquel Oliveira",
+      "count": 1,
+      "best_guess": "Raquel Oliveira"
     },
     {
       "name": "Nanci Celia Priscila",
@@ -5437,94 +6431,154 @@ export const importedHistory = {
       "score": 0.45
     },
     {
-      "name": "Ariane Bello Mylena Balieira",
+      "name": "Ariane Bello",
       "count": 1,
-      "best_guess": "Ivone Oliveira",
-      "score": 0.5238095238095238
+      "best_guess": "Ariane Bello"
     },
     {
-      "name": "Débora Cristine Mara Rúbia",
+      "name": "Mylena Balieira",
       "count": 1,
-      "best_guess": "Brenda Cristine Cunha Pacheco",
-      "score": 0.5818181818181818
+      "best_guess": "Mylena Balieira"
     },
     {
-      "name": "Ágatha Nascimento  Larissa Queiroz",
+      "name": "Débora Cristine",
       "count": 1,
-      "best_guess": "Antônio Nascimento",
-      "score": 0.5
+      "best_guess": "Débora Cristine"
     },
     {
-      "name": "Luciana Alves Isabelle Cruz",
+      "name": "Mara Rúbia",
       "count": 1,
-      "best_guess": "Maria José Tonon da Cruz",
-      "score": 0.43137254901960786
+      "best_guess": "Mara Rúbia"
     },
     {
-      "name": "Maria de Lourdes Jacyra Eugênio",
+      "name": "Ágatha Nascimento",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.4528301886792453
+      "best_guess": "Ágatha Nascimento"
     },
     {
-      "name": "Marcela Resmann Malena Colangero",
+      "name": "Larissa Queiroz",
       "count": 1,
-      "best_guess": "Marcela Gomes Coelho",
-      "score": 0.5769230769230769
+      "best_guess": "Larissa Queiroz"
     },
     {
-      "name": "Waleska Nascimento Marilene Queiroz",
+      "name": "Luciana Alves",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.49122807017543857
+      "best_guess": "Luciana Alves"
     },
     {
-      "name": "Vitoria Emanuelle Margarete Venturin",
+      "name": "Isabelle Cruz",
       "count": 1,
-      "best_guess": "Vitor Correia",
-      "score": 0.40816326530612246
+      "best_guess": "Isabelle Cruz"
     },
     {
-      "name": "Terezinha Oliveira Ivone Balieira",
+      "name": "Maria de Lourdes",
       "count": 1,
-      "best_guess": "Renato Oliveira",
-      "score": 0.5416666666666666
+      "best_guess": "Maria de Lourdes"
     },
     {
-      "name": "Érika Segall Gérbera Nascimento",
+      "name": "Jacyra Eugênio",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.6037735849056604
+      "best_guess": "Jacyra Eugênio"
     },
     {
-      "name": "Yngrid França Geysa Nascimento",
+      "name": "Marcela Resmann",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.6153846153846154
+      "best_guess": "Marcela Resmann"
     },
     {
-      "name": "Sirlene Ramos Edna Costa",
+      "name": "Malena Colangero",
       "count": 1,
-      "best_guess": "Aila Rosana Porto",
-      "score": 0.5365853658536586
+      "best_guess": "Malena Colangero"
     },
     {
-      "name": "Suellen Correa Elina Mendes",
+      "name": "Waleska Nascimento",
+      "count": 1,
+      "best_guess": "Waleska Nascimento"
+    },
+    {
+      "name": "Marilene Queiroz",
+      "count": 1,
+      "best_guess": "Marilene Queiroz"
+    },
+    {
+      "name": "Vitoria Emanuelle",
+      "count": 1,
+      "best_guess": "Vitoria Emanuelle"
+    },
+    {
+      "name": "Margarete Venturin",
+      "count": 1,
+      "best_guess": "Margarete Venturin"
+    },
+    {
+      "name": "Terezinha Oliveira",
+      "count": 1,
+      "best_guess": "Terezinha Oliveira"
+    },
+    {
+      "name": "Ivone Balieira",
+      "count": 1,
+      "best_guess": "Ivone Balieira"
+    },
+    {
+      "name": "Érika Segall",
+      "count": 1,
+      "best_guess": "Érika Segall"
+    },
+    {
+      "name": "Gérbera Nascimento",
+      "count": 1,
+      "best_guess": "Gérbera Nascimento"
+    },
+    {
+      "name": "Yngrid França",
+      "count": 1,
+      "best_guess": "Yngrid França"
+    },
+    {
+      "name": "Geysa Nascimento",
+      "count": 1,
+      "best_guess": "Geysa Nascimento"
+    },
+    {
+      "name": "Sirlene Ramos",
+      "count": 1,
+      "best_guess": "Sirlene Ramos"
+    },
+    {
+      "name": "Edna Costa",
+      "count": 1,
+      "best_guess": "Edna Costa"
+    },
+    {
+      "name": "Suellen Correa",
       "count": 2,
-      "best_guess": "Tânia Mendes",
-      "score": 0.5128205128205128
+      "best_guess": "Suellen Correa"
     },
     {
-      "name": "Patrick Oliveira Junior Fouraux",
-      "count": 1,
-      "best_guess": "Patrick de Oliveira",
-      "score": 0.64
+      "name": "Elina Mendes",
+      "count": 2,
+      "best_guess": "Elina Mendes"
     },
     {
-      "name": "Edna Costa Neuza Campanha",
+      "name": "Patrick Oliveira",
       "count": 1,
-      "best_guess": "Brenda Cristine Cunha Pacheco",
-      "score": 0.5185185185185185
+      "best_guess": "Patrick Oliveira"
+    },
+    {
+      "name": "Junior Fouraux",
+      "count": 1,
+      "best_guess": "Junior Fouraux"
+    },
+    {
+      "name": "Edna Costa",
+      "count": 1,
+      "best_guess": "Edna Costa"
+    },
+    {
+      "name": "Neuza Campanha",
+      "count": 1,
+      "best_guess": "Neuza Campanha"
     },
     {
       "name": "Alexsandro Lopes",
@@ -5543,22 +6597,34 @@ export const importedHistory = {
       "score": 0.6666666666666666
     },
     {
-      "name": "Luciana Marques Sandra Duarte",
+      "name": "Luciana Marques",
       "count": 1,
-      "best_guess": "Tatiana Muriel Fouraux",
-      "score": 0.47058823529411764
+      "best_guess": "Luciana Marques"
     },
     {
-      "name": "Margarete Venturin Suellen Correa",
+      "name": "Sandra Duarte",
       "count": 1,
-      "best_guess": "Solange Telles Pessanha",
-      "score": 0.42857142857142855
+      "best_guess": "Sandra Duarte"
     },
     {
-      "name": "Geysa Nascimento Vitoria Emanuelle",
+      "name": "Margarete Venturin",
       "count": 1,
-      "best_guess": "Lamara Rosa Nascimento",
-      "score": 0.4642857142857143
+      "best_guess": "Margarete Venturin"
+    },
+    {
+      "name": "Suellen Correa",
+      "count": 1,
+      "best_guess": "Suellen Correa"
+    },
+    {
+      "name": "Geysa Nascimento",
+      "count": 1,
+      "best_guess": "Geysa Nascimento"
+    },
+    {
+      "name": "Vitoria Emanuelle",
+      "count": 1,
+      "best_guess": "Vitoria Emanuelle"
     },
     {
       "name": "Daniel Silva",
@@ -5571,40 +6637,64 @@ export const importedHistory = {
       "best_guess": "André Luiz"
     },
     {
-      "name": "Mylena Balieira Larissa Queiroz",
+      "name": "Mylena Balieira",
       "count": 1,
-      "best_guess": "Melissa Rachel Porto Queiroz",
-      "score": 0.5084745762711864
+      "best_guess": "Mylena Balieira"
     },
     {
-      "name": "Isabelle Cruz Silva Érika Segall",
+      "name": "Larissa Queiroz",
       "count": 1,
-      "best_guess": "Rosa da Silva Miranda",
-      "score": 0.49056603773584906
+      "best_guess": "Larissa Queiroz"
     },
     {
-      "name": "Saymon Schultz Maria de Lourdes",
+      "name": "Isabelle Cruz Silva",
       "count": 1,
-      "best_guess": "Olívia Maria Porto",
-      "score": 0.4489795918367347
+      "best_guess": "Isabelle Cruz Silva"
     },
     {
-      "name": "Eryck Segall Vinícius Pessanha",
+      "name": "Érika Segall",
       "count": 1,
-      "best_guess": "Vinicius Pessanha",
-      "score": 0.6808510638297872
+      "best_guess": "Érika Segall"
     },
     {
-      "name": "Inêz Monteiro Márcia Bragança",
+      "name": "Saymon Schultz",
       "count": 1,
-      "best_guess": "Edmilson Monteiro",
-      "score": 0.4782608695652174
+      "best_guess": "Saymon Schultz"
     },
     {
-      "name": "Maria Izabel Luciana Alves",
+      "name": "Maria de Lourdes",
       "count": 1,
-      "best_guess": "Aparecida Baldi",
-      "score": 0.43902439024390244
+      "best_guess": "Maria de Lourdes"
+    },
+    {
+      "name": "Eryck Segall",
+      "count": 1,
+      "best_guess": "Eryck Segall"
+    },
+    {
+      "name": "Vinícius Pessanha",
+      "count": 1,
+      "best_guess": "Vinícius Pessanha"
+    },
+    {
+      "name": "Inêz Monteiro",
+      "count": 1,
+      "best_guess": "Inêz Monteiro"
+    },
+    {
+      "name": "Márcia Bragança",
+      "count": 1,
+      "best_guess": "Márcia Bragança"
+    },
+    {
+      "name": "Maria Izabel",
+      "count": 1,
+      "best_guess": "Maria Izabel"
+    },
+    {
+      "name": "Luciana Alves",
+      "count": 1,
+      "best_guess": "Luciana Alves"
     },
     {
       "name": "Domingos  Oliveira",
@@ -5613,10 +6703,14 @@ export const importedHistory = {
       "score": 0.9714285714285714
     },
     {
-      "name": "Marcela Resmann Josyane Vieira",
+      "name": "Marcela Resmann",
       "count": 1,
-      "best_guess": "Marcela Gomes Coelho",
-      "score": 0.52
+      "best_guess": "Marcela Resmann"
+    },
+    {
+      "name": "Josyane Vieira",
+      "count": 1,
+      "best_guess": "Josyane Vieira"
     },
     {
       "name": "Edmilson M",

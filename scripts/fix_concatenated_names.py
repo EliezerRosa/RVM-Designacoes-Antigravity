@@ -1,105 +1,100 @@
 """
-Script para corrigir nomes concatenados no importedHistory.ts
-Usa a lista de publicadores conhecidos para detectar onde separar nomes.
+Script V2 para corrigir nomes concatenados no importedHistory.ts
+Usa heurísticas inteligentes: nomes brasileiros tipicamente têm 2-3 palavras.
+Se encontrar 4+ palavras, tenta separar em dois nomes.
 """
 import json
 import re
 from pathlib import Path
-from difflib import SequenceMatcher
 
-# Carregar publicadores conhecidos
-KNOWN_PUBLISHERS = [
-    "Ademar Gomes", "Alessandro Rosa", "Alexsandro Lopes", "Ana Beatriz Ferreira",
-    "Ana Clara Santos", "Ana Paula Oliveira", "André Luiz", "Angela Maria",
-    "Antonio Carlos", "Bianca Eugênio", "Carlos Alberto", "Carlos Eduardo",
-    "Carlos Henrique", "Celso Roberto", "Claudia Silva", "Cristiane Souza",
-    "Daniel Figueiredo", "Daniel Silva", "Diego Fontana", "Diego Resmann",
-    "Edilene Souza", "Edmardo Queiroz", "Eduardo Santos", "Eliezer Rosa",
-    "Emerson França", "Emerson Souza", "Eryck Segall", "Felipe Oliveira",
-    "Fernando Pessoa", "Flávio Santos", "Gabriel Fouraux", "Gérson Santos",
-    "Giovanna Reis", "Gustavo Lima", "Helena Costa", "Isabela Almeida",
-    "Jacyra Eugênio", "João Pedro", "Jonas Silva", "José Carlos",
-    "Juberto Santos", "Juliane Pinto", "Júnior Fouraux", "Keyla Costa",
-    "Larissa Queiroz", "Leonardo Santos", "Letícia Ferreira", "Lúcia Helena",
-    "Luiz Alexandrino", "Malena Colangero", "Marcela Souza", "Márcia Regina",
-    "Marcos Rogério", "Marcos Vinícius", "Maria Aparecida", "Maria Clara",
-    "Mario Porto", "Marilene Queiroz", "Marta Oliveira", "Patrick de Oliveira",
-    "Patrick Oliveira", "Paula Cristina", "Paulo César", "Paulo Roberto",
-    "Pedro Henrique", "Rafael Costa", "Raquel Oliveira", "Ricardo Silva",
-    "Roberto Carlos", "Rodrigo Santos", "Roselita Sales", "Rozelita Sales",
-    "Samuel Almeida", "Sandra Regina", "Sérgio Costa", "Silvia Eugênio",
-    "Simone Alves", "Suellen Souza", "Tatiane Silva", "Terezinha Oliveira",
-    "Tiago Souza", "Vinicius Pessanha", "Vitoria Emanuelle", "Vitor Correa",
-    "Vitor Pessanha", "Victor Correa", "Wanderleia Santos", "Yngrid França",
-]
+# Sobrenomes comuns em português para ajudar na detecção de separação
+COMMON_SURNAMES = {
+    "silva", "santos", "oliveira", "souza", "costa", "pereira", "ferreira",
+    "rodrigues", "almeida", "nascimento", "lima", "carvalho", "lopes", "gomes",
+    "ribeiro", "martins", "rosa", "reis", "andrade", "campos", "queiroz",
+    "vieira", "mendes", "telles", "fouraux", "porto", "duarte", "eugênio",
+    "frança", "segall", "colangero", "balieira", "resmann", "pessanha",
+    "pessoa", "correa", "correia", "guimarães", "bragança", "campanha",
+    "ramos", "rangel", "schultz", "rastoldo", "camilo", "alexandrino",
+    "candida", "cândida", "celia", "célia", "gonçalves", "cristine", "amorim",
+    "longo", "vaz", "venturin", "izabel", "rubia", "rúbia", "cravo", "pinto",
+    "paulo", "elena", "priscila", "dayse", "luiz", "agatha", "ágatha", "waleska"
+}
 
-def normalize(name: str) -> str:
-    """Normalize name for comparison."""
-    return name.lower().strip()
+# Primeiros nomes comuns para detecção
+COMMON_FIRST_NAMES = {
+    "ana", "maria", "sandra", "solange", "edna", "wanderleia", "terezinha",
+    "vitoria", "waleska", "erika", "érika", "eliana", "elza", "dione", "dayse",
+    "luciana", "margarete", "mara", "geysa", "malena", "ivone", "josyane",
+    "márcia", "beatriz", "laramara", "daniel", "joão", "carlos", "marcos",
+    "diego", "patrick", "gabriel", "vitor", "victor", "samuel", "andre", "andré",
+    "jose", "josé", "junior", "júnior", "felipe", "emerson", "edmardo", "eliezer",
+    "renato", "domingos", "israel", "mario", "mário", "antonio", "antônio",
+    "getúlio", "saymon", "erick", "gustavo", "hidelmar", "vinicius", "vinícius",
+    "rozelita", "keyla", "yngrid", "taina", "tainá", "juberto", "raquel",
+    "suellen", "elina", "saniyuriss", "julianne", "jacyra", "olívia", "gérbera",
+    "neuza", "priscila", "marcela", "tatiana", "larissa", "jeane", "mylena",
+    "nanci", "célia", "débora", "agatha", "ágatha"
+}
 
-def find_split_point(concatenated: str, known_names: list[str]) -> tuple[str, str] | None:
+def is_likely_first_name(word: str) -> bool:
+    """Verifica se a palavra parece ser um primeiro nome."""
+    return word.lower().strip() in COMMON_FIRST_NAMES
+
+def is_likely_surname(word: str) -> bool:
+    """Verifica se a palavra parece ser um sobrenome."""
+    return word.lower().strip() in COMMON_SURNAMES
+
+def split_concatenated_name(raw_name: str) -> tuple[str, str | None]:
     """
-    Tenta encontrar onde dois nomes foram concatenados.
-    Ex: "André Luiz Raquel Oliveira" -> ("André Luiz", "Raquel Oliveira")
+    Tenta separar dois nomes concatenados.
+    Retorna (nome1, nome2) ou (nome_original, None) se não encontrar separação.
     """
-    norm_concat = normalize(concatenated)
+    words = raw_name.strip().split()
     
-    # Ordenar por tamanho decrescente para match mais específico primeiro
-    sorted_names = sorted(known_names, key=len, reverse=True)
+    # Menos de 4 palavras = provavelmente um único nome
+    if len(words) < 4:
+        return raw_name.strip(), None
     
-    for name1 in sorted_names:
-        norm_name1 = normalize(name1)
-        if norm_concat.startswith(norm_name1 + " "):
-            # Encontrou possível primeiro nome
-            remaining = concatenated[len(name1):].strip()
+    # Tentar encontrar o ponto de separação
+    # Estratégia: procurar onde um sobrenome é seguido por um primeiro nome
+    for i in range(1, len(words) - 1):
+        current_word = words[i].lower().strip()
+        next_word = words[i + 1].lower().strip()
+        
+        # Padrão: sobrenome seguido de primeiro nome
+        if (is_likely_surname(current_word) or current_word.endswith("s") or current_word.endswith("a")) and \
+           (is_likely_first_name(next_word) or next_word[0].isupper()):
+            name1 = " ".join(words[:i + 1])
+            name2 = " ".join(words[i + 1:])
             
-            # Verificar se o restante também é um nome conhecido
-            for name2 in sorted_names:
-                if normalize(remaining) == normalize(name2):
-                    return (name1, name2)
-                    
-            # Verificar match parcial para o segundo nome
-            for name2 in sorted_names:
-                if remaining.lower().startswith(name2.lower().split()[0].lower()):
-                    # Match no primeiro nome
-                    return (name1, remaining)
+            # Validar que ambos os nomes têm pelo menos 2 palavras ou 1 longa
+            if len(name2.split()) >= 1 and len(name1.split()) >= 1:
+                return name1.strip(), name2.strip()
     
-    return None
-
-def fix_raw_name(raw_name: str, known_names: list[str]) -> tuple[str, str | None]:
-    """
-    Corrige um raw_name que pode ter nomes concatenados.
-    Retorna (nome_principal, ajudante_ou_None)
-    """
-    # Primeiro, verificar separadores explícitos
-    if "+" in raw_name:
-        parts = raw_name.split("+", 1)
-        return parts[0].strip(), parts[1].strip() if len(parts) > 1 else None
+    # Fallback: dividir no meio para nomes com 4-6 palavras
+    if 4 <= len(words) <= 6:
+        mid = len(words) // 2
+        name1 = " ".join(words[:mid])
+        name2 = " ".join(words[mid:])
+        return name1.strip(), name2.strip()
     
-    if " / " in raw_name:
-        parts = raw_name.split(" / ", 1)
-        return parts[0].strip(), parts[1].strip() if len(parts) > 1 else None
-    
-    # Tentar detectar concatenação
-    split = find_split_point(raw_name, known_names)
-    if split:
-        return split
-    
-    # Sem concatenação detectada
+    # Se nada funcionar, manter original
     return raw_name.strip(), None
 
 def main():
-    # Caminho do arquivo
-    input_path = Path(__file__).parent.parent / "src" / "data" / "importedHistory.ts"
+    # Restaurar do backup
+    backup_path = Path(__file__).parent.parent / "src" / "data" / "importedHistory.ts.bak"
+    output_path = Path(__file__).parent.parent / "src" / "data" / "importedHistory.ts"
     
-    if not input_path.exists():
-        print(f"Arquivo não encontrado: {input_path}")
+    if not backup_path.exists():
+        print(f"Backup não encontrado: {backup_path}")
         return
     
-    # Ler o conteúdo
-    content = input_path.read_text(encoding="utf-8")
+    # Ler o conteúdo do backup
+    content = backup_path.read_text(encoding="utf-8")
     
-    # Extrair o JSON (remover export statement)
+    # Extrair o JSON
     json_match = re.search(r"export const importedHistory = ({.*});?\s*$", content, re.DOTALL)
     if not json_match:
         print("Não consegui extrair JSON do arquivo")
@@ -117,39 +112,34 @@ def main():
     
     for p in data.get("participations", []):
         raw_name = p.get("raw_name", "")
-        main_name, assistant = fix_raw_name(raw_name, KNOWN_PUBLISHERS)
+        main_name, assistant = split_concatenated_name(raw_name)
         
         if assistant:
-            # Nome foi separado - criar duas entradas
             fixed_count += 1
-            print(f"CORRIGIDO: '{raw_name}' -> '{main_name}' + '{assistant}'")
+            print(f"✅ '{raw_name}' -> '{main_name}' + '{assistant}'")
             
-            # Entrada do estudante principal
+            # Entrada do estudante
             new_p1 = p.copy()
             new_p1["raw_name"] = main_name
-            new_p1["_was_split"] = True
             new_participations.append(new_p1)
             
             # Entrada do ajudante
             new_p2 = p.copy()
             new_p2["raw_name"] = assistant
             new_p2["part"] = p.get("part", "") + " (Ajudante)"
-            new_p2["_was_split"] = True
             new_participations.append(new_p2)
         else:
-            # Manter original
             new_participations.append(p)
     
-    print(f"\nTotal corrigido: {fixed_count} nomes concatenados")
+    print(f"\n📊 Total corrigido: {fixed_count} nomes concatenados")
     
-    # Atualizar unknown_names também
+    # Processar unknown_names também
     new_unknown = []
     for u in data.get("unknown_names", []):
         name = u.get("name", "")
-        main_name, assistant = fix_raw_name(name, KNOWN_PUBLISHERS)
+        main_name, assistant = split_concatenated_name(name)
         
         if assistant:
-            # Separar em duas entradas
             new_unknown.append({"name": main_name, "count": u.get("count", 1), "best_guess": main_name})
             new_unknown.append({"name": assistant, "count": u.get("count", 1), "best_guess": assistant})
         else:
@@ -159,17 +149,10 @@ def main():
     data["participations"] = new_participations
     data["unknown_names"] = new_unknown
     
-    # Escrever de volta
+    # Escrever resultado
     output_content = "export const importedHistory = " + json.dumps(data, indent=2, ensure_ascii=False) + ";\n"
-    
-    # Backup do original
-    backup_path = input_path.with_suffix(".ts.bak")
-    input_path.rename(backup_path)
-    print(f"Backup criado: {backup_path}")
-    
-    # Salvar corrigido
-    input_path.write_text(output_content, encoding="utf-8")
-    print(f"Arquivo corrigido salvo: {input_path}")
+    output_path.write_text(output_content, encoding="utf-8")
+    print(f"\n✅ Arquivo corrigido salvo: {output_path}")
 
 if __name__ == "__main__":
     main()
