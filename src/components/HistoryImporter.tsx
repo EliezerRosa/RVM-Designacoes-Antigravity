@@ -267,7 +267,7 @@ export default function HistoryImporter({ publishers, participations, onImport, 
                         id: crypto.randomUUID(),
                         publisherName: pubName,
                         week: p.week,
-                        date: new Date().toISOString(), // Fallback
+                        date: p.week, // Use week as date for stable deduplication signature
                         partTitle: p.part,
                         type: type,
                     });
