@@ -437,6 +437,25 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                         🙅 Não Participa
                                     </span>
                                 )}
+
+                                {/* Source Badge */}
+                                {publisher.source && (
+                                    <span style={{
+                                        color: publisher.source === 'manual' ? '#22c55e' :
+                                            publisher.source === 'import' ? '#a855f7' :
+                                                publisher.source === 'sync' ? '#3b82f6' : '#6b7280',
+                                        background: publisher.source === 'manual' ? 'rgba(34, 197, 94, 0.1)' :
+                                            publisher.source === 'import' ? 'rgba(168, 85, 247, 0.1)' :
+                                                publisher.source === 'sync' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.75rem'
+                                    }} title={`Origem: ${publisher.source}`}>
+                                        {publisher.source === 'manual' ? '✍️ Manual' :
+                                            publisher.source === 'import' ? '📥 Import' :
+                                                publisher.source === 'sync' ? '🔄 Sync' : '📋 Inicial'}
+                                    </span>
+                                )}
                             </div>
 
                             {/* Parent info for young publishers */}
