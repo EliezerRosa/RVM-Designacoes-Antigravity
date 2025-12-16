@@ -44,78 +44,37 @@ function App() {
     async function loadData() {
       setIsLoading(true)
       try {
-        console.log("Loading data from API...")
-        // Parallel fetch with fallback
-        const [pubs, parts, savedTab] = await Promise.all([
+        console.log("Loading data from Supabase...")
+
+        // 1. Fetch data and seeding flag in parallel
+        const [pubs, parts, savedTab, isSeeded] = await Promise.all([
           api.loadPublishers().catch(err => {
-            console.warn("API load failed (publishers), falling back to local.", err)
-            // Fallback to local file if API fails (e.g. file doesn't exist yet)
-            return initialPublishers as Publisher[];
+            console.warn("Failed to load publishers", err)
+            return [] as Publisher[];
           }),
           api.loadParticipations().catch(err => {
-            console.warn("API load failed (participations), falling back to empty.", err)
+            console.warn("Failed to load participations", err)
             return []
           }),
-          api.getSetting<ActiveTab>('activeTab', 'dashboard').catch(() => 'dashboard' as ActiveTab)
+          api.getSetting<ActiveTab>('activeTab', 'dashboard').catch(() => 'dashboard' as ActiveTab),
+          api.getSetting<boolean>('isSeeded', false).catch(() => false)
         ])
 
-        // Auto-sync: merge local publishers data with Supabase
-        const localPubs = initialPublishers as Publisher[];
-        const localPubsMap = new Map(localPubs.map(p => [p.id, p]));
-        let needsSync = false;
-        let newCount = 0;
-        let updatedCount = 0;
-
-        // Merge: update existing with local data (phone, condition, status flags)
-        const mergedPubs = pubs.map(p => {
-          const localPub = localPubsMap.get(p.id);
-          if (localPub) {
-            // Check if local has newer/more data that should override Supabase
-            const updates: Partial<Publisher> = {};
-
-            // Sync phone if local has it
-            if (localPub.phone && localPub.phone !== p.phone) {
-              updates.phone = localPub.phone;
-            }
-            // Sync condition (Ancião, Servo Ministerial, etc.)
-            if (localPub.condition && localPub.condition !== p.condition) {
-              updates.condition = localPub.condition;
-            }
-            // Sync status flags - sync if local has TRUE value that Supabase doesn't have
-            if (localPub.isNotQualified === true && p.isNotQualified !== true) {
-              updates.isNotQualified = true;
-            }
-            if (localPub.requestedNoParticipation === true && p.requestedNoParticipation !== true) {
-              updates.requestedNoParticipation = true;
-            }
-
-            if (Object.keys(updates).length > 0) {
-              needsSync = true;
-              updatedCount++;
-              return { ...p, ...updates };
-            }
-          }
-          return p;
-        });
-
-        // Add publishers that exist locally but not in Supabase
-        const existingIds = new Set(pubs.map(p => p.id));
-        const newPubs = localPubs.filter(p => !existingIds.has(p.id));
-        if (newPubs.length > 0) {
-          needsSync = true;
-          newCount = newPubs.length;
-          mergedPubs.push(...newPubs);
-        }
-
-        if (needsSync) {
-          console.log(`Auto-sync: adding ${newCount} new, updating ${updatedCount} existing`);
-          await api.savePublishers(mergedPubs);
-          setPublishers(mergedPubs);
-          const msgs = [];
-          if (newCount > 0) msgs.push(`${newCount} novos`);
-          if (updatedCount > 0) msgs.push(`${updatedCount} atualizados`);
-          setStatusMessage(`✅ Sincronizado: ${msgs.join(', ')}`);
+        // 2. First-time seeding: ONLY if DB is empty AND not yet seeded
+        if (!isSeeded && pubs.length === 0) {
+          console.log("First run detected: seeding database with initial publishers...")
+          const seedPubs = (initialPublishers as Publisher[]).map(p => ({
+            ...p,
+            source: 'initial' as const,
+            createdAt: new Date().toISOString()
+          }));
+          await api.savePublishers(seedPubs);
+          await api.setSetting('isSeeded', true);
+          setPublishers(seedPubs);
+          setStatusMessage("✅ Base de dados inicializada com " + seedPubs.length + " publicadores");
         } else {
+          // DB is source of truth - use Supabase data as-is
+          console.log(`Loaded ${pubs.length} publishers and ${parts.length} participations from DB`)
           setPublishers(pubs);
         }
 
