@@ -61,9 +61,13 @@ function App() {
           api.getSetting<boolean>('isSeeded', false).catch(() => false)
         ])
 
+        console.log(`[DEBUG] isSeeded flag from DB: ${isSeeded}`)
+        console.log(`[DEBUG] Publishers count from DB: ${pubs.length}`)
+        console.log(`[DEBUG] Should seed? ${!isSeeded && pubs.length === 0}`)
+
         // 2. First-time seeding: ONLY if DB is empty AND not yet seeded
         if (!isSeeded && pubs.length === 0) {
-          console.log("First run detected: seeding database with initial publishers...")
+          console.log("[DEBUG] SEEDING: First run detected, seeding database...")
           const seedPubs = (initialPublishers as Publisher[]).map(p => ({
             ...p,
             source: 'initial' as const,
@@ -71,11 +75,12 @@ function App() {
           }));
           await api.savePublishers(seedPubs);
           await api.setSetting('isSeeded', true);
+          console.log("[DEBUG] SEEDING: isSeeded flag set to true")
           setPublishers(seedPubs);
           setStatusMessage("✅ Base de dados inicializada com " + seedPubs.length + " publicadores");
         } else {
           // DB is source of truth - use Supabase data as-is
-          console.log(`Loaded ${pubs.length} publishers and ${parts.length} participations from DB`)
+          console.log(`[DEBUG] NOT SEEDING: Loading ${pubs.length} publishers from DB`)
           setPublishers(pubs);
         }
 
