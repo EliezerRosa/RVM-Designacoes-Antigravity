@@ -9,6 +9,7 @@ import { initialPublishers } from './data/initialPublishers'
 import { api } from './services/api'
 
 import HistoryImporter from './components/HistoryImporter'
+import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 
 type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'history'
 
@@ -21,6 +22,7 @@ function App() {
 
   // UI State
   const [showPublisherForm, setShowPublisherForm] = useState(false)
+  const [showDuplicateChecker, setShowDuplicateChecker] = useState(false)
   const [editingPublisher, setEditingPublisher] = useState<Publisher | null>(null)
 
   const [isLoading, setIsLoading] = useState(true)
@@ -330,12 +332,21 @@ function App() {
           <div className="publishers-page">
             <div className="page-header">
               <h2>Publicadores</h2>
-              <button
-                className="btn-primary"
-                onClick={() => setShowPublisherForm(true)}
-              >
-                + Novo Publicador
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  className="btn-secondary"
+                  onClick={() => setShowDuplicateChecker(true)}
+                  style={{ background: '#f59e0b', color: '#000' }}
+                >
+                  🔍 Verificar Duplicatas
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={() => setShowPublisherForm(true)}
+                >
+                  + Novo Publicador
+                </button>
+              </div>
             </div>
             <PublisherList
               publishers={publishers}
@@ -343,6 +354,16 @@ function App() {
               onDelete={deletePublisher}
             />
           </div>
+          {showDuplicateChecker && (
+            <PublisherDuplicateChecker
+              publishers={publishers}
+              onDelete={(id) => {
+                const pub = publishers.find(p => p.id === id);
+                if (pub) deletePublisher(pub);
+              }}
+              onClose={() => setShowDuplicateChecker(false)}
+            />
+          )}
         </div>
 
         {/* Assignments */}
