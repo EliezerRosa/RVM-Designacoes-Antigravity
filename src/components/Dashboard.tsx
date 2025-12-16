@@ -117,7 +117,9 @@ export default function Dashboard({ publishers, participations }: DashboardProps
                                 >
                                     <span>{name}</span>
                                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                                        {data.count}x • {data.lastDate ? new Date(data.lastDate).toLocaleDateString('pt-BR') : '-'}
+                                        {data.count}x • {data.lastDate && !isNaN(new Date(data.lastDate).getTime())
+                                            ? new Date(data.lastDate).toLocaleDateString('pt-BR')
+                                            : '-'}
                                     </span>
                                 </div>
                             ))}
