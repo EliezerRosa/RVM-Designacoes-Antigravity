@@ -46,6 +46,7 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
     const [formData, setFormData] = useState<Publisher>(publisher || { ...emptyPublisher })
     const [newExceptionDate, setNewExceptionDate] = useState('')
     const [newAvailableDate, setNewAvailableDate] = useState('')
+    const [newAlias, setNewAlias] = useState('')
 
     useEffect(() => {
         if (publisher) {
@@ -561,6 +562,91 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                     Nossa Vida
                                 </label>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Aliases Section */}
+                    <div className="form-section">
+                        <h4 style={{ marginBottom: '12px', color: '#888' }}>📝 Aliases (Nomes Alternativos)</h4>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                            <input
+                                type="text"
+                                placeholder="Adicionar nome alternativo..."
+                                value={newAlias}
+                                onChange={(e) => setNewAlias(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (newAlias.trim() && !formData.aliases.includes(newAlias.trim())) {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                aliases: [...prev.aliases, newAlias.trim()]
+                                            }));
+                                            setNewAlias('');
+                                        }
+                                    }
+                                }}
+                                style={{ flex: 1 }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (newAlias.trim() && !formData.aliases.includes(newAlias.trim())) {
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            aliases: [...prev.aliases, newAlias.trim()]
+                                        }));
+                                        setNewAlias('');
+                                    }
+                                }}
+                                className="btn-secondary"
+                                style={{ padding: '8px 16px' }}
+                            >
+                                + Adicionar
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {formData.aliases.length === 0 ? (
+                                <span style={{ color: '#666', fontSize: '0.9em' }}>Nenhum alias cadastrado</span>
+                            ) : (
+                                formData.aliases.map((alias, idx) => (
+                                    <span
+                                        key={idx}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            background: '#3b82f633',
+                                            color: '#60a5fa',
+                                            padding: '4px 10px',
+                                            borderRadius: '16px',
+                                            fontSize: '0.85em'
+                                        }}
+                                    >
+                                        {alias}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    aliases: prev.aliases.filter((_, i) => i !== idx)
+                                                }));
+                                            }}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#f87171',
+                                                cursor: 'pointer',
+                                                padding: '0 2px',
+                                                fontSize: '14px'
+                                            }}
+                                            title="Remover alias"
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                ))
+                            )}
                         </div>
                     </div>
 

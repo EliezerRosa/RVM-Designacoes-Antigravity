@@ -13,6 +13,8 @@ type FilterStatus = 'all' | 'active' | 'inactive';
 type FilterFlag = 'all' | 'notQualified' | 'noParticipation' | 'normal';
 type FilterHelper = 'all' | 'helperOnly' | 'fullParticipation';
 type FilterAgeGroup = 'all' | 'Adulto' | 'Jovem' | 'Crianca';
+type SortField = 'name' | 'condition' | 'gender' | 'ageGroup' | 'source';
+type SortOrder = 'asc' | 'desc';
 
 export default function PublisherList({ publishers, onEdit, onDelete }: PublisherListProps) {
     const [searchTerm, setSearchTerm] = useState('')
@@ -22,6 +24,8 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
     const [filterFlag, setFilterFlag] = useState<FilterFlag>('all')
     const [filterHelper, setFilterHelper] = useState<FilterHelper>('all')
     const [filterAgeGroup, setFilterAgeGroup] = useState<FilterAgeGroup>('all')
+    const [sortBy, setSortBy] = useState<SortField>('name')
+    const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
     const [showFilters, setShowFilters] = useState(false)
 
     const filteredPublishers = publishers.filter(p => {
@@ -56,6 +60,26 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
         const matchesAgeGroup = filterAgeGroup === 'all' || p.ageGroup === filterAgeGroup;
 
         return matchesSearch && matchesCondition && matchesGender && matchesStatus && matchesFlag && matchesHelper && matchesAgeGroup;
+    }).sort((a, b) => {
+        let comparison = 0;
+        switch (sortBy) {
+            case 'name':
+                comparison = a.name.localeCompare(b.name, 'pt-BR');
+                break;
+            case 'condition':
+                comparison = a.condition.localeCompare(b.condition, 'pt-BR');
+                break;
+            case 'gender':
+                comparison = a.gender.localeCompare(b.gender);
+                break;
+            case 'ageGroup':
+                comparison = a.ageGroup.localeCompare(b.ageGroup, 'pt-BR');
+                break;
+            case 'source':
+                comparison = (a.source || 'initial').localeCompare(b.source || 'initial');
+                break;
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
     });
 
     const activeFiltersCount = [filterCondition, filterGender, filterStatus, filterFlag, filterHelper, filterAgeGroup]
@@ -238,6 +262,41 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                 <option value="Jovem">🧑 Jovem</option>
                                 <option value="Crianca">👶 Criança</option>
                             </select>
+                        </div>
+
+                        {/* Sort Options */}
+                        <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                📊 Ordenar por
+                            </label>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <select
+                                    value={sortBy}
+                                    onChange={e => setSortBy(e.target.value as SortField)}
+                                    style={selectStyle}
+                                >
+                                    <option value="name">Nome</option>
+                                    <option value="condition">Condição</option>
+                                    <option value="gender">Gênero</option>
+                                    <option value="ageGroup">Faixa Etária</option>
+                                    <option value="source">Origem</option>
+                                </select>
+                                <button
+                                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                                    style={{
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        cursor: 'pointer',
+                                        fontSize: '1rem'
+                                    }}
+                                    title={sortOrder === 'asc' ? 'Ordenação Crescente' : 'Ordenação Decrescente'}
+                                >
+                                    {sortOrder === 'asc' ? '⬆️' : '⬇️'}
+                                </button>
+                            </div>
                         </div>
 
                         {activeFiltersCount > 0 && (
