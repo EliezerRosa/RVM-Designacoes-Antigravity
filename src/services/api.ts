@@ -172,12 +172,12 @@ export const api = {
         // Load all participations
         const allParticipations = await this.loadParticipations();
 
-        // Use a Map to keep only unique by signature (publisherId|date|role)
+        // Use a Map to keep only unique by signature (publisherName|week|partTitle)
         const uniqueMap = new Map<string, Participation>();
         const duplicateIds: string[] = [];
 
         for (const p of allParticipations) {
-            const signature = `${p.publisherName}|${p.date}|${p.partTitle}`;
+            const signature = `${p.publisherName}|${p.week}|${p.partTitle}`;
 
             if (uniqueMap.has(signature)) {
                 // This is a duplicate - mark for deletion

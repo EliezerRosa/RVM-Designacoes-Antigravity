@@ -182,12 +182,12 @@ function App() {
     // 2. Merge Participations (with deduplication)
     // Create a Set of existing participation signatures to detect duplicates
     const existingSignatures = new Set(
-      participations.map(p => `${p.publisherName}|${p.date}|${p.partTitle}`)
+      participations.map(p => `${p.publisherName}|${p.week}|${p.partTitle}`)
     );
 
     // Only add new participations that don't already exist
     const uniqueNewParticipations = newParticipations.filter(np => {
-      const signature = `${np.publisherName}|${np.date}|${np.partTitle}`;
+      const signature = `${np.publisherName}|${np.week}|${np.partTitle}`;
       if (existingSignatures.has(signature)) {
         console.log(`Skipping duplicate participation: ${signature}`);
         return false;
