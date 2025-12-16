@@ -35,6 +35,7 @@ export default function HistoryImporter({ publishers, participations, onImport, 
     const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
     const [selectedName, setSelectedName] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [cleanupStatus, setCleanupStatus] = useState<string | null>(null);
 
     // Load saved resolutions from Supabase on mount
     useEffect(() => {
@@ -558,9 +559,27 @@ export default function HistoryImporter({ publishers, participations, onImport, 
                 </div>
             )}
 
-            <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <button onClick={onCancel} style={{ padding: '10px 20px', background: '#444', border: 'none', color: '#fff', cursor: 'pointer' }}>Cancelar</button>
                 <button onClick={handleImport} style={{ padding: '10px 20px', background: '#007bff', border: 'none', color: '#fff', cursor: 'pointer' }}>Importar Dados</button>
+                <button
+                    onClick={async () => {
+                        setCleanupStatus('🔄 Limpando duplicatas...');
+                        try {
+                            const result = await api.deduplicateParticipations();
+                            setCleanupStatus(`✅ Limpeza concluída: ${result.removed} removidas, ${result.kept} únicas mantidas`);
+                        } catch (e) {
+                            setCleanupStatus('❌ Erro ao limpar duplicatas');
+                            console.error(e);
+                        }
+                    }}
+                    style={{ padding: '10px 20px', background: '#dc3545', border: 'none', color: '#fff', cursor: 'pointer' }}
+                >
+                    🧹 Limpar Duplicatas
+                </button>
+                {cleanupStatus && (
+                    <span style={{ marginLeft: '10px', fontSize: '0.9em' }}>{cleanupStatus}</span>
+                )}
             </div>
         </div>
     );
