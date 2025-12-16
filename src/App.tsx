@@ -96,39 +96,29 @@ function App() {
     loadData()
   }, [])
 
-  // Helper to persist publishers
-  const persistPublishers = async (newPublishers: Publisher[]) => {
-    setPublishers(newPublishers) // Optimistic update
-    setIsSaving(true)
-    setStatusMessage("Salvando alterações...")
-    try {
-      await api.savePublishers(newPublishers)
-      setStatusMessage("✅ Alterações enviadas para processamento")
-      setTimeout(() => setStatusMessage(null), 3000)
-    } catch (e) {
-      console.error(e)
-      setStatusMessage("❌ Erro ao salvar dados!")
-    } finally {
-      setIsSaving(false)
-    }
-  }
+  // Realtime subscriptions for multi-user sync
+  useEffect(() => {
+    console.log('[REALTIME] Setting up subscriptions...')
 
-  // Helper to persist participations
-  const persistParticipations = async (newParticipations: Participation[]) => {
-    setParticipations(newParticipations)
-    setIsSaving(true)
-    setStatusMessage("Salvando participações...")
-    try {
-      await api.saveParticipations(newParticipations)
-      setStatusMessage("✅ Participações salvas")
-      setTimeout(() => setStatusMessage(null), 3000)
-    } catch (e) {
-      console.error(e)
-      setStatusMessage("❌ Erro ao salvar participações")
-    } finally {
-      setIsSaving(false)
+    // Subscribe to publishers changes
+    const unsubPublishers = api.subscribeToPublishers((newPubs) => {
+      console.log(`[REALTIME] Publishers updated: ${newPubs.length}`)
+      setPublishers(newPubs)
+    })
+
+    // Subscribe to participations changes
+    const unsubParticipations = api.subscribeToParticipations((newParts) => {
+      console.log(`[REALTIME] Participations updated: ${newParts.length}`)
+      setParticipations(newParts)
+    })
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[REALTIME] Cleaning up subscriptions...')
+      unsubPublishers()
+      unsubParticipations()
     }
-  }
+  }, [])
 
   const handleHistoryImport = async (newPublishers: Publisher[], updatedExistingPublishers: Publisher[], newParticipations: Participation[]) => {
     // 1. Merge Publishers
@@ -189,24 +179,48 @@ function App() {
     }
   };
 
-  const savePublisher = (publisher: Publisher) => {
-    let updated: Publisher[]
-    if (editingPublisher) {
-      updated = publishers.map(p => p.id === publisher.id ? publisher : p)
-    } else {
-      publisher.id = crypto.randomUUID()
-      updated = [...publishers, publisher]
+  const savePublisher = async (publisher: Publisher) => {
+    setIsSaving(true)
+    setStatusMessage("Salvando publicador...")
+    try {
+      if (editingPublisher) {
+        // Update existing
+        await api.updatePublisher(publisher)
+        setPublishers(prev => prev.map(p => p.id === publisher.id ? publisher : p))
+        setStatusMessage("✅ Publicador atualizado")
+      } else {
+        // Create new
+        publisher.id = crypto.randomUUID()
+        await api.createPublisher(publisher)
+        setPublishers(prev => [...prev, publisher])
+        setStatusMessage("✅ Publicador criado")
+      }
+      setShowPublisherForm(false)
+      setEditingPublisher(null)
+    } catch (error) {
+      console.error("Error saving publisher:", error)
+      setStatusMessage("❌ Erro ao salvar publicador")
+    } finally {
+      setIsSaving(false)
+      setTimeout(() => setStatusMessage(null), 3000)
     }
-
-    persistPublishers(updated)
-    setShowPublisherForm(false)
-    setEditingPublisher(null)
   }
 
-  const deletePublisher = (publisher: Publisher) => {
-    if (confirm(`Remover ${publisher.name}?`)) {
-      const updated = publishers.filter(p => p.id !== publisher.id)
-      persistPublishers(updated)
+  const deletePublisher = async (publisher: Publisher) => {
+    if (!confirm(`Remover ${publisher.name}?`)) return
+
+    setIsSaving(true)
+    setStatusMessage("Removendo publicador...")
+    try {
+      await api.deletePublisher(publisher.id)
+      setPublishers(prev => prev.filter(p => p.id !== publisher.id))
+      setStatusMessage("✅ Publicador removido")
+    } catch (error) {
+      console.error("Error deleting publisher:", error)
+      setStatusMessage("❌ Erro ao remover publicador")
+    } finally {
+      setIsSaving(false)
+      setTimeout(() => setStatusMessage(null), 3000)
     }
   }
 
@@ -215,15 +229,28 @@ function App() {
     setShowPublisherForm(true)
   }
 
-  const saveParticipation = (participation: Participation) => {
-    // Generate ID if empty
-    if (!participation.id) {
-      participation.id = crypto.randomUUID()
+  const saveParticipation = async (participation: Participation) => {
+    setIsSaving(true)
+    setStatusMessage("Salvando participação...")
+    try {
+      // Generate ID if new
+      const isNew = !participation.id
+      if (isNew) {
+        participation.id = crypto.randomUUID()
+        await api.createParticipation(participation)
+        setParticipations(prev => [...prev, participation])
+      } else {
+        await api.updateParticipation(participation)
+        setParticipations(prev => prev.map(p => p.id === participation.id ? participation : p))
+      }
+      setStatusMessage("✅ Participação salva")
+    } catch (error) {
+      console.error("Error saving participation:", error)
+      setStatusMessage("❌ Erro ao salvar participação")
+    } finally {
+      setIsSaving(false)
+      setTimeout(() => setStatusMessage(null), 3000)
     }
-    // Update or Add
-    const filtered = participations.filter(p => p.id !== participation.id)
-    const newParts = [...filtered, participation]
-    persistParticipations(newParts)
   }
 
   if (isLoading) {
