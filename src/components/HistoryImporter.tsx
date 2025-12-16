@@ -36,6 +36,7 @@ export default function HistoryImporter({ publishers, participations, onImport, 
     const [selectedName, setSelectedName] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [cleanupStatus, setCleanupStatus] = useState<string | null>(null);
+    const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
     // Load saved resolutions from Supabase on mount
     useEffect(() => {
@@ -286,7 +287,55 @@ export default function HistoryImporter({ publishers, participations, onImport, 
 
     return (
         <div className="history-importer" style={{ padding: '20px', color: '#fff' }}>
-            <h2>Importar Histórico e Resolver Nomes</h2>
+            <h2>Importar Histórico</h2>
+
+            {/* Step Indicator */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center' }}>
+                <div
+                    onClick={() => setCurrentStep(1)}
+                    style={{
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        background: currentStep >= 1 ? '#3b82f6' : '#444',
+                        color: '#fff',
+                        fontWeight: currentStep === 1 ? 'bold' : 'normal',
+                        cursor: 'pointer'
+                    }}
+                >
+                    1. Publicadores {currentStep > 1 && '✓'}
+                </div>
+                <div style={{ color: '#666' }}>→</div>
+                <div
+                    onClick={() => counts.pending === 0 && setCurrentStep(2)}
+                    style={{
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        background: currentStep >= 2 ? '#3b82f6' : '#444',
+                        color: '#fff',
+                        fontWeight: currentStep === 2 ? 'bold' : 'normal',
+                        cursor: counts.pending === 0 ? 'pointer' : 'not-allowed',
+                        opacity: counts.pending > 0 && currentStep === 1 ? 0.5 : 1
+                    }}
+                >
+                    2. Revisar {currentStep > 2 && '✓'}
+                </div>
+                <div style={{ color: '#666' }}>→</div>
+                <div
+                    onClick={() => counts.pending === 0 && currentStep >= 2 && setCurrentStep(3)}
+                    style={{
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        background: currentStep >= 3 ? '#22c55e' : '#444',
+                        color: '#fff',
+                        fontWeight: currentStep === 3 ? 'bold' : 'normal',
+                        cursor: currentStep >= 2 ? 'pointer' : 'not-allowed',
+                        opacity: currentStep < 2 ? 0.5 : 1
+                    }}
+                >
+                    3. Importar
+                </div>
+            </div>
+
             {isLoading ? (
                 <div style={{ textAlign: 'center', padding: '40px' }}>
                     <div className="spinner" style={{ margin: '0 auto' }}></div>
@@ -563,31 +612,68 @@ export default function HistoryImporter({ publishers, participations, onImport, 
                 </div>
             )}
 
-            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button onClick={onCancel} style={{ padding: '10px 20px', background: '#444', border: 'none', color: '#fff', cursor: 'pointer' }}>Cancelar</button>
-                {counts.resolved > 0 && (
-                    <button onClick={handleImport} style={{ padding: '10px 20px', background: '#007bff', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                        Importar Dados ({counts.resolved} itens)
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button onClick={onCancel} style={{ padding: '10px 20px', background: '#444', border: 'none', color: '#fff', cursor: 'pointer', borderRadius: '6px' }}>Cancelar</button>
+
+                    {currentStep > 1 && (
+                        <button
+                            onClick={() => setCurrentStep((currentStep - 1) as 1 | 2 | 3)}
+                            style={{ padding: '10px 20px', background: '#555', border: 'none', color: '#fff', cursor: 'pointer', borderRadius: '6px' }}
+                        >
+                            ← Voltar
+                        </button>
+                    )}
+
+                    <button
+                        onClick={async () => {
+                            setCleanupStatus('🔄 Limpando duplicatas...');
+                            try {
+                                const result = await api.deduplicateParticipations();
+                                setCleanupStatus(`✅ ${result.removed} removidas, ${result.kept} mantidas`);
+                            } catch (e) {
+                                setCleanupStatus('❌ Erro');
+                                console.error(e);
+                            }
+                        }}
+                        style={{ padding: '10px 16px', background: '#dc3545', border: 'none', color: '#fff', cursor: 'pointer', borderRadius: '6px' }}
+                    >
+                        🧹 Limpar Duplicatas
                     </button>
-                )}
-                <button
-                    onClick={async () => {
-                        setCleanupStatus('🔄 Limpando duplicatas...');
-                        try {
-                            const result = await api.deduplicateParticipations();
-                            setCleanupStatus(`✅ Limpeza concluída: ${result.removed} removidas, ${result.kept} únicas mantidas`);
-                        } catch (e) {
-                            setCleanupStatus('❌ Erro ao limpar duplicatas');
-                            console.error(e);
-                        }
-                    }}
-                    style={{ padding: '10px 20px', background: '#dc3545', border: 'none', color: '#fff', cursor: 'pointer' }}
-                >
-                    🧹 Limpar Duplicatas
-                </button>
-                {cleanupStatus && (
-                    <span style={{ marginLeft: '10px', fontSize: '0.9em' }}>{cleanupStatus}</span>
-                )}
+                    {cleanupStatus && <span style={{ fontSize: '0.85em' }}>{cleanupStatus}</span>}
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    {/* Step 1/2: Próximo button */}
+                    {currentStep < 3 && (
+                        <button
+                            onClick={() => setCurrentStep((currentStep + 1) as 1 | 2 | 3)}
+                            disabled={counts.pending > 0}
+                            style={{
+                                padding: '10px 24px',
+                                background: counts.pending > 0 ? '#555' : '#3b82f6',
+                                border: 'none',
+                                color: '#fff',
+                                cursor: counts.pending > 0 ? 'not-allowed' : 'pointer',
+                                borderRadius: '6px',
+                                fontWeight: 'bold'
+                            }}
+                            title={counts.pending > 0 ? `Resolva os ${counts.pending} itens pendentes` : 'Avançar para próxima etapa'}
+                        >
+                            Próximo →
+                        </button>
+                    )}
+
+                    {/* Step 3: Import button */}
+                    {currentStep === 3 && counts.resolved > 0 && (
+                        <button
+                            onClick={handleImport}
+                            style={{ padding: '12px 32px', background: '#22c55e', border: 'none', color: '#fff', cursor: 'pointer', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}
+                        >
+                            ✅ Importar Dados ({counts.resolved} itens)
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );
