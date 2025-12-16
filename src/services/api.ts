@@ -167,13 +167,34 @@ export const api = {
         if (error) throw error;
     },
 
-    // ===== UTILITY =====
-    async clearAllData(): Promise<void> {
-        // Use with caution!
-        await supabase.from('participations').delete().neq('id', '');
-        await supabase.from('publishers').delete().neq('id', '');
-        await supabase.from('meetings').delete().neq('id', '');
-        await supabase.from('assignments').delete().neq('id', '');
-        await supabase.from('historical_imports').delete().neq('id', '');
+    // ===== DEDUPLICATION =====
+    async deduplicateParticipations(): Promise<{ removed: number; kept: number }> {
+        // Load all participations
+        const allParticipations = await this.loadParticipations();
+
+        // Use a Map to keep only unique by signature (publisherId|date|role)
+        const uniqueMap = new Map<string, Participation>();
+        const duplicateIds: string[] = [];
+
+        for (const p of allParticipations) {
+            const signature = `${p.publisherName}|${p.date}|${p.partTitle}`;
+
+            if (uniqueMap.has(signature)) {
+                // This is a duplicate - mark for deletion
+                duplicateIds.push(p.id);
+            } else {
+                uniqueMap.set(signature, p);
+            }
+        }
+
+        if (duplicateIds.length > 0) {
+            // Delete duplicates from database
+            for (const id of duplicateIds) {
+                await supabase.from('participations').delete().eq('id', id);
+            }
+            console.log(`Removed ${duplicateIds.length} duplicate participations`);
+        }
+
+        return { removed: duplicateIds.length, kept: uniqueMap.size };
     }
 };

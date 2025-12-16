@@ -179,8 +179,25 @@ function App() {
       }
     })
 
-    // 2. Merge Participations
-    const finalParticipations = [...participations, ...newParticipations]
+    // 2. Merge Participations (with deduplication)
+    // Create a Set of existing participation signatures to detect duplicates
+    const existingSignatures = new Set(
+      participations.map(p => `${p.publisherName}|${p.date}|${p.partTitle}`)
+    );
+
+    // Only add new participations that don't already exist
+    const uniqueNewParticipations = newParticipations.filter(np => {
+      const signature = `${np.publisherName}|${np.date}|${np.partTitle}`;
+      if (existingSignatures.has(signature)) {
+        console.log(`Skipping duplicate participation: ${signature}`);
+        return false;
+      }
+      existingSignatures.add(signature); // Prevent duplicates within newParticipations too
+      return true;
+    });
+
+    console.log(`Imported ${uniqueNewParticipations.length} new participations (${newParticipations.length - uniqueNewParticipations.length} duplicates skipped)`);
+    const finalParticipations = [...participations, ...uniqueNewParticipations]
 
     // Update State & Save
     setPublishers(finalPublishers)
