@@ -10,8 +10,9 @@ import { api } from './services/api'
 
 import HistoryImporter from './components/HistoryImporter'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
+import Reports from './components/Reports'
 
-type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'history'
+type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'history' | 'reports'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard')
@@ -271,6 +272,13 @@ function App() {
             📄 S-89
           </button>
           <button
+            className={`nav-btn ${activeTab === 'reports' ? 'active' : ''}`}
+            onClick={() => handleTabChange('reports')}
+            title="Relatórios de Participações"
+          >
+            📊 Relatórios
+          </button>
+          <button
             className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => handleTabChange('history')}
             title="Importar Histórico"
@@ -284,6 +292,11 @@ function App() {
         {/* Dashboard */}
         <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none' }}>
           <Dashboard publishers={publishers} participations={participations} />
+        </div>
+
+        {/* Reports */}
+        <div style={{ display: activeTab === 'reports' ? 'block' : 'none' }}>
+          <Reports publishers={publishers} participations={participations} />
         </div>
 
         {/* Publishers */}
