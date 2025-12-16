@@ -75,8 +75,66 @@ export const api = {
     },
 
     async deletePublisher(id: string): Promise<void> {
+        console.log(`[API] Deleting publisher ${id}`);
         const { error } = await supabase.from('publishers').delete().eq('id', id);
-        if (error) throw error;
+        if (error) {
+            console.error('Error deleting publisher:', error);
+            throw error;
+        }
+        console.log(`[API] Publisher ${id} deleted successfully`);
+    },
+
+    async createPublisher(publisher: Publisher): Promise<Publisher> {
+        console.log(`[API] Creating publisher: ${publisher.name}`);
+        const row = { id: publisher.id, data: publisher };
+        const { error } = await supabase
+            .from('publishers')
+            .insert(row);
+
+        if (error) {
+            console.error('Error creating publisher:', error);
+            throw error;
+        }
+        console.log(`[API] Publisher ${publisher.name} created with id ${publisher.id}`);
+        return publisher;
+    },
+
+    async updatePublisher(publisher: Publisher): Promise<Publisher> {
+        console.log(`[API] Updating publisher: ${publisher.name}`);
+        const row = { id: publisher.id, data: publisher };
+        const { error } = await supabase
+            .from('publishers')
+            .upsert(row, { onConflict: 'id' });
+
+        if (error) {
+            console.error('Error updating publisher:', error);
+            throw error;
+        }
+        console.log(`[API] Publisher ${publisher.name} updated successfully`);
+        return publisher;
+    },
+
+    // ===== REALTIME SUBSCRIPTIONS =====
+    subscribeToPublishers(onUpdate: (publishers: Publisher[]) => void): () => void {
+        console.log('[REALTIME] Subscribing to publishers changes...');
+        const channel = supabase
+            .channel('publishers-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'publishers' },
+                async () => {
+                    console.log('[REALTIME] Publishers changed, reloading...');
+                    const publishers = await this.loadPublishers();
+                    onUpdate(publishers);
+                }
+            )
+            .subscribe();
+
+        // Return unsubscribe function
+        return () => {
+            console.log('[REALTIME] Unsubscribing from publishers...');
+            supabase.removeChannel(channel);
+        };
     },
 
     // ===== PARTICIPATIONS =====
@@ -141,6 +199,67 @@ export const api = {
         }
 
         console.log(`[SYNC] Saved ${participations.length} participations, deleted ${idsToDelete.length}`);
+    },
+
+    async createParticipation(participation: Participation): Promise<Participation> {
+        console.log(`[API] Creating participation for ${participation.publisherName}`);
+        const row = { id: participation.id, data: participation };
+        const { error } = await supabase
+            .from('participations')
+            .insert(row);
+
+        if (error) {
+            console.error('Error creating participation:', error);
+            throw error;
+        }
+        console.log(`[API] Participation created with id ${participation.id}`);
+        return participation;
+    },
+
+    async updateParticipation(participation: Participation): Promise<Participation> {
+        console.log(`[API] Updating participation ${participation.id}`);
+        const row = { id: participation.id, data: participation };
+        const { error } = await supabase
+            .from('participations')
+            .upsert(row, { onConflict: 'id' });
+
+        if (error) {
+            console.error('Error updating participation:', error);
+            throw error;
+        }
+        console.log(`[API] Participation ${participation.id} updated`);
+        return participation;
+    },
+
+    async deleteParticipation(id: string): Promise<void> {
+        console.log(`[API] Deleting participation ${id}`);
+        const { error } = await supabase.from('participations').delete().eq('id', id);
+        if (error) {
+            console.error('Error deleting participation:', error);
+            throw error;
+        }
+        console.log(`[API] Participation ${id} deleted`);
+    },
+
+    subscribeToParticipations(onUpdate: (participations: Participation[]) => void): () => void {
+        console.log('[REALTIME] Subscribing to participations changes...');
+        const channel = supabase
+            .channel('participations-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'participations' },
+                async () => {
+                    console.log('[REALTIME] Participations changed, reloading...');
+                    const participations = await this.loadParticipations();
+                    onUpdate(participations);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            console.log('[REALTIME] Unsubscribing from participations...');
+            supabase.removeChannel(channel);
+        };
     },
 
     // ===== MEETINGS =====
