@@ -48,6 +48,9 @@ export interface Publisher {
     // Status flags from EMR categories
     isNotQualified?: boolean;          // "NÃO APTOS OU NÃO ASSISTEM REUNIÃO"
     requestedNoParticipation?: boolean; // "PEDIRAM PARA NÃO PARTICIPAR"
+    // Data origin tracking
+    source?: 'manual' | 'import' | 'sync' | 'initial'; // Onde o registro foi criado
+    createdAt?: string;  // ISO timestamp of creation
 }
 
 // ===== PARTICIPACOES =====
@@ -76,6 +79,9 @@ export interface Participation {
     partTitle: string;
     type: ParticipationType;
     duration?: number;
+    // Data origin tracking
+    source?: 'manual' | 'import' | 'sync';
+    createdAt?: string;
 }
 
 // ===== ESTRUTURA DA REUNIAO =====

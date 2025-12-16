@@ -206,6 +206,8 @@ export default function HistoryImporter({ publishers, participations, onImport, 
                     },
                     availability: { mode: "always", exceptionDates: [], availableDates: [] },
                     aliases: [name],
+                    source: 'import',
+                    createdAt: new Date().toISOString(),
                 };
                 newPublishers.push(pub);
             } else if (res.type === 'map' && res.targetId && res.updateExistingName) {
@@ -270,6 +272,8 @@ export default function HistoryImporter({ publishers, participations, onImport, 
                         date: p.week, // Use week as date for stable deduplication signature
                         partTitle: p.part,
                         type: type,
+                        source: 'import',
+                        createdAt: new Date().toISOString(),
                     });
                     importedCount++;
                 }
@@ -561,7 +565,11 @@ export default function HistoryImporter({ publishers, participations, onImport, 
 
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <button onClick={onCancel} style={{ padding: '10px 20px', background: '#444', border: 'none', color: '#fff', cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={handleImport} style={{ padding: '10px 20px', background: '#007bff', border: 'none', color: '#fff', cursor: 'pointer' }}>Importar Dados</button>
+                {counts.resolved > 0 && (
+                    <button onClick={handleImport} style={{ padding: '10px 20px', background: '#007bff', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                        Importar Dados ({counts.resolved} itens)
+                    </button>
+                )}
                 <button
                     onClick={async () => {
                         setCleanupStatus('🔄 Limpando duplicatas...');
