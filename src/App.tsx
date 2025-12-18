@@ -120,65 +120,6 @@ function App() {
     }
   }, [])
 
-  const handleHistoryImport = async (newPublishers: Publisher[], updatedExistingPublishers: Publisher[], newParticipations: Participation[]) => {
-    // 1. Merge Publishers
-    let finalPublishers = [...publishers]
-
-    // Apply updates
-    updatedExistingPublishers.forEach(updated => {
-      finalPublishers = finalPublishers.map(p => p.id === updated.id ? updated : p)
-    })
-
-    // Add new
-    newPublishers.forEach(np => {
-      if (!finalPublishers.find(p => p.id === np.id)) {
-        finalPublishers.push(np);
-      }
-    })
-
-    // 2. Merge Participations (with deduplication)
-    // Create a Set of existing participation signatures to detect duplicates
-    const existingSignatures = new Set(
-      participations.map(p => `${p.publisherName}|${p.week}|${p.partTitle}`)
-    );
-
-    // Only add new participations that don't already exist
-    const uniqueNewParticipations = newParticipations.filter(np => {
-      const signature = `${np.publisherName}|${np.week}|${np.partTitle}`;
-      if (existingSignatures.has(signature)) {
-        console.log(`Skipping duplicate participation: ${signature}`);
-        return false;
-      }
-      existingSignatures.add(signature); // Prevent duplicates within newParticipations too
-      return true;
-    });
-
-    console.log(`Imported ${uniqueNewParticipations.length} new participations (${newParticipations.length - uniqueNewParticipations.length} duplicates skipped)`);
-    const finalParticipations = [...participations, ...uniqueNewParticipations]
-
-    // Update State & Save
-    setPublishers(finalPublishers)
-    setParticipations(finalParticipations)
-    handleTabChange('dashboard')
-
-    setIsSaving(true)
-    setStatusMessage("Sincronizando importação...")
-
-    try {
-      // We do sequential or parallel save? Parallel is fine they are different blocks.
-      await Promise.all([
-        api.savePublishers(finalPublishers),
-        api.saveParticipations(finalParticipations)
-      ])
-      setStatusMessage("✅ Importação concluída e enviada!")
-      setTimeout(() => setStatusMessage(null), 5000)
-    } catch (e) {
-      setStatusMessage("❌ Erro na sincronização da importação")
-    } finally {
-      setIsSaving(false)
-    }
-  };
-
   const savePublisher = async (publisher: Publisher) => {
     setIsSaving(true)
     setStatusMessage("Salvando publicador...")
@@ -389,7 +330,7 @@ function App() {
           <HistoryImporter
             publishers={publishers}
             participations={participations}
-            onImport={handleHistoryImport}
+            onImport={() => { }}
             onCancel={() => handleTabChange('dashboard')}
           />
         </div>
