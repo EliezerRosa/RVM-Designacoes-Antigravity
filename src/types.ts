@@ -405,3 +405,58 @@ export interface AiScheduleResult {
     helperName: string | null;
     reason: string;
 }
+
+// ===== IMPORTACAO DE HISTORICO (STAGING) =====
+
+export const HistoryStatus = {
+    PENDING: 'PENDING',           // Aguardando validação
+    VALIDATED: 'VALIDATED',       // Nome resolvido automaticamente
+    APPROVED: 'APPROVED',         // Integrado ao sistema
+    REJECTED: 'REJECTED',         // Descartado
+} as const;
+
+export type HistoryStatus = typeof HistoryStatus[keyof typeof HistoryStatus];
+
+export interface HistoryRecord {
+    id: string;
+
+    // Dados importados (raw)
+    weekId: string;               // "2025-W50"
+    weekDisplay: string;          // "15-21 de dezembro"
+    date: string;                 // ISO date
+    partTitle: string;            // "Leitura da Bíblia"
+    partType: string;             // "Tesouros", "Ministério", etc.
+    rawPublisherName: string;     // Nome como veio no arquivo
+    rawHelperName?: string;
+
+    // Resolução (após matching)
+    resolvedPublisherId?: string;
+    resolvedPublisherName?: string;
+    resolvedHelperId?: string;
+    resolvedHelperName?: string;
+    matchConfidence?: number;     // 0-100
+
+    // Status
+    status: HistoryStatus;
+    validationNotes?: string;
+    importSource: 'PDF' | 'Excel' | 'JSON' | 'Manual';
+    importBatchId: string;        // Agrupa imports do mesmo arquivo
+
+    // Metadados
+    createdAt: string;
+    updatedAt?: string;
+    approvedBy?: string;
+    approvedAt?: string;
+}
+
+export interface ImportBatch {
+    id: string;
+    fileName: string;
+    importDate: string;
+    source: 'PDF' | 'Excel' | 'JSON' | 'Manual';
+    totalRecords: number;
+    pendingCount: number;
+    validatedCount: number;
+    approvedCount: number;
+    rejectedCount: number;
+}
