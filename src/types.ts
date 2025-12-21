@@ -208,7 +208,26 @@ export interface Workbook {
     isDeleted?: boolean;
 }
 
-// ===== DESIGNACAO S-89 =====
+// ===== MOTOR DE DESIGNAÇÕES =====
+
+export const ApprovalStatus = {
+    DRAFT: 'DRAFT',
+    PENDING_APPROVAL: 'PENDING_APPROVAL',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+} as const;
+
+export type ApprovalStatus = typeof ApprovalStatus[keyof typeof ApprovalStatus];
+
+export const TeachingCategory = {
+    TEACHING: 'TEACHING',   // Peso 1.0 - Discursos, Joias, Necessidades Locais
+    STUDENT: 'STUDENT',     // Peso 0.5 - Leitura, Demonstrações titular
+    HELPER: 'HELPER',       // Peso 0.1 - Ajudante em demonstrações
+} as const;
+
+export type TeachingCategory = typeof TeachingCategory[keyof typeof TeachingCategory];
+
+// ===== DESIGNACAO S-89 (Legado) =====
 
 export interface Assignment {
     id: string;
@@ -221,6 +240,116 @@ export interface Assignment {
     assistant?: string;
     durationMin: number;
     room?: string;
+}
+
+// ===== DESIGNACAO AGENDADA (Motor de Regras) =====
+
+export interface ScheduledAssignment {
+    id: string;
+    weekId: string;
+    partId: string;
+    partTitle: string;
+    partType: ParticipationType;
+    teachingCategory: TeachingCategory;
+
+    // Designados
+    principalPublisherId: string;
+    principalPublisherName: string;
+    secondaryPublisherId?: string;
+    secondaryPublisherName?: string;
+
+    // Timing
+    date: string;
+    startTime?: string;
+    endTime?: string;
+    durationMin: number;
+
+    // Status de Aprovação
+    status: ApprovalStatus;
+    approvedByElderId?: string;
+    approvalDate?: string;
+    rejectionReason?: string;
+
+    // Metadados da seleção
+    selectionReason: string;
+    score: number;
+    room?: string;
+
+    createdAt: string;
+    updatedAt?: string;
+}
+
+// ===== CONFIGURAÇÃO DO MOTOR =====
+
+export interface EngineConfig {
+    weights: {
+        teaching: number;  // default: 1.0
+        student: number;   // default: 0.5
+        helper: number;    // default: 0.1
+    };
+    cooldown: {
+        samePartWeeks: number;      // default: 6
+        sameSectionWeeks: number;   // default: 2
+        penaltyPoints: number;      // default: 500
+    };
+    bonuses: {
+        neverParticipated: number;  // default: 1000
+    };
+    pairing: {
+        preferSameGender: boolean;  // default: true
+        preferFamily: boolean;      // default: true
+    };
+}
+
+export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
+    weights: {
+        teaching: 1.0,
+        student: 0.5,
+        helper: 0.1,
+    },
+    cooldown: {
+        samePartWeeks: 6,
+        sameSectionWeeks: 2,
+        penaltyPoints: 500,
+    },
+    bonuses: {
+        neverParticipated: 1000,
+    },
+    pairing: {
+        preferSameGender: true,
+        preferFamily: true,
+    },
+};
+
+// ===== RESULTADO DO RANQUEAMENTO =====
+
+export interface RankedCandidate {
+    publisher: Publisher;
+    score: number;
+    breakdown: {
+        daysSinceLastAssignment: number;
+        categoryWeight: number;
+        cooldownPenalty: number;
+        neverParticipatedBonus: number;
+    };
+    reason: string;
+}
+
+// ===== RESULTADO DO FILTRO =====
+
+export interface FilterResult {
+    eligible: Publisher[];
+    rejected: { publisher: Publisher; reason: string }[];
+}
+
+// ===== AÇÃO DE APROVAÇÃO =====
+
+export interface ApprovalAction {
+    assignmentId: string;
+    action: 'APPROVE' | 'REJECT';
+    elderId: string;
+    elderName: string;
+    reason?: string;
 }
 
 // ===== ESTATISTICAS =====
