@@ -8,16 +8,16 @@ interface Props {
     onImport: (newParticipations: Participation[]) => void;
 }
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
 // Matching de nomes com fuzzy search
 function findBestMatch(rawName: string, publishers: Publisher[]): { publisher: Publisher | null; confidence: number } {
     const normalized = rawName.toLowerCase().trim();
 
     for (const pub of publishers) {
-        // Match exato
         if (pub.name.toLowerCase() === normalized) {
             return { publisher: pub, confidence: 100 };
         }
-        // Match por alias
         for (const alias of pub.aliases || []) {
             if (alias.toLowerCase() === normalized) {
                 return { publisher: pub, confidence: 95 };
@@ -25,7 +25,6 @@ function findBestMatch(rawName: string, publishers: Publisher[]): { publisher: P
         }
     }
 
-    // Match parcial (primeiro + último nome)
     const parts = normalized.split(' ');
     if (parts.length >= 2) {
         const firstLast = `${parts[0]} ${parts[parts.length - 1]}`;
@@ -38,7 +37,6 @@ function findBestMatch(rawName: string, publishers: Publisher[]): { publisher: P
         }
     }
 
-    // Match por primeiro nome
     for (const pub of publishers) {
         if (pub.name.toLowerCase().startsWith(parts[0] + ' ')) {
             return { publisher: pub, confidence: 60 };
@@ -48,42 +46,22 @@ function findBestMatch(rawName: string, publishers: Publisher[]): { publisher: P
     return { publisher: null, confidence: 0 };
 }
 
-// Parser de JSON
-function parseJsonImport(content: string, publishers: Publisher[]): HistoryRecord[] {
-    const data = JSON.parse(content);
-    const records: HistoryRecord[] = [];
-    const batchId = `batch-${Date.now()}`;
+// Aplicar matching de nomes aos registros parseados
+function applyNameMatching(records: HistoryRecord[], publishers: Publisher[]): HistoryRecord[] {
+    return records.map(r => {
+        const match = findBestMatch(r.rawPublisherName, publishers);
+        const helperMatch = r.rawHelperName ? findBestMatch(r.rawHelperName, publishers) : null;
 
-    const items = Array.isArray(data) ? data : [data];
-
-    for (const item of items) {
-        const match = findBestMatch(item.publisherName || item.student || '', publishers);
-        const helperMatch = item.helperName || item.assistant
-            ? findBestMatch(item.helperName || item.assistant, publishers)
-            : null;
-
-        records.push({
-            id: `hr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            weekId: item.week || item.weekId || '',
-            weekDisplay: item.weekDisplay || item.week || '',
-            date: item.date || new Date().toISOString().split('T')[0],
-            partTitle: item.partTitle || item.title || '',
-            partType: item.type || item.partType || 'Ministério',
-            rawPublisherName: item.publisherName || item.student || '',
-            rawHelperName: item.helperName || item.assistant,
+        return {
+            ...r,
             resolvedPublisherId: match.publisher?.id,
             resolvedPublisherName: match.publisher?.name,
             resolvedHelperId: helperMatch?.publisher?.id,
             resolvedHelperName: helperMatch?.publisher?.name,
             matchConfidence: match.confidence,
             status: match.confidence >= 80 ? HistoryStatus.VALIDATED : HistoryStatus.PENDING,
-            importSource: 'JSON',
-            importBatchId: batchId,
-            createdAt: new Date().toISOString(),
-        });
-    }
-
-    return records;
+        };
+    });
 }
 
 export default function HistoryImporter({ publishers, onImport }: Props) {
@@ -93,6 +71,8 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
     const [filterWeek, setFilterWeek] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
 
     // Estatísticas
     const stats = useMemo(() => {
@@ -126,31 +106,51 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         return Array.from(weeks).sort();
     }, [records]);
 
-    // Upload de arquivo
-    const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    // Upload de arquivo PDF
+    const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const content = event.target?.result as string;
-                let newRecords: HistoryRecord[] = [];
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            setUploadError('Apenas arquivos PDF são suportados.');
+            e.target.value = '';
+            return;
+        }
 
-                if (file.name.endsWith('.json')) {
-                    newRecords = parseJsonImport(content, publishers);
-                } else {
-                    alert('Formato não suportado. Use JSON.');
-                    return;
-                }
+        setIsUploading(true);
+        setUploadError(null);
 
-                setRecords(prev => [...prev, ...newRecords]);
-            } catch (error) {
-                alert('Erro ao processar arquivo: ' + error);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch(`${BACKEND_URL}/api/history/parse-pdf`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erro ${response.status}: ${response.statusText}`);
             }
-        };
-        reader.readAsText(file);
-        e.target.value = '';
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Erro ao processar PDF');
+            }
+
+            // Aplicar matching de nomes
+            const matchedRecords = applyNameMatching(result.records, publishers);
+
+            setRecords(prev => [...prev, ...matchedRecords]);
+            setUploadError(null);
+        } catch (error) {
+            console.error('Erro ao fazer upload:', error);
+            setUploadError(error instanceof Error ? error.message : 'Erro desconhecido');
+        } finally {
+            setIsUploading(false);
+            e.target.value = '';
+        }
     }, [publishers]);
 
     // Seleção
@@ -258,20 +258,38 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <h2 style={{ marginBottom: 'var(--spacing-xl)' }}>📜 Importação de Histórico</h2>
 
-            {/* Upload */}
+            {/* Upload PDF */}
             <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-xl)' }}>
-                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>📥 Importar Arquivo</h3>
+                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>📥 Importar PDF (S-140)</h3>
                 <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
                     <input
                         type="file"
-                        accept=".json"
+                        accept=".pdf"
                         onChange={handleFileUpload}
+                        disabled={isUploading}
                         style={{ flex: 1 }}
                     />
+                    {isUploading && (
+                        <span style={{ color: 'var(--primary-400)' }}>
+                            ⏳ Processando PDF...
+                        </span>
+                    )}
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>
-                        Formatos: JSON
+                        Formatos: Pauta S-140, Apostila RVM
                     </span>
                 </div>
+                {uploadError && (
+                    <div style={{
+                        marginTop: 'var(--spacing-md)',
+                        padding: 'var(--spacing-sm) var(--spacing-md)',
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: '6px',
+                        color: '#ef4444'
+                    }}>
+                        ❌ {uploadError}
+                    </div>
+                )}
             </div>
 
             {/* Estatísticas */}
