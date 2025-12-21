@@ -330,8 +330,11 @@ function App() {
           <HistoryImporter
             publishers={publishers}
             participations={participations}
-            onImport={() => { }}
-            onCancel={() => handleTabChange('dashboard')}
+            onImport={async (newParticipations) => {
+              for (const p of newParticipations) {
+                await saveParticipation(p);
+              }
+            }}
           />
         </div>
       </main>
