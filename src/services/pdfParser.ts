@@ -16,7 +16,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = PdfWorker;
 // ==========================================
 
 const PORTUGUESE_MONTHS: Record<string, number> = {
-    'janeiro': 1, 'fevereiro': 2, 'marco': 3, 'mar├ºo': 3, 'abril': 4,
+    'janeiro': 1, 'fevereiro': 2, 'marco': 3, 'março': 3, 'abril': 4,
     'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8, 'setembro': 9,
     'outubro': 10, 'novembro': 11, 'dezembro': 12,
 };
@@ -35,7 +35,7 @@ const SECTION_HEADINGS: Record<string, string> = {
     'conclusao': 'Vida Cristã',
 };
 
-const TESOUROS_PARTS = ['leitura', 'bíblia', 'biblia', 'joias', 'jóias'];
+const TESOUROS_PARTS = ['leitura', 'bíblia', 'biblia', 'joias', 'jóias', 'pacto'];
 const VIDA_CRISTA_PARTS = ['ebc', 'estudo bíblico', 'estudo biblico', 'congregação', 'congregacao', 'necessidades', 'demonstra', 'amor'];
 // Partes do Ministério: Iniciando, Cultivando, Fazendo, Explicando, Discurso
 const MINISTERIO_PARTS = ['iniciando', 'cultivando', 'fazendo', 'explicando'];
@@ -44,15 +44,15 @@ const SKIP_KEYWORDS = ['SALA B', 'SALAO PRINCIPAL', 'SAL├âO PRINCIPAL'];
 
 // Partes NÃO designáveis (por função ou fixas) - ignorar no histórico
 const NON_DESIGNABLE_PARTS = [
-    'coment├írios', 'comentarios', 'coment├írio inicial', 'comentario inicial',
-    'coment├írios finais', 'comentarios finais',
-    'c├óntico', 'cantico',
+    'comentários', 'comentarios', 'comentário inicial', 'comentario inicial',
+    'comentários finais', 'comentarios finais',
+    'cântico', 'cantico',
     'oração inicial', 'oracao inicial'  // Oração Inicial é fixo do Presidente
 ];
 
 // Regex Patterns
 const DURATION_PATTERN = /(.+?)\s*\((\d+)\s*min\)/i;
-const WEEK_HEADER_PATTERN = /\d{1,2}\s*(?:[-ÔÇô]|a)\s*\d{1,2}\s*de\s*[a-z├º]+/i;
+const WEEK_HEADER_PATTERN = /\d{1,2}\s*(?:[-–]|a)\s*\d{1,2}\s*de\s*[a-zç]+/i;
 const YEAR_PATTERN = /20\d{2}/;
 
 // Limpar label da semana (remover | e trecho bíblico)
@@ -67,6 +67,11 @@ function cleanWeekLabel(rawLabel: string): string {
 // Inferir seção pelo título da parte
 function inferSectionFromTitle(title: string): string {
     const lower = title.toLowerCase();
+
+    // Tesouros: Part 1 is ALWAYS Tesouros, and usually Parts 2-3 too
+    if (lower.startsWith('1.') || lower.startsWith('2.') || lower.startsWith('3.')) {
+        return 'Tesouros';
+    }
 
     // Vida Cristã específica (prioridade para não confundir com outros)
     if (VIDA_CRISTA_PARTS.some(p => lower.includes(p))) {
