@@ -1,14 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Publisher, Participation, HistoryRecord } from '../types';
 import { HistoryStatus, ParticipationType } from '../types';
+import { parsePdfFile } from '../services/pdfParser';
 
 interface Props {
     publishers: Publisher[];
     participations: Participation[];
     onImport: (newParticipations: Participation[]) => void;
 }
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 // Matching de nomes com fuzzy search
 function findBestMatch(rawName: string, publishers: Publisher[]): { publisher: Publisher | null; confidence: number } {
@@ -106,7 +105,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         return Array.from(weeks).sort();
     }, [records]);
 
-    // Upload de arquivo PDF
+    // Upload de arquivo PDF (parser local, sem backend)
     const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -121,19 +120,8 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         setUploadError(null);
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const response = await fetch(`${BACKEND_URL}/api/history/parse-pdf`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error(`Erro ${response.status}: ${response.statusText}`);
-            }
-
-            const result = await response.json();
+            // Parser local usando PDF.js (funciona no navegador)
+            const result = await parsePdfFile(file);
 
             if (!result.success) {
                 throw new Error(result.error || 'Erro ao processar PDF');
