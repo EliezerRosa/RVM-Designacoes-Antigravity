@@ -116,8 +116,11 @@ function normalizeMojibake(text: string): string {
 function inferSectionFromTitle(title: string): MeetingSection {
     const lower = title.toLowerCase();
 
-    // Início da Reunião
-    if (lower.includes('presidente')) {
+    // Início da Reunião: Presidente, Oração Inicial, Comentários Iniciais
+    if (lower.includes('presidente') ||
+        lower.includes('comentários iniciais') || lower.includes('comentarios iniciais') ||
+        ((lower.includes('oração') || lower.includes('oracao')) &&
+            (lower.includes('inicial') || lower.includes('inicia')))) {
         return MeetingSectionEnum.INICIO;
     }
 
@@ -141,8 +144,10 @@ function inferSectionFromTitle(title: string): MeetingSection {
         return MeetingSectionEnum.MINISTERIO;
     }
 
-    // Final: Oração final
-    if (lower.includes('oração') && lower.includes('final')) {
+    // Final: Oração (sem "inicial") = oração final
+    // "Oração inicial" já foi tratada no Início, então qualquer "oração" aqui é final
+    if ((lower.includes('oração') || lower.includes('oracao')) &&
+        !lower.includes('inicial') && !lower.includes('inicia')) {
         return MeetingSectionEnum.FINAL;
     }
 
