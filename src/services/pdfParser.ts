@@ -635,30 +635,45 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
             let studentName: string | null = null;
             let assistantName: string | null = null;
 
-            // Padrão 1: "Leitura da Bíblia Gabriel Carlos + José Luiz"
-            const knownParts = ['leitura da bíblia', 'leitura biblia', 'joias espirituais', 'iniciando conversas',
-                'cultivando interesse', 'fazendo discípulos', 'explicando', 'discurso',
-                'estudo bíblico', 'estudo biblico', 'oração', 'oracao'];
+            // Remover número do início do content: "1 Oque..." -> "Oque..."
+            // Padrão: número + espaço ou número + ponto/parêntese + espaço
+            const contentWithoutNumber = content.replace(/^\d+[\.\)\s]+\s*/, '');
+            const lowerContentWithoutNum = contentWithoutNumber.toLowerCase();
+            console.log('[PDF Parser] Content sem número:', contentWithoutNumber);
+
+            // Padrão 1: Partes conhecidas pelo nome
+            const knownParts = ['leitura da bíblia', 'leitura da biblia', 'leitura biblia',
+                'joias espirituais', 'iniciando conversas', 'cultivando o interesse',
+                'cultivando interesse', 'fazendo discípulos', 'fazendo discipulos',
+                'explicando suas crencas', 'explicando', 'discurso', 'necessidades locais',
+                'estudo bíblico', 'estudo biblico', 'oração', 'oracao',
+                'oque aprendemos', 'o que aprendemos'];
             for (const part of knownParts) {
-                if (lowerContent.startsWith(part)) {
-                    title = content.substring(0, part.length).trim();
-                    const remainder = content.substring(part.length).trim();
+                if (lowerContentWithoutNum.startsWith(part)) {
+                    title = content; // Manter título original com número
+                    const remainder = contentWithoutNumber.substring(part.length).trim();
                     if (remainder) {
                         const [student, assistant] = namesFromString(remainder);
                         studentName = student;
                         assistantName = assistant;
+                        console.log('[PDF Parser] Match knownPart:', part, '-> Estudante:', student, 'Ajud:', assistant);
                     }
                     break;
                 }
             }
 
-            // Padrão 2: Número no início "4. Iniciando conversas Margarete Venturin"
-            const numberedMatch = content.match(/^(\d+[\.)]\s*.+?)\s+([A-Z][a-zà-ÿ]+\s+[A-Z][a-zà-ÿ]+.*)$/);
-            if (numberedMatch && !studentName) {
-                title = numberedMatch[1].trim();
-                const [student, assistant] = namesFromString(numberedMatch[2]);
-                studentName = student;
-                assistantName = assistant;
+            // Padrão 2: Se não encontrou, tentar extrair nome após última palavra do título
+            // Ex: "Discurso Edmils Pessanha" -> título=Discurso, nome=Edmils Pessanha
+            if (!studentName) {
+                // Procurar por padrão: "Palavra(s) NomeProprio SobrenomeProprio"
+                const nameMatch = contentWithoutNumber.match(/^(.+?)\s+([A-Z][a-zà-ÿ]+(?:\s+(?:do|da|de|dos|das))?(?:\s+[A-Z][a-zà-ÿ]+)+)\s*(?:\/\s*(.+))?$/);
+                if (nameMatch) {
+                    title = content;
+                    const [student, assistant] = namesFromString(nameMatch[2] + (nameMatch[3] ? ' / ' + nameMatch[3] : ''));
+                    studentName = student;
+                    assistantName = assistant;
+                    console.log('[PDF Parser] Match namePattern -> Estudante:', student, 'Ajud:', assistant);
+                }
             }
 
             if (studentName && currentWeek) {
@@ -668,6 +683,7 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                     student: studentName,
                     assistant: assistantName
                 });
+                console.log('[PDF Parser] Parte adicionada:', title, '->', studentName);
             }
         }
     }
