@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import type { Publisher, Participation, HistoryRecord } from '../types';
 import { HistoryStatus, ParticipationType, PartModality, MeetingSection } from '../types';
 import { parsePdfFile } from '../services/pdfParser';
+import type { OcrProgressCallback } from '../services/pdfParser';
 
 interface Props {
     publishers: Publisher[];
@@ -69,6 +70,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
     const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [ocrProgress, setOcrProgress] = useState<{ status: string; progress: number } | null>(null);
 
     // Estatísticas
     const stats = useMemo(() => {
@@ -117,8 +119,14 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         setUploadError(null);
 
         try {
+            // Callback para progresso do OCR
+            const onOcrProgress: OcrProgressCallback = (progress) => {
+                setOcrProgress(progress);
+            };
+
             // Parser local usando PDF.js (funciona no navegador)
-            const result = await parsePdfFile(file);
+            // Se não houver texto extraível, usa OCR automaticamente
+            const result = await parsePdfFile(file, onOcrProgress);
 
             if (!result.success) {
                 throw new Error(result.error || 'Erro ao processar PDF');
@@ -134,6 +142,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
             setUploadError(error instanceof Error ? error.message : 'Erro desconhecido');
         } finally {
             setIsUploading(false);
+            setOcrProgress(null);
             e.target.value = '';
         }
     }, [publishers]);
@@ -472,9 +481,32 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                         style={{ flex: 1 }}
                     />
                     {isUploading && (
-                        <span style={{ color: 'var(--primary-400)' }}>
-                            ⏳ Processando PDF...
-                        </span>
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            color: 'var(--primary-400)'
+                        }}>
+                            <span>
+                                ⏳ {ocrProgress ? ocrProgress.status : 'Processando PDF...'}
+                            </span>
+                            {ocrProgress && (
+                                <div style={{
+                                    width: '200px',
+                                    height: '6px',
+                                    background: 'rgba(255,255,255,0.1)',
+                                    borderRadius: '3px',
+                                    overflow: 'hidden'
+                                }}>
+                                    <div style={{
+                                        height: '100%',
+                                        width: `${Math.round(ocrProgress.progress * 100)}%`,
+                                        background: 'var(--primary-500)',
+                                        transition: 'width 0.3s ease'
+                                    }} />
+                                </div>
+                            )}
+                        </div>
                     )}
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>
                         Formatos: Pauta S-140, Apostila RVM

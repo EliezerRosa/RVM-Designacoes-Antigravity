@@ -1,8 +1,10 @@
 ﻿/**
  * Parser de PDF S-140 usando PDF.js (funciona no navegador)
  * Extrai semanas e partes de pautas de reunião
+ * Suporta OCR via Tesseract.js para PDFs baseados em imagem
  */
 import * as pdfjsLib from 'pdfjs-dist';
+import Tesseract from 'tesseract.js';
 import type { HistoryRecord, PartModality, MeetingSection, StandardPartKey } from '../types';
 import { HistoryStatus, PartModality as PartModalityEnum, MeetingSection as MeetingSectionEnum, StandardPart } from '../types';
 
@@ -10,6 +12,10 @@ import { HistoryStatus, PartModality as PartModalityEnum, MeetingSection as Meet
 // @ts-ignore - O Vite vai resolver esse import corretamente
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = PdfWorker;
+
+// Callback para progresso do OCR
+export type OcrProgressCallback = (progress: { status: string; progress: number }) => void;
+
 
 // ==========================================
 // Constantes
@@ -547,7 +553,7 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
 }
 
 // ==========================================
-// Interface P├║blica
+// Interface Pública
 // ==========================================
 
 export interface ParseResult {
@@ -555,26 +561,93 @@ export interface ParseResult {
     weeks: ParsedWeek[];
     records: HistoryRecord[];
     error?: string;
+    usedOcr?: boolean;
 }
 
-export async function parsePdfFile(file: File): Promise<ParseResult> {
+// Extrair texto de PDF usando OCR (Tesseract.js)
+async function extractTextWithOCR(
+    pdf: pdfjsLib.PDFDocumentProxy,
+    onProgress?: OcrProgressCallback
+): Promise<string> {
+    let fullText = '';
+    const totalPages = pdf.numPages;
+
+    for (let i = 1; i <= totalPages; i++) {
+        if (onProgress) {
+            onProgress({
+                status: `Processando página ${i}/${totalPages} com OCR...`,
+                progress: (i - 1) / totalPages
+            });
+        }
+
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 }); // 2x para melhor qualidade OCR
+
+        // Criar canvas
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) continue;
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        // Renderizar página no canvas
+        await page.render({
+            canvasContext: context,
+            viewport: viewport,
+            // @ts-ignore - PDF.js types may be incorrect
+            canvas: canvas
+        }).promise;
+
+        // Executar OCR na imagem
+        const result = await Tesseract.recognize(
+            canvas,
+            'por', // Português
+            {
+                logger: (m) => {
+                    if (onProgress && m.status === 'recognizing text') {
+                        onProgress({
+                            status: `OCR página ${i}/${totalPages}: ${Math.round((m.progress || 0) * 100)}%`,
+                            progress: ((i - 1) + (m.progress || 0)) / totalPages
+                        });
+                    }
+                }
+            }
+        );
+
+        fullText += result.data.text + '\n';
+    }
+
+    if (onProgress) {
+        onProgress({ status: 'OCR concluído!', progress: 1 });
+    }
+
+    return fullText;
+}
+
+export async function parsePdfFile(
+    file: File,
+    onOcrProgress?: OcrProgressCallback
+): Promise<ParseResult> {
     try {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
         let fullText = '';
+        let usedOcr = false;
 
+        // Primeiro, tentar extrair texto normalmente
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
 
-            // Extrair items com posi├º├Áes para preservar layout
+            // Extrair items com posições para preservar layout
             const items = textContent.items as Array<{
                 str: string;
                 transform: number[];
             }>;
 
-            // Ordenar por posi├º├úo Y (alto para baixo) e depois X (esquerda para direita)
+            // Ordenar por posição Y (alto para baixo) e depois X (esquerda para direita)
             const sortedItems = items
                 .filter(item => item.str.trim())
                 .map(item => ({
@@ -583,7 +656,7 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                     y: item.transform[5]
                 }))
                 .sort((a, b) => {
-                    // Agrupar por linhas (toler├óncia de 5 pixels)
+                    // Agrupar por linhas (tolerância de 5 pixels)
                     const yDiff = b.y - a.y;
                     if (Math.abs(yDiff) > 5) return yDiff;
                     return a.x - b.x;
@@ -612,15 +685,30 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
             fullText += lines.map(line => line.join(' ')).join('\n') + '\n';
         }
 
-        console.log('[PDF Parser] Texto extra├¡do:', fullText.substring(0, 500));
+        console.log('[PDF Parser] Texto extraído:', fullText.substring(0, 500));
 
+        // Se não conseguiu extrair texto, usar OCR
         if (!fullText.trim()) {
-            return {
-                success: false,
-                weeks: [],
-                records: [],
-                error: 'PDF sem texto extra├¡vel'
-            };
+            console.log('[PDF Parser] PDF sem texto extraível, usando OCR...');
+
+            if (onOcrProgress) {
+                onOcrProgress({ status: 'Iniciando OCR...', progress: 0 });
+            }
+
+            fullText = await extractTextWithOCR(pdf, onOcrProgress);
+            usedOcr = true;
+
+            console.log('[PDF Parser] Texto OCR:', fullText.substring(0, 500));
+
+            if (!fullText.trim()) {
+                return {
+                    success: false,
+                    weeks: [],
+                    records: [],
+                    error: 'PDF sem texto extraível (OCR também falhou)',
+                    usedOcr: true
+                };
+            }
         }
 
         // Parse weeks
@@ -714,7 +802,8 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
         return {
             success: true,
             weeks,
-            records
+            records,
+            usedOcr
         };
     } catch (error) {
         return {
