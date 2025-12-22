@@ -105,74 +105,102 @@ function inferSectionFromTitle(title: string): MeetingSection {
 // Inferir StandardPartKey pelo título da parte
 function inferStandardPartKey(title: string): StandardPartKey | undefined {
     const lower = title.toLowerCase();
+    // Normalizar texto com possível mojibake
+    const normalized = lower
+        .replace(/├¡/g, 'í')
+        .replace(/├º/g, 'ç')
+        .replace(/├ú/g, 'ã')
+        .replace(/├®/g, 'ê');
 
     // Mapear títulos para StandardPartKey
-    if (lower.includes('presidente')) return 'PRESIDENTE';
-    if (lower.includes('oração inicial') || lower.includes('oracao inicial')) return 'ORACAO_INICIAL';
-    if (lower.includes('oração final') || lower.includes('oracao final')) return 'ORACAO_FINAL';
-    if (lower.includes('joias') || lower.includes('jóias')) return 'JOIAS';
-    if (lower.includes('leitura') && lower.includes('bíblia')) return 'LEITURA_BIBLIA';
-    if (lower.includes('leitura') && lower.includes('biblia')) return 'LEITURA_BIBLIA';
-    if (lower.includes('iniciando')) return 'INICIANDO';
-    if (lower.includes('cultivando')) return 'CULTIVANDO';
-    if (lower.includes('fazendo')) return 'FAZENDO';
-    if (lower.includes('explicando')) return 'EXPLICANDO';
-    if (lower.includes('discurso') && lower.includes('estudante')) return 'DISCURSO_ESTUDANTE';
-    if (lower.includes('necessidades')) return 'NECESSIDADES';
-    if (lower.includes('estudo') && lower.includes('congregação')) return 'EBC';
-    if (lower.includes('estudo') && lower.includes('congregacao')) return 'EBC';
-    if (lower.includes('leitor') && lower.includes('ebc')) return 'EBC_LEITOR';
+    if (normalized.includes('presidente')) return 'PRESIDENTE';
+    if (normalized.includes('oração inicial') || normalized.includes('oracao inicial')) return 'ORACAO_INICIAL';
+    if (normalized.includes('oração final') || normalized.includes('oracao final')) return 'ORACAO_FINAL';
+    if (normalized.includes('joias') || normalized.includes('jóias')) return 'JOIAS';
+    if ((normalized.includes('leitura') && normalized.includes('bíblia')) ||
+        (normalized.includes('leitura') && normalized.includes('biblia'))) return 'LEITURA_BIBLIA';
+    if (normalized.includes('iniciando')) return 'INICIANDO';
+    if (normalized.includes('cultivando')) return 'CULTIVANDO';
+    if (normalized.includes('fazendo')) return 'FAZENDO';
+    if (normalized.includes('explicando')) return 'EXPLICANDO';
+    if (normalized.includes('discurso') && normalized.includes('estudante')) return 'DISCURSO_ESTUDANTE';
+    if (normalized.includes('necessidades')) return 'NECESSIDADES';
+
+    // Leitor do EBC (antes de EBC para ter prioridade)
+    if (normalized.includes('leitor') ||
+        (normalized.includes('leitura') && (normalized.includes('ebc') || normalized.includes('congregação') || normalized.includes('congregacao')))) return 'EBC_LEITOR';
+
+    // EBC - múltiplas variantes
+    if ((normalized.includes('estudo') && normalized.includes('bíblico')) ||
+        (normalized.includes('estudo') && normalized.includes('biblico')) ||
+        (normalized.includes('estudo') && normalized.includes('congregação')) ||
+        (normalized.includes('estudo') && normalized.includes('congregacao'))) return 'EBC';
 
     // Primeira parte de Tesouros (Discurso)
-    if (lower.startsWith('1.')) return 'DISCURSO_TESOUROS';
+    if (normalized.startsWith('1.')) return 'DISCURSO_TESOUROS';
 
     return undefined;
 }
 
 // Inferir modalidade pelo título e seção
-function inferModalityFromTitle(title: string, section: string): PartModality {
+function inferModalityFromTitle(title: string, section: MeetingSection): PartModality {
     const lower = title.toLowerCase();
+    // Normalizar texto com possível mojibake
+    const normalized = lower
+        .replace(/├¡/g, 'í')
+        .replace(/├º/g, 'ç')
+        .replace(/├ú/g, 'ã')
+        .replace(/├®/g, 'ê');
 
     // Presidente → Presidência
-    if (lower.includes('presidente')) {
+    if (normalized.includes('presidente')) {
         return PartModalityEnum.PRESIDENCIA;
     }
 
-    // Leitura da Bíblia → Leitura de Estudante (Tesouros)
-    if (lower.includes('leitura') && section === 'Tesouros') {
-        return PartModalityEnum.LEITURA_ESTUDANTE;
-    }
-
-    // Estudo Bíblico de Congregação / Dirigente → Dirigente de EBC (Vida Cristã)
-    if ((lower.includes('estudo bíblico') || lower.includes('estudo biblico') ||
-        lower.includes('dirigente') || lower.includes('conduz')) && section === 'Vida Cristã') {
-        return PartModalityEnum.DIRIGENTE_EBC;
-    }
-
-    // Leitura no EBC / Leitor ÔåÆ Leitor de EBC (Vida Crist├ú)
-    if ((lower.includes('leitura no ebc') || lower.includes('leitor')) && section === 'Vida Crist├ú') {
-        return PartModalityEnum.LEITOR_EBC;
-    }
-
-    // Ora├º├úo Final ÔåÆ Ora├º├úo (Vida Crist├ú)
-    if (lower.includes('ora├º├úo') || lower.includes('oracao')) {
+    // Oração → Oração
+    if (normalized.includes('oração') || normalized.includes('oracao')) {
         return PartModalityEnum.ORACAO;
     }
 
-    // Discurso no Minist├®rio (final da se├º├úo) ÔåÆ Discurso de Estudante
-    if (lower.includes('discurso') && section === 'Minist├®rio') {
+    // Leitura da Bíblia → Leitura de Estudante (Tesouros)
+    if ((normalized.includes('leitura') && normalized.includes('bíblia')) ||
+        (normalized.includes('leitura') && normalized.includes('biblia'))) {
+        return PartModalityEnum.LEITURA_ESTUDANTE;
+    }
+
+    // Leitor do EBC / Leitura no EBC → Leitor de EBC (Vida Cristã)
+    if ((normalized.includes('leitor') ||
+        (normalized.includes('leitura') && (normalized.includes('ebc') || section === MeetingSectionEnum.VIDA_CRISTA))) &&
+        section === MeetingSectionEnum.VIDA_CRISTA) {
+        return PartModalityEnum.LEITOR_EBC;
+    }
+
+    // Estudo Bíblico de Congregação / Dirigente → Dirigente de EBC (Vida Cristã)
+    if ((normalized.includes('estudo') && (normalized.includes('bíblico') || normalized.includes('biblico') || normalized.includes('congregação') || normalized.includes('congregacao'))) ||
+        normalized.includes('dirigente') || normalized.includes('conduz')) {
+        if (section === MeetingSectionEnum.VIDA_CRISTA) {
+            return PartModalityEnum.DIRIGENTE_EBC;
+        }
+    }
+
+    // Discurso no Ministério (final da seção) → Discurso de Estudante
+    if (normalized.includes('discurso') && section === MeetingSectionEnum.MINISTERIO) {
         return PartModalityEnum.DISCURSO_ESTUDANTE;
     }
 
-    // Discurso em Tesouros ou Vida Crist├ú ÔåÆ Discurso de Ensino
-    if (section === 'Tesouros' || section === 'Vida Crist├ú') {
-        // EBC Dirigente, Joias, Discurso de tema
+    // Discurso em Tesouros → Discurso de Ensino
+    if (section === MeetingSectionEnum.TESOUROS) {
         return PartModalityEnum.DISCURSO_ENSINO;
     }
 
-    // Partes do Minist├®rio com demonstra├º├úo (Iniciando, Cultivando, Fazendo, Explicando)
-    if (section === 'Minist├®rio') {
+    // Partes do Ministério → Demonstração (Iniciando, Cultivando, Fazendo, Explicando)
+    if (section === MeetingSectionEnum.MINISTERIO) {
         return PartModalityEnum.DEMONSTRACAO;
+    }
+
+    // Vida Cristã (outras partes) → Discurso de Ensino
+    if (section === MeetingSectionEnum.VIDA_CRISTA) {
+        return PartModalityEnum.DISCURSO_ENSINO;
     }
 
     // Default
@@ -384,7 +412,22 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
         const nextSection = detectSection(line, currentSection);
         if (nextSection !== currentSection) {
             currentSection = nextSection;
-            // N├úo pular - continuar processando a linha
+            // Não pular - continuar processando a linha
+        }
+
+        // Detectar Presidente (formato especial: "Presidente: Nome" ou "Presidente   Nome")
+        const presidenteMatch = line.match(/presidente[:\s]+(.+)/i);
+        if (presidenteMatch && presidenteMatch[1]) {
+            const presidenteName = presidenteMatch[1].trim();
+            if (presidenteName && presidenteName.length >= 3 && !presidenteName.match(/^\d/)) {
+                currentWeek.parts.push({
+                    section: 'Início',
+                    title: 'Presidente',
+                    student: presidenteName,
+                    assistant: null
+                });
+                continue;
+            }
         }
 
         // Detect part with duration - formato: "Parte (X min) Nome Student / Nome Ajudante"
