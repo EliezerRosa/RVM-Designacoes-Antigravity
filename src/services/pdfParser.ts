@@ -347,22 +347,43 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
             }
         }
 
-        // Convert to HistoryRecords
+        // Convert to HistoryRecords - cada participante = row separada
         const batchId = `batch-${Date.now()}`;
         const records: HistoryRecord[] = [];
 
         for (const week of weeks) {
             for (const part of week.parts) {
+                // Row do Titular
                 if (part.student) {
                     records.push({
                         id: `hr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                         weekId: week.date?.substring(0, 7) || '',
                         weekDisplay: week.label,
                         date: week.date || '',
+                        section: part.section,
+                        partType: part.title, // O título da parte é o tipo (ex: "Leitura da Bíblia")
                         partTitle: part.title,
-                        partType: part.section,
                         rawPublisherName: part.student,
-                        rawHelperName: part.assistant || undefined,
+                        participationRole: 'Titular',
+                        status: HistoryStatus.PENDING,
+                        importSource: 'PDF',
+                        importBatchId: batchId,
+                        createdAt: new Date().toISOString(),
+                    });
+                }
+
+                // Row do Ajudante (se houver)
+                if (part.assistant) {
+                    records.push({
+                        id: `hr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        weekId: week.date?.substring(0, 7) || '',
+                        weekDisplay: week.label,
+                        date: week.date || '',
+                        section: part.section,
+                        partType: part.title,
+                        partTitle: part.title,
+                        rawPublisherName: part.assistant,
+                        participationRole: 'Ajudante',
                         status: HistoryStatus.PENDING,
                         importSource: 'PDF',
                         importBatchId: batchId,
