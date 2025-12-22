@@ -331,13 +331,40 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                 if (student && student.length >= 2) {
                     // Usar seção detectada explicitamente, ou inferir pelo título
                     const partSection = currentSection || inferSectionFromTitle(title);
+                    const lowerTitle = title.toLowerCase();
 
-                    currentWeek.parts.push({
-                        section: partSection,
-                        title,
-                        student,
-                        assistant
-                    });
+                    // EBC: criar 2 parts separadas - Dirigente e Leitor
+                    const isEBC = lowerTitle.includes('estudo bíblico') ||
+                        lowerTitle.includes('estudo biblico') ||
+                        lowerTitle.includes('ebc') ||
+                        lowerTitle.includes('congregação') ||
+                        lowerTitle.includes('congregacao');
+
+                    if (isEBC && assistant) {
+                        // Part 1: Dirigente de EBC
+                        currentWeek.parts.push({
+                            section: partSection,
+                            title: 'Dirigente de EBC',
+                            student,
+                            assistant: null  // Dirigente não tem ajudante
+                        });
+
+                        // Part 2: Leitor de EBC
+                        currentWeek.parts.push({
+                            section: partSection,
+                            title: 'Leitor de EBC',
+                            student: assistant,  // O "assistant" é o Leitor
+                            assistant: null
+                        });
+                    } else {
+                        // Parte normal (não EBC)
+                        currentWeek.parts.push({
+                            section: partSection,
+                            title,
+                            student,
+                            assistant
+                        });
+                    }
                 }
             }
         }
