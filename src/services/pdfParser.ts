@@ -22,10 +22,21 @@ const PORTUGUESE_MONTHS: Record<string, number> = {
 };
 
 const SECTION_HEADINGS: Record<string, string> = {
+    // Tesouros da Palavra de Deus
     'tesouros': 'Tesouros',
+    'palavra de deus': 'Tesouros',
+
+    // Faça Seu Melhor no Ministério
     'minist': 'Ministério',
+    'melhor': 'Ministério',      // "Faça Seu Melhor"
+    'faça seu': 'Ministério',
+    'faca seu': 'Ministério',
+
+    // Nossa Vida Cristã  
     'vida': 'Vida Cristã',
-    'conclus': 'Vida Cristã', // Parte da Vida Cristã
+    'vida cristã': 'Vida Cristã',
+    'vida crista': 'Vida Cristã',
+    'conclus': 'Vida Cristã',
 };
 
 // Partes que pertencem a cada seção (para inferência quando não detectada)
@@ -71,8 +82,20 @@ function inferSectionFromTitle(title: string): string {
         return 'Vida Cristã';
     }
 
-    // Default: Ministério (Iniciando, Cultivando, Fazendo, Discurso, etc.)
-    return 'Ministério';
+    // Partes numeradas do Ministério: Iniciando, Cultivando, Fazendo, Explicando
+    const ministerioKeywords = ['iniciando', 'cultivando', 'fazendo', 'explicando'];
+    if (ministerioKeywords.some(kw => lower.includes(kw))) {
+        return 'Ministério';
+    }
+
+    // Discurso no título normalmente é de Tesouros (ex: "Ele se lembra...")
+    // A menos que seja explicitamente "discurso" de estudante
+    if (lower.includes('discurso') && !lower.includes('estudante')) {
+        return 'Tesouros';  // Discurso de ensino geralmente
+    }
+
+    // Default: Tesouros (mais seguro que Ministério para evitar erros)
+    return 'Tesouros';
 }
 
 // Inferir modalidade pelo título e seção
