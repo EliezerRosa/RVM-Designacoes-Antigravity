@@ -414,11 +414,26 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
 
             const weekDate = extractWeekStart(line, yearHint);
             currentWeek = {
-                label: cleanWeekLabel(line), // J├í limpo, sem | nem trecho b├¡blico
+                label: cleanWeekLabel(line),
                 date: weekDate,
                 parts: []
             };
             currentSection = null;
+
+            // Verificar se Presidente está na mesma linha do cabeçalho
+            const normalizedHeader = normalizeMojibake(line);
+            const presidenteHeaderMatch = normalizedHeader.match(/presidente[:\s]+([A-Za-zÀ-ÿ\s]+)/i);
+            if (presidenteHeaderMatch && presidenteHeaderMatch[1]) {
+                const presidenteName = presidenteHeaderMatch[1].trim();
+                if (presidenteName && presidenteName.length >= 3) {
+                    currentWeek.parts.push({
+                        section: 'Início',
+                        title: 'Presidente',
+                        student: presidenteName,
+                        assistant: null
+                    });
+                }
+            }
             continue;
         }
 
