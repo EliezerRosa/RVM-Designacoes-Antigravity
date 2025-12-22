@@ -481,13 +481,15 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                                     record.modality === 'Demonstração' ? 'rgba(59,130,246,0.2)' :
                                                         record.modality === 'Discurso de Estudante' ? 'rgba(168,85,247,0.2)' :
                                                             record.modality === 'Discurso de Ensino' ? 'rgba(34,197,94,0.2)' :
-                                                                record.modality === 'Leitor no EBC' ? 'rgba(249,115,22,0.2)' : 'rgba(239,68,68,0.2)',
+                                                                record.modality === 'Dirigente de EBC' ? 'rgba(20,184,166,0.2)' :
+                                                                    record.modality === 'Leitor de EBC' ? 'rgba(249,115,22,0.2)' : 'rgba(239,68,68,0.2)',
                                             color:
                                                 record.modality === 'Leitura de Estudante' ? '#eab308' :
                                                     record.modality === 'Demonstração' ? '#3b82f6' :
                                                         record.modality === 'Discurso de Estudante' ? '#a855f7' :
                                                             record.modality === 'Discurso de Ensino' ? '#22c55e' :
-                                                                record.modality === 'Leitor no EBC' ? '#f97316' : '#ef4444',
+                                                                record.modality === 'Dirigente de EBC' ? '#14b8a6' :
+                                                                    record.modality === 'Leitor de EBC' ? '#f97316' : '#ef4444',
                                             fontSize: '0.75em',
                                             whiteSpace: 'nowrap'
                                         }}>
