@@ -288,6 +288,12 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
     const EditableSelectCell = ({ record, field, value, options }: { record: HistoryRecord; field: keyof HistoryRecord; value: string; options: string[] }) => {
         const isEditing = editingCell?.id === record.id && editingCell?.field === field;
 
+        // Ordenar opções alfabeticamente e garantir que valor atual esteja na lista
+        const sortedOptions = [...options].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        const finalOptions = value && !sortedOptions.includes(value)
+            ? [value, ...sortedOptions]
+            : sortedOptions;
+
         if (isEditing) {
             return (
                 <select
@@ -298,7 +304,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                     onKeyDown={(e) => e.key === 'Escape' && setEditingCell(null)}
                     style={editInputStyle}
                 >
-                    {options.map(opt => (
+                    {finalOptions.map(opt => (
                         <option key={opt} value={opt}>{opt}</option>
                     ))}
                 </select>
@@ -316,24 +322,43 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         );
     };
 
-    // Célula editável de semana (dropdown com semanas existentes)
+    // Célula editável de semana (combobox com semanas existentes, ordenadas)
     const EditableWeekCell = ({ record }: { record: HistoryRecord }) => {
         const isEditing = editingCell?.id === record.id && editingCell?.field === 'weekDisplay';
+        const listId = `weeks-${record.id}`;
+
+        // Ordenar semanas cronologicamente (por data)
+        const sortedWeeks = [...uniqueWeeks].sort();
+        // Garantir que semana atual esteja na lista
+        const finalWeeks = record.weekDisplay && !sortedWeeks.includes(record.weekDisplay)
+            ? [record.weekDisplay, ...sortedWeeks]
+            : sortedWeeks;
 
         if (isEditing) {
             return (
-                <select
-                    autoFocus
-                    defaultValue={record.weekDisplay}
-                    onChange={(e) => updateField(record.id, 'weekDisplay', e.target.value)}
-                    onBlur={() => setEditingCell(null)}
-                    onKeyDown={(e) => e.key === 'Escape' && setEditingCell(null)}
-                    style={editInputStyle}
-                >
-                    {uniqueWeeks.map(w => (
-                        <option key={w} value={w}>{w}</option>
-                    ))}
-                </select>
+                <>
+                    <input
+                        type="text"
+                        autoFocus
+                        list={listId}
+                        defaultValue={record.weekDisplay}
+                        onBlur={(e) => updateField(record.id, 'weekDisplay', e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                updateField(record.id, 'weekDisplay', (e.target as HTMLInputElement).value);
+                            } else if (e.key === 'Escape') {
+                                setEditingCell(null);
+                            }
+                        }}
+                        style={editInputStyle}
+                        placeholder="Digite ou selecione..."
+                    />
+                    <datalist id={listId}>
+                        {finalWeeks.map(w => (
+                            <option key={w} value={w} />
+                        ))}
+                    </datalist>
+                </>
             );
         }
 
