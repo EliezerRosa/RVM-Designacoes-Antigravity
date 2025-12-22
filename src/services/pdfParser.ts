@@ -342,7 +342,13 @@ function extractWeekStart(label: string, yearHint: number): string | null {
 
 function looksLikeWeekHeader(line: string): boolean {
     const compact = line.toLowerCase().replace(/\s+/g, '');
-    return WEEK_HEADER_PATTERN.test(compact);
+    // Formato S-140: "4-10 DE NOVEMBRO"
+    if (WEEK_HEADER_PATTERN.test(compact)) return true;
+    // Formato pauta impressa: linha começando com "Programação"
+    if (/^programa[çc][aã]o/i.test(line)) return true;
+    // Formato com data: "12 de janeiro" ou similar no início
+    if (/^\d{1,2}\s+de\s+[a-zç]+/i.test(line)) return true;
+    return false;
 }
 
 function detectSection(line: string, current: string | null): string | null {
@@ -469,7 +475,21 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
             continue;
         }
 
-        if (!currentWeek) continue;
+        if (!currentWeek) {
+            // Fallback: Se nenhum cabeçalho de semana foi encontrado mas temos linhas com horários,
+            // criar uma semana padrão (para pautas impressas de semana única)
+            const timestampMatch = line.match(/^(\d{1,2})[:\.](\d{2})\s+/);
+            if (timestampMatch || line.toLowerCase().includes('oração') || line.toLowerCase().includes('tesouros')) {
+                currentWeek = {
+                    label: 'Semana Importada',
+                    date: new Date().toISOString().split('T')[0],
+                    parts: []
+                };
+                console.log('[PDF Parser] Criando semana padrão por fallback');
+            } else {
+                continue;
+            }
+        }
 
         // Detect section (se detectar explicitamente)
         const nextSection = detectSection(line, currentSection);
@@ -570,6 +590,64 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                         });
                     }
                 }
+            }
+        }
+
+        // Fallback: Detectar linhas com timestamp no formato "19:30 Parte Nome Participante"
+        // Para pautas impressas que não usam formato "(X min)"
+        const timestampMatch = line.match(/^(\d{1,2})[:\.](\d{2})\s+(.+)/);
+        if (timestampMatch) {
+            const content = timestampMatch[3].trim();
+
+            // Tentar extrair parte e nome
+            // Formato comum: "Título da Parte Nome Sobrenome" ou "Título Nome / Ajudante"
+            const partSection = currentSection || inferSectionFromTitle(content);
+
+            // Verificar se é uma parte conhecida pelo início do conteúdo
+            const lowerContent = content.toLowerCase();
+            if (NON_DESIGNABLE_PARTS.some(p => lowerContent.includes(p))) {
+                continue;
+            }
+
+            // Tentar separar título e nome
+            // Estratégias: procurar padrões conhecidos
+            let title = content;
+            let studentName: string | null = null;
+            let assistantName: string | null = null;
+
+            // Padrão 1: "Leitura da Bíblia Gabriel Carlos + José Luiz"
+            const knownParts = ['leitura da bíblia', 'leitura biblia', 'joias espirituais', 'iniciando conversas',
+                'cultivando interesse', 'fazendo discípulos', 'explicando', 'discurso',
+                'estudo bíblico', 'estudo biblico', 'oração', 'oracao'];
+            for (const part of knownParts) {
+                if (lowerContent.startsWith(part)) {
+                    title = content.substring(0, part.length).trim();
+                    const remainder = content.substring(part.length).trim();
+                    if (remainder) {
+                        const [student, assistant] = namesFromString(remainder);
+                        studentName = student;
+                        assistantName = assistant;
+                    }
+                    break;
+                }
+            }
+
+            // Padrão 2: Número no início "4. Iniciando conversas Margarete Venturin"
+            const numberedMatch = content.match(/^(\d+[\.)]\s*.+?)\s+([A-Z][a-zà-ÿ]+\s+[A-Z][a-zà-ÿ]+.*)$/);
+            if (numberedMatch && !studentName) {
+                title = numberedMatch[1].trim();
+                const [student, assistant] = namesFromString(numberedMatch[2]);
+                studentName = student;
+                assistantName = assistant;
+            }
+
+            if (studentName && currentWeek) {
+                currentWeek.parts.push({
+                    section: partSection,
+                    title: title,
+                    student: studentName,
+                    assistant: assistantName
+                });
             }
         }
     }
