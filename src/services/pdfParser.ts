@@ -342,10 +342,13 @@ function extractWeekStart(label: string, yearHint: number): string | null {
 
 function looksLikeWeekHeader(line: string): boolean {
     const compact = line.toLowerCase().replace(/\s+/g, '');
+    const lower = line.toLowerCase();
     // Formato S-140: "4-10 DE NOVEMBRO"
     if (WEEK_HEADER_PATTERN.test(compact)) return true;
-    // Formato pauta impressa: linha começando com "Programação"
-    if (/^programa[çc][aã]o/i.test(line)) return true;
+    // Formato pauta impressa: linha contendo "Programação"
+    if (lower.includes('programação') || lower.includes('programacao')) return true;
+    // Formato com data ISO: "2026-01-12" ou "2026 01 12"
+    if (/20\d{2}[-\s]\d{2}[-\s]\d{2}/.test(line)) return true;
     // Formato com data: "12 de janeiro" ou similar no início
     if (/^\d{1,2}\s+de\s+[a-zç]+/i.test(line)) return true;
     return false;
