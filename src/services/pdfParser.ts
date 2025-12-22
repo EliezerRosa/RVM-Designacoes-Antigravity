@@ -604,9 +604,17 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
             }
         }
 
-        // Fallback: Detectar linhas com timestamp no formato "19:30 Parte Nome Participante"
+        // Fallback: Detectar linhas com timestamp no formato "19:30 Parte" ou "1930 Parte" (OCR sem separador)
         // Para pautas impressas que não usam formato "(X min)"
-        const timestampMatch = line.match(/^(\d{1,2})[:\.](\d{2})\s+(.+)/);
+        // Regex aceita: "19:30", "19.30", "1930" (4 dígitos começando com 1 ou 2)
+        let timestampMatch = line.match(/^(\d{1,2})[:\.](\d{2})\s+(.+)/);
+        if (!timestampMatch) {
+            // Tentar formato sem separador: "1932 1 Oque aprendemos..."
+            const noSepMatch = line.match(/^([12]\d)(\d{2})\s+(.+)/);
+            if (noSepMatch) {
+                timestampMatch = noSepMatch;
+            }
+        }
         if (timestampMatch) {
             const content = timestampMatch[3].trim();
             console.log('[PDF Parser] Timestamp line:', timestampMatch[1] + ':' + timestampMatch[2], 'Content:', content);
