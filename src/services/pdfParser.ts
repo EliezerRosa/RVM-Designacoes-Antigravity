@@ -25,8 +25,13 @@ const SECTION_HEADINGS: Record<string, string> = {
     'tesouros': 'Tesouros',
     'minist': 'Ministério',
     'vida': 'Vida Cristã',
-    'conclus': 'Conclusão',
+    'conclus': 'Vida Cristã', // Parte da Vida Cristã
 };
+
+// Partes que pertencem a cada seção (para inferência quando não detectada)
+const TESOUROS_PARTS = ['leitura', 'bíblia', 'biblia'];
+const VIDA_CRISTA_PARTS = ['ebc', 'estudo bíblico', 'estudo biblico', 'congregação', 'congregacao'];
+// Partes do Ministério: Iniciando, Cultivando, Fazendo, Explicando, Discurso
 
 const SKIP_KEYWORDS = ['SALA B', 'SALAO PRINCIPAL', 'SALÃO PRINCIPAL'];
 
@@ -34,6 +39,33 @@ const SKIP_KEYWORDS = ['SALA B', 'SALAO PRINCIPAL', 'SALÃO PRINCIPAL'];
 const DURATION_PATTERN = /(.+?)\s*\((\d+)\s*min\)/i;
 const WEEK_HEADER_PATTERN = /\d{1,2}\s*(?:[-–]|a)\s*\d{1,2}\s*de\s*[a-zç]+/i;
 const YEAR_PATTERN = /20\d{2}/;
+
+// Limpar label da semana (remover | e trecho bíblico)
+function cleanWeekLabel(rawLabel: string): string {
+    // Remover tudo após "|" 
+    let clean = rawLabel.split('|')[0].trim();
+    // Remover "SEMANA" inicial para normalizar
+    clean = clean.replace(/^SEMANA\s*/i, '').trim();
+    return clean; // Retorna só "4-10 DE NOVEMBRO" etc.
+}
+
+// Inferir seção pelo título da parte
+function inferSectionFromTitle(title: string): string {
+    const lower = title.toLowerCase();
+
+    // Tesouros: Leitura da Bíblia
+    if (TESOUROS_PARTS.some(p => lower.includes(p))) {
+        return 'Tesouros';
+    }
+
+    // Vida Cristã: EBC, Estudo Bíblico de Congregação
+    if (VIDA_CRISTA_PARTS.some(p => lower.includes(p))) {
+        return 'Vida Cristã';
+    }
+
+    // Default: Ministério (Iniciando, Cultivando, Fazendo, Discurso, etc.)
+    return 'Ministério';
+}
 
 // ==========================================
 // Tipos
@@ -196,7 +228,7 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
 
             const weekDate = extractWeekStart(line, yearHint);
             currentWeek = {
-                label: line,
+                label: cleanWeekLabel(line), // Já limpo, sem | nem trecho bíblico
                 date: weekDate,
                 parts: []
             };
@@ -206,15 +238,12 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
 
         if (!currentWeek) continue;
 
-        // Detect section (mas usar default se não encontrar)
+        // Detect section (se detectar explicitamente)
         const nextSection = detectSection(line, currentSection);
         if (nextSection !== currentSection) {
             currentSection = nextSection;
             // Não pular - continuar processando a linha
         }
-
-        // Usar seção default se não detectada
-        const effectiveSection = currentSection || 'Reunião';
 
         // Detect part with duration - formato: "Parte (X min) Nome Student / Nome Ajudante"
         const match = line.match(DURATION_PATTERN);
@@ -242,8 +271,11 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                 const [student, assistant] = namesFromString(nameBlock);
 
                 if (student && student.length >= 2) {
+                    // Usar seção detectada explicitamente, ou inferir pelo título
+                    const partSection = currentSection || inferSectionFromTitle(title);
+
                     currentWeek.parts.push({
-                        section: effectiveSection,
+                        section: partSection,
                         title,
                         student,
                         assistant
