@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Publisher, Participation, HistoryRecord } from '../types';
-import { HistoryStatus, ParticipationType } from '../types';
+import { HistoryStatus, ParticipationType, PartModality } from '../types';
 import { parsePdfFile } from '../services/pdfParser';
 
 interface Props {
@@ -66,7 +66,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
     const [filterStatus, setFilterStatus] = useState<HistoryStatus | 'all'>('all');
     const [filterWeek, setFilterWeek] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -220,8 +220,139 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                 updatedAt: new Date().toISOString(),
             } : r
         ));
-        setEditingId(null);
+        setEditingCell(null);
     };
+
+    // Atualizar campo genérico de um registro
+    const updateField = (recordId: string, field: keyof HistoryRecord, value: string) => {
+        setRecords(prev => prev.map(r =>
+            r.id === recordId ? { ...r, [field]: value, updatedAt: new Date().toISOString() } : r
+        ));
+        setEditingCell(null);
+    };
+
+    // Estilo comum para células editáveis
+    const editableCellStyle = {
+        cursor: 'pointer',
+        padding: '2px 4px',
+        borderRadius: '4px',
+        transition: 'background 0.15s',
+    };
+
+    // Estilo para inputs/selects em modo edição
+    const editInputStyle = {
+        padding: '6px',
+        borderRadius: '4px',
+        border: '1px solid var(--primary-500)',
+        background: 'var(--bg-secondary)',
+        color: 'var(--text-primary)',
+        width: '100%',
+        fontSize: '0.9em',
+    };
+
+    // Célula editável de texto
+    const EditableTextCell = ({ record, field, value }: { record: HistoryRecord; field: keyof HistoryRecord; value: string }) => {
+        const isEditing = editingCell?.id === record.id && editingCell?.field === field;
+
+        if (isEditing) {
+            return (
+                <input
+                    type="text"
+                    autoFocus
+                    defaultValue={value}
+                    onBlur={(e) => updateField(record.id, field, e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            updateField(record.id, field, (e.target as HTMLInputElement).value);
+                        } else if (e.key === 'Escape') {
+                            setEditingCell(null);
+                        }
+                    }}
+                    style={editInputStyle}
+                />
+            );
+        }
+
+        return (
+            <div
+                onClick={() => record.status !== HistoryStatus.APPROVED && setEditingCell({ id: record.id, field })}
+                style={{ ...editableCellStyle }}
+                title="Clique para editar"
+            >
+                {value || <span style={{ color: 'var(--text-muted)' }}>-</span>}
+            </div>
+        );
+    };
+
+    // Célula editável de seleção (dropdown)
+    const EditableSelectCell = ({ record, field, value, options }: { record: HistoryRecord; field: keyof HistoryRecord; value: string; options: string[] }) => {
+        const isEditing = editingCell?.id === record.id && editingCell?.field === field;
+
+        if (isEditing) {
+            return (
+                <select
+                    autoFocus
+                    defaultValue={value}
+                    onChange={(e) => updateField(record.id, field, e.target.value)}
+                    onBlur={() => setEditingCell(null)}
+                    onKeyDown={(e) => e.key === 'Escape' && setEditingCell(null)}
+                    style={editInputStyle}
+                >
+                    {options.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                </select>
+            );
+        }
+
+        return (
+            <div
+                onClick={() => record.status !== HistoryStatus.APPROVED && setEditingCell({ id: record.id, field })}
+                style={{ ...editableCellStyle }}
+                title="Clique para editar"
+            >
+                {value}
+            </div>
+        );
+    };
+
+    // Célula editável de semana (dropdown com semanas existentes)
+    const EditableWeekCell = ({ record }: { record: HistoryRecord }) => {
+        const isEditing = editingCell?.id === record.id && editingCell?.field === 'weekDisplay';
+
+        if (isEditing) {
+            return (
+                <select
+                    autoFocus
+                    defaultValue={record.weekDisplay}
+                    onChange={(e) => updateField(record.id, 'weekDisplay', e.target.value)}
+                    onBlur={() => setEditingCell(null)}
+                    onKeyDown={(e) => e.key === 'Escape' && setEditingCell(null)}
+                    style={editInputStyle}
+                >
+                    {uniqueWeeks.map(w => (
+                        <option key={w} value={w}>{w}</option>
+                    ))}
+                </select>
+            );
+        }
+
+        return (
+            <div
+                onClick={() => record.status !== HistoryStatus.APPROVED && setEditingCell({ id: record.id, field: 'weekDisplay' })}
+                style={{ ...editableCellStyle }}
+                title="Clique para editar"
+            >
+                <div>{record.weekDisplay}</div>
+                <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{record.date}</div>
+            </div>
+        );
+    };
+
+    // Options para os dropdowns
+    const sectionOptions = ['Tesouros', 'Ministério', 'Vida Cristã'];
+    const modalityOptions = Object.values(PartModality);
+    const roleOptions = ['Titular', 'Ajudante'];
 
     // Badge de status
     const StatusBadge = ({ status }: { status: HistoryStatus }) => {
@@ -450,80 +581,61 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                             onChange={() => toggleSelect(record.id)}
                                         />
                                     </td>
+                                    {/* Semana - Editable Week Dropdown */}
                                     <td style={{ padding: '12px 8px' }}>
-                                        <div>{record.weekDisplay}</div>
-                                        <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{record.date}</div>
+                                        <EditableWeekCell record={record} />
                                     </td>
+                                    {/* Seção - Editable Dropdown */}
                                     <td style={{ padding: '12px 8px' }}>
-                                        <span style={{
-                                            padding: '2px 8px',
-                                            borderRadius: '4px',
-                                            background: record.section === 'Tesouros' ? 'rgba(234,179,8,0.2)' :
-                                                record.section === 'Ministério' ? 'rgba(59,130,246,0.2)' :
-                                                    record.section === 'Vida Cristã' ? 'rgba(34,197,94,0.2)' : 'rgba(99,102,241,0.2)',
-                                            color: record.section === 'Tesouros' ? '#eab308' :
-                                                record.section === 'Ministério' ? '#3b82f6' :
-                                                    record.section === 'Vida Cristã' ? '#22c55e' : '#6366f1',
-                                            fontSize: '0.85em'
-                                        }}>
-                                            {record.section}
-                                        </span>
+                                        <EditableSelectCell
+                                            record={record}
+                                            field="section"
+                                            value={record.section}
+                                            options={sectionOptions}
+                                        />
                                     </td>
+                                    {/* Parte - Editable Text */}
                                     <td style={{ padding: '12px 8px' }}>
-                                        {record.partTitle}
+                                        <EditableTextCell
+                                            record={record}
+                                            field="partTitle"
+                                            value={record.partTitle}
+                                        />
                                     </td>
+                                    {/* Modalidade - Editable Dropdown */}
                                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                        <span style={{
-                                            padding: '2px 8px',
-                                            borderRadius: '4px',
-                                            background:
-                                                record.modality === 'Leitura de Estudante' ? 'rgba(234,179,8,0.2)' :
-                                                    record.modality === 'Demonstração' ? 'rgba(59,130,246,0.2)' :
-                                                        record.modality === 'Discurso de Estudante' ? 'rgba(168,85,247,0.2)' :
-                                                            record.modality === 'Discurso de Ensino' ? 'rgba(34,197,94,0.2)' :
-                                                                record.modality === 'Dirigente de EBC' ? 'rgba(20,184,166,0.2)' :
-                                                                    record.modality === 'Leitor de EBC' ? 'rgba(249,115,22,0.2)' : 'rgba(239,68,68,0.2)',
-                                            color:
-                                                record.modality === 'Leitura de Estudante' ? '#eab308' :
-                                                    record.modality === 'Demonstração' ? '#3b82f6' :
-                                                        record.modality === 'Discurso de Estudante' ? '#a855f7' :
-                                                            record.modality === 'Discurso de Ensino' ? '#22c55e' :
-                                                                record.modality === 'Dirigente de EBC' ? '#14b8a6' :
-                                                                    record.modality === 'Leitor de EBC' ? '#f97316' : '#ef4444',
-                                            fontSize: '0.75em',
-                                            whiteSpace: 'nowrap'
-                                        }}>
-                                            {record.modality}
-                                        </span>
+                                        <EditableSelectCell
+                                            record={record}
+                                            field="modality"
+                                            value={record.modality}
+                                            options={modalityOptions}
+                                        />
                                     </td>
+                                    {/* Nome Original - Editable Text */}
                                     <td style={{ padding: '12px 8px' }}>
-                                        {record.rawPublisherName}
+                                        <EditableTextCell
+                                            record={record}
+                                            field="rawPublisherName"
+                                            value={record.rawPublisherName}
+                                        />
                                     </td>
+                                    {/* Função - Editable Dropdown */}
                                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                        <span style={{
-                                            padding: '2px 8px',
-                                            borderRadius: '4px',
-                                            background: record.participationRole === 'Titular' ? 'rgba(59,130,246,0.2)' : 'rgba(168,85,247,0.2)',
-                                            color: record.participationRole === 'Titular' ? '#3b82f6' : '#a855f7',
-                                            fontSize: '0.85em'
-                                        }}>
-                                            {record.participationRole}
-                                        </span>
+                                        <EditableSelectCell
+                                            record={record}
+                                            field="participationRole"
+                                            value={record.participationRole}
+                                            options={roleOptions}
+                                        />
                                     </td>
+                                    {/* Publicador - Publisher Dropdown */}
                                     <td style={{ padding: '12px 8px' }}>
-                                        {editingId === record.id ? (
+                                        {editingCell?.id === record.id && editingCell?.field === 'publisher' ? (
                                             <select
                                                 autoFocus
                                                 onChange={e => resolvePublisher(record.id, e.target.value)}
-                                                onBlur={() => setEditingId(null)}
-                                                style={{
-                                                    padding: '6px',
-                                                    borderRadius: '4px',
-                                                    border: '1px solid var(--primary-500)',
-                                                    background: 'var(--bg-secondary)',
-                                                    color: 'var(--text-primary)',
-                                                    width: '100%'
-                                                }}
+                                                onBlur={() => setEditingCell(null)}
+                                                style={editInputStyle}
                                             >
                                                 <option value="">Selecione...</option>
                                                 {publishers.map(p => (
@@ -532,7 +644,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                             </select>
                                         ) : (
                                             <div
-                                                onClick={() => record.status !== HistoryStatus.APPROVED && setEditingId(record.id)}
+                                                onClick={() => record.status !== HistoryStatus.APPROVED && setEditingCell({ id: record.id, field: 'publisher' })}
                                                 style={{
                                                     cursor: record.status !== HistoryStatus.APPROVED ? 'pointer' : 'default',
                                                     display: 'flex',
@@ -558,6 +670,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                             </div>
                                         )}
                                     </td>
+                                    {/* Status - Read-only */}
                                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                         <StatusBadge status={record.status} />
                                     </td>
