@@ -92,11 +92,16 @@ function inferSectionFromTitle(title: string): string {
     return 'Ministério';
 }
 
-// Inferir modalidade pelo t├¡tulo e se├º├úo
+// Inferir modalidade pelo título e seção
 function inferModalityFromTitle(title: string, section: string): PartModality {
     const lower = title.toLowerCase();
 
-    // Leitura da B├¡blia ÔåÆ Leitura de Estudante (Tesouros)
+    // Presidente → Presidência
+    if (lower.includes('presidente')) {
+        return PartModalityEnum.PRESIDENCIA;
+    }
+
+    // Leitura da Bíblia → Leitura de Estudante (Tesouros)
     if (lower.includes('leitura') && section === 'Tesouros') {
         return PartModalityEnum.LEITURA_ESTUDANTE;
     }
