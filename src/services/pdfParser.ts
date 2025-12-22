@@ -522,7 +522,16 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
         const records: HistoryRecord[] = [];
 
         for (const week of weeks) {
+            let partSequence = 0; // Contador de sequência por semana
+
             for (const part of week.parts) {
+                partSequence++; // Incrementar sequência para cada parte
+
+                // Extrair numeração da apostila do título (ex: "4. Iniciando" → "4.")
+                const numberMatch = part.title.match(/^(\d+\.)\s*/);
+                const workbookNumber = numberMatch ? numberMatch[1] : undefined;
+                const cleanTitle = numberMatch ? part.title.replace(numberMatch[0], '').trim() : part.title;
+
                 // Calcular modalidade da parte
                 const modality = inferModalityFromTitle(part.title, part.section);
 
@@ -534,8 +543,10 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                         weekDisplay: week.label,
                         date: week.date || '',
                         section: part.section,
-                        partType: part.title,
-                        partTitle: part.title,
+                        partType: cleanTitle,
+                        partTitle: cleanTitle,
+                        partSequence,
+                        workbookNumber,
                         modality,
                         rawPublisherName: part.student,
                         participationRole: 'Titular',
@@ -554,8 +565,10 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                         weekDisplay: week.label,
                         date: week.date || '',
                         section: part.section,
-                        partType: part.title,
-                        partTitle: part.title,
+                        partType: cleanTitle,
+                        partTitle: cleanTitle,
+                        partSequence,
+                        workbookNumber,
                         modality,
                         rawPublisherName: part.assistant,
                         participationRole: 'Ajudante',

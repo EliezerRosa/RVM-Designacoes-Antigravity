@@ -639,6 +639,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                 />
                             </th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Semana</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'center', width: '50px' }}>Seq</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Seção</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Parte</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center' }}>Modalidade</th>
@@ -651,7 +652,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                     <tbody>
                         {filteredRecords.length === 0 ? (
                             <tr>
-                                <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     {records.length === 0
                                         ? 'Nenhum registro importado. Faça upload de um arquivo para começar.'
                                         : 'Nenhum registro encontrado com os filtros aplicados.'}
@@ -670,6 +671,10 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                     {/* Semana - Editable Week Dropdown */}
                                     <td style={{ padding: '12px 8px' }}>
                                         <EditableWeekCell record={record} />
+                                    </td>
+                                    {/* Seq - Read-only */}
+                                    <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                                        {record.partSequence}
                                     </td>
                                     {/* Seção - Editable Dropdown */}
                                     <td style={{ padding: '12px 8px' }}>

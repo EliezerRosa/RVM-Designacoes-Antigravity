@@ -442,7 +442,9 @@ export interface HistoryRecord {
     // Dados da Parte
     section: string;              // "Tesouros", "Ministério", "Vida Cristã"
     partType: string;             // "Leitura da Bíblia", "Discurso", etc.
-    partTitle: string;            // Título específico da apostila
+    partTitle: string;            // Título específico (sem numeração da apostila)
+    partSequence: number;         // Sequência na semana (1, 2, 3...)
+    workbookNumber?: string;      // Numeração da apostila ("4.", "5.")
     modality: PartModality;       // Modalidade da parte designável
 
     // Participante
