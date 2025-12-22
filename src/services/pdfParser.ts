@@ -258,11 +258,52 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
-            const pageText = textContent.items
-                .map((item: any) => item.str)
-                .join(' ');
-            fullText += pageText + '\n';
+
+            // Extrair items com posições para preservar layout
+            const items = textContent.items as Array<{
+                str: string;
+                transform: number[];
+            }>;
+
+            // Ordenar por posição Y (alto para baixo) e depois X (esquerda para direita)
+            const sortedItems = items
+                .filter(item => item.str.trim())
+                .map(item => ({
+                    text: item.str,
+                    x: item.transform[4],
+                    y: item.transform[5]
+                }))
+                .sort((a, b) => {
+                    // Agrupar por linhas (tolerância de 5 pixels)
+                    const yDiff = b.y - a.y;
+                    if (Math.abs(yDiff) > 5) return yDiff;
+                    return a.x - b.x;
+                });
+
+            // Agrupar em linhas
+            const lines: string[][] = [];
+            let currentLine: string[] = [];
+            let currentY = sortedItems[0]?.y ?? 0;
+
+            for (const item of sortedItems) {
+                if (Math.abs(item.y - currentY) > 5) {
+                    if (currentLine.length > 0) {
+                        lines.push(currentLine);
+                    }
+                    currentLine = [];
+                    currentY = item.y;
+                }
+                currentLine.push(item.text);
+            }
+            if (currentLine.length > 0) {
+                lines.push(currentLine);
+            }
+
+            // Juntar linhas
+            fullText += lines.map(line => line.join(' ')).join('\n') + '\n';
         }
+
+        console.log('[PDF Parser] Texto extraído:', fullText.substring(0, 500));
 
         if (!fullText.trim()) {
             return {
@@ -275,6 +316,8 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
 
         // Parse weeks
         const weeks = extractWeeksFromText(fullText);
+
+        console.log('[PDF Parser] Semanas encontradas:', weeks.length);
 
         // Convert to HistoryRecords
         const batchId = `batch-${Date.now()}`;
