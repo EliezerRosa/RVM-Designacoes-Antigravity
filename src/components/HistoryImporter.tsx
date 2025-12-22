@@ -349,6 +349,67 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         );
     };
 
+    // Lista de partes padrão do S-140
+    const STANDARD_PARTS = [
+        'Presidente',
+        'Discurso 1 - Tesouros',
+        'Joias Espirituais',
+        'Leitura da Bíblia',
+        'Iniciando Conversas',
+        'Cultivando o Interesse',
+        'Fazendo Discípulos',
+        'Explicando Suas Crenças',
+        'Discurso de Estudante',
+        'Necessidades Locais',
+        'Estudo Bíblico de Congregação',
+        'Leitura no EBC',
+        'Oração Final',
+    ];
+
+    // Célula editável com combobox (texto + sugestões)
+    const EditableComboCell = ({ record, field, value, suggestions }: { record: HistoryRecord; field: keyof HistoryRecord; value: string; suggestions: string[] }) => {
+        const isEditing = editingCell?.id === record.id && editingCell?.field === field;
+        const listId = `suggestions-${record.id}-${field}`;
+
+        if (isEditing) {
+            return (
+                <>
+                    <input
+                        type="text"
+                        autoFocus
+                        list={listId}
+                        defaultValue={value}
+                        onBlur={(e) => updateField(record.id, field, e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                updateField(record.id, field, (e.target as HTMLInputElement).value);
+                            } else if (e.key === 'Escape') {
+                                setEditingCell(null);
+                            }
+                        }}
+                        style={editInputStyle}
+                        placeholder="Digite ou selecione..."
+                    />
+                    <datalist id={listId}>
+                        {suggestions.map(s => (
+                            <option key={s} value={s} />
+                        ))}
+                    </datalist>
+                </>
+            );
+        }
+
+        return (
+            <div
+                onClick={() => record.status !== HistoryStatus.APPROVED && setEditingCell({ id: record.id, field })}
+                style={{ ...editableCellStyle }}
+                title="Clique para editar (texto livre ou seleção)"
+            >
+                {value || <span style={{ color: 'var(--text-muted)' }}>-</span>}
+            </div>
+        );
+    };
+
     // Options para os dropdowns
     const sectionOptions = ['Tesouros', 'Ministério', 'Vida Cristã'];
     const modalityOptions = Object.values(PartModality);
@@ -594,12 +655,13 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                             options={sectionOptions}
                                         />
                                     </td>
-                                    {/* Parte - Editable Text */}
+                                    {/* Parte - Editable Combo (texto + sugestões) */}
                                     <td style={{ padding: '12px 8px' }}>
-                                        <EditableTextCell
+                                        <EditableComboCell
                                             record={record}
                                             field="partTitle"
                                             value={record.partTitle}
+                                            suggestions={STANDARD_PARTS}
                                         />
                                     </td>
                                     {/* Modalidade - Editable Dropdown */}

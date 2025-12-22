@@ -80,6 +80,7 @@ export const PartModality = {
     DIRIGENTE_EBC: 'Dirigente de EBC',           // Vida Cristã (Dirige o EBC)
     LEITOR_EBC: 'Leitor de EBC',                 // Vida Cristã (Lê no EBC)
     ORACAO: 'Oração',                            // Vida Cristã (Oração Final)
+    PRESIDENCIA: 'Presidência',                  // Presidente da Reunião
 } as const;
 
 export type PartModality = typeof PartModality[keyof typeof PartModality];
