@@ -336,6 +336,14 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
 
         console.log('[PDF Parser] Semanas encontradas:', weeks.length);
 
+        // Debug: mostrar partes por semana
+        for (const week of weeks) {
+            console.log(`[PDF Parser] ${week.label} - ${week.parts.length} partes`);
+            for (const part of week.parts) {
+                console.log(`  - ${part.title}: ${part.student} + ${part.assistant || 'N/A'}`);
+            }
+        }
+
         // Convert to HistoryRecords
         const batchId = `batch-${Date.now()}`;
         const records: HistoryRecord[] = [];
@@ -360,6 +368,8 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                 }
             }
         }
+
+        console.log('[PDF Parser] Records gerados:', records.length);
 
         return {
             success: true,
