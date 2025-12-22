@@ -61,7 +61,23 @@ function cleanWeekLabel(rawLabel: string): string {
     let clean = rawLabel.split('|')[0].trim();
     // Remover "SEMANA" inicial para normalizar
     clean = clean.replace(/^SEMANA\s*/i, '').trim();
-    return clean; // Retorna s├│ "4-10 DE NOVEMBRO" etc.
+    return clean; // Retorna só "4-10 DE NOVEMBRO" etc.
+}
+
+// Normalizar texto com problemas de encoding (mojibake)
+function normalizeMojibake(text: string): string {
+    return text
+        .replace(/├¡/g, 'í')
+        .replace(/├º/g, 'ç')
+        .replace(/├ú/g, 'ã')
+        .replace(/├®/g, 'ê')
+        .replace(/├í/g, 'á')
+        .replace(/├ó/g, 'ó')
+        .replace(/├╝/g, 'ü')
+        .replace(/├â/g, 'Ã')
+        .replace(/├ü/g, 'Á')
+        .replace(/ÔåÆ/g, '→')
+        .replace(/Ôçö/g, '—');
 }
 
 // Inferir seção pelo título da parte - retorna MeetingSection
@@ -416,24 +432,25 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
         }
 
         // Normalizar linha para detecção (lidar com mojibake)
-        const normalizedLine = line
-            .replace(/├¡/g, 'í')
-            .replace(/├º/g, 'ç')
-            .replace(/├ú/g, 'ã')
-            .replace(/├®/g, 'ê');
+        const normalizedLine = normalizeMojibake(line);
 
-        // Detectar Presidente (formato especial: "Presidente: Nome" ou "Presidente   Nome")
-        const presidenteMatch = normalizedLine.match(/presidente[:\s]+(.+)/i);
-        if (presidenteMatch && presidenteMatch[1]) {
-            const presidenteName = presidenteMatch[1].trim();
-            if (presidenteName && presidenteName.length >= 3 && !presidenteName.match(/^\d/)) {
-                currentWeek.parts.push({
-                    section: 'Início',
-                    title: 'Presidente',
-                    student: presidenteName,
-                    assistant: null
-                });
-                continue;
+        // Detectar Presidente (múltiplos formatos possíveis)
+        // Formatos: "Presidente: Nome", "Presidente Nome", "Presidente    Nome"
+        const lowerLine = normalizedLine.toLowerCase();
+        if (lowerLine.includes('presidente') && !lowerLine.includes('min)')) {
+            // Extrair nome após "presidente"
+            const presidenteMatch = normalizedLine.match(/presidente[:\s]+([A-Za-zÀ-ÿ\s]+)/i);
+            if (presidenteMatch && presidenteMatch[1]) {
+                const presidenteName = presidenteMatch[1].trim();
+                if (presidenteName && presidenteName.length >= 3 && !presidenteName.match(/^\d/)) {
+                    currentWeek.parts.push({
+                        section: 'Início',
+                        title: 'Presidente',
+                        student: presidenteName,
+                        assistant: null
+                    });
+                    continue;
+                }
             }
         }
 
@@ -614,19 +631,22 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
             for (const part of week.parts) {
                 partSequence++; // Incrementar sequência para cada parte
 
-                // Extrair numeração da apostila do título (ex: "4. Iniciando" → "4.")
-                const numberMatch = part.title.match(/^(\d+\.)\s*/);
-                const workbookNumber = numberMatch ? numberMatch[1] : undefined;
-                const cleanTitle = numberMatch ? part.title.replace(numberMatch[0], '').trim() : part.title;
+                // Normalizar título para remover mojibake
+                const normalizedTitle = normalizeMojibake(part.title);
 
-                // Inferir seção e parte padrão
-                const section = inferSectionFromTitle(part.title);
-                const standardPartKey = inferStandardPartKey(part.title);
+                // Extrair numeração da apostila do título (ex: "4. Iniciando" → "4.")
+                const numberMatch = normalizedTitle.match(/^(\d+\.)\s*/);
+                const workbookNumber = numberMatch ? numberMatch[1] : undefined;
+                const cleanTitle = numberMatch ? normalizedTitle.replace(numberMatch[0], '').trim() : normalizedTitle;
+
+                // Inferir seção e parte padrão (usando título normalizado)
+                const section = inferSectionFromTitle(normalizedTitle);
+                const standardPartKey = inferStandardPartKey(normalizedTitle);
 
                 // Calcular modalidade da parte (usando standardPart se disponível)
                 const modality = standardPartKey && StandardPart[standardPartKey]
                     ? PartModalityEnum[StandardPart[standardPartKey].modality]
-                    : inferModalityFromTitle(part.title, section);
+                    : inferModalityFromTitle(normalizedTitle, section);
 
                 // Row do Titular
                 if (part.student) {
