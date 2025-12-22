@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Publisher, Participation, HistoryRecord } from '../types';
-import { HistoryStatus, ParticipationType, PartModality } from '../types';
+import { HistoryStatus, ParticipationType, PartModality, MeetingSection } from '../types';
 import { parsePdfFile } from '../services/pdfParser';
 
 interface Props {
@@ -174,7 +174,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                 week: r.weekId,
                 date: r.date,
                 partTitle: r.partTitle,
-                type: r.partType as ParticipationType,
+                type: r.partTitle as ParticipationType,
                 source: 'import',
                 createdAt: new Date().toISOString(),
             });
@@ -436,7 +436,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
     };
 
     // Options para os dropdowns
-    const sectionOptions = ['Tesouros', 'Ministério', 'Vida Cristã'];
+    const sectionOptions = Object.values(MeetingSection);
     const modalityOptions = Object.values(PartModality);
     const roleOptions = ['Titular', 'Ajudante'];
 

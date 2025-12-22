@@ -3,8 +3,8 @@
  * Extrai semanas e partes de pautas de reunião
  */
 import * as pdfjsLib from 'pdfjs-dist';
-import type { HistoryRecord, PartModality } from '../types';
-import { HistoryStatus, PartModality as PartModalityEnum } from '../types';
+import type { HistoryRecord, PartModality, MeetingSection, StandardPartKey } from '../types';
+import { HistoryStatus, PartModality as PartModalityEnum, MeetingSection as MeetingSectionEnum, StandardPart } from '../types';
 
 // Configurar worker do PDF.js usando import estático
 // @ts-ignore - O Vite vai resolver esse import corretamente
@@ -64,32 +64,69 @@ function cleanWeekLabel(rawLabel: string): string {
     return clean; // Retorna s├│ "4-10 DE NOVEMBRO" etc.
 }
 
-// Inferir seção pelo título da parte
-function inferSectionFromTitle(title: string): string {
+// Inferir seção pelo título da parte - retorna MeetingSection
+function inferSectionFromTitle(title: string): MeetingSection {
     const lower = title.toLowerCase();
+
+    // Início da Reunião
+    if (lower.includes('presidente')) {
+        return MeetingSectionEnum.INICIO;
+    }
 
     // Tesouros: Part 1 is ALWAYS Tesouros, and usually Parts 2-3 too
     if (lower.startsWith('1.') || lower.startsWith('2.') || lower.startsWith('3.')) {
-        return 'Tesouros';
+        return MeetingSectionEnum.TESOUROS;
     }
 
     // Vida Cristã específica (prioridade para não confundir com outros)
     if (VIDA_CRISTA_PARTS.some(p => lower.includes(p))) {
-        return 'Vida Cristã';
+        return MeetingSectionEnum.VIDA_CRISTA;
     }
 
     // Tesouros: Leitura da Bíblia, Joias
     if (TESOUROS_PARTS.some(p => lower.includes(p))) {
-        return 'Tesouros';
+        return MeetingSectionEnum.TESOUROS;
     }
 
     // Ministério: Iniciando, etc.
     if (MINISTERIO_PARTS.some(p => lower.includes(p))) {
-        return 'Ministério';
+        return MeetingSectionEnum.MINISTERIO;
+    }
+
+    // Final: Oração final
+    if (lower.includes('oração') && lower.includes('final')) {
+        return MeetingSectionEnum.FINAL;
     }
 
     // Default: Ministério para partes numeradas altas se não caiu nas anteriores
-    return 'Ministério';
+    return MeetingSectionEnum.MINISTERIO;
+}
+
+// Inferir StandardPartKey pelo título da parte
+function inferStandardPartKey(title: string): StandardPartKey | undefined {
+    const lower = title.toLowerCase();
+
+    // Mapear títulos para StandardPartKey
+    if (lower.includes('presidente')) return 'PRESIDENTE';
+    if (lower.includes('oração inicial') || lower.includes('oracao inicial')) return 'ORACAO_INICIAL';
+    if (lower.includes('oração final') || lower.includes('oracao final')) return 'ORACAO_FINAL';
+    if (lower.includes('joias') || lower.includes('jóias')) return 'JOIAS';
+    if (lower.includes('leitura') && lower.includes('bíblia')) return 'LEITURA_BIBLIA';
+    if (lower.includes('leitura') && lower.includes('biblia')) return 'LEITURA_BIBLIA';
+    if (lower.includes('iniciando')) return 'INICIANDO';
+    if (lower.includes('cultivando')) return 'CULTIVANDO';
+    if (lower.includes('fazendo')) return 'FAZENDO';
+    if (lower.includes('explicando')) return 'EXPLICANDO';
+    if (lower.includes('discurso') && lower.includes('estudante')) return 'DISCURSO_ESTUDANTE';
+    if (lower.includes('necessidades')) return 'NECESSIDADES';
+    if (lower.includes('estudo') && lower.includes('congregação')) return 'EBC';
+    if (lower.includes('estudo') && lower.includes('congregacao')) return 'EBC';
+    if (lower.includes('leitor') && lower.includes('ebc')) return 'EBC_LEITOR';
+
+    // Primeira parte de Tesouros (Discurso)
+    if (lower.startsWith('1.')) return 'DISCURSO_TESOUROS';
+
+    return undefined;
 }
 
 // Inferir modalidade pelo título e seção
@@ -532,8 +569,14 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                 const workbookNumber = numberMatch ? numberMatch[1] : undefined;
                 const cleanTitle = numberMatch ? part.title.replace(numberMatch[0], '').trim() : part.title;
 
-                // Calcular modalidade da parte
-                const modality = inferModalityFromTitle(part.title, part.section);
+                // Inferir seção e parte padrão
+                const section = inferSectionFromTitle(part.title);
+                const standardPartKey = inferStandardPartKey(part.title);
+
+                // Calcular modalidade da parte (usando standardPart se disponível)
+                const modality = standardPartKey && StandardPart[standardPartKey]
+                    ? PartModalityEnum[StandardPart[standardPartKey].modality]
+                    : inferModalityFromTitle(part.title, section);
 
                 // Row do Titular
                 if (part.student) {
@@ -542,8 +585,8 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                         weekId: week.date?.substring(0, 7) || '',
                         weekDisplay: week.label,
                         date: week.date || '',
-                        section: part.section,
-                        partType: cleanTitle,
+                        section,
+                        standardPartKey,
                         partTitle: cleanTitle,
                         partSequence,
                         workbookNumber,
@@ -564,8 +607,8 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                         weekId: week.date?.substring(0, 7) || '',
                         weekDisplay: week.label,
                         date: week.date || '',
-                        section: part.section,
-                        partType: cleanTitle,
+                        section,
+                        standardPartKey,
                         partTitle: cleanTitle,
                         partSequence,
                         workbookNumber,
