@@ -85,6 +85,54 @@ export const PartModality = {
 
 export type PartModality = typeof PartModality[keyof typeof PartModality];
 
+// Seções da Reunião
+export const MeetingSection = {
+    INICIO: 'Início da Reunião',
+    TESOUROS: 'Tesouros da Palavra de Deus',
+    MINISTERIO: 'Faça Seu Melhor no Ministério',
+    VIDA_CRISTA: 'Nossa Vida Cristã',
+    FINAL: 'Final da Reunião',
+} as const;
+
+export type MeetingSection = typeof MeetingSection[keyof typeof MeetingSection];
+
+// Definição de Parte Padrão com metadata
+export interface StandardPartDef {
+    name: string;
+    section: keyof typeof MeetingSection;
+    modality: keyof typeof PartModality;
+    designable: boolean;
+}
+
+// Partes Padrão do S-140
+export const StandardPart: Record<string, StandardPartDef> = {
+    // Início da Reunião
+    PRESIDENTE: { name: 'Presidente', section: 'INICIO', modality: 'PRESIDENCIA', designable: true },
+    ORACAO_INICIAL: { name: 'Oração Inicial', section: 'INICIO', modality: 'ORACAO', designable: false },
+
+    // Tesouros
+    DISCURSO_TESOUROS: { name: 'Discurso - Tesouros', section: 'TESOUROS', modality: 'DISCURSO_ENSINO', designable: true },
+    JOIAS: { name: 'Joias Espirituais', section: 'TESOUROS', modality: 'DISCURSO_ENSINO', designable: true },
+    LEITURA_BIBLIA: { name: 'Leitura da Bíblia', section: 'TESOUROS', modality: 'LEITURA_ESTUDANTE', designable: true },
+
+    // Ministério
+    INICIANDO: { name: 'Iniciando Conversas', section: 'MINISTERIO', modality: 'DEMONSTRACAO', designable: true },
+    CULTIVANDO: { name: 'Cultivando o Interesse', section: 'MINISTERIO', modality: 'DEMONSTRACAO', designable: true },
+    FAZENDO: { name: 'Fazendo Discípulos', section: 'MINISTERIO', modality: 'DEMONSTRACAO', designable: true },
+    EXPLICANDO: { name: 'Explicando Suas Crenças', section: 'MINISTERIO', modality: 'DEMONSTRACAO', designable: true },
+    DISCURSO_ESTUDANTE: { name: 'Discurso de Estudante', section: 'MINISTERIO', modality: 'DISCURSO_ESTUDANTE', designable: true },
+
+    // Vida Cristã
+    NECESSIDADES: { name: 'Necessidades Locais', section: 'VIDA_CRISTA', modality: 'DISCURSO_ENSINO', designable: true },
+    EBC: { name: 'Estudo Bíblico de Congregação', section: 'VIDA_CRISTA', modality: 'DIRIGENTE_EBC', designable: true },
+    EBC_LEITOR: { name: 'Leitor do EBC', section: 'VIDA_CRISTA', modality: 'LEITOR_EBC', designable: true },
+
+    // Final
+    ORACAO_FINAL: { name: 'Oração Final', section: 'FINAL', modality: 'ORACAO', designable: true },
+} as const;
+
+export type StandardPartKey = keyof typeof StandardPart;
+
 export interface Participation {
     id: string;
     publisherName: string;
@@ -440,12 +488,13 @@ export interface HistoryRecord {
     date: string;                 // ISO date (primeiro dia da semana)
 
     // Dados da Parte
-    section: string;              // "Tesouros", "Ministério", "Vida Cristã"
-    partType: string;             // "Leitura da Bíblia", "Discurso", etc.
-    partTitle: string;            // Título específico (sem numeração da apostila)
-    partSequence: number;         // Sequência na semana (1, 2, 3...)
-    workbookNumber?: string;      // Numeração da apostila ("4.", "5.")
-    modality: PartModality;       // Modalidade da parte designável
+    section: MeetingSection;          // Seção da reunião
+    standardPartKey?: StandardPartKey; // Chave da parte padrão (se identificada)
+    partTitle: string;                // Nome da parte (limpo, sem numeração)
+    partTheme?: string | null;        // Tema específico da apostila (se houver)
+    partSequence: number;             // Sequência na semana (1, 2, 3...)
+    workbookNumber?: string;          // Numeração da apostila ("4.", "5.")
+    modality: PartModality;           // Modalidade da parte designável
 
     // Participante
     rawPublisherName: string;     // Nome como veio no arquivo
