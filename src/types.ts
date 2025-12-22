@@ -71,6 +71,18 @@ export const ParticipationType = {
 
 export type ParticipationType = typeof ParticipationType[keyof typeof ParticipationType];
 
+// Modalidades de partes designáveis (para análise de histórico e elegibilidade)
+export const PartModality = {
+    DISCURSO_ENSINO: 'Discurso de Ensino',      // Tesouros (Discurso 1, Joias), Vida Cristã (EBC Dirigente, outras)
+    DISCURSO_ESTUDANTE: 'Discurso de Estudante', // Ministério (Discurso final)
+    DEMONSTRACAO: 'Demonstração',                // Ministério (Iniciando, Cultivando, Fazendo, Explicando)
+    ESTUDANTE: 'Estudante',                      // Tesouros (Leitura da Bíblia)
+    LEITURA: 'Leitura',                          // Vida Cristã (EBC Leitor)
+    ORACAO: 'Oração',                            // Vida Cristã (Oração Final)
+} as const;
+
+export type PartModality = typeof PartModality[keyof typeof PartModality];
+
 export interface Participation {
     id: string;
     publisherName: string;
@@ -426,9 +438,10 @@ export interface HistoryRecord {
     date: string;                 // ISO date (primeiro dia da semana)
 
     // Dados da Parte
-    section: string;              // "Tesouros", "Ministério", "Vida Cristã", "Reunião"
-    partType: string;             // "Leitura da Bíblia", "Presidente", "Oração Inicial", etc.
+    section: string;              // "Tesouros", "Ministério", "Vida Cristã"
+    partType: string;             // "Leitura da Bíblia", "Discurso", etc.
     partTitle: string;            // Título específico da apostila
+    modality: PartModality;       // Modalidade da parte designável
 
     // Participante
     rawPublisherName: string;     // Nome como veio no arquivo
