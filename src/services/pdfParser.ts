@@ -636,44 +636,55 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
             let assistantName: string | null = null;
 
             // Remover número do início do content: "1 Oque..." -> "Oque..."
-            // Padrão: número + espaço ou número + ponto/parêntese + espaço
             const contentWithoutNumber = content.replace(/^\d+[\.\)\s]+\s*/, '');
-            const lowerContentWithoutNum = contentWithoutNumber.toLowerCase();
             console.log('[PDF Parser] Content sem número:', contentWithoutNumber);
 
-            // Padrão 1: Partes conhecidas pelo nome
-            const knownParts = ['leitura da bíblia', 'leitura da biblia', 'leitura biblia',
-                'joias espirituais', 'iniciando conversas', 'cultivando o interesse',
-                'cultivando interesse', 'fazendo discípulos', 'fazendo discipulos',
-                'explicando suas crencas', 'explicando', 'discurso', 'necessidades locais',
-                'estudo bíblico', 'estudo biblico', 'oração', 'oracao',
-                'oque aprendemos', 'o que aprendemos'];
-            for (const part of knownParts) {
-                if (lowerContentWithoutNum.startsWith(part)) {
-                    title = content; // Manter título original com número
-                    const remainder = contentWithoutNumber.substring(part.length).trim();
-                    if (remainder) {
-                        const [student, assistant] = namesFromString(remainder);
-                        studentName = student;
-                        assistantName = assistant;
-                        console.log('[PDF Parser] Match knownPart:', part, '-> Estudante:', student, 'Ajud:', assistant);
-                    }
-                    break;
+            // Estratégia: Extrair nome(s) próprio(s) do FINAL da linha
+            // Nomes próprios: começam com maiúscula, podem ter "de/da/do" no meio
+            // Padrão busca: ... NomeProprio [de/da/do/das/dos] Sobrenome [/ Ajudante]
+
+            // Primeiro, verificar se há separador de ajudante (/ ou +)
+            const separatorMatch = contentWithoutNumber.match(/^(.+?)\s*[\/\+]\s*(.+)$/);
+            let mainPart = contentWithoutNumber;
+            let assistantPart: string | null = null;
+
+            if (separatorMatch) {
+                mainPart = separatorMatch[1].trim();
+                assistantPart = separatorMatch[2].trim();
+            }
+
+            // Extrair nome próprio do final de mainPart
+            // Padrão: procura última ocorrência de "NomeProprio [de/da...] Sobrenome"
+            const nameEndPattern = /([A-Z][a-zà-ÿ]+(?:\s+(?:do|da|de|dos|das))?\s+[A-Z][a-zà-ÿ]+(?:\s+[A-Z][a-zà-ÿ]+)*)$/;
+            const studentMatch = mainPart.match(nameEndPattern);
+
+            if (studentMatch) {
+                studentName = studentMatch[1].trim();
+                // Título é tudo antes do nome
+                const titlePart = mainPart.substring(0, mainPart.lastIndexOf(studentName)).trim();
+                if (titlePart) {
+                    title = content; // Manter título completo para referência
+                }
+                console.log('[PDF Parser] Nome extraído do final:', studentName, 'Título:', titlePart);
+            } else {
+                // Fallback: tentar apenas um nome (Nome)
+                const singleNameMatch = mainPart.match(/([A-Z][a-zà-ÿ]{2,})$/);
+                if (singleNameMatch) {
+                    studentName = singleNameMatch[1].trim();
+                    console.log('[PDF Parser] Nome único extraído:', studentName);
                 }
             }
 
-            // Padrão 2: Se não encontrou, tentar extrair nome após última palavra do título
-            // Ex: "Discurso Edmils Pessanha" -> título=Discurso, nome=Edmils Pessanha
-            if (!studentName) {
-                // Procurar por padrão: "Palavra(s) NomeProprio SobrenomeProprio"
-                const nameMatch = contentWithoutNumber.match(/^(.+?)\s+([A-Z][a-zà-ÿ]+(?:\s+(?:do|da|de|dos|das))?(?:\s+[A-Z][a-zà-ÿ]+)+)\s*(?:\/\s*(.+))?$/);
-                if (nameMatch) {
-                    title = content;
-                    const [student, assistant] = namesFromString(nameMatch[2] + (nameMatch[3] ? ' / ' + nameMatch[3] : ''));
-                    studentName = student;
-                    assistantName = assistant;
-                    console.log('[PDF Parser] Match namePattern -> Estudante:', student, 'Ajud:', assistant);
+            // Extrair ajudante se houver
+            if (assistantPart) {
+                const assistantMatch = assistantPart.match(nameEndPattern);
+                if (assistantMatch) {
+                    assistantName = assistantMatch[1].trim();
+                } else {
+                    // Usar todo o assistantPart como nome
+                    assistantName = assistantPart;
                 }
+                console.log('[PDF Parser] Ajudante extraído:', assistantName);
             }
 
             if (studentName && currentWeek) {
@@ -683,7 +694,7 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                     student: studentName,
                     assistant: assistantName
                 });
-                console.log('[PDF Parser] Parte adicionada:', title, '->', studentName);
+                console.log('[PDF Parser] Parte adicionada:', title, '-> Titular:', studentName, 'Ajud:', assistantName);
             }
         }
     }
