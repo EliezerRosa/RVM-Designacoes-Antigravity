@@ -3,8 +3,8 @@
  * Extrai semanas e partes de pautas de reunião
  */
 import * as pdfjsLib from 'pdfjs-dist';
-import type { HistoryRecord } from '../types';
-import { HistoryStatus } from '../types';
+import type { HistoryRecord, PartModality } from '../types';
+import { HistoryStatus, PartModality as PartModalityEnum } from '../types';
 
 // Configurar worker do PDF.js usando import estático
 // @ts-ignore - O Vite vai resolver esse import corretamente
@@ -65,6 +65,45 @@ function inferSectionFromTitle(title: string): string {
 
     // Default: Ministério (Iniciando, Cultivando, Fazendo, Discurso, etc.)
     return 'Ministério';
+}
+
+// Inferir modalidade pelo título e seção
+function inferModalityFromTitle(title: string, section: string): PartModality {
+    const lower = title.toLowerCase();
+
+    // Leitura da Bíblia → Estudante (Tesouros)
+    if (lower.includes('leitura') && section === 'Tesouros') {
+        return PartModalityEnum.ESTUDANTE;
+    }
+
+    // EBC Leitor → Leitura (Vida Cristã)
+    if (lower.includes('leitor') && section === 'Vida Cristã') {
+        return PartModalityEnum.LEITURA;
+    }
+
+    // Oração Final → Oração (Vida Cristã)
+    if (lower.includes('oração') || lower.includes('oracao')) {
+        return PartModalityEnum.ORACAO;
+    }
+
+    // Discurso no Ministério (final da seção) → Discurso de Estudante
+    if (lower.includes('discurso') && section === 'Ministério') {
+        return PartModalityEnum.DISCURSO_ESTUDANTE;
+    }
+
+    // Discurso em Tesouros ou Vida Cristã → Discurso de Ensino
+    if (section === 'Tesouros' || section === 'Vida Cristã') {
+        // EBC Dirigente, Joias, Discurso de tema
+        return PartModalityEnum.DISCURSO_ENSINO;
+    }
+
+    // Partes do Ministério com demonstração (Iniciando, Cultivando, Fazendo, Explicando)
+    if (section === 'Ministério') {
+        return PartModalityEnum.DEMONSTRACAO;
+    }
+
+    // Default
+    return PartModalityEnum.DISCURSO_ENSINO;
 }
 
 // ==========================================
@@ -385,6 +424,9 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
 
         for (const week of weeks) {
             for (const part of week.parts) {
+                // Calcular modalidade da parte
+                const modality = inferModalityFromTitle(part.title, part.section);
+
                 // Row do Titular
                 if (part.student) {
                     records.push({
@@ -393,8 +435,9 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                         weekDisplay: week.label,
                         date: week.date || '',
                         section: part.section,
-                        partType: part.title, // O título da parte é o tipo (ex: "Leitura da Bíblia")
+                        partType: part.title,
                         partTitle: part.title,
+                        modality,
                         rawPublisherName: part.student,
                         participationRole: 'Titular',
                         status: HistoryStatus.PENDING,
@@ -414,6 +457,7 @@ export async function parsePdfFile(file: File): Promise<ParseResult> {
                         section: part.section,
                         partType: part.title,
                         partTitle: part.title,
+                        modality,
                         rawPublisherName: part.assistant,
                         participationRole: 'Ajudante',
                         status: HistoryStatus.PENDING,

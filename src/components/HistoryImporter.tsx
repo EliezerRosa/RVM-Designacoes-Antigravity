@@ -424,6 +424,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Semana</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Seção</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Parte</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'center' }}>Modalidade</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Nome Original</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center' }}>Função</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Publicador</th>
@@ -433,7 +434,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                     <tbody>
                         {filteredRecords.length === 0 ? (
                             <tr>
-                                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     {records.length === 0
                                         ? 'Nenhum registro importado. Faça upload de um arquivo para começar.'
                                         : 'Nenhum registro encontrado com os filtros aplicados.'}
@@ -471,6 +472,28 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                     <td style={{ padding: '12px 8px' }}>
                                         <div>{record.partTitle}</div>
                                         <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{record.partType}</div>
+                                    </td>
+                                    <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            background:
+                                                record.modality === 'Estudante' ? 'rgba(234,179,8,0.2)' :
+                                                    record.modality === 'Demonstração' ? 'rgba(59,130,246,0.2)' :
+                                                        record.modality === 'Discurso de Estudante' ? 'rgba(168,85,247,0.2)' :
+                                                            record.modality === 'Discurso de Ensino' ? 'rgba(34,197,94,0.2)' :
+                                                                record.modality === 'Leitura' ? 'rgba(249,115,22,0.2)' : 'rgba(239,68,68,0.2)',
+                                            color:
+                                                record.modality === 'Estudante' ? '#eab308' :
+                                                    record.modality === 'Demonstração' ? '#3b82f6' :
+                                                        record.modality === 'Discurso de Estudante' ? '#a855f7' :
+                                                            record.modality === 'Discurso de Ensino' ? '#22c55e' :
+                                                                record.modality === 'Leitura' ? '#f97316' : '#ef4444',
+                                            fontSize: '0.75em',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            {record.modality}
+                                        </span>
                                     </td>
                                     <td style={{ padding: '12px 8px' }}>
                                         {record.rawPublisherName}
