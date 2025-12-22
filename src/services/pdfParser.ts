@@ -683,9 +683,11 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                     const nameMatch = mainPart.match(properNamePattern);
                     if (nameMatch) {
                         studentName = nameMatch[1].trim();
-                        title = content; // Manter título original completo
+                        // Título é o conteúdo ANTES do nome (sem o nome)
+                        const nameIndex = mainPart.lastIndexOf(studentName);
+                        title = mainPart.substring(0, nameIndex).trim();
                         foundKnownPart = true;
-                        console.log('[PDF Parser] Parte conhecida:', knownPart, '-> Nome extraído do final:', studentName);
+                        console.log('[PDF Parser] Parte conhecida:', knownPart, '-> Título:', title, '-> Nome:', studentName);
                         break;
                     }
                 }
@@ -707,7 +709,10 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                     // Verificar que o candidato não começa com palavra a excluir
                     if (!wordsToExclude.test(candidate)) {
                         studentName = candidate;
-                        console.log('[PDF Parser] Nome extraído do final:', studentName);
+                        // Título é o conteúdo ANTES do nome
+                        const nameIndex = mainPart.lastIndexOf(studentName);
+                        title = mainPart.substring(0, nameIndex).trim();
+                        console.log('[PDF Parser] Nome extraído do final:', studentName, '-> Título:', title);
                     } else {
                         console.log('[PDF Parser] Candidato rejeitado (palavra comum):', candidate);
                     }
@@ -718,7 +723,10 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                         const candidate = singleNameMatch[1].trim();
                         if (!wordsToExclude.test(candidate)) {
                             studentName = candidate;
-                            console.log('[PDF Parser] Nome único extraído:', studentName);
+                            // Título é o conteúdo ANTES do nome
+                            const nameIndex = mainPart.lastIndexOf(studentName);
+                            title = mainPart.substring(0, nameIndex).trim();
+                            console.log('[PDF Parser] Nome único extraído:', studentName, '-> Título:', title);
                         }
                     }
                 }
