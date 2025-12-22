@@ -6,8 +6,10 @@ import * as pdfjsLib from 'pdfjs-dist';
 import type { HistoryRecord } from '../types';
 import { HistoryStatus } from '../types';
 
-// Configurar worker do PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configurar worker do PDF.js usando import estático
+// @ts-ignore - O Vite vai resolver esse import corretamente
+import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = PdfWorker;
 
 // ==========================================
 // Constantes
