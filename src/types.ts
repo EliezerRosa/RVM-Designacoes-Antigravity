@@ -76,8 +76,8 @@ export const PartModality = {
     DISCURSO_ENSINO: 'Discurso de Ensino',      // Tesouros (Discurso 1, Joias), Vida Cristã (EBC Dirigente, outras)
     DISCURSO_ESTUDANTE: 'Discurso de Estudante', // Ministério (Discurso final)
     DEMONSTRACAO: 'Demonstração',                // Ministério (Iniciando, Cultivando, Fazendo, Explicando)
-    ESTUDANTE: 'Estudante',                      // Tesouros (Leitura da Bíblia)
-    LEITURA: 'Leitura',                          // Vida Cristã (EBC Leitor)
+    LEITURA_ESTUDANTE: 'Leitura de Estudante',   // Tesouros (Leitura da Bíblia)
+    LEITOR_EBC: 'Leitor no EBC',                 // Vida Cristã (EBC Leitor)
     ORACAO: 'Oração',                            // Vida Cristã (Oração Final)
 } as const;
 

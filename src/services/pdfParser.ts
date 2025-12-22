@@ -71,14 +71,14 @@ function inferSectionFromTitle(title: string): string {
 function inferModalityFromTitle(title: string, section: string): PartModality {
     const lower = title.toLowerCase();
 
-    // Leitura da Bíblia → Estudante (Tesouros)
+    // Leitura da Bíblia → Leitura de Estudante (Tesouros)
     if (lower.includes('leitura') && section === 'Tesouros') {
-        return PartModalityEnum.ESTUDANTE;
+        return PartModalityEnum.LEITURA_ESTUDANTE;
     }
 
-    // EBC Leitor → Leitura (Vida Cristã)
+    // EBC Leitor → Leitor no EBC (Vida Cristã)
     if (lower.includes('leitor') && section === 'Vida Cristã') {
-        return PartModalityEnum.LEITURA;
+        return PartModalityEnum.LEITOR_EBC;
     }
 
     // Oração Final → Oração (Vida Cristã)
