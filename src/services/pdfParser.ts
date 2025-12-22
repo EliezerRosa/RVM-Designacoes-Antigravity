@@ -84,7 +84,12 @@ function inferModalityFromTitle(title: string, section: string): PartModality {
         return PartModalityEnum.LEITURA_ESTUDANTE;
     }
 
-    // EBC Leitor → Leitor no EBC (Vida Cristã)
+    // Dirigente do EBC → Dirigente de EBC (Vida Cristã)
+    if ((lower.includes('dirigente') || lower.includes('conduz')) && section === 'Vida Cristã') {
+        return PartModalityEnum.DIRIGENTE_EBC;
+    }
+
+    // Leitor do EBC → Leitor de EBC (Vida Cristã)
     if (lower.includes('leitor') && section === 'Vida Cristã') {
         return PartModalityEnum.LEITOR_EBC;
     }
