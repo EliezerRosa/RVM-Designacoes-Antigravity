@@ -415,8 +415,15 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
             // Não pular - continuar processando a linha
         }
 
+        // Normalizar linha para detecção (lidar com mojibake)
+        const normalizedLine = line
+            .replace(/├¡/g, 'í')
+            .replace(/├º/g, 'ç')
+            .replace(/├ú/g, 'ã')
+            .replace(/├®/g, 'ê');
+
         // Detectar Presidente (formato especial: "Presidente: Nome" ou "Presidente   Nome")
-        const presidenteMatch = line.match(/presidente[:\s]+(.+)/i);
+        const presidenteMatch = normalizedLine.match(/presidente[:\s]+(.+)/i);
         if (presidenteMatch && presidenteMatch[1]) {
             const presidenteName = presidenteMatch[1].trim();
             if (presidenteName && presidenteName.length >= 3 && !presidenteName.match(/^\d/)) {
