@@ -420,20 +420,23 @@ export type HistoryStatus = typeof HistoryStatus[keyof typeof HistoryStatus];
 export interface HistoryRecord {
     id: string;
 
-    // Dados importados (raw)
-    weekId: string;               // "2025-W50"
-    weekDisplay: string;          // "15-21 de dezembro"
-    date: string;                 // ISO date
-    partTitle: string;            // "Leitura da Bíblia"
-    partType: string;             // "Tesouros", "Ministério", etc.
+    // Dados da Semana
+    weekId: string;               // "2024-11" (ano-mês)
+    weekDisplay: string;          // "SEMANA 4-10 DE NOVEMBRO | SALMO 105"
+    date: string;                 // ISO date (primeiro dia da semana)
+
+    // Dados da Parte
+    section: string;              // "Tesouros", "Ministério", "Vida Cristã", "Reunião"
+    partType: string;             // "Leitura da Bíblia", "Presidente", "Oração Inicial", etc.
+    partTitle: string;            // Título específico da apostila
+
+    // Participante
     rawPublisherName: string;     // Nome como veio no arquivo
-    rawHelperName?: string;
+    participationRole: 'Titular' | 'Ajudante';  // Tipo de participação
 
     // Resolução (após matching)
     resolvedPublisherId?: string;
     resolvedPublisherName?: string;
-    resolvedHelperId?: string;
-    resolvedHelperName?: string;
     matchConfidence?: number;     // 0-100
 
     // Status

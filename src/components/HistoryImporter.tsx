@@ -49,14 +49,11 @@ function findBestMatch(rawName: string, publishers: Publisher[]): { publisher: P
 function applyNameMatching(records: HistoryRecord[], publishers: Publisher[]): HistoryRecord[] {
     return records.map(r => {
         const match = findBestMatch(r.rawPublisherName, publishers);
-        const helperMatch = r.rawHelperName ? findBestMatch(r.rawHelperName, publishers) : null;
 
         return {
             ...r,
             resolvedPublisherId: match.publisher?.id,
             resolvedPublisherName: match.publisher?.name,
-            resolvedHelperId: helperMatch?.publisher?.id,
-            resolvedHelperName: helperMatch?.publisher?.name,
             matchConfidence: match.confidence,
             status: match.confidence >= 80 ? HistoryStatus.VALIDATED : HistoryStatus.PENDING,
         };
@@ -425,8 +422,10 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                 />
                             </th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Semana</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'left' }}>Seção</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Parte</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Nome Original</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'center' }}>Função</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Publicador</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center' }}>Status</th>
                         </tr>
@@ -434,7 +433,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                     <tbody>
                         {filteredRecords.length === 0 ? (
                             <tr>
-                                <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     {records.length === 0
                                         ? 'Nenhum registro importado. Faça upload de um arquivo para começar.'
                                         : 'Nenhum registro encontrado com os filtros aplicados.'}
@@ -455,16 +454,37 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                         <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{record.date}</div>
                                     </td>
                                     <td style={{ padding: '12px 8px' }}>
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            background: record.section === 'Tesouros' ? 'rgba(234,179,8,0.2)' :
+                                                record.section === 'Ministério' ? 'rgba(59,130,246,0.2)' :
+                                                    record.section === 'Vida Cristã' ? 'rgba(34,197,94,0.2)' : 'rgba(99,102,241,0.2)',
+                                            color: record.section === 'Tesouros' ? '#eab308' :
+                                                record.section === 'Ministério' ? '#3b82f6' :
+                                                    record.section === 'Vida Cristã' ? '#22c55e' : '#6366f1',
+                                            fontSize: '0.85em'
+                                        }}>
+                                            {record.section}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '12px 8px' }}>
                                         <div>{record.partTitle}</div>
                                         <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{record.partType}</div>
                                     </td>
                                     <td style={{ padding: '12px 8px' }}>
                                         {record.rawPublisherName}
-                                        {record.rawHelperName && (
-                                            <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>
-                                                + {record.rawHelperName}
-                                            </div>
-                                        )}
+                                    </td>
+                                    <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            background: record.participationRole === 'Titular' ? 'rgba(59,130,246,0.2)' : 'rgba(168,85,247,0.2)',
+                                            color: record.participationRole === 'Titular' ? '#3b82f6' : '#a855f7',
+                                            fontSize: '0.85em'
+                                        }}>
+                                            {record.participationRole}
+                                        </span>
                                     </td>
                                     <td style={{ padding: '12px 8px' }}>
                                         {editingId === record.id ? (
