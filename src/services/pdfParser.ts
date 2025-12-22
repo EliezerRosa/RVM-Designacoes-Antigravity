@@ -35,6 +35,14 @@ const VIDA_CRISTA_PARTS = ['ebc', 'estudo bíblico', 'estudo biblico', 'congrega
 
 const SKIP_KEYWORDS = ['SALA B', 'SALAO PRINCIPAL', 'SALÃO PRINCIPAL'];
 
+// Partes NÃO designáveis (por função ou fixas) - ignorar no histórico
+const NON_DESIGNABLE_PARTS = [
+    'comentários', 'comentarios', 'comentário inicial', 'comentario inicial',
+    'comentários finais', 'comentarios finais',
+    'cântico', 'cantico',
+    'oração inicial', 'oracao inicial'  // Oração Inicial é fixo do Presidente
+];
+
 // Regex Patterns
 const DURATION_PATTERN = /(.+?)\s*\((\d+)\s*min\)/i;
 const WEEK_HEADER_PATTERN = /\d{1,2}\s*(?:[-–]|a)\s*\d{1,2}\s*de\s*[a-zç]+/i;
@@ -288,6 +296,12 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
         const match = line.match(DURATION_PATTERN);
         if (match) {
             const title = match[1].trim().replace(/^[-:"]+|[-:"]+$/g, '');
+
+            // Ignorar partes NÃO designáveis (por função ou fixas)
+            const lowerTitle = title.toLowerCase();
+            if (NON_DESIGNABLE_PARTS.some(p => lowerTitle.includes(p))) {
+                continue;
+            }
 
             // Tentar extrair nome após a duração na mesma linha
             // Formato: "Título (10 min) Nome Estudante" ou "Título (10 min) Nome / Ajudante"
