@@ -206,16 +206,19 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
 
         if (!currentWeek) continue;
 
-        // Detect section
+        // Detect section (mas usar default se não encontrar)
         const nextSection = detectSection(line, currentSection);
         if (nextSection !== currentSection) {
             currentSection = nextSection;
-            continue;
+            // Não pular - continuar processando a linha
         }
+
+        // Usar seção default se não detectada
+        const effectiveSection = currentSection || 'Reunião';
 
         // Detect part with duration - formato: "Parte (X min) Nome Student / Nome Ajudante"
         const match = line.match(DURATION_PATTERN);
-        if (match && currentSection) {
+        if (match) {
             const title = match[1].trim().replace(/^[-:"]+|[-:"]+$/g, '');
 
             // Tentar extrair nome após a duração na mesma linha
@@ -240,7 +243,7 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
 
                 if (student && student.length >= 2) {
                     currentWeek.parts.push({
-                        section: currentSection,
+                        section: effectiveSection,
                         title,
                         student,
                         assistant
