@@ -84,13 +84,14 @@ function inferModalityFromTitle(title: string, section: string): PartModality {
         return PartModalityEnum.LEITURA_ESTUDANTE;
     }
 
-    // Dirigente do EBC → Dirigente de EBC (Vida Cristã)
-    if ((lower.includes('dirigente') || lower.includes('conduz')) && section === 'Vida Cristã') {
+    // Estudo Bíblico de Congregação / Dirigente → Dirigente de EBC (Vida Cristã)
+    if ((lower.includes('estudo bíblico') || lower.includes('estudo biblico') ||
+        lower.includes('dirigente') || lower.includes('conduz')) && section === 'Vida Cristã') {
         return PartModalityEnum.DIRIGENTE_EBC;
     }
 
-    // Leitor do EBC → Leitor de EBC (Vida Cristã)
-    if (lower.includes('leitor') && section === 'Vida Cristã') {
+    // Leitura no EBC / Leitor → Leitor de EBC (Vida Cristã)
+    if ((lower.includes('leitura no ebc') || lower.includes('leitor')) && section === 'Vida Cristã') {
         return PartModalityEnum.LEITOR_EBC;
     }
 
@@ -256,10 +257,21 @@ function namesFromString(payload: string): [string, string | null] {
         const [student, assistant] = sanitized.split('+', 2);
         return [student.trim(), assistant?.trim() || null];
     }
-
     if (sanitized.includes('/')) {
         const [student, assistant] = sanitized.split('/', 2);
         return [student.trim(), assistant?.trim() || null];
+    }
+
+    // Formato EBC especial: "Dirigente: Nome Sobrenome Leitor: Nome Sobrenome"
+    const dirigenteMatch = sanitized.match(/Dirigente[:\s]+(.+?)\s+Leitor[:\s]+(.+)/i);
+    if (dirigenteMatch) {
+        return [dirigenteMatch[1].trim(), dirigenteMatch[2].trim()];
+    }
+
+    // Formato alternativo EBC: "Dirigente: Nome Sobrenome" (só dirigente)
+    const onlyDirigenteMatch = sanitized.match(/Dirigente[:\s]+(.+)/i);
+    if (onlyDirigenteMatch && !sanitized.toLowerCase().includes('leitor')) {
+        return [onlyDirigenteMatch[1].trim(), null];
     }
 
     // Verificar se tem 4 nomes consecutivos (Titular + Ajudante, cada um com 2 nomes)
@@ -360,18 +372,18 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                         lowerTitle.includes('congregacao');
 
                     if (isEBC && assistant) {
-                        // Part 1: Dirigente de EBC
+                        // Part 1: Estudo Bíblico de Congregação (Dirigente)
                         currentWeek.parts.push({
                             section: partSection,
-                            title: 'Dirigente de EBC',
+                            title: 'Estudo Bíblico de Congregação',
                             student,
                             assistant: null  // Dirigente não tem ajudante
                         });
 
-                        // Part 2: Leitor de EBC
+                        // Part 2: Leitura no EBC (Leitor)
                         currentWeek.parts.push({
                             section: partSection,
-                            title: 'Leitor de EBC',
+                            title: 'Leitura no EBC',
                             student: assistant,  // O "assistant" é o Leitor
                             assistant: null
                         });
