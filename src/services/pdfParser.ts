@@ -213,22 +213,39 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
             continue;
         }
 
-        // Detect part with duration
+        // Detect part with duration - formato: "Parte (X min) Nome Student / Nome Ajudante"
         const match = line.match(DURATION_PATTERN);
         if (match && currentSection) {
             const title = match[1].trim().replace(/^[-:"]+|[-:"]+$/g, '');
 
-            // Look ahead for name
-            const nameBlock = nextNameBlock(cleanedLines, idx + 1);
-            if (nameBlock) {
+            // Tentar extrair nome após a duração na mesma linha
+            // Formato: "Título (10 min) Nome Estudante" ou "Título (10 min) Nome / Ajudante"
+            const afterDuration = line.substring(line.indexOf(match[0]) + match[0].length).trim();
+
+            let nameBlock = afterDuration;
+
+            // Se não há nome na mesma linha, procurar na próxima
+            if (!nameBlock || nameBlock.length < 3) {
+                nameBlock = nextNameBlock(cleanedLines, idx + 1) || '';
+            }
+
+            if (nameBlock && nameBlock.length >= 3) {
+                // Limpar sufixos como "Estudante:" ou "Ajudante"
+                nameBlock = nameBlock.replace(/^Estudante:\s*/i, '')
+                    .replace(/^Estudante\s+Ajudante/i, '')
+                    .replace(/Estudante\s*$/i, '')
+                    .trim();
+
                 const [student, assistant] = namesFromString(nameBlock);
 
-                currentWeek.parts.push({
-                    section: currentSection,
-                    title,
-                    student,
-                    assistant
-                });
+                if (student && student.length >= 2) {
+                    currentWeek.parts.push({
+                        section: currentSection,
+                        title,
+                        student,
+                        assistant
+                    });
+                }
             }
         }
     }
