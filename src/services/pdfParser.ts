@@ -59,12 +59,13 @@ const VIDA_CRISTA_PARTS = ['ebc', 'estudo bíblico', 'estudo biblico', 'congrega
 
 const SKIP_KEYWORDS = ['SALA B', 'SALAO PRINCIPAL', 'SALÃO PRINCIPAL'];
 
-// Partes NÃO designáveis (por função ou fixas) - ignorar no histórico
+// Partes NÃO designáveis (por função ou fixas) - ignorar no histórico de rodízio
 const NON_DESIGNABLE_PARTS = [
     'comentários', 'comentarios', 'comentário inicial', 'comentario inicial',
     'comentários finais', 'comentarios finais',
     'cântico', 'cantico',
-    'oração inicial', 'oracao inicial'  // Oração Inicial é fixo do Presidente
+    'oração inicial', 'oracao inicial',  // Oração Inicial é fixo do Presidente
+    'conclusão', 'conclusao'  // Conclusão não é designável para rodízio
 ];
 
 // Regex Patterns
