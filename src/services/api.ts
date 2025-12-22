@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Publisher, Participation, MeetingData, Assignment, HistoricalImportRecord } from '../types';
+import type { Publisher, Participation, MeetingData, Assignment, HistoricalImportRecord, GenerateRequest, GeneratedAssignmentResponse } from '../types';
 
 // ============================================================================
 // API Service - Full Supabase Persistence
@@ -389,5 +389,31 @@ export const api = {
         }
 
         return { removed: duplicateIds.length, kept: uniqueMap.size };
-    }
+    },
+
+    // ===== INTEGRATION (BACKEND ENGINE) =====
+    async generateAssignments(request: GenerateRequest): Promise<GeneratedAssignmentResponse[]> {
+        console.log('[API] Generating assignments via Backend Engine...');
+        try {
+            const response = await fetch('/api/assignments/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(request),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error: ${errorText}`);
+            }
+
+            const data = await response.json();
+            return data as GeneratedAssignmentResponse[];
+        } catch (error) {
+            console.error('Error calling backend engine:', error);
+            throw error;
+        }
+    },
 };
+

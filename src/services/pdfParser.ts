@@ -57,9 +57,35 @@ const NON_DESIGNABLE_PARTS = [
 ];
 
 // Regex Patterns
-const DURATION_PATTERN = /(.+?)\s*\((\d+)\s*min\)/i;
-const WEEK_HEADER_PATTERN = /\d{1,2}\s*(?:[-–]|a)\s*\d{1,2}\s*de\s*[a-zç]+/i;
-const YEAR_PATTERN = /20\d{2}/;
+// OCR-tolerant: aceita O/0, l/1 como confusoes comuns
+const DURATION_PATTERN = /(.+?)\s*\(([0-9OolI]+)\s*m[il1]n\)/i;
+const WEEK_HEADER_PATTERN = /[0-9OolI]{1,2}\s*(?:[-–]|a)\s*[0-9OolI]{1,2}\s*de\s*[a-zç]+/i;
+const YEAR_PATTERN = /20[0-9OolI]{2}/;
+
+// Normalizar texto de OCR - corrigir confusoes comuns de caracteres
+function normalizeOcrText(text: string): string {
+    return text
+        // Numeros: O->0, l->1
+        .replace(/\b([0-9]*)[Oo]([0-9]+)\b/g, '$10$2')
+        .replace(/\b([0-9]+)[Oo]([0-9]*)\b/g, '$10$2')
+        .replace(/\b[Oo]([0-9]+)\b/g, '0$1')
+        .replace(/\b([0-9]+)[Oo]\b/g, '$10')
+        .replace(/\b([0-9]*)[lI]([0-9]+)\b/g, '$11$2')
+        .replace(/\b[lI]([0-9]+)\b/g, '1$1')
+        .replace(/\b([0-9]+)[lI]\b/g, '$11')
+        // Palavras comuns mal lidas
+        .replace(/m[il1]n\b/gi, 'min')
+        .replace(/\brnin\b/gi, 'min')
+        .replace(/\bmlnutos?\b/gi, 'minutos')
+        // Acentos perdidos
+        .replace(/\bMinisterio\b/g, 'Ministério')
+        .replace(/\bVida Crista\b/g, 'Vida Cristã')
+        .replace(/\bOracao\b/gi, 'Oração')
+        .replace(/\bBiblia\b/gi, 'Bíblia')
+        .replace(/\bCongregacao\b/gi, 'Congregação');
+}
+
+
 
 // Limpar label da semana (remover | e trecho bíblico)
 function cleanWeekLabel(rawLabel: string): string {
@@ -233,14 +259,14 @@ function inferModalityFromTitle(title: string, section: MeetingSection): PartMod
 // Tipos
 // ==========================================
 
-interface ParsedPart {
+export interface ParsedPart {
     section: string;
     title: string;
     student: string | null;
     assistant: string | null;
 }
 
-interface ParsedWeek {
+export interface ParsedWeek {
     label: string;
     date: string | null;
     parts: ParsedPart[];
@@ -599,6 +625,21 @@ async function extractTextWithOCR(
             canvas: canvas
         }).promise;
 
+        // Pré-processamento de imagem para melhorar OCR
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        for (let j = 0; j < data.length; j += 4) {
+            // Converter para escala de cinza
+            const gray = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
+            // Aplicar aumento de contraste
+            const contrasted = Math.min(255, Math.max(0, ((gray - 128) * 1.5) + 128));
+            const final = contrasted < 100 ? contrasted * 0.7 : Math.min(255, contrasted * 1.2);
+            data[j] = final;
+            data[j + 1] = final;
+            data[j + 2] = final;
+        }
+        context.putImageData(imageData, 0, 0);
+
         // Executar OCR na imagem
         const result = await Tesseract.recognize(
             canvas,
@@ -622,7 +663,8 @@ async function extractTextWithOCR(
         onProgress({ status: 'OCR concluído!', progress: 1 });
     }
 
-    return fullText;
+    // Aplicar normalizacao de erros comuns de OCR
+    return normalizeOcrText(fullText);
 }
 
 export async function parsePdfFile(

@@ -529,3 +529,27 @@ export interface ImportBatch {
     approvedCount: number;
     rejectedCount: number;
 }
+
+// ===== API REQUEST/RESPONSE TYPES =====
+
+export interface GenerateRequest {
+    week: string;
+    date: string;
+    publishers: Publisher[];
+    participations: Participation[];
+    parts?: { title: string; type: string; needsHelper: boolean }[];
+}
+
+export interface GeneratedAssignmentResponse {
+    part_title: string;
+    part_type: string;
+    teaching_category: string;
+    principal_name: string;
+    principal_id: string;
+    secondary_name: string | null;
+    secondary_id: string | null;
+    status: string;
+    score: number;
+    reason: string;
+    pairing_reason: string | null;
+}
