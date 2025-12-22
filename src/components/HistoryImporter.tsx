@@ -470,8 +470,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                         </span>
                                     </td>
                                     <td style={{ padding: '12px 8px' }}>
-                                        <div>{record.partTitle}</div>
-                                        <div style={{ fontSize: '0.8em', color: 'var(--text-muted)' }}>{record.partType}</div>
+                                        {record.partTitle}
                                     </td>
                                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                         <span style={{
