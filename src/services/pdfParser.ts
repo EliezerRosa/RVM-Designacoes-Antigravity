@@ -466,13 +466,15 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
             const presidenteHeaderMatch = normalizedHeader.match(/presidente[:\s]+([A-Za-zÀ-ÿ\s]+)/i);
             if (presidenteHeaderMatch && presidenteHeaderMatch[1]) {
                 const presidenteName = presidenteHeaderMatch[1].trim();
-                if (presidenteName && presidenteName.length >= 3) {
+                const alreadyHasPresidente = currentWeek.parts.some(p => p.title.toLowerCase() === 'presidente');
+                if (presidenteName && presidenteName.length >= 3 && !alreadyHasPresidente) {
                     currentWeek.parts.push({
                         section: 'Início',
                         title: 'Presidente',
                         student: presidenteName,
                         assistant: null
                     });
+                    console.log('[PDF Parser] Presidente no cabeçalho:', presidenteName);
                 }
             }
             continue;
@@ -508,6 +510,11 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
         // Formatos: "Presidente: Nome", "Presidente Nome", "Presidente    Nome"
         const lowerLine = normalizedLine.toLowerCase();
         if (lowerLine.includes('presidente') && !lowerLine.includes('min)')) {
+            const alreadyHasPresidente = currentWeek.parts.some(p => p.title.toLowerCase() === 'presidente');
+            if (alreadyHasPresidente) {
+                console.log('[PDF Parser] Presidente já detectado, pulando linha:', line);
+                continue;
+            }
             // Extrair nome após "presidente"
             const presidenteMatch = normalizedLine.match(/presidente[:\s]+([A-Za-zÀ-ÿ\s]+)/i);
             if (presidenteMatch && presidenteMatch[1]) {
@@ -519,6 +526,7 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                         student: presidenteName,
                         assistant: null
                     });
+                    console.log('[PDF Parser] Presidente detectado:', presidenteName);
                     continue;
                 }
             }
@@ -601,6 +609,7 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
         const timestampMatch = line.match(/^(\d{1,2})[:\.](\d{2})\s+(.+)/);
         if (timestampMatch) {
             const content = timestampMatch[3].trim();
+            console.log('[PDF Parser] Timestamp line:', timestampMatch[1] + ':' + timestampMatch[2], 'Content:', content);
 
             // Tentar extrair parte e nome
             // Formato comum: "Título da Parte Nome Sobrenome" ou "Título Nome / Ajudante"
