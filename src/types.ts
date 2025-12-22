@@ -73,13 +73,14 @@ export type ParticipationType = typeof ParticipationType[keyof typeof Participat
 
 // Modalidades de partes designáveis (para análise de histórico e elegibilidade)
 export const PartModality = {
+    PRESIDENCIA: 'Presidência',                  // Início/Final (Presidente da reunião)
     DISCURSO_ENSINO: 'Discurso de Ensino',      // Tesouros (Discurso 1, Joias), Vida Cristã (outras partes)
     DISCURSO_ESTUDANTE: 'Discurso de Estudante', // Ministério (Discurso final)
     DEMONSTRACAO: 'Demonstração',                // Ministério (Iniciando, Cultivando, Fazendo, Explicando)
     LEITURA_ESTUDANTE: 'Leitura de Estudante',   // Tesouros (Leitura da Bíblia)
     DIRIGENTE_EBC: 'Dirigente de EBC',           // Vida Cristã (Dirige o EBC)
     LEITOR_EBC: 'Leitor de EBC',                 // Vida Cristã (Lê no EBC)
-    ORACAO: 'Oração',                            // Vida Cristã (Oração Final)
+    ORACAO: 'Oração',                            // Final (Oração Final)
 } as const;
 
 export type PartModality = typeof PartModality[keyof typeof PartModality];
