@@ -251,6 +251,7 @@ function namesFromString(payload: string): [string, string | null] {
     let sanitized = payload.trim().replace(/\)$/, '').trim();
     sanitized = sanitized.replace(/\s{2,}/g, ' ');
 
+    // Separador explícito: + ou /
     if (sanitized.includes('+')) {
         const [student, assistant] = sanitized.split('+', 2);
         return [student.trim(), assistant?.trim() || null];
@@ -259,6 +260,24 @@ function namesFromString(payload: string): [string, string | null] {
     if (sanitized.includes('/')) {
         const [student, assistant] = sanitized.split('/', 2);
         return [student.trim(), assistant?.trim() || null];
+    }
+
+    // Verificar se tem 4 nomes consecutivos (Titular + Ajudante, cada um com 2 nomes)
+    // Exemplo: "Rozelita Sales Keyla Costa" → ["Rozelita Sales", "Keyla Costa"]
+    const words = sanitized.split(/\s+/).filter(w => w.length >= 2);
+
+    if (words.length >= 4) {
+        // Assumir que cada participante tem 2 nomes (primeiro + último)
+        const titular = `${words[0]} ${words[1]}`;
+        const ajudante = words.slice(2).join(' ');
+        return [titular.trim(), ajudante.trim()];
+    }
+
+    if (words.length === 3) {
+        // 3 nomes: pode ser "Nome Sobrenome NomeSó" → Titular tem 2, ajudante tem 1
+        const titular = `${words[0]} ${words[1]}`;
+        const ajudante = words[2];
+        return [titular.trim(), ajudante.trim()];
     }
 
     return [sanitized.trim(), null];
