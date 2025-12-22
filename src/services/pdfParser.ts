@@ -22,34 +22,15 @@ const PORTUGUESE_MONTHS: Record<string, number> = {
 };
 
 const SECTION_HEADINGS: Record<string, string> = {
-    // Início da reunião (Presidência)
-    'presidente': 'Início',
-    'presidência': 'Início',
-    'presidencia': 'Início',
-    'cântico': 'Início',
-    'cantico': 'Início',
-    'oração inicial': 'Início',
-    'oracao inicial': 'Início',
+    // Cabeçalhos principais do S-140 (devem ser bem específicos)
+    'tesouros da palavra': 'Tesouros',
+    'tesouros da palavra de deus': 'Tesouros',
 
-    // Tesouros da Palavra de Deus
-    'tesouros': 'Tesouros',
-    'palavra de deus': 'Tesouros',
+    'faça seu melhor': 'Ministério',
+    'faca seu melhor': 'Ministério',
 
-    // Faça Seu Melhor no Ministério
-    'minist': 'Ministério',
-    'melhor no minist': 'Ministério',
-    'faça seu': 'Ministério',
-    'faca seu': 'Ministério',
-
-    // Nossa Vida Cristã  
-    'vida cristã': 'Vida Cristã',
-    'vida crista': 'Vida Cristã',
-    'nossa vida': 'Vida Cristã',
-
-    // Final da reunião
-    'conclus': 'Final',
-    'oração final': 'Final',
-    'oracao final': 'Final',
+    'nossa vida cristã': 'Vida Cristã',
+    'nossa vida crista': 'Vida Cristã',
 };
 
 // Partes que pertencem a cada seção (para inferência quando não detectada)
@@ -115,15 +96,6 @@ function inferSectionFromTitle(title: string): string {
 // Inferir modalidade pelo título e seção
 function inferModalityFromTitle(title: string, section: string): PartModality {
     const lower = title.toLowerCase();
-
-    // Presidência (seção Início ou Final)
-    if (section === 'Início' || section === 'Final') {
-        // Oração Final é parte separada
-        if (lower.includes('oração') || lower.includes('oracao')) {
-            return PartModalityEnum.ORACAO;
-        }
-        return PartModalityEnum.PRESIDENCIA;
-    }
 
     // Leitura da Bíblia → Leitura de Estudante (Tesouros)
     if (lower.includes('leitura') && section === 'Tesouros') {
