@@ -274,37 +274,18 @@ export async function validatePublishersInRecords(
                 // Normalizar nome para matching
                 const normalizedName = pub.name.toLowerCase().trim();
                 publisherMap.set(normalizedName, { id: pub.id, name: pub.name });
-
-                // Também mapear variações do nome (primeiro nome + sobrenome)
-                const parts = pub.name.split(' ');
-                if (parts.length >= 2) {
-                    const shortName = `${parts[0]} ${parts[parts.length - 1]}`.toLowerCase();
-                    if (!publisherMap.has(shortName)) {
-                        publisherMap.set(shortName, { id: pub.id, name: pub.name });
-                    }
-                }
             }
         });
 
         console.log(`[History Service] ${publisherMap.size} publicadores carregados para validação`);
 
-        // Validar cada registro
+        // Validar cada registro - SOMENTE correspondência exata
         const validatedRecords = records.map(record => {
             const rawName = record.rawPublisherName || record.nomeOriginal || '';
             const normalizedRaw = rawName.toLowerCase().trim();
 
-            // Buscar correspondência exata
-            let match = publisherMap.get(normalizedRaw);
-
-            // Se não encontrar, tentar matching parcial
-            if (!match) {
-                for (const [key, value] of publisherMap) {
-                    if (normalizedRaw.includes(key) || key.includes(normalizedRaw)) {
-                        match = value;
-                        break;
-                    }
-                }
-            }
+            // Buscar SOMENTE correspondência exata
+            const match = publisherMap.get(normalizedRaw);
 
             if (match) {
                 return {
