@@ -53,7 +53,62 @@ export interface Publisher {
     createdAt?: string;  // ISO timestamp of creation
 }
 
-// ===== PARTICIPACOES =====
+// ===== ENUMS RVM PRO 2.0 (Novo Modelo) =====
+
+// EnumSecao - Estrutura da Reunião (5 valores)
+export const EnumSecao = {
+    INICIO_REUNIAO: 'Início da Reunião',
+    TESOUROS: 'Tesouros da Palavra de Deus',
+    MINISTERIO: 'Faça Seu Melhor no Ministério',
+    VIDA_CRISTA: 'Nossa Vida Cristã',
+    FINAL_REUNIAO: 'Final da Reunião',
+} as const;
+export type EnumSecao = typeof EnumSecao[keyof typeof EnumSecao];
+
+// EnumTipoParte - Função Litúrgica (15 valores)
+export const EnumTipoParte = {
+    PRESIDENTE: 'Presidente',
+    CANTICO_INICIAL: 'Cântico Inicial',
+    ORACAO_INICIAL: 'Oração Inicial',
+    COMENTARIOS_INICIAIS: 'Comentários Iniciais',
+    DISCURSO_TESOUROS: 'Discurso na Tesouros',
+    JOIAS_ESPIRITUAIS: 'Joias Espirituais',
+    LEITURA_BIBLIA: 'Leitura da Bíblia',
+    PARTE_ESTUDANTE: 'Parte de Estudante',
+    ELOGIOS_CONSELHOS: 'Elogios e Conselhos',
+    CANTICO_MEIO: 'Cântico do Meio',
+    PARTE_VIDA_CRISTA: 'Parte na Vida Cristã',
+    DIRIGENTE_EBC: 'Dirigente do EBC',
+    LEITOR_EBC: 'Leitor do EBC',
+    COMENTARIOS_FINAIS: 'Comentários Finais',
+    CANTICO_FINAL: 'Cântico Final',
+    ORACAO_FINAL: 'Oração Final',
+} as const;
+export type EnumTipoParte = typeof EnumTipoParte[keyof typeof EnumTipoParte];
+
+// EnumModalidade - Formato de Execução (10 valores)
+export const EnumModalidade = {
+    PRESIDENCIA: 'Presidência',
+    CANTICO: 'Cântico',
+    ORACAO: 'Oração',
+    ACONSELHAMENTO: 'Aconselhamento',
+    DISCURSO_ENSINO: 'Discurso de Ensino',
+    LEITURA_ESTUDANTE: 'Leitura de Estudante',
+    DEMONSTRACAO: 'Demonstração',
+    DISCURSO_ESTUDANTE: 'Discurso de Estudante',
+    DIRIGENTE_EBC: 'Dirigente de EBC',
+    LEITOR_EBC: 'Leitor de EBC',
+} as const;
+export type EnumModalidade = typeof EnumModalidade[keyof typeof EnumModalidade];
+
+// EnumFuncao - Papel na Execução (2 valores)
+export const EnumFuncao = {
+    TITULAR: 'Titular',
+    AJUDANTE: 'Ajudante',
+} as const;
+export type EnumFuncao = typeof EnumFuncao[keyof typeof EnumFuncao];
+
+// ===== PARTICIPACOES (LEGADO - manter para compatibilidade) =====
 
 export const ParticipationType = {
     PRESIDENTE: 'Presidente',
@@ -71,21 +126,21 @@ export const ParticipationType = {
 
 export type ParticipationType = typeof ParticipationType[keyof typeof ParticipationType];
 
-// Modalidades de partes designáveis (para análise de histórico e elegibilidade)
+// Modalidades de partes designáveis (LEGADO)
 export const PartModality = {
-    DISCURSO_ENSINO: 'Discurso de Ensino',      // Tesouros (Discurso 1, Joias), Vida Cristã (outras partes)
-    DISCURSO_ESTUDANTE: 'Discurso de Estudante', // Ministério (Discurso final)
-    DEMONSTRACAO: 'Demonstração',                // Ministério (Iniciando, Cultivando, Fazendo, Explicando)
-    LEITURA_ESTUDANTE: 'Leitura de Estudante',   // Tesouros (Leitura da Bíblia)
-    DIRIGENTE_EBC: 'Dirigente de EBC',           // Vida Cristã (Dirige o EBC)
-    LEITOR_EBC: 'Leitor de EBC',                 // Vida Cristã (Lê no EBC)
-    ORACAO: 'Oração',                            // Vida Cristã (Oração Final)
-    PRESIDENCIA: 'Presidência',                  // Presidente da Reunião
+    DISCURSO_ENSINO: 'Discurso de Ensino',
+    DISCURSO_ESTUDANTE: 'Discurso de Estudante',
+    DEMONSTRACAO: 'Demonstração',
+    LEITURA_ESTUDANTE: 'Leitura de Estudante',
+    DIRIGENTE_EBC: 'Dirigente de EBC',
+    LEITOR_EBC: 'Leitor de EBC',
+    ORACAO: 'Oração',
+    PRESIDENCIA: 'Presidência',
 } as const;
 
 export type PartModality = typeof PartModality[keyof typeof PartModality];
 
-// Seções da Reunião
+// Seções da Reunião (LEGADO)
 export const MeetingSection = {
     INICIO: 'Início da Reunião',
     TESOUROS: 'Tesouros da Palavra de Deus',
@@ -482,40 +537,50 @@ export type HistoryStatus = typeof HistoryStatus[keyof typeof HistoryStatus];
 export interface HistoryRecord {
     id: string;
 
-    // Dados da Semana
-    weekId: string;               // "2024-11" (ano-mês)
-    weekDisplay: string;          // "SEMANA 4-10 DE NOVEMBRO | SALMO 105"
-    date: string;                 // ISO date (primeiro dia da semana)
-
-    // Dados da Parte
-    section: MeetingSection;          // Seção da reunião
-    standardPartKey?: StandardPartKey; // Chave da parte padrão (se identificada)
-    partTitle: string;                // Nome da parte (limpo, sem numeração)
-    partTheme?: string | null;        // Tema específico da apostila (se houver)
-    partSequence: number;             // Sequência na semana (1, 2, 3...)
-    workbookNumber?: string;          // Numeração da apostila ("4.", "5.")
-    modality: PartModality;           // Modalidade da parte designável
-
-    // Participante
-    rawPublisherName: string;     // Nome como veio no arquivo
-    participationRole: 'Titular' | 'Ajudante';  // Tipo de participação
-
-    // Resolução (após matching)
+    // ===== CAMPOS LEGADO (obrigatórios para compatibilidade atual) =====
+    weekId: string;
+    weekDisplay: string;
+    date: string;
+    section: MeetingSection;
+    partTitle: string;
+    partSequence: number;
+    modality: PartModality;
+    rawPublisherName: string;
+    participationRole: 'Titular' | 'Ajudante';
     resolvedPublisherId?: string;
     resolvedPublisherName?: string;
-    matchConfidence?: number;     // 0-100
+    matchConfidence?: number;
+    standardPartKey?: StandardPartKey;
+    partTheme?: string | null;
+    workbookNumber?: string;
 
-    // Status
+    // === Status e Metadados ===
     status: HistoryStatus;
     validationNotes?: string;
     importSource: 'PDF' | 'Excel' | 'JSON' | 'Manual';
-    importBatchId: string;        // Agrupa imports do mesmo arquivo
+    importBatchId: string;
 
-    // Metadados
+    // Campos de auditoria
     createdAt: string;
     updatedAt?: string;
     approvedBy?: string;
     approvedAt?: string;
+
+    // ===== NOVOS CAMPOS RVM PRO 2.0 (opcionais durante migração) =====
+    // TODO: tornar obrigatórios após migração completa
+    semana?: string;              // Data ISO (ex: "2024-11-04")
+    seq?: number;                 // Sequência na semana
+    secao?: EnumSecao;            // Seção (nova enum)
+    tipoParte?: EnumTipoParte;    // Função litúrgica
+    descricao?: string;           // Tema/Descrição
+    modalidade?: EnumModalidade;  // Formato de execução
+    horaInicio?: string;          // HH:MM
+    horaFim?: string;             // HH:MM
+    duracao?: number;             // Minutos
+    nomeOriginal?: string;        // Nome como veio na pauta
+    funcao?: EnumFuncao;          // Titular ou Ajudante
+    publicadorId?: string;        // PK do publicador
+    publicadorNome?: string;      // Nome do publicador
 }
 
 export interface ImportBatch {
