@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Publisher, Participation, HistoryRecord } from '../types';
 import { HistoryStatus, ParticipationType, PartModality, MeetingSection } from '../types';
 import { parsePdfFile } from '../services/pdfParser';
 import { parseExcelFile } from '../services/excelParser';
+import { loadHistoryRecords, saveHistoryRecords } from '../services/historyService';
 import type { OcrProgressCallback } from '../services/pdfParser';
 
 interface Props {
@@ -83,6 +84,25 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         rawPublisherName: '',
         role: 'Titular' as 'Titular' | 'Ajudante'
     });
+
+    // Estado para feedback de save
+    const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+    // Carregar dados do Supabase ao montar componente
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const savedRecords = await loadHistoryRecords();
+                if (savedRecords.length > 0) {
+                    setRecords(savedRecords);
+                    console.log(`[HistoryImporter] ${savedRecords.length} registros carregados do Supabase`);
+                }
+            } catch (error) {
+                console.error('[HistoryImporter] Erro ao carregar dados:', error);
+            }
+        };
+        loadData();
+    }, []);
 
     // Estatísticas
     const stats = useMemo(() => {
@@ -177,7 +197,20 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                 });
             }
 
-            setRecords(prev => [...prev, ...matchedRecords]);
+            // Atualizar state e salvar no Supabase
+            setRecords(prev => {
+                const newRecords = [...prev, ...matchedRecords];
+                // Salvar no Supabase em background
+                saveHistoryRecords(matchedRecords).then(result => {
+                    if (result.success) {
+                        setSaveMessage(`✅ ${result.count} registros salvos no banco`);
+                        setTimeout(() => setSaveMessage(null), 3000);
+                    } else {
+                        setSaveMessage(`⚠️ Erro ao salvar: ${result.error}`);
+                    }
+                });
+                return newRecords;
+            });
             setUploadError(null);
         } catch (error) {
             console.error('Erro ao fazer upload:', error);
@@ -616,6 +649,22 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                         color: '#ef4444'
                     }}>
                         ❌ {uploadError}
+                    </div>
+                )}
+                {saveMessage && (
+                    <div style={{
+                        marginTop: 'var(--spacing-md)',
+                        padding: 'var(--spacing-sm) var(--spacing-md)',
+                        background: saveMessage.startsWith('✅')
+                            ? 'rgba(34,197,94,0.1)'
+                            : 'rgba(234,179,8,0.1)',
+                        border: `1px solid ${saveMessage.startsWith('✅')
+                            ? 'rgba(34,197,94,0.3)'
+                            : 'rgba(234,179,8,0.3)'}`,
+                        borderRadius: '6px',
+                        color: saveMessage.startsWith('✅') ? '#22c55e' : '#eab308'
+                    }}>
+                        {saveMessage}
                     </div>
                 )}
             </div>
