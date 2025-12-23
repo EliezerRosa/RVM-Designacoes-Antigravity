@@ -72,6 +72,17 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [ocrProgress, setOcrProgress] = useState<{ status: string; progress: number } | null>(null);
 
+    // Estado para modal "Nova Parte"
+    const [showAddPartModal, setShowAddPartModal] = useState(false);
+    const [newPartData, setNewPartData] = useState({
+        weekDisplay: '',
+        section: 'Tesouros da Palavra de Deus' as MeetingSection,
+        partTitle: '',
+        modality: 'Demonstração' as PartModality,
+        rawPublisherName: '',
+        role: 'Titular' as 'Titular' | 'Ajudante'
+    });
+
     // Estatísticas
     const stats = useMemo(() => {
         const pending = records.filter(r => r.status === HistoryStatus.PENDING).length;
@@ -238,6 +249,55 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
             r.id === recordId ? { ...r, [field]: value, updatedAt: new Date().toISOString() } : r
         ));
         setEditingCell(null);
+    };
+
+    // Adicionar nova parte manualmente
+    const handleAddNewPart = () => {
+        if (!newPartData.weekDisplay || !newPartData.partTitle) {
+            return; // Validação básica
+        }
+
+        // Encontrar próximo sequence baseado na semana
+        const existingSeqs = records
+            .filter(r => r.weekDisplay === newPartData.weekDisplay)
+            .map(r => r.partSequence);
+        const nextSeq = existingSeqs.length > 0 ? Math.max(...existingSeqs) + 1 : 1;
+
+        // Fazer matching do nome
+        const match = findBestMatch(newPartData.rawPublisherName, publishers);
+
+        const newRecord: HistoryRecord = {
+            id: `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            weekId: newPartData.weekDisplay.substring(0, 7) || 'manual',
+            weekDisplay: newPartData.weekDisplay,
+            date: new Date().toISOString().split('T')[0],
+            partSequence: nextSeq,
+            section: newPartData.section,
+            partTitle: newPartData.partTitle,
+            modality: newPartData.modality,
+            rawPublisherName: newPartData.rawPublisherName,
+            participationRole: newPartData.role,
+            status: HistoryStatus.PENDING,
+            resolvedPublisherId: match.publisher?.id || undefined,
+            resolvedPublisherName: match.publisher?.name || undefined,
+            matchConfidence: match.confidence,
+            importSource: 'Manual',
+            importBatchId: `manual-${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        setRecords(prev => [...prev, newRecord]);
+        setShowAddPartModal(false);
+        // Reset form
+        setNewPartData({
+            weekDisplay: uniqueWeeks[0] || '',
+            section: 'Tesouros da Palavra de Deus',
+            partTitle: '',
+            modality: 'Demonstração',
+            rawPublisherName: '',
+            role: 'Titular'
+        });
     };
 
     // Estilo comum para células editáveis
@@ -606,6 +666,25 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                         ))}
                     </select>
 
+                    {/* Botão Nova Parte */}
+                    <button
+                        onClick={() => setShowAddPartModal(true)}
+                        style={{
+                            padding: '8px 16px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: 'var(--primary-500)',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontWeight: '500',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                        }}
+                    >
+                        ➕ Nova Parte
+                    </button>
+
                     <div style={{ flex: 1 }} />
 
                     {/* Ações em lote */}
@@ -804,6 +883,209 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                     </tbody>
                 </table>
             </div>
+
+            {/* Modal Nova Parte */}
+            {showAddPartModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div className="card" style={{
+                        padding: 'var(--spacing-xl)',
+                        width: '500px',
+                        maxHeight: '90vh',
+                        overflow: 'auto'
+                    }}>
+                        <h3 style={{ marginBottom: 'var(--spacing-lg)' }}>➕ Nova Parte</h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            {/* Semana */}
+                            <label>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Semana</span>
+                                <select
+                                    value={newPartData.weekDisplay}
+                                    onChange={e => setNewPartData(prev => ({ ...prev, weekDisplay: e.target.value }))}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        marginTop: '4px'
+                                    }}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {uniqueWeeks.map(w => (
+                                        <option key={w} value={w}>{w}</option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            {/* Seção */}
+                            <label>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Seção</span>
+                                <select
+                                    value={newPartData.section}
+                                    onChange={e => setNewPartData(prev => ({ ...prev, section: e.target.value as MeetingSection }))}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        marginTop: '4px'
+                                    }}
+                                >
+                                    <option value="Tesouros da Palavra de Deus">Tesouros da Palavra de Deus</option>
+                                    <option value="Faça Seu Melhor no Ministério">Faça Seu Melhor no Ministério</option>
+                                    <option value="Nossa Vida Cristã">Nossa Vida Cristã</option>
+                                    <option value="Final da Reunião">Final da Reunião</option>
+                                </select>
+                            </label>
+
+                            {/* Parte */}
+                            <label>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Parte</span>
+                                <input
+                                    type="text"
+                                    value={newPartData.partTitle}
+                                    onChange={e => setNewPartData(prev => ({ ...prev, partTitle: e.target.value }))}
+                                    placeholder="Ex: Joias Espirituais, Estudo Bíblico de Congregação..."
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        marginTop: '4px'
+                                    }}
+                                />
+                            </label>
+
+                            {/* Modalidade */}
+                            <label>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Modalidade</span>
+                                <select
+                                    value={newPartData.modality}
+                                    onChange={e => setNewPartData(prev => ({ ...prev, modality: e.target.value as PartModality }))}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        marginTop: '4px'
+                                    }}
+                                >
+                                    <option value="Discurso de Ensino">Discurso de Ensino</option>
+                                    <option value="Demonstração">Demonstração</option>
+                                    <option value="Leitura de Estudante">Leitura de Estudante</option>
+                                    <option value="Dirigente de EBC">Dirigente de EBC</option>
+                                    <option value="Leitor de EBC">Leitor de EBC</option>
+                                    <option value="Oração">Oração</option>
+                                </select>
+                            </label>
+
+                            {/* Nome */}
+                            <label>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Nome do Participante</span>
+                                <input
+                                    type="text"
+                                    value={newPartData.rawPublisherName}
+                                    onChange={e => setNewPartData(prev => ({ ...prev, rawPublisherName: e.target.value }))}
+                                    placeholder="Nome completo..."
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        marginTop: '4px'
+                                    }}
+                                />
+                            </label>
+
+                            {/* Função */}
+                            <label>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Função</span>
+                                <select
+                                    value={newPartData.role}
+                                    onChange={e => setNewPartData(prev => ({
+                                        ...prev,
+                                        role: e.target.value as 'Titular' | 'Ajudante'
+                                    }))}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        marginTop: '4px'
+                                    }}
+                                >
+                                    <option value="Titular">Titular</option>
+                                    <option value="Ajudante">Ajudante</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        {/* Botões */}
+                        <div style={{
+                            display: 'flex',
+                            gap: 'var(--spacing-md)',
+                            justifyContent: 'flex-end',
+                            marginTop: 'var(--spacing-xl)'
+                        }}>
+                            <button
+                                onClick={() => setShowAddPartModal(false)}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'transparent',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleAddNewPart}
+                                disabled={!newPartData.weekDisplay || !newPartData.partTitle}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: newPartData.weekDisplay && newPartData.partTitle
+                                        ? 'var(--primary-500)'
+                                        : 'var(--text-muted)',
+                                    color: 'white',
+                                    cursor: newPartData.weekDisplay && newPartData.partTitle
+                                        ? 'pointer'
+                                        : 'not-allowed',
+                                    fontWeight: '500'
+                                }}
+                            >
+                                Adicionar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
