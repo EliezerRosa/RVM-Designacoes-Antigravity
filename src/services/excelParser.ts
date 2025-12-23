@@ -86,15 +86,34 @@ function formatDate(date: string | Date | number): string {
     return date?.toString() || new Date().toISOString().split('T')[0];
 }
 
-// Gerar weekDisplay a partir da data
+// Gerar weekDisplay a partir da data (formato: SEMANA X-Y DE MÊS | ANO)
 function generateWeekDisplay(date: string): string {
-    const d = new Date(date);
+    const d = new Date(date + 'T12:00:00'); // Adiciona hora para evitar problemas de timezone
     const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const day = d.getDate();
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    return `SEMANA ${day} DE ${month.toUpperCase()} | ${year}`;
+
+    // Ajustar para segunda-feira se não for
+    const dayOfWeek = d.getDay(); // 0 = domingo, 1 = segunda
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diffToMonday);
+
+    // Calcular domingo (6 dias após segunda)
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const startDay = monday.getDate();
+    const endDay = sunday.getDate();
+    const month = months[monday.getMonth()];
+    const year = monday.getFullYear();
+
+    // Se a semana cruza meses, mostrar os dois
+    if (monday.getMonth() !== sunday.getMonth()) {
+        const endMonth = months[sunday.getMonth()];
+        return `SEMANA ${startDay} DE ${month.toUpperCase()} - ${endDay} DE ${endMonth.toUpperCase()} | ${year}`;
+    }
+
+    return `SEMANA ${startDay}-${endDay} DE ${month.toUpperCase()} | ${year}`;
 }
 
 export async function parseExcelFile(file: File): Promise<ExcelParseResult> {
