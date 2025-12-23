@@ -653,6 +653,7 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
                 'explicando suas crencas', 'explicando suas crenças',
                 'necessidades locais', 'necessidades da congregacao',
                 'estudo biblico de congregacao', 'estudo bíblico de congregação',
+                'estudo biblico', 'estudo bíblico',  // Variantes mais curtas
                 'comentarios iniciais', 'comentários iniciais',
                 'discurso', 'oração', 'oracao', 'cantico', 'cântico',
                 'joias espirituais', 'tesouros da palavra',
