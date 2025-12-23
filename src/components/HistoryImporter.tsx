@@ -4,6 +4,7 @@ import { HistoryStatus, ParticipationType, PartModality, MeetingSection } from '
 import { parsePdfFile } from '../services/pdfParser';
 import { parseExcelFile } from '../services/excelParser';
 import { loadHistoryRecords, saveHistoryRecords, subscribeToHistoryChanges, validatePublishersInRecords } from '../services/historyService';
+import { injectMandatoryParts } from '../services/injectionService';
 import type { OcrProgressCallback } from '../services/pdfParser';
 
 interface Props {
@@ -228,13 +229,25 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                 });
             }
 
+            // INJEÇÃO AUTOMÁTICA: Adicionar partes obrigatórias (Cânticos, Elogios)
+            const batchId = matchedRecords[0]?.importBatchId || `batch-${Date.now()}`;
+            const injectedRecords = injectMandatoryParts(matchedRecords, batchId);
+
+            const injectedCount = injectedRecords.length - matchedRecords.length;
+            if (injectedCount > 0) {
+                console.log(`[Upload] ${injectedCount} partes injetadas automaticamente`);
+            }
+
             // Atualizar state e salvar no Supabase
             setRecords(prev => {
-                const newRecords = [...prev, ...matchedRecords];
+                const newRecords = [...prev, ...injectedRecords];
                 // Salvar no Supabase em background
-                saveHistoryRecords(matchedRecords).then(result => {
+                saveHistoryRecords(injectedRecords).then(result => {
                     if (result.success) {
-                        setSaveMessage(`✅ ${result.count} registros salvos no banco`);
+                        const msg = injectedCount > 0
+                            ? `✅ ${result.count} registros salvos (${injectedCount} injetados auto)`
+                            : `✅ ${result.count} registros salvos no banco`;
+                        setSaveMessage(msg);
                         setTimeout(() => setSaveMessage(null), 3000);
                     } else {
                         setSaveMessage(`⚠️ Erro ao salvar: ${result.error}`);
