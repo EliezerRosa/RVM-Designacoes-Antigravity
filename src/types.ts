@@ -556,7 +556,7 @@ export interface HistoryRecord {
     // === Status e Metadados ===
     status: HistoryStatus;
     validationNotes?: string;
-    importSource: 'PDF' | 'Excel' | 'JSON' | 'Manual';
+    importSource: 'PDF' | 'Excel' | 'JSON' | 'Manual' | 'AUTO_INJECTED';
     importBatchId: string;
 
     // Campos de auditoria
