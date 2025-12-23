@@ -241,15 +241,14 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
             // Atualizar state e salvar no Supabase
             setRecords(prev => {
                 // Criar chave única para detecção de duplicatas
-                const existingKeys = new Set(prev.map(r =>
-                    `${r.semana || r.date}_${r.seq || r.partSequence}_${(r.nomeOriginal || r.rawPublisherName || '').toLowerCase()}`
-                ));
+                // Usar campos que NÃO mudam após injeção (não usar seq!)
+                const buildKey = (r: HistoryRecord) =>
+                    `${r.semana || r.date}_${r.secao || r.section}_${r.tipoParte || r.partTitle}_${(r.nomeOriginal || r.rawPublisherName || '').toLowerCase()}_${r.modalidade || r.modality}_${r.funcao || r.participationRole}`;
+
+                const existingKeys = new Set(prev.map(buildKey));
 
                 // Filtrar registros que já existem
-                const newUniqueRecords = injectedRecords.filter(r => {
-                    const key = `${r.semana || r.date}_${r.seq || r.partSequence}_${(r.nomeOriginal || r.rawPublisherName || '').toLowerCase()}`;
-                    return !existingKeys.has(key);
-                });
+                const newUniqueRecords = injectedRecords.filter(r => !existingKeys.has(buildKey(r)));
 
                 const duplicateCount = injectedRecords.length - newUniqueRecords.length;
                 if (duplicateCount > 0) {
