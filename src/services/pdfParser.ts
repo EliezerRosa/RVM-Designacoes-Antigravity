@@ -41,7 +41,7 @@ const SECTION_HEADINGS: Record<string, string> = {
     'conclusao': 'Vida Cristã',
 };
 
-const TESOUROS_PARTS = ['leitura', 'bíblia', 'biblia', 'joias', 'jóias', 'pacto'];
+const TESOUROS_PARTS = ['leitura', 'bíblia', 'biblia', 'joias', 'jóias', 'pacto', 'oque aprendemos', 'o que aprendemos', 'aprendemos com'];
 const VIDA_CRISTA_PARTS = ['ebc', 'estudo bíblico', 'estudo biblico', 'congregação', 'congregacao', 'necessidades', 'demonstra', 'amor'];
 // Partes do Ministério: Iniciando, Cultivando, Fazendo, Explicando, Discurso
 const MINISTERIO_PARTS = ['iniciando', 'cultivando', 'fazendo', 'explicando'];
