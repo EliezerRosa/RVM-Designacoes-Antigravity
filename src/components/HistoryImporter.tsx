@@ -786,8 +786,12 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Semana</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center', width: '50px' }}>Seq</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Seção</th>
-                            <th style={{ padding: '12px 8px', textAlign: 'left' }}>Parte</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'left' }}>Tipo Parte</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'left', minWidth: '150px' }}>Descrição</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center' }}>Modalidade</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'center', width: '60px' }}>Ini</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'center', width: '60px' }}>Fim</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'center', width: '50px' }}>Dur</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Nome Original</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center' }}>Função</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Publicador</th>
@@ -797,7 +801,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                     <tbody>
                         {filteredRecords.length === 0 ? (
                             <tr>
-                                <td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <td colSpan={14} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     {records.length === 0
                                         ? 'Nenhum registro importado. Faça upload de um arquivo para começar.'
                                         : 'Nenhum registro encontrado com os filtros aplicados.'}
@@ -839,6 +843,10 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                             suggestions={STANDARD_PARTS}
                                         />
                                     </td>
+                                    {/* Descrição/Tema - Read-only (from new schema) */}
+                                    <td style={{ padding: '12px 8px', fontSize: '0.85em', color: 'var(--text-muted)' }}>
+                                        {record.descricao || record.partTheme || '-'}
+                                    </td>
                                     {/* Modalidade - Editable Dropdown */}
                                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                         <EditableSelectCell
@@ -847,6 +855,18 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                             value={record.modality}
                                             options={modalityOptions}
                                         />
+                                    </td>
+                                    {/* Horário Inicial - Read-only */}
+                                    <td style={{ padding: '12px 8px', textAlign: 'center', fontSize: '0.85em', color: 'var(--text-muted)' }}>
+                                        {record.horaInicio || '-'}
+                                    </td>
+                                    {/* Horário Final - Read-only */}
+                                    <td style={{ padding: '12px 8px', textAlign: 'center', fontSize: '0.85em', color: 'var(--text-muted)' }}>
+                                        {record.horaFim || '-'}
+                                    </td>
+                                    {/* Duração - Read-only */}
+                                    <td style={{ padding: '12px 8px', textAlign: 'center', fontSize: '0.85em', fontWeight: '500' }}>
+                                        {record.duracao ? `${record.duracao}'` : '-'}
                                     </td>
                                     {/* Nome Original - Editable Text */}
                                     <td style={{ padding: '12px 8px' }}>
