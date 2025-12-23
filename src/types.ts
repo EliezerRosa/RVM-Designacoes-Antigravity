@@ -46,7 +46,7 @@ export interface Publisher {
     availability: PublisherAvailability;
     aliases: string[];
     // Status flags from EMR categories
-    isNotQualified?: boolean;          // "NÃO APTOS OU NÃO ASSISTEM REUNIÃO"
+    isNotQualified?: boolean;          // Não apto para participar
     requestedNoParticipation?: boolean; // "PEDIRAM PARA NÃO PARTICIPAR"
     // Data origin tracking
     source?: 'manual' | 'import' | 'sync' | 'initial'; // Onde o registro foi criado
