@@ -65,7 +65,7 @@ export const EnumSecao = {
 } as const;
 export type EnumSecao = typeof EnumSecao[keyof typeof EnumSecao];
 
-// EnumTipoParte - Função Litúrgica (15 valores)
+// EnumTipoParte - Função Litúrgica (15 valores - igual ao Excel)
 export const EnumTipoParte = {
     PRESIDENTE: 'Presidente',
     CANTICO_INICIAL: 'Cântico Inicial',
@@ -73,8 +73,7 @@ export const EnumTipoParte = {
     COMENTARIOS_INICIAIS: 'Comentários Iniciais',
     DISCURSO_TESOUROS: 'Discurso na Tesouros',
     JOIAS_ESPIRITUAIS: 'Joias Espirituais',
-    LEITURA_BIBLIA: 'Leitura da Bíblia',
-    PARTE_ESTUDANTE: 'Parte de Estudante',
+    PARTE_ESTUDANTE: 'Parte de Estudante',       // Inclui Leitura, Conversas, etc.
     ELOGIOS_CONSELHOS: 'Elogios e Conselhos',
     CANTICO_MEIO: 'Cântico do Meio',
     PARTE_VIDA_CRISTA: 'Parte na Vida Cristã',
