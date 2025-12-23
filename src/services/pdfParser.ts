@@ -758,7 +758,59 @@ function extractWeeksFromText(text: string): ParsedWeek[] {
     }
 
     if (currentWeek) weeks.push(currentWeek);
+
+    // Injetar partes obrigatórias que podem ter sido perdidas pelo OCR
+    injectMandatoryParts(weeks);
+
     return weeks;
+}
+
+// Injetar partes obrigatórias que sempre devem existir
+function injectMandatoryParts(weeks: ParsedWeek[]): void {
+    for (const week of weeks) {
+        const partTitlesLower = week.parts.map(p => p.title.toLowerCase());
+
+        // 1. Joias Espirituais (10 min) - sempre antes da Leitura da Bíblia
+        const hasJoias = partTitlesLower.some(t => t.includes('joias') || t.includes('jóias'));
+        if (!hasJoias) {
+            const leituraIndex = week.parts.findIndex(p =>
+                p.title.toLowerCase().includes('leitura') &&
+                (p.title.toLowerCase().includes('biblia') || p.title.toLowerCase().includes('bíblia'))
+            );
+            if (leituraIndex >= 0) {
+                console.log('[PDF Parser] Injetando parte obrigatória: Joias Espirituais');
+                week.parts.splice(leituraIndex, 0, {
+                    section: MeetingSectionEnum.TESOUROS,
+                    title: 'Joias Espirituais',
+                    student: null,  // Usuário deve preencher
+                    assistant: null
+                });
+            }
+        }
+
+        // 2. Estudo Bíblico de Congregação (30 min) - sempre antes da Oração Final
+        const hasEBC = partTitlesLower.some(t =>
+            (t.includes('estudo') && t.includes('biblico')) ||
+            (t.includes('estudo') && t.includes('bíblico')) ||
+            t.includes('ebc')
+        );
+        if (!hasEBC) {
+            const oracaoIndex = week.parts.findIndex(p => {
+                const lower = p.title.toLowerCase();
+                return (lower.includes('oracao') || lower.includes('oração')) &&
+                    !lower.includes('inicial') && !lower.includes('inicia');
+            });
+            if (oracaoIndex >= 0) {
+                console.log('[PDF Parser] Injetando parte obrigatória: Estudo Bíblico de Congregação');
+                week.parts.splice(oracaoIndex, 0, {
+                    section: MeetingSectionEnum.VIDA_CRISTA,
+                    title: 'Estudo Bíblico de Congregação',
+                    student: null,  // Dirigente - usuário deve preencher
+                    assistant: null // Leitor - usuário deve preencher
+                });
+            }
+        }
+    }
 }
 
 // ==========================================
