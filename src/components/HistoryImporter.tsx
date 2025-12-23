@@ -3,7 +3,7 @@ import type { Publisher, Participation, HistoryRecord } from '../types';
 import { HistoryStatus, ParticipationType, PartModality, MeetingSection } from '../types';
 import { parsePdfFile } from '../services/pdfParser';
 import { parseExcelFile } from '../services/excelParser';
-import { loadHistoryRecords, saveHistoryRecords } from '../services/historyService';
+import { loadHistoryRecords, saveHistoryRecords, subscribeToHistoryChanges, validatePublishersInRecords } from '../services/historyService';
 import type { OcrProgressCallback } from '../services/pdfParser';
 
 interface Props {
@@ -88,20 +88,51 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
     // Estado para feedback de save
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-    // Carregar dados do Supabase ao montar componente
+    // Carregar dados do Supabase ao montar componente e validar publicadores
     useEffect(() => {
         const loadData = async () => {
             try {
                 const savedRecords = await loadHistoryRecords();
                 if (savedRecords.length > 0) {
-                    setRecords(savedRecords);
-                    console.log(`[HistoryImporter] ${savedRecords.length} registros carregados do Supabase`);
+                    // Validar publicadores cruzando com tabela Supabase
+                    const validatedRecords = await validatePublishersInRecords(savedRecords);
+                    setRecords(validatedRecords);
+                    console.log(`[HistoryImporter] ${validatedRecords.length} registros carregados e validados`);
                 }
             } catch (error) {
                 console.error('[HistoryImporter] Erro ao carregar dados:', error);
             }
         };
         loadData();
+    }, []);
+
+    // Subscription para atualizações em tempo real
+    useEffect(() => {
+        const unsubscribe = subscribeToHistoryChanges(
+            // onInsert
+            (newRecord) => {
+                setRecords(prev => {
+                    // Evitar duplicatas
+                    if (prev.some(r => r.id === newRecord.id)) return prev;
+                    return [...prev, newRecord];
+                });
+                setSaveMessage('🔄 Novo registro recebido em tempo real');
+                setTimeout(() => setSaveMessage(null), 2000);
+            },
+            // onUpdate
+            (updatedRecord) => {
+                setRecords(prev => prev.map(r =>
+                    r.id === updatedRecord.id ? updatedRecord : r
+                ));
+            },
+            // onDelete
+            (deletedId) => {
+                setRecords(prev => prev.filter(r => r.id !== deletedId));
+            }
+        );
+
+        // Cleanup ao desmontar
+        return () => unsubscribe();
     }, []);
 
     // Estatísticas

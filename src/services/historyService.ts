@@ -195,3 +195,139 @@ export async function updateHistoryStatus(
         };
     }
 }
+
+/**
+ * Subscrição para atualizações em tempo real
+ * Retorna função para cancelar a subscription
+ */
+export function subscribeToHistoryChanges(
+    onInsert: (record: HistoryRecord) => void,
+    onUpdate: (record: HistoryRecord) => void,
+    onDelete: (id: string) => void
+): () => void {
+    const channel = supabase
+        .channel('history_records_changes')
+        .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table: 'history_records' },
+            (payload) => {
+                console.log('[History Service] Real-time INSERT:', payload);
+                if (payload.new && (payload.new as { data?: HistoryRecord }).data) {
+                    onInsert((payload.new as { data: HistoryRecord }).data);
+                }
+            }
+        )
+        .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'history_records' },
+            (payload) => {
+                console.log('[History Service] Real-time UPDATE:', payload);
+                if (payload.new && (payload.new as { data?: HistoryRecord }).data) {
+                    onUpdate((payload.new as { data: HistoryRecord }).data);
+                }
+            }
+        )
+        .on(
+            'postgres_changes',
+            { event: 'DELETE', schema: 'public', table: 'history_records' },
+            (payload) => {
+                console.log('[History Service] Real-time DELETE:', payload);
+                if (payload.old && (payload.old as { id?: string }).id) {
+                    onDelete((payload.old as { id: string }).id);
+                }
+            }
+        )
+        .subscribe();
+
+    console.log('[History Service] Subscribed to real-time changes');
+
+    // Retornar função para cancelar subscription
+    return () => {
+        console.log('[History Service] Unsubscribing from real-time changes');
+        supabase.removeChannel(channel);
+    };
+}
+
+/**
+ * Valida publicadores cruzando com a tabela publishers
+ * Retorna registros com validação atualizada
+ */
+export async function validatePublishersInRecords(
+    records: HistoryRecord[]
+): Promise<HistoryRecord[]> {
+    try {
+        // Carregar todos os publicadores do Supabase
+        const { data: publisherRows, error } = await supabase
+            .from('publishers')
+            .select('id, data');
+
+        if (error) {
+            console.error('[History Service] Erro ao carregar publicadores:', error);
+            return records;
+        }
+
+        // Criar mapa de nomes -> id para busca rápida
+        const publisherMap = new Map<string, { id: string; name: string }>();
+        (publisherRows || []).forEach(row => {
+            const pub = row.data as { id: string; name: string };
+            if (pub && pub.name) {
+                // Normalizar nome para matching
+                const normalizedName = pub.name.toLowerCase().trim();
+                publisherMap.set(normalizedName, { id: pub.id, name: pub.name });
+
+                // Também mapear variações do nome (primeiro nome + sobrenome)
+                const parts = pub.name.split(' ');
+                if (parts.length >= 2) {
+                    const shortName = `${parts[0]} ${parts[parts.length - 1]}`.toLowerCase();
+                    if (!publisherMap.has(shortName)) {
+                        publisherMap.set(shortName, { id: pub.id, name: pub.name });
+                    }
+                }
+            }
+        });
+
+        console.log(`[History Service] ${publisherMap.size} publicadores carregados para validação`);
+
+        // Validar cada registro
+        const validatedRecords = records.map(record => {
+            const rawName = record.rawPublisherName || record.nomeOriginal || '';
+            const normalizedRaw = rawName.toLowerCase().trim();
+
+            // Buscar correspondência exata
+            let match = publisherMap.get(normalizedRaw);
+
+            // Se não encontrar, tentar matching parcial
+            if (!match) {
+                for (const [key, value] of publisherMap) {
+                    if (normalizedRaw.includes(key) || key.includes(normalizedRaw)) {
+                        match = value;
+                        break;
+                    }
+                }
+            }
+
+            if (match) {
+                return {
+                    ...record,
+                    resolvedPublisherId: match.id,
+                    resolvedPublisherName: match.name,
+                    publicadorId: match.id,
+                    publicadorNome: match.name,
+                    matchConfidence: 100,
+                    status: record.status // Manter status atual
+                };
+            }
+
+            return record;
+        });
+
+        const validatedCount = validatedRecords.filter(r => r.resolvedPublisherId).length;
+        console.log(`[History Service] ${validatedCount}/${records.length} registros validados com publicadores`);
+
+        return validatedRecords;
+
+    } catch (error) {
+        console.error('[History Service] Erro na validação:', error);
+        return records;
+    }
+}
