@@ -560,17 +560,20 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <h2 style={{ marginBottom: 'var(--spacing-xl)' }}>📜 Importação de Histórico</h2>
 
-            {/* Upload PDF */}
+            {/* Upload PDF ou Excel */}
             <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-xl)' }}>
-                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>📥 Importar PDF (S-140)</h3>
+                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>📥 Importar Arquivo</h3>
                 <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
                     <input
                         type="file"
-                        accept=".pdf"
+                        accept=".pdf,.xlsx,.xls"
                         onChange={handleFileUpload}
                         disabled={isUploading}
                         style={{ flex: 1 }}
                     />
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>
+                        Formatos: PDF (S-140), Excel (Consolidado RVM)
+                    </span>
                     {isUploading && (
                         <div style={{
                             display: 'flex',
