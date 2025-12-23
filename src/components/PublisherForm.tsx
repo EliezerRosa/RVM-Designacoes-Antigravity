@@ -201,7 +201,7 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                         checked={formData.isNotQualified || false}
                                         onChange={handleChange}
                                     />
-                                    ⚠️ Não Apto / Não Assiste Reunião
+                                    ⚠️ Não Apto para Participar
                                 </label>
                                 <label className="checkbox-item" style={{ color: formData.requestedNoParticipation ? 'var(--color-warning)' : 'inherit' }}>
                                     <input
