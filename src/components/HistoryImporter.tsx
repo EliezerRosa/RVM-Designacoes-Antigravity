@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import type { Publisher, Participation, HistoryRecord } from '../types';
 import { HistoryStatus, ParticipationType, PartModality, MeetingSection } from '../types';
 import { parsePdfFile } from '../services/pdfParser';
+import { parseExcelFile } from '../services/excelParser';
 import type { OcrProgressCallback } from '../services/pdfParser';
 
 interface Props {
@@ -115,13 +116,17 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         return Array.from(weeks).sort();
     }, [records]);
 
-    // Upload de arquivo PDF (parser local, sem backend)
+    // Upload de arquivo PDF ou Excel (parser local, sem backend)
     const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (!file.name.toLowerCase().endsWith('.pdf')) {
-            setUploadError('Apenas arquivos PDF são suportados.');
+        const fileName = file.name.toLowerCase();
+        const isPdf = fileName.endsWith('.pdf');
+        const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+        if (!isPdf && !isExcel) {
+            setUploadError('Apenas arquivos PDF (.pdf) ou Excel (.xlsx) são suportados.');
             e.target.value = '';
             return;
         }
@@ -130,21 +135,47 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         setUploadError(null);
 
         try {
-            // Callback para progresso do OCR
-            const onOcrProgress: OcrProgressCallback = (progress) => {
-                setOcrProgress(progress);
-            };
+            let matchedRecords: HistoryRecord[] = [];
 
-            // Parser local usando PDF.js (funciona no navegador)
-            // Se não houver texto extraível, usa OCR automaticamente
-            const result = await parsePdfFile(file, onOcrProgress);
+            if (isPdf) {
+                // Callback para progresso do OCR
+                const onOcrProgress: OcrProgressCallback = (progress) => {
+                    setOcrProgress(progress);
+                };
 
-            if (!result.success) {
-                throw new Error(result.error || 'Erro ao processar PDF');
+                // Parser local usando PDF.js (funciona no navegador)
+                const result = await parsePdfFile(file, onOcrProgress);
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Erro ao processar PDF');
+                }
+
+                // Aplicar matching de nomes
+                matchedRecords = applyNameMatching(result.records, publishers);
+            } else {
+                // Parser Excel
+                const result = await parseExcelFile(file);
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Erro ao processar Excel');
+                }
+
+                console.log(`[Excel Import] ${result.importedRows}/${result.totalRows} registros importados`);
+
+                // Aplicar matching de nomes onde ainda não tem publicador
+                matchedRecords = result.records.map(r => {
+                    if (!r.resolvedPublisherName && r.rawPublisherName) {
+                        const match = findBestMatch(r.rawPublisherName, publishers);
+                        return {
+                            ...r,
+                            resolvedPublisherId: match.publisher?.id,
+                            resolvedPublisherName: match.publisher?.name,
+                            matchConfidence: match.confidence
+                        };
+                    }
+                    return r;
+                });
             }
-
-            // Aplicar matching de nomes
-            const matchedRecords = applyNameMatching(result.records, publishers);
 
             setRecords(prev => [...prev, ...matchedRecords]);
             setUploadError(null);
