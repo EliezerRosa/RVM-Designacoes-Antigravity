@@ -240,20 +240,41 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
 
             // Atualizar state e salvar no Supabase
             setRecords(prev => {
-                const newRecords = [...prev, ...injectedRecords];
-                // Salvar no Supabase em background
-                saveHistoryRecords(injectedRecords).then(result => {
-                    if (result.success) {
-                        const msg = injectedCount > 0
-                            ? `✅ ${result.count} registros salvos (${injectedCount} injetados auto)`
-                            : `✅ ${result.count} registros salvos no banco`;
-                        setSaveMessage(msg);
-                        setTimeout(() => setSaveMessage(null), 3000);
-                    } else {
-                        setSaveMessage(`⚠️ Erro ao salvar: ${result.error}`);
-                    }
+                // Criar chave única para detecção de duplicatas
+                const existingKeys = new Set(prev.map(r =>
+                    `${r.semana || r.date}_${r.seq || r.partSequence}_${(r.nomeOriginal || r.rawPublisherName || '').toLowerCase()}`
+                ));
+
+                // Filtrar registros que já existem
+                const newUniqueRecords = injectedRecords.filter(r => {
+                    const key = `${r.semana || r.date}_${r.seq || r.partSequence}_${(r.nomeOriginal || r.rawPublisherName || '').toLowerCase()}`;
+                    return !existingKeys.has(key);
                 });
-                return newRecords;
+
+                const duplicateCount = injectedRecords.length - newUniqueRecords.length;
+                if (duplicateCount > 0) {
+                    console.log(`[Upload] ${duplicateCount} registros duplicados ignorados`);
+                }
+
+                // Só salvar se houver registros novos
+                if (newUniqueRecords.length > 0) {
+                    saveHistoryRecords(newUniqueRecords).then(result => {
+                        if (result.success) {
+                            let msg = `✅ ${result.count} registros salvos`;
+                            if (injectedCount > 0) msg += ` (${injectedCount} injetados)`;
+                            if (duplicateCount > 0) msg += ` | ${duplicateCount} duplicados ignorados`;
+                            setSaveMessage(msg);
+                            setTimeout(() => setSaveMessage(null), 4000);
+                        } else {
+                            setSaveMessage(`⚠️ Erro ao salvar: ${result.error}`);
+                        }
+                    });
+                    return [...prev, ...newUniqueRecords];
+                } else {
+                    setSaveMessage(`⚠️ Todos os ${duplicateCount} registros já existem`);
+                    setTimeout(() => setSaveMessage(null), 3000);
+                    return prev;
+                }
             });
             setUploadError(null);
         } catch (error) {
