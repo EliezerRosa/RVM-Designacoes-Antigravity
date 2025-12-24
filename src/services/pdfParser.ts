@@ -278,12 +278,85 @@ export interface ParsedWeek {
 }
 
 // ==========================================
-// Fun├º├Áes de Parsing
+// Funções de Parsing
 // ==========================================
 
+// Compactar texto espaçado (ex: "N O S S A V I D A" -> "NOSSA VIDA")
+// Detecta quando temos letras individuais separadas por espaços
+function compactSpacedLetters(text: string): string {
+    // Padrão: sequência de letras únicas separadas por espaço
+    // Ex: "N O S S A   V I D A E" -> "NOSSA VIDA E"
+    // Mas preservar palavras normais
+
+    const lines = text.split('\n');
+    const result: string[] = [];
+
+    for (const line of lines) {
+        // Verificar se a linha parece ter letras espaçadas
+        // Padrão: letra espaço letra espaço letra...
+        const spacedPattern = /^([A-ZÀ-ÿa-z0-9´˜ç] ){3,}/;
+
+        if (spacedPattern.test(line.trim())) {
+            // Esta linha tem texto espaçado - compactar
+            let compacted = '';
+            let i = 0;
+            const chars = line.split('');
+
+            while (i < chars.length) {
+                const char = chars[i];
+
+                // Se é uma letra/número seguida de espaço(s) e outra letra única
+                if (/[A-ZÀ-ÿa-z0-9´˜ç]/.test(char)) {
+                    compacted += char;
+                    i++;
+
+                    // Pular espaço(s) entre letras individuais
+                    while (i < chars.length && chars[i] === ' ') {
+                        // Checar se o próximo não-espaço é uma letra única
+                        let nextNonSpace = i;
+                        while (nextNonSpace < chars.length && chars[nextNonSpace] === ' ') {
+                            nextNonSpace++;
+                        }
+
+                        if (nextNonSpace < chars.length) {
+                            const nextChar = chars[nextNonSpace];
+                            const afterNext = chars[nextNonSpace + 1];
+
+                            // Se próximo é letra e depois é espaço ou fim, são letras espaçadas
+                            if (/[A-ZÀ-ÿa-z0-9´˜ç]/.test(nextChar) &&
+                                (!afterNext || afterNext === ' ')) {
+                                // Pular os espaços (continuando letras espaçadas)
+                                i = nextNonSpace;
+                                break;
+                            } else if (/[A-ZÀ-ÿa-z0-9]/.test(nextChar)) {
+                                // Próximo é início de palavra normal, adicionar espaço
+                                compacted += ' ';
+                                i = nextNonSpace;
+                                break;
+                            }
+                        }
+                        i++;
+                    }
+                } else {
+                    compacted += char;
+                    i++;
+                }
+            }
+            result.push(compacted.replace(/\s+/g, ' ').trim());
+        } else {
+            result.push(line);
+        }
+    }
+
+    return result.join('\n');
+}
+
 function normalizeText(text: string): string {
+    // Primeiro, compactar letras espaçadas
+    let normalized = compactSpacedLetters(text);
+
     // Remove acentos
-    const normalized = text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+    normalized = normalized.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
     // Remove caracteres de controle
     return normalized
         .replace(/\/CR|\/SUBC|\/CAN/g, ' ')
