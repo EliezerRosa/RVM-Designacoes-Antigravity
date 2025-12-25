@@ -541,29 +541,29 @@ export function WorkbookManager({ publishers }: Props) {
                             </thead>
                             <tbody>
                                 {filteredParts.map(part => (
-                                    <tr key={part.id} style={{ background: sectionColors[part.section] || 'white' }}>
+                                    <tr key={part.id} style={{ background: sectionColors[part.section] || 'white', color: '#1f2937' }}>
                                         <td style={{ padding: '8px', textAlign: 'center' }}>
                                             <input type="checkbox" checked={selectedIds.has(part.id)} onChange={() => toggleSelect(part.id)} />
                                         </td>
-                                        <td style={{ padding: '8px' }}>{part.weekDisplay}</td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>{part.seq}</td>
-                                        <td style={{ padding: '8px', fontSize: '11px' }}>{part.section}</td>
-                                        <td style={{ padding: '8px' }}>{part.tipoParte}</td>
+                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
+                                        <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
+                                        <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
+                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
                                         <td style={{ padding: '8px' }}>
                                             <input
                                                 type="text"
                                                 value={part.partTitle}
                                                 onChange={e => handleUpdatePart(part.id, 'partTitle', e.target.value)}
-                                                style={{ width: '100%', border: 'none', background: 'transparent' }}
+                                                style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
                                             />
                                         </td>
-                                        <td style={{ padding: '8px' }}>{part.funcao}</td>
+                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
                                         <td style={{ padding: '8px' }}>
                                             <input
                                                 type="text"
                                                 value={part.resolvedPublisherName || part.rawPublisherName}
                                                 onChange={e => handleUpdatePart(part.id, 'rawPublisherName', e.target.value)}
-                                                style={{ width: '100%', border: 'none', background: 'transparent' }}
+                                                style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
                                             />
                                             {part.matchConfidence && (
                                                 <span style={{ fontSize: '10px', color: '#6B7280' }}> ({part.matchConfidence}%)</span>
