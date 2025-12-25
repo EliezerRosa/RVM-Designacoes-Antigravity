@@ -314,8 +314,64 @@ export interface SpecialEvent {
     };
 }
 
-// ===== APOSTILA (WORKBOOK) =====
+// ===== APOSTILA (WORKBOOK STAGING) =====
 
+// Status de uma parte da apostila
+export const WorkbookStatus = {
+    DRAFT: 'DRAFT',           // Recém importado do Excel
+    REFINED: 'REFINED',       // Editado/corrigido pelo usuário
+    PROMOTED: 'PROMOTED',     // Convertido para Participations
+} as const;
+
+export type WorkbookStatus = typeof WorkbookStatus[keyof typeof WorkbookStatus];
+
+// Parte individual extraída da apostila
+export interface WorkbookPart {
+    id: string;
+    batchId: string;
+
+    // Campos do Excel (mesma estrutura do script extract_detailed_parts.py)
+    weekId: string;
+    weekDisplay: string;
+    date: string;
+    section: string;
+    tipoParte: string;
+    partTitle: string;
+    descricao: string;
+    seq: number;
+    funcao: 'Titular' | 'Ajudante';
+    duracao: string;
+    horaInicio: string;
+    horaFim: string;
+    rawPublisherName: string;
+
+    // Resolução de publicador (fuzzy matching)
+    resolvedPublisherId?: string;
+    resolvedPublisherName?: string;
+    matchConfidence?: number;
+
+    // Status e metadados
+    status: WorkbookStatus;
+    createdAt: string;
+    updatedAt?: string;
+}
+
+// Batch de importação (controle de versões)
+export interface WorkbookBatch {
+    id: string;
+    fileName: string;
+    uploadDate: string;
+    totalParts: number;
+    draftCount: number;
+    refinedCount: number;
+    promotedCount: number;
+    weekRange: string;          // Ex: "Jan-Fev 2026"
+    isActive: boolean;          // Batch atual em edição
+    promotedAt?: string;        // Data da promoção para Participations
+    promotedToParticipationIds?: string[];  // IDs gerados (para rollback)
+}
+
+// Interface legada (manter para compatibilidade)
 export interface Workbook {
     id: string;
     name: string;
