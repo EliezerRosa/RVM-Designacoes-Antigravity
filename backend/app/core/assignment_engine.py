@@ -23,6 +23,7 @@ class ApprovalStatus(str, Enum):
     PENDING_APPROVAL = "PENDING_APPROVAL"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    COMPLETED = "COMPLETED"
 
 
 class TeachingCategory(str, Enum):

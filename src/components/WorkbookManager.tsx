@@ -5,8 +5,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import type { WorkbookPart, WorkbookBatch, Publisher } from '../types';
+import type { WorkbookPart, WorkbookBatch, Publisher, TeachingCategory, ParticipationType } from '../types';
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
+import { assignmentService } from '../services/assignmentService';
 
 interface Props {
     publishers: Publisher[];
@@ -233,6 +234,108 @@ export function WorkbookManager({ publishers }: Props) {
     };
 
     // ========================================================================
+    // Gerar Designações
+    // ========================================================================
+    const handleGenerateDesignations = async () => {
+        if (!activeBatch) return;
+
+        // Filtrar partes que precisam de designação (sem publicador resolvido e função Titular)
+        const partsNeedingAssignment = parts.filter(p =>
+            p.funcao === 'Titular' &&
+            !p.resolvedPublisherId &&
+            p.status !== 'PROMOTED'
+        );
+
+        if (partsNeedingAssignment.length === 0) {
+            setError('Todas as partes já têm publicadores designados ou foram promovidas');
+            return;
+        }
+
+        if (!confirm(`Gerar designações para ${partsNeedingAssignment.length} partes? Isso criará registros na aba Aprovações.`)) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Agrupar por semana
+            const byWeek = partsNeedingAssignment.reduce((acc, part) => {
+                const week = part.weekId || part.weekDisplay;
+                if (!acc[week]) acc[week] = [];
+                acc[week].push(part);
+                return acc;
+            }, {} as Record<string, WorkbookPart[]>);
+
+            let totalCreated = 0;
+
+            // Mapear tipoParte para category
+            const getCategoryFromTipoParte = (tipoParte: string): string => {
+                const lower = tipoParte.toLowerCase();
+                if (lower.includes('leitura')) return 'STUDENT';
+                if (lower.includes('ajudante')) return 'HELPER';
+                if (lower.includes('discurso') || lower.includes('joias') || lower.includes('necessidades')) return 'TEACHING';
+                if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo')) return 'STUDENT';
+                return 'STUDENT';
+            };
+
+            // Mapear tipoParte para partType
+            const getPartTypeFromTipoParte = (tipoParte: string): string => {
+                const lower = tipoParte.toLowerCase();
+                if (lower.includes('tesouros') || lower.includes('joias') || lower.includes('leitura da bíblia')) return 'tesouros';
+                if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo') || lower.includes('demonstração')) return 'ministerio';
+                if (lower.includes('vida') || lower.includes('estudo') || lower.includes('necessidades')) return 'vida_crista';
+                if (lower.includes('presidente')) return 'presidente';
+                if (lower.includes('oração')) return tipoParte.toLowerCase().includes('inicial') ? 'oracao_inicial' : 'oracao_final';
+                if (lower.includes('dirigente')) return 'dirigente';
+                if (lower.includes('leitor')) return 'leitor';
+                return 'ministerio';
+            };
+
+            for (const [weekId, weekParts] of Object.entries(byWeek)) {
+                // Converter WorkbookParts para ScheduledAssignments
+                const assignments = weekParts.map(part => ({
+                    weekId: weekId,
+                    partId: part.id,
+                    partTitle: part.partTitle,
+                    partType: getPartTypeFromTipoParte(part.tipoParte) as ParticipationType,
+                    teachingCategory: getCategoryFromTipoParte(part.tipoParte) as TeachingCategory,
+                    principalPublisherId: part.resolvedPublisherId || '',
+                    principalPublisherName: part.resolvedPublisherName || part.rawPublisherName || 'A designar',
+                    secondaryPublisherId: undefined,
+                    secondaryPublisherName: undefined,
+                    date: part.date,
+                    startTime: part.horaInicio || undefined,
+                    endTime: part.horaFim || undefined,
+                    durationMin: parseInt(part.duracao) || 0,
+                    status: 'PENDING_APPROVAL' as const,
+                    selectionReason: `Gerado do Workbook: ${part.section}`,
+                    score: 0,
+                    room: undefined,
+                }));
+
+                // Criar em batch
+                await assignmentService.createBatch(assignments);
+                totalCreated += assignments.length;
+            }
+
+            setSuccessMessage(`✅ ${totalCreated} designações criadas! Vá para a aba "Aprovações" para revisar.`);
+
+            // Marcar partes como REFINED (indicando que foram processadas)
+            for (const part of partsNeedingAssignment) {
+                await workbookService.updatePart(part.id, { status: 'REFINED' });
+            }
+
+            await loadParts(activeBatch.id);
+
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao gerar designações');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ========================================================================
     // Filtros
     // ========================================================================
     const uniqueWeeks = useMemo(() => [...new Set(parts.map(p => p.weekDisplay))].sort(), [parts]);
@@ -372,6 +475,9 @@ export function WorkbookManager({ publishers }: Props) {
                     <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                         <button onClick={handleApplyMatching} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer' }}>
                             🔗 Aplicar Matching
+                        </button>
+                        <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px' }}>
+                            🎯 Gerar Designações
                         </button>
                         <button onClick={handlePromote} disabled={loading || !activeBatch.isActive} style={{ padding: '8px 16px', cursor: 'pointer', background: '#10B981', color: 'white', border: 'none', borderRadius: '4px' }}>
                             🚀 Promover para Participations
