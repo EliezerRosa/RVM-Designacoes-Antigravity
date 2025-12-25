@@ -12,8 +12,9 @@ import HistoryImporter from './components/HistoryImporter'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import Reports from './components/Reports'
 import WorkbookManager from './components/WorkbookManager'
+import ApprovalPanel from './components/ApprovalPanel'
 
-type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'history' | 'reports' | 'workbook'
+type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'history' | 'reports' | 'workbook' | 'approvals'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard')
@@ -260,6 +261,13 @@ function App() {
             📖 Apostila
           </button>
           <button
+            className={`nav-btn ${activeTab === 'approvals' ? 'active' : ''}`}
+            onClick={() => handleTabChange('approvals')}
+            title="Painel de Aprovação"
+          >
+            ✅ Aprovações
+          </button>
+          <button
             className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => handleTabChange('history')}
             title="Importar Histórico"
@@ -336,6 +344,11 @@ function App() {
         {/* Workbook */}
         <div style={{ display: activeTab === 'workbook' ? 'block' : 'none' }}>
           <WorkbookManager publishers={publishers} />
+        </div>
+
+        {/* Approvals */}
+        <div style={{ display: activeTab === 'approvals' ? 'block' : 'none' }}>
+          <ApprovalPanel />
         </div>
 
         {/* History */}

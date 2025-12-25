@@ -387,6 +387,7 @@ export const ApprovalStatus = {
     PENDING_APPROVAL: 'PENDING_APPROVAL',
     APPROVED: 'APPROVED',
     REJECTED: 'REJECTED',
+    COMPLETED: 'COMPLETED',
 } as const;
 
 export type ApprovalStatus = typeof ApprovalStatus[keyof typeof ApprovalStatus];
