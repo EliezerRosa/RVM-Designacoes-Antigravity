@@ -5,9 +5,13 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import type { WorkbookPart, WorkbookBatch, Publisher, TeachingCategory, ParticipationType } from '../types';
+import type { WorkbookPart, WorkbookBatch, Publisher, TeachingCategory, ParticipationType, HistoryRecord } from '../types';
+import { EnumModalidade, EnumFuncao } from '../types';
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
 import { assignmentService } from '../services/assignmentService';
+import { checkEligibility } from '../services/eligibilityService';
+import { selectBestCandidate } from '../services/cooldownService';
+import { loadHistoryRecords } from '../services/historyService';
 
 interface Props {
     publishers: Publisher[];
@@ -187,71 +191,24 @@ export function WorkbookManager({ publishers }: Props) {
         }
     };
 
-    const handlePromote = async () => {
-        if (!activeBatch) return;
-        if (!confirm('Promover todas as partes para Participations? Esta ação pode ser revertida.')) return;
-
-        try {
-            setLoading(true);
-            const ids = await workbookService.promoteToParticipations(activeBatch.id);
-            setSuccessMessage(`✅ ${ids.length} participações criadas`);
-            await loadBatches();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao promover');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleRollback = async (batchId: string) => {
-        if (!confirm('Reverter promoção? As participações criadas serão deletadas.')) return;
-
-        try {
-            setLoading(true);
-            await workbookService.rollbackPromotion(batchId);
-            setSuccessMessage('✅ Promoção revertida');
-            await loadBatches();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao reverter');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleApplyMatching = async () => {
-        if (!activeBatch) return;
-
-        try {
-            setLoading(true);
-            const count = await workbookService.applyFuzzyMatching(activeBatch.id, publishers);
-            setSuccessMessage(`✅ ${count} nomes resolvidos automaticamente`);
-            await loadParts(activeBatch.id);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao aplicar matching');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     // ========================================================================
-    // Gerar Designações
+    // Gerar Designações (Motor Completo)
     // ========================================================================
     const handleGenerateDesignations = async () => {
         if (!activeBatch) return;
 
-        // Filtrar partes que precisam de designação (sem publicador resolvido e função Titular)
+        // Filtrar partes que precisam de designação (função Titular, não promovidas)
         const partsNeedingAssignment = parts.filter(p =>
             p.funcao === 'Titular' &&
-            !p.resolvedPublisherId &&
             p.status !== 'PROMOTED'
         );
 
         if (partsNeedingAssignment.length === 0) {
-            setError('Todas as partes já têm publicadores designados ou foram promovidas');
+            setError('Todas as partes já foram promovidas');
             return;
         }
 
-        if (!confirm(`Gerar designações para ${partsNeedingAssignment.length} partes? Isso criará registros na aba Aprovações.`)) {
+        if (!confirm(`Gerar designações para ${partsNeedingAssignment.length} partes usando o motor de elegibilidade? Isso criará registros na aba Aprovações.`)) {
             return;
         }
 
@@ -259,22 +216,38 @@ export function WorkbookManager({ publishers }: Props) {
             setLoading(true);
             setError(null);
 
-            // Agrupar por semana
-            const byWeek = partsNeedingAssignment.reduce((acc, part) => {
-                const week = part.weekId || part.weekDisplay;
-                if (!acc[week]) acc[week] = [];
-                acc[week].push(part);
-                return acc;
-            }, {} as Record<string, WorkbookPart[]>);
+            // Carregar histórico para cooldown
+            let historyRecords: HistoryRecord[] = [];
+            try {
+                historyRecords = await loadHistoryRecords();
+            } catch (e) {
+                console.warn('Não foi possível carregar histórico para cooldown:', e);
+            }
 
-            let totalCreated = 0;
+            // Mapear tipoParte para EnumModalidade
+            const mapToModalidade = (tipoParte: string): string => {
+                const lower = tipoParte.toLowerCase();
+                if (lower.includes('presidente')) return EnumModalidade.PRESIDENCIA;
+                if (lower.includes('oração')) return EnumModalidade.ORACAO;
+                if (lower.includes('leitura') && lower.includes('bíblia')) return EnumModalidade.LEITURA_ESTUDANTE;
+                if (lower.includes('dirigente')) return EnumModalidade.DIRIGENTE_EBC;
+                if (lower.includes('leitor')) return EnumModalidade.LEITOR_EBC;
+                if (lower.includes('discurso') && lower.includes('ensino')) return EnumModalidade.DISCURSO_ENSINO;
+                if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo')) {
+                    return EnumModalidade.DEMONSTRACAO;
+                }
+                if (lower.includes('joias') || lower.includes('tesouros')) return EnumModalidade.DISCURSO_ENSINO;
+                if (lower.includes('estudo') || lower.includes('necessidades')) return EnumModalidade.DISCURSO_ENSINO;
+                return EnumModalidade.DEMONSTRACAO;
+            };
 
             // Mapear tipoParte para category
             const getCategoryFromTipoParte = (tipoParte: string): string => {
                 const lower = tipoParte.toLowerCase();
                 if (lower.includes('leitura')) return 'STUDENT';
                 if (lower.includes('ajudante')) return 'HELPER';
-                if (lower.includes('discurso') || lower.includes('joias') || lower.includes('necessidades')) return 'TEACHING';
+                if (lower.includes('discurso') || lower.includes('joias') || lower.includes('necessidades') || lower.includes('estudo')) return 'TEACHING';
+                if (lower.includes('presidente') || lower.includes('dirigente') || lower.includes('oração')) return 'TEACHING';
                 if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo')) return 'STUDENT';
                 return 'STUDENT';
             };
@@ -292,36 +265,88 @@ export function WorkbookManager({ publishers }: Props) {
                 return 'ministerio';
             };
 
+            // Agrupar por semana
+            const byWeek = partsNeedingAssignment.reduce((acc, part) => {
+                const week = part.weekId || part.weekDisplay;
+                if (!acc[week]) acc[week] = [];
+                acc[week].push(part);
+                return acc;
+            }, {} as Record<string, WorkbookPart[]>);
+
+            let totalCreated = 0;
+            let totalWithPublisher = 0;
+
             for (const [weekId, weekParts] of Object.entries(byWeek)) {
-                // Converter WorkbookParts para ScheduledAssignments
-                const assignments = weekParts.map(part => ({
-                    weekId: weekId,
-                    partId: part.id,
-                    partTitle: part.partTitle,
-                    partType: getPartTypeFromTipoParte(part.tipoParte) as ParticipationType,
-                    teachingCategory: getCategoryFromTipoParte(part.tipoParte) as TeachingCategory,
-                    principalPublisherId: part.resolvedPublisherId || '',
-                    principalPublisherName: part.resolvedPublisherName || part.rawPublisherName || 'A designar',
-                    secondaryPublisherId: undefined,
-                    secondaryPublisherName: undefined,
-                    date: part.date,
-                    startTime: part.horaInicio || undefined,
-                    endTime: part.horaFim || undefined,
-                    durationMin: parseInt(part.duracao) || 0,
-                    status: 'PENDING_APPROVAL' as const,
-                    selectionReason: `Gerado do Workbook: ${part.section}`,
-                    score: 0,
-                    room: undefined,
-                }));
+                const assignments = [];
+
+                for (const part of weekParts) {
+                    const modalidade = mapToModalidade(part.tipoParte);
+                    const partType = getPartTypeFromTipoParte(part.tipoParte);
+                    const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
+
+                    // 1. Filtrar publicadores elegíveis
+                    const eligiblePublishers = publishers.filter(p => {
+                        const result = checkEligibility(
+                            p,
+                            modalidade as Parameters<typeof checkEligibility>[1],
+                            EnumFuncao.TITULAR,
+                            { date: part.date, isOracaoInicial }
+                        );
+                        return result.eligible;
+                    });
+
+                    // 2. Selecionar melhor candidato via cooldownService
+                    let selectedPublisher: Publisher | null = null;
+                    let selectionReason = '';
+
+                    if (eligiblePublishers.length > 0) {
+                        selectedPublisher = selectBestCandidate(
+                            eligiblePublishers,
+                            historyRecords,
+                            partType
+                        );
+
+                        if (selectedPublisher) {
+                            totalWithPublisher++;
+                            selectionReason = `Motor: ${eligiblePublishers.length} elegíveis, selecionado por rotação`;
+                        } else {
+                            selectionReason = `${eligiblePublishers.length} elegíveis, sem histórico para ranking`;
+                            // Fallback: primeiro elegível
+                            selectedPublisher = eligiblePublishers[0];
+                        }
+                    } else {
+                        selectionReason = `Nenhum publicador elegível para ${modalidade}`;
+                    }
+
+                    assignments.push({
+                        weekId: weekId,
+                        partId: part.id,
+                        partTitle: part.partTitle,
+                        partType: partType as ParticipationType,
+                        teachingCategory: getCategoryFromTipoParte(part.tipoParte) as TeachingCategory,
+                        principalPublisherId: selectedPublisher?.id || '',
+                        principalPublisherName: selectedPublisher?.name || 'A designar',
+                        secondaryPublisherId: undefined,
+                        secondaryPublisherName: undefined,
+                        date: part.date,
+                        startTime: part.horaInicio || undefined,
+                        endTime: part.horaFim || undefined,
+                        durationMin: parseInt(part.duracao) || 0,
+                        status: 'PENDING_APPROVAL' as const,
+                        selectionReason: selectionReason,
+                        score: 0,
+                        room: undefined,
+                    });
+                }
 
                 // Criar em batch
                 await assignmentService.createBatch(assignments);
                 totalCreated += assignments.length;
             }
 
-            setSuccessMessage(`✅ ${totalCreated} designações criadas! Vá para a aba "Aprovações" para revisar.`);
+            setSuccessMessage(`✅ ${totalCreated} designações criadas (${totalWithPublisher} com publicador selecionado pelo motor)! Vá para a aba "Aprovações" para revisar.`);
 
-            // Marcar partes como REFINED (indicando que foram processadas)
+            // Marcar partes como REFINED
             for (const part of partsNeedingAssignment) {
                 await workbookService.updatePart(part.id, { status: 'REFINED' });
             }
@@ -456,14 +481,6 @@ export function WorkbookManager({ publishers }: Props) {
                                 {' | '}
                                 <span style={{ color: '#10B981' }}>Promoted: {batch.promotedCount}</span>
                             </div>
-                            {batch.promotedAt && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleRollback(batch.id); }}
-                                    style={{ marginTop: '8px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}
-                                >
-                                    ↩️ Reverter
-                                </button>
-                            )}
                         </div>
                     ))}
                 </div>
@@ -473,14 +490,8 @@ export function WorkbookManager({ publishers }: Props) {
             {activeBatch && (
                 <>
                     <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <button onClick={handleApplyMatching} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer' }}>
-                            🔗 Aplicar Matching
-                        </button>
                         <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px' }}>
-                            🎯 Gerar Designações
-                        </button>
-                        <button onClick={handlePromote} disabled={loading || !activeBatch.isActive} style={{ padding: '8px 16px', cursor: 'pointer', background: '#10B981', color: 'white', border: 'none', borderRadius: '4px' }}>
-                            🚀 Promover para Participations
+                            🎯 Gerar Designações (Motor)
                         </button>
                         <button onClick={handleDeleteSelected} disabled={loading || selectedIds.size === 0} style={{ padding: '8px 16px', cursor: 'pointer', background: '#EF4444', color: 'white', border: 'none', borderRadius: '4px' }}>
                             🗑️ Deletar ({selectedIds.size})

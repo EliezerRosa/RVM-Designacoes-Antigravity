@@ -235,23 +235,11 @@ function App() {
             👥 Publicadores
           </button>
           <button
-            className={`nav-btn ${activeTab === 'assignments' ? 'active' : ''}`}
-            onClick={() => handleTabChange('assignments')}
+            className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => handleTabChange('history')}
+            title="Importar Histórico"
           >
-            📝 Designações
-          </button>
-          <button
-            className={`nav-btn ${activeTab === 's89' ? 'active' : ''}`}
-            onClick={() => handleTabChange('s89')}
-          >
-            📄 S-89
-          </button>
-          <button
-            className={`nav-btn ${activeTab === 'reports' ? 'active' : ''}`}
-            onClick={() => handleTabChange('reports')}
-            title="Relatórios de Participações"
-          >
-            📊 Relatórios
+            📜 Histórico
           </button>
           <button
             className={`nav-btn ${activeTab === 'workbook' ? 'active' : ''}`}
@@ -268,11 +256,17 @@ function App() {
             ✅ Aprovações
           </button>
           <button
-            className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => handleTabChange('history')}
-            title="Importar Histórico"
+            className={`nav-btn ${activeTab === 'reports' ? 'active' : ''}`}
+            onClick={() => handleTabChange('reports')}
+            title="Relatórios de Participações"
           >
-            ⚙️ Histórico
+            📈 Relatórios
+          </button>
+          <button
+            className={`nav-btn ${activeTab === 's89' ? 'active' : ''}`}
+            onClick={() => handleTabChange('s89')}
+          >
+            📄 S-89
           </button>
         </nav>
       </header>
