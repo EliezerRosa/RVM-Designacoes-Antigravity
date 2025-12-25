@@ -11,8 +11,9 @@ import { api } from './services/api'
 import HistoryImporter from './components/HistoryImporter'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import Reports from './components/Reports'
+import WorkbookManager from './components/WorkbookManager'
 
-type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'history' | 'reports'
+type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'history' | 'reports' | 'workbook'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard')
@@ -252,6 +253,13 @@ function App() {
             📊 Relatórios
           </button>
           <button
+            className={`nav-btn ${activeTab === 'workbook' ? 'active' : ''}`}
+            onClick={() => handleTabChange('workbook')}
+            title="Gerenciador de Apostila"
+          >
+            📖 Apostila
+          </button>
+          <button
             className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => handleTabChange('history')}
             title="Importar Histórico"
@@ -323,6 +331,11 @@ function App() {
         {/* S-89 */}
         <div style={{ display: activeTab === 's89' ? 'block' : 'none' }}>
           <div style={{ padding: 20 }}>Gerador S-89 (Em construção)</div>
+        </div>
+
+        {/* Workbook */}
+        <div style={{ display: activeTab === 'workbook' ? 'block' : 'none' }}>
+          <WorkbookManager publishers={publishers} />
         </div>
 
         {/* History */}

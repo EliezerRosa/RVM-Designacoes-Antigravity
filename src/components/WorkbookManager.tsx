@@ -1,0 +1,506 @@
+/**
+ * WorkbookManager - Gerenciador de Apostila
+ * Componente principal para upload, CRUD e promoção de partes
+ */
+
+import { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
+import type { WorkbookPart, WorkbookBatch, Publisher } from '../types';
+import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
+
+interface Props {
+    publishers: Publisher[];
+}
+
+// Colunas esperadas no Excel da apostila
+const EXPECTED_COLUMNS = [
+    'id', 'weekId', 'weekDisplay', 'date', 'section', 'tipoParte',
+    'partTitle', 'descricao', 'seq', 'funcao', 'duracao',
+    'horaInicio', 'horaFim', 'rawPublisherName', 'status'
+];
+
+export function WorkbookManager({ publishers }: Props) {
+    // ========================================================================
+    // Estado
+    // ========================================================================
+    const [batches, setBatches] = useState<WorkbookBatch[]>([]);
+    const [activeBatch, setActiveBatch] = useState<WorkbookBatch | null>(null);
+    const [parts, setParts] = useState<WorkbookPart[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    // Seleção
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    // Filtros
+    const [filterWeek, setFilterWeek] = useState<string>('');
+    const [filterSection, setFilterSection] = useState<string>('');
+    const [filterTipo, setFilterTipo] = useState<string>('');
+    const [filterStatus, setFilterStatus] = useState<string>('');
+    const [filterFuncao, setFilterFuncao] = useState<string>('');
+    const [searchText, setSearchText] = useState<string>('');
+
+    // ========================================================================
+    // Carregar dados iniciais
+    // ========================================================================
+    useEffect(() => {
+        loadBatches();
+    }, []);
+
+    useEffect(() => {
+        if (activeBatch) {
+            loadParts(activeBatch.id);
+            // Inscrever para mudanças em tempo real
+            const channel = workbookService.subscribeToChanges(activeBatch.id, (payload) => {
+                if (payload.eventType === 'INSERT' && payload.new) {
+                    setParts(prev => [...prev, payload.new!]);
+                } else if (payload.eventType === 'UPDATE' && payload.new) {
+                    setParts(prev => prev.map(p => p.id === payload.new!.id ? payload.new! : p));
+                } else if (payload.eventType === 'DELETE' && payload.old) {
+                    setParts(prev => prev.filter(p => p.id !== payload.old!.id));
+                }
+            });
+            return () => workbookService.unsubscribe(channel);
+        }
+    }, [activeBatch]);
+
+    const loadBatches = async () => {
+        try {
+            setLoading(true);
+            const data = await workbookService.getBatches();
+            setBatches(data);
+            // Selecionar batch ativo automaticamente
+            const active = data.find(b => b.isActive);
+            if (active) setActiveBatch(active);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao carregar batches');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadParts = async (batchId: string) => {
+        try {
+            setLoading(true);
+            const data = await workbookService.getPartsByBatch(batchId);
+            setParts(data);
+            setSelectedIds(new Set());
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao carregar partes');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ========================================================================
+    // Upload de Excel
+    // ========================================================================
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setLoading(true);
+            setError(null);
+
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
+
+            if (rows.length === 0) {
+                throw new Error('Planilha vazia');
+            }
+
+            // Validar colunas
+            const firstRow = rows[0];
+            const missingColumns = EXPECTED_COLUMNS.filter(col => !(col in firstRow));
+            if (missingColumns.length > 0) {
+                console.warn('Colunas ausentes:', missingColumns);
+            }
+
+            // Converter para WorkbookExcelRow
+            const excelRows: WorkbookExcelRow[] = rows.map(row => ({
+                id: row.id as string,
+                weekId: row.weekId as string || '',
+                weekDisplay: row.weekDisplay as string || '',
+                date: row.date as string || '',
+                section: row.section as string || '',
+                tipoParte: row.tipoParte as string || '',
+                partTitle: row.partTitle as string || '',
+                descricao: row.descricao as string || '',
+                seq: (row.seq as number) || 0,
+                funcao: (row.funcao as 'Titular' | 'Ajudante') || 'Titular',
+                duracao: row.duracao as string || '',
+                horaInicio: row.horaInicio as string || '',
+                horaFim: row.horaFim as string || '',
+                rawPublisherName: row.rawPublisherName as string || '',
+                status: row.status as string || 'DRAFT',
+            }));
+
+            // Criar batch
+            const batch = await workbookService.createBatch(file.name, excelRows);
+            setSuccessMessage(`✅ Importadas ${excelRows.length} partes de "${file.name}"`);
+
+            // Recarregar
+            await loadBatches();
+            setActiveBatch(batch);
+
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao processar arquivo');
+        } finally {
+            setLoading(false);
+            event.target.value = '';
+        }
+    };
+
+    // ========================================================================
+    // Ações
+    // ========================================================================
+    const handleUpdatePart = async (id: string, field: keyof WorkbookPart, value: string | number) => {
+        try {
+            await workbookService.updatePart(id, { [field]: value });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao atualizar');
+        }
+    };
+
+    const handleDeleteSelected = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Deletar ${selectedIds.size} partes selecionadas?`)) return;
+
+        try {
+            setLoading(true);
+            for (const id of selectedIds) {
+                await workbookService.deletePart(id);
+            }
+            setSelectedIds(new Set());
+            if (activeBatch) await loadParts(activeBatch.id);
+            setSuccessMessage(`✅ ${selectedIds.size} partes deletadas`);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao deletar');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePromote = async () => {
+        if (!activeBatch) return;
+        if (!confirm('Promover todas as partes para Participations? Esta ação pode ser revertida.')) return;
+
+        try {
+            setLoading(true);
+            const ids = await workbookService.promoteToParticipations(activeBatch.id);
+            setSuccessMessage(`✅ ${ids.length} participações criadas`);
+            await loadBatches();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao promover');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRollback = async (batchId: string) => {
+        if (!confirm('Reverter promoção? As participações criadas serão deletadas.')) return;
+
+        try {
+            setLoading(true);
+            await workbookService.rollbackPromotion(batchId);
+            setSuccessMessage('✅ Promoção revertida');
+            await loadBatches();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao reverter');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleApplyMatching = async () => {
+        if (!activeBatch) return;
+
+        try {
+            setLoading(true);
+            const count = await workbookService.applyFuzzyMatching(activeBatch.id, publishers);
+            setSuccessMessage(`✅ ${count} nomes resolvidos automaticamente`);
+            await loadParts(activeBatch.id);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao aplicar matching');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ========================================================================
+    // Filtros
+    // ========================================================================
+    const uniqueWeeks = useMemo(() => [...new Set(parts.map(p => p.weekDisplay))].sort(), [parts]);
+    const uniqueSections = useMemo(() => [...new Set(parts.map(p => p.section))], [parts]);
+    const uniqueTipos = useMemo(() => [...new Set(parts.map(p => p.tipoParte))], [parts]);
+
+    const filteredParts = useMemo(() => {
+        return parts.filter(p => {
+            if (filterWeek && p.weekDisplay !== filterWeek) return false;
+            if (filterSection && p.section !== filterSection) return false;
+            if (filterTipo && p.tipoParte !== filterTipo) return false;
+            if (filterStatus && p.status !== filterStatus) return false;
+            if (filterFuncao && p.funcao !== filterFuncao) return false;
+            if (searchText) {
+                const search = searchText.toLowerCase();
+                const searchable = `${p.partTitle} ${p.descricao} ${p.rawPublisherName} ${p.resolvedPublisherName || ''}`.toLowerCase();
+                if (!searchable.includes(search)) return false;
+            }
+            return true;
+        });
+    }, [parts, filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText]);
+
+    // ========================================================================
+    // Seleção
+    // ========================================================================
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const selectAll = () => {
+        if (selectedIds.size === filteredParts.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredParts.map(p => p.id)));
+        }
+    };
+
+    // ========================================================================
+    // Estilos inline
+    // ========================================================================
+    const sectionColors: Record<string, string> = {
+        'Início da Reunião': '#E0E7FF',
+        'Tesouros da Palavra de Deus': '#D1FAE5',
+        'Faça Seu Melhor no Ministério': '#FEF3C7',
+        'Nossa Vida Cristã': '#FEE2E2',
+        'Final da Reunião': '#E0E7FF',
+    };
+
+    const statusColors: Record<string, string> = {
+        'DRAFT': '#9CA3AF',
+        'REFINED': '#3B82F6',
+        'PROMOTED': '#10B981',
+    };
+
+    // ========================================================================
+    // Render
+    // ========================================================================
+    return (
+        <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
+            <h2 style={{ marginBottom: '20px' }}>📖 Gerenciador de Apostila</h2>
+
+            {/* Mensagens */}
+            {error && (
+                <div style={{ padding: '12px', background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', marginBottom: '16px' }}>
+                    ❌ {error}
+                    <button onClick={() => setError(null)} style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+                </div>
+            )}
+            {successMessage && (
+                <div style={{ padding: '12px', background: '#D1FAE5', color: '#047857', borderRadius: '8px', marginBottom: '16px' }}>
+                    {successMessage}
+                    <button onClick={() => setSuccessMessage(null)} style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+                </div>
+            )}
+
+            {/* Upload */}
+            <div style={{ marginBottom: '20px', padding: '20px', border: '2px dashed #CBD5E1', borderRadius: '12px', textAlign: 'center' }}>
+                <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                    id="excel-upload"
+                />
+                <label htmlFor="excel-upload" style={{ cursor: 'pointer', color: '#4F46E5', fontWeight: 'bold' }}>
+                    📤 Clique para carregar planilha Excel ou arraste aqui
+                </label>
+            </div>
+
+            {/* Batches */}
+            <div style={{ marginBottom: '20px' }}>
+                <h3>📦 Batches de Importação</h3>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {batches.map(batch => (
+                        <div
+                            key={batch.id}
+                            onClick={() => setActiveBatch(batch)}
+                            style={{
+                                padding: '12px',
+                                border: activeBatch?.id === batch.id ? '2px solid #4F46E5' : '1px solid #E5E7EB',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                background: activeBatch?.id === batch.id ? '#EEF2FF' : 'white',
+                                minWidth: '200px',
+                            }}
+                        >
+                            <div style={{ fontWeight: 'bold' }}>{batch.fileName}</div>
+                            <div style={{ fontSize: '12px', color: '#6B7280' }}>{batch.weekRange}</div>
+                            <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                                <span style={{ color: '#9CA3AF' }}>Draft: {batch.draftCount}</span>
+                                {' | '}
+                                <span style={{ color: '#3B82F6' }}>Refined: {batch.refinedCount}</span>
+                                {' | '}
+                                <span style={{ color: '#10B981' }}>Promoted: {batch.promotedCount}</span>
+                            </div>
+                            {batch.promotedAt && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleRollback(batch.id); }}
+                                    style={{ marginTop: '8px', padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}
+                                >
+                                    ↩️ Reverter
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Ações e Filtros */}
+            {activeBatch && (
+                <>
+                    <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button onClick={handleApplyMatching} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer' }}>
+                            🔗 Aplicar Matching
+                        </button>
+                        <button onClick={handlePromote} disabled={loading || !activeBatch.isActive} style={{ padding: '8px 16px', cursor: 'pointer', background: '#10B981', color: 'white', border: 'none', borderRadius: '4px' }}>
+                            🚀 Promover para Participations
+                        </button>
+                        <button onClick={handleDeleteSelected} disabled={loading || selectedIds.size === 0} style={{ padding: '8px 16px', cursor: 'pointer', background: '#EF4444', color: 'white', border: 'none', borderRadius: '4px' }}>
+                            🗑️ Deletar ({selectedIds.size})
+                        </button>
+                    </div>
+
+                    {/* Filtros */}
+                    <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <input
+                            type="text"
+                            placeholder="🔍 Buscar..."
+                            value={searchText}
+                            onChange={e => setSearchText(e.target.value)}
+                            style={{ padding: '8px', width: '200px' }}
+                        />
+                        <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '8px' }}>
+                            <option value="">Todas as semanas</option>
+                            {uniqueWeeks.map(w => <option key={w} value={w}>{w}</option>)}
+                        </select>
+                        <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '8px' }}>
+                            <option value="">Todas as seções</option>
+                            {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} style={{ padding: '8px' }}>
+                            <option value="">Todos os tipos</option>
+                            {uniqueTipos.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px' }}>
+                            <option value="">Todos os status</option>
+                            <option value="DRAFT">Draft</option>
+                            <option value="REFINED">Refined</option>
+                            <option value="PROMOTED">Promoted</option>
+                        </select>
+                        <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '8px' }}>
+                            <option value="">Todas as funções</option>
+                            <option value="Titular">Titular</option>
+                            <option value="Ajudante">Ajudante</option>
+                        </select>
+                    </div>
+
+                    {/* Tabela */}
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead>
+                                <tr style={{ background: '#4F46E5', color: 'white' }}>
+                                    <th style={{ padding: '8px' }}>
+                                        <input type="checkbox" checked={selectedIds.size === filteredParts.length && filteredParts.length > 0} onChange={selectAll} />
+                                    </th>
+                                    <th style={{ padding: '8px' }}>Semana</th>
+                                    <th style={{ padding: '8px' }}>Seq</th>
+                                    <th style={{ padding: '8px' }}>Seção</th>
+                                    <th style={{ padding: '8px' }}>Tipo</th>
+                                    <th style={{ padding: '8px' }}>Título</th>
+                                    <th style={{ padding: '8px' }}>Função</th>
+                                    <th style={{ padding: '8px' }}>Publicador</th>
+                                    <th style={{ padding: '8px' }}>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredParts.map(part => (
+                                    <tr key={part.id} style={{ background: sectionColors[part.section] || 'white' }}>
+                                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                                            <input type="checkbox" checked={selectedIds.has(part.id)} onChange={() => toggleSelect(part.id)} />
+                                        </td>
+                                        <td style={{ padding: '8px' }}>{part.weekDisplay}</td>
+                                        <td style={{ padding: '8px', textAlign: 'center' }}>{part.seq}</td>
+                                        <td style={{ padding: '8px', fontSize: '11px' }}>{part.section}</td>
+                                        <td style={{ padding: '8px' }}>{part.tipoParte}</td>
+                                        <td style={{ padding: '8px' }}>
+                                            <input
+                                                type="text"
+                                                value={part.partTitle}
+                                                onChange={e => handleUpdatePart(part.id, 'partTitle', e.target.value)}
+                                                style={{ width: '100%', border: 'none', background: 'transparent' }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '8px' }}>{part.funcao}</td>
+                                        <td style={{ padding: '8px' }}>
+                                            <input
+                                                type="text"
+                                                value={part.resolvedPublisherName || part.rawPublisherName}
+                                                onChange={e => handleUpdatePart(part.id, 'rawPublisherName', e.target.value)}
+                                                style={{ width: '100%', border: 'none', background: 'transparent' }}
+                                            />
+                                            {part.matchConfidence && (
+                                                <span style={{ fontSize: '10px', color: '#6B7280' }}> ({part.matchConfidence}%)</span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: '12px',
+                                                fontSize: '11px',
+                                                background: statusColors[part.status] || '#9CA3AF',
+                                                color: 'white',
+                                            }}>
+                                                {part.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {filteredParts.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
+                            Nenhuma parte encontrada. {parts.length > 0 ? 'Ajuste os filtros.' : 'Faça upload de um arquivo.'}
+                        </div>
+                    )}
+
+                    <div style={{ marginTop: '16px', color: '#6B7280', fontSize: '13px' }}>
+                        Mostrando {filteredParts.length} de {parts.length} partes
+                    </div>
+                </>
+            )}
+
+            {loading && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ background: 'white', padding: '24px', borderRadius: '12px' }}>
+                        ⏳ Carregando...
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default WorkbookManager;
