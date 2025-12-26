@@ -1087,9 +1087,8 @@ export async function parsePdfFile(
                 // Normalizar título para remover mojibake
                 const normalizedTitle = normalizeMojibake(part.title);
 
-                // Extrair numeração da apostila do título (ex: "4. Iniciando" → "4.")
+                // Extrair numeração da apostila do título (ex: "4. Iniciando" → "Iniciando")
                 const numberMatch = normalizedTitle.match(/^(\d+\.)\s*/);
-                const workbookNumber = numberMatch ? numberMatch[1] : undefined;
                 const cleanTitle = numberMatch ? normalizedTitle.replace(numberMatch[0], '').trim() : normalizedTitle;
 
                 // Inferir seção e parte padrão (usando título normalizado)
@@ -1108,14 +1107,25 @@ export async function parsePdfFile(
                         weekId: week.date?.substring(0, 7) || '',
                         weekDisplay: week.label,
                         date: week.date || '',
+                        // 5 CAMPOS CANÔNICOS
                         section,
-                        standardPartKey,
-                        partTitle: cleanTitle,
-                        partSequence,
-                        workbookNumber,
-                        modality,
+                        tipoParte: cleanTitle,
+                        modalidade: modality,
+                        tituloParte: cleanTitle,
+                        descricaoParte: '',
+                        detalhesParte: '',
+                        // Sequência e função
+                        seq: partSequence,
+                        funcao: 'Titular' as const,
+                        duracao: 0,
+                        horaInicio: '',
+                        horaFim: '',
+                        // Publicador
                         rawPublisherName: part.student,
-                        participationRole: 'Titular',
+                        resolvedPublisherId: undefined,
+                        resolvedPublisherName: undefined,
+                        matchConfidence: 0,
+                        // Status
                         status: HistoryStatus.PENDING,
                         importSource: 'PDF',
                         importBatchId: batchId,
@@ -1130,14 +1140,25 @@ export async function parsePdfFile(
                         weekId: week.date?.substring(0, 7) || '',
                         weekDisplay: week.label,
                         date: week.date || '',
+                        // 5 CAMPOS CANÔNICOS
                         section,
-                        standardPartKey,
-                        partTitle: cleanTitle,
-                        partSequence,
-                        workbookNumber,
-                        modality,
+                        tipoParte: cleanTitle,
+                        modalidade: modality,
+                        tituloParte: cleanTitle,
+                        descricaoParte: '',
+                        detalhesParte: '',
+                        // Sequência e função
+                        seq: partSequence,
+                        funcao: 'Ajudante' as const,
+                        duracao: 0,
+                        horaInicio: '',
+                        horaFim: '',
+                        // Publicador
                         rawPublisherName: part.assistant,
-                        participationRole: 'Ajudante',
+                        resolvedPublisherId: undefined,
+                        resolvedPublisherName: undefined,
+                        matchConfidence: 0,
+                        // Status
                         status: HistoryStatus.PENDING,
                         importSource: 'PDF',
                         importBatchId: batchId,

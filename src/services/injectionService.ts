@@ -28,7 +28,7 @@ export function injectMandatoryParts(
     // Agrupar por semana
     const weekGroups = new Map<string, HistoryRecord[]>();
     records.forEach(r => {
-        const key = r.weekId || r.semana || r.date;
+        const key = r.weekId || r.date || r.date;
         if (!weekGroups.has(key)) {
             weekGroups.set(key, []);
         }
@@ -39,7 +39,7 @@ export function injectMandatoryParts(
 
     weekGroups.forEach((weekRecords, weekKey) => {
         // Ordenar por seq/partSequence
-        weekRecords.sort((a, b) => (a.seq || a.partSequence || 0) - (b.seq || b.partSequence || 0));
+        weekRecords.sort((a, b) => (a.seq || a.seq || 0) - (b.seq || b.seq || 0));
 
         const injectedWeek = injectPartsForWeek(weekRecords, weekKey, batchId);
         result.push(...injectedWeek);
@@ -47,10 +47,10 @@ export function injectMandatoryParts(
 
     // Reordenar resultado final
     result.sort((a, b) => {
-        const weekA = a.semana || a.date || '';
-        const weekB = b.semana || b.date || '';
+        const weekA = a.date || a.date || '';
+        const weekB = b.date || b.date || '';
         if (weekA !== weekB) return weekA.localeCompare(weekB);
-        return (a.seq || a.partSequence || 0) - (b.seq || b.partSequence || 0);
+        return (a.seq || a.seq || 0) - (b.seq || b.seq || 0);
     });
 
     console.log(`[Injection Service] ${result.length - records.length} partes injetadas`);
@@ -69,15 +69,15 @@ function injectPartsForWeek(
     // Verificar quais partes já existem
     const hasCanticoInicial = records.some(r =>
         r.tipoParte === EnumTipoParte.CANTICO_INICIAL ||
-        r.partTitle?.toLowerCase().includes('cântico inicial')
+        r.tituloParte?.toLowerCase().includes('cântico inicial')
     );
     const hasCanticoMeio = records.some(r =>
         r.tipoParte === EnumTipoParte.CANTICO_MEIO ||
-        r.partTitle?.toLowerCase().includes('cântico do meio')
+        r.tituloParte?.toLowerCase().includes('cântico do meio')
     );
     const hasCanticoFinal = records.some(r =>
         r.tipoParte === EnumTipoParte.CANTICO_FINAL ||
-        r.partTitle?.toLowerCase().includes('cântico final')
+        r.tituloParte?.toLowerCase().includes('cântico final')
     );
 
     for (let i = 0; i < records.length; i++) {
@@ -92,7 +92,7 @@ function injectPartsForWeek(
         // REGRA 1: Cântico Inicial após Presidente
         if (!hasCanticoInicial &&
             (record.tipoParte === EnumTipoParte.PRESIDENTE ||
-                record.partTitle?.toLowerCase().includes('presidente'))) {
+                record.tituloParte?.toLowerCase().includes('presidente'))) {
             result.push(createInjectedPart({
                 weekKey,
                 batchId,
@@ -119,7 +119,7 @@ function injectPartsForWeek(
             const nextIsTitular = nextRecord && nextRecord.funcao === EnumFuncao.TITULAR;
             const nextIsElogios = nextRecord &&
                 (nextRecord.tipoParte === EnumTipoParte.ELOGIOS_CONSELHOS ||
-                    nextRecord.partTitle?.toLowerCase().includes('elogios'));
+                    nextRecord.tituloParte?.toLowerCase().includes('elogios'));
 
             // Só injetar se a próxima parte titular não for Elogios
             if (nextIsTitular && !nextIsElogios) {
@@ -127,7 +127,7 @@ function injectPartsForWeek(
                     weekKey,
                     batchId,
                     seq: seqCounter,
-                    secao: record.secao || EnumSecao.MINISTERIO,
+                    secao: record.section || EnumSecao.MINISTERIO,
                     tipoParte: EnumTipoParte.ELOGIOS_CONSELHOS,
                     descricao: 'Elogios e Conselhos',
                     modalidade: EnumModalidade.ACONSELHAMENTO,
@@ -141,9 +141,9 @@ function injectPartsForWeek(
 
         // REGRA 3: Cântico do Meio no início da Vida Cristã
         if (!hasCanticoMeio && nextRecord) {
-            const currentIsNotVidaCrista = record.secao !== EnumSecao.VIDA_CRISTA;
-            const nextIsVidaCrista = nextRecord.secao === EnumSecao.VIDA_CRISTA ||
-                nextRecord.partTitle?.toLowerCase().includes('vida cristã');
+            const currentIsNotVidaCrista = record.section !== EnumSecao.VIDA_CRISTA;
+            const nextIsVidaCrista = nextRecord.section === EnumSecao.VIDA_CRISTA ||
+                nextRecord.tituloParte?.toLowerCase().includes('vida cristã');
 
             if (currentIsNotVidaCrista && nextIsVidaCrista) {
                 result.push(createInjectedPart({
@@ -167,7 +167,7 @@ function injectPartsForWeek(
     if (!hasCanticoFinal) {
         const oracaoFinalIndex = result.findIndex(r =>
             r.tipoParte === EnumTipoParte.ORACAO_FINAL ||
-            r.partTitle?.toLowerCase().includes('oração final')
+            r.tituloParte?.toLowerCase().includes('oração final')
         );
 
         if (oracaoFinalIndex > 0) {
@@ -191,7 +191,7 @@ function injectPartsForWeek(
     // Renumerar sequências
     result.forEach((r, idx) => {
         r.seq = idx + 1;
-        r.partSequence = idx + 1;
+        r.seq = idx + 1;
     });
 
     if (injectedCount > 0) {
@@ -219,39 +219,36 @@ function createInjectedPart(params: InjectedPartParams): HistoryRecord {
     return {
         id: `injected-${batchId}-${weekKey}-${seq}-${Date.now()}`,
 
-        // Campos legado
+        // Contexto temporal
         weekId: baseRecord.weekId,
         weekDisplay: baseRecord.weekDisplay,
         date: baseRecord.date,
-        section: baseRecord.section,
-        partTitle: descricao,
-        partSequence: seq,
-        modality: baseRecord.modality,
+
+        // 5 CAMPOS CANÔNICOS
+        section: secao,
+        tipoParte: tipoParte,
+        modalidade: modalidade,
+        tituloParte: descricao,
+        descricaoParte: '',
+        detalhesParte: '',
+
+        // Sequência e função
+        seq: seq,
+        funcao: 'Titular' as const,
+        duracao: duracao,
+        horaInicio: '',
+        horaFim: '',
+
+        // Publicador
         rawPublisherName: tipoParte === EnumTipoParte.ELOGIOS_CONSELHOS ? 'Presidente' : '',
-        participationRole: 'Titular',
         resolvedPublisherId: undefined,
         resolvedPublisherName: undefined,
         matchConfidence: 0,
 
-        // Status
+        // Status e metadados
         status: HistoryStatus.PENDING,
         importSource: 'AUTO_INJECTED',
         importBatchId: batchId,
         createdAt: new Date().toISOString(),
-
-        // Campos RVM Pro 2.0
-        semana: baseRecord.semana || baseRecord.date,
-        seq: seq,
-        secao: secao as typeof EnumSecao[keyof typeof EnumSecao],
-        tipoParte: tipoParte as typeof EnumTipoParte[keyof typeof EnumTipoParte],
-        descricao: descricao,
-        modalidade: modalidade as typeof EnumModalidade[keyof typeof EnumModalidade],
-        horaInicio: '',
-        horaFim: '',
-        duracao: duracao,
-        nomeOriginal: tipoParte === EnumTipoParte.ELOGIOS_CONSELHOS ? 'Presidente' : '',
-        funcao: EnumFuncao.TITULAR,
-        publicadorId: undefined,
-        publicadorNome: undefined,
     };
 }

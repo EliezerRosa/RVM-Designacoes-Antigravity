@@ -63,7 +63,7 @@ export function calculateRotationPriority(
     // Filtrar histórico do publicador (resolvido ou original)
     const publisherHistory = history.filter(h =>
         h.resolvedPublisherId === publisherId ||
-        h.publicadorId === publisherId
+        h.resolvedPublisherId === publisherId
     );
 
     if (publisherHistory.length === 0) {
@@ -99,12 +99,12 @@ export function getCooldownInfo(
     // Filtrar histórico do publicador para o tipo de parte específico
     const relevantHistory = history
         .filter(h =>
-            (h.resolvedPublisherId === publisherId || h.publicadorId === publisherId) &&
-            (h.tipoParte === partType || h.partTitle === partType)
+            (h.resolvedPublisherId === publisherId || h.resolvedPublisherId === publisherId) &&
+            (h.tipoParte === partType || h.tituloParte === partType)
         )
         .sort((a, b) => {
-            const dateA = new Date(a.semana || a.date || '');
-            const dateB = new Date(b.semana || b.date || '');
+            const dateA = new Date(a.date || a.date || '');
+            const dateB = new Date(b.date || b.date || '');
             return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
         });
 
@@ -113,7 +113,7 @@ export function getCooldownInfo(
     }
 
     const lastRecord = relevantHistory[0];
-    const lastDate = new Date(lastRecord.semana || lastRecord.date || '');
+    const lastDate = new Date(lastRecord.date || lastRecord.date || '');
     const daysSinceLast = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
     const weeksSinceLast = Math.floor(daysSinceLast / 7);
 
@@ -121,8 +121,8 @@ export function getCooldownInfo(
         isInCooldown: weeksSinceLast < COOLDOWN_WEEKS,
         weeksSinceLast,
         cooldownRemaining: Math.max(0, COOLDOWN_WEEKS - weeksSinceLast),
-        lastPartType: lastRecord.tipoParte || lastRecord.partTitle || '',
-        lastDate: lastRecord.semana || lastRecord.date || ''
+        lastPartType: lastRecord.tipoParte || lastRecord.tituloParte || '',
+        lastDate: lastRecord.date || lastRecord.date || ''
     };
 }
 
@@ -146,7 +146,7 @@ export function rankPublishersByRotation(
 
         // Detalhes por categoria
         const pubHistory = history.filter(h =>
-            h.resolvedPublisherId === pub.id || h.publicadorId === pub.id
+            h.resolvedPublisherId === pub.id || h.resolvedPublisherId === pub.id
         );
 
         return {
@@ -202,7 +202,7 @@ function getDaysSinceCategoryLast(
     }
 
     // Encontrar a mais recente
-    const dates = categoryHistory.map(h => new Date(h.semana || h.date || ''));
+    const dates = categoryHistory.map(h => new Date(h.date || h.date || ''));
     const mostRecent = dates.reduce((max, d) => d > max ? d : max, new Date(0));
 
     return Math.floor((today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));
@@ -212,9 +212,9 @@ function getDaysSinceCategoryLast(
  * Determina a categoria de participação de um registro
  */
 export function getParticipationCategory(record: HistoryRecord): ParticipationCategory {
-    const modality = record.modalidade || record.modality;
-    const funcao = record.funcao || record.participationRole;
-    const tipoParte = record.tipoParte || record.partTitle;
+    const modality = record.modalidade || record.modalidade;
+    const funcao = record.funcao || record.funcao;
+    const tipoParte = record.tipoParte || record.tituloParte;
 
     // HELPER: Qualquer ajudante
     if (funcao === 'Ajudante') {
@@ -295,10 +295,10 @@ export function getParticipationStats(
     averageIntervalDays: number;
 } {
     const pubHistory = history
-        .filter(h => h.resolvedPublisherId === publisherId || h.publicadorId === publisherId)
+        .filter(h => h.resolvedPublisherId === publisherId || h.resolvedPublisherId === publisherId)
         .sort((a, b) => {
-            const dateA = new Date(a.semana || a.date || '');
-            const dateB = new Date(b.semana || b.date || '');
+            const dateA = new Date(a.date || a.date || '');
+            const dateB = new Date(b.date || b.date || '');
             return dateA.getTime() - dateB.getTime();
         });
 
@@ -307,8 +307,8 @@ export function getParticipationStats(
     // Calcular intervalo médio
     let totalInterval = 0;
     for (let i = 1; i < pubHistory.length; i++) {
-        const dateA = new Date(pubHistory[i - 1].semana || pubHistory[i - 1].date || '');
-        const dateB = new Date(pubHistory[i].semana || pubHistory[i].date || '');
+        const dateA = new Date(pubHistory[i - 1].date || pubHistory[i - 1].date || '');
+        const dateB = new Date(pubHistory[i].date || pubHistory[i].date || '');
         totalInterval += (dateB.getTime() - dateA.getTime()) / (1000 * 60 * 60 * 24);
     }
 
@@ -318,7 +318,7 @@ export function getParticipationStats(
         studentCount: categories.filter(c => c === 'STUDENT').length,
         helperCount: categories.filter(c => c === 'HELPER').length,
         lastParticipation: pubHistory.length > 0
-            ? pubHistory[pubHistory.length - 1].semana || pubHistory[pubHistory.length - 1].date || null
+            ? pubHistory[pubHistory.length - 1].date || pubHistory[pubHistory.length - 1].date || null
             : null,
         averageIntervalDays: pubHistory.length > 1 ? totalInterval / (pubHistory.length - 1) : 0
     };

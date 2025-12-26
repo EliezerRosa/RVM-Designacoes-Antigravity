@@ -5,15 +5,7 @@
 
 import * as XLSX from 'xlsx';
 import type { HistoryRecord } from '../types';
-import {
-    HistoryStatus,
-    MeetingSection,
-    PartModality,
-    EnumSecao,
-    EnumTipoParte,
-    EnumModalidade,
-    EnumFuncao
-} from '../types';
+import { HistoryStatus } from '../types';
 
 // Colunas esperadas no Excel consolidado
 interface ExcelRow {
@@ -37,35 +29,6 @@ export interface ExcelParseResult {
     error?: string;
     totalRows: number;
     importedRows: number;
-}
-
-// Mapear seção do Excel para enum legado
-function mapSecaoToLegacy(secao: string): MeetingSection {
-    const map: Record<string, MeetingSection> = {
-        'Início da Reunião': MeetingSection.INICIO,
-        'Tesouros da Palavra de Deus': MeetingSection.TESOUROS,
-        'Faça Seu Melhor no Ministério': MeetingSection.MINISTERIO,
-        'Nossa Vida Cristã': MeetingSection.VIDA_CRISTA,
-        'Final da Reunião': MeetingSection.FINAL,
-    };
-    return map[secao] || MeetingSection.TESOUROS;
-}
-
-// Mapear modalidade do Excel para enum legado
-function mapModalidadeToLegacy(modalidade: string): PartModality {
-    const map: Record<string, PartModality> = {
-        'Presidência': PartModality.PRESIDENCIA,
-        'Cântico': PartModality.PRESIDENCIA, // Não tem correspondente exato
-        'Oração': PartModality.ORACAO,
-        'Aconselhamento': PartModality.PRESIDENCIA,
-        'Discurso de Ensino': PartModality.DISCURSO_ENSINO,
-        'Leitura de Estudante': PartModality.LEITURA_ESTUDANTE,
-        'Demonstração': PartModality.DEMONSTRACAO,
-        'Discurso de Estudante': PartModality.DISCURSO_ESTUDANTE,
-        'Dirigente de EBC': PartModality.DIRIGENTE_EBC,
-        'Leitor de EBC': PartModality.LEITOR_EBC,
-    };
-    return map[modalidade] || PartModality.DISCURSO_ENSINO;
 }
 
 // Formatar data do Excel para ISO string
@@ -151,42 +114,37 @@ export async function parseExcelFile(file: File): Promise<ExcelParseResult> {
                 const record: HistoryRecord = {
                     id: `excel-${batchId}-${i}`,
 
-                    // Campos legado (obrigatórios)
+                    // Contexto temporal
                     weekId: weekId,
                     weekDisplay: generateWeekDisplay(dateStr),
                     date: dateStr,
-                    section: mapSecaoToLegacy(row['Seção']),
-                    partTitle: row['Tipo da Parte'] || 'Parte',
-                    partSequence: row['Seq'] || i + 1,
-                    modality: mapModalidadeToLegacy(row['Modalidade']),
-                    rawPublisherName: row['Nome Original'] || '',
-                    participationRole: (row['Função'] === 'Ajudante' ? 'Ajudante' : 'Titular') as 'Titular' | 'Ajudante',
 
-                    // Resolução
+                    // 5 CAMPOS CANÔNICOS
+                    section: row['Seção'] || 'Tesouros da Palavra de Deus',
+                    tipoParte: row['Tipo da Parte'] || 'Parte',
+                    modalidade: row['Modalidade'] || 'Demonstração',
+                    tituloParte: row['Tipo da Parte'] || 'Parte',
+                    descricaoParte: row['Descrição-Tema-Conteúdo'] || '',
+                    detalhesParte: '',
+
+                    // Sequência e função
+                    seq: row['Seq'] || i + 1,
+                    funcao: (row['Função'] === 'Ajudante' ? 'Ajudante' : 'Titular') as 'Titular' | 'Ajudante',
+                    duracao: row['Duração'] || 0,
+                    horaInicio: row['Horário Inicial']?.toString() || '',
+                    horaFim: row['Horário Final']?.toString() || '',
+
+                    // Publicador
+                    rawPublisherName: row['Nome Original'] || '',
                     resolvedPublisherId: undefined,
                     resolvedPublisherName: row['Publicador'] || undefined,
                     matchConfidence: row['Publicador'] ? 100 : 0,
 
-                    // Status
+                    // Status e metadados
                     status: HistoryStatus.PENDING,
                     importSource: 'Excel',
                     importBatchId: batchId,
                     createdAt: new Date().toISOString(),
-
-                    // Novos campos RVM Pro 2.0
-                    semana: dateStr,
-                    seq: row['Seq'] || i + 1,
-                    secao: row['Seção'] as EnumSecao,
-                    tipoParte: row['Tipo da Parte'] as EnumTipoParte,
-                    descricao: row['Descrição-Tema-Conteúdo'] || '',
-                    modalidade: row['Modalidade'] as EnumModalidade,
-                    horaInicio: row['Horário Inicial']?.toString() || '',
-                    horaFim: row['Horário Final']?.toString() || '',
-                    duracao: row['Duração'] || 0,
-                    nomeOriginal: row['Nome Original'] || '',
-                    funcao: (row['Função'] === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR),
-                    publicadorId: undefined,
-                    publicadorNome: row['Publicador'] || undefined,
                 };
 
                 records.push(record);

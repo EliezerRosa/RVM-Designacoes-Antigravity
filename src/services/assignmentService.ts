@@ -298,7 +298,7 @@ export const assignmentService = {
         const rows = historyRecords.map(r => ({
             id: r.id,
             week_id: r.weekId,
-            semana: r.semana,
+            semana: r.date,
             status: r.status,
             import_source: r.importSource,
             import_batch_id: r.importBatchId,
