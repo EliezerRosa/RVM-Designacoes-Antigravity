@@ -142,25 +142,31 @@ export function WorkbookManager({ publishers }: Props) {
             };
 
             // Converter para WorkbookExcelRow
-            const excelRows: WorkbookExcelRow[] = rows.map(row => ({
-                id: (getValue(row, 'id') as string) || crypto.randomUUID(),
-                weekId: (getValue(row, 'weekId') as string) || '',
-                weekDisplay: (getValue(row, 'weekDisplay') as string) || '',
-                date: (getValue(row, 'date') as string) || '',
-                section: (getValue(row, 'section') as string) || '',
-                tipoParte: (getValue(row, 'tipoParte') as string) || (getValue(row, 'tipo de parte') as string) || '',
-                modalidade: (getValue(row, 'modalidade') as string) || '',
-                tituloParte: (getValue(row, 'tituloParte') as string) || (getValue(row, 'titulo') as string) || '',
-                descricaoParte: (getValue(row, 'descricaoParte') as string) || (getValue(row, 'descricao') as string) || '',
-                detalhesParte: (getValue(row, 'detalhesParte') as string) || (getValue(row, 'detalhes') as string) || '',
-                seq: (getValue(row, 'seq') as number) || 0,
-                funcao: (getValue(row, 'funcao') as 'Titular' | 'Ajudante') || 'Titular',
-                duracao: (getValue(row, 'duracao') as string) || '',
-                horaInicio: (getValue(row, 'horaInicio') as string) || '',
-                horaFim: (getValue(row, 'horaFim') as string) || '',
-                rawPublisherName: (getValue(row, 'rawPublisherName') as string) || (getValue(row, 'publicador') as string) || '',
-                status: (getValue(row, 'status') as string) || 'DRAFT',
-            }));
+            const excelRows: WorkbookExcelRow[] = rows.map(row => {
+                const weekId = (getValue(row, 'weekId') as string) || '';
+                const year = weekId ? parseInt(weekId.split('-')[0]) : undefined;
+
+                return {
+                    id: (getValue(row, 'id') as string) || crypto.randomUUID(),
+                    year,
+                    weekId,
+                    weekDisplay: (getValue(row, 'weekDisplay') as string) || '',
+                    date: (getValue(row, 'date') as string) || '',
+                    section: (getValue(row, 'section') as string) || '',
+                    tipoParte: (getValue(row, 'tipoParte') as string) || (getValue(row, 'tipo de parte') as string) || '',
+                    modalidade: (getValue(row, 'modalidade') as string) || '',
+                    tituloParte: (getValue(row, 'tituloParte') as string) || (getValue(row, 'titulo') as string) || '',
+                    descricaoParte: (getValue(row, 'descricaoParte') as string) || (getValue(row, 'descricao') as string) || '',
+                    detalhesParte: (getValue(row, 'detalhesParte') as string) || (getValue(row, 'detalhes') as string) || '',
+                    seq: (getValue(row, 'seq') as number) || 0,
+                    funcao: (getValue(row, 'funcao') as 'Titular' | 'Ajudante') || 'Titular',
+                    duracao: (getValue(row, 'duracao') as string) || '',
+                    horaInicio: (getValue(row, 'horaInicio') as string) || '',
+                    horaFim: (getValue(row, 'horaFim') as string) || '',
+                    rawPublisherName: (getValue(row, 'rawPublisherName') as string) || (getValue(row, 'publicador') as string) || '',
+                    status: (getValue(row, 'status') as string) || 'DRAFT',
+                };
+            });
 
             // Criar batch
             const batch = await workbookService.createBatch(file.name, excelRows);
