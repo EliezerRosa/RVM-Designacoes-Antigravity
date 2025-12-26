@@ -12,6 +12,7 @@ import { assignmentService } from '../services/assignmentService';
 import { checkEligibility } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadHistoryRecords } from '../services/historyService';
+import { API_ENDPOINTS } from '../config/api';
 
 interface Props {
     publishers: Publisher[];
@@ -182,7 +183,7 @@ export function WorkbookManager({ publishers }: Props) {
             const formData = new FormData();
             formData.append('file', file);
 
-            const response = await fetch('/api/workbook/extract-pdf', {
+            const response = await fetch(API_ENDPOINTS.EXTRACT_PDF, {
                 method: 'POST',
                 body: formData,
             });
