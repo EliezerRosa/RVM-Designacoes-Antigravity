@@ -60,12 +60,36 @@ export const pdfExtractionService = {
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                const pageText = textContent.items
-                    // @ts-ignore
-                    .map(item => item.str)
-                    .join('\n');
+
+                // Melhor reconstrução de texto baseada em coordenadas Y
+                // Isso evita que palavras na mesma linha sejam quebradas em linhas diferentes
+                const items = textContent.items as any[];
+                let pageText = '';
+                let lastY = -1;
+
+                for (const item of items) {
+                    if ('str' in item) {
+                        const currentY = item.transform[5]; // Coordenada Y
+
+                        // Se mudou significativamente de Y, é nova linha
+                        if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
+                            pageText += '\n';
+                        } else if (lastY !== -1) {
+                            // Mesma linha, adicionar espaço para separar palavras
+                            pageText += ' ';
+                        }
+
+                        pageText += item.str;
+                        lastY = currentY;
+                    }
+                }
+
                 fullText += pageText + '\n';
             }
+
+            console.log('--- DEBUG PDF EXTRACTED TEXT (First 500 chars) ---');
+            console.log(fullText.substring(0, 500));
+            console.log('--- END DEBUG ---');
 
             // Lógica de Extração (Portada do Serverless)
             const lines = fullText.split(/\n/).filter((line: string) => line.trim() !== '');
