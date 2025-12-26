@@ -8,11 +8,12 @@ import * as XLSX from 'xlsx';
 import type { WorkbookPart, WorkbookBatch, Publisher, TeachingCategory, ParticipationType, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
+import { pdfExtractionService } from '../services/pdfExtractionService';
 import { assignmentService } from '../services/assignmentService';
 import { checkEligibility } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadHistoryRecords } from '../services/historyService';
-import { API_ENDPOINTS } from '../config/api';
+
 
 interface Props {
     publishers: Publisher[];
@@ -179,70 +180,18 @@ export function WorkbookManager({ publishers }: Props) {
             setExtracting(true);
             setError(null);
 
-            // Chamar backend para extração
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const response = await fetch(API_ENDPOINTS.EXTRACT_PDF, {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.detail || 'Erro na extração');
-            }
-
-            const result = await response.json();
+            const result = await pdfExtractionService.extractWorkbookParts(file);
 
             if (!result.success) {
                 throw new Error(result.error || 'Extração falhou');
             }
 
-            // Converter para formato WorkbookExcelRow
-            const rows: WorkbookExcelRow[] = result.records.map((r: {
-                id: string;
-                year: number;
-                weekId: string;
-                weekDisplay: string;
-                date: string;
-                section: string;
-                tipoParte: string;
-                modalidade: string;
-                tituloParte: string;
-                descricaoParte: string;
-                detalhesParte: string;
-                seq: number;
-                funcao: 'Titular' | 'Ajudante';
-                duracao: string;
-                horaInicio: string;
-                horaFim: string;
-                rawPublisherName: string;
-                status: string;
-            }) => ({
-                id: r.id,
-                year: r.year,
-                weekId: r.weekId,
-                weekDisplay: r.weekDisplay,
-                date: r.date,
-                section: r.section,
-                tipoParte: r.tipoParte,
-                tituloParte: r.tituloParte,
-                descricaoParte: r.descricaoParte,
-                seq: r.seq,
-                funcao: r.funcao as 'Titular' | 'Ajudante',
-                duracao: r.duracao,
-                horaInicio: r.horaInicio,
-                horaFim: r.horaFim,
-                rawPublisherName: r.rawPublisherName,
-                status: r.status,
-            }));
-
-            setExtractedParts(rows);
+            setExtractedParts(result.records);
             setExtractionInfo({ year: result.year, totalWeeks: result.totalWeeks });
             setShowExtractPreview(true);
 
         } catch (err) {
+            console.error('Erro detalhado:', err);
             setError(err instanceof Error ? err.message : 'Erro ao extrair PDF');
         } finally {
             setExtracting(false);
