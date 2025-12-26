@@ -32,10 +32,11 @@ async def health():
 
 
 # Importar rotas
-from app.api import publishers, meetings, assignments, pdf, pdf_parser
+from app.api import publishers, meetings, assignments, pdf, pdf_parser, pdf_extractor
 
 app.include_router(publishers.router, prefix="/api/publishers", tags=["Publishers"])
 app.include_router(meetings.router, prefix="/api/meetings", tags=["Meetings"])
 app.include_router(assignments.router, prefix="/api/assignments", tags=["Assignments"])
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
 app.include_router(pdf_parser.router, prefix="/api/history", tags=["History Import"])
+app.include_router(pdf_extractor.router, prefix="/api/workbook", tags=["Workbook Extraction"])

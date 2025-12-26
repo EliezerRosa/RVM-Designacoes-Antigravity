@@ -46,6 +46,12 @@ export function WorkbookManager({ publishers }: Props) {
     const [filterFuncao, setFilterFuncao] = useState<string>('');
     const [searchText, setSearchText] = useState<string>('');
 
+    // PDF Extraction State
+    const [extractedParts, setExtractedParts] = useState<WorkbookExcelRow[]>([]);
+    const [showExtractPreview, setShowExtractPreview] = useState(false);
+    const [extractionInfo, setExtractionInfo] = useState<{ year: number; totalWeeks: number } | null>(null);
+    const [extracting, setExtracting] = useState(false);
+
     // ========================================================================
     // Carregar dados iniciais
     // ========================================================================
@@ -158,6 +164,112 @@ export function WorkbookManager({ publishers }: Props) {
         } finally {
             setLoading(false);
             event.target.value = '';
+        }
+    };
+
+    // ========================================================================
+    // PDF Extraction
+    // ========================================================================
+    const handleExtractPDF = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setExtracting(true);
+            setError(null);
+
+            // Chamar backend para extração
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/api/workbook/extract-pdf', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.detail || 'Erro na extração');
+            }
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Extração falhou');
+            }
+
+            // Converter para formato WorkbookExcelRow
+            const rows: WorkbookExcelRow[] = result.records.map((r: {
+                id: string;
+                weekId: string;
+                weekDisplay: string;
+                date: string;
+                section: string;
+                tipoParte: string;
+                modalidade: string;
+                tituloParte: string;
+                descricaoParte: string;
+                detalhesParte: string;
+                seq: number;
+                funcao: 'Titular' | 'Ajudante';
+                duracao: string;
+                horaInicio: string;
+                horaFim: string;
+                rawPublisherName: string;
+                status: string;
+            }) => ({
+                id: r.id,
+                weekId: r.weekId,
+                weekDisplay: r.weekDisplay,
+                date: r.date,
+                section: r.section,
+                tipoParte: r.tipoParte,
+                tituloParte: r.tituloParte,
+                descricaoParte: r.descricaoParte,
+                seq: r.seq,
+                funcao: r.funcao as 'Titular' | 'Ajudante',
+                duracao: r.duracao,
+                horaInicio: r.horaInicio,
+                horaFim: r.horaFim,
+                rawPublisherName: r.rawPublisherName,
+                status: r.status,
+            }));
+
+            setExtractedParts(rows);
+            setExtractionInfo({ year: result.year, totalWeeks: result.totalWeeks });
+            setShowExtractPreview(true);
+
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao extrair PDF');
+        } finally {
+            setExtracting(false);
+            event.target.value = '';
+        }
+    };
+
+    const handleConfirmExtraction = async () => {
+        if (extractedParts.length === 0) return;
+
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Criar batch com as partes extraídas
+            const batch = await workbookService.createBatch('PDF Extraction', extractedParts);
+
+            setSuccessMessage(`✅ Importadas ${extractedParts.length} partes do PDF`);
+            setShowExtractPreview(false);
+            setExtractedParts([]);
+            setExtractionInfo(null);
+
+            // Recarregar
+            await loadBatches();
+            setActiveBatch(batch);
+
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao salvar partes');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -450,19 +562,143 @@ export function WorkbookManager({ publishers }: Props) {
                 </div>
             )}
 
-            {/* Upload */}
-            <div style={{ marginBottom: '20px', padding: '20px', border: '2px dashed #CBD5E1', borderRadius: '12px', textAlign: 'center' }}>
-                <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleFileUpload}
-                    style={{ display: 'none' }}
-                    id="excel-upload"
-                />
-                <label htmlFor="excel-upload" style={{ cursor: 'pointer', color: '#4F46E5', fontWeight: 'bold' }}>
-                    📤 Clique para carregar planilha Excel ou arraste aqui
-                </label>
+            {/* Upload Options */}
+            <div style={{ marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                {/* Excel Upload */}
+                <div style={{ flex: 1, padding: '20px', border: '2px dashed #CBD5E1', borderRadius: '12px', textAlign: 'center', minWidth: '200px' }}>
+                    <input
+                        type="file"
+                        accept=".xlsx,.xls"
+                        onChange={handleFileUpload}
+                        style={{ display: 'none' }}
+                        id="excel-upload"
+                    />
+                    <label htmlFor="excel-upload" style={{ cursor: 'pointer', color: '#4F46E5', fontWeight: 'bold' }}>
+                        📊 Carregar Planilha Excel
+                    </label>
+                </div>
+
+                {/* PDF Extraction */}
+                <div style={{ flex: 1, padding: '20px', border: '2px dashed #10B981', borderRadius: '12px', textAlign: 'center', minWidth: '200px' }}>
+                    <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={handleExtractPDF}
+                        style={{ display: 'none' }}
+                        id="pdf-extract"
+                        disabled={extracting}
+                    />
+                    <label htmlFor="pdf-extract" style={{ cursor: extracting ? 'wait' : 'pointer', color: '#10B981', fontWeight: 'bold' }}>
+                        {extracting ? '⏳ Extraindo...' : '📄 Extrair de PDF Apostila'}
+                    </label>
+                </div>
             </div>
+
+            {/* PDF Extraction Preview Modal */}
+            {showExtractPreview && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}>
+                    <div style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        maxWidth: '90vw',
+                        maxHeight: '90vh',
+                        overflow: 'auto',
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                    }}>
+                        <h2 style={{ margin: '0 0 16px 0' }}>
+                            📄 Preview da Extração
+                        </h2>
+
+                        {extractionInfo && (
+                            <div style={{ marginBottom: '16px', padding: '12px', background: '#F0FDF4', borderRadius: '8px' }}>
+                                <strong>Ano:</strong> {extractionInfo.year} |
+                                <strong> Semanas:</strong> {extractionInfo.totalWeeks} |
+                                <strong> Total Partes:</strong> {extractedParts.length}
+                            </div>
+                        )}
+
+                        {/* Preview Table (first 10 rows) */}
+                        <div style={{ maxHeight: '400px', overflow: 'auto', marginBottom: '16px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <thead>
+                                    <tr style={{ background: '#10B981', color: 'white' }}>
+                                        <th style={{ padding: '8px' }}>Semana</th>
+                                        <th style={{ padding: '8px' }}>Seq</th>
+                                        <th style={{ padding: '8px' }}>Seção</th>
+                                        <th style={{ padding: '8px' }}>TipoParte</th>
+                                        <th style={{ padding: '8px' }}>TituloParte</th>
+                                        <th style={{ padding: '8px' }}>Função</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {extractedParts.slice(0, 15).map((part, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                                            <td style={{ padding: '8px' }}>{part.weekDisplay}</td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>{part.seq}</td>
+                                            <td style={{ padding: '8px', fontSize: '11px' }}>{part.section}</td>
+                                            <td style={{ padding: '8px' }}>{part.tipoParte}</td>
+                                            <td style={{ padding: '8px' }}>{part.tituloParte?.substring(0, 40)}...</td>
+                                            <td style={{ padding: '8px' }}>{part.funcao}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {extractedParts.length > 15 && (
+                                <div style={{ textAlign: 'center', color: '#6B7280', padding: '8px' }}>
+                                    ... e mais {extractedParts.length - 15} registros
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => {
+                                    setShowExtractPreview(false);
+                                    setExtractedParts([]);
+                                    setExtractionInfo(null);
+                                }}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #E5E7EB',
+                                    background: 'white',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                ❌ Cancelar
+                            </button>
+                            <button
+                                onClick={handleConfirmExtraction}
+                                disabled={loading}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: '#10B981',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    cursor: loading ? 'wait' : 'pointer',
+                                }}
+                            >
+                                {loading ? '⏳ Salvando...' : '✅ Confirmar e Importar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Batches */}
             <div style={{ marginBottom: '20px' }}>
