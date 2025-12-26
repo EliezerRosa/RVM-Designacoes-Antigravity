@@ -224,44 +224,53 @@ export function WorkbookManager({ publishers }: Props) {
                 console.warn('Não foi possível carregar histórico para cooldown:', e);
             }
 
-            // Mapear tipoParte para EnumModalidade
-            const mapToModalidade = (tipoParte: string): string => {
-                const lower = tipoParte.toLowerCase();
-                if (lower.includes('presidente')) return EnumModalidade.PRESIDENCIA;
-                if (lower.includes('oração')) return EnumModalidade.ORACAO;
-                if (lower.includes('leitura') && lower.includes('bíblia')) return EnumModalidade.LEITURA_ESTUDANTE;
-                if (lower.includes('dirigente')) return EnumModalidade.DIRIGENTE_EBC;
-                if (lower.includes('leitor')) return EnumModalidade.LEITOR_EBC;
-                if (lower.includes('discurso') && lower.includes('ensino')) return EnumModalidade.DISCURSO_ENSINO;
-                if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo')) {
-                    return EnumModalidade.DEMONSTRACAO;
-                }
-                if (lower.includes('joias') || lower.includes('tesouros')) return EnumModalidade.DISCURSO_ENSINO;
-                if (lower.includes('estudo') || lower.includes('necessidades')) return EnumModalidade.DISCURSO_ENSINO;
-                return EnumModalidade.DEMONSTRACAO;
+            // =====================================================================
+            // UNIFIED NOMENCLATURE: Use part.modalidade directly (Phase 5)
+            // Fallback to tipoParte-based derivation for legacy data
+            // =====================================================================
+
+            // Mapeamento tipoParte → modalidade (fallback para dados legados)
+            const TIPO_TO_MODALIDADE: Record<string, string> = {
+                'Presidente': EnumModalidade.PRESIDENCIA,
+                'Oração Inicial': EnumModalidade.ORACAO,
+                'Oração Final': EnumModalidade.ORACAO,
+                'Comentários Iniciais': EnumModalidade.PRESIDENCIA,
+                'Comentários Finais': EnumModalidade.PRESIDENCIA,
+                'Leitura da Bíblia': EnumModalidade.LEITURA_ESTUDANTE,
+                'Dirigente EBC': EnumModalidade.DIRIGENTE_EBC,
+                'Leitor EBC': EnumModalidade.LEITOR_EBC,
+                'Discurso Tesouros': EnumModalidade.DISCURSO_ENSINO,
+                'Joias Espirituais': EnumModalidade.DISCURSO_ENSINO,
+                'Iniciando Conversas': EnumModalidade.DEMONSTRACAO,
+                'Cultivando o Interesse': EnumModalidade.DEMONSTRACAO,
+                'Fazendo Discípulos': EnumModalidade.DEMONSTRACAO,
+                'Explicando Suas Crenças': EnumModalidade.DEMONSTRACAO,
+                'Discurso de Estudante': EnumModalidade.DISCURSO_ESTUDANTE,
+                'Necessidades Locais': EnumModalidade.DISCURSO_ENSINO,
             };
 
-            // Mapear tipoParte para category
-            const getCategoryFromTipoParte = (tipoParte: string): string => {
-                const lower = tipoParte.toLowerCase();
-                if (lower.includes('leitura')) return 'STUDENT';
-                if (lower.includes('ajudante')) return 'HELPER';
-                if (lower.includes('discurso') || lower.includes('joias') || lower.includes('necessidades') || lower.includes('estudo')) return 'TEACHING';
-                if (lower.includes('presidente') || lower.includes('dirigente') || lower.includes('oração')) return 'TEACHING';
-                if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo')) return 'STUDENT';
-                return 'STUDENT';
+            // Usar modalidade do registro ou derivar do tipoParte
+            const getModalidade = (part: WorkbookPart): string => {
+                // PRIORITY 1: Use modalidade field directly (unified nomenclature)
+                if (part.modalidade) return part.modalidade;
+                // PRIORITY 2: Fallback to tipoParte mapping
+                return TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
             };
 
-            // Mapear tipoParte para partType
-            const getPartTypeFromTipoParte = (tipoParte: string): string => {
-                const lower = tipoParte.toLowerCase();
-                if (lower.includes('tesouros') || lower.includes('joias') || lower.includes('leitura da bíblia')) return 'tesouros';
-                if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo') || lower.includes('demonstração')) return 'ministerio';
-                if (lower.includes('vida') || lower.includes('estudo') || lower.includes('necessidades')) return 'vida_crista';
-                if (lower.includes('presidente')) return 'presidente';
-                if (lower.includes('oração')) return tipoParte.toLowerCase().includes('inicial') ? 'oracao_inicial' : 'oracao_final';
-                if (lower.includes('dirigente')) return 'dirigente';
-                if (lower.includes('leitor')) return 'leitor';
+            // Mapear tipoParte/modalidade para category
+            const getCategoryFromModalidade = (modalidade: string): string => {
+                if (modalidade === EnumModalidade.LEITURA_ESTUDANTE ||
+                    modalidade === EnumModalidade.DISCURSO_ESTUDANTE ||
+                    modalidade === EnumModalidade.DEMONSTRACAO) return 'STUDENT';
+                return 'TEACHING';
+            };
+
+            // Mapear section para partType
+            const getPartTypeFromSection = (section: string): string => {
+                const lower = section.toLowerCase();
+                if (lower.includes('tesouros')) return 'tesouros';
+                if (lower.includes('ministério') || lower.includes('ministerio')) return 'ministerio';
+                if (lower.includes('vida')) return 'vida_crista';
                 return 'ministerio';
             };
 
@@ -280,8 +289,8 @@ export function WorkbookManager({ publishers }: Props) {
                 const assignments = [];
 
                 for (const part of weekParts) {
-                    const modalidade = mapToModalidade(part.tipoParte);
-                    const partType = getPartTypeFromTipoParte(part.tipoParte);
+                    const modalidade = getModalidade(part);
+                    const partType = getPartTypeFromSection(part.section);
                     const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
 
                     // 1. Filtrar publicadores elegíveis
@@ -323,7 +332,7 @@ export function WorkbookManager({ publishers }: Props) {
                         partId: part.id,
                         partTitle: part.tituloParte || part.partTitle || part.tipoParte,
                         partType: partType as ParticipationType,
-                        teachingCategory: getCategoryFromTipoParte(part.tipoParte) as TeachingCategory,
+                        teachingCategory: getCategoryFromModalidade(modalidade) as TeachingCategory,
                         principalPublisherId: selectedPublisher?.id || '',
                         principalPublisherName: selectedPublisher?.name || 'A designar',
                         secondaryPublisherId: undefined,
