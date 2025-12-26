@@ -321,7 +321,7 @@ export function WorkbookManager({ publishers }: Props) {
                     assignments.push({
                         weekId: weekId,
                         partId: part.id,
-                        partTitle: part.partTitle,
+                        partTitle: part.tituloParte || part.partTitle || part.tipoParte,
                         partType: partType as ParticipationType,
                         teachingCategory: getCategoryFromTipoParte(part.tipoParte) as TeachingCategory,
                         principalPublisherId: selectedPublisher?.id || '',

@@ -330,14 +330,23 @@ export interface WorkbookPart {
     id: string;
     batchId: string;
 
-    // Campos do Excel (mesma estrutura do script extract_detailed_parts.py)
+    // Campos do Excel (nomenclatura unificada com script extract_detailed_parts.py)
     weekId: string;
     weekDisplay: string;
     date: string;
     section: string;
-    tipoParte: string;
-    partTitle: string;
-    descricao: string;
+
+    // 5 Atributos Semânticos Unificados
+    tipoParte: string;           // O QUE é a parte? (ex: "Leitura da Bíblia")
+    modalidade?: string;         // COMO é executada? (ex: "Leitura de Estudante")
+    tituloParte?: string;        // Título contextual (novo) - alias de partTitle
+    descricaoParte?: string;     // Resumo do conteúdo
+    detalhesParte?: string;      // Orientação completa (do mwb)
+
+    // Aliases para compatibilidade (legacy)
+    partTitle?: string;          // Alias: tituloParte
+    descricao?: string;          // Alias: descricaoParte
+
     seq: number;
     funcao: 'Titular' | 'Ajudante';
     duracao: string;
@@ -598,16 +607,16 @@ export interface HistoryRecord {
     weekDisplay: string;
     date: string;
     section: MeetingSection;
-    partTitle: string;
+    partTitle: string;                // Alias: tituloParte
     partSequence: number;
-    modality: PartModality;
+    modality: PartModality;           // Alias: modalidade (legado)
     rawPublisherName: string;
     participationRole: 'Titular' | 'Ajudante';
     resolvedPublisherId?: string;
     resolvedPublisherName?: string;
     matchConfidence?: number;
     standardPartKey?: StandardPartKey;
-    partTheme?: string | null;
+    partTheme?: string | null;        // Alias: descricaoParte
     workbookNumber?: string;
 
     // === Status e Metadados ===
@@ -622,14 +631,17 @@ export interface HistoryRecord {
     approvedBy?: string;
     approvedAt?: string;
 
-    // ===== NOVOS CAMPOS RVM PRO 2.0 (opcionais durante migração) =====
-    // TODO: tornar obrigatórios após migração completa
+    // ===== CAMPOS UNIFICADOS RVM PRO 2.0 =====
+    // Nomenclatura padrão: tipoParte, modalidade, tituloParte, descricaoParte, detalhesParte
     semana?: string;              // Data ISO (ex: "2024-11-04")
     seq?: number;                 // Sequência na semana
     secao?: EnumSecao;            // Seção (nova enum)
-    tipoParte?: EnumTipoParte;    // Função litúrgica
-    descricao?: string;           // Tema/Descrição
-    modalidade?: EnumModalidade;  // Formato de execução
+    tipoParte?: EnumTipoParte;    // O QUE é a parte? (função litúrgica)
+    modalidade?: EnumModalidade;  // COMO é executada?
+    tituloParte?: string;         // Título contextual (alias de partTitle)
+    descricaoParte?: string;      // Resumo do conteúdo (alias de partTheme)
+    descricao?: string;           // LEGACY: alias de descricaoParte
+    detalhesParte?: string;       // Orientação completa (novo)
     horaInicio?: string;          // HH:MM
     horaFim?: string;             // HH:MM
     duracao?: number;             // Minutos
