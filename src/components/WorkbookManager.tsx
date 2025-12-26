@@ -202,6 +202,7 @@ export function WorkbookManager({ publishers }: Props) {
             // Converter para formato WorkbookExcelRow
             const rows: WorkbookExcelRow[] = result.records.map((r: {
                 id: string;
+                year: number;
                 weekId: string;
                 weekDisplay: string;
                 date: string;
@@ -220,6 +221,7 @@ export function WorkbookManager({ publishers }: Props) {
                 status: string;
             }) => ({
                 id: r.id,
+                year: r.year,
                 weekId: r.weekId,
                 weekDisplay: r.weekDisplay,
                 date: r.date,
@@ -635,6 +637,7 @@ export function WorkbookManager({ publishers }: Props) {
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                                 <thead>
                                     <tr style={{ background: '#10B981', color: 'white' }}>
+                                        <th style={{ padding: '8px' }}>Ano</th>
                                         <th style={{ padding: '8px' }}>Semana</th>
                                         <th style={{ padding: '8px' }}>Seq</th>
                                         <th style={{ padding: '8px' }}>Seção</th>
@@ -646,6 +649,7 @@ export function WorkbookManager({ publishers }: Props) {
                                 <tbody>
                                     {extractedParts.slice(0, 15).map((part, idx) => (
                                         <tr key={idx} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
                                             <td style={{ padding: '8px' }}>{part.weekDisplay}</td>
                                             <td style={{ padding: '8px', textAlign: 'center' }}>{part.seq}</td>
                                             <td style={{ padding: '8px', fontSize: '11px' }}>{part.section}</td>
@@ -786,6 +790,7 @@ export function WorkbookManager({ publishers }: Props) {
                                     <th style={{ padding: '8px' }}>
                                         <input type="checkbox" checked={selectedIds.size === filteredParts.length && filteredParts.length > 0} onChange={selectAll} />
                                     </th>
+                                    <th style={{ padding: '8px' }}>Ano</th>
                                     <th style={{ padding: '8px' }}>Semana</th>
                                     <th style={{ padding: '8px' }}>Seq</th>
                                     <th style={{ padding: '8px' }}>Seção</th>
@@ -808,6 +813,7 @@ export function WorkbookManager({ publishers }: Props) {
                                         <td style={{ padding: '8px', textAlign: 'center' }}>
                                             <input type="checkbox" checked={selectedIds.has(part.id)} onChange={() => toggleSelect(part.id)} />
                                         </td>
+                                        <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
                                         <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
                                         <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
                                         <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>

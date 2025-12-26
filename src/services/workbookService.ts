@@ -15,6 +15,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface WorkbookExcelRow {
     id?: string;
+    year?: number;
     weekId: string;
     weekDisplay: string;
     date: string;
@@ -41,7 +42,8 @@ export interface WorkbookExcelRow {
 function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
     return {
         id: row.id as string,
-        batchId: row.batch_id as string,
+        batch_id: row.batch_id as string,
+        year: row.year as number,
         weekId: row.week_id as string,
         weekDisplay: row.week_display as string,
         date: row.date as string,
@@ -125,28 +127,31 @@ export const workbookService = {
         // Inserir partes
         const partsToInsert = parts.map(p => ({
             batch_id: batch.id,
+            year: p.year,
             week_id: p.weekId,
             week_display: p.weekDisplay,
             date: p.date,
             section: p.section,
             tipo_parte: p.tipoParte,
+            modalidade: p.modalidade,
             titulo_parte: p.tituloParte,
-            descricao: p.descricaoParte || '',
+            descricao_parte: p.descricaoParte,
+            detalhes_parte: p.detalhesParte,
             seq: p.seq,
-            funcao: p.funcao || 'Titular',
-            duracao: p.duracao || '',
-            hora_inicio: p.horaInicio || '',
-            hora_fim: p.horaFim || '',
-            raw_publisher_name: p.rawPublisherName || '',
-            status: WorkbookStatus.DRAFT,
+            funcao: p.funcao,
+            duracao: p.duracao,
+            hora_inicio: p.horaInicio,
+            hora_fim: p.horaFim,
+            raw_publisher_name: p.rawPublisherName,
+            status: p.status || WorkbookStatus.DRAFT,
         }));
 
-        // UPSERT: Se parte já existe (mesmo week_id + seq + funcao), atualiza em vez de inserir
+        // UPSERT: Se parte já existe (mesmo year + week_id + seq + funcao), atualiza em vez de inserir
         // Isso permite re-importar a mesma apostila sem duplicar dados
         const { error: partsError } = await supabase
             .from('workbook_parts')
             .upsert(partsToInsert, {
-                onConflict: 'week_id,seq,funcao',
+                onConflict: 'year,week_id,seq,funcao',
                 ignoreDuplicates: false  // Atualiza se existir
             });
 

@@ -328,11 +328,10 @@ export type WorkbookStatus = typeof WorkbookStatus[keyof typeof WorkbookStatus];
 // Parte individual extraída da apostila
 export interface WorkbookPart {
     id: string;
-    batchId: string;
-
-    // Contexto temporal
-    weekId: string;
-    weekDisplay: string;
+    batch_id?: string; // ID do lote de upload
+    year?: number;    // Ano da parte (novo)
+    weekId: string; // YYYY-MM-DD da segunda-feira
+    weekDisplay: string; // Ex: "6-12 de Janeiro"
     date: string;
     section: string;
 
