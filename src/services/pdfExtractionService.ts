@@ -1,9 +1,11 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
+// @ts-ignore
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { WorkbookExcelRow } from './workbookService';
 
-// Configurar Worker (usando CDN para compatibilidade garantida com Vite/Dev)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Configurar Worker (usando importação local compatível com Vite)
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface ExtractedData {
     success: boolean;
