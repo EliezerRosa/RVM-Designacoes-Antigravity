@@ -396,10 +396,10 @@ export default function AssignmentGenerator({ publishers, participations }: Assi
                                 onChange={handleFileUpload}
                                 disabled={isLoading}
                                 style={{ display: 'none' }}
-                                id="excel-upload"
+                                id="assignment-excel-upload"
                             />
                             <label
-                                htmlFor="excel-upload"
+                                htmlFor="assignment-excel-upload"
                                 style={{
                                     cursor: isLoading ? 'wait' : 'pointer',
                                     display: 'flex',

@@ -578,9 +578,9 @@ export function WorkbookManager({ publishers }: Props) {
                         accept=".xlsx,.xls"
                         onChange={handleFileUpload}
                         style={{ display: 'none' }}
-                        id="excel-upload"
+                        id="workbook-excel-upload"
                     />
-                    <label htmlFor="excel-upload" style={{ cursor: 'pointer', color: '#4F46E5', fontWeight: 'bold' }}>
+                    <label htmlFor="workbook-excel-upload" style={{ cursor: 'pointer', color: '#4F46E5', fontWeight: 'bold' }}>
                         📊 Carregar Planilha Excel
                     </label>
                 </div>
@@ -592,10 +592,10 @@ export function WorkbookManager({ publishers }: Props) {
                         accept=".pdf"
                         onChange={handleExtractPDF}
                         style={{ display: 'none' }}
-                        id="pdf-extract"
+                        id="workbook-pdf-extract"
                         disabled={extracting}
                     />
-                    <label htmlFor="pdf-extract" style={{ cursor: extracting ? 'wait' : 'pointer', color: '#10B981', fontWeight: 'bold' }}>
+                    <label htmlFor="workbook-pdf-extract" style={{ cursor: extracting ? 'wait' : 'pointer', color: '#10B981', fontWeight: 'bold' }}>
                         {extracting ? '⏳ Extraindo...' : '📄 Extrair de PDF Apostila'}
                     </label>
                 </div>
