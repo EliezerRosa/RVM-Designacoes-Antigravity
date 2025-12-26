@@ -10,8 +10,8 @@ export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost
 
 // Endpoints
 export const API_ENDPOINTS = {
-    // Extração de PDF da Apostila
-    EXTRACT_PDF: `${BACKEND_URL}/api/workbook/extract-pdf`,
+    // Extração de PDF da Apostila (Vercel Serverless)
+    EXTRACT_PDF: '/api/extract-pdf',
 
     // Histórico
     PARSE_HISTORY: `${BACKEND_URL}/api/history/parse`,

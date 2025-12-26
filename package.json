@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.87.1",
+    "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.4.449",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -20,9 +21,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/formidable": "^3.4.6",
     "@types/node": "^24.10.1",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@vercel/node": "^5.5.16",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
