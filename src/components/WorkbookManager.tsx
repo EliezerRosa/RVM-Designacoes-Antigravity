@@ -553,7 +553,13 @@ export function WorkbookManager({ publishers }: Props) {
                                     <th style={{ padding: '8px' }}>Seq</th>
                                     <th style={{ padding: '8px' }}>Seção</th>
                                     <th style={{ padding: '8px' }}>TipoParte</th>
+                                    <th style={{ padding: '8px' }}>Modalidade</th>
                                     <th style={{ padding: '8px' }}>TituloParte</th>
+                                    <th style={{ padding: '8px' }}>DescricaoParte</th>
+                                    <th style={{ padding: '8px' }}>DetalhesParte</th>
+                                    <th style={{ padding: '8px' }}>Dur</th>
+                                    <th style={{ padding: '8px' }}>Ini</th>
+                                    <th style={{ padding: '8px' }}>Fim</th>
                                     <th style={{ padding: '8px' }}>Função</th>
                                     <th style={{ padding: '8px' }}>Publicador</th>
                                     <th style={{ padding: '8px' }}>Status</th>
@@ -569,6 +575,7 @@ export function WorkbookManager({ publishers }: Props) {
                                         <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
                                         <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
                                         <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
+                                        <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>{part.modalidade}</td>
                                         <td style={{ padding: '8px' }}>
                                             <input
                                                 type="text"
@@ -577,6 +584,11 @@ export function WorkbookManager({ publishers }: Props) {
                                                 style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
                                             />
                                         </td>
+                                        <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>{part.descricaoParte}</td>
+                                        <td style={{ padding: '8px', fontSize: '10px', color: '#9CA3AF', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.detalhesParte}>{part.detalhesParte}</td>
+                                        <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.duracao}</td>
+                                        <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaInicio}</td>
+                                        <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaFim}</td>
                                         <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
                                         <td style={{ padding: '8px' }}>
                                             <input
