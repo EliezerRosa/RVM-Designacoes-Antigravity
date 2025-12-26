@@ -134,25 +134,32 @@ export function WorkbookManager({ publishers }: Props) {
                 console.warn('Colunas ausentes:', missingColumns);
             }
 
+            // Helper para obter valor case-insensitive
+            const getValue = (row: any, key: string) => {
+                if (row[key] !== undefined) return row[key];
+                const foundKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
+                return foundKey ? row[foundKey] : undefined;
+            };
+
             // Converter para WorkbookExcelRow
             const excelRows: WorkbookExcelRow[] = rows.map(row => ({
-                id: row.id as string,
-                weekId: row.weekId as string || '',
-                weekDisplay: row.weekDisplay as string || '',
-                date: row.date as string || '',
-                section: row.section as string || '',
-                tipoParte: row.tipoParte as string || '',
-                modalidade: row.modalidade as string || '',
-                tituloParte: row.tituloParte as string || '',
-                descricaoParte: row.descricaoParte as string || '',
-                detalhesParte: row.detalhesParte as string || '',
-                seq: (row.seq as number) || 0,
-                funcao: (row.funcao as 'Titular' | 'Ajudante') || 'Titular',
-                duracao: row.duracao as string || '',
-                horaInicio: row.horaInicio as string || '',
-                horaFim: row.horaFim as string || '',
-                rawPublisherName: row.rawPublisherName as string || '',
-                status: row.status as string || 'DRAFT',
+                id: (getValue(row, 'id') as string) || crypto.randomUUID(),
+                weekId: (getValue(row, 'weekId') as string) || '',
+                weekDisplay: (getValue(row, 'weekDisplay') as string) || '',
+                date: (getValue(row, 'date') as string) || '',
+                section: (getValue(row, 'section') as string) || '',
+                tipoParte: (getValue(row, 'tipoParte') as string) || (getValue(row, 'tipo de parte') as string) || '',
+                modalidade: (getValue(row, 'modalidade') as string) || '',
+                tituloParte: (getValue(row, 'tituloParte') as string) || (getValue(row, 'titulo') as string) || '',
+                descricaoParte: (getValue(row, 'descricaoParte') as string) || (getValue(row, 'descricao') as string) || '',
+                detalhesParte: (getValue(row, 'detalhesParte') as string) || (getValue(row, 'detalhes') as string) || '',
+                seq: (getValue(row, 'seq') as number) || 0,
+                funcao: (getValue(row, 'funcao') as 'Titular' | 'Ajudante') || 'Titular',
+                duracao: (getValue(row, 'duracao') as string) || '',
+                horaInicio: (getValue(row, 'horaInicio') as string) || '',
+                horaFim: (getValue(row, 'horaFim') as string) || '',
+                rawPublisherName: (getValue(row, 'rawPublisherName') as string) || (getValue(row, 'publicador') as string) || '',
+                status: (getValue(row, 'status') as string) || 'DRAFT',
             }));
 
             // Criar batch
