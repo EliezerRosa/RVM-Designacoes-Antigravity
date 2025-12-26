@@ -259,6 +259,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Titular
                 records.push({
                     id: crypto.randomUUID(),
+                    year: year,
                     weekId: wId,
                     weekDisplay: week.display,
                     date: wId,
@@ -282,6 +283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (needsHelper) {
                     records.push({
                         id: crypto.randomUUID(),
+                        year: year,
                         weekId: wId,
                         weekDisplay: week.display,
                         date: wId,
