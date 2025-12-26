@@ -29,9 +29,14 @@ interface AssignmentPart {
     weekDisplay: string
     date: string
     section: string
-    partTitle: string
+    // 5 CAMPOS CANÔNICOS
+    tipoParte: string
+    modalidade: string
+    tituloParte: string
+    descricaoParte: string
+    detalhesParte: string
+    // Outros campos
     funcao: string
-    modality: string
     duracao: number | null
     assignmentStatus: AssignmentStatus
     selectedPublisherId?: string
@@ -158,9 +163,14 @@ function recordToPart(record: HistoryRecord): AssignmentPart {
         weekDisplay: record.weekDisplay,
         date: record.date,
         section: record.section,
-        partTitle: record.partTitle,
-        funcao: record.participationRole,
-        modality: record.modality,
+        // 5 CAMPOS CANÔNICOS
+        tipoParte: record.tipoParte,
+        modalidade: record.modalidade,
+        tituloParte: record.tituloParte,
+        descricaoParte: record.descricaoParte,
+        detalhesParte: record.detalhesParte,
+        // Outros campos
+        funcao: record.funcao,
         duracao: record.duracao || null,
         assignmentStatus: 'DRAFT',
         eligibleCandidates: []
@@ -257,7 +267,7 @@ export default function AssignmentGenerator({ publishers, participations }: Assi
             'Leitor de EBC': 'Leitor de EBC',
             'Presidência': 'Presidência'
         }
-        const modality = modalityMap[part.modality] || 'Discurso de Ensino'
+        const modality = modalityMap[part.modalidade] || 'Discurso de Ensino'
 
         for (const pub of activePublishers) {
             // checkEligibility expects EnumModalidade values (e.g., 'Demonstração')
@@ -518,7 +528,7 @@ export default function AssignmentGenerator({ publishers, participations }: Assi
                                                 }}>
                                                     {part.section?.split(' ')[0]}
                                                 </span>
-                                                <span style={{ fontWeight: '600' }}>{part.partTitle}</span>
+                                                <span style={{ fontWeight: '600' }}>{part.tituloParte}</span>
                                                 {part.duracao && (
                                                     <span style={{ fontSize: '0.85em', color: 'var(--text-muted)' }}>
                                                         ({part.duracao} min)
@@ -526,7 +536,7 @@ export default function AssignmentGenerator({ publishers, participations }: Assi
                                                 )}
                                             </div>
                                             <div style={{ fontSize: '0.85em', color: 'var(--text-muted)' }}>
-                                                {part.funcao} • {part.modality}
+                                                {part.funcao} • {part.modalidade}
                                             </div>
                                         </div>
 

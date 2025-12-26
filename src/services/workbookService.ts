@@ -46,15 +46,13 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         weekDisplay: row.week_display as string,
         date: row.date as string,
         section: row.section as string,
-        // Unified nomenclature (5 atributos)
-        tipoParte: row.tipo_parte as string,
-        modalidade: (row.modalidade as string) || undefined,
-        tituloParte: (row.titulo_parte as string) || (row.part_title as string) || undefined,
-        descricaoParte: (row.descricao_parte as string) || (row.descricao as string) || undefined,
-        detalhesParte: (row.detalhes_parte as string) || undefined,
-        // Legacy aliases (for backward compatibility)
-        partTitle: (row.part_title as string) || (row.titulo_parte as string) || '',
-        descricao: (row.descricao as string) || (row.descricao_parte as string) || '',
+        // 5 CAMPOS CANÔNICOS (obrigatórios)
+        tipoParte: (row.tipo_parte as string) || '',
+        modalidade: (row.modalidade as string) || 'Demonstração',
+        tituloParte: (row.titulo_parte as string) || (row.tipo_parte as string) || '',
+        descricaoParte: (row.descricao_parte as string) || '',
+        detalhesParte: (row.detalhes_parte as string) || '',
+        // Sequência e função
         seq: row.seq as number,
         funcao: row.funcao as 'Titular' | 'Ajudante',
         duracao: (row.duracao as string) || '',
@@ -132,8 +130,8 @@ export const workbookService = {
             date: p.date,
             section: p.section,
             tipo_parte: p.tipoParte,
-            part_title: p.partTitle,
-            descricao: p.descricao || '',
+            titulo_parte: p.tituloParte,
+            descricao: p.descricaoParte || '',
             seq: p.seq,
             funcao: p.funcao || 'Titular',
             duracao: p.duracao || '',
@@ -225,8 +223,8 @@ export const workbookService = {
         if (updates.date !== undefined) dbUpdates.date = updates.date;
         if (updates.section !== undefined) dbUpdates.section = updates.section;
         if (updates.tipoParte !== undefined) dbUpdates.tipo_parte = updates.tipoParte;
-        if (updates.partTitle !== undefined) dbUpdates.part_title = updates.partTitle;
-        if (updates.descricao !== undefined) dbUpdates.descricao = updates.descricao;
+        if (updates.tituloParte !== undefined) dbUpdates.titulo_parte = updates.tituloParte;
+        if (updates.descricaoParte !== undefined) dbUpdates.descricaoParte = updates.descricaoParte;
         if (updates.seq !== undefined) dbUpdates.seq = updates.seq;
         if (updates.funcao !== undefined) dbUpdates.funcao = updates.funcao;
         if (updates.duracao !== undefined) dbUpdates.duracao = updates.duracao;
@@ -304,7 +302,7 @@ export const workbookService = {
             publisher_name: part.resolved_publisher_name || part.raw_publisher_name || '',
             week: part.week_display,
             date: part.date,
-            part_title: part.part_title,
+            titulo_parte: part.titulo_parte,
             type: mapTipoParteToParticipationType(part.tipo_parte),
             duration: parseInt(part.duracao) || null,
             source: 'import',

@@ -20,7 +20,7 @@ interface Props {
 // Colunas esperadas no Excel da apostila
 const EXPECTED_COLUMNS = [
     'id', 'weekId', 'weekDisplay', 'date', 'section', 'tipoParte',
-    'partTitle', 'descricao', 'seq', 'funcao', 'duracao',
+    'tituloParte', 'descricao', 'seq', 'funcao', 'duracao',
     'horaInicio', 'horaFim', 'rawPublisherName', 'status'
 ];
 
@@ -134,8 +134,8 @@ export function WorkbookManager({ publishers }: Props) {
                 date: row.date as string || '',
                 section: row.section as string || '',
                 tipoParte: row.tipoParte as string || '',
-                partTitle: row.partTitle as string || '',
-                descricao: row.descricao as string || '',
+                partTitle: row.tituloParte as string || '',
+                descricao: row.descricaoParte as string || '',
                 seq: (row.seq as number) || 0,
                 funcao: (row.funcao as 'Titular' | 'Ajudante') || 'Titular',
                 duracao: row.duracao as string || '',
@@ -330,7 +330,7 @@ export function WorkbookManager({ publishers }: Props) {
                     assignments.push({
                         weekId: weekId,
                         partId: part.id,
-                        partTitle: part.tituloParte || part.partTitle || part.tipoParte,
+                        partTitle: part.tituloParte || part.tituloParte || part.tipoParte,
                         partType: partType as ParticipationType,
                         teachingCategory: getCategoryFromModalidade(modalidade) as TeachingCategory,
                         principalPublisherId: selectedPublisher?.id || '',
@@ -385,7 +385,7 @@ export function WorkbookManager({ publishers }: Props) {
             if (filterFuncao && p.funcao !== filterFuncao) return false;
             if (searchText) {
                 const search = searchText.toLowerCase();
-                const searchable = `${p.partTitle} ${p.descricao} ${p.rawPublisherName} ${p.resolvedPublisherName || ''}`.toLowerCase();
+                const searchable = `${p.tituloParte} ${p.descricaoParte} ${p.rawPublisherName} ${p.resolvedPublisherName || ''}`.toLowerCase();
                 if (!searchable.includes(search)) return false;
             }
             return true;
@@ -572,8 +572,8 @@ export function WorkbookManager({ publishers }: Props) {
                                         <td style={{ padding: '8px' }}>
                                             <input
                                                 type="text"
-                                                value={part.partTitle}
-                                                onChange={e => handleUpdatePart(part.id, 'partTitle', e.target.value)}
+                                                value={part.tituloParte}
+                                                onChange={e => handleUpdatePart(part.id, 'tituloParte', e.target.value)}
                                                 style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
                                             />
                                         </td>

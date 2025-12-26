@@ -79,11 +79,12 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
     const [showAddPartModal, setShowAddPartModal] = useState(false);
     const [newPartData, setNewPartData] = useState({
         weekDisplay: '',
-        section: 'Tesouros da Palavra de Deus' as MeetingSection,
-        partTitle: '',
-        modality: 'Demonstração' as PartModality,
+        section: 'Tesouros da Palavra de Deus',
+        tipoParte: '',
+        tituloParte: '',
+        modalidade: 'Demonstração',
         rawPublisherName: '',
-        role: 'Titular' as 'Titular' | 'Ajudante'
+        funcao: 'Titular' as 'Titular' | 'Ajudante'
     });
 
     // Estado para feedback de save
@@ -154,7 +155,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                 const term = searchTerm.toLowerCase();
                 return (
                     r.rawPublisherName.toLowerCase().includes(term) ||
-                    r.partTitle.toLowerCase().includes(term) ||
+                    r.tituloParte.toLowerCase().includes(term) ||
                     r.resolvedPublisherName?.toLowerCase().includes(term)
                 );
             }
@@ -243,7 +244,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                 // Criar chave única para detecção de duplicatas
                 // Usar campos que NÃO mudam após injeção (não usar seq!)
                 const buildKey = (r: HistoryRecord) =>
-                    `${r.semana || r.date}_${r.secao || r.section}_${r.tipoParte || r.partTitle}_${(r.nomeOriginal || r.rawPublisherName || '').toLowerCase()}_${r.modalidade || r.modality}_${r.funcao || r.participationRole}`;
+                    `${r.date || r.date}_${r.section || r.section}_${r.tipoParte || r.tituloParte}_${(r.rawPublisherName || r.rawPublisherName || '').toLowerCase()}_${r.modalidade || r.modalidade}_${r.funcao || r.funcao}`;
 
                 const existingKeys = new Set(prev.map(buildKey));
 
@@ -321,8 +322,8 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                 publisherName: r.resolvedPublisherName || r.rawPublisherName,
                 week: r.weekId,
                 date: r.date,
-                partTitle: r.partTitle,
-                type: r.partTitle as ParticipationType,
+                partTitle: r.tituloParte,
+                type: r.tituloParte as ParticipationType,
                 source: 'import',
                 createdAt: new Date().toISOString(),
             });
@@ -381,14 +382,14 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
 
     // Adicionar nova parte manualmente
     const handleAddNewPart = () => {
-        if (!newPartData.weekDisplay || !newPartData.partTitle) {
+        if (!newPartData.weekDisplay || !newPartData.tituloParte) {
             return; // Validação básica
         }
 
         // Encontrar próximo sequence baseado na semana
         const existingSeqs = records
             .filter(r => r.weekDisplay === newPartData.weekDisplay)
-            .map(r => r.partSequence);
+            .map(r => r.seq);
         const nextSeq = existingSeqs.length > 0 ? Math.max(...existingSeqs) + 1 : 1;
 
         // Fazer matching do nome
@@ -399,12 +400,20 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
             weekId: newPartData.weekDisplay.substring(0, 7) || 'manual',
             weekDisplay: newPartData.weekDisplay,
             date: new Date().toISOString().split('T')[0],
-            partSequence: nextSeq,
+            // 5 CAMPOS CANÔNICOS
             section: newPartData.section,
-            partTitle: newPartData.partTitle,
-            modality: newPartData.modality,
+            tipoParte: newPartData.tipoParte || newPartData.tituloParte,
+            modalidade: newPartData.modalidade,
+            tituloParte: newPartData.tituloParte,
+            descricaoParte: '',
+            detalhesParte: '',
+            // Sequência e função
+            seq: nextSeq,
+            funcao: newPartData.funcao,
+            duracao: 0,
+            horaInicio: '',
+            horaFim: '',
             rawPublisherName: newPartData.rawPublisherName,
-            participationRole: newPartData.role,
             status: HistoryStatus.PENDING,
             resolvedPublisherId: match.publisher?.id || undefined,
             resolvedPublisherName: match.publisher?.name || undefined,
@@ -421,10 +430,11 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
         setNewPartData({
             weekDisplay: uniqueWeeks[0] || '',
             section: 'Tesouros da Palavra de Deus',
-            partTitle: '',
-            modality: 'Demonstração',
+            tipoParte: '',
+            tituloParte: '',
+            modalidade: 'Demonstração',
             rawPublisherName: '',
-            role: 'Titular'
+            funcao: 'Titular'
         });
     };
 
@@ -936,7 +946,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                     </td>
                                     {/* Seq - Read-only */}
                                     <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>
-                                        {record.partSequence}
+                                        {record.seq}
                                     </td>
                                     {/* Seção - Editable Dropdown */}
                                     <td style={{ padding: '12px 8px' }}>
@@ -951,21 +961,21 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                     <td style={{ padding: '12px 8px' }}>
                                         <EditableComboCell
                                             record={record}
-                                            field="partTitle"
-                                            value={record.partTitle}
+                                            field="tituloParte"
+                                            value={record.tituloParte}
                                             suggestions={STANDARD_PARTS}
                                         />
                                     </td>
                                     {/* DescricaoParte/Tema - Read-only (unified nomenclature with fallbacks) */}
                                     <td style={{ padding: '12px 8px', fontSize: '0.85em', color: 'var(--text-muted)' }}>
-                                        {record.descricaoParte || record.descricao || record.partTheme || '-'}
+                                        {record.descricaoParte || record.descricaoParte || record.descricaoParte || '-'}
                                     </td>
                                     {/* Modalidade - Editable Dropdown */}
                                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                         <EditableSelectCell
                                             record={record}
-                                            field="modality"
-                                            value={record.modality}
+                                            field="modalidade"
+                                            value={record.modalidade}
                                             options={modalityOptions}
                                         />
                                     </td>
@@ -993,8 +1003,8 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                                         <EditableSelectCell
                                             record={record}
-                                            field="participationRole"
-                                            value={record.participationRole}
+                                            field="funcao"
+                                            value={record.funcao}
                                             options={roleOptions}
                                         />
                                     </td>
@@ -1125,7 +1135,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Parte</span>
                                 <input
                                     type="text"
-                                    value={newPartData.partTitle}
+                                    value={newPartData.tituloParte}
                                     onChange={e => setNewPartData(prev => ({ ...prev, partTitle: e.target.value }))}
                                     placeholder="Ex: Joias Espirituais, Estudo Bíblico de Congregação..."
                                     style={{
@@ -1144,7 +1154,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                             <label>
                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Modalidade</span>
                                 <select
-                                    value={newPartData.modality}
+                                    value={newPartData.modalidade}
                                     onChange={e => setNewPartData(prev => ({ ...prev, modality: e.target.value as PartModality }))}
                                     style={{
                                         width: '100%',
@@ -1189,7 +1199,7 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                             <label>
                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>Função</span>
                                 <select
-                                    value={newPartData.role}
+                                    value={newPartData.funcao}
                                     onChange={e => setNewPartData(prev => ({
                                         ...prev,
                                         role: e.target.value as 'Titular' | 'Ajudante'
@@ -1232,16 +1242,16 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                             </button>
                             <button
                                 onClick={handleAddNewPart}
-                                disabled={!newPartData.weekDisplay || !newPartData.partTitle}
+                                disabled={!newPartData.weekDisplay || !newPartData.tituloParte}
                                 style={{
                                     padding: '8px 16px',
                                     borderRadius: '6px',
                                     border: 'none',
-                                    background: newPartData.weekDisplay && newPartData.partTitle
+                                    background: newPartData.weekDisplay && newPartData.tituloParte
                                         ? 'var(--primary-500)'
                                         : 'var(--text-muted)',
                                     color: 'white',
-                                    cursor: newPartData.weekDisplay && newPartData.partTitle
+                                    cursor: newPartData.weekDisplay && newPartData.tituloParte
                                         ? 'pointer'
                                         : 'not-allowed',
                                     fontWeight: '500'

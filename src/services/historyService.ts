@@ -26,7 +26,7 @@ export async function saveHistoryRecords(records: HistoryRecord[]): Promise<Hist
         const rows = records.map(r => ({
             id: r.id,
             week_id: r.weekId,
-            semana: r.semana || r.date,
+            semana: r.date || r.date,
             status: r.status,
             import_source: r.importSource,
             import_batch_id: r.importBatchId,
@@ -281,7 +281,7 @@ export async function validatePublishersInRecords(
 
         // Validar cada registro - SOMENTE correspondência exata
         const validatedRecords = records.map(record => {
-            const rawName = record.rawPublisherName || record.nomeOriginal || '';
+            const rawName = record.rawPublisherName || record.rawPublisherName || '';
             const normalizedRaw = rawName.toLowerCase().trim();
 
             // Buscar SOMENTE correspondência exata
