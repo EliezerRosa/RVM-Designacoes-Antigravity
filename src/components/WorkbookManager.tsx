@@ -113,6 +113,9 @@ export function WorkbookManager({ publishers }: Props) {
         const file = event.target.files?.[0];
         if (!file) return;
 
+        // ALERT DE CONFIRMAÇÃO para debug
+        alert(`[APOSTILA] Upload iniciado: ${file.name}`);
+
         try {
             setLoading(true);
             setError(null);
