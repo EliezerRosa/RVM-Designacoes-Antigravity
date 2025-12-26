@@ -19,9 +19,15 @@ export interface WorkbookExcelRow {
     weekDisplay: string;
     date: string;
     section: string;
+    // Unified nomenclature (5 atributos)
     tipoParte: string;
-    partTitle: string;
-    descricao: string;
+    modalidade?: string;
+    tituloParte?: string;
+    descricaoParte?: string;
+    detalhesParte?: string;
+    // Legacy aliases
+    partTitle?: string;
+    descricao?: string;
     seq: number;
     funcao: 'Titular' | 'Ajudante';
     duracao: string;
@@ -40,9 +46,15 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         weekDisplay: row.week_display as string,
         date: row.date as string,
         section: row.section as string,
+        // Unified nomenclature (5 atributos)
         tipoParte: row.tipo_parte as string,
-        partTitle: row.part_title as string,
-        descricao: (row.descricao as string) || '',
+        modalidade: (row.modalidade as string) || undefined,
+        tituloParte: (row.titulo_parte as string) || (row.part_title as string) || undefined,
+        descricaoParte: (row.descricao_parte as string) || (row.descricao as string) || undefined,
+        detalhesParte: (row.detalhes_parte as string) || undefined,
+        // Legacy aliases (for backward compatibility)
+        partTitle: (row.part_title as string) || (row.titulo_parte as string) || '',
+        descricao: (row.descricao as string) || (row.descricao_parte as string) || '',
         seq: row.seq as number,
         funcao: row.funcao as 'Titular' | 'Ajudante',
         duracao: (row.duracao as string) || '',
