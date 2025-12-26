@@ -899,8 +899,8 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Semana</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center', width: '50px' }}>Seq</th>
                             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Seção</th>
-                            <th style={{ padding: '12px 8px', textAlign: 'left' }}>Tipo Parte</th>
-                            <th style={{ padding: '12px 8px', textAlign: 'left', minWidth: '150px' }}>Descrição</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'left' }}>TituloParte</th>
+                            <th style={{ padding: '12px 8px', textAlign: 'left', minWidth: '150px' }}>DescricaoParte</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center' }}>Modalidade</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center', width: '60px' }}>Ini</th>
                             <th style={{ padding: '12px 8px', textAlign: 'center', width: '60px' }}>Fim</th>
@@ -956,9 +956,9 @@ export default function HistoryImporter({ publishers, onImport }: Props) {
                                             suggestions={STANDARD_PARTS}
                                         />
                                     </td>
-                                    {/* Descrição/Tema - Read-only (from new schema) */}
+                                    {/* DescricaoParte/Tema - Read-only (unified nomenclature with fallbacks) */}
                                     <td style={{ padding: '12px 8px', fontSize: '0.85em', color: 'var(--text-muted)' }}>
-                                        {record.descricao || record.partTheme || '-'}
+                                        {record.descricaoParte || record.descricao || record.partTheme || '-'}
                                     </td>
                                     {/* Modalidade - Editable Dropdown */}
                                     <td style={{ padding: '12px 8px', textAlign: 'center' }}>
