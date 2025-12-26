@@ -141,11 +141,16 @@ export const workbookService = {
             status: WorkbookStatus.DRAFT,
         }));
 
+        // UPSERT: Se parte já existe (mesmo week_id + seq + funcao), atualiza em vez de inserir
+        // Isso permite re-importar a mesma apostila sem duplicar dados
         const { error: partsError } = await supabase
             .from('workbook_parts')
-            .insert(partsToInsert);
+            .upsert(partsToInsert, {
+                onConflict: 'week_id,seq,funcao',
+                ignoreDuplicates: false  // Atualiza se existir
+            });
 
-        if (partsError) throw new Error(`Erro ao inserir partes: ${partsError.message}`);
+        if (partsError) throw new Error(`Erro ao salvar partes: ${partsError.message}`);
 
         return batch;
     },
