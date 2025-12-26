@@ -19,11 +19,11 @@ interface Props {
     publishers: Publisher[];
 }
 
-// Colunas esperadas no Excel da apostila
+// Colunas esperadas no Excel da apostila (deve corresponder ao extract_detailed_parts.py)
 const EXPECTED_COLUMNS = [
     'id', 'weekId', 'weekDisplay', 'date', 'section', 'tipoParte',
-    'tituloParte', 'descricao', 'seq', 'funcao', 'duracao',
-    'horaInicio', 'horaFim', 'rawPublisherName', 'status'
+    'modalidade', 'tituloParte', 'descricaoParte', 'detalhesParte',
+    'seq', 'funcao', 'duracao', 'horaInicio', 'horaFim', 'rawPublisherName', 'status'
 ];
 
 export function WorkbookManager({ publishers }: Props) {
@@ -112,9 +112,6 @@ export function WorkbookManager({ publishers }: Props) {
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
-
-        // ALERT DE CONFIRMAÇÃO para debug
-        alert(`[APOSTILA] Upload iniciado: ${file.name}`);
 
         try {
             setLoading(true);
