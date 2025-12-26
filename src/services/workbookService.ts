@@ -95,7 +95,8 @@ export const workbookService = {
     // ========================================================================
 
     /**
-     * Cria um novo batch e insere as partes
+     * Cria ou reutiliza um batch e insere/atualiza as partes
+     * Se já existir um batch com o mesmo week_range, reutiliza-o
      */
     async createBatch(fileName: string, parts: WorkbookExcelRow[]): Promise<WorkbookBatch> {
         // Calcular week range
@@ -104,28 +105,57 @@ export const workbookService = {
             ? `${weeks[0]} - ${weeks[weeks.length - 1]}`
             : 'Sem semanas';
 
-        // Inserir batch
-        const { data: batchData, error: batchError } = await supabase
+        console.log('[workbookService] 🔍 Verificando batch existente para:', weekRange);
+
+        // BUSCAR batch existente com mesmo week_range
+        const { data: existingBatches } = await supabase
             .from('workbook_batches')
-            .insert({
-                file_name: fileName,
-                week_range: weekRange,
-                total_parts: parts.length,
-                draft_count: parts.length,
-                refined_count: 0,
-                promoted_count: 0,
-                is_active: true,
-            })
-            .select()
-            .single();
+            .select('*')
+            .eq('week_range', weekRange)
+            .order('upload_date', { ascending: false })
+            .limit(1);
 
-        if (batchError) throw new Error(`Erro ao criar batch: ${batchError.message}`);
+        let batch: WorkbookBatch;
 
-        const batch = mapDbToWorkbookBatch(batchData);
+        if (existingBatches && existingBatches.length > 0) {
+            // REUTILIZAR batch existente
+            console.log('[workbookService] ♻️ Reutilizando batch existente:', existingBatches[0].id);
+            batch = mapDbToWorkbookBatch(existingBatches[0]);
 
-        // Inserir partes
+            // Atualizar metadados do batch
+            await supabase
+                .from('workbook_batches')
+                .update({
+                    file_name: fileName,
+                    total_parts: parts.length,
+                    is_active: true,
+                })
+                .eq('id', batch.id);
+
+        } else {
+            // CRIAR novo batch
+            console.log('[workbookService] 🆕 Criando novo batch');
+            const { data: batchData, error: batchError } = await supabase
+                .from('workbook_batches')
+                .insert({
+                    file_name: fileName,
+                    week_range: weekRange,
+                    total_parts: parts.length,
+                    draft_count: parts.length,
+                    refined_count: 0,
+                    promoted_count: 0,
+                    is_active: true,
+                })
+                .select()
+                .single();
+
+            if (batchError) throw new Error(`Erro ao criar batch: ${batchError.message}`);
+            batch = mapDbToWorkbookBatch(batchData);
+        }
+
+        // Preparar partes com batch_id correto
         const partsToInsert = parts.map(p => ({
-            batch_id: batch.id,
+            batch_id: batch.id,  // SEMPRE usa o batch correto
             year: p.year,
             week_id: p.weekId,
             week_display: p.weekDisplay,
@@ -145,9 +175,8 @@ export const workbookService = {
             status: p.status || WorkbookStatus.DRAFT,
         }));
 
-        // UPSERT: Se parte já existe (mesmo year + week_id + seq + funcao), atualiza em vez de inserir
-        // Isso permite re-importar a mesma apostila sem duplicar dados
         console.log('[workbookService] 📤 Enviando upsert para workbook_parts:', {
+            batchId: batch.id,
             totalParts: partsToInsert.length,
             samplePart: {
                 year: partsToInsert[0]?.year,
@@ -160,6 +189,7 @@ export const workbookService = {
             onConflict: 'year,week_id,seq,funcao'
         });
 
+        // UPSERT: Se parte já existe (mesmo year + week_id + seq + funcao), atualiza TUDO incluindo batch_id
         const { error: partsError } = await supabase
             .from('workbook_parts')
             .upsert(partsToInsert, {
@@ -174,7 +204,36 @@ export const workbookService = {
 
         console.log('[workbookService] ✅ Upsert concluído com sucesso');
 
+        // Atualizar contagens do batch
+        await this.updateBatchCounts(batch.id);
+
         return batch;
+    },
+
+    /**
+     * Atualiza as contagens de status de um batch
+     */
+    async updateBatchCounts(batchId: string): Promise<void> {
+        const { data: parts } = await supabase
+            .from('workbook_parts')
+            .select('status')
+            .eq('batch_id', batchId);
+
+        if (!parts) return;
+
+        const draftCount = parts.filter(p => p.status === WorkbookStatus.DRAFT).length;
+        const refinedCount = parts.filter(p => p.status === WorkbookStatus.REFINED).length;
+        const promotedCount = parts.filter(p => p.status === WorkbookStatus.PROMOTED).length;
+
+        await supabase
+            .from('workbook_batches')
+            .update({
+                total_parts: parts.length,
+                draft_count: draftCount,
+                refined_count: refinedCount,
+                promoted_count: promotedCount,
+            })
+            .eq('id', batchId);
     },
 
     /**
