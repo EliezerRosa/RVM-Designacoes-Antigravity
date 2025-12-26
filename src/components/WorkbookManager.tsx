@@ -552,8 +552,8 @@ export function WorkbookManager({ publishers }: Props) {
                                     <th style={{ padding: '8px' }}>Semana</th>
                                     <th style={{ padding: '8px' }}>Seq</th>
                                     <th style={{ padding: '8px' }}>Seção</th>
-                                    <th style={{ padding: '8px' }}>Tipo</th>
-                                    <th style={{ padding: '8px' }}>Título</th>
+                                    <th style={{ padding: '8px' }}>TipoParte</th>
+                                    <th style={{ padding: '8px' }}>TituloParte</th>
                                     <th style={{ padding: '8px' }}>Função</th>
                                     <th style={{ padding: '8px' }}>Publicador</th>
                                     <th style={{ padding: '8px' }}>Status</th>
