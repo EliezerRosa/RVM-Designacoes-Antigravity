@@ -51,10 +51,9 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         // 5 CAMPOS CANÔNICOS (obrigatórios)
         tipoParte: (row.tipo_parte as string) || '',
         modalidade: (row.modalidade as string) || 'Demonstração',
-        tituloParte: (row.titulo_parte as string) || (row.tipo_parte as string) || '',
-        descricaoParte: (row.descricao_parte as string) || '',
-        detalhesParte: (row.detalhes_parte as string) || '',
-        // Sequência e função
+        tituloParte: (row.part_title as string) || '',
+        descricaoParte: (row.descricao as string) || '',
+        detalhesParte: (row.detalhes_parte as string) || (row.detalhes as string) || '',    // Sequência e função
         seq: row.seq as number,
         funcao: row.funcao as 'Titular' | 'Ajudante',
         duracao: (row.duracao as string) || '',
@@ -133,10 +132,10 @@ export const workbookService = {
             date: p.date,
             section: p.section,
             tipo_parte: p.tipoParte,
-            modalidade: p.modalidade,
-            titulo_parte: p.tituloParte,
-            descricao_parte: p.descricaoParte,
+            part_title: p.tituloParte,
+            descricao: p.descricaoParte,
             detalhes_parte: p.detalhesParte,
+            modalidade: p.modalidade,
             seq: p.seq,
             funcao: p.funcao,
             duracao: p.duracao,
