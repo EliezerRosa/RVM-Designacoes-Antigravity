@@ -66,21 +66,33 @@ export const pdfExtractionService = {
                 const items = textContent.items as any[];
                 let pageText = '';
                 let lastY = -1;
+                let lastX = -1;
+                let lastWidth = 0;
 
                 for (const item of items) {
                     if ('str' in item) {
                         const currentY = item.transform[5]; // Coordenada Y
+                        const currentX = item.transform[4]; // Coordenada X
+                        const currentWidth = item.width;
 
                         // Se mudou significativamente de Y, é nova linha
                         if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
                             pageText += '\n';
                         } else if (lastY !== -1) {
-                            // Mesma linha, adicionar espaço para separar palavras
-                            pageText += ' ';
+                            // Mesma linha: verificar se precisa de espaço
+                            // Se a distância entre o fim do último item e o início deste for maior que um limiar, adiciona espaço
+                            const distance = currentX - (lastX + lastWidth);
+                            // Limiar empírico: se afastou mais que 5 unidades (pixels virtuais), considera espaço
+                            // Ajuste conforme necessário. Geralmente caracteres estão colados (distância ~0 ou negativa se kerning)
+                            if (distance > 5 && item.str.trim() !== '') {
+                                pageText += ' ';
+                            }
                         }
 
                         pageText += item.str;
                         lastY = currentY;
+                        lastX = currentX;
+                        lastWidth = currentWidth;
                     }
                 }
 
