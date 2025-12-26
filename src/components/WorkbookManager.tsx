@@ -199,6 +199,19 @@ export function WorkbookManager({ publishers }: Props) {
         }
     };
 
+    const handleDownloadExcel = () => {
+        if (extractedParts.length === 0) return;
+
+        try {
+            const ws = XLSX.utils.json_to_sheet(extractedParts);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Extração");
+            XLSX.writeFile(wb, `Extracao_Apostila_${extractionInfo?.year || new Date().getFullYear()}.xlsx`);
+        } catch (err) {
+            setError('Erro ao gerar Excel: ' + (err as Error).message);
+        }
+    };
+
     const handleConfirmExtraction = async () => {
         if (extractedParts.length === 0) return;
 
@@ -633,6 +646,20 @@ export function WorkbookManager({ publishers }: Props) {
                                 }}
                             >
                                 ❌ Cancelar
+                            </button>
+                            <button
+                                onClick={handleDownloadExcel}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #3B82F6',
+                                    background: 'white',
+                                    color: '#3B82F6',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                ⬇️ Baixar Excel
                             </button>
                             <button
                                 onClick={handleConfirmExtraction}
