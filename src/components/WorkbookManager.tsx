@@ -117,11 +117,15 @@ export function WorkbookManager({ publishers }: Props) {
             setLoading(true);
             setError(null);
 
+            console.log('[WorkbookManager] 📊 Iniciando upload:', file.name);
+
             const arrayBuffer = await file.arrayBuffer();
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
+
+            console.log(`[WorkbookManager] 📋 Planilha lida: ${rows.length} linhas`);
 
             if (rows.length === 0) {
                 throw new Error('Planilha vazia');
@@ -131,7 +135,7 @@ export function WorkbookManager({ publishers }: Props) {
             const firstRow = rows[0];
             const missingColumns = EXPECTED_COLUMNS.filter(col => !(col in firstRow));
             if (missingColumns.length > 0) {
-                console.warn('Colunas ausentes:', missingColumns);
+                console.warn('[WorkbookManager] ⚠️ Colunas ausentes:', missingColumns);
             }
 
             // Helper para obter valor case-insensitive
@@ -168,15 +172,35 @@ export function WorkbookManager({ publishers }: Props) {
                 };
             });
 
-            // Criar batch
+            // Log de amostra para debug
+            console.log('[WorkbookManager] 📝 Exemplo de registro convertido:', {
+                weekId: excelRows[0]?.weekId,
+                year: excelRows[0]?.year,
+                tipoParte: excelRows[0]?.tipoParte,
+                modalidade: excelRows[0]?.modalidade,
+                tituloParte: excelRows[0]?.tituloParte,
+                descricaoParte: excelRows[0]?.descricaoParte?.substring(0, 50),
+            });
+
+            // Criar batch (upsert interno atualiza partes existentes)
+            console.log('[WorkbookManager] 💾 Enviando para createBatch...');
             const batch = await workbookService.createBatch(file.name, excelRows);
+            console.log('[WorkbookManager] ✅ Batch criado:', batch.id);
+
             setSuccessMessage(`✅ Importadas ${excelRows.length} partes de "${file.name}"`);
 
-            // Recarregar
+            // Recarregar batches e partes
+            console.log('[WorkbookManager] 🔄 Recarregando batches e partes...');
             await loadBatches();
+
+            // IMPORTANTE: Definir o batch ativo E forçar reload das partes
             setActiveBatch(batch);
+            await loadParts(batch.id);
+
+            console.log('[WorkbookManager] ✅ Upload completo!');
 
         } catch (err) {
+            console.error('[WorkbookManager] ❌ Erro no upload:', err);
             setError(err instanceof Error ? err.message : 'Erro ao processar arquivo');
         } finally {
             setLoading(false);

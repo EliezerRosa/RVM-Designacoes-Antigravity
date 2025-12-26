@@ -147,6 +147,19 @@ export const workbookService = {
 
         // UPSERT: Se parte já existe (mesmo year + week_id + seq + funcao), atualiza em vez de inserir
         // Isso permite re-importar a mesma apostila sem duplicar dados
+        console.log('[workbookService] 📤 Enviando upsert para workbook_parts:', {
+            totalParts: partsToInsert.length,
+            samplePart: {
+                year: partsToInsert[0]?.year,
+                week_id: partsToInsert[0]?.week_id,
+                seq: partsToInsert[0]?.seq,
+                modalidade: partsToInsert[0]?.modalidade,
+                part_title: partsToInsert[0]?.part_title?.substring(0, 30),
+                descricao: partsToInsert[0]?.descricao?.substring(0, 30),
+            },
+            onConflict: 'year,week_id,seq,funcao'
+        });
+
         const { error: partsError } = await supabase
             .from('workbook_parts')
             .upsert(partsToInsert, {
@@ -154,7 +167,12 @@ export const workbookService = {
                 ignoreDuplicates: false  // Atualiza se existir
             });
 
-        if (partsError) throw new Error(`Erro ao salvar partes: ${partsError.message}`);
+        if (partsError) {
+            console.error('[workbookService] ❌ Erro no upsert:', partsError);
+            throw new Error(`Erro ao salvar partes: ${partsError.message}`);
+        }
+
+        console.log('[workbookService] ✅ Upsert concluído com sucesso');
 
         return batch;
     },
