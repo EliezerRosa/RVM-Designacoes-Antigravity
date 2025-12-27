@@ -244,14 +244,45 @@ export const assignmentService = {
 
     /**
      * Marca designações como COMPLETED (reunião aconteceu)
+     * Também atualiza workbook_parts correspondentes para COMPLETED (histórico)
      */
     async markCompleted(ids: string[]): Promise<void> {
+        // 1. Atualizar scheduled_assignments
         const { error } = await supabase
             .from('scheduled_assignments')
             .update({ status: 'COMPLETED' })
             .in('id', ids);
 
         if (error) throw new Error(`Erro ao marcar como completadas: ${error.message}`);
+
+        // 2. Buscar part_ids associados para atualizar workbook_parts
+        const { data: assignments, error: fetchError } = await supabase
+            .from('scheduled_assignments')
+            .select('part_id')
+            .in('id', ids);
+
+        if (fetchError) {
+            console.error('[Assignment Service] Erro ao buscar part_ids:', fetchError);
+            return;
+        }
+
+        // 3. Atualizar workbook_parts para COMPLETED (histórico)
+        const partIds = assignments?.map(a => a.part_id).filter(Boolean) || [];
+        if (partIds.length > 0) {
+            const { error: wpError } = await supabase
+                .from('workbook_parts')
+                .update({
+                    status: 'COMPLETED',
+                    updated_at: new Date().toISOString()
+                })
+                .in('id', partIds);
+
+            if (wpError) {
+                console.error('[Assignment Service] Erro ao atualizar workbook_parts:', wpError);
+            } else {
+                console.log(`[Assignment Service] ${partIds.length} workbook_parts marcadas como COMPLETED (histórico)`);
+            }
+        }
     },
 
     /**
