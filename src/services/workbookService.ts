@@ -284,6 +284,7 @@ export const workbookService = {
 
     /**
      * Lista todas as partes de um batch
+     * Nota: .range(0, 9999) para superar o limite padrão de 1000 rows do Supabase
      */
     async getPartsByBatch(batchId: string): Promise<WorkbookPart[]> {
         const { data, error } = await supabase
@@ -291,7 +292,8 @@ export const workbookService = {
             .select('*')
             .eq('batch_id', batchId)
             .order('week_id', { ascending: true })
-            .order('seq', { ascending: true });
+            .order('seq', { ascending: true })
+            .range(0, 9999);
 
         if (error) throw new Error(`Erro ao carregar partes: ${error.message}`);
         return (data || []).map(mapDbToWorkbookPart);
