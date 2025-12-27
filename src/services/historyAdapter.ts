@@ -1,0 +1,150 @@
+/**
+ * History Adapter - Camada de Adaptação para Histórico
+ * 
+ * Converte WorkbookPart (tabela Apostila) para HistoryRecord
+ * Permite derivar histórico de participações diretamente da tabela workbook_parts
+ * sem quebrar dependências existentes no cooldownService.
+ */
+
+import { supabase } from '../lib/supabase';
+import type { WorkbookPart, HistoryRecord } from '../types';
+import { WorkbookStatus, HistoryStatus } from '../types';
+
+/**
+ * Converte WorkbookPart para HistoryRecord
+ * Formato esperado pelo cooldownService e motor de elegibilidade
+ */
+export function workbookPartToHistoryRecord(part: WorkbookPart): HistoryRecord {
+    return {
+        id: part.id,
+        weekId: part.weekId,
+        weekDisplay: part.weekDisplay,
+        date: part.date,
+        section: part.section,
+        tipoParte: part.tipoParte,
+        modalidade: part.modalidade,
+        tituloParte: part.tituloParte,
+        descricaoParte: part.descricaoParte,
+        detalhesParte: part.detalhesParte,
+        seq: part.seq,
+        funcao: part.funcao as 'Titular' | 'Ajudante',
+        duracao: parseInt(part.duracao) || 0,
+        horaInicio: part.horaInicio,
+        horaFim: part.horaFim,
+        rawPublisherName: part.rawPublisherName,
+        resolvedPublisherId: part.resolvedPublisherId,
+        resolvedPublisherName: part.resolvedPublisherName,
+        matchConfidence: part.matchConfidence || 0,
+        status: HistoryStatus.APPROVED, // COMPLETED/PROMOTED = participação válida
+        importSource: 'Excel',
+        importBatchId: part.batch_id || '',
+        createdAt: part.createdAt || new Date().toISOString(),
+        updatedAt: part.updatedAt || new Date().toISOString(),
+    };
+}
+
+/**
+ * Carrega histórico de participações COMPLETADAS da tabela workbook_parts
+ * Inclui partes com status COMPLETED ou PROMOTED (ambos representam participações válidas)
+ */
+export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
+    console.log('[historyAdapter] Carregando participações completadas...');
+
+    const { data, error } = await supabase
+        .from('workbook_parts')
+        .select('*')
+        .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
+        .order('date', { ascending: false });
+
+    if (error) {
+        console.error('[historyAdapter] Erro ao carregar participações:', error);
+        return [];
+    }
+
+    const records = (data || []).map(row => workbookPartToHistoryRecord(mapDbToWorkbookPart(row)));
+    console.log(`[historyAdapter] ${records.length} participações carregadas`);
+
+    return records;
+}
+
+/**
+ * Carrega histórico de participações para um publicador específico
+ */
+export async function loadPublisherParticipations(publisherId: string): Promise<HistoryRecord[]> {
+    const { data, error } = await supabase
+        .from('workbook_parts')
+        .select('*')
+        .eq('resolved_publisher_id', publisherId)
+        .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
+        .order('date', { ascending: false });
+
+    if (error) {
+        console.error('[historyAdapter] Erro ao carregar participações do publicador:', error);
+        return [];
+    }
+
+    return (data || []).map(row => workbookPartToHistoryRecord(mapDbToWorkbookPart(row)));
+}
+
+/**
+ * Mapa interno para converter row do banco para WorkbookPart
+ * Similar ao mapDbToWorkbookPart do workbookService
+ */
+function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
+    return {
+        id: (row.id as string) || '',
+        year: (row.year as number) || new Date().getFullYear(),
+        weekId: (row.week_id as string) || '',
+        weekDisplay: (row.week_display as string) || '',
+        date: (row.date as string) || '',
+        section: (row.section as string) || '',
+        tipoParte: (row.tipo_parte as string) || '',
+        modalidade: (row.modalidade as string) || 'Demonstração',
+        tituloParte: (row.part_title as string) || '',
+        descricaoParte: (row.descricao as string) || '',
+        detalhesParte: (row.detalhes_parte as string) || (row.detalhes as string) || '',
+        seq: (row.seq as number) || 0,
+        funcao: ((row.funcao as string) || 'Titular') as 'Titular' | 'Ajudante',
+        duracao: (row.duracao as string) || '',
+        horaInicio: (row.hora_inicio as string) || '',
+        horaFim: (row.hora_fim as string) || '',
+        rawPublisherName: (row.raw_publisher_name as string) || '',
+        resolvedPublisherId: row.resolved_publisher_id as string | undefined,
+        resolvedPublisherName: row.resolved_publisher_name as string | undefined,
+        matchConfidence: row.match_confidence as number | undefined,
+        status: (row.status as WorkbookStatus) || WorkbookStatus.DRAFT,
+        batch_id: (row.batch_id as string) || undefined,
+        createdAt: (row.created_at as string) || '',
+        updatedAt: (row.updated_at as string) || '',
+    };
+}
+
+/**
+ * Estatísticas de participações por status
+ */
+export async function getParticipationStats(): Promise<{
+    total: number;
+    completed: number;
+    promoted: number;
+    draft: number;
+    refined: number;
+}> {
+    const { data, error } = await supabase
+        .from('workbook_parts')
+        .select('status');
+
+    if (error) {
+        console.error('[historyAdapter] Erro ao carregar estatísticas:', error);
+        return { total: 0, completed: 0, promoted: 0, draft: 0, refined: 0 };
+    }
+
+    const stats = {
+        total: data?.length || 0,
+        completed: data?.filter(r => r.status === WorkbookStatus.COMPLETED).length || 0,
+        promoted: data?.filter(r => r.status === WorkbookStatus.PROMOTED).length || 0,
+        draft: data?.filter(r => r.status === WorkbookStatus.DRAFT).length || 0,
+        refined: data?.filter(r => r.status === WorkbookStatus.REFINED).length || 0,
+    };
+
+    return stats;
+}

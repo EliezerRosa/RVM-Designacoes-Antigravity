@@ -320,7 +320,8 @@ export interface SpecialEvent {
 export const WorkbookStatus = {
     DRAFT: 'DRAFT',           // Recém importado do Excel
     REFINED: 'REFINED',       // Editado/corrigido pelo usuário
-    PROMOTED: 'PROMOTED',     // Convertido para Participations
+    PROMOTED: 'PROMOTED',     // Convertido para Participations (agendado)
+    COMPLETED: 'COMPLETED',   // Parte foi executada na reunião (histórico)
 } as const;
 
 export type WorkbookStatus = typeof WorkbookStatus[keyof typeof WorkbookStatus];
