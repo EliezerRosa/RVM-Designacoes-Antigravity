@@ -472,6 +472,82 @@ export const workbookService = {
     },
 
     // ========================================================================
+    // HISTÓRIA DE PARTICIPAÇÕES (COMPLETED)
+    // ========================================================================
+
+    /**
+     * Marca partes como COMPLETED (executadas na reunião)
+     * Essas partes serão usadas como histórico para o motor de elegibilidade
+     */
+    async markAsCompleted(partIds: string[]): Promise<void> {
+        if (partIds.length === 0) return;
+
+        const { error } = await supabase
+            .from('workbook_parts')
+            .update({
+                status: WorkbookStatus.COMPLETED,
+                updated_at: new Date().toISOString()
+            })
+            .in('id', partIds);
+
+        if (error) {
+            throw new Error(`Erro ao marcar como completado: ${error.message}`);
+        }
+
+        console.log(`[workbookService] ${partIds.length} partes marcadas como COMPLETED`);
+    },
+
+    /**
+     * Marca todas as partes de semanas passadas como COMPLETED automaticamente
+     * Útil para processamento em lote
+     */
+    async markPastWeeksAsCompleted(): Promise<number> {
+        const today = new Date().toISOString().split('T')[0];
+
+        // Buscar partes de semanas passadas que ainda não estão COMPLETED
+        const { data: pastParts, error: fetchError } = await supabase
+            .from('workbook_parts')
+            .select('id')
+            .lt('date', today)
+            .in('status', [WorkbookStatus.PROMOTED, WorkbookStatus.REFINED])
+            .not('resolved_publisher_id', 'is', null); // Só marcar partes com publicador atribuído
+
+        if (fetchError) {
+            throw new Error(`Erro ao buscar partes passadas: ${fetchError.message}`);
+        }
+
+        if (!pastParts || pastParts.length === 0) {
+            console.log('[workbookService] Nenhuma parte pendente para marcar como COMPLETED');
+            return 0;
+        }
+
+        const partIds = pastParts.map(p => p.id);
+        await this.markAsCompleted(partIds);
+
+        console.log(`[workbookService] ${partIds.length} partes de semanas passadas marcadas como COMPLETED`);
+        return partIds.length;
+    },
+
+    /**
+     * Carrega partes COMPLETED para uso como histórico
+     */
+    async getCompletedParts(): Promise<WorkbookPart[]> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .select('*')
+            .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
+            .not('resolved_publisher_id', 'is', null)
+            .order('date', { ascending: false });
+
+        if (error) {
+            console.error('[workbookService] Erro ao carregar partes completadas:', error);
+            return [];
+        }
+
+        return (data || []).map(mapDbToWorkbookPart);
+    },
+
+    // ========================================================================
     // REALTIME
     // ========================================================================
 
