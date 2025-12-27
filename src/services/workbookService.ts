@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase';
+import { fetchAllRows } from './supabasePagination';
 import type { WorkbookPart, WorkbookBatch, Publisher } from '../types';
 import { WorkbookStatus, ParticipationType } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -297,23 +298,21 @@ export const workbookService = {
 
     /**
      * Lista todas as partes de um batch
-     * Nota: .range(0, 9999) para superar o limite padrão de 1000 rows do Supabase
+     * Usa paginação automática para superar o limite de 1000 rows do Supabase
      */
     async getPartsByBatch(batchId: string): Promise<WorkbookPart[]> {
         console.log('[workbookService] 🔍 getPartsByBatch chamado com batchId:', batchId);
 
-        const { data, error } = await supabase
-            .from('workbook_parts')
-            .select('*')
-            .eq('batch_id', batchId)
-            .order('week_id', { ascending: true })
-            .order('seq', { ascending: true })
-            .range(0, 9999);
+        const rawData = await fetchAllRows<Record<string, unknown>>(
+            'workbook_parts',
+            (query) => query
+                .eq('batch_id', batchId)
+                .order('week_id', { ascending: true })
+                .order('seq', { ascending: true })
+        );
 
-        if (error) throw new Error(`Erro ao carregar partes: ${error.message}`);
-
-        console.log(`[workbookService] ✅ getPartsByBatch retornou ${(data || []).length} partes (versão com .range(0,9999))`);
-        return (data || []).map(mapDbToWorkbookPart);
+        console.log(`[workbookService] ✅ getPartsByBatch retornou ${rawData.length} partes (com paginação automática)`);
+        return rawData.map(mapDbToWorkbookPart);
     },
 
     /**
