@@ -396,7 +396,8 @@ export const workbookService = {
             .from('workbook_parts')
             .select('*')
             .eq('batch_id', batchId)
-            .in('status', [WorkbookStatus.DRAFT, WorkbookStatus.REFINED]);
+            .in('status', [WorkbookStatus.DRAFT, WorkbookStatus.REFINED])
+            .range(0, 9999);
 
         if (partsError) throw new Error(`Erro ao buscar partes: ${partsError.message}`);
         if (!parts || parts.length === 0) {
@@ -556,7 +557,8 @@ export const workbookService = {
             .select('*')
             .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
             .not('resolved_publisher_id', 'is', null)
-            .order('date', { ascending: false });
+            .order('date', { ascending: false })
+            .range(0, 9999);
 
         if (error) {
             console.error('[workbookService] Erro ao carregar partes completadas:', error);
