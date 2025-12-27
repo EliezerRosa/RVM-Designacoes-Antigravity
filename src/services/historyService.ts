@@ -71,7 +71,8 @@ export async function loadHistoryRecords(): Promise<HistoryRecord[]> {
             .from('history_records')
             .select('*')
             .order('semana', { ascending: false })
-            .order('id', { ascending: true });
+            .order('id', { ascending: true })
+            .range(0, 9999);
 
         if (error) {
             console.error('[History Service] Erro ao carregar:', error);
