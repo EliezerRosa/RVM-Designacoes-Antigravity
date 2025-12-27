@@ -485,23 +485,31 @@ export function WorkbookManager({ publishers }: Props) {
         }
     };
 
-    // ========================================================================
-    // Filtros
-    // ========================================================================
-    const uniqueWeeks = useMemo(() => [...new Set(parts.map(p => p.weekDisplay))].sort(), [parts]);
+    // Semanas únicas com ano e weekId para dropdown
+    const uniqueWeeks = useMemo(() => {
+        const weeksMap = new Map<string, { weekId: string; weekDisplay: string; year: number }>();
+        parts.forEach(p => {
+            if (!weeksMap.has(p.weekId)) {
+                weeksMap.set(p.weekId, { weekId: p.weekId, weekDisplay: p.weekDisplay, year: p.year || 0 });
+            }
+        });
+        return Array.from(weeksMap.values()).sort((a, b) => a.weekId.localeCompare(b.weekId));
+    }, [parts]);
     const uniqueSections = useMemo(() => [...new Set(parts.map(p => p.section))], [parts]);
     const uniqueTipos = useMemo(() => [...new Set(parts.map(p => p.tipoParte))], [parts]);
 
     const filteredParts = useMemo(() => {
         return parts.filter(p => {
-            if (filterWeek && p.weekDisplay !== filterWeek) return false;
+            // Filtro por semana (compara com weekId)
+            if (filterWeek && p.weekId !== filterWeek) return false;
             if (filterSection && p.section !== filterSection) return false;
             if (filterTipo && p.tipoParte !== filterTipo) return false;
             if (filterStatus && p.status !== filterStatus) return false;
             if (filterFuncao && p.funcao !== filterFuncao) return false;
             if (searchText) {
                 const search = searchText.toLowerCase();
-                const searchable = `${p.tituloParte} ${p.descricaoParte} ${p.rawPublisherName} ${p.resolvedPublisherName || ''}`.toLowerCase();
+                // Inclui weekId e date no texto pesquisável
+                const searchable = `${p.weekId} ${p.date} ${p.weekDisplay} ${p.tituloParte} ${p.descricaoParte} ${p.rawPublisherName} ${p.resolvedPublisherName || ''}`.toLowerCase();
                 if (!searchable.includes(search)) return false;
             }
             return true;
@@ -796,9 +804,13 @@ export function WorkbookManager({ publishers }: Props) {
                             onChange={e => setSearchText(e.target.value)}
                             style={{ padding: '8px', width: '200px' }}
                         />
-                        <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '8px' }}>
+                        <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '8px', minWidth: '280px' }}>
                             <option value="">Todas as semanas</option>
-                            {uniqueWeeks.map(w => <option key={w} value={w}>{w}</option>)}
+                            {uniqueWeeks.map(w => (
+                                <option key={w.weekId} value={w.weekId}>
+                                    {w.year} | {w.weekId} | {w.weekDisplay}
+                                </option>
+                            ))}
                         </select>
                         <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '8px' }}>
                             <option value="">Todas as seções</option>
