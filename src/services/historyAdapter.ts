@@ -54,7 +54,8 @@ export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
         .from('workbook_parts')
         .select('*')
         .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .range(0, 9999);
 
     if (error) {
         console.error('[historyAdapter] Erro ao carregar participações:', error);
@@ -76,7 +77,8 @@ export async function loadPublisherParticipations(publisherId: string): Promise<
         .select('*')
         .eq('resolved_publisher_id', publisherId)
         .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .range(0, 9999);
 
     if (error) {
         console.error('[historyAdapter] Erro ao carregar participações do publicador:', error);
@@ -131,7 +133,8 @@ export async function getParticipationStats(): Promise<{
 }> {
     const { data, error } = await supabase
         .from('workbook_parts')
-        .select('status');
+        .select('status')
+        .range(0, 9999);
 
     if (error) {
         console.error('[historyAdapter] Erro ao carregar estatísticas:', error);
