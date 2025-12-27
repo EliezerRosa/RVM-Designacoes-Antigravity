@@ -64,24 +64,22 @@ export async function saveHistoryRecords(records: HistoryRecord[]): Promise<Hist
 
 /**
  * Carrega todos os registros de histórico do Supabase
+ * Usa paginação automática para superar o limite de 1000 rows
  */
 export async function loadHistoryRecords(): Promise<HistoryRecord[]> {
     try {
-        const { data, error } = await supabase
-            .from('history_records')
-            .select('*')
-            .order('semana', { ascending: false })
-            .order('id', { ascending: true })
-            .range(0, 9999);
+        const { fetchAllRows } = await import('./supabasePagination');
 
-        if (error) {
-            console.error('[History Service] Erro ao carregar:', error);
-            return [];
-        }
+        const rawData = await fetchAllRows<Record<string, unknown>>(
+            'history_records',
+            (query) => query
+                .order('semana', { ascending: false })
+                .order('id', { ascending: true })
+        );
 
         // Extrair objetos HistoryRecord da coluna 'data'
-        const records = (data || []).map(row => row.data as HistoryRecord);
-        console.log(`[History Service] ${records.length} registros carregados`);
+        const records = rawData.map(row => row.data as HistoryRecord);
+        console.log(`[History Service] ${records.length} registros carregados (com paginação)`);
         return records;
 
     } catch (error) {
