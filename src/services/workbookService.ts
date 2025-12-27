@@ -189,20 +189,33 @@ export const workbookService = {
             onConflict: 'year,week_id,seq,funcao'
         });
 
-        // UPSERT: Se parte já existe (mesmo year + week_id + seq + funcao), atualiza TUDO incluindo batch_id
-        const { error: partsError } = await supabase
-            .from('workbook_parts')
-            .upsert(partsToInsert, {
-                onConflict: 'year,week_id,seq,funcao',
-                ignoreDuplicates: false  // Atualiza se existir
-            });
-
-        if (partsError) {
-            console.error('[workbookService] ❌ Erro no upsert:', partsError);
-            throw new Error(`Erro ao salvar partes: ${partsError.message}`);
+        // UPSERT em chunks de 500 para evitar limite de payload do Supabase
+        const CHUNK_SIZE = 500;
+        const chunks = [];
+        for (let i = 0; i < partsToInsert.length; i += CHUNK_SIZE) {
+            chunks.push(partsToInsert.slice(i, i + CHUNK_SIZE));
         }
 
-        console.log('[workbookService] ✅ Upsert concluído com sucesso');
+        console.log(`[workbookService] 📦 Dividindo em ${chunks.length} chunks de até ${CHUNK_SIZE} registros`);
+
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            console.log(`[workbookService] 📤 Enviando chunk ${i + 1}/${chunks.length} (${chunk.length} registros)`);
+
+            const { error: partsError } = await supabase
+                .from('workbook_parts')
+                .upsert(chunk, {
+                    onConflict: 'year,week_id,seq,funcao',
+                    ignoreDuplicates: false  // Atualiza se existir
+                });
+
+            if (partsError) {
+                console.error(`[workbookService] ❌ Erro no upsert chunk ${i + 1}:`, partsError);
+                throw new Error(`Erro ao salvar partes (chunk ${i + 1}): ${partsError.message}`);
+            }
+        }
+
+        console.log('[workbookService] ✅ Todos os chunks inseridos com sucesso');
 
         // Atualizar contagens do batch
         await this.updateBatchCounts(batch.id);
@@ -217,7 +230,8 @@ export const workbookService = {
         const { data: parts } = await supabase
             .from('workbook_parts')
             .select('status')
-            .eq('batch_id', batchId);
+            .eq('batch_id', batchId)
+            .range(0, 9999);
 
         if (!parts) return;
 
