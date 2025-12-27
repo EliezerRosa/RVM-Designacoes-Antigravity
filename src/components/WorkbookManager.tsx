@@ -724,30 +724,54 @@ export function WorkbookManager({ publishers }: Props) {
             <div style={{ marginBottom: '20px' }}>
                 <h3>📦 Batches de Importação</h3>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                    {batches.map(batch => (
-                        <div
-                            key={batch.id}
-                            onClick={() => setActiveBatch(batch)}
-                            style={{
-                                padding: '12px',
-                                border: activeBatch?.id === batch.id ? '2px solid #4F46E5' : '1px solid #E5E7EB',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                background: activeBatch?.id === batch.id ? '#EEF2FF' : 'white',
-                                minWidth: '200px',
-                            }}
-                        >
-                            <div style={{ fontWeight: 'bold' }}>{batch.fileName}</div>
-                            <div style={{ fontSize: '12px', color: '#6B7280' }}>{batch.weekRange}</div>
-                            <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                                <span style={{ color: '#9CA3AF' }}>Draft: {batch.draftCount}</span>
-                                {' | '}
-                                <span style={{ color: '#3B82F6' }}>Refined: {batch.refinedCount}</span>
-                                {' | '}
-                                <span style={{ color: '#10B981' }}>Promoted: {batch.promotedCount}</span>
+                    {batches.map(batch => {
+                        // Extrair ano(s) do weekRange (ex: "8-14 de Janeiro - 26-1 de Fevereiro-Março")
+                        // O ano está implícito mas vamos derivar de weekId das partes ou usar o atual
+                        const yearMatch = batch.weekRange?.match(/\b(202\d)\b/);
+                        const year = yearMatch ? yearMatch[1] : (parts.length > 0 && activeBatch?.id === batch.id
+                            ? parts[0]?.weekId?.substring(0, 4)
+                            : new Date().getFullYear().toString());
+
+                        return (
+                            <div
+                                key={batch.id}
+                                onClick={() => setActiveBatch(batch)}
+                                style={{
+                                    padding: '12px',
+                                    border: activeBatch?.id === batch.id ? '2px solid #4F46E5' : '1px solid #E5E7EB',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    background: activeBatch?.id === batch.id ? '#EEF2FF' : 'white',
+                                    minWidth: '200px',
+                                    position: 'relative',
+                                }}
+                            >
+                                {/* Badge do Ano */}
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '-8px',
+                                    right: '8px',
+                                    background: '#4F46E5',
+                                    color: 'white',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    padding: '2px 8px',
+                                    borderRadius: '10px',
+                                }}>
+                                    {year}
+                                </span>
+                                <div style={{ fontWeight: 'bold', paddingRight: '40px' }}>{batch.fileName}</div>
+                                <div style={{ fontSize: '12px', color: '#6B7280' }}>{batch.weekRange}</div>
+                                <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                                    <span style={{ color: '#9CA3AF' }}>Draft: {batch.draftCount}</span>
+                                    {' | '}
+                                    <span style={{ color: '#3B82F6' }}>Refined: {batch.refinedCount}</span>
+                                    {' | '}
+                                    <span style={{ color: '#10B981' }}>Promoted: {batch.promotedCount}</span>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
