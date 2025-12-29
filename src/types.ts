@@ -10,7 +10,8 @@ export type Condition = 'Anciao' | 'Ancião' | 'Servo Ministerial' | 'Publicador
 export type AgeGroup = 'Adulto' | 'Jovem' | 'Crianca';
 
 export interface PublisherPrivileges {
-    canGiveTalks: boolean;
+    canGiveTalks: boolean;              // Discurso de Ensino (Anciãos/SMs)
+    canGiveStudentTalks?: boolean;      // Discurso de Estudante (padrão: true se ausente)
     canConductCBS: boolean;
     canReadCBS: boolean;
     canPray: boolean;
