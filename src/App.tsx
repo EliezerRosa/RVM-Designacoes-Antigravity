@@ -335,7 +335,7 @@ function App() {
 
         {/* Approvals */}
         <div style={{ display: activeTab === 'approvals' ? 'block' : 'none' }}>
-          <ApprovalPanel />
+          <ApprovalPanel publishers={publishers} />
         </div>
 
         {/* History tab removed - functionality consolidated into Apostila */}
