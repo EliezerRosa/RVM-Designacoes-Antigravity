@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { workbookService } from '../services/workbookService';
 import { type WorkbookPart, WorkbookStatus, type Publisher } from '../types';
+import { PublisherSelect } from './PublisherSelect';
 
 interface ApprovalPanelProps {
     elderId?: string;
@@ -39,7 +40,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const [stats, setStats] = useState<{ total: number; byStatus: Record<string, number> } | null>(null);
 
     // Ordenar publicadores por nome
-    const sortedPublishers = [...publishers].sort((a, b) => a.name.localeCompare(b.name));
+
 
     // Helper para normalizar data (suporta YYYY-MM-DD, DD/MM/YYYY e Excel Serial)
     const parseDate = (dateStr: string): Date => {
@@ -359,7 +360,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                             <div style={{ display: 'grid', gap: '15px' }}>
                                 {weekParts.map(part => {
                                     const isProcessing = processingIds.has(part.id);
-                                    const isEditable = part.status === WorkbookStatus.PROPOSTA && sortedPublishers.length > 0;
+                                    const isEditable = part.status === WorkbookStatus.PROPOSTA && publishers.length > 0;
                                     const statusStyle = STATUS_COLORS[part.status] || STATUS_COLORS.PENDENTE;
 
                                     const displayPublisher = part.proposedPublisherName || part.resolvedPublisherName || part.rawPublisherName || '(Sem publicador)';
@@ -369,7 +370,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                     // 2. Tentar achar pelo nome em publishers
                                     let currentSelectValue = part.proposedPublisherId || '';
                                     if (!currentSelectValue && displayPublisher) {
-                                        const found = sortedPublishers.find(p => p.name === displayPublisher);
+                                        const found = publishers.find(p => p.name === displayPublisher);
                                         if (found) currentSelectValue = found.id;
                                     }
 
@@ -413,17 +414,14 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                 <div style={{ marginTop: '8px', color: '#d1d5db', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     👤
                                                     {isEditable ? (
-                                                        <select
-                                                            disabled={isProcessing}
+                                                        <PublisherSelect
+                                                            part={part}
+                                                            publishers={publishers}
                                                             value={currentSelectValue}
-                                                            onChange={(e) => {
-                                                                const newId = e.target.value;
-                                                                const pub = sortedPublishers.find(p => p.id === newId);
-                                                                const newName = pub ? pub.name : '';
-                                                                if (newName) {
-                                                                    handleUpdatePublisher(part.id, newId, newName);
-                                                                }
+                                                            onChange={(newId, newName) => {
+                                                                handleUpdatePublisher(part.id, newId, newName);
                                                             }}
+                                                            disabled={isProcessing}
                                                             style={{
                                                                 padding: '6px 12px',
                                                                 borderRadius: '6px',
@@ -434,14 +432,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                                 fontSize: '0.95em',
                                                                 minWidth: '200px'
                                                             }}
-                                                        >
-                                                            <option value="" disabled>Selecione um publicador...</option>
-                                                            {sortedPublishers.map(pub => (
-                                                                <option key={pub.id} value={pub.id}>
-                                                                    {pub.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
+                                                        />
                                                     ) : (
                                                         // Se não for proposta ou não tiver ID, mostra texto estático
                                                         <span>{displayPublisher}</span>

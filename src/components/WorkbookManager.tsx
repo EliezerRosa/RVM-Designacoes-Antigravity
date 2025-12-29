@@ -12,6 +12,7 @@ import { pdfExtractionService } from '../services/pdfExtractionService';
 import { checkEligibility } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
+import { PublisherSelect } from './PublisherSelect';
 
 interface Props {
     publishers: Publisher[];
@@ -450,7 +451,6 @@ export function WorkbookManager({ publishers }: Props) {
 
                     // 2. Selecionar melhor candidato via cooldownService
                     let selectedPublisher: Publisher | null = null;
-                    // selectionReason removido
 
                     if (eligiblePublishers.length > 0) {
                         selectedPublisher = selectBestCandidate(
@@ -460,14 +460,11 @@ export function WorkbookManager({ publishers }: Props) {
                         );
 
                         if (selectedPublisher) {
-                            // totalWithPublisher incrementado abaixo
-                            // selectionReason removido
+                            // found
                         } else {
                             // Fallback: primeiro elegível
                             selectedPublisher = eligiblePublishers[0];
                         }
-                    } else {
-                        // selectionReason = `Nenhum publicador elegível para ${modalidade}`;
                     }
 
                     // Armazenar publicador selecionado no Map para usar depois
@@ -475,35 +472,43 @@ export function WorkbookManager({ publishers }: Props) {
                         selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
                         totalWithPublisher++;
                     }
-
-                    // REMOVIDO: assignments.push(...) - Não criar duplicidade em scheduled_assignments
-                    // A atualização será feita via proposePublisher no próximo loop
                 }
 
-                // REMOVIDO: await assignmentService.createBatch(assignments);
-                // totalCreated += assignments.length; 
                 // Atualizar totalCreated baseado nas propostas geradas
-                totalCreated += partsNeedingAssignment.length; // Assumindo que tentamos processar todas
+                totalCreated += partsNeedingAssignment.length;
             }
 
-            setSuccessMessage(`✅ ${totalCreated} designações criadas (${totalWithPublisher} com publicador selecionado pelo motor)! Vá para a aba "Aprovações" para revisar.`);
+            setSuccessMessage(`✅ ${totalCreated} designações processadas (${totalWithPublisher} com publicador selecionado pelo motor).`);
 
             // Atualizar status das partes para PROPOSTA usando o ciclo de vida
             // Usa proposePublisher para preencher proposedPublisherId/proposedPublisherName
             for (const part of partsNeedingAssignment) {
                 const selectedPub = selectedPublisherByPart.get(part.id);
 
-                if (selectedPub && part.status === 'PENDENTE') {
-                    // Usar proposePublisher para transição correta no ciclo de vida
-                    try {
-                        await workbookService.proposePublisher(part.id, selectedPub.id, selectedPub.name);
-                    } catch (e) {
-                        // Fallback para update direto se proposePublisher falhar
-                        await workbookService.updatePart(part.id, { status: 'PROPOSTA' });
+                if (selectedPub) {
+                    if (part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
+                        // Usar proposePublisher para transição correta no ciclo de vida
+                        try {
+                            await workbookService.proposePublisher(part.id, selectedPub.id, selectedPub.name);
+                        } catch (e) {
+                            // Fallback para update direto se proposePublisher falhar
+                            await workbookService.updatePart(part.id, {
+                                status: 'PROPOSTA',
+                                proposedPublisherId: selectedPub.id,
+                                proposedPublisherName: selectedPub.name
+                            });
+                        }
                     }
                 } else {
-                    // Sem publicador proposto, apenas atualizar status
-                    await workbookService.updatePart(part.id, { status: 'PROPOSTA' });
+                    // SE NÃO HÁ PUBLICADOR: Não mudar para PROPOSTA. Manter PENDENTE.
+                    // Isso evita registros "Proposta" em branco.
+                    console.warn(`[Motor] Nenhum publicador encontrado para parte ${part.id} (${part.tipoParte}). Mantendo status original.`);
+                    // Opcional: Se quiser explicitar que falhou, poderia ter um status 'PENDENTE' mas com log de erro? 
+                    // Melhor deixar 'PENDENTE' para que possa ser tentado de novo ou preenchido manualmente.
+
+                    // Se por acaso estava em outro status e resetou? Aqui só pegamos o que não era DESIGNADA/CONCLUIDA.
+                    // Se estava PROPOSTA (mas vazia?) deve voltar pra PENDENTE?
+                    // Por segurança, se não achamos ninguem, não mexemos.
                 }
             }
 
@@ -586,6 +591,33 @@ export function WorkbookManager({ publishers }: Props) {
         'REJEITADA': '#EF4444',
         'CONCLUIDA': '#6B7280',
     };
+
+    // Helper para atualizar publisher do dropdown
+    const handlePublisherSelect = async (partId: string, newId: string, newName: string) => {
+        // Se mudar por aqui, podemos setar status para PROPOSTA automaticamente se estiver PENDENTE?
+        // Sim, faz sentido.
+        try {
+            // Tentar pegar a part atual para checar status
+            const part = parts.find(p => p.id === partId);
+
+            // Se estiver pendente, muda para PROPOSTA
+            // Se estiver PROPOSTA, só muda o nome
+            // Se estiver DESIGNADA, muda o resolved
+
+            // Vamos usar proposePublisher se for < DESIGNADA
+            if (!part || part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
+                await workbookService.proposePublisher(partId, newId, newName);
+            } else {
+                await workbookService.updatePart(partId, {
+                    resolvedPublisherId: newId,
+                    resolvedPublisherName: newName
+                });
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Erro ao atualizar publicador');
+        }
+    };
+
 
     // ========================================================================
     // Render
@@ -893,55 +925,74 @@ export function WorkbookManager({ publishers }: Props) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredParts.map(part => (
-                                    <tr key={part.id} style={{ background: sectionColors[part.section] || 'white', color: '#1f2937' }}>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>
-                                            <input type="checkbox" checked={selectedIds.has(part.id)} onChange={() => toggleSelect(part.id)} />
-                                        </td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
-                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
-                                        <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
-                                        <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
-                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
-                                        <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>{part.modalidade}</td>
-                                        <td style={{ padding: '8px' }}>
-                                            <input
-                                                type="text"
-                                                value={part.tituloParte}
-                                                onChange={e => handleUpdatePart(part.id, 'tituloParte', e.target.value)}
-                                                style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
-                                            />
-                                        </td>
-                                        <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>{part.descricaoParte}</td>
-                                        <td style={{ padding: '8px', fontSize: '10px', color: '#9CA3AF', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.detalhesParte}>{part.detalhesParte}</td>
-                                        <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.duracao}</td>
-                                        <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaInicio}</td>
-                                        <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaFim}</td>
-                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
-                                        <td style={{ padding: '8px' }}>
-                                            <input
-                                                type="text"
-                                                value={part.resolvedPublisherName || part.rawPublisherName}
-                                                onChange={e => handleUpdatePart(part.id, 'rawPublisherName', e.target.value)}
-                                                style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
-                                            />
-                                            {part.matchConfidence && (
-                                                <span style={{ fontSize: '10px', color: '#6B7280' }}> ({part.matchConfidence}%)</span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>
-                                            <span style={{
-                                                padding: '2px 8px',
-                                                borderRadius: '12px',
-                                                fontSize: '11px',
-                                                background: statusColors[part.status] || '#9CA3AF',
-                                                color: 'white',
-                                            }}>
-                                                {part.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {filteredParts.map(part => {
+                                    // Tentar identificar o melhor match para o valor do dropdown
+                                    // 1. resolvedPublisherId (se designado)
+                                    // 2. proposedPublisherId (se proposta)
+                                    // 3. tentar achar pelo rawPublisherName nos publishers
+
+                                    let currentPubId = part.resolvedPublisherId || part.proposedPublisherId || '';
+                                    const displayRaw = part.resolvedPublisherName || part.proposedPublisherName || part.rawPublisherName;
+
+                                    if (!currentPubId && displayRaw) {
+                                        const found = publishers.find(p => p.name === displayRaw);
+                                        if (found) currentPubId = found.id;
+                                    }
+
+                                    return (
+                                        <tr key={part.id} style={{ background: sectionColors[part.section] || 'white', color: '#1f2937' }}>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                <input type="checkbox" checked={selectedIds.has(part.id)} onChange={() => toggleSelect(part.id)} />
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
+                                            <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
+                                            <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
+                                            <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
+                                            <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
+                                            <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>{part.modalidade}</td>
+                                            <td style={{ padding: '8px' }}>
+                                                <input
+                                                    type="text"
+                                                    value={part.tituloParte}
+                                                    onChange={e => handleUpdatePart(part.id, 'tituloParte', e.target.value)}
+                                                    style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>{part.descricaoParte}</td>
+                                            <td style={{ padding: '8px', fontSize: '10px', color: '#9CA3AF', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.detalhesParte}>{part.detalhesParte}</td>
+                                            <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.duracao}</td>
+                                            <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaInicio}</td>
+                                            <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaFim}</td>
+                                            <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
+                                            <td style={{ padding: '8px' }}>
+                                                {/* Dropdown Inteligente */}
+                                                <PublisherSelect
+                                                    part={part}
+                                                    publishers={publishers}
+                                                    value={currentPubId}
+                                                    onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
+                                                    style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
+                                                />
+                                                {/* Se não tiver ID correspondente, mostrar o nome raw como fallback visual ou alerta? 
+                                                    O PublisherSelect mostra "Selecione..." se vazio. 
+                                                    Se temos um rawName que não match com ID, ele vai ficar vazio.
+                                                    Podemos colocar um input fallback?
+                                                */}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '11px',
+                                                    background: statusColors[part.status] || '#9CA3AF',
+                                                    color: 'white',
+                                                }}>
+                                                    {part.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
