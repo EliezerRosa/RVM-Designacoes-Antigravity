@@ -455,14 +455,15 @@ export const workbookService = {
 
     /**
      * Propõe um publicador para uma parte (atualiza status e publicador)
-     * Usa resolved_publisher_id/name pois proposed_* não existem no banco
+     * Usa apenas resolved_publisher_name (resolved_publisher_id é UUID e publishers usam IDs numéricos)
      */
     async proposePublisher(partId: string, publisherId: string, publisherName: string): Promise<WorkbookPart> {
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
                 status: WorkbookStatus.PROPOSTA,
-                resolved_publisher_id: publisherId || null,
+                // resolved_publisher_id é UUID no banco, mas publishers usam IDs numéricos - incompatível
+                // Guardamos apenas o nome por enquanto
                 resolved_publisher_name: publisherName || null,
                 updated_at: new Date().toISOString(),
             })
@@ -813,7 +814,7 @@ export const workbookService = {
      * Sincroniza partes do Presidente (Comentários Iniciais/Finais)
      * Deve ser chamado após atualizar a parte principal 'Presidente'
      */
-    async syncChairmanAssignments(weekId: string, publisherId: string, publisherName: string, status: WorkbookStatus): Promise<void> {
+    async syncChairmanAssignments(weekId: string, _publisherId: string, publisherName: string, status: WorkbookStatus): Promise<void> {
         // Tipos de parte que devem ser sincronizados com o Presidente
         const TARGET_TYPES = [
             'Comentários Iniciais', 'Comentarios Iniciais',
@@ -838,8 +839,8 @@ export const workbookService = {
         };
 
         // Se o status da parte principal for PROPOSTA ou acima, propagamos.
-        // Usamos apenas resolved_publisher_id/name (proposed_* não existem no banco)
-        updates.resolved_publisher_id = publisherId || null;
+        // resolved_publisher_id é UUID no banco, publishers usam IDs numéricos - incompatível
+        // Guardamos apenas o nome
         updates.resolved_publisher_name = publisherName || null;
         updates.status = status;
 
