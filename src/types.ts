@@ -316,12 +316,14 @@ export interface SpecialEvent {
 
 // ===== APOSTILA (WORKBOOK STAGING) =====
 
-// Status de uma parte da apostila
+// Status de uma parte da apostila - Ciclo de Vida de Designação
 export const WorkbookStatus = {
-    DRAFT: 'DRAFT',           // Recém importado do Excel
-    REFINED: 'REFINED',       // Editado/corrigido pelo usuário
-    PROMOTED: 'PROMOTED',     // Convertido para Participations (agendado)
-    COMPLETED: 'COMPLETED',   // Parte foi executada na reunião (histórico)
+    PENDENTE: 'PENDENTE',       // Parte importada, aguardando designação
+    PROPOSTA: 'PROPOSTA',       // Motor sugeriu um publicador
+    APROVADA: 'APROVADA',       // Ancião aprovou a sugestão
+    DESIGNADA: 'DESIGNADA',     // Publicador confirmado e notificado
+    REJEITADA: 'REJEITADA',     // Sugestão rejeitada (volta para PENDENTE)
+    CONCLUIDA: 'CONCLUIDA',     // Parte executada na reunião
 } as const;
 
 export type WorkbookStatus = typeof WorkbookStatus[keyof typeof WorkbookStatus];
@@ -362,6 +364,15 @@ export interface WorkbookPart {
     status: WorkbookStatus;
     createdAt: string;
     updatedAt?: string;
+
+    // Campos do ciclo de vida de designação
+    proposedPublisherId?: string;      // ID do publicador proposto
+    proposedPublisherName?: string;    // Nome do publicador proposto
+    proposedAt?: string;               // Data da proposta
+    approvedById?: string;             // Ancião que aprovou
+    approvedAt?: string;               // Data da aprovação
+    rejectedReason?: string;           // Motivo da rejeição
+    completedAt?: string;              // Data de conclusão
 }
 
 // Batch de importação (controle de versões)

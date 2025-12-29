@@ -67,6 +67,14 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         status: row.status as WorkbookStatus,
         createdAt: row.created_at as string,
         updatedAt: row.updated_at as string | undefined,
+        // Campos do ciclo de vida
+        proposedPublisherId: row.proposed_publisher_id as string | undefined,
+        proposedPublisherName: row.proposed_publisher_name as string | undefined,
+        proposedAt: row.proposed_at as string | undefined,
+        approvedById: row.approved_by_id as string | undefined,
+        approvedAt: row.approved_at as string | undefined,
+        rejectedReason: row.rejected_reason as string | undefined,
+        completedAt: row.completed_at as string | undefined,
     };
 }
 
@@ -173,7 +181,7 @@ export const workbookService = {
             hora_inicio: p.horaInicio,
             hora_fim: p.horaFim,
             raw_publisher_name: p.rawPublisherName,
-            status: p.status || WorkbookStatus.DRAFT,
+            status: p.status || WorkbookStatus.PENDENTE,
         }));
 
         console.log('[workbookService] 📤 Enviando upsert para workbook_parts:', {
@@ -235,17 +243,17 @@ export const workbookService = {
 
         if (!parts) return;
 
-        const draftCount = parts.filter(p => p.status === WorkbookStatus.DRAFT).length;
-        const refinedCount = parts.filter(p => p.status === WorkbookStatus.REFINED).length;
-        const promotedCount = parts.filter(p => p.status === WorkbookStatus.PROMOTED).length;
+        const pendenteCount = parts.filter(p => p.status === WorkbookStatus.PENDENTE).length;
+        const propostaCount = parts.filter(p => p.status === WorkbookStatus.PROPOSTA).length;
+        const designadaCount = parts.filter(p => p.status === WorkbookStatus.DESIGNADA).length;
 
         await supabase
             .from('workbook_batches')
             .update({
                 total_parts: parts.length,
-                draft_count: draftCount,
-                refined_count: refinedCount,
-                promoted_count: promotedCount,
+                draft_count: pendenteCount,
+                refined_count: propostaCount,
+                promoted_count: designadaCount,
             })
             .eq('id', batchId);
     },
@@ -342,9 +350,9 @@ export const workbookService = {
         if (updates.matchConfidence !== undefined) dbUpdates.match_confidence = updates.matchConfidence;
         if (updates.status !== undefined) dbUpdates.status = updates.status;
 
-        // Se status não foi atualizado e há outras mudanças, mudar para REFINED
+        // Se status não foi atualizado e há outras mudanças, manter PENDENTE
         if (updates.status === undefined && Object.keys(dbUpdates).length > 0) {
-            dbUpdates.status = WorkbookStatus.REFINED;
+            // Não alterar status automaticamente na edição
         }
 
         const { data, error } = await supabase
@@ -383,19 +391,118 @@ export const workbookService = {
     },
 
     // ========================================================================
-    // PROMOÇÃO E ROLLBACK
+    // CICLO DE VIDA DE DESIGNAÇÃO
+    // ========================================================================
+
+    /**
+     * Propõe um publicador para uma parte (PENDENTE -> PROPOSTA)
+     */
+    async proposePublisher(partId: string, publisherId: string, publisherName: string): Promise<WorkbookPart> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .update({
+                status: WorkbookStatus.PROPOSTA,
+                proposed_publisher_id: publisherId,
+                proposed_publisher_name: publisherName,
+                proposed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', partId)
+            .eq('status', WorkbookStatus.PENDENTE)
+            .select()
+            .single();
+
+        if (error) throw new Error(`Erro ao propor publicador: ${error.message}`);
+        return mapDbToWorkbookPart(data);
+    },
+
+    /**
+     * Aprova uma proposta de designação (PROPOSTA -> APROVADA)
+     */
+    async approveProposal(partId: string, elderId: string): Promise<WorkbookPart> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .update({
+                status: WorkbookStatus.APROVADA,
+                approved_by_id: elderId,
+                approved_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', partId)
+            .eq('status', WorkbookStatus.PROPOSTA)
+            .select()
+            .single();
+
+        if (error) throw new Error(`Erro ao aprovar proposta: ${error.message}`);
+        return mapDbToWorkbookPart(data);
+    },
+
+    /**
+     * Rejeita uma proposta (PROPOSTA -> PENDENTE)
+     */
+    async rejectProposal(partId: string, reason: string): Promise<WorkbookPart> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .update({
+                status: WorkbookStatus.PENDENTE,
+                rejected_reason: reason,
+                proposed_publisher_id: null,
+                proposed_publisher_name: null,
+                proposed_at: null,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', partId)
+            .eq('status', WorkbookStatus.PROPOSTA)
+            .select()
+            .single();
+
+        if (error) throw new Error(`Erro ao rejeitar proposta: ${error.message}`);
+        return mapDbToWorkbookPart(data);
+    },
+
+    /**
+     * Confirma uma designação (APROVADA -> DESIGNADA)
+     * Também atualiza o resolved_publisher_id/name com os valores propostos
+     */
+    async confirmDesignation(partId: string): Promise<WorkbookPart> {
+        // Primeiro, buscar a parte para pegar os dados propostos
+        const { data: partData } = await supabase
+            .from('workbook_parts')
+            .select('proposed_publisher_id, proposed_publisher_name')
+            .eq('id', partId)
+            .single();
+
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .update({
+                status: WorkbookStatus.DESIGNADA,
+                resolved_publisher_id: partData?.proposed_publisher_id,
+                resolved_publisher_name: partData?.proposed_publisher_name,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', partId)
+            .eq('status', WorkbookStatus.APROVADA)
+            .select()
+            .single();
+
+        if (error) throw new Error(`Erro ao confirmar designação: ${error.message}`);
+        return mapDbToWorkbookPart(data);
+    },
+
+    // ========================================================================
+    // PROMOÇÃO E ROLLBACK (LEGADO)
     // ========================================================================
 
     /**
      * Promove partes do batch para Participations
      */
     async promoteToParticipations(batchId: string): Promise<string[]> {
-        // Buscar partes do batch (apenas DRAFT ou REFINED)
+        // Buscar partes do batch (apenas PENDENTE ou PROPOSTA)
         const { data: parts, error: partsError } = await supabase
             .from('workbook_parts')
             .select('*')
             .eq('batch_id', batchId)
-            .in('status', [WorkbookStatus.DRAFT, WorkbookStatus.REFINED])
+            .in('status', [WorkbookStatus.PENDENTE, WorkbookStatus.PROPOSTA])
             .range(0, 9999);
 
         if (partsError) throw new Error(`Erro ao buscar partes: ${partsError.message}`);
@@ -425,12 +532,12 @@ export const workbookService = {
 
         const participationIds = participations.map(p => p.id);
 
-        // Atualizar status das partes para PROMOTED
+        // Atualizar status das partes para DESIGNADA
         const { error: updateError } = await supabase
             .from('workbook_parts')
-            .update({ status: WorkbookStatus.PROMOTED })
+            .update({ status: WorkbookStatus.DESIGNADA })
             .eq('batch_id', batchId)
-            .in('status', [WorkbookStatus.DRAFT, WorkbookStatus.REFINED]);
+            .in('status', [WorkbookStatus.PENDENTE, WorkbookStatus.PROPOSTA]);
 
         if (updateError) throw new Error(`Erro ao atualizar status: ${updateError.message}`);
 
@@ -468,12 +575,12 @@ export const workbookService = {
 
         if (deleteError) throw new Error(`Erro ao deletar participações: ${deleteError.message}`);
 
-        // Reverter status das partes para REFINED
+        // Reverter status das partes para PENDENTE
         const { error: updateError } = await supabase
             .from('workbook_parts')
-            .update({ status: WorkbookStatus.REFINED })
+            .update({ status: WorkbookStatus.PENDENTE })
             .eq('batch_id', batchId)
-            .eq('status', WorkbookStatus.PROMOTED);
+            .eq('status', WorkbookStatus.DESIGNADA);
 
         if (updateError) throw new Error(`Erro ao reverter status: ${updateError.message}`);
 
@@ -495,7 +602,7 @@ export const workbookService = {
     // ========================================================================
 
     /**
-     * Marca partes como COMPLETED (executadas na reunião)
+     * Marca partes como CONCLUIDA (executadas na reunião)
      * Essas partes serão usadas como histórico para o motor de elegibilidade
      */
     async markAsCompleted(partIds: string[]): Promise<void> {
@@ -504,31 +611,32 @@ export const workbookService = {
         const { error } = await supabase
             .from('workbook_parts')
             .update({
-                status: WorkbookStatus.COMPLETED,
+                status: WorkbookStatus.CONCLUIDA,
+                completed_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
             .in('id', partIds);
 
         if (error) {
-            throw new Error(`Erro ao marcar como completado: ${error.message}`);
+            throw new Error(`Erro ao marcar como concluído: ${error.message}`);
         }
 
-        console.log(`[workbookService] ${partIds.length} partes marcadas como COMPLETED`);
+        console.log(`[workbookService] ${partIds.length} partes marcadas como CONCLUIDA`);
     },
 
     /**
-     * Marca todas as partes de semanas passadas como COMPLETED automaticamente
+     * Marca todas as partes de semanas passadas como CONCLUIDA automaticamente
      * Útil para processamento em lote
      */
     async markPastWeeksAsCompleted(): Promise<number> {
         const today = new Date().toISOString().split('T')[0];
 
-        // Buscar partes de semanas passadas que ainda não estão COMPLETED
+        // Buscar partes de semanas passadas que ainda não estão CONCLUIDA
         const { data: pastParts, error: fetchError } = await supabase
             .from('workbook_parts')
             .select('id')
             .lt('date', today)
-            .in('status', [WorkbookStatus.PROMOTED, WorkbookStatus.REFINED])
+            .in('status', [WorkbookStatus.DESIGNADA, WorkbookStatus.APROVADA])
             .not('resolved_publisher_id', 'is', null); // Só marcar partes com publicador atribuído
 
         if (fetchError) {
@@ -536,31 +644,31 @@ export const workbookService = {
         }
 
         if (!pastParts || pastParts.length === 0) {
-            console.log('[workbookService] Nenhuma parte pendente para marcar como COMPLETED');
+            console.log('[workbookService] Nenhuma parte pendente para marcar como CONCLUIDA');
             return 0;
         }
 
         const partIds = pastParts.map(p => p.id);
         await this.markAsCompleted(partIds);
 
-        console.log(`[workbookService] ${partIds.length} partes de semanas passadas marcadas como COMPLETED`);
+        console.log(`[workbookService] ${partIds.length} partes de semanas passadas marcadas como CONCLUIDA`);
         return partIds.length;
     },
 
     /**
-     * Carrega partes COMPLETED para uso como histórico
+     * Carrega partes CONCLUIDA para uso como histórico
      */
     async getCompletedParts(): Promise<WorkbookPart[]> {
         const { data, error } = await supabase
             .from('workbook_parts')
             .select('*')
-            .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
+            .in('status', [WorkbookStatus.CONCLUIDA, WorkbookStatus.DESIGNADA])
             .not('resolved_publisher_id', 'is', null)
             .order('date', { ascending: false })
             .range(0, 9999);
 
         if (error) {
-            console.error('[workbookService] Erro ao carregar partes completadas:', error);
+            console.error('[workbookService] Erro ao carregar partes concluídas:', error);
             return [];
         }
 
