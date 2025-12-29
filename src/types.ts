@@ -15,6 +15,7 @@ export interface PublisherPrivileges {
     canReadCBS: boolean;
     canPray: boolean;
     canPreside: boolean;
+    approvedForTreasuresTalks?: boolean;  // SM aprovado para discursos em Tesouros
 }
 
 export interface PublisherPrivilegesBySection {

@@ -19,10 +19,24 @@ import { EnumModalidade, EnumTipoParte } from '../types';
 
 // ===== Constantes de Configuração =====
 
-export const COOLDOWN_WEEKS = 6; // Semanas mínimas entre mesma parte
+export const COOLDOWN_WEEKS = 6; // Semanas mínimas entre mesma parte (Titular)
+export const COOLDOWN_WEEKS_HELPER = 4; // Semanas mínimas para Ajudante
 export const COOLDOWN_PENALTY_MULTIPLIER = 0.1; // Penalidade para quem está em cooldown
 
+// Partes que contam como uma única participação de PRESIDENCY
+export const PRESIDENCY_BUNDLE = [
+    'Presidente',
+    'Oração Inicial',
+    'Comentários Iniciais',
+    'Comentários Finais',
+    EnumTipoParte.PRESIDENTE,
+    EnumTipoParte.ORACAO_INICIAL,
+    EnumTipoParte.COMENTARIOS_INICIAIS,
+    EnumTipoParte.COMENTARIOS_FINAIS,
+] as const;
+
 export const CATEGORY_WEIGHTS = {
+    PRESIDENCY: 1.0,  // Presidente + Oração + Comentários (conta como 1)
     TEACHING: 1.0,
     STUDENT: 0.5,
     HELPER: 0.1
@@ -73,6 +87,7 @@ export function calculateRotationPriority(
 
     // Categorizar e calcular dias
     const categoryDays = {
+        PRESIDENCY: getDaysSinceCategoryLast(publisherHistory, 'PRESIDENCY', today),
         TEACHING: getDaysSinceCategoryLast(publisherHistory, 'TEACHING', today),
         STUDENT: getDaysSinceCategoryLast(publisherHistory, 'STUDENT', today),
         HELPER: getDaysSinceCategoryLast(publisherHistory, 'HELPER', today)
@@ -80,6 +95,7 @@ export function calculateRotationPriority(
 
     // Aplicar fórmula de prioridade ponderada
     const priority =
+        categoryDays.PRESIDENCY * CATEGORY_WEIGHTS.PRESIDENCY +
         categoryDays.TEACHING * CATEGORY_WEIGHTS.TEACHING +
         categoryDays.STUDENT * CATEGORY_WEIGHTS.STUDENT +
         categoryDays.HELPER * CATEGORY_WEIGHTS.HELPER;
@@ -221,25 +237,26 @@ export function getParticipationCategory(record: HistoryRecord): ParticipationCa
         return 'HELPER';
     }
 
+    // PRESIDENCY: Presidente + Oração Inicial + Comentários (conta como 1 participação)
+    if (PRESIDENCY_BUNDLE.includes(tipoParte as any) || modality === EnumModalidade.PRESIDENCIA) {
+        return 'PRESIDENCY';
+    }
+
     // TEACHING: Discursos de ensino, Joias, Partes Vida Cristã (anciãos/SMs)
     const teachingModalities = [
         EnumModalidade.DISCURSO_ENSINO,
-        EnumModalidade.PRESIDENCIA,
         EnumModalidade.ACONSELHAMENTO,
         EnumModalidade.DIRIGENTE_EBC,
         'Discurso de Ensino',
-        'Presidência',
         'Aconselhamento',
         'Dirigente de EBC'
     ];
     const teachingParts = [
-        EnumTipoParte.PRESIDENTE,
         EnumTipoParte.DISCURSO_TESOUROS,
         EnumTipoParte.JOIAS_ESPIRITUAIS,
         EnumTipoParte.PARTE_VIDA_CRISTA,
         EnumTipoParte.DIRIGENTE_EBC,
         EnumTipoParte.ELOGIOS_CONSELHOS,
-        'Presidente',
         'Discurso na Tesouros',
         'Joias Espirituais',
         'Necessidades Locais'
