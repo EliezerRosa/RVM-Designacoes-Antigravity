@@ -324,18 +324,27 @@ export const workbookService = {
     },
 
     /**
-     * Busca partes por status (para o ApprovalPanel)
-     * Pode receber um status único ou array de status
-     */
-    async getByStatus(status: WorkbookStatus | WorkbookStatus[]): Promise<WorkbookPart[]> {
+ * Busca partes por status (para o ApprovalPanel)
+ * Pode receber um status único ou array de status
+ * @param status Status único ou array de status
+ * @param minDate (Opcional) Data mínima para filtro (YYYY-MM-DD)
+ */
+    async getByStatus(status: WorkbookStatus | WorkbookStatus[], minDate?: string): Promise<WorkbookPart[]> {
         const statuses = Array.isArray(status) ? status : [status];
 
         const rawData = await fetchAllRows<Record<string, unknown>>(
             'workbook_parts',
-            (query) => query
-                .in('status', statuses)
-                .order('date', { ascending: true })
-                .order('seq', { ascending: true })
+            (query) => {
+                let q = query
+                    .in('status', statuses)
+                    .order('date', { ascending: true })
+                    .order('seq', { ascending: true });
+
+                if (minDate) {
+                    q = q.gte('date', minDate);
+                }
+                return q;
+            }
         );
 
         return rawData.map(mapDbToWorkbookPart);

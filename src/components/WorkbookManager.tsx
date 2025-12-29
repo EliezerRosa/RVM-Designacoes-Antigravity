@@ -312,10 +312,13 @@ export function WorkbookManager({ publishers }: Props) {
         if (!activeBatch) return;
 
         // Filtrar partes que precisam de designação (Titular OU Ajudante, não promovidas)
+        // E filtrar APENAS partes futuras (data >= hoje)
+        const today = new Date().toISOString().split('T')[0];
         const partsNeedingAssignment = parts.filter(p =>
             (p.funcao === 'Titular' || p.funcao === 'Ajudante') &&
             p.status !== 'DESIGNADA' &&
-            p.status !== 'CONCLUIDA'
+            p.status !== 'CONCLUIDA' &&
+            p.date >= today
         );
 
         if (partsNeedingAssignment.length === 0) {
