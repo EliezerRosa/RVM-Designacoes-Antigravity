@@ -41,6 +41,24 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const [editingPart, setEditingPart] = useState<WorkbookPart | null>(null);
     const [newPublisherName, setNewPublisherName] = useState('');
 
+    // Helper para normalizar data (suporta YYYY-MM-DD e DD/MM/YYYY)
+    const parseDate = (dateStr: string): Date => {
+        if (!dateStr) return new Date(0); // Data muito antiga
+
+        // Se for YYYY-MM-DD
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+            return new Date(dateStr + 'T12:00:00'); // Meio dia para evitar timezone issues
+        }
+
+        // Se for DD/MM/YYYY
+        const dmy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (dmy) {
+            return new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
+        }
+
+        return new Date(dateStr); // Tenta parse padrão
+    };
+
     // Load assignments
     const loadAssignments = useCallback(async () => {
         setLoading(true);
@@ -48,23 +66,37 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         try {
             let data: WorkbookPart[];
 
-            const today = new Date().toISOString().split('T')[0];
+            // REMOVIDO: Filtro de data no DB (minDate) pois formato DD/MM/YYYY quebra comparação de strings
+            // Filtraremos no cliente abaixo
+            // const today = new Date().toISOString().split('T')[0];
 
             if (filter === 'pending') {
-                // Pendentes de aprovação: Status PROPOSTA (futuras apenas)
-                data = await workbookService.getByStatus(WorkbookStatus.PROPOSTA, today);
+                data = await workbookService.getByStatus(WorkbookStatus.PROPOSTA);
             } else if (filter === 'approved') {
-                // Aprovadas (inclui DESIGNADA também) (futuras apenas)
-                data = await workbookService.getByStatus([WorkbookStatus.APROVADA, WorkbookStatus.DESIGNADA], today);
+                data = await workbookService.getByStatus([WorkbookStatus.APROVADA, WorkbookStatus.DESIGNADA]);
             } else if (filter === 'completed') {
                 data = await workbookService.getByStatus(WorkbookStatus.CONCLUIDA);
             } else {
-                // Todas
                 data = await workbookService.getAll();
             }
 
+            // Filtrar datas passadas no cliente (apenas para pending e approved)
+            if (filter === 'pending' || filter === 'approved') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // Zerar hora
+
+                data = data.filter(p => {
+                    const d = parseDate(p.date);
+                    return d >= today;
+                });
+            }
+
             // Ordenar por data
-            data.sort((a, b) => a.date.localeCompare(b.date));
+            data.sort((a, b) => {
+                const da = parseDate(a.date);
+                const db = parseDate(b.date);
+                return da.getTime() - db.getTime();
+            });
 
             setAssignments(data);
 

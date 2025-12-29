@@ -311,15 +311,27 @@ export function WorkbookManager({ publishers }: Props) {
     const handleGenerateDesignations = async () => {
         if (!activeBatch) return;
 
+        // Helper para normalizar data (duplicado do ApprovalPanel por enquanto)
+        const parseDate = (dateStr: string): Date => {
+            if (!dateStr) return new Date(0);
+            if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(dateStr + 'T12:00:00');
+            const dmy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
+            return new Date(dateStr);
+        };
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         // Filtrar partes que precisam de designação (Titular OU Ajudante, não promovidas)
-        // E filtrar APENAS partes futuras (data >= hoje)
-        const today = new Date().toISOString().split('T')[0];
-        const partsNeedingAssignment = parts.filter(p =>
-            (p.funcao === 'Titular' || p.funcao === 'Ajudante') &&
-            p.status !== 'DESIGNADA' &&
-            p.status !== 'CONCLUIDA' &&
-            p.date >= today
-        );
+        // E filtrar APENAS partes futuras (data >= hoje) usando parseDate robusto
+        const partsNeedingAssignment = parts.filter(p => {
+            const d = parseDate(p.date);
+            return (p.funcao === 'Titular' || p.funcao === 'Ajudante') &&
+                p.status !== 'DESIGNADA' &&
+                p.status !== 'CONCLUIDA' &&
+                d >= today;
+        });
 
         if (partsNeedingAssignment.length === 0) {
             setError('Todas as partes já foram promovidas');
