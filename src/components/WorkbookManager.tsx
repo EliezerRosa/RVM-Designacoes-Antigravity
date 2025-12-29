@@ -12,8 +12,7 @@ import { pdfExtractionService } from '../services/pdfExtractionService';
 import { assignmentService } from '../services/assignmentService';
 import { checkEligibility } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
-import { loadHistoryRecords } from '../services/historyService';
-
+import { loadCompletedParticipations } from '../services/historyAdapter';
 
 interface Props {
     publishers: Publisher[];
@@ -168,7 +167,7 @@ export function WorkbookManager({ publishers }: Props) {
                     horaInicio: (getValue(row, 'horaInicio') as string) || '',
                     horaFim: (getValue(row, 'horaFim') as string) || '',
                     rawPublisherName: (getValue(row, 'rawPublisherName') as string) || (getValue(row, 'publicador') as string) || '',
-                    status: (getValue(row, 'status') as string) || 'DRAFT',
+                    status: (getValue(row, 'status') as string) || 'PENDENTE',
                 };
             });
 
@@ -316,7 +315,8 @@ export function WorkbookManager({ publishers }: Props) {
         // Filtrar partes que precisam de designação (função Titular, não promovidas)
         const partsNeedingAssignment = parts.filter(p =>
             p.funcao === 'Titular' &&
-            p.status !== 'PROMOTED'
+            p.status !== 'DESIGNADA' &&
+            p.status !== 'CONCLUIDA'
         );
 
         if (partsNeedingAssignment.length === 0) {
@@ -332,10 +332,10 @@ export function WorkbookManager({ publishers }: Props) {
             setLoading(true);
             setError(null);
 
-            // Carregar histórico para cooldown
+            // Carregar histórico para cooldown (usando historyAdapter)
             let historyRecords: HistoryRecord[] = [];
             try {
-                historyRecords = await loadHistoryRecords();
+                historyRecords = await loadCompletedParticipations();
             } catch (e) {
                 console.warn('Não foi possível carregar histórico para cooldown:', e);
             }
@@ -473,7 +473,7 @@ export function WorkbookManager({ publishers }: Props) {
 
             // Marcar partes como REFINED
             for (const part of partsNeedingAssignment) {
-                await workbookService.updatePart(part.id, { status: 'REFINED' });
+                await workbookService.updatePart(part.id, { status: 'PROPOSTA' });
             }
 
             await loadParts(activeBatch.id);
@@ -548,9 +548,12 @@ export function WorkbookManager({ publishers }: Props) {
     };
 
     const statusColors: Record<string, string> = {
-        'DRAFT': '#9CA3AF',
-        'REFINED': '#3B82F6',
-        'PROMOTED': '#10B981',
+        'PENDENTE': '#9CA3AF',
+        'PROPOSTA': '#F59E0B',
+        'APROVADA': '#3B82F6',
+        'DESIGNADA': '#10B981',
+        'REJEITADA': '#EF4444',
+        'CONCLUIDA': '#6B7280',
     };
 
     // ========================================================================
@@ -771,11 +774,11 @@ export function WorkbookManager({ publishers }: Props) {
                                 <div style={{ fontWeight: 'bold', paddingRight: '40px' }}>{batch.fileName}</div>
                                 <div style={{ fontSize: '12px', color: '#6B7280' }}>{batch.weekRange}</div>
                                 <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                                    <span style={{ color: '#9CA3AF' }}>Draft: {batch.draftCount}</span>
+                                    <span style={{ color: '#9CA3AF' }}>Pendente: {batch.draftCount}</span>
                                     {' | '}
-                                    <span style={{ color: '#3B82F6' }}>Refined: {batch.refinedCount}</span>
+                                    <span style={{ color: '#F59E0B' }}>Proposta: {batch.refinedCount}</span>
                                     {' | '}
-                                    <span style={{ color: '#10B981' }}>Promoted: {batch.promotedCount}</span>
+                                    <span style={{ color: '#10B981' }}>Designada: {batch.promotedCount}</span>
                                 </div>
                             </div>
                         );

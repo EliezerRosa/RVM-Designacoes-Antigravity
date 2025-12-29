@@ -8,13 +8,12 @@ import AssignmentGenerator from './components/AssignmentGenerator'
 import { initialPublishers } from './data/initialPublishers'
 import { api } from './services/api'
 
-import HistoryImporter from './components/HistoryImporter'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import Reports from './components/Reports'
 import WorkbookManager from './components/WorkbookManager'
 import ApprovalPanel from './components/ApprovalPanel'
 
-type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'history' | 'reports' | 'workbook' | 'approvals'
+type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'reports' | 'workbook' | 'approvals'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard')
@@ -234,13 +233,7 @@ function App() {
           >
             👥 Publicadores
           </button>
-          <button
-            className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => handleTabChange('history')}
-            title="Importar Histórico"
-          >
-            📜 Histórico
-          </button>
+          {/* Histórico tab removed - use Apostila instead */}
           <button
             className={`nav-btn ${activeTab === 'workbook' ? 'active' : ''}`}
             onClick={() => handleTabChange('workbook')}
@@ -345,18 +338,7 @@ function App() {
           <ApprovalPanel />
         </div>
 
-        {/* History */}
-        <div style={{ display: activeTab === 'history' ? 'block' : 'none' }}>
-          <HistoryImporter
-            publishers={publishers}
-            participations={participations}
-            onImport={async (newParticipations) => {
-              for (const p of newParticipations) {
-                await saveParticipation(p);
-              }
-            }}
-          />
-        </div>
+        {/* History tab removed - functionality consolidated into Apostila */}
       </main>
 
       {showPublisherForm && (

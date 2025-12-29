@@ -53,7 +53,7 @@ export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
     const { data, error } = await supabase
         .from('workbook_parts')
         .select('*')
-        .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
+        .in('status', [WorkbookStatus.CONCLUIDA, WorkbookStatus.DESIGNADA])
         .order('date', { ascending: false })
         .range(0, 9999);
 
@@ -76,7 +76,7 @@ export async function loadPublisherParticipations(publisherId: string): Promise<
         .from('workbook_parts')
         .select('*')
         .eq('resolved_publisher_id', publisherId)
-        .in('status', [WorkbookStatus.COMPLETED, WorkbookStatus.PROMOTED])
+        .in('status', [WorkbookStatus.CONCLUIDA, WorkbookStatus.DESIGNADA])
         .order('date', { ascending: false })
         .range(0, 9999);
 
@@ -114,7 +114,7 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         resolvedPublisherId: row.resolved_publisher_id as string | undefined,
         resolvedPublisherName: row.resolved_publisher_name as string | undefined,
         matchConfidence: row.match_confidence as number | undefined,
-        status: (row.status as WorkbookStatus) || WorkbookStatus.DRAFT,
+        status: (row.status as WorkbookStatus) || WorkbookStatus.PENDENTE,
         batch_id: (row.batch_id as string) || undefined,
         createdAt: (row.created_at as string) || '',
         updatedAt: (row.updated_at as string) || '',
@@ -143,10 +143,10 @@ export async function getParticipationStats(): Promise<{
 
     const stats = {
         total: data?.length || 0,
-        completed: data?.filter(r => r.status === WorkbookStatus.COMPLETED).length || 0,
-        promoted: data?.filter(r => r.status === WorkbookStatus.PROMOTED).length || 0,
-        draft: data?.filter(r => r.status === WorkbookStatus.DRAFT).length || 0,
-        refined: data?.filter(r => r.status === WorkbookStatus.REFINED).length || 0,
+        completed: data?.filter(r => r.status === WorkbookStatus.CONCLUIDA).length || 0,
+        promoted: data?.filter(r => r.status === WorkbookStatus.DESIGNADA).length || 0,
+        draft: data?.filter(r => r.status === WorkbookStatus.PENDENTE).length || 0,
+        refined: data?.filter(r => r.status === WorkbookStatus.PROPOSTA).length || 0,
     };
 
     return stats;
