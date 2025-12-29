@@ -141,17 +141,33 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
         }
     };
 
-    // Promote to history
-    const handlePromoteToHistory = async (ids: string[]) => {
-        if (!confirm(`Promover ${ids.length} designação(ões) para o histórico?`)) return;
+    // Marcar workbook_parts correspondentes como CONCLUIDA
+    // (Nova funcionalidade: usa workbook_parts como fonte única)
+    const handleMarkWorkbookComplete = async (ids: string[]) => {
+        if (!confirm(`Marcar ${ids.length} designação(ões) como CONCLUÍDA na Apostila?`)) return;
 
         setProcessingIds(prev => new Set([...prev, ...ids]));
         try {
-            const historyIds = await assignmentService.promoteToHistory(ids);
-            alert(`✅ ${historyIds.length} registros criados no histórico`);
+            // Buscar assignments para obter partIds
+            const completedAssignments = assignments.filter(a => ids.includes(a.id));
+
+            // Atualizar cada workbook_part correspondente para CONCLUIDA
+            let updated = 0;
+            for (const assignment of completedAssignments) {
+                if (assignment.partId) {
+                    const { workbookService } = await import('../services/workbookService');
+                    await workbookService.updatePart(assignment.partId, {
+                        status: 'CONCLUIDA',
+                        rawPublisherName: assignment.principalPublisherName,
+                    });
+                    updated++;
+                }
+            }
+
+            alert(`✅ ${updated} partes marcadas como CONCLUÍDA na Apostila`);
             await loadAssignments();
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao promover para histórico');
+            setError(err instanceof Error ? err.message : 'Erro ao atualizar apostila');
         } finally {
             setProcessingIds(prev => {
                 const next = new Set(prev);
@@ -328,11 +344,11 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
                             )}
                             {weekAssignments.some(a => a.status === ApprovalStatus.COMPLETED) && (
                                 <button
-                                    onClick={() => handlePromoteToHistory(
+                                    onClick={() => handleMarkWorkbookComplete(
                                         weekAssignments.filter(a => a.status === ApprovalStatus.COMPLETED).map(a => a.id)
                                     )}
                                     style={{
-                                        background: '#7c3aed',
+                                        background: '#10b981',
                                         color: '#fff',
                                         border: 'none',
                                         padding: '6px 12px',
@@ -341,7 +357,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
                                         fontSize: '0.85em',
                                     }}
                                 >
-                                    📜 Mover para Histórico
+                                    ✅ Finalizar na Apostila
                                 </button>
                             )}
                         </div>
