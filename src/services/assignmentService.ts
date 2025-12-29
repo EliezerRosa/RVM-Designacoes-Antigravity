@@ -153,6 +153,34 @@ export const assignmentService = {
     },
 
     /**
+     * Lista designações concluídas
+     */
+    async getCompleted(): Promise<ScheduledAssignment[]> {
+        const { data, error } = await supabase
+            .from('scheduled_assignments')
+            .select('*')
+            .eq('status', 'COMPLETED')
+            .order('date', { ascending: false });
+
+        if (error) throw new Error(`Erro ao carregar concluídas: ${error.message}`);
+        return (data || []).map(row => mapDbToAssignment(row as DbScheduledAssignment));
+    },
+
+    /**
+     * Lista todas as designações (independente do status)
+     */
+    async getAll(): Promise<ScheduledAssignment[]> {
+        const { data, error } = await supabase
+            .from('scheduled_assignments')
+            .select('*')
+            .order('date', { ascending: true })
+            .range(0, 999);
+
+        if (error) throw new Error(`Erro ao carregar todas: ${error.message}`);
+        return (data || []).map(row => mapDbToAssignment(row as DbScheduledAssignment));
+    },
+
+    /**
      * Cria uma nova designação
      */
     async create(assignment: Omit<ScheduledAssignment, 'id' | 'createdAt'>): Promise<ScheduledAssignment> {
