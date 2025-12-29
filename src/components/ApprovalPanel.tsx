@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { workbookService } from '../services/workbookService';
-import { type WorkbookPart, WorkbookStatus } from '../types';
+import { type WorkbookPart, WorkbookStatus, type Publisher } from '../types';
 
 interface ApprovalPanelProps {
     elderId?: string;
     elderName?: string;
+    publishers?: Publisher[];
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
@@ -25,7 +26,7 @@ const STATUS_LABELS: Record<string, string> = {
     CONCLUIDA: 'Concluída',
 };
 
-export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderName = 'Ancião' }: ApprovalPanelProps) {
+export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderName = 'Ancião', publishers = [] }: ApprovalPanelProps) {
     const [assignments, setAssignments] = useState<WorkbookPart[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -39,7 +40,11 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
     // Estados para edição de publicador
     const [editingPart, setEditingPart] = useState<WorkbookPart | null>(null);
+    const [newPublisherId, setNewPublisherId] = useState('');
     const [newPublisherName, setNewPublisherName] = useState('');
+
+    // Ordenar publicadores por nome
+    const sortedPublishers = [...publishers].sort((a, b) => a.name.localeCompare(b.name));
 
     // Helper para normalizar data (suporta YYYY-MM-DD, DD/MM/YYYY e Excel Serial)
     const parseDate = (dateStr: string): Date => {
@@ -60,7 +65,6 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         if (dateStr.match(/^\d+$/)) {
             const serial = parseInt(dateStr, 10);
             // Excel epoch adjustment (aproximado, assumindo 1900 date system)
-            // Excel base date: Dec 30, 1899. JS base date: Jan 1, 1970.
             const date = new Date((serial - 25569) * 86400 * 1000);
             date.setHours(12, 0, 0, 0); // Meio dia
             return date;
@@ -75,10 +79,6 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         setError(null);
         try {
             let data: WorkbookPart[];
-
-            // REMOVIDO: Filtro de data no DB (minDate) pois formato DD/MM/YYYY quebra comparação de strings
-            // Filtraremos no cliente abaixo
-            // const today = new Date().toISOString().split('T')[0];
 
             if (filter === 'pending') {
                 data = await workbookService.getByStatus(WorkbookStatus.PROPOSTA);
@@ -129,7 +129,6 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     useEffect(() => {
         loadAssignments();
 
-        // Polling simples para atualização (substituir por realtime depois se necessário)
         const interval = setInterval(loadAssignments, 30000);
         return () => clearInterval(interval);
     }, [loadAssignments]);
@@ -139,7 +138,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         setProcessingIds(prev => new Set(prev).add(id));
         try {
             await workbookService.approveProposal(id, elderId);
-            await loadAssignments(); // Recarrega para atualizar status
+            await loadAssignments();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao aprovar');
         } finally {
@@ -172,10 +171,23 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         }
     };
 
-    // Editar publicador (Atualiza o proposedPublisherName)
+    // Editar publicador (Atualiza o proposedPublisherName e ID)
     const handleEditPublisher = async () => {
-        if (!editingPart || !newPublisherName.trim()) {
-            setError('Nome do publicador é obrigatório');
+        if (!editingPart) return;
+
+        let finalName = newPublisherName;
+        let finalId = newPublisherId;
+
+        // Se selecionou pelo ID, garante o nome correto
+        if (newPublisherId) {
+            const pub = publishers.find(p => p.id === newPublisherId);
+            if (pub) {
+                finalName = pub.name;
+            }
+        }
+
+        if (!finalName.trim()) {
+            setError('Selecione um publicador');
             return;
         }
 
@@ -183,11 +195,12 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         try {
             // Atualiza o nome proposto na workbook_part
             await workbookService.updatePart(editingPart.id, {
-                proposedPublisherName: newPublisherName.trim(),
-                // Se tivéssemos ID, atualizaríamos proposedPublisherId também
+                proposedPublisherName: finalName.trim(),
+                proposedPublisherId: finalId || undefined, // Salva o ID se tiver
             });
 
             setEditingPart(null);
+            setNewPublisherId('');
             setNewPublisherName('');
             await loadAssignments();
         } catch (err) {
@@ -209,13 +222,12 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         try {
             let updated = 0;
             for (const id of ids) {
-                // Buscar parte para pegar o nome do publicador correto (se já foi resolvido ou proposto)
                 const part = assignments.find(p => p.id === id);
                 const finalPublisherName = part?.resolvedPublisherName || part?.proposedPublisherName || part?.rawPublisherName;
 
                 await workbookService.updatePart(id, {
                     status: WorkbookStatus.CONCLUIDA,
-                    rawPublisherName: finalPublisherName // Atualiza o "histórico" com o nome final
+                    rawPublisherName: finalPublisherName
                 });
                 updated++;
             }
@@ -372,10 +384,6 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                     const isProcessing = processingIds.has(part.id);
                                     const statusStyle = STATUS_COLORS[part.status] || STATUS_COLORS.PENDENTE;
 
-                                    // Determinar quem exibir como publicador principal
-                                    // 1. Proposed (se ainda é proposta)
-                                    // 2. Resolved (se já foi designado)
-                                    // 3. Raw (se é legado)
                                     const displayPublisher = part.proposedPublisherName || part.resolvedPublisherName || part.rawPublisherName || '(Sem publicador)';
 
                                     return (
@@ -418,7 +426,6 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                 <div style={{ marginTop: '5px', color: '#d1d5db' }}>
                                                     👤 {displayPublisher}
                                                 </div>
-                                                {/* Detalhes extras se houver (selectionReason não tem no workbookPart, mas poderia ter) */}
                                             </div>
 
                                             {/* Right: Actions */}
@@ -429,6 +436,9 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                             onClick={() => {
                                                                 setEditingPart(part);
                                                                 setNewPublisherName(displayPublisher);
+                                                                // Se existe ID correspondente (deveria), setar. Se não, tenta achar por nome.
+                                                                const pub = publishers.find(p => p.name === displayPublisher);
+                                                                setNewPublisherId(pub ? pub.id : '');
                                                             }}
                                                             disabled={isProcessing}
                                                             style={{
@@ -611,26 +621,58 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                         <label style={{ display: 'block', marginBottom: '8px', color: '#d1d5db' }}>
                             Novo publicador:
                         </label>
-                        <input
-                            type="text"
-                            value={newPublisherName}
-                            onChange={e => setNewPublisherName(e.target.value)}
-                            placeholder="Nome do publicador..."
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                borderRadius: '8px',
-                                border: '1px solid #374151',
-                                background: '#111827',
-                                color: '#fff',
-                                marginBottom: '15px',
-                            }}
-                        />
+
+                        {sortedPublishers.length > 0 ? (
+                            <select
+                                value={newPublisherId}
+                                onChange={e => {
+                                    const id = e.target.value;
+                                    setNewPublisherId(id);
+                                    const pub = sortedPublishers.find(p => p.id === id);
+                                    if (pub) setNewPublisherName(pub.name);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #374151',
+                                    background: '#111827',
+                                    color: '#fff',
+                                    marginBottom: '15px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <option value="">Selecione um publicador...</option>
+                                {sortedPublishers.map(pub => (
+                                    <option key={pub.id} value={pub.id}>
+                                        {pub.name}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                value={newPublisherName}
+                                onChange={e => setNewPublisherName(e.target.value)}
+                                placeholder="Nome do publicador..."
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #374151',
+                                    background: '#111827',
+                                    color: '#fff',
+                                    marginBottom: '15px',
+                                }}
+                            />
+                        )}
+
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                             <button
                                 onClick={() => {
                                     setEditingPart(null);
                                     setNewPublisherName('');
+                                    setNewPublisherId('');
                                 }}
                                 style={{
                                     background: '#374151',
