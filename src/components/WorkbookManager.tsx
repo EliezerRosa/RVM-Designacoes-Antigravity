@@ -401,6 +401,9 @@ export function WorkbookManager({ publishers }: Props) {
             let totalCreated = 0;
             let totalWithPublisher = 0;
 
+            // Map para armazenar publicador selecionado por partId
+            const selectedPublisherByPart = new Map<string, { id: string; name: string }>();
+
             for (const [weekId, weekParts] of Object.entries(byWeek)) {
                 const assignments = [];
 
@@ -443,6 +446,11 @@ export function WorkbookManager({ publishers }: Props) {
                         selectionReason = `Nenhum publicador elegível para ${modalidade}`;
                     }
 
+                    // Armazenar publicador selecionado no Map para usar depois
+                    if (selectedPublisher) {
+                        selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
+                    }
+
                     assignments.push({
                         weekId: weekId,
                         partId: part.id,
@@ -471,9 +479,23 @@ export function WorkbookManager({ publishers }: Props) {
 
             setSuccessMessage(`✅ ${totalCreated} designações criadas (${totalWithPublisher} com publicador selecionado pelo motor)! Vá para a aba "Aprovações" para revisar.`);
 
-            // Marcar partes como REFINED
+            // Atualizar status das partes para PROPOSTA usando o ciclo de vida
+            // Usa proposePublisher para preencher proposedPublisherId/proposedPublisherName
             for (const part of partsNeedingAssignment) {
-                await workbookService.updatePart(part.id, { status: 'PROPOSTA' });
+                const selectedPub = selectedPublisherByPart.get(part.id);
+
+                if (selectedPub && part.status === 'PENDENTE') {
+                    // Usar proposePublisher para transição correta no ciclo de vida
+                    try {
+                        await workbookService.proposePublisher(part.id, selectedPub.id, selectedPub.name);
+                    } catch (e) {
+                        // Fallback para update direto se proposePublisher falhar
+                        await workbookService.updatePart(part.id, { status: 'PROPOSTA' });
+                    }
+                } else {
+                    // Sem publicador proposto, apenas atualizar status
+                    await workbookService.updatePart(part.id, { status: 'PROPOSTA' });
+                }
             }
 
             await loadParts(activeBatch.id);
