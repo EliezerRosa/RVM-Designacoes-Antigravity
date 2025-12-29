@@ -225,8 +225,16 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     // Group by week
     const groupedByWeek = assignments.reduce((acc, a) => {
         // OCULTAR Partes implícitas do presidente (Comentários Iniciais/Finais)
-        if (a.tipoParte === 'Comentários Iniciais' || a.tipoParte === 'Comentários Finais' ||
-            a.tipoParte === 'Comentarios Iniciais' || a.tipoParte === 'Comentarios Finais') {
+        // OCULTAR Partes implícitas do presidente
+        const HIDDEN_TYPES = [
+            'Comentários Iniciais', 'Comentarios Iniciais',
+            'Comentários Finais', 'Comentarios Finais',
+            'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
+            'Oração Inicial', 'Oracao Inicial',
+            'Elogios e Conselhos', 'Elogios e conselhos'
+        ];
+
+        if (HIDDEN_TYPES.includes(a.tipoParte)) {
             return acc;
         }
 

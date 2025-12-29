@@ -813,8 +813,14 @@ export const workbookService = {
      * Deve ser chamado após atualizar a parte principal 'Presidente'
      */
     async syncChairmanAssignments(weekId: string, publisherId: string, publisherName: string, status: WorkbookStatus): Promise<void> {
-        // Tipos de parte que devem ser sincronizados
-        const TARGET_TYPES = ['Comentários Iniciais', 'Comentários Finais', 'Comentarios Iniciais', 'Comentarios Finais'];
+        // Tipos de parte que devem ser sincronizados com o Presidente
+        const TARGET_TYPES = [
+            'Comentários Iniciais', 'Comentarios Iniciais',
+            'Comentários Finais', 'Comentarios Finais',
+            'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
+            'Oração Inicial', 'Oracao Inicial',
+            'Elogios e Conselhos', 'Elogios e conselhos'
+        ];
 
         // Buscar partes alvo na mesma semana
         const { data: partsToUpdate, error: fetchError } = await supabase
