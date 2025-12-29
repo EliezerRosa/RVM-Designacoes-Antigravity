@@ -394,11 +394,7 @@ export const workbookService = {
         if (updates.matchConfidence !== undefined) dbUpdates.match_confidence = updates.matchConfidence;
         if (updates.status !== undefined) dbUpdates.status = updates.status;
 
-        // Limpar campos de proposta se resolver
-        if (updates.resolvedPublisherId) {
-            dbUpdates.proposed_publisher_id = null;
-            dbUpdates.proposed_publisher_name = null;
-        }
+
 
         // Se status não foi atualizado e há outras mudanças, manter PENDENTE
         if (updates.status === undefined && Object.keys(dbUpdates).length > 0) {
@@ -458,19 +454,19 @@ export const workbookService = {
     // ========================================================================
 
     /**
-     * Propõe um publicador para uma parte (PENDENTE -> PROPOSTA)
+     * Propõe um publicador para uma parte (atualiza status e publicador)
+     * Usa resolved_publisher_id/name pois proposed_* não existem no banco
      */
     async proposePublisher(partId: string, publisherId: string, publisherName: string): Promise<WorkbookPart> {
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
                 status: WorkbookStatus.PROPOSTA,
-                proposed_publisher_id: publisherId || null,
-                proposed_publisher_name: publisherName || null,
+                resolved_publisher_id: publisherId || null,
+                resolved_publisher_name: publisherName || null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', partId)
-            .eq('status', WorkbookStatus.PENDENTE)
             .select()
             .single();
 
@@ -842,20 +838,10 @@ export const workbookService = {
         };
 
         // Se o status da parte principal for PROPOSTA ou acima, propagamos.
-        // Se for DESIGNADA/CONCLUIDA, setamos o resolved. Se PROPOSTA, o proposed.
-        if (status === WorkbookStatus.DESIGNADA || status === WorkbookStatus.CONCLUIDA || status === WorkbookStatus.APROVADA) {
-            updates.resolved_publisher_id = publisherId;
-            updates.resolved_publisher_name = publisherName;
-            // Também setamos proposed pra manter consistência visual se necessário, ou limpamos?
-            // Melhor setar proposed também pra garantir "fallbacks" de UI
-            updates.proposed_publisher_id = publisherId;
-            updates.proposed_publisher_name = publisherName;
-            updates.status = status;
-        } else if (status === WorkbookStatus.PROPOSTA) {
-            updates.proposed_publisher_id = publisherId;
-            updates.proposed_publisher_name = publisherName;
-            updates.status = WorkbookStatus.PROPOSTA;
-        }
+        // Usamos apenas resolved_publisher_id/name (proposed_* não existem no banco)
+        updates.resolved_publisher_id = publisherId || null;
+        updates.resolved_publisher_name = publisherName || null;
+        updates.status = status;
 
         const ids = partsToUpdate.map(p => p.id);
 
