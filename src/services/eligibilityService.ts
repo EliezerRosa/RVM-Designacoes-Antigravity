@@ -132,24 +132,25 @@ export function checkEligibility(
             if (publisher.gender === 'sister') {
                 return { eligible: false, reason: 'Irmãs não fazem discursos de ensino' };
             }
-            // Regra 11: Publicadores em Tesouros só Leitura (não se aplica a discurso ensino)
             if (!publisher.privileges.canGiveTalks) {
                 return { eligible: false, reason: 'Não tem privilégio de dar discursos' };
             }
-            if (!isElderOrMS(publisher)) {
-                return { eligible: false, reason: 'Discurso de ensino requer Ancião/SM' };
+            // Ancião sempre pode
+            if (publisher.condition === 'Ancião' || publisher.condition === 'Anciao') {
+                return { eligible: true };
             }
-            return { eligible: true };
-
-        case EnumModalidade.LEITURA_ESTUDANTE:
-            // Regra 11: Em Tesouros, apenas Leitura da Bíblia para publicadores regulares
-            if (context.secao === EnumSecao.TESOUROS) {
-                // Leitura da Bíblia é permitida para qualquer irmão batizado
-                if (!publisher.isBaptized) {
-                    return { eligible: false, reason: 'Não é batizado' };
+            // SM: precisa de aprovação prévia para Tesouros
+            if (publisher.condition === 'Servo Ministerial') {
+                if (context.secao === EnumSecao.TESOUROS && !publisher.privileges.approvedForTreasuresTalks) {
+                    return { eligible: false, reason: 'SM não aprovado para discursos em Tesouros' };
                 }
                 return { eligible: true };
             }
+            // Publicador comum não pode
+            return { eligible: false, reason: 'Discurso de ensino requer Ancião/SM' };
+
+        case EnumModalidade.LEITURA_ESTUDANTE:
+            // Leitura de estudante: não-batizados também podem se elegíveis
             return checkStudentPartEligibility(publisher);
 
         case EnumModalidade.DEMONSTRACAO:
@@ -283,16 +284,20 @@ function isElderOrMS(publisher: Publisher): boolean {
 
 /**
  * Verifica elegibilidade para partes de estudante
+ * (Leitura, Demonstração, Discurso de Estudante)
+ * Nota: Não-batizados PODEM participar se elegíveis
  */
 function checkStudentPartEligibility(publisher: Publisher): EligibilityResult {
-    if (!publisher.isBaptized) {
-        return { eligible: false, reason: 'Não é batizado' };
-    }
+    // REMOVIDO: Restrição de batismo - não-batizados podem participar
     if (publisher.isHelperOnly) {
         return { eligible: false, reason: 'Marcado como "Só Ajudante"' };
     }
     if (publisher.ageGroup === 'Crianca') {
         return { eligible: false, reason: 'Criança não faz partes de estudante' };
+    }
+    // Precisa estar atuante (publicador ou estudante da Bíblia ativo)
+    if (!publisher.isServing) {
+        return { eligible: false, reason: 'Não está atuante' };
     }
     return { eligible: true };
 }

@@ -312,9 +312,9 @@ export function WorkbookManager({ publishers }: Props) {
     const handleGenerateDesignations = async () => {
         if (!activeBatch) return;
 
-        // Filtrar partes que precisam de designação (função Titular, não promovidas)
+        // Filtrar partes que precisam de designação (Titular OU Ajudante, não promovidas)
         const partsNeedingAssignment = parts.filter(p =>
-            p.funcao === 'Titular' &&
+            (p.funcao === 'Titular' || p.funcao === 'Ajudante') &&
             p.status !== 'DESIGNADA' &&
             p.status !== 'CONCLUIDA'
         );
@@ -412,12 +412,15 @@ export function WorkbookManager({ publishers }: Props) {
                     const partType = getPartTypeFromSection(part.section);
                     const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
 
-                    // 1. Filtrar publicadores elegíveis
+                    // Determinar função (Titular ou Ajudante)
+                    const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+
+                    // 1. Filtrar publicadores elegíveis (respeita função)
                     const eligiblePublishers = publishers.filter(p => {
                         const result = checkEligibility(
                             p,
                             modalidade as Parameters<typeof checkEligibility>[1],
-                            EnumFuncao.TITULAR,
+                            funcao,
                             { date: part.date, isOracaoInicial }
                         );
                         return result.eligible;
