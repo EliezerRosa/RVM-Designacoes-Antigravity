@@ -173,9 +173,14 @@ export function checkEligibility(
             return checkStudentPartEligibility(publisher);
 
         case EnumModalidade.DISCURSO_ESTUDANTE:
-            // Regra 9: Irmãs não podem fazer Discursos
+            // Regra: Irmãs não podem fazer Discursos de Estudante
             if (publisher.gender === 'sister') {
                 return { eligible: false, reason: 'Irmãs não fazem discursos de estudante' };
+            }
+            // Regra: Verificar privilégio específico de discurso de estudante
+            // Se campo não definido, assume true (padrão permissivo para dados legados)
+            if (publisher.privileges.canGiveStudentTalks === false) {
+                return { eligible: false, reason: 'Não tem privilégio de dar discurso de estudante' };
             }
             return checkStudentPartEligibility(publisher);
 

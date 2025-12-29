@@ -10,6 +10,7 @@ interface PublisherFormProps {
 
 const defaultPrivileges: PublisherPrivileges = {
     canGiveTalks: false,
+    canGiveStudentTalks: true,  // Padrão: true para maioria dos publicadores
     canConductCBS: false,
     canReadCBS: false,
     canPray: false,
@@ -488,7 +489,16 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                         checked={formData.privileges.canGiveTalks}
                                         onChange={handleChange}
                                     />
-                                    Dar Discursos
+                                    Dar Discurso de Ensino (Anciãos/SMs)
+                                </label>
+                                <label className="checkbox-item">
+                                    <input
+                                        type="checkbox"
+                                        name="privileges.canGiveStudentTalks"
+                                        checked={formData.privileges.canGiveStudentTalks}
+                                        onChange={handleChange}
+                                    />
+                                    Dar Discurso de Estudante
                                 </label>
                                 <label className="checkbox-item">
                                     <input
