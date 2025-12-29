@@ -960,6 +960,9 @@ export function WorkbookManager({ publishers }: Props) {
             {activeBatch && (
                 <>
                     <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button onClick={() => activeBatch && loadParts(activeBatch.id)} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px' }}>
+                            🔄 Atualizar Dados
+                        </button>
                         <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px' }}>
                             🎯 Gerar Designações (Motor)
                         </button>
