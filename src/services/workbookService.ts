@@ -324,6 +324,41 @@ export const workbookService = {
     },
 
     /**
+     * Busca partes por status (para o ApprovalPanel)
+     * Pode receber um status único ou array de status
+     */
+    async getByStatus(status: WorkbookStatus | WorkbookStatus[]): Promise<WorkbookPart[]> {
+        const statuses = Array.isArray(status) ? status : [status];
+
+        const rawData = await fetchAllRows<Record<string, unknown>>(
+            'workbook_parts',
+            (query) => query
+                .in('status', statuses)
+                .order('date', { ascending: true })
+                .order('seq', { ascending: true })
+        );
+
+        return rawData.map(mapDbToWorkbookPart);
+    },
+
+    /**
+     * Busca TODAS as partes (para filtro 'all' ou 'completed' histórico)
+     * Útil para o ApprovalPanel listar histórico completo
+     */
+    async getAll(): Promise<WorkbookPart[]> {
+        // Limitando para não trazer o banco todo de uma vez se crescer muito, 
+        // mas por enquanto fetchAllRows resolve a paginação.
+        // Se precisar de otimização futura, filtrar por intervalo de datas.
+        const rawData = await fetchAllRows<Record<string, unknown>>(
+            'workbook_parts',
+            (query) => query
+                .order('date', { ascending: false }) // Mais recentes primeiro para histórico
+        );
+
+        return rawData.map(mapDbToWorkbookPart);
+    },
+
+    /**
      * Atualiza uma parte
      */
     async updatePart(id: string, updates: Partial<WorkbookPart>): Promise<WorkbookPart> {

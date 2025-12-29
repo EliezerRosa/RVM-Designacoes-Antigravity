@@ -5,11 +5,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import type { WorkbookPart, WorkbookBatch, Publisher, TeachingCategory, ParticipationType, HistoryRecord } from '../types';
+import type { WorkbookPart, WorkbookBatch, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
 import { pdfExtractionService } from '../services/pdfExtractionService';
-import { assignmentService } from '../services/assignmentService';
 import { checkEligibility } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
@@ -373,14 +372,6 @@ export function WorkbookManager({ publishers }: Props) {
                 return TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
             };
 
-            // Mapear tipoParte/modalidade para category
-            const getCategoryFromModalidade = (modalidade: string): string => {
-                if (modalidade === EnumModalidade.LEITURA_ESTUDANTE ||
-                    modalidade === EnumModalidade.DISCURSO_ESTUDANTE ||
-                    modalidade === EnumModalidade.DEMONSTRACAO) return 'STUDENT';
-                return 'TEACHING';
-            };
-
             // Mapear section para partType
             const getPartTypeFromSection = (section: string): string => {
                 const lower = section.toLowerCase();
@@ -404,9 +395,8 @@ export function WorkbookManager({ publishers }: Props) {
             // Map para armazenar publicador selecionado por partId
             const selectedPublisherByPart = new Map<string, { id: string; name: string }>();
 
-            for (const [weekId, weekParts] of Object.entries(byWeek)) {
-                const assignments = [];
 
+            for (const [_weekId, weekParts] of Object.entries(byWeek)) {
                 for (const part of weekParts) {
                     const modalidade = getModalidade(part);
                     const partType = getPartTypeFromSection(part.section);
@@ -428,7 +418,7 @@ export function WorkbookManager({ publishers }: Props) {
 
                     // 2. Selecionar melhor candidato via cooldownService
                     let selectedPublisher: Publisher | null = null;
-                    let selectionReason = '';
+                    // selectionReason removido
 
                     if (eligiblePublishers.length > 0) {
                         selectedPublisher = selectBestCandidate(
@@ -438,46 +428,30 @@ export function WorkbookManager({ publishers }: Props) {
                         );
 
                         if (selectedPublisher) {
-                            totalWithPublisher++;
-                            selectionReason = `Motor: ${eligiblePublishers.length} elegíveis, selecionado por rotação`;
+                            // totalWithPublisher incrementado abaixo
+                            // selectionReason removido
                         } else {
-                            selectionReason = `${eligiblePublishers.length} elegíveis, sem histórico para ranking`;
                             // Fallback: primeiro elegível
                             selectedPublisher = eligiblePublishers[0];
                         }
                     } else {
-                        selectionReason = `Nenhum publicador elegível para ${modalidade}`;
+                        // selectionReason = `Nenhum publicador elegível para ${modalidade}`;
                     }
 
                     // Armazenar publicador selecionado no Map para usar depois
                     if (selectedPublisher) {
                         selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
+                        totalWithPublisher++;
                     }
 
-                    assignments.push({
-                        weekId: weekId,
-                        partId: part.id,
-                        partTitle: part.tituloParte || part.tituloParte || part.tipoParte,
-                        partType: partType as ParticipationType,
-                        teachingCategory: getCategoryFromModalidade(modalidade) as TeachingCategory,
-                        principalPublisherId: selectedPublisher?.id || '',
-                        principalPublisherName: selectedPublisher?.name || 'A designar',
-                        secondaryPublisherId: undefined,
-                        secondaryPublisherName: undefined,
-                        date: part.date,
-                        startTime: part.horaInicio || undefined,
-                        endTime: part.horaFim || undefined,
-                        durationMin: parseInt(part.duracao) || 0,
-                        status: 'PENDING_APPROVAL' as const,
-                        selectionReason: selectionReason,
-                        score: 0,
-                        room: undefined,
-                    });
+                    // REMOVIDO: assignments.push(...) - Não criar duplicidade em scheduled_assignments
+                    // A atualização será feita via proposePublisher no próximo loop
                 }
 
-                // Criar em batch
-                await assignmentService.createBatch(assignments);
-                totalCreated += assignments.length;
+                // REMOVIDO: await assignmentService.createBatch(assignments);
+                // totalCreated += assignments.length; 
+                // Atualizar totalCreated baseado nas propostas geradas
+                totalCreated += partsNeedingAssignment.length; // Assumindo que tentamos processar todas
             }
 
             setSuccessMessage(`✅ ${totalCreated} designações criadas (${totalWithPublisher} com publicador selecionado pelo motor)! Vá para a aba "Aprovações" para revisar.`);
