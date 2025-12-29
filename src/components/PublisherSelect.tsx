@@ -76,8 +76,12 @@ export const PublisherSelect = ({ part, publishers, value, onChange, disabled, s
             value={value}
             onChange={(e) => {
                 const id = e.target.value;
-                const pub = publishers.find(p => p.id === id);
-                if (pub) onChange(pub.id, pub.name);
+                if (!id) {
+                    onChange('', ''); // Limpar seleção
+                } else {
+                    const pub = publishers.find(p => p.id === id);
+                    if (pub) onChange(pub.id, pub.name);
+                }
             }}
             disabled={disabled}
             style={style}

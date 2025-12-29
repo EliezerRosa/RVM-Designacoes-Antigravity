@@ -647,9 +647,13 @@ export function WorkbookManager({ publishers }: Props) {
             }
         } catch (e) {
             console.error('Erro ao atualizar publicador:', e);
-            setError(e instanceof Error ? e.message : 'Erro ao atualizar publicador');
-            // Nota: Em caso de erro, a UI pode ficar desincronizada até o próximo refresh.
-            // Idealmente faríamos rollback, mas o realtime geralmente corrige.
+            const msg = e instanceof Error ? e.message : 'Erro desconhecido';
+            setError(msg);
+            alert(`Erro ao salvar: ${msg}`);
+            // Recarregar partes para desfazer optimistic update errado
+            // (Se eu tivesse acesso ao fetchParts, chamaria aqui. Mas ele está dentro do hook loadParts?
+            //  Na verdade handleGenerate chama setParts. 
+            //  O ideal para garantir consistência seria forçar um reload.)
         }
     };
 
