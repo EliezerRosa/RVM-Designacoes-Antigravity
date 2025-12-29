@@ -41,7 +41,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const [editingPart, setEditingPart] = useState<WorkbookPart | null>(null);
     const [newPublisherName, setNewPublisherName] = useState('');
 
-    // Helper para normalizar data (suporta YYYY-MM-DD e DD/MM/YYYY)
+    // Helper para normalizar data (suporta YYYY-MM-DD, DD/MM/YYYY e Excel Serial)
     const parseDate = (dateStr: string): Date => {
         if (!dateStr) return new Date(0); // Data muito antiga
 
@@ -54,6 +54,16 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         const dmy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         if (dmy) {
             return new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
+        }
+
+        // Se for número (Excel Serial formatado como string)
+        if (dateStr.match(/^\d+$/)) {
+            const serial = parseInt(dateStr, 10);
+            // Excel epoch adjustment (aproximado, assumindo 1900 date system)
+            // Excel base date: Dec 30, 1899. JS base date: Jan 1, 1970.
+            const date = new Date((serial - 25569) * 86400 * 1000);
+            date.setHours(12, 0, 0, 0); // Meio dia
+            return date;
         }
 
         return new Date(dateStr); // Tenta parse padrão

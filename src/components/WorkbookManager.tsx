@@ -153,7 +153,24 @@ export function WorkbookManager({ publishers }: Props) {
                     year,
                     weekId,
                     weekDisplay: (getValue(row, 'weekDisplay') as string) || '',
-                    date: (getValue(row, 'date') as string) || '',
+                    date: (() => {
+                        const rawDate = getValue(row, 'date') as string | number;
+                        if (!rawDate) return '';
+
+                        // Se for número (Excel Serial)
+                        if (typeof rawDate === 'number') {
+                            const date = new Date((rawDate - 25569) * 86400 * 1000);
+                            return date.toISOString().split('T')[0];
+                        }
+
+                        const strDate = String(rawDate).trim();
+                        // Se for DD/MM/YYYY
+                        const dmy = strDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                        if (dmy) {
+                            return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+                        }
+                        return strDate;
+                    })(),
                     section: (getValue(row, 'section') as string) || '',
                     tipoParte: (getValue(row, 'tipoParte') as string) || (getValue(row, 'tipo de parte') as string) || '',
                     modalidade: (getValue(row, 'modalidade') as string) || '',
