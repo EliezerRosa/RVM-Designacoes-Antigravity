@@ -415,13 +415,13 @@ export function WorkbookManager({ publishers }: Props) {
                     // Determinar função (Titular ou Ajudante)
                     const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
 
-                    // 1. Filtrar publicadores elegíveis (respeita função)
+                    // 1. Filtrar publicadores elegíveis (respeita função e seção)
                     const eligiblePublishers = publishers.filter(p => {
                         const result = checkEligibility(
                             p,
                             modalidade as Parameters<typeof checkEligibility>[1],
                             funcao,
-                            { date: part.date, isOracaoInicial }
+                            { date: part.date, isOracaoInicial, secao: part.section }
                         );
                         return result.eligible;
                     });
