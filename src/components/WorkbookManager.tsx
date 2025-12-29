@@ -39,19 +39,31 @@ export function WorkbookManager({ publishers }: Props) {
     // Seleção
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    // Filtros
-    const [filterWeek, setFilterWeek] = useState<string>('');
-    const [filterSection, setFilterSection] = useState<string>('');
-    const [filterTipo, setFilterTipo] = useState<string>('');
-    const [filterStatus, setFilterStatus] = useState<string>('');
-    const [filterFuncao, setFilterFuncao] = useState<string>('');
-    const [searchText, setSearchText] = useState<string>('');
+    // Filtros - carregar do localStorage para persistência
+    const [filterWeek, setFilterWeek] = useState<string>(() => localStorage.getItem('wm_filterWeek') || '');
+    const [filterSection, setFilterSection] = useState<string>(() => localStorage.getItem('wm_filterSection') || '');
+    const [filterTipo, setFilterTipo] = useState<string>(() => localStorage.getItem('wm_filterTipo') || '');
+    const [filterStatus, setFilterStatus] = useState<string>(() => localStorage.getItem('wm_filterStatus') || '');
+    const [filterFuncao, setFilterFuncao] = useState<string>(() => localStorage.getItem('wm_filterFuncao') || '');
+    const [searchText, setSearchText] = useState<string>(() => localStorage.getItem('wm_searchText') || '');
 
     // PDF Extraction State
     const [extractedParts, setExtractedParts] = useState<WorkbookExcelRow[]>([]);
     const [showExtractPreview, setShowExtractPreview] = useState(false);
     const [extractionInfo, setExtractionInfo] = useState<{ year: number; totalWeeks: number } | null>(null);
     const [extracting, setExtracting] = useState(false);
+
+    // ========================================================================
+    // Persistir filtros no localStorage
+    // ========================================================================
+    useEffect(() => {
+        localStorage.setItem('wm_filterWeek', filterWeek);
+        localStorage.setItem('wm_filterSection', filterSection);
+        localStorage.setItem('wm_filterTipo', filterTipo);
+        localStorage.setItem('wm_filterStatus', filterStatus);
+        localStorage.setItem('wm_filterFuncao', filterFuncao);
+        localStorage.setItem('wm_searchText', searchText);
+    }, [filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText]);
 
     // ========================================================================
     // Carregar dados iniciais
@@ -532,7 +544,19 @@ export function WorkbookManager({ publishers }: Props) {
         return Array.from(weeksMap.values()).sort((a, b) => a.weekId.localeCompare(b.weekId));
     }, [parts]);
     const uniqueSections = useMemo(() => [...new Set(parts.map(p => p.section))], [parts]);
-    const uniqueTipos = useMemo(() => [...new Set(parts.map(p => p.tipoParte))], [parts]);
+
+    // HIDDEN_TYPES - partes gerenciadas automaticamente pelo Presidente
+    const HIDDEN_TYPES = [
+        'Comentários Iniciais', 'Comentarios Iniciais',
+        'Comentários Finais', 'Comentarios Finais',
+        'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
+        'Oração Inicial', 'Oracao Inicial',
+        'Elogios e Conselhos', 'Elogios e conselhos'
+    ];
+
+    const uniqueTipos = useMemo(() =>
+        [...new Set(parts.map(p => p.tipoParte))].filter(t => !HIDDEN_TYPES.includes(t)).sort()
+        , [parts]);
 
     const filteredParts = useMemo(() => {
         return parts.filter(p => {
@@ -875,6 +899,20 @@ export function WorkbookManager({ publishers }: Props) {
                                 </span>
                                 <div style={{ fontWeight: 'bold', paddingRight: '40px' }}>{batch.fileName}</div>
                                 <div style={{ fontSize: '12px', color: '#6B7280' }}>{batch.weekRange}</div>
+
+                                {/* Lista de semanas (apenas para batch ativo) */}
+                                {activeBatch?.id === batch.id && uniqueWeeks.length > 0 && (
+                                    <div style={{ fontSize: '11px', color: '#4B5563', marginTop: '6px', maxHeight: '80px', overflowY: 'auto' }}>
+                                        <strong>Semanas ({uniqueWeeks.length}):</strong>
+                                        <ul style={{ margin: '4px 0', paddingLeft: '16px', listStyle: 'disc' }}>
+                                            {uniqueWeeks.slice(0, 8).map(w => (
+                                                <li key={w.weekId} style={{ marginBottom: '2px' }}>{w.weekDisplay}</li>
+                                            ))}
+                                            {uniqueWeeks.length > 8 && <li>... +{uniqueWeeks.length - 8} mais</li>}
+                                        </ul>
+                                    </div>
+                                )}
+
                                 <div style={{ fontSize: '12px', marginTop: '4px' }}>
                                     <span style={{ color: '#9CA3AF' }}>Pendente: {batch.draftCount}</span>
                                     {' | '}
@@ -927,9 +965,12 @@ export function WorkbookManager({ publishers }: Props) {
                         </select>
                         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px' }}>
                             <option value="">Todos os status</option>
-                            <option value="DRAFT">Draft</option>
-                            <option value="REFINED">Refined</option>
-                            <option value="PROMOTED">Promoted</option>
+                            <option value="PENDENTE">Pendente</option>
+                            <option value="PROPOSTA">Proposta</option>
+                            <option value="APROVADA">Aprovada</option>
+                            <option value="DESIGNADA">Designada</option>
+                            <option value="REJEITADA">Rejeitada</option>
+                            <option value="CONCLUIDA">Concluída</option>
                         </select>
                         <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '8px' }}>
                             <option value="">Todas as funções</option>
