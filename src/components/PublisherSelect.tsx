@@ -7,6 +7,7 @@ interface PublisherSelectProps {
     part: WorkbookPart;
     publishers: Publisher[];
     value: string; // ID do publicador
+    displayName?: string; // Nome para mostrar quando não temos ID
     onChange: (id: string, name: string) => void;
     disabled?: boolean;
     style?: React.CSSProperties;
@@ -37,7 +38,7 @@ const getModalidade = (part: WorkbookPart): string => {
     return TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
 };
 
-export const PublisherSelect = ({ part, publishers, value, onChange, disabled, style }: PublisherSelectProps) => {
+export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style }: PublisherSelectProps) => {
 
     // Memoizar a lista sorted para evitar recálculo excessivo
     const sortedOptions = useMemo(() => {
@@ -71,9 +72,22 @@ export const PublisherSelect = ({ part, publishers, value, onChange, disabled, s
         });
     }, [part, publishers]);
 
+    // Determinar o valor efetivo - tentar encontrar ID pelo nome se não temos ID
+    const effectiveValue = useMemo(() => {
+        if (value) return value;
+        if (displayName) {
+            const found = publishers.find(p => p.name === displayName);
+            if (found) return found.id;
+        }
+        return '';
+    }, [value, displayName, publishers]);
+
+    // Texto do placeholder
+    const placeholderText = displayName && !effectiveValue ? displayName : 'Selecione...';
+
     return (
         <select
-            value={value}
+            value={effectiveValue}
             onChange={(e) => {
                 const id = e.target.value;
                 if (!id) {
@@ -86,11 +100,8 @@ export const PublisherSelect = ({ part, publishers, value, onChange, disabled, s
             disabled={disabled}
             style={style}
         >
-            <option value="">Selecione...</option>
+            <option value="">{placeholderText}</option>
             {sortedOptions.map(p => {
-                // Podemos adicionar visualmente quem é elegível ou não, 
-                // mas a ordenação já bota os não elegíveis no final.
-                // Vamos apenas listar por enquanto.
                 return (
                     <option key={p.id} value={p.id}>
                         {p.name}
