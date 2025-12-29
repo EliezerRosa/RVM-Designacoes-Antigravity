@@ -72,25 +72,41 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         });
     }, [part, publishers]);
 
+    // Normalizar nome para comparação (lowercase + trim + remover acentos)
+    const normalizeForMatch = (s: string | undefined | null): string => {
+        if (!s) return '';
+        return s.toLowerCase().trim()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove acentos
+    };
+
     // Determinar o valor efetivo - tentar encontrar ID pelo nome se não temos ID
-    const effectiveValue = useMemo(() => {
-        if (value) return value;
-        if (displayName) {
-            const found = publishers.find(p => p.name === displayName);
-            if (found) return found.id;
+    const { effectiveValue, foundPublisher } = useMemo(() => {
+        if (value) {
+            const pub = publishers.find(p => p.id === value);
+            return { effectiveValue: value, foundPublisher: pub };
         }
-        return '';
+        if (displayName) {
+            const normalizedDisplay = normalizeForMatch(displayName);
+            // Tentar match exato primeiro
+            let found = publishers.find(p => p.name === displayName);
+            // Se não encontrou, tentar match normalizado
+            if (!found) {
+                found = publishers.find(p => normalizeForMatch(p.name) === normalizedDisplay);
+            }
+            if (found) return { effectiveValue: found.id, foundPublisher: found };
+        }
+        return { effectiveValue: '', foundPublisher: undefined };
     }, [value, displayName, publishers]);
 
-    // Texto do placeholder
-    const placeholderText = displayName && !effectiveValue ? displayName : 'Selecione...';
+    // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
+    const showUnmatchedName = displayName && !foundPublisher;
 
     return (
         <select
             value={effectiveValue}
             onChange={(e) => {
                 const id = e.target.value;
-                if (!id) {
+                if (!id || id === '__unmatched__') {
                     onChange('', ''); // Limpar seleção
                 } else {
                     const pub = publishers.find(p => p.id === id);
@@ -100,7 +116,13 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             disabled={disabled}
             style={style}
         >
-            <option value="">{placeholderText}</option>
+            <option value="">Selecione...</option>
+            {/* Se temos um nome não encontrado na lista, mostrar como opção selecionada */}
+            {showUnmatchedName && (
+                <option value="__unmatched__" disabled style={{ fontStyle: 'italic', color: '#9CA3AF' }}>
+                    ⚠️ {displayName} (não encontrado)
+                </option>
+            )}
             {sortedOptions.map(p => {
                 return (
                     <option key={p.id} value={p.id}>
