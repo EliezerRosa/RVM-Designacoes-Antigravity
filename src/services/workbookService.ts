@@ -49,28 +49,26 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         weekDisplay: row.week_display as string,
         date: row.date as string,
         section: row.section as string,
-        // 5 CAMPOS CANÔNICOS (obrigatórios)
+        // 5 CAMPOS CANÔNICOS
         tipoParte: (row.tipo_parte as string) || '',
         modalidade: (row.modalidade as string) || 'Demonstração',
         tituloParte: (row.part_title as string) || '',
         descricaoParte: (row.descricao as string) || '',
-        detalhesParte: (row.detalhes_parte as string) || (row.detalhes as string) || '',    // Sequência e função
+        detalhesParte: (row.detalhes_parte as string) || (row.detalhes as string) || '',
+        // Sequência e função
         seq: row.seq as number,
         funcao: row.funcao as 'Titular' | 'Ajudante',
         duracao: (row.duracao as string) || '',
         horaInicio: (row.hora_inicio as string) || '',
         horaFim: (row.hora_fim as string) || '',
         rawPublisherName: (row.raw_publisher_name as string) || '',
-        resolvedPublisherId: row.resolved_publisher_id as string | undefined,
-        resolvedPublisherName: row.resolved_publisher_name as string | undefined,
-        matchConfidence: row.match_confidence as number | undefined,
+        // Publicador designado (ÚNICO campo)
+        resolvedPublisherName: (row.resolved_publisher_name as string) || undefined,
+        // Status e metadados
         status: row.status as WorkbookStatus,
         createdAt: row.created_at as string,
         updatedAt: row.updated_at as string | undefined,
-        // Campos do ciclo de vida
-        proposedPublisherId: row.proposed_publisher_id as string | undefined,
-        proposedPublisherName: row.proposed_publisher_name as string | undefined,
-        proposedAt: row.proposed_at as string | undefined,
+        // Campos de aprovação
         approvedById: row.approved_by_id as string | undefined,
         approvedAt: row.approved_at as string | undefined,
         rejectedReason: row.rejected_reason as string | undefined,
@@ -389,9 +387,8 @@ export const workbookService = {
         if (updates.horaInicio !== undefined) dbUpdates.hora_inicio = updates.horaInicio;
         if (updates.horaFim !== undefined) dbUpdates.hora_fim = updates.horaFim;
         if (updates.rawPublisherName !== undefined) dbUpdates.raw_publisher_name = updates.rawPublisherName;
-        if (updates.resolvedPublisherId !== undefined) dbUpdates.resolved_publisher_id = updates.resolvedPublisherId || null;
+        // SIMPLIFICADO: Apenas resolved_publisher_name
         if (updates.resolvedPublisherName !== undefined) dbUpdates.resolved_publisher_name = updates.resolvedPublisherName;
-        if (updates.matchConfidence !== undefined) dbUpdates.match_confidence = updates.matchConfidence;
         if (updates.status !== undefined) dbUpdates.status = updates.status;
 
 
@@ -413,12 +410,11 @@ export const workbookService = {
         const updatedPart = mapDbToWorkbookPart(data);
 
         // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
-        if (updatedPart.tipoParte === 'Presidente' && (updates.resolvedPublisherId || updates.proposedPublisherId)) {
-            const pubId = updates.resolvedPublisherId || updates.proposedPublisherId || '';
-            const pubName = updates.resolvedPublisherName || updates.proposedPublisherName || '';
-            if (pubId) {
+        if (updatedPart.tipoParte === 'Presidente' && updates.resolvedPublisherName) {
+            const pubName = updates.resolvedPublisherName || '';
+            if (pubName) {
                 // Executar em background (sem await para não travar a UI)
-                this.syncChairmanAssignments(updatedPart.weekId, pubId, pubName, updatedPart.status);
+                this.syncChairmanAssignments(updatedPart.weekId, '', pubName, updatedPart.status);
             }
         }
 
@@ -796,14 +792,14 @@ export const workbookService = {
         let matchedCount = 0;
 
         for (const part of parts) {
-            if (!part.rawPublisherName || part.resolvedPublisherId) continue;
+            // Pular se já tem nome resolvido
+            if (!part.rawPublisherName || part.resolvedPublisherName) continue;
 
             const match = findBestMatch(part.rawPublisherName, publishers);
             if (match.publisher && match.confidence >= 70) {
                 await this.updatePart(part.id, {
-                    resolvedPublisherId: match.publisher.id,
+                    // SIMPLIFICADO: Apenas nome
                     resolvedPublisherName: match.publisher.name,
-                    matchConfidence: match.confidence,
                 });
                 matchedCount++;
             }

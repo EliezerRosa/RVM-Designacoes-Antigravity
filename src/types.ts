@@ -333,8 +333,8 @@ export type WorkbookStatus = typeof WorkbookStatus[keyof typeof WorkbookStatus];
 // Parte individual extraída da apostila
 export interface WorkbookPart {
     id: string;
-    batch_id?: string; // ID do lote de upload
-    year?: number;    // Ano da parte (novo)
+    batch_id?: string; // ID do lote de upload (legado, será removido)
+    year?: number;    // Ano da parte
     weekId: string; // YYYY-MM-DD da segunda-feira
     weekDisplay: string; // Ex: "6-12 de Janeiro"
     date: string;
@@ -355,26 +355,21 @@ export interface WorkbookPart {
     duracao: string;
     horaInicio: string;
     horaFim: string;
-    rawPublisherName: string;
+    rawPublisherName: string;    // Nome original do Excel/PDF
 
-    // Resolução de publicador (fuzzy matching)
-    resolvedPublisherId?: string;
-    resolvedPublisherName?: string;
-    matchConfidence?: number;
+    // Publicador designado (ÚNICO campo usado para designação)
+    resolvedPublisherName?: string;  // Nome do publicador designado
 
     // Status e metadados
     status: WorkbookStatus;
     createdAt: string;
     updatedAt?: string;
 
-    // Campos do ciclo de vida de designação
-    proposedPublisherId?: string;      // ID do publicador proposto
-    proposedPublisherName?: string;    // Nome do publicador proposto
-    proposedAt?: string;               // Data da proposta
-    approvedById?: string;             // Ancião que aprovou
-    approvedAt?: string;               // Data da aprovação
-    rejectedReason?: string;           // Motivo da rejeição
-    completedAt?: string;              // Data de conclusão
+    // Campos de aprovação (existem no banco)
+    approvedById?: string;       // Ancião que aprovou
+    approvedAt?: string;         // Data da aprovação
+    rejectedReason?: string;     // Motivo da rejeição
+    completedAt?: string;        // Data de conclusão
 }
 
 // Batch de importação (controle de versões)

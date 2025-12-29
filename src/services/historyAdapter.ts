@@ -32,9 +32,8 @@ export function workbookPartToHistoryRecord(part: WorkbookPart): HistoryRecord {
         horaInicio: part.horaInicio,
         horaFim: part.horaFim,
         rawPublisherName: part.rawPublisherName,
-        resolvedPublisherId: part.resolvedPublisherId,
+        // SIMPLIFICADO: apenas nome
         resolvedPublisherName: part.resolvedPublisherName,
-        matchConfidence: part.matchConfidence || 0,
         status: HistoryStatus.APPROVED, // COMPLETED/PROMOTED = participação válida
         importSource: 'Excel',
         importBatchId: part.batch_id || '',
@@ -111,9 +110,8 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         horaInicio: (row.hora_inicio as string) || '',
         horaFim: (row.hora_fim as string) || '',
         rawPublisherName: (row.raw_publisher_name as string) || '',
-        resolvedPublisherId: row.resolved_publisher_id as string | undefined,
-        resolvedPublisherName: row.resolved_publisher_name as string | undefined,
-        matchConfidence: row.match_confidence as number | undefined,
+        // SIMPLIFICADO: apenas nome
+        resolvedPublisherName: (row.resolved_publisher_name as string) || undefined,
         status: (row.status as WorkbookStatus) || WorkbookStatus.PENDENTE,
         batch_id: (row.batch_id as string) || undefined,
         createdAt: (row.created_at as string) || '',
