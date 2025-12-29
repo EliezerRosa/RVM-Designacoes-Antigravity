@@ -536,6 +536,13 @@ export function WorkbookManager({ publishers }: Props) {
 
     const filteredParts = useMemo(() => {
         return parts.filter(p => {
+            // OCULTAR IMEDIATAMENTE partes secundárias do Presidente (Comentários Iniciais/Finais)
+            // Elas são gerenciadas automaticamente pela parte "Presidente"
+            if (p.tipoParte === 'Comentários Iniciais' || p.tipoParte === 'Comentários Finais' ||
+                p.tipoParte === 'Comentarios Iniciais' || p.tipoParte === 'Comentarios Finais') {
+                return false;
+            }
+
             // Filtro por semana (compara com weekId)
             if (filterWeek && p.weekId !== filterWeek) return false;
             if (filterSection && p.section !== filterSection) return false;

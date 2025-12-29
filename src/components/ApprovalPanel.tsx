@@ -224,6 +224,12 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
     // Group by week
     const groupedByWeek = assignments.reduce((acc, a) => {
+        // OCULTAR Partes implícitas do presidente (Comentários Iniciais/Finais)
+        if (a.tipoParte === 'Comentários Iniciais' || a.tipoParte === 'Comentários Finais' ||
+            a.tipoParte === 'Comentarios Iniciais' || a.tipoParte === 'Comentarios Finais') {
+            return acc;
+        }
+
         if (!acc[a.weekDisplay]) acc[a.weekDisplay] = [];
         acc[a.weekDisplay].push(a);
         return acc;
