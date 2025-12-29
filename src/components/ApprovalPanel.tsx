@@ -22,6 +22,15 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; icon: string }> 
     COMPLETED: { bg: '#3b82f6', text: '#fff', icon: '🏆' },
 };
 
+// Labels em português para os status
+const STATUS_LABELS: Record<string, string> = {
+    DRAFT: 'Rascunho',
+    PENDING_APPROVAL: 'Pendente',
+    APPROVED: 'Aprovada',
+    REJECTED: 'Rejeitada',
+    COMPLETED: 'Concluída',
+};
+
 export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Ancião' }: ApprovalPanelProps) {
     const [assignments, setAssignments] = useState<ScheduledAssignment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -267,7 +276,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
                         >
                             <span style={{ fontSize: '1.2em' }}>{colors.icon}</span>
                             <div>
-                                <div style={{ fontSize: '0.75em', opacity: 0.9 }}>{status.replace('_', ' ')}</div>
+                                <div style={{ fontSize: '0.75em', opacity: 0.9 }}>{STATUS_LABELS[status] || status}</div>
                                 <div style={{ fontSize: '1.3em', fontWeight: 'bold' }}>
                                     {stats.byStatus[status] || 0}
                                 </div>
@@ -428,7 +437,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
                                                     fontWeight: 'bold',
                                                 }}
                                             >
-                                                {statusStyle.icon} {a.status.replace('_', ' ')}
+                                                {statusStyle.icon} {STATUS_LABELS[a.status] || a.status}
                                             </span>
                                             <span style={{ color: '#9ca3af', fontSize: '0.85em' }}>
                                                 {a.date} · {a.durationMin}min
