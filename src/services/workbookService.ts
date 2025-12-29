@@ -407,7 +407,20 @@ export const workbookService = {
             .single();
 
         if (error) throw new Error(`Erro ao atualizar parte: ${error.message}`);
-        return mapDbToWorkbookPart(data);
+
+        const updatedPart = mapDbToWorkbookPart(data);
+
+        // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
+        if (updatedPart.tipoParte === 'Presidente' && (updates.resolvedPublisherId || updates.proposedPublisherId)) {
+            const pubId = updates.resolvedPublisherId || updates.proposedPublisherId || '';
+            const pubName = updates.resolvedPublisherName || updates.proposedPublisherName || '';
+            if (pubId) {
+                // Executar em background (sem await para não travar a UI)
+                this.syncChairmanAssignments(updatedPart.weekId, pubId, pubName, updatedPart.status);
+            }
+        }
+
+        return updatedPart;
     },
 
     /**
@@ -457,7 +470,14 @@ export const workbookService = {
             .single();
 
         if (error) throw new Error(`Erro ao propor publicador: ${error.message}`);
-        return mapDbToWorkbookPart(data);
+        const updatedPart = mapDbToWorkbookPart(data);
+
+        // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
+        if (updatedPart.tipoParte === 'Presidente') {
+            this.syncChairmanAssignments(updatedPart.weekId, publisherId, publisherName, WorkbookStatus.PROPOSTA);
+        }
+
+        return updatedPart;
     },
 
     /**
@@ -786,6 +806,58 @@ export const workbookService = {
         }
 
         return matchedCount;
+    },
+
+    /**
+     * Sincroniza partes do Presidente (Comentários Iniciais/Finais)
+     * Deve ser chamado após atualizar a parte principal 'Presidente'
+     */
+    async syncChairmanAssignments(weekId: string, publisherId: string, publisherName: string, status: WorkbookStatus): Promise<void> {
+        // Tipos de parte que devem ser sincronizados
+        const TARGET_TYPES = ['Comentários Iniciais', 'Comentários Finais', 'Comentarios Iniciais', 'Comentarios Finais'];
+
+        // Buscar partes alvo na mesma semana
+        const { data: partsToUpdate, error: fetchError } = await supabase
+            .from('workbook_parts')
+            .select('id, tipo_parte')
+            .eq('week_id', weekId)
+            .in('tipo_parte', TARGET_TYPES);
+
+        if (fetchError || !partsToUpdate || partsToUpdate.length === 0) return;
+
+        // Preparar update
+        const updates: any = {
+            updated_at: new Date().toISOString()
+        };
+
+        // Se o status da parte principal for PROPOSTA ou acima, propagamos.
+        // Se for DESIGNADA/CONCLUIDA, setamos o resolved. Se PROPOSTA, o proposed.
+        if (status === WorkbookStatus.DESIGNADA || status === WorkbookStatus.CONCLUIDA || status === WorkbookStatus.APROVADA) {
+            updates.resolved_publisher_id = publisherId;
+            updates.resolved_publisher_name = publisherName;
+            // Também setamos proposed pra manter consistência visual se necessário, ou limpamos?
+            // Melhor setar proposed também pra garantir "fallbacks" de UI
+            updates.proposed_publisher_id = publisherId;
+            updates.proposed_publisher_name = publisherName;
+            updates.status = status;
+        } else if (status === WorkbookStatus.PROPOSTA) {
+            updates.proposed_publisher_id = publisherId;
+            updates.proposed_publisher_name = publisherName;
+            updates.status = WorkbookStatus.PROPOSTA;
+        }
+
+        const ids = partsToUpdate.map(p => p.id);
+
+        console.log(`[workbookService] 🔄 Sincronizando Presidente para ${ids.length} partes derivadas (${weekId})`);
+
+        const { error: updateError } = await supabase
+            .from('workbook_parts')
+            .update(updates)
+            .in('id', ids);
+
+        if (updateError) {
+            console.error('[workbookService] Erro ao sincronizar presidente:', updateError);
+        }
     },
 };
 
