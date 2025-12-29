@@ -467,7 +467,6 @@ export const workbookService = {
                 status: WorkbookStatus.PROPOSTA,
                 proposed_publisher_id: publisherId || null,
                 proposed_publisher_name: publisherName || null,
-                proposed_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             })
             .eq('id', partId)
