@@ -389,10 +389,16 @@ export const workbookService = {
         if (updates.horaInicio !== undefined) dbUpdates.hora_inicio = updates.horaInicio;
         if (updates.horaFim !== undefined) dbUpdates.hora_fim = updates.horaFim;
         if (updates.rawPublisherName !== undefined) dbUpdates.raw_publisher_name = updates.rawPublisherName;
-        if (updates.resolvedPublisherId !== undefined) dbUpdates.resolved_publisher_id = updates.resolvedPublisherId;
+        if (updates.resolvedPublisherId !== undefined) dbUpdates.resolved_publisher_id = updates.resolvedPublisherId || null;
         if (updates.resolvedPublisherName !== undefined) dbUpdates.resolved_publisher_name = updates.resolvedPublisherName;
         if (updates.matchConfidence !== undefined) dbUpdates.match_confidence = updates.matchConfidence;
         if (updates.status !== undefined) dbUpdates.status = updates.status;
+
+        // Limpar campos de proposta se resolver
+        if (updates.resolvedPublisherId) {
+            dbUpdates.proposed_publisher_id = null;
+            dbUpdates.proposed_publisher_name = null;
+        }
 
         // Se status não foi atualizado e há outras mudanças, manter PENDENTE
         if (updates.status === undefined && Object.keys(dbUpdates).length > 0) {
@@ -459,8 +465,8 @@ export const workbookService = {
             .from('workbook_parts')
             .update({
                 status: WorkbookStatus.PROPOSTA,
-                proposed_publisher_id: publisherId,
-                proposed_publisher_name: publisherName,
+                proposed_publisher_id: publisherId || null,
+                proposed_publisher_name: publisherName || null,
                 proposed_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
             })
