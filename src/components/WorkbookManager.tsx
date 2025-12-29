@@ -1080,6 +1080,7 @@ export function WorkbookManager({ publishers }: Props) {
                                                     part={part}
                                                     publishers={publishers}
                                                     value={currentPubId}
+                                                    displayName={displayRaw}
                                                     onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
                                                     style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
                                                 />
