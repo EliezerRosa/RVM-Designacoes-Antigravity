@@ -48,12 +48,14 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         try {
             let data: WorkbookPart[];
 
+            const today = new Date().toISOString().split('T')[0];
+
             if (filter === 'pending') {
-                // Pendentes de aprovação: Status PROPOSTA
-                data = await workbookService.getByStatus(WorkbookStatus.PROPOSTA);
+                // Pendentes de aprovação: Status PROPOSTA (futuras apenas)
+                data = await workbookService.getByStatus(WorkbookStatus.PROPOSTA, today);
             } else if (filter === 'approved') {
-                // Aprovadas (inclui DESIGNADA também)
-                data = await workbookService.getByStatus([WorkbookStatus.APROVADA, WorkbookStatus.DESIGNADA]);
+                // Aprovadas (inclui DESIGNADA também) (futuras apenas)
+                data = await workbookService.getByStatus([WorkbookStatus.APROVADA, WorkbookStatus.DESIGNADA], today);
             } else if (filter === 'completed') {
                 data = await workbookService.getByStatus(WorkbookStatus.CONCLUIDA);
             } else {
