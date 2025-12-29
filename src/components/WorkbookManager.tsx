@@ -594,18 +594,35 @@ export function WorkbookManager({ publishers }: Props) {
 
     // Helper para atualizar publisher do dropdown
     const handlePublisherSelect = async (partId: string, newId: string, newName: string) => {
-        // Se mudar por aqui, podemos setar status para PROPOSTA automaticamente se estiver PENDENTE?
-        // Sim, faz sentido.
         try {
             // Tentar pegar a part atual para checar status
             const part = parts.find(p => p.id === partId);
+            if (!part) return;
 
-            // Se estiver pendente, muda para PROPOSTA
-            // Se estiver PROPOSTA, só muda o nome
-            // Se estiver DESIGNADA, muda o resolved
+            // Determinar novos valores e se precisa mudar status
+            const isDesignada = part.status === 'DESIGNADA' || part.status === 'CONCLUIDA' || part.status === 'APROVADA';
+            const shouldChangeStatus = !isDesignada && part.status === 'PENDENTE';
 
-            // Vamos usar proposePublisher se for < DESIGNADA
-            if (!part || part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
+            // Optimistic Update: Atualizar UI imediatamente
+            setParts(prev => prev.map(p => {
+                if (p.id !== partId) return p;
+
+                const updated = { ...p };
+                if (isDesignada) {
+                    updated.resolvedPublisherId = newId;
+                    updated.resolvedPublisherName = newName;
+                } else {
+                    updated.proposedPublisherId = newId;
+                    updated.proposedPublisherName = newName;
+                    if (shouldChangeStatus) {
+                        updated.status = 'PROPOSTA';
+                    }
+                }
+                return updated;
+            }));
+
+            // Chamada ao Backend
+            if (!isDesignada) {
                 await workbookService.proposePublisher(partId, newId, newName);
             } else {
                 await workbookService.updatePart(partId, {
@@ -614,7 +631,10 @@ export function WorkbookManager({ publishers }: Props) {
                 });
             }
         } catch (e) {
+            console.error('Erro ao atualizar publicador:', e);
             setError(e instanceof Error ? e.message : 'Erro ao atualizar publicador');
+            // Nota: Em caso de erro, a UI pode ficar desincronizada até o próximo refresh.
+            // Idealmente faríamos rollback, mas o realtime geralmente corrige.
         }
     };
 
