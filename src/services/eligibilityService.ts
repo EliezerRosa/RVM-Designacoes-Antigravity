@@ -87,6 +87,20 @@ export function checkEligibility(
         return { eligible: false, reason: 'Publicador marcado como "Só Ajudante"' };
     }
 
+    // Regra: Verificar privilégios por seção
+    if (context.secao && publisher.privilegesBySection) {
+        const secao = context.secao;
+        if (secao === EnumSecao.TESOUROS && !publisher.privilegesBySection.canParticipateInTreasures) {
+            return { eligible: false, reason: 'Publicador não pode participar em Tesouros' };
+        }
+        if (secao === EnumSecao.MINISTERIO && !publisher.privilegesBySection.canParticipateInMinistry) {
+            return { eligible: false, reason: 'Publicador não pode participar no Ministério' };
+        }
+        if (secao === EnumSecao.VIDA_CRISTA && !publisher.privilegesBySection.canParticipateInLife) {
+            return { eligible: false, reason: 'Publicador não pode participar em Vida Cristã' };
+        }
+    }
+
     // ===== REGRAS DE AJUDANTE =====
     if (funcao === EnumFuncao.AJUDANTE) {
         return canBeHelper(publisher);
