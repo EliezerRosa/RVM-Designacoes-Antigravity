@@ -545,18 +545,42 @@ export function WorkbookManager({ publishers }: Props) {
     }, [parts]);
     const uniqueSections = useMemo(() => [...new Set(parts.map(p => p.section))], [parts]);
 
-    // HIDDEN_TYPES - partes gerenciadas automaticamente pelo Presidente
+    // HIDDEN_TYPES - partes gerenciadas automaticamente pelo Presidente + tipos genéricos indesejados
     const HIDDEN_TYPES = [
         'Comentários Iniciais', 'Comentarios Iniciais',
         'Comentários Finais', 'Comentarios Finais',
         'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
         'Oração Inicial', 'Oracao Inicial',
-        'Elogios e Conselhos', 'Elogios e conselhos'
+        'Elogios e Conselhos', 'Elogios e conselhos',
+        // Tipos genéricos que não deveriam aparecer
+        'Parte', 'Parte Ministério', 'Parte Vida Cristã', 'Parte Vida Crista'
     ];
 
-    const uniqueTipos = useMemo(() =>
-        [...new Set(parts.map(p => p.tipoParte))].filter(t => !HIDDEN_TYPES.includes(t)).sort()
-        , [parts]);
+    // Ordem lógica de uma reunião (para ordenar dropdown)
+    const TIPO_ORDER = [
+        'Presidente',
+        'Tesouros da Palavra de Deus', 'Discurso Tesouros', 'Joias Espirituais',
+        'Leitura da Bíblia', 'Leitura da Biblia',
+        'Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças',
+        'Discurso de Estudante',
+        'Necessidades Locais', 'Necessidades da Congregação',
+        'Dirigente EBC', 'Leitor EBC', 'Estudo Bíblico de Congregação',
+        'Oração Final', 'Oracao Final'
+    ];
+
+    const uniqueTipos = useMemo(() => {
+        const tiposSet = [...new Set(parts.map(p => p.tipoParte))].filter(t => !HIDDEN_TYPES.includes(t));
+        // Ordenar por sequência lógica da reunião
+        return tiposSet.sort((a, b) => {
+            const indexA = TIPO_ORDER.indexOf(a);
+            const indexB = TIPO_ORDER.indexOf(b);
+            // Se não encontrado na ordem, vai pro final (alfabético)
+            if (indexA === -1 && indexB === -1) return a.localeCompare(b);
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+    }, [parts]);
 
     const filteredParts = useMemo(() => {
         return parts.filter(p => {
@@ -879,8 +903,11 @@ export function WorkbookManager({ publishers }: Props) {
                                     borderRadius: '8px',
                                     cursor: 'pointer',
                                     background: activeBatch?.id === batch.id ? '#EEF2FF' : 'white',
-                                    minWidth: '200px',
+                                    width: '220px',
+                                    maxWidth: '220px',
+                                    minWidth: '220px',
                                     position: 'relative',
+                                    flexShrink: 0,
                                 }}
                             >
                                 {/* Badge do Ano */}
@@ -900,8 +927,8 @@ export function WorkbookManager({ publishers }: Props) {
                                 <div style={{ fontWeight: 'bold', paddingRight: '40px' }}>{batch.fileName}</div>
                                 <div style={{ fontSize: '12px', color: '#6B7280' }}>{batch.weekRange}</div>
 
-                                {/* Lista de semanas (apenas para batch ativo) */}
-                                {activeBatch?.id === batch.id && uniqueWeeks.length > 0 && (
+                                {/* Lista de semanas (apenas para batch ativo e quando não está carregando) */}
+                                {activeBatch?.id === batch.id && !loading && uniqueWeeks.length > 0 && (
                                     <div style={{ fontSize: '11px', color: '#4B5563', marginTop: '6px', maxHeight: '80px', overflowY: 'auto' }}>
                                         <strong>Semanas ({uniqueWeeks.length}):</strong>
                                         <ul style={{ margin: '4px 0', paddingLeft: '16px', listStyle: 'disc' }}>
@@ -911,6 +938,9 @@ export function WorkbookManager({ publishers }: Props) {
                                             {uniqueWeeks.length > 8 && <li>... +{uniqueWeeks.length - 8} mais</li>}
                                         </ul>
                                     </div>
+                                )}
+                                {activeBatch?.id === batch.id && loading && (
+                                    <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '6px' }}>⏳ Carregando...</div>
                                 )}
 
                                 <div style={{ fontSize: '12px', marginTop: '4px' }}>
