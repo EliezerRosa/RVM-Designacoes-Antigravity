@@ -469,9 +469,11 @@ export const workbookService = {
             })
             .eq('id', partId)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw new Error(`Erro ao propor publicador: ${error.message}`);
+        if (!data) throw new Error(`Parte não encontrada ou já foi atualizada por outro usuário`);
+
         const updatedPart = mapDbToWorkbookPart(data);
 
         // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
