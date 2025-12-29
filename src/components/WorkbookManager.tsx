@@ -538,8 +538,16 @@ export function WorkbookManager({ publishers }: Props) {
         return parts.filter(p => {
             // OCULTAR IMEDIATAMENTE partes secundárias do Presidente (Comentários Iniciais/Finais)
             // Elas são gerenciadas automaticamente pela parte "Presidente"
-            if (p.tipoParte === 'Comentários Iniciais' || p.tipoParte === 'Comentários Finais' ||
-                p.tipoParte === 'Comentarios Iniciais' || p.tipoParte === 'Comentarios Finais') {
+            // OCULTAR IMEDIATAMENTE partes secundárias do Presidente
+            const HIDDEN_TYPES = [
+                'Comentários Iniciais', 'Comentarios Iniciais',
+                'Comentários Finais', 'Comentarios Finais',
+                'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
+                'Oração Inicial', 'Oracao Inicial',
+                'Elogios e Conselhos', 'Elogios e conselhos'
+            ];
+
+            if (HIDDEN_TYPES.includes(p.tipoParte)) {
                 return false;
             }
 
