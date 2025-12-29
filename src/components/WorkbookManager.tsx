@@ -506,8 +506,7 @@ export function WorkbookManager({ publishers }: Props) {
                             // Fallback para update direto se proposePublisher falhar
                             await workbookService.updatePart(part.id, {
                                 status: 'PROPOSTA',
-                                proposedPublisherId: selectedPub.id,
-                                proposedPublisherName: selectedPub.name
+                                resolvedPublisherName: selectedPub.name
                             });
                         }
                     }
@@ -671,15 +670,10 @@ export function WorkbookManager({ publishers }: Props) {
                 if (p.id !== partId) return p;
 
                 const updated = { ...p };
-                if (isDesignada) {
-                    updated.resolvedPublisherId = newId;
-                    updated.resolvedPublisherName = newName;
-                } else {
-                    updated.proposedPublisherId = newId;
-                    updated.proposedPublisherName = newName;
-                    if (shouldChangeStatus) {
-                        updated.status = 'PROPOSTA';
-                    }
+                // SIMPLIFICADO: Sempre usar resolvedPublisherName
+                updated.resolvedPublisherName = newName;
+                if (shouldChangeStatus) {
+                    updated.status = 'PROPOSTA';
                 }
                 return updated;
             }));
@@ -689,7 +683,6 @@ export function WorkbookManager({ publishers }: Props) {
                 await workbookService.proposePublisher(partId, newId, newName);
             } else {
                 await workbookService.updatePart(partId, {
-                    resolvedPublisherId: newId,
                     resolvedPublisherName: newName
                 });
             }

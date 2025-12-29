@@ -164,17 +164,16 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     };
 
     // Update Publisher (Inline)
-    const handleUpdatePublisher = async (partId: string, newId: string, newName: string) => {
+    const handleUpdatePublisher = async (partId: string, _newId: string, newName: string) => {
         if (!partId) return;
 
         // Optimistic UI update logic could be here, but let's stick to loading state for safety
         setProcessingIds(prev => new Set(prev).add(partId));
 
         try {
-            // Atualiza o nome proposto na workbook_part
+            // Atualiza o nome do publicador (SIMPLIFICADO)
             await workbookService.updatePart(partId, {
-                proposedPublisherName: newName.trim(),
-                proposedPublisherId: newId || undefined,
+                resolvedPublisherName: newName.trim() || undefined,
             });
 
             // Recarrega lista
@@ -200,7 +199,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
             let updated = 0;
             for (const id of ids) {
                 const part = assignments.find(p => p.id === id);
-                const finalPublisherName = part?.resolvedPublisherName || part?.proposedPublisherName || part?.rawPublisherName;
+                const finalPublisherName = part?.resolvedPublisherName || part?.rawPublisherName;
 
                 await workbookService.updatePart(id, {
                     status: WorkbookStatus.CONCLUIDA,
