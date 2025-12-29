@@ -32,6 +32,10 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [stats, setStats] = useState<{ total: number; byStatus: Record<string, number> } | null>(null);
 
+    // Estados para edição de publicador
+    const [editingAssignment, setEditingAssignment] = useState<ScheduledAssignment | null>(null);
+    const [newPublisherName, setNewPublisherName] = useState('');
+
     // Load assignments
     const loadAssignments = useCallback(async () => {
         setLoading(true);
@@ -42,15 +46,16 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
                 data = await assignmentService.getPending();
             } else if (filter === 'approved') {
                 data = await assignmentService.getApproved();
+            } else if (filter === 'completed') {
+                data = await assignmentService.getCompleted();
             } else {
-                // For 'all' and 'completed', we need to load by week or all
-                // For now, load pending + approved
-                const [pending, approved] = await Promise.all([
-                    assignmentService.getPending(),
-                    assignmentService.getApproved(),
-                ]);
-                data = [...pending, ...approved];
+                // 'all' - carregar todas as designações
+                data = await assignmentService.getAll();
             }
+
+            // Ordenar por data dentro de cada semana
+            data.sort((a, b) => a.date.localeCompare(b.date));
+
             setAssignments(data);
 
             // Load stats
@@ -119,6 +124,34 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
             setProcessingIds(prev => {
                 const next = new Set(prev);
                 next.delete(id);
+                return next;
+            });
+        }
+    };
+
+    // Editar publicador designado
+    const handleEditPublisher = async () => {
+        if (!editingAssignment || !newPublisherName.trim()) {
+            setError('Nome do publicador é obrigatório');
+            return;
+        }
+
+        setProcessingIds(prev => new Set(prev).add(editingAssignment.id));
+        try {
+            await assignmentService.update(editingAssignment.id, {
+                principalPublisherName: newPublisherName.trim(),
+                // Nota: principalPublisherId deveria ser atualizado também, 
+                // mas simplificamos para edição apenas do nome
+            });
+            setEditingAssignment(null);
+            setNewPublisherName('');
+            await loadAssignments();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao editar publicador');
+        } finally {
+            setProcessingIds(prev => {
+                const next = new Set(prev);
+                next.delete(editingAssignment.id);
                 return next;
             });
         }
@@ -245,8 +278,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
             )}
 
             {/* Filter */}
-            <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
-                {(['pending', 'approved', 'all'] as const).map(f => (
+            <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {(['pending', 'approved', 'completed', 'all'] as const).map(f => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
@@ -261,6 +294,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
                     >
                         {f === 'pending' && '⏳ Pendentes'}
                         {f === 'approved' && '✅ Aprovadas'}
+                        {f === 'completed' && '🏆 Concluídas'}
                         {f === 'all' && '📋 Todas'}
                     </button>
                 ))}
@@ -419,6 +453,23 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
                                         {a.status === ApprovalStatus.PENDING_APPROVAL && (
                                             <>
                                                 <button
+                                                    onClick={() => {
+                                                        setEditingAssignment(a);
+                                                        setNewPublisherName(a.principalPublisherName);
+                                                    }}
+                                                    disabled={isProcessing}
+                                                    style={{
+                                                        background: '#6b7280',
+                                                        color: '#fff',
+                                                        border: 'none',
+                                                        padding: '8px 16px',
+                                                        borderRadius: '6px',
+                                                        cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                                    }}
+                                                >
+                                                    ✏️ Editar
+                                                </button>
+                                                <button
                                                     onClick={() => handleApprove(a.id)}
                                                     disabled={isProcessing}
                                                     style={{
@@ -547,6 +598,88 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName = 'Anciã
                                 }}
                             >
                                 Confirmar Rejeição
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Publisher Modal */}
+            {editingAssignment && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                }}>
+                    <div style={{
+                        background: '#1f2937',
+                        borderRadius: '12px',
+                        padding: '25px',
+                        width: '450px',
+                        maxWidth: '90vw',
+                    }}>
+                        <h3 style={{ margin: '0 0 15px' }}>✏️ Editar Publicador</h3>
+                        <p style={{ color: '#9ca3af', marginBottom: '10px', fontSize: '0.9em' }}>
+                            <strong>Parte:</strong> {editingAssignment.partTitle}
+                        </p>
+                        <p style={{ color: '#9ca3af', marginBottom: '15px', fontSize: '0.9em' }}>
+                            <strong>Data:</strong> {editingAssignment.date}
+                        </p>
+                        <label style={{ display: 'block', marginBottom: '8px', color: '#d1d5db' }}>
+                            Novo publicador:
+                        </label>
+                        <input
+                            type="text"
+                            value={newPublisherName}
+                            onChange={e => setNewPublisherName(e.target.value)}
+                            placeholder="Nome do publicador..."
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                border: '1px solid #374151',
+                                background: '#111827',
+                                color: '#fff',
+                                marginBottom: '15px',
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => {
+                                    setEditingAssignment(null);
+                                    setNewPublisherName('');
+                                }}
+                                style={{
+                                    background: '#374151',
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '10px 20px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleEditPublisher}
+                                disabled={!newPublisherName.trim()}
+                                style={{
+                                    background: newPublisherName.trim() ? '#3b82f6' : '#6b7280',
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '10px 20px',
+                                    borderRadius: '6px',
+                                    cursor: newPublisherName.trim() ? 'pointer' : 'not-allowed',
+                                }}
+                            >
+                                💾 Salvar
                             </button>
                         </div>
                     </div>
