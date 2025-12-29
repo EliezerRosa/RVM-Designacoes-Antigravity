@@ -122,8 +122,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
     useEffect(() => {
         loadAssignments();
-        const interval = setInterval(loadAssignments, 30000);
-        return () => clearInterval(interval);
+        // Removido polling de 30s - usar realtime ou refresh manual
     }, [loadAssignments]);
 
     // Approve
@@ -377,13 +376,12 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                     const isEditable = part.status === WorkbookStatus.PROPOSTA && publishers.length > 0;
                                     const statusStyle = STATUS_COLORS[part.status] || STATUS_COLORS.PENDENTE;
 
-                                    const displayPublisher = part.proposedPublisherName || part.resolvedPublisherName || part.rawPublisherName || '(Sem publicador)';
+                                    // SIMPLIFICADO: Usar apenas resolved_publisher_name
+                                    const displayPublisher = part.resolvedPublisherName || part.rawPublisherName || '(Sem publicador)';
 
-                                    // Tentar determinar o valor atual do Select (ID)
-                                    // 1. proposedPublisherId se existir
-                                    // 2. Tentar achar pelo nome em publishers
-                                    let currentSelectValue = part.proposedPublisherId || '';
-                                    if (!currentSelectValue && displayPublisher) {
+                                    // Tentar determinar o valor atual do Select (ID) pelo nome
+                                    let currentSelectValue = '';
+                                    if (displayPublisher && displayPublisher !== '(Sem publicador)') {
                                         const found = publishers.find(p => p.name === displayPublisher);
                                         if (found) currentSelectValue = found.id;
                                     }

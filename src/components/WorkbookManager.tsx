@@ -1039,15 +1039,12 @@ export function WorkbookManager({ publishers }: Props) {
                             </thead>
                             <tbody>
                                 {filteredParts.map(part => {
-                                    // Tentar identificar o melhor match para o valor do dropdown
-                                    // 1. resolvedPublisherId (se designado)
-                                    // 2. proposedPublisherId (se proposta)
-                                    // 3. tentar achar pelo rawPublisherName nos publishers
+                                    // SIMPLIFICADO: Usar apenas resolved_publisher_name
+                                    const displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
 
-                                    let currentPubId = part.resolvedPublisherId || part.proposedPublisherId || '';
-                                    const displayRaw = part.resolvedPublisherName || part.proposedPublisherName || part.rawPublisherName;
-
-                                    if (!currentPubId && displayRaw) {
+                                    // Tentar encontrar ID pelo nome
+                                    let currentPubId = '';
+                                    if (displayRaw) {
                                         const found = publishers.find(p => p.name === displayRaw);
                                         if (found) currentPubId = found.id;
                                     }
