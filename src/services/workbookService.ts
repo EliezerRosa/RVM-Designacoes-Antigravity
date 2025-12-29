@@ -156,7 +156,7 @@ export const workbookService = {
                     is_active: true,
                 })
                 .select()
-                .single();
+                .maybeSingle();
 
             if (batchError) throw new Error(`Erro ao criar batch: ${batchError.message}`);
             batch = mapDbToWorkbookBatch(batchData);
@@ -279,7 +279,7 @@ export const workbookService = {
             .from('workbook_batches')
             .select('*')
             .eq('id', id)
-            .single();
+            .maybeSingle();
 
         if (error) {
             if (error.code === 'PGRST116') return null; // Not found
@@ -406,7 +406,7 @@ export const workbookService = {
             .update(dbUpdates)
             .eq('id', id)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw new Error(`Erro ao atualizar parte: ${error.message}`);
 
@@ -499,7 +499,7 @@ export const workbookService = {
             .eq('id', partId)
             .eq('status', WorkbookStatus.PROPOSTA)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw new Error(`Erro ao aprovar proposta: ${error.message}`);
         return mapDbToWorkbookPart(data);
@@ -522,7 +522,7 @@ export const workbookService = {
             .eq('id', partId)
             .eq('status', WorkbookStatus.PROPOSTA)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw new Error(`Erro ao rejeitar proposta: ${error.message}`);
         return mapDbToWorkbookPart(data);
@@ -538,7 +538,7 @@ export const workbookService = {
             .from('workbook_parts')
             .select('proposed_publisher_id, proposed_publisher_name')
             .eq('id', partId)
-            .single();
+            .maybeSingle();
 
         const { data, error } = await supabase
             .from('workbook_parts')
@@ -551,7 +551,7 @@ export const workbookService = {
             .eq('id', partId)
             .eq('status', WorkbookStatus.APROVADA)
             .select()
-            .single();
+            .maybeSingle();
 
         if (error) throw new Error(`Erro ao confirmar designação: ${error.message}`);
         return mapDbToWorkbookPart(data);
