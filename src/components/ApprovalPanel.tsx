@@ -10,6 +10,7 @@ interface ApprovalPanelProps {
 }
 
 import { getStatusConfig, STATUS_CONFIG } from '../constants/status';
+import { generateS89, downloadS89, openWhatsApp } from '../services/s89Generator';
 
 export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderName = 'Ancião', publishers = [] }: ApprovalPanelProps) {
     const [assignments, setAssignments] = useState<WorkbookPart[]>([]);
@@ -189,6 +190,23 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
             });
         }
     }
+
+    // Manda pro Zap
+    const handleZap = (part: WorkbookPart, assistantName?: string) => {
+        openWhatsApp(part, assistantName);
+    };
+
+    // Imprime S-89
+    const handlePrintS89 = async (part: WorkbookPart, assistantName?: string) => {
+        try {
+            const pdfBytes = await generateS89(part, assistantName);
+            const fileName = `S-89_${part.date}_${part.resolvedPublisherName || part.rawPublisherName}.pdf`;
+            downloadS89(pdfBytes, fileName);
+        } catch (error) {
+            alert('Erro ao gerar S-89: ' + (error instanceof Error ? error.message : String(error)));
+            console.error(error);
+        }
+    };
 
     // Mark as completed
     const handleMarkCompleted = async (ids: string[]) => {
@@ -496,20 +514,78 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                     </>
                                                 )}
                                                 {(part.status === WorkbookStatus.APROVADA || part.status === WorkbookStatus.DESIGNADA) && (
-                                                    <button
-                                                        onClick={() => handleMarkCompleted([part.id])}
-                                                        disabled={isProcessing}
-                                                        style={{
-                                                            background: '#3b82f6',
-                                                            color: '#fff',
-                                                            border: 'none',
-                                                            padding: '8px 16px',
-                                                            borderRadius: '6px',
-                                                            cursor: isProcessing ? 'not-allowed' : 'pointer',
-                                                        }}
-                                                    >
-                                                        🏆 Concluída
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => {
+                                                                const assistant = weekParts.find(p => p.seq === part.seq && p.funcao === 'Ajudante' && p.id !== part.id);
+                                                                const assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
+                                                                handleZap(part, assistantName);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                            style={{
+                                                                background: '#25D366', // WhatsApp Green
+                                                                color: '#fff',
+                                                                border: 'none',
+                                                                padding: '8px 12px',
+                                                                borderRadius: '6px',
+                                                                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                            }}
+                                                            title="Enviar WhatsApp"
+                                                        >
+                                                            📱
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                const assistant = weekParts.find(p => p.seq === part.seq && p.funcao === 'Ajudante' && p.id !== part.id);
+                                                                const assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
+                                                                handlePrintS89(part, assistantName);
+                                                            }}
+                                                            disabled={isProcessing}
+                                                            style={{
+                                                                background: '#6b7280', // Gray for PDF
+                                                                color: '#fff',
+                                                                border: 'none',
+                                                                padding: '8px 12px',
+                                                                borderRadius: '6px',
+                                                                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                            }}
+                                                            title="Gerar S-89 (PDF)"
+                                                        >
+                                                            📄
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setRejectingId(part.id)}
+                                                            disabled={isProcessing}
+
+                                                            style={{
+                                                                background: '#f59e0b',
+                                                                color: '#fff',
+                                                                border: 'none',
+                                                                padding: '8px 16px',
+                                                                borderRadius: '6px',
+                                                                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                                            }}
+                                                            title="Cancelar ou Substituir"
+                                                        >
+                                                            ⚠️
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleMarkCompleted([part.id])}
+                                                            disabled={isProcessing}
+                                                            style={{
+                                                                background: '#3b82f6',
+                                                                color: '#fff',
+                                                                border: 'none',
+                                                                padding: '8px 16px',
+                                                                borderRadius: '6px',
+                                                                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                                            }}
+                                                        >
+                                                            🏆 Concluída
+                                                        </button>
+                                                    </>
                                                 )}
                                                 {part.rejectedReason && (
                                                     <span style={{ color: '#f87171', fontSize: '0.85em' }}>
@@ -526,7 +602,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                 </div>
             )}
 
-            {/* Modal de Rejeição */}
+            {/* Modal de Rejeição / Cancelamento */}
             {rejectingId && (
                 <div style={{
                     position: 'fixed',
@@ -547,14 +623,20 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                         width: '400px',
                         maxWidth: '90vw',
                     }}>
-                        <h3 style={{ margin: '0 0 15px' }}>❌ Rejeitar Designação</h3>
+                        <h3 style={{ margin: '0 0 15px' }}>
+                            {assignments.find(a => a.id === rejectingId)?.status === WorkbookStatus.PROPOSTA
+                                ? '❌ Rejeitar Proposta'
+                                : '⚠️ Cancelar Designação'}
+                        </h3>
                         <p style={{ color: '#9ca3af', marginBottom: '15px' }}>
-                            Por que você está rejeitando esta sugestão?
+                            {assignments.find(a => a.id === rejectingId)?.status === WorkbookStatus.PROPOSTA
+                                ? 'Por que você está rejeitando esta sugestão?'
+                                : 'A designação voltará para PENDENTE e o publicador será removido.'}
                         </p>
                         <textarea
                             value={rejectReason}
                             onChange={e => setRejectReason(e.target.value)}
-                            placeholder="Motivo (ex: Indisponibilidade, erro no agendamento...)"
+                            placeholder="Motivo (ex: Indisponibilidade, erro no agendamento, substituição...)"
                             style={{
                                 width: '100%',
                                 height: '100px',
@@ -582,7 +664,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                     cursor: 'pointer',
                                 }}
                             >
-                                Cancelar
+                                Voltar
                             </button>
                             <button
                                 onClick={() => handleReject(rejectingId)}
@@ -596,7 +678,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                     cursor: rejectReason.trim() ? 'pointer' : 'not-allowed',
                                 }}
                             >
-                                Confirmar Rejeição
+                                Confirmar {assignments.find(a => a.id === rejectingId)?.status === WorkbookStatus.PROPOSTA ? 'Rejeição' : 'Cancelamento'}
                             </button>
                         </div>
                     </div>
