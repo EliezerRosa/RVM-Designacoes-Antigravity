@@ -360,6 +360,7 @@ export const workbookService = {
             'workbook_parts',
             (query) => query
                 .order('date', { ascending: false }) // Mais recentes primeiro para histórico
+                .order('seq', { ascending: true })   // Sequência correta dentro da reunião
         );
 
         return rawData.map(mapDbToWorkbookPart);
