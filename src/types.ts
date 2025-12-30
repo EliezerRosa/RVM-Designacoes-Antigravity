@@ -1,5 +1,5 @@
 // ============================================================================
-// RVM Designacoes - Modelo de Dados Unificado
+// RVM Designacoes - Modelo de Dados Unificado (LIMPO)
 // Consolidado de: ALL RVM, CRUD RVM, Form RVM, S-89 RVM
 // ============================================================================
 
@@ -57,7 +57,7 @@ export interface Publisher {
 
 // ===== ENUMS RVM PRO 2.0 (Novo Modelo) =====
 
-// EnumSecao - Estrutura da Reunião (5 valores)
+// EnumSecao - Estrutura da Reunião
 export const EnumSecao = {
     INICIO_REUNIAO: 'Início da Reunião',
     TESOUROS: 'Tesouros da Palavra de Deus',
@@ -67,7 +67,7 @@ export const EnumSecao = {
 } as const;
 export type EnumSecao = typeof EnumSecao[keyof typeof EnumSecao];
 
-// EnumTipoParte - Função Litúrgica (15 valores - igual ao Excel)
+// EnumTipoParte - Função Litúrgica
 export const EnumTipoParte = {
     PRESIDENTE: 'Presidente',
     CANTICO_INICIAL: 'Cântico Inicial',
@@ -87,7 +87,7 @@ export const EnumTipoParte = {
 } as const;
 export type EnumTipoParte = typeof EnumTipoParte[keyof typeof EnumTipoParte];
 
-// EnumModalidade - Formato de Execução (10 valores)
+// EnumModalidade - Formato de Execução
 export const EnumModalidade = {
     PRESIDENCIA: 'Presidência',
     CANTICO: 'Cântico',
@@ -102,15 +102,16 @@ export const EnumModalidade = {
 } as const;
 export type EnumModalidade = typeof EnumModalidade[keyof typeof EnumModalidade];
 
-// EnumFuncao - Papel na Execução (2 valores)
+// EnumFuncao - Papel na Execução
 export const EnumFuncao = {
     TITULAR: 'Titular',
     AJUDANTE: 'Ajudante',
 } as const;
 export type EnumFuncao = typeof EnumFuncao[keyof typeof EnumFuncao];
 
-// ===== PARTICIPACOES (LEGADO - manter para compatibilidade) =====
+// ===== EVENTOS ESPECIAIS =====
 
+// Mantido para compatibilidade com sistema de eventos
 export const ParticipationType = {
     PRESIDENTE: 'Presidente',
     ORACAO_INICIAL: 'Oracao Inicial',
@@ -124,180 +125,24 @@ export const ParticipationType = {
     CANTICO: 'Cantico',
     COMENTARIOS_FINAIS: 'Comentarios Finais',
 } as const;
-
 export type ParticipationType = typeof ParticipationType[keyof typeof ParticipationType];
 
-// Modalidades de partes designáveis (LEGADO)
-export const PartModality = {
-    DISCURSO_ENSINO: 'Discurso de Ensino',
-    DISCURSO_ESTUDANTE: 'Discurso de Estudante',
-    DEMONSTRACAO: 'Demonstração',
-    LEITURA_ESTUDANTE: 'Leitura de Estudante',
-    DIRIGENTE_EBC: 'Dirigente de EBC',
-    LEITOR_EBC: 'Leitor de EBC',
-    ORACAO: 'Oração',
-    PRESIDENCIA: 'Presidência',
-} as const;
-
-export type PartModality = typeof PartModality[keyof typeof PartModality];
-
-// Seções da Reunião (LEGADO)
-export const MeetingSection = {
-    INICIO: 'Início da Reunião',
-    TESOUROS: 'Tesouros da Palavra de Deus',
-    MINISTERIO: 'Faça Seu Melhor no Ministério',
-    VIDA_CRISTA: 'Nossa Vida Cristã',
-    FINAL: 'Final da Reunião',
-} as const;
-
-export type MeetingSection = typeof MeetingSection[keyof typeof MeetingSection];
-
-// Definição de Parte Padrão com metadata
-export interface StandardPartDef {
-    name: string;
-    section: keyof typeof MeetingSection;
-    modality: keyof typeof PartModality;
-    designable: boolean;
-}
-
-// Partes Padrão do S-140
-export const StandardPart: Record<string, StandardPartDef> = {
-    // Início da Reunião
-    PRESIDENTE: { name: 'Presidente', section: 'INICIO', modality: 'PRESIDENCIA', designable: true },
-    ORACAO_INICIAL: { name: 'Oração Inicial', section: 'INICIO', modality: 'ORACAO', designable: false },
-
-    // Tesouros
-    DISCURSO_TESOUROS: { name: 'Discurso - Tesouros', section: 'TESOUROS', modality: 'DISCURSO_ENSINO', designable: true },
-    JOIAS: { name: 'Joias Espirituais', section: 'TESOUROS', modality: 'DISCURSO_ENSINO', designable: true },
-    LEITURA_BIBLIA: { name: 'Leitura da Bíblia', section: 'TESOUROS', modality: 'LEITURA_ESTUDANTE', designable: true },
-
-    // Ministério
-    INICIANDO: { name: 'Iniciando Conversas', section: 'MINISTERIO', modality: 'DEMONSTRACAO', designable: true },
-    CULTIVANDO: { name: 'Cultivando o Interesse', section: 'MINISTERIO', modality: 'DEMONSTRACAO', designable: true },
-    FAZENDO: { name: 'Fazendo Discípulos', section: 'MINISTERIO', modality: 'DEMONSTRACAO', designable: true },
-    EXPLICANDO: { name: 'Explicando Suas Crenças', section: 'MINISTERIO', modality: 'DEMONSTRACAO', designable: true },
-    DISCURSO_ESTUDANTE: { name: 'Discurso de Estudante', section: 'MINISTERIO', modality: 'DISCURSO_ESTUDANTE', designable: true },
-
-    // Vida Cristã
-    NECESSIDADES: { name: 'Necessidades Locais', section: 'VIDA_CRISTA', modality: 'DISCURSO_ENSINO', designable: true },
-    EBC: { name: 'Estudo Bíblico de Congregação', section: 'VIDA_CRISTA', modality: 'DIRIGENTE_EBC', designable: true },
-    EBC_LEITOR: { name: 'Leitor do EBC', section: 'VIDA_CRISTA', modality: 'LEITOR_EBC', designable: true },
-
-    // Final
-    ORACAO_FINAL: { name: 'Oração Final', section: 'FINAL', modality: 'ORACAO', designable: true },
-} as const;
-
-export type StandardPartKey = keyof typeof StandardPart;
-
-export interface Participation {
-    id: string;
-    publisherName: string;
-    week: string;
-    date: string;
-    partTitle: string;
-    type: ParticipationType;
-    duration?: number;
-    // Data origin tracking
-    source?: 'manual' | 'import' | 'sync';
-    createdAt?: string;
-}
-
-// ===== ESTRUTURA DA REUNIAO =====
-
-export interface MeetingItem {
-    time: string;
-    description: string;
-    duration?: string;
-    isSong?: boolean;
-    isComment?: boolean;
-}
-
-export interface AssignableItem extends MeetingItem {
-    assignee: string;
-    assigneeRole: string;
-}
-
-export interface StudentPart extends MeetingItem {
-    mainHallAssignee: string;
-    roomBAssignee: string;
-    assistantMainHall?: string;
-    assistantRoomB?: string;
-    assigneeRole: string;
-}
-
-export interface TreasuresSection {
-    talk: AssignableItem;
-    gems: AssignableItem;
-    bibleReading: StudentPart;
-}
-
-export interface MinistrySection {
-    part1: StudentPart;
-    part2: StudentPart;
-    part3: StudentPart;
-    part4?: StudentPart;
-}
-
-export interface LivingSection {
-    song: string;
-    part1: AssignableItem;
-    part2: AssignableItem;
-    congregationStudy: AssignableItem;
-    closingComments: MeetingItem;
-    closingSong: string;
-    closingPrayer: string;
-}
-
-export interface MeetingData {
-    id: string;
-    congregationName: string;
-    date: string;
-    week: string;
-    bibleReading: string;
-    chairman: string;
-    counselor: string;
-    openingPrayer: string;
-    openingSong: string;
-    treasures: TreasuresSection;
-    ministry: MinistrySection;
-    living: LivingSection;
-}
-
-// ===== REGRAS DE ELEGIBILIDADE =====
-
-export interface RuleCondition {
-    fact: string;
-    operator: 'equal' | 'notEqual' | 'in' | 'notIn' | 'contains';
-    value: string | boolean | number | string[];
-}
-
-export interface Rule {
-    id: string;
-    description: string;
-    isActive: boolean;
-    conditions: RuleCondition[];
-}
-
-// ===== EVENTOS ESPECIAIS =====
-
-// Ações de impacto expandidas para Eventos Especiais
 export type EventImpactAction =
-    | 'REPLACE_PART'      // Substituir uma parte específica
-    | 'ADD_PART'          // Adicionar parte extra
-    | 'REPLACE_SECTION'   // Substituir seção inteira
-    | 'REASSIGN_PART'     // Reatribuir parte
-    | 'SC_VISIT_LOGIC'    // Lógica especial Visita SC (cancela EBC, mantém Discurso Ensino)
-    | 'CANCEL_WEEK'       // Cancela TODAS as partes (Assembleia/Congresso)
-    | 'TIME_ADJUSTMENT';  // Ajusta tempos (Boletim CG)
+    | 'REPLACE_PART'
+    | 'ADD_PART'
+    | 'REPLACE_SECTION'
+    | 'REASSIGN_PART'
+    | 'SC_VISIT_LOGIC'
+    | 'CANCEL_WEEK'
+    | 'TIME_ADJUSTMENT';
 
 export interface EventImpact {
     action: EventImpactAction;
     targetType?: ParticipationType | ParticipationType[];
     reassignTarget?: ParticipationType;
-    // Para TIME_ADJUSTMENT
     timeReduction?: {
-        targetPart: string;  // Parte a reduzir (ex: 'EBC')
-        minutes: number;     // Minutos a reduzir
+        targetPart: string;
+        minutes: number;
     };
 }
 
@@ -316,35 +161,23 @@ export interface EventTemplate {
 
 export interface SpecialEvent {
     id: string;
-    week: string;                     // Semana afetada (YYYY-MM-DD)
-    templateId: string;               // ID do template usado
-
-    // Campos comuns
-    theme?: string;                   // Tema (obrigatório para alguns)
-    responsible?: string;             // Responsável (obrigatório para alguns)
-    duration?: number;                // Duração em minutos
-
-    // Campos específicos para Boletim CG
-    boletimYear?: number;             // Ano do boletim (ex: 2024)
-    boletimNumber?: number;           // Número do boletim (ex: 1, 2, 3...)
-
-    // OBRIGATÓRIO EM TODOS OS EVENTOS
-    guidelines?: string;              // Orientações
-    observations?: string;            // Observações
-
-    // Configuração de impacto adicional
+    week: string;
+    templateId: string;
+    theme?: string;
+    responsible?: string;
+    duration?: number;
+    boletimYear?: number;
+    boletimNumber?: number;
+    guidelines?: string;
+    observations?: string;
     configuration?: {
         timeReduction?: {
             targetType: ParticipationType;
             minutes: number;
         };
     };
-
-    // Controle de aplicação
-    isApplied?: boolean;              // Se o impacto já foi aplicado
-    appliedAt?: string;               // Data de aplicação
-
-    // Metadados
+    isApplied?: boolean;
+    appliedAt?: string;
     details?: Record<string, unknown>;
     createdAt?: string;
     updatedAt?: string;
@@ -353,37 +186,32 @@ export interface SpecialEvent {
 
 // ===== APOSTILA (WORKBOOK STAGING) =====
 
-// Status de uma parte da apostila - Ciclo de Vida de Designação
 export const WorkbookStatus = {
-    PENDENTE: 'PENDENTE',       // Parte importada, aguardando designação
-    PROPOSTA: 'PROPOSTA',       // Motor sugeriu um publicador
-    APROVADA: 'APROVADA',       // Ancião aprovou a sugestão
-    DESIGNADA: 'DESIGNADA',     // Publicador confirmado e notificado
-    REJEITADA: 'REJEITADA',     // Sugestão rejeitada (volta para PENDENTE)
-    CONCLUIDA: 'CONCLUIDA',     // Parte executada na reunião
-    CANCELADA: 'CANCELADA',     // Parte cancelada por evento especial
+    PENDENTE: 'PENDENTE',
+    PROPOSTA: 'PROPOSTA',
+    APROVADA: 'APROVADA',
+    DESIGNADA: 'DESIGNADA',
+    REJEITADA: 'REJEITADA',
+    CONCLUIDA: 'CONCLUIDA',
+    CANCELADA: 'CANCELADA',
 } as const;
-
 export type WorkbookStatus = typeof WorkbookStatus[keyof typeof WorkbookStatus];
 
-// Parte individual extraída da apostila
 export interface WorkbookPart {
     id: string;
-    batch_id?: string; // ID do lote de upload (legado, será removido)
-    year?: number;    // Ano da parte
-    weekId: string; // YYYY-MM-DD da segunda-feira
-    weekDisplay: string; // Ex: "6-12 de Janeiro"
+    batch_id?: string;
+    year?: number;
+    weekId: string;
+    weekDisplay: string;
     date: string;
     section: string;
 
-    // =====================================================
-    // 5 ATRIBUTOS CANÔNICOS (nomenclatura única)
-    // =====================================================
-    tipoParte: string;           // O QUE é a parte? (ex: "Leitura da Bíblia")
-    modalidade: string;          // COMO é executada? (ex: "Leitura de Estudante")
-    tituloParte: string;         // Título contextual (ex: "3. Joias (10 min)")
-    descricaoParte: string;      // Resumo do conteúdo
-    detalhesParte: string;       // Orientação completa (do mwb)
+    // 5 ATRIBUTOS CANÔNICOS
+    tipoParte: string;
+    modalidade: string;
+    tituloParte: string;
+    descricaoParte: string;
+    detalhesParte: string;
 
     // Sequência e função
     seq: number;
@@ -391,25 +219,22 @@ export interface WorkbookPart {
     duracao: string;
     horaInicio: string;
     horaFim: string;
-    rawPublisherName: string;    // Nome original do Excel/PDF
+    rawPublisherName: string;
 
-    // Publicador designado (ÚNICO campo usado para designação)
-    resolvedPublisherName?: string;  // Nome do publicador designado
+    // Publicador designado
+    resolvedPublisherName?: string;
 
     // Status e metadados
     status: WorkbookStatus;
     createdAt: string;
     updatedAt?: string;
-
-    // Campos de aprovação (existem no banco)
-    approvedById?: string;       // Ancião que aprovou
-    approvedAt?: string;         // Data da aprovação
-    rejectedReason?: string;     // Motivo da rejeição
-    completedAt?: string;        // Data de conclusão
-    cancelReason?: string;       // Motivo do cancelamento (evento especial)
+    approvedById?: string;
+    approvedAt?: string;
+    rejectedReason?: string;
+    completedAt?: string;
+    cancelReason?: string;
 }
 
-// Batch de importação (controle de versões)
 export interface WorkbookBatch {
     id: string;
     fileName: string;
@@ -418,19 +243,10 @@ export interface WorkbookBatch {
     draftCount: number;
     refinedCount: number;
     promotedCount: number;
-    weekRange: string;          // Ex: "Jan-Fev 2026"
-    isActive: boolean;          // Batch atual em edição
-    promotedAt?: string;        // Data da promoção para Participations
-    promotedToParticipationIds?: string[];  // IDs gerados (para rollback)
-}
-
-// Interface legada (manter para compatibilidade)
-export interface Workbook {
-    id: string;
-    name: string;
-    fileData: string;
-    uploadDate: string;
-    isDeleted?: boolean;
+    weekRange: string;
+    isActive: boolean;
+    promotedAt?: string;
+    promotedToParticipationIds?: string[];
 }
 
 // ===== MOTOR DE DESIGNAÇÕES =====
@@ -442,88 +258,32 @@ export const ApprovalStatus = {
     REJECTED: 'REJECTED',
     COMPLETED: 'COMPLETED',
 } as const;
-
 export type ApprovalStatus = typeof ApprovalStatus[keyof typeof ApprovalStatus];
 
 export const TeachingCategory = {
-    TEACHING: 'TEACHING',   // Peso 1.0 - Discursos, Joias, Necessidades Locais
-    STUDENT: 'STUDENT',     // Peso 0.5 - Leitura, Demonstrações titular
-    HELPER: 'HELPER',       // Peso 0.1 - Ajudante em demonstrações
+    TEACHING: 'TEACHING',
+    STUDENT: 'STUDENT',
+    HELPER: 'HELPER',
 } as const;
-
 export type TeachingCategory = typeof TeachingCategory[keyof typeof TeachingCategory];
-
-// ===== DESIGNACAO S-89 (Legado) =====
-
-export interface Assignment {
-    id: string;
-    date: string;
-    congregation: string;
-    partNumber: number;
-    section: string;
-    title: string;
-    student: string;
-    assistant?: string;
-    durationMin: number;
-    room?: string;
-}
-
-// ===== DESIGNACAO AGENDADA (Motor de Regras) =====
-
-export interface ScheduledAssignment {
-    id: string;
-    weekId: string;
-    partId: string;
-    partTitle: string;
-    partType: ParticipationType;
-    teachingCategory: TeachingCategory;
-
-    // Designados
-    principalPublisherId: string;
-    principalPublisherName: string;
-    secondaryPublisherId?: string;
-    secondaryPublisherName?: string;
-
-    // Timing
-    date: string;
-    startTime?: string;
-    endTime?: string;
-    durationMin: number;
-
-    // Status de Aprovação
-    status: ApprovalStatus;
-    approvedByElderId?: string;
-    approvalDate?: string;
-    rejectionReason?: string;
-
-    // Metadados da seleção
-    selectionReason: string;
-    score: number;
-    room?: string;
-
-    createdAt: string;
-    updatedAt?: string;
-}
-
-// ===== CONFIGURAÇÃO DO MOTOR =====
 
 export interface EngineConfig {
     weights: {
-        teaching: number;  // default: 1.0
-        student: number;   // default: 0.5
-        helper: number;    // default: 0.1
+        teaching: number;
+        student: number;
+        helper: number;
     };
     cooldown: {
-        samePartWeeks: number;      // default: 6
-        sameSectionWeeks: number;   // default: 2
-        penaltyPoints: number;      // default: 500
+        samePartWeeks: number;
+        sameSectionWeeks: number;
+        penaltyPoints: number;
     };
     bonuses: {
-        neverParticipated: number;  // default: 1000
+        neverParticipated: number;
     };
     pairing: {
-        preferSameGender: boolean;  // default: true
-        preferFamily: boolean;      // default: true
+        preferSameGender: boolean;
+        preferFamily: boolean;
     };
 }
 
@@ -547,8 +307,6 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     },
 };
 
-// ===== RESULTADO DO RANQUEAMENTO =====
-
 export interface RankedCandidate {
     publisher: Publisher;
     score: number;
@@ -559,166 +317,61 @@ export interface RankedCandidate {
         neverParticipatedBonus: number;
     };
     reason: string;
+
+    // Campos adicionais do motor para compatibilidade
+    publisherId?: string;
+    publisherName?: string;
+    priority?: number;
+    cooldownInfo?: any;
+    daysSinceLastTeaching?: number;
+    daysSinceLastStudent?: number;
+    daysSinceLastHelper?: number;
 }
 
-// ===== RESULTADO DO FILTRO =====
-
-export interface FilterResult {
-    eligible: Publisher[];
-    rejected: { publisher: Publisher; reason: string }[];
-}
-
-// ===== AÇÃO DE APROVAÇÃO =====
-
-export interface ApprovalAction {
-    assignmentId: string;
-    action: 'APPROVE' | 'REJECT';
-    elderId: string;
-    elderName: string;
-    reason?: string;
-}
-
-// ===== ESTATISTICAS =====
-
-export interface PublisherStats {
-    publisherId: string;
-    publisherName: string;
-    totalAssignments: number;
-    lastAssignmentDate: string | null;
-    lastAssignmentWeek: string | null;
-    lastAssignmentTitle: string | null;
-    lastAssignmentType: ParticipationType | null;
-    avgDaysBetweenAssignments: number | null;
-}
-
-// ===== DADOS HISTORICOS =====
-
-export interface HistoricalData {
-    weekId: string;
-    weekDisplay: string;
-    participations: {
-        partTitle: string;
-        publisherName: string;
-    }[];
-}
-
-export interface HistoricalImportRecord {
-    id: string;
-    fileName: string;
-    importDate: string;
-    data: HistoricalData[];
-}
-
-// ===== VALIDACAO =====
-
-export interface ValidationRequest {
-    publisher: Publisher;
-    partType: string;
-    partTitle: string;
-    meetingDate: string;
-}
-
-export interface ValidationResponse {
-    isValid: boolean;
-    reason: string;
-}
-
-// ===== RESULTADO DA IA =====
-
-export interface AiScheduleResult {
-    partTitle: string;
-    studentName: string;
-    helperName: string | null;
-    reason: string;
-}
-
-// ===== IMPORTACAO DE HISTORICO (STAGING) =====
+// ===== DADOS HISTORICOS (Adaptador para Motor) =====
 
 export const HistoryStatus = {
-    PENDING: 'PENDING',           // Aguardando validação
-    VALIDATED: 'VALIDATED',       // Nome resolvido automaticamente
-    APPROVED: 'APPROVED',         // Integrado ao sistema
-    REJECTED: 'REJECTED',         // Descartado
+    PENDING: 'PENDING',
+    VALIDATED: 'VALIDATED',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
 } as const;
-
 export type HistoryStatus = typeof HistoryStatus[keyof typeof HistoryStatus];
 
+// Usado pelo CooldownService e HistoryAdapter
 export interface HistoryRecord {
     id: string;
-
-    // Contexto temporal
     weekId: string;
     weekDisplay: string;
     date: string;
-
-    // =====================================================
-    // 5 ATRIBUTOS CANÔNICOS (nomenclatura única)
-    // =====================================================
-    section: string;              // Seção da reunião
-    tipoParte: string;            // O QUE é a parte?
-    modalidade: string;           // COMO é executada?
-    tituloParte: string;          // Título contextual
-    descricaoParte: string;       // Resumo do conteúdo
-    detalhesParte: string;        // Orientação completa
-
-    // Sequência e função
+    section: string;
+    tipoParte: string;
+    modalidade: string;
+    tituloParte: string;
+    descricaoParte: string;
+    detalhesParte: string;
     seq: number;
     funcao: 'Titular' | 'Ajudante';
-    duracao: number;              // Minutos
-    horaInicio: string;           // HH:MM
-    horaFim: string;              // HH:MM
-
-    // Publicador
+    duracao: number;
+    horaInicio: string;
+    horaFim: string;
     rawPublisherName: string;
     resolvedPublisherId?: string;
     resolvedPublisherName?: string;
     matchConfidence?: number;
-
-    // Status e Metadados
     status: HistoryStatus;
     validationNotes?: string;
     importSource: 'PDF' | 'Excel' | 'JSON' | 'Manual' | 'AUTO_INJECTED';
     importBatchId: string;
-
-    // Campos de auditoria
     createdAt: string;
     updatedAt?: string;
     approvedBy?: string;
     approvedAt?: string;
 }
 
-export interface ImportBatch {
-    id: string;
-    fileName: string;
-    importDate: string;
-    source: 'PDF' | 'Excel' | 'JSON' | 'Manual';
-    totalRecords: number;
-    pendingCount: number;
-    validatedCount: number;
-    approvedCount: number;
-    rejectedCount: number;
-}
+// ===== VALIDACAO =====
 
-// ===== API REQUEST/RESPONSE TYPES =====
-
-export interface GenerateRequest {
-    week: string;
-    date: string;
-    publishers: Publisher[];
-    participations: Participation[];
-    parts?: { title: string; type: string; needsHelper: boolean }[];
-}
-
-export interface GeneratedAssignmentResponse {
-    part_title: string;
-    part_type: string;
-    teaching_category: string;
-    principal_name: string;
-    principal_id: string;
-    secondary_name: string | null;
-    secondary_id: string | null;
-    status: string;
-    score: number;
+export interface ValidationResponse {
+    isValid: boolean;
     reason: string;
-    pairing_reason: string | null;
 }
