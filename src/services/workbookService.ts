@@ -7,7 +7,7 @@
 import { supabase } from '../lib/supabase';
 import { fetchAllRows } from './supabasePagination';
 import type { WorkbookPart, WorkbookBatch, Publisher } from '../types';
-import { WorkbookStatus, ParticipationType } from '../types';
+import { WorkbookStatus } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // ============================================================================
@@ -564,139 +564,6 @@ export const workbookService = {
         return mapDbToWorkbookPart(data);
     },
 
-    /**
-     * Confirma uma designação (APROVADA -> DESIGNADA)
-     * Também atualiza o resolved_publisher_id/name com os valores propostos
-     */
-    async confirmDesignation(partId: string): Promise<WorkbookPart> {
-        // Apenas muda o status para DESIGNADA
-        // O nome já está em resolved_publisher_name desde a proposta
-        const { data, error } = await supabase
-            .from('workbook_parts')
-            .update({
-                status: WorkbookStatus.DESIGNADA,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', partId)
-            // Permitir confirmar de APROVADA ou direto de PROPOSTA se o fluxo for curto
-            .in('status', [WorkbookStatus.APROVADA, WorkbookStatus.PROPOSTA])
-            .select()
-            .maybeSingle();
-
-        if (error) throw new Error(`Erro ao confirmar designação: ${error.message}`);
-        if (!data) throw new Error('Parte não encontrada ou status inválido para confirmação');
-
-        return mapDbToWorkbookPart(data);
-    },
-
-    // ========================================================================
-    // PROMOÇÃO E ROLLBACK (LEGADO)
-    // ========================================================================
-
-    /**
-     * Promove partes do batch para Participations
-     */
-    async promoteToParticipations(batchId: string): Promise<string[]> {
-        // Buscar partes do batch (apenas PENDENTE ou PROPOSTA)
-        const { data: parts, error: partsError } = await supabase
-            .from('workbook_parts')
-            .select('*')
-            .eq('batch_id', batchId)
-            .in('status', [WorkbookStatus.PENDENTE, WorkbookStatus.PROPOSTA])
-            .range(0, 9999);
-
-        if (partsError) throw new Error(`Erro ao buscar partes: ${partsError.message}`);
-        if (!parts || parts.length === 0) {
-            throw new Error('Nenhuma parte para promover');
-        }
-
-        // Converter para Participations
-        const participations = parts.map(part => ({
-            id: crypto.randomUUID(),
-            publisher_name: part.resolved_publisher_name || part.raw_publisher_name || '',
-            week: part.week_display,
-            date: part.date,
-            titulo_parte: part.titulo_parte,
-            type: mapTipoParteToParticipationType(part.tipo_parte),
-            duration: parseInt(part.duracao) || null,
-            source: 'import',
-            created_at: new Date().toISOString(),
-        }));
-
-        // Inserir Participations
-        const { error: insertError } = await supabase
-            .from('participations')
-            .insert(participations);
-
-        if (insertError) throw new Error(`Erro ao inserir participações: ${insertError.message}`);
-
-        const participationIds = participations.map(p => p.id);
-
-        // Atualizar status das partes para DESIGNADA
-        const { error: updateError } = await supabase
-            .from('workbook_parts')
-            .update({ status: WorkbookStatus.DESIGNADA })
-            .eq('batch_id', batchId)
-            .in('status', [WorkbookStatus.PENDENTE, WorkbookStatus.PROPOSTA]);
-
-        if (updateError) throw new Error(`Erro ao atualizar status: ${updateError.message}`);
-
-        // Atualizar batch com IDs das participations geradas
-        const { error: batchError } = await supabase
-            .from('workbook_batches')
-            .update({
-                promoted_at: new Date().toISOString(),
-                promoted_to_participation_ids: participationIds,
-                is_active: false,
-            })
-            .eq('id', batchId);
-
-        if (batchError) throw new Error(`Erro ao atualizar batch: ${batchError.message}`);
-
-        return participationIds;
-    },
-
-    /**
-     * Reverte uma promoção (deleta participations geradas)
-     */
-    async rollbackPromotion(batchId: string): Promise<void> {
-        // Buscar batch
-        const batch = await this.getBatchById(batchId);
-        if (!batch) throw new Error('Batch não encontrado');
-        if (!batch.promotedToParticipationIds || batch.promotedToParticipationIds.length === 0) {
-            throw new Error('Este batch não possui participations para reverter');
-        }
-
-        // Deletar participations
-        const { error: deleteError } = await supabase
-            .from('participations')
-            .delete()
-            .in('id', batch.promotedToParticipationIds);
-
-        if (deleteError) throw new Error(`Erro ao deletar participações: ${deleteError.message}`);
-
-        // Reverter status das partes para PENDENTE
-        const { error: updateError } = await supabase
-            .from('workbook_parts')
-            .update({ status: WorkbookStatus.PENDENTE })
-            .eq('batch_id', batchId)
-            .eq('status', WorkbookStatus.DESIGNADA);
-
-        if (updateError) throw new Error(`Erro ao reverter status: ${updateError.message}`);
-
-        // Atualizar batch
-        const { error: batchError } = await supabase
-            .from('workbook_batches')
-            .update({
-                promoted_at: null,
-                promoted_to_participation_ids: null,
-                is_active: true,
-            })
-            .eq('id', batchId);
-
-        if (batchError) throw new Error(`Erro ao atualizar batch: ${batchError.message}`);
-    },
-
     // ========================================================================
     // HISTÓRIA DE PARTICIPAÇÕES (COMPLETED)
     // ========================================================================
@@ -896,25 +763,6 @@ export const workbookService = {
 // ============================================================================
 // Funções auxiliares
 // ============================================================================
-
-function mapTipoParteToParticipationType(tipoParte: string): string {
-    const map: Record<string, string> = {
-        'Presidente': ParticipationType.PRESIDENTE,
-        'Oração Inicial': ParticipationType.ORACAO_INICIAL,
-        'Oração Final': ParticipationType.ORACAO_FINAL,
-        'Dirigente EBC': ParticipationType.DIRIGENTE,
-        'Leitor EBC': ParticipationType.LEITOR,
-        'Cântico': ParticipationType.CANTICO,
-        'Comentários Finais': ParticipationType.COMENTARIOS_FINAIS,
-    };
-
-    // Verificar seções
-    if (tipoParte.includes('Tesouros')) return ParticipationType.TESOUROS;
-    if (tipoParte.includes('Ministério')) return ParticipationType.MINISTERIO;
-    if (tipoParte.includes('Vida')) return ParticipationType.VIDA_CRISTA;
-
-    return map[tipoParte] || ParticipationType.MINISTERIO;
-}
 
 /**
  * Fuzzy matching simples usando distância de Levenshtein

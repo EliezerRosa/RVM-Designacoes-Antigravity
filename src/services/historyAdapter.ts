@@ -70,11 +70,11 @@ export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
 /**
  * Carrega histórico de participações para um publicador específico
  */
-export async function loadPublisherParticipations(publisherId: string): Promise<HistoryRecord[]> {
+export async function loadPublisherParticipations(publisherName: string): Promise<HistoryRecord[]> {
     const { data, error } = await supabase
         .from('workbook_parts')
         .select('*')
-        .eq('resolved_publisher_id', publisherId)
+        .eq('resolved_publisher_name', publisherName)
         .in('status', [WorkbookStatus.CONCLUIDA, WorkbookStatus.DESIGNADA])
         .order('date', { ascending: false })
         .range(0, 9999);
