@@ -192,8 +192,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     }
 
     // Manda pro Zap
-    const handleZap = (part: WorkbookPart, assistantName?: string) => {
-        openWhatsApp(part, assistantName);
+    const handleZap = (part: WorkbookPart, assistantName?: string, phone?: string) => {
+        openWhatsApp(part, assistantName, phone);
     };
 
     // Imprime S-89
@@ -541,7 +541,11 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                                     onClick={() => {
                                                                         const assistant = weekParts.find(p => p.seq === part.seq && p.funcao === 'Ajudante' && p.id !== part.id);
                                                                         const assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
-                                                                        handleZap(part, assistantName);
+                                                                        // Buscar telefone do publicador
+                                                                        const publisherName = part.resolvedPublisherName || part.rawPublisherName;
+                                                                        const foundPublisher = publishers.find(p => p.name === publisherName);
+                                                                        const phone = foundPublisher?.phone;
+                                                                        handleZap(part, assistantName, phone);
                                                                     }}
                                                                     disabled={isProcessing}
                                                                     style={{

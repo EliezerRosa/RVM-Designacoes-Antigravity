@@ -131,8 +131,24 @@ export function downloadS89(bytes: Uint8Array, filename: string) {
  */
 export function generateWhatsAppMessage(part: WorkbookPart, assistantName?: string): string {
     const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
+
+    // Calcular quinta-feira da semana (igual ao S-89)
+    let displayDate = part.date;
     const dateParts = part.date.split('-');
-    const displayDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : part.date;
+    if (dateParts.length === 3) {
+        const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+        const dayOfWeek = baseDate.getDay();
+        const daysToThursday = (4 - dayOfWeek + 7) % 7;
+        const thursdayDate = new Date(baseDate);
+        thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+
+        const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+            'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const day = thursdayDate.getDate();
+        const month = MESES[thursdayDate.getMonth()];
+        const year = thursdayDate.getFullYear();
+        displayDate = `Quinta-feira, ${day}/${month}/${year}`;
+    }
 
     let emoji = '📅';
     if (part.tipoParte.toLowerCase().includes('leitura')) emoji = '📖';
@@ -149,8 +165,30 @@ export function generateWhatsAppMessage(part: WorkbookPart, assistantName?: stri
     return msg;
 }
 
-export function openWhatsApp(part: WorkbookPart, assistantName?: string) {
+/**
+ * Formata número de telefone para WhatsApp (remove espaços e hífens, adiciona código do país)
+ */
+function formatPhoneForWhatsApp(phone: string): string {
+    // Remove espaços, hífens, parênteses
+    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    // Se não começar com 55 (Brasil), adiciona
+    if (!cleaned.startsWith('55') && cleaned.length <= 11) {
+        cleaned = '55' + cleaned;
+    }
+    return cleaned;
+}
+
+export function openWhatsApp(part: WorkbookPart, assistantName?: string, phone?: string) {
     const message = generateWhatsAppMessage(part, assistantName);
     const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+
+    // Se tiver telefone, abre direto para o número
+    if (phone && phone.trim()) {
+        const formattedPhone = formatPhoneForWhatsApp(phone);
+        window.open(`https://wa.me/${formattedPhone}?text=${encoded}`, '_blank');
+    } else {
+        // Sem telefone: abre WhatsApp para escolher contato
+        window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    }
 }
+
