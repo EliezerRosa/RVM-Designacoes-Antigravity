@@ -7,7 +7,7 @@ const POSITIONS = {
     NAME: { x: 60, y: 270 },
     ASSISTANT: { x: 86, y: 245 },
     DATE: { x: 60, y: 224 },
-    PART: { x: 105, y: 200 }, // Ajustado para 105 (mais à esquerda)
+    PART: { x: 103, y: 200 }, // Ajustado para 103 (mais à esquerda)
     ROOM: { x: 70, y: 168 },
 };
 
