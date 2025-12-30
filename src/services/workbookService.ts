@@ -743,6 +743,28 @@ export const workbookService = {
     },
 
     /**
+     * Reverte a conclusão (CONCLUIDA -> APROVADA) mantendo a designação
+     */
+    async undoCompletion(partId: string): Promise<WorkbookPart> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .update({
+                status: WorkbookStatus.APROVADA,
+                completed_at: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', partId)
+            .eq('status', WorkbookStatus.CONCLUIDA)
+            .select()
+            .maybeSingle();
+
+        if (error) throw new Error(`Erro ao desfazer conclusão: ${error.message}`);
+        if (!data) throw new Error('Parte não encontrada ou não está concluída');
+
+        return mapDbToWorkbookPart(data);
+    },
+
+    /**
      * Sincroniza partes do Presidente (Comentários Iniciais/Finais)
      * Deve ser chamado após atualizar a parte principal 'Presidente'
      */
