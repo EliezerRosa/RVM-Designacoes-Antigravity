@@ -535,46 +535,50 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                 )}
                                                 {(part.status === WorkbookStatus.APROVADA || part.status === WorkbookStatus.DESIGNADA || part.status === WorkbookStatus.CONCLUIDA) && (
                                                     <>
-                                                        <button
-                                                            onClick={() => {
-                                                                const assistant = weekParts.find(p => p.seq === part.seq && p.funcao === 'Ajudante' && p.id !== part.id);
-                                                                const assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
-                                                                handleZap(part, assistantName);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                            style={{
-                                                                background: '#25D366', // WhatsApp Green
-                                                                color: '#fff',
-                                                                border: 'none',
-                                                                padding: '8px 12px',
-                                                                borderRadius: '6px',
-                                                                cursor: isProcessing ? 'not-allowed' : 'pointer',
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                            }}
-                                                            title="Enviar WhatsApp"
-                                                        >
-                                                            📱
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                const assistant = weekParts.find(p => p.seq === part.seq && p.funcao === 'Ajudante' && p.id !== part.id);
-                                                                const assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
-                                                                handlePrintS89(part, assistantName);
-                                                            }}
-                                                            disabled={isProcessing}
-                                                            style={{
-                                                                background: '#6b7280', // Gray for PDF
-                                                                color: '#fff',
-                                                                border: 'none',
-                                                                padding: '8px 12px',
-                                                                borderRadius: '6px',
-                                                                cursor: isProcessing ? 'not-allowed' : 'pointer',
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                            }}
-                                                            title="Gerar S-89 (PDF)"
-                                                        >
-                                                            📄
-                                                        </button>
+                                                        {part.status !== WorkbookStatus.CONCLUIDA && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const assistant = weekParts.find(p => p.seq === part.seq && p.funcao === 'Ajudante' && p.id !== part.id);
+                                                                        const assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
+                                                                        handleZap(part, assistantName);
+                                                                    }}
+                                                                    disabled={isProcessing}
+                                                                    style={{
+                                                                        background: '#25D366', // WhatsApp Green
+                                                                        color: '#fff',
+                                                                        border: 'none',
+                                                                        padding: '8px 12px',
+                                                                        borderRadius: '6px',
+                                                                        cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                                    }}
+                                                                    title="Enviar WhatsApp"
+                                                                >
+                                                                    📱
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const assistant = weekParts.find(p => p.seq === part.seq && p.funcao === 'Ajudante' && p.id !== part.id);
+                                                                        const assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
+                                                                        handlePrintS89(part, assistantName);
+                                                                    }}
+                                                                    disabled={isProcessing}
+                                                                    style={{
+                                                                        background: '#6b7280', // Gray for PDF
+                                                                        color: '#fff',
+                                                                        border: 'none',
+                                                                        padding: '8px 12px',
+                                                                        borderRadius: '6px',
+                                                                        cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                                    }}
+                                                                    title="Gerar S-89 (PDF)"
+                                                                >
+                                                                    📄
+                                                                </button>
+                                                            </>
+                                                        )}
                                                         <button
                                                             onClick={() => {
                                                                 if (part.status === WorkbookStatus.CONCLUIDA) {
