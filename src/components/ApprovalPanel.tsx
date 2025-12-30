@@ -513,7 +513,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                         </button>
                                                     </>
                                                 )}
-                                                {(part.status === WorkbookStatus.APROVADA || part.status === WorkbookStatus.DESIGNADA) && (
+                                                {(part.status === WorkbookStatus.APROVADA || part.status === WorkbookStatus.DESIGNADA || part.status === WorkbookStatus.CONCLUIDA) && (
                                                     <>
                                                         <button
                                                             onClick={() => {
@@ -571,20 +571,22 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                         >
                                                             ⚠️
                                                         </button>
-                                                        <button
-                                                            onClick={() => handleMarkCompleted([part.id])}
-                                                            disabled={isProcessing}
-                                                            style={{
-                                                                background: '#3b82f6',
-                                                                color: '#fff',
-                                                                border: 'none',
-                                                                padding: '8px 16px',
-                                                                borderRadius: '6px',
-                                                                cursor: isProcessing ? 'not-allowed' : 'pointer',
-                                                            }}
-                                                        >
-                                                            🏆 Concluída
-                                                        </button>
+                                                        {part.status !== WorkbookStatus.CONCLUIDA && (
+                                                            <button
+                                                                onClick={() => handleMarkCompleted([part.id])}
+                                                                disabled={isProcessing}
+                                                                style={{
+                                                                    background: '#3b82f6',
+                                                                    color: '#fff',
+                                                                    border: 'none',
+                                                                    padding: '8px 16px',
+                                                                    borderRadius: '6px',
+                                                                    cursor: isProcessing ? 'not-allowed' : 'pointer',
+                                                                }}
+                                                            >
+                                                                🏆 Concluída
+                                                            </button>
+                                                        )}
                                                     </>
                                                 )}
                                                 {part.rejectedReason && (
