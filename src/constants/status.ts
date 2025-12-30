@@ -7,6 +7,7 @@ export const STATUS_CONFIG = {
     DESIGNADA: { label: 'Designada', color: '#059669', icon: '📧', bg: '#ecfdf5', text: '#047857', border: '#34d399' },
     REJEITADA: { label: 'Rejeitada', color: '#ef4444', icon: '❌', bg: '#fef2f2', text: '#b91c1c', border: '#fca5a5' },
     CONCLUIDA: { label: 'Concluída', color: '#3b82f6', icon: '🏆', bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd' },
+    CANCELADA: { label: 'Cancelada', color: '#6b7280', icon: '🚫', bg: '#f9fafb', text: '#6b7280', border: '#e5e7eb' },
 } as const;
 
 export type StatusKey = keyof typeof STATUS_CONFIG;
