@@ -70,14 +70,14 @@ export interface RotationScore {
  * Calcula a prioridade de rodízio para um publicador
  */
 export function calculateRotationPriority(
-    publisherId: string,
+    publisherName: string,
     history: HistoryRecord[],
     today: Date = new Date()
 ): number {
-    // Filtrar histórico do publicador (resolvido ou original)
+    // Filtrar histórico do publicador pelo nome
     const publisherHistory = history.filter(h =>
-        h.resolvedPublisherId === publisherId ||
-        h.resolvedPublisherId === publisherId
+        h.resolvedPublisherName === publisherName ||
+        h.rawPublisherName === publisherName
     );
 
     if (publisherHistory.length === 0) {
@@ -107,7 +107,7 @@ export function calculateRotationPriority(
  * Verifica se um publicador está em cooldown para um tipo de parte
  */
 export function getCooldownInfo(
-    publisherId: string,
+    publisherName: string,
     partType: string,
     history: HistoryRecord[],
     today: Date = new Date()
@@ -115,12 +115,12 @@ export function getCooldownInfo(
     // Filtrar histórico do publicador para o tipo de parte específico
     const relevantHistory = history
         .filter(h =>
-            (h.resolvedPublisherId === publisherId || h.resolvedPublisherId === publisherId) &&
+            (h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName) &&
             (h.tipoParte === partType || h.tituloParte === partType)
         )
         .sort((a, b) => {
-            const dateA = new Date(a.date || a.date || '');
-            const dateB = new Date(b.date || b.date || '');
+            const dateA = new Date(a.date || '');
+            const dateB = new Date(b.date || '');
             return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
         });
 
@@ -152,8 +152,8 @@ export function rankPublishersByRotation(
     today: Date = new Date()
 ): RotationScore[] {
     const scores: RotationScore[] = publishers.map(pub => {
-        const priority = calculateRotationPriority(pub.id, history, today);
-        const cooldownInfo = partType ? getCooldownInfo(pub.id, partType, history, today) : null;
+        const priority = calculateRotationPriority(pub.name, history, today);
+        const cooldownInfo = partType ? getCooldownInfo(pub.name, partType, history, today) : null;
 
         // Aplicar penalidade de cooldown
         const adjustedPriority = cooldownInfo?.isInCooldown
@@ -162,7 +162,7 @@ export function rankPublishersByRotation(
 
         // Detalhes por categoria
         const pubHistory = history.filter(h =>
-            h.resolvedPublisherId === pub.id || h.resolvedPublisherId === pub.id
+            h.resolvedPublisherName === pub.name || h.rawPublisherName === pub.name
         );
 
         return {
@@ -300,7 +300,7 @@ export function getParticipationCategory(record: HistoryRecord): ParticipationCa
  * Estatísticas de participação de um publicador
  */
 export function getParticipationStats(
-    publisherId: string,
+    publisherName: string,
     history: HistoryRecord[],
     _today: Date = new Date()
 ): {
@@ -312,10 +312,10 @@ export function getParticipationStats(
     averageIntervalDays: number;
 } {
     const pubHistory = history
-        .filter(h => h.resolvedPublisherId === publisherId || h.resolvedPublisherId === publisherId)
+        .filter(h => h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName)
         .sort((a, b) => {
-            const dateA = new Date(a.date || a.date || '');
-            const dateB = new Date(b.date || b.date || '');
+            const dateA = new Date(a.date || '');
+            const dateB = new Date(b.date || '');
             return dateA.getTime() - dateB.getTime();
         });
 
@@ -324,8 +324,8 @@ export function getParticipationStats(
     // Calcular intervalo médio
     let totalInterval = 0;
     for (let i = 1; i < pubHistory.length; i++) {
-        const dateA = new Date(pubHistory[i - 1].date || pubHistory[i - 1].date || '');
-        const dateB = new Date(pubHistory[i].date || pubHistory[i].date || '');
+        const dateA = new Date(pubHistory[i - 1].date || '');
+        const dateB = new Date(pubHistory[i].date || '');
         totalInterval += (dateB.getTime() - dateA.getTime()) / (1000 * 60 * 60 * 24);
     }
 
@@ -335,7 +335,7 @@ export function getParticipationStats(
         studentCount: categories.filter(c => c === 'STUDENT').length,
         helperCount: categories.filter(c => c === 'HELPER').length,
         lastParticipation: pubHistory.length > 0
-            ? pubHistory[pubHistory.length - 1].date || pubHistory[pubHistory.length - 1].date || null
+            ? pubHistory[pubHistory.length - 1].date || null
             : null,
         averageIntervalDays: pubHistory.length > 1 ? totalInterval / (pubHistory.length - 1) : 0
     };
