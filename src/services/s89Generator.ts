@@ -83,13 +83,16 @@ export async function generateS89(part: WorkbookPart, assistantName?: string): P
     });
 
     // Sala
-    const room = part.modalidade?.toLowerCase().includes('b') ? 'Sala B' : 'Principal';
-    page.drawText(room, {
-        x: POSITIONS.ROOM.x,
-        y: POSITIONS.ROOM.y,
-        size: FONT_SIZE.DEFAULT,
-        font: fontRegular,
-    });
+    // Só escrevemos se for Sala B. Se for Principal, deixamos em branco (padrão).
+    const room = part.modalidade?.toLowerCase().includes('b') ? 'Sala B' : '';
+    if (room) {
+        page.drawText(room, {
+            x: POSITIONS.ROOM.x,
+            y: POSITIONS.ROOM.y,
+            size: FONT_SIZE.DEFAULT,
+            font: fontRegular,
+        });
+    }
 
     return pdfDoc.save();
 }
