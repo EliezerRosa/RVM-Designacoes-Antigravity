@@ -208,6 +208,26 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         }
     };
 
+    // Desfazer Conclusão (Volta para APROVADA)
+    const handleUndoCompletion = async (id: string) => {
+        if (!confirm('Deseja desfazer a conclusão e voltar para APROVADA? (O publicador será mantido)')) return;
+
+        setProcessingIds(prev => new Set(prev).add(id));
+        try {
+            await workbookService.undoCompletion(id);
+            await loadAssignments();
+            loadStats();
+        } catch (err) {
+            alert('Erro: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setProcessingIds(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
+        }
+    };
+
     // Mark as completed
     const handleMarkCompleted = async (ids: string[]) => {
         if (!confirm(`Marcar ${ids.length} designação(ões) como CONCLUÍDA na Apostila?`)) return;
@@ -556,7 +576,13 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                             📄
                                                         </button>
                                                         <button
-                                                            onClick={() => setRejectingId(part.id)}
+                                                            onClick={() => {
+                                                                if (part.status === WorkbookStatus.CONCLUIDA) {
+                                                                    handleUndoCompletion(part.id);
+                                                                } else {
+                                                                    setRejectingId(part.id);
+                                                                }
+                                                            }}
                                                             disabled={isProcessing}
 
                                                             style={{
@@ -567,7 +593,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                                 borderRadius: '6px',
                                                                 cursor: isProcessing ? 'not-allowed' : 'pointer',
                                                             }}
-                                                            title="Cancelar ou Substituir"
+                                                            title={part.status === WorkbookStatus.CONCLUIDA ? "Reverter para Aprovada" : "Cancelar Designação"}
                                                         >
                                                             ⚠️
                                                         </button>
