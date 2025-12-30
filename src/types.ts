@@ -280,12 +280,25 @@ export interface Rule {
 
 // ===== EVENTOS ESPECIAIS =====
 
-export type EventImpactAction = 'REPLACE_PART' | 'ADD_PART' | 'REPLACE_SECTION' | 'REASSIGN_PART';
+// Ações de impacto expandidas para Eventos Especiais
+export type EventImpactAction =
+    | 'REPLACE_PART'      // Substituir uma parte específica
+    | 'ADD_PART'          // Adicionar parte extra
+    | 'REPLACE_SECTION'   // Substituir seção inteira
+    | 'REASSIGN_PART'     // Reatribuir parte
+    | 'SC_VISIT_LOGIC'    // Lógica especial Visita SC (cancela EBC, mantém Discurso Ensino)
+    | 'CANCEL_WEEK'       // Cancela TODAS as partes (Assembleia/Congresso)
+    | 'TIME_ADJUSTMENT';  // Ajusta tempos (Boletim CG)
 
 export interface EventImpact {
     action: EventImpactAction;
     targetType?: ParticipationType | ParticipationType[];
     reassignTarget?: ParticipationType;
+    // Para TIME_ADJUSTMENT
+    timeReduction?: {
+        targetPart: string;  // Parte a reduzir (ex: 'EBC')
+        minutes: number;     // Minutos a reduzir
+    };
 }
 
 export interface EventTemplate {
@@ -303,17 +316,39 @@ export interface EventTemplate {
 
 export interface SpecialEvent {
     id: string;
-    week: string;
-    templateId: string;
-    theme: string;
-    assignedTo: string;
-    duration: number;
-    configuration: {
+    week: string;                     // Semana afetada (YYYY-MM-DD)
+    templateId: string;               // ID do template usado
+
+    // Campos comuns
+    theme?: string;                   // Tema (obrigatório para alguns)
+    responsible?: string;             // Responsável (obrigatório para alguns)
+    duration?: number;                // Duração em minutos
+
+    // Campos específicos para Boletim CG
+    boletimYear?: number;             // Ano do boletim (ex: 2024)
+    boletimNumber?: number;           // Número do boletim (ex: 1, 2, 3...)
+
+    // OBRIGATÓRIO EM TODOS OS EVENTOS
+    guidelines?: string;              // Orientações
+    observations?: string;            // Observações
+
+    // Configuração de impacto adicional
+    configuration?: {
         timeReduction?: {
             targetType: ParticipationType;
             minutes: number;
         };
     };
+
+    // Controle de aplicação
+    isApplied?: boolean;              // Se o impacto já foi aplicado
+    appliedAt?: string;               // Data de aplicação
+
+    // Metadados
+    details?: Record<string, unknown>;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: string;
 }
 
 // ===== APOSTILA (WORKBOOK STAGING) =====

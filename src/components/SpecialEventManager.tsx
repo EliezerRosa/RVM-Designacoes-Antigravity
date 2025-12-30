@@ -26,6 +26,10 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
     const [theme, setTheme] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
     const [duration, setDuration] = useState(15);
+    const [guidelines, setGuidelines] = useState('');
+    const [observations, setObservations] = useState('');
+    const [boletimYear, setBoletimYear] = useState<number>(new Date().getFullYear());
+    const [boletimNumber, setBoletimNumber] = useState<number>(1);
 
     // Load events for this week
     const loadEvents = useCallback(async () => {
@@ -67,9 +71,12 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
                 week: weekId,
                 templateId: selectedTemplateId,
                 theme,
-                assignedTo,
+                responsible: assignedTo,
                 duration,
-                configuration: {},
+                guidelines,
+                observations,
+                boletimYear: selectedTemplateId === 'boletim-cg' ? boletimYear : undefined,
+                boletimNumber: selectedTemplateId === 'boletim-cg' ? boletimNumber : undefined,
             });
             setShowModal(false);
             resetForm();
@@ -103,6 +110,10 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
         setTheme('');
         setAssignedTo('');
         setDuration(15);
+        setGuidelines('');
+        setObservations('');
+        setBoletimYear(new Date().getFullYear());
+        setBoletimNumber(1);
     };
 
     const canceladaConfig = getStatusConfig('CANCELADA');
@@ -184,9 +195,9 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
                                     Tema: {event.theme}
                                 </div>
                             )}
-                            {event.assignedTo && (
+                            {event.responsible && (
                                 <div style={{ fontSize: '0.85em', color: '#6b7280' }}>
-                                    Responsável: {event.assignedTo}
+                                    Responsável: {event.responsible}
                                 </div>
                             )}
                             <div style={{ fontSize: '0.75em', color: '#9ca3af' }}>
@@ -326,7 +337,7 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
                         )}
 
                         {/* Duration */}
-                        <div style={{ marginBottom: '20px' }}>
+                        <div style={{ marginBottom: '15px' }}>
                             <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>
                                 Duração (min):
                             </label>
@@ -341,6 +352,92 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
                                     border: '1px solid #374151',
                                     background: '#111827',
                                     color: '#fff',
+                                }}
+                            />
+                        </div>
+
+                        {/* Boletim CG Specific Fields */}
+                        {selectedTemplateId === 'boletim-cg' && (
+                            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>
+                                        Ano:
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={boletimYear}
+                                        onChange={e => setBoletimYear(parseInt(e.target.value) || new Date().getFullYear())}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #374151',
+                                            background: '#111827',
+                                            color: '#fff',
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>
+                                        Nº Boletim:
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={boletimNumber}
+                                        onChange={e => setBoletimNumber(parseInt(e.target.value) || 1)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #374151',
+                                            background: '#111827',
+                                            color: '#fff',
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Guidelines (Orientações) */}
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>
+                                📋 Orientações:
+                            </label>
+                            <textarea
+                                value={guidelines}
+                                onChange={e => setGuidelines(e.target.value)}
+                                placeholder="Orientações específicas para este evento..."
+                                rows={2}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #374151',
+                                    background: '#111827',
+                                    color: '#fff',
+                                    resize: 'vertical',
+                                }}
+                            />
+                        </div>
+
+                        {/* Observations (Observações) */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>
+                                📝 Observações:
+                            </label>
+                            <textarea
+                                value={observations}
+                                onChange={e => setObservations(e.target.value)}
+                                placeholder="Notas adicionais..."
+                                rows={2}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #374151',
+                                    background: '#111827',
+                                    color: '#fff',
+                                    resize: 'vertical',
                                 }}
                             />
                         </div>
