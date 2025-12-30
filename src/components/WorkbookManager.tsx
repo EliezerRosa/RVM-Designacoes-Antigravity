@@ -12,6 +12,7 @@ import { checkEligibility } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
 import { PublisherSelect } from './PublisherSelect';
+import { getStatusConfig } from '../constants/status';
 
 interface Props {
     publishers: Publisher[];
@@ -538,14 +539,7 @@ export function WorkbookManager({ publishers }: Props) {
         'Final da Reunião': '#E0E7FF',
     };
 
-    const statusColors: Record<string, string> = {
-        'PENDENTE': '#9CA3AF',
-        'PROPOSTA': '#F59E0B',
-        'APROVADA': '#3B82F6',
-        'DESIGNADA': '#10B981',
-        'REJEITADA': '#EF4444',
-        'CONCLUIDA': '#6B7280',
-    };
+
 
     // Helper para atualizar publisher do dropdown
     const handlePublisherSelect = async (partId: string, _newId: string, newName: string) => {
@@ -769,15 +763,25 @@ export function WorkbookManager({ publishers }: Props) {
                                                 */}
                                     </td>
                                     <td style={{ padding: '8px', textAlign: 'center' }}>
-                                        <span style={{
-                                            padding: '2px 8px',
-                                            borderRadius: '12px',
-                                            fontSize: '11px',
-                                            background: statusColors[part.status] || '#9CA3AF',
-                                            color: 'white',
-                                        }}>
-                                            {part.status}
-                                        </span>
+                                        {(() => {
+                                            const config = getStatusConfig(part.status);
+                                            return (
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '11px',
+                                                    background: config.bg,
+                                                    color: config.text,
+                                                    border: `1px solid ${config.border}`,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    fontWeight: '600',
+                                                }}>
+                                                    {config.icon} {config.label}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                 </tr>
                             );

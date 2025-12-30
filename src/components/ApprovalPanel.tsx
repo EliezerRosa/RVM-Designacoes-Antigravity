@@ -9,23 +9,7 @@ interface ApprovalPanelProps {
     publishers?: Publisher[];
 }
 
-const STATUS_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
-    PENDENTE: { bg: '#6b7280', text: '#fff', icon: '📝' },
-    PROPOSTA: { bg: '#f59e0b', text: '#000', icon: '⏳' },
-    APROVADA: { bg: '#10b981', text: '#fff', icon: '✅' },
-    DESIGNADA: { bg: '#059669', text: '#fff', icon: '📧' }, // Enviada
-    REJEITADA: { bg: '#ef4444', text: '#fff', icon: '❌' },
-    CONCLUIDA: { bg: '#3b82f6', text: '#fff', icon: '🏆' },
-};
-
-const STATUS_LABELS: Record<string, string> = {
-    PENDENTE: 'Pendente',
-    PROPOSTA: 'Proposta',
-    APROVADA: 'Aprovada',
-    DESIGNADA: 'Designada',
-    REJEITADA: 'Rejeitada',
-    CONCLUIDA: 'Concluída',
-};
+import { getStatusConfig, STATUS_CONFIG } from '../constants/status';
 
 export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderName = 'Ancião', publishers = [] }: ApprovalPanelProps) {
     const [assignments, setAssignments] = useState<WorkbookPart[]>([]);
@@ -257,7 +241,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                     paddingBottom: '15px',
                     marginBottom: '20px'
                 }}>
-                    {Object.entries(STATUS_COLORS).map(([status, colors]) => {
+                    {Object.entries(STATUS_CONFIG).map(([status, config]) => {
                         const count = stats[status] || 0;
                         if (count === 0) return null; // Esconder zerados
 
@@ -265,8 +249,9 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                             <div
                                 key={status}
                                 style={{
-                                    background: colors.bg,
-                                    color: colors.text,
+                                    background: config.bg,
+                                    color: config.text,
+                                    border: `1px solid ${config.border}`,
                                     padding: '10px 15px',
                                     borderRadius: '8px',
                                     display: 'flex',
@@ -275,9 +260,9 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                     minWidth: '120px',
                                 }}
                             >
-                                <span style={{ fontSize: '1.2em' }}>{colors.icon}</span>
+                                <span style={{ fontSize: '1.2em' }}>{config.icon}</span>
                                 <div>
-                                    <div style={{ fontSize: '0.75em', opacity: 0.9 }}>{STATUS_LABELS[status] || status}</div>
+                                    <div style={{ fontSize: '0.75em', opacity: 0.9 }}>{config.label}</div>
                                     <div style={{ fontSize: '1.3em', fontWeight: 'bold' }}>
                                         {count}
                                     </div>
@@ -388,7 +373,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                 {weekParts.map(part => {
                                     const isProcessing = processingIds.has(part.id);
                                     const isEditable = part.status === WorkbookStatus.PROPOSTA && publishers.length > 0;
-                                    const statusStyle = STATUS_COLORS[part.status] || STATUS_COLORS.PENDENTE;
+                                    const statusConfig = getStatusConfig(part.status);
 
                                     // SIMPLIFICADO: Usar apenas resolved_publisher_name
                                     const displayPublisher = part.resolvedPublisherName || part.rawPublisherName || '(Sem publicador)';
@@ -407,7 +392,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                 background: '#111827',
                                                 borderRadius: '8px',
                                                 padding: '15px',
-                                                border: `1px solid ${statusStyle.bg}`,
+                                                border: `1px solid ${statusConfig.border}`,
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
                                                 alignItems: 'center',
@@ -420,15 +405,16 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
                                                     <span
                                                         style={{
-                                                            background: statusStyle.bg,
-                                                            color: statusStyle.text,
+                                                            background: statusConfig.bg,
+                                                            color: statusConfig.text,
+                                                            border: `1px solid ${statusConfig.border}`,
                                                             padding: '2px 8px',
                                                             borderRadius: '4px',
                                                             fontSize: '0.75em',
                                                             fontWeight: 'bold',
                                                         }}
                                                     >
-                                                        {statusStyle.icon} {STATUS_LABELS[part.status] || part.status}
+                                                        {statusConfig.icon} {statusConfig.label}
                                                     </span>
                                                     <span style={{ color: '#9ca3af', fontSize: '0.85em' }}>
                                                         {part.date} · {part.duracao}
