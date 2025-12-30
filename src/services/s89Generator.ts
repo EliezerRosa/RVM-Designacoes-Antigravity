@@ -57,15 +57,27 @@ export async function generateS89(part: WorkbookPart, assistantName?: string): P
         });
     }
 
-    // Data (DD/MM/YYYY)
+    // Data (Quinta-feira da semana, formato: "Quinta-feira, D/mês/AAAA")
     if (part.date) {
         const dateParts = part.date.split('-');
         if (dateParts.length === 3) {
-            const displayDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+            const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+            const dayOfWeek = baseDate.getDay(); // 0=Dom, 1=Seg, ..., 4=Qui
+            const daysToThursday = (4 - dayOfWeek + 7) % 7;
+            const thursdayDate = new Date(baseDate);
+            thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+
+            const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+            const day = thursdayDate.getDate();
+            const month = MESES[thursdayDate.getMonth()];
+            const year = thursdayDate.getFullYear();
+            const displayDate = `Quinta-feira, ${day}/${month}/${year}`;
+
             page.drawText(displayDate, {
                 x: POSITIONS.DATE.x,
                 y: POSITIONS.DATE.y,
-                size: FONT_SIZE.DEFAULT,
+                size: FONT_SIZE.SMALL, // Texto mais longo, fonte menor
                 font: fontRegular,
             });
         }
