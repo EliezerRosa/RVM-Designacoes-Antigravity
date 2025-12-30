@@ -7,7 +7,7 @@ const POSITIONS = {
     NAME: { x: 60, y: 270 },
     ASSISTANT: { x: 86, y: 245 },
     DATE: { x: 60, y: 224 },
-    PART: { x: 145, y: 200 }, // Deslocado 5px para a esquerda (Original 150)
+    PART: { x: 125, y: 200 }, // Ajustado para logo após os dois pontos (Original 150)
     ROOM: { x: 70, y: 168 },
 };
 
@@ -74,8 +74,8 @@ export async function generateS89(part: WorkbookPart, assistantName?: string): P
     // Número da Parte (User Request: Colocar Tema/Título, mesmo truncado)
     // Coordenada PART: x: 150. Se for muito longo, truncamos para evitar sair da folha.
     let partTitle = part.tituloParte || '';
-    if (partTitle.length > 55) {
-        partTitle = partTitle.substring(0, 52) + '...';
+    if (partTitle.length > 60) {
+        partTitle = partTitle.substring(0, 57) + '...';
     }
 
     page.drawText(partTitle, {
