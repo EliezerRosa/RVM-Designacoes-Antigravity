@@ -5,10 +5,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import type { WorkbookPart, WorkbookBatch, Publisher, HistoryRecord } from '../types';
+import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
-import { pdfExtractionService } from '../services/pdfExtractionService';
 import { checkEligibility } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
@@ -29,8 +28,7 @@ export function WorkbookManager({ publishers }: Props) {
     // ========================================================================
     // Estado
     // ========================================================================
-    const [batches, setBatches] = useState<WorkbookBatch[]>([]);
-    const [activeBatch, setActiveBatch] = useState<WorkbookBatch | null>(null);
+
     const [parts, setParts] = useState<WorkbookPart[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -47,11 +45,7 @@ export function WorkbookManager({ publishers }: Props) {
     const [filterFuncao, setFilterFuncao] = useState<string>(() => localStorage.getItem('wm_filterFuncao') || '');
     const [searchText, setSearchText] = useState<string>(() => localStorage.getItem('wm_searchText') || '');
 
-    // PDF Extraction State
-    const [extractedParts, setExtractedParts] = useState<WorkbookExcelRow[]>([]);
-    const [showExtractPreview, setShowExtractPreview] = useState(false);
-    const [extractionInfo, setExtractionInfo] = useState<{ year: number; totalWeeks: number } | null>(null);
-    const [extracting, setExtracting] = useState(false);
+
 
     // ========================================================================
     // Persistir filtros no localStorage
@@ -66,56 +60,27 @@ export function WorkbookManager({ publishers }: Props) {
     }, [filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText]);
 
     // ========================================================================
-    // Carregar dados iniciais
+    // Carregar dados iniciais - TODAS AS PARTES (sem batches)
     // ========================================================================
     useEffect(() => {
-        loadBatches();
+        loadAllParts();
     }, []);
 
-    useEffect(() => {
-        if (activeBatch) {
-            loadParts(activeBatch.id);
-            // Inscrever para mudanças em tempo real
-            const channel = workbookService.subscribeToChanges(activeBatch.id, (payload) => {
-                if (payload.eventType === 'INSERT' && payload.new) {
-                    setParts(prev => [...prev, payload.new!]);
-                } else if (payload.eventType === 'UPDATE' && payload.new) {
-                    setParts(prev => prev.map(p => p.id === payload.new!.id ? payload.new! : p));
-                } else if (payload.eventType === 'DELETE' && payload.old) {
-                    setParts(prev => prev.filter(p => p.id !== payload.old!.id));
-                }
-            });
-            return () => workbookService.unsubscribe(channel);
-        }
-    }, [activeBatch]);
-
-    const loadBatches = async () => {
+    // Função para carregar TODAS as partes (sem filtro de batch)
+    const loadAllParts = async () => {
         try {
             setLoading(true);
-            const data = await workbookService.getBatches();
-            setBatches(data);
-            // Selecionar batch ativo automaticamente
-            const active = data.find(b => b.isActive);
-            if (active) setActiveBatch(active);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao carregar batches');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const loadParts = async (batchId: string) => {
-        try {
-            setLoading(true);
-            const data = await workbookService.getPartsByBatch(batchId);
+            const data = await workbookService.getAll();
             setParts(data);
-            setSelectedIds(new Set());
+
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao carregar partes');
         } finally {
             setLoading(false);
         }
     };
+
+
 
     // ========================================================================
     // Upload de Excel
@@ -217,13 +182,9 @@ export function WorkbookManager({ publishers }: Props) {
 
             setSuccessMessage(`✅ Importadas ${excelRows.length} partes de "${file.name}"`);
 
-            // Recarregar batches e partes
-            console.log('[WorkbookManager] 🔄 Recarregando batches e partes...');
-            await loadBatches();
-
-            // IMPORTANTE: Definir o batch ativo E forçar reload das partes
-            setActiveBatch(batch);
-            await loadParts(batch.id);
+            // Recarregar partes
+            console.log('[WorkbookManager] 🔄 Recarregando partes...');
+            await loadAllParts();
 
             console.log('[WorkbookManager] ✅ Upload completo!');
 
@@ -236,74 +197,7 @@ export function WorkbookManager({ publishers }: Props) {
         }
     };
 
-    // ========================================================================
-    // PDF Extraction
-    // ========================================================================
-    const handleExtractPDF = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
 
-        try {
-            setExtracting(true);
-            setError(null);
-
-            const result = await pdfExtractionService.extractWorkbookParts(file);
-
-            if (!result.success) {
-                throw new Error(result.error || 'Extração falhou');
-            }
-
-            setExtractedParts(result.records);
-            setExtractionInfo({ year: result.year, totalWeeks: result.totalWeeks });
-            setShowExtractPreview(true);
-
-        } catch (err) {
-            console.error('Erro detalhado:', err);
-            setError(err instanceof Error ? err.message : 'Erro ao extrair PDF');
-        } finally {
-            setExtracting(false);
-            event.target.value = '';
-        }
-    };
-
-    const handleDownloadExcel = () => {
-        if (extractedParts.length === 0) return;
-
-        try {
-            const ws = XLSX.utils.json_to_sheet(extractedParts);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Extração");
-            XLSX.writeFile(wb, `Extracao_Apostila_${extractionInfo?.year || new Date().getFullYear()}.xlsx`);
-        } catch (err) {
-            setError('Erro ao gerar Excel: ' + (err as Error).message);
-        }
-    };
-
-    const handleConfirmExtraction = async () => {
-        if (extractedParts.length === 0) return;
-
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Criar batch com as partes extraídas
-            const batch = await workbookService.createBatch('PDF Extraction', extractedParts);
-
-            setSuccessMessage(`✅ Importadas ${extractedParts.length} partes do PDF`);
-            setShowExtractPreview(false);
-            setExtractedParts([]);
-            setExtractionInfo(null);
-
-            // Recarregar
-            await loadBatches();
-            setActiveBatch(batch);
-
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao salvar partes');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     // ========================================================================
     // Ações
@@ -326,7 +220,7 @@ export function WorkbookManager({ publishers }: Props) {
                 await workbookService.deletePart(id);
             }
             setSelectedIds(new Set());
-            if (activeBatch) await loadParts(activeBatch.id);
+            await loadAllParts();
             setSuccessMessage(`✅ ${selectedIds.size} partes deletadas`);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao deletar');
@@ -339,7 +233,6 @@ export function WorkbookManager({ publishers }: Props) {
     // Gerar Designações (Motor Completo)
     // ========================================================================
     const handleGenerateDesignations = async () => {
-        if (!activeBatch) return;
 
         // Helper para normalizar data (duplicado do ApprovalPanel por enquanto)
         const parseDate = (dateStr: string): Date => {
@@ -501,7 +394,7 @@ export function WorkbookManager({ publishers }: Props) {
                     if (part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
                         // Usar proposePublisher para transição correta no ciclo de vida
                         try {
-                            await workbookService.proposePublisher(part.id, selectedPub.id, selectedPub.name);
+                            await workbookService.proposePublisher(part.id, selectedPub.name);
                         } catch (e) {
                             // Fallback para update direto se proposePublisher falhar
                             await workbookService.updatePart(part.id, {
@@ -523,7 +416,7 @@ export function WorkbookManager({ publishers }: Props) {
                 }
             }
 
-            await loadParts(activeBatch.id);
+            await loadAllParts();
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao gerar designações');
@@ -655,7 +548,7 @@ export function WorkbookManager({ publishers }: Props) {
     };
 
     // Helper para atualizar publisher do dropdown
-    const handlePublisherSelect = async (partId: string, newId: string, newName: string) => {
+    const handlePublisherSelect = async (partId: string, _newId: string, newName: string) => {
         try {
             // Tentar pegar a part atual para checar status
             const part = parts.find(p => p.id === partId);
@@ -680,7 +573,7 @@ export function WorkbookManager({ publishers }: Props) {
 
             // Chamada ao Backend
             if (!isDesignada) {
-                await workbookService.proposePublisher(partId, newId, newName);
+                await workbookService.proposePublisher(partId, newName);
             } else {
                 await workbookService.updatePart(partId, {
                     resolvedPublisherName: newName
@@ -720,10 +613,10 @@ export function WorkbookManager({ publishers }: Props) {
                 </div>
             )}
 
-            {/* Upload Options */}
+            {/* Upload Options - APENAS EXCEL */}
             <div style={{ marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                 {/* Excel Upload */}
-                <div style={{ flex: 1, padding: '20px', border: '2px dashed #CBD5E1', borderRadius: '12px', textAlign: 'center', minWidth: '200px' }}>
+                <div style={{ padding: '20px', border: '2px dashed #CBD5E1', borderRadius: '12px', textAlign: 'center', minWidth: '200px' }}>
                     <input
                         type="file"
                         accept=".xlsx,.xls"
@@ -735,386 +628,173 @@ export function WorkbookManager({ publishers }: Props) {
                         📊 Carregar Planilha Excel
                     </label>
                 </div>
-
-                {/* PDF Extraction */}
-                <div style={{ flex: 1, padding: '20px', border: '2px dashed #10B981', borderRadius: '12px', textAlign: 'center', minWidth: '200px' }}>
-                    <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={handleExtractPDF}
-                        style={{ display: 'none' }}
-                        id="workbook-pdf-extract"
-                        disabled={extracting}
-                    />
-                    <label htmlFor="workbook-pdf-extract" style={{ cursor: extracting ? 'wait' : 'pointer', color: '#10B981', fontWeight: 'bold' }}>
-                        {extracting ? '⏳ Extraindo...' : '📄 Extrair de PDF Apostila'}
-                    </label>
-                </div>
             </div>
 
-            {/* PDF Extraction Preview Modal */}
-            {showExtractPreview && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}>
-                    <div style={{
-                        background: 'white',
-                        borderRadius: '12px',
-                        padding: '24px',
-                        maxWidth: '90vw',
-                        maxHeight: '90vh',
-                        overflow: 'auto',
-                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-                    }}>
-                        <h2 style={{ margin: '0 0 16px 0' }}>
-                            📄 Preview da Extração
-                        </h2>
 
-                        {extractionInfo && (
-                            <div style={{ marginBottom: '16px', padding: '12px', background: '#F0FDF4', borderRadius: '8px' }}>
-                                <strong>Ano:</strong> {extractionInfo.year} |
-                                <strong> Semanas:</strong> {extractionInfo.totalWeeks} |
-                                <strong> Total Partes:</strong> {extractedParts.length}
-                            </div>
-                        )}
 
-                        {/* Preview Table (first 10 rows) */}
-                        <div style={{ maxHeight: '400px', overflow: 'auto', marginBottom: '16px' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                                <thead>
-                                    <tr style={{ background: '#10B981', color: 'white' }}>
-                                        <th style={{ padding: '8px' }}>Ano</th>
-                                        <th style={{ padding: '8px' }}>Semana</th>
-                                        <th style={{ padding: '8px' }}>Seq</th>
-                                        <th style={{ padding: '8px' }}>Seção</th>
-                                        <th style={{ padding: '8px' }}>TipoParte</th>
-                                        <th style={{ padding: '8px' }}>TituloParte</th>
-                                        <th style={{ padding: '8px' }}>Função</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {extractedParts.slice(0, 15).map((part, idx) => (
-                                        <tr key={idx} style={{ borderBottom: '1px solid #E5E7EB' }}>
-                                            <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
-                                            <td style={{ padding: '8px' }}>{part.weekDisplay}</td>
-                                            <td style={{ padding: '8px', textAlign: 'center' }}>{part.seq}</td>
-                                            <td style={{ padding: '8px', fontSize: '11px' }}>{part.section}</td>
-                                            <td style={{ padding: '8px' }}>{part.tipoParte}</td>
-                                            <td style={{ padding: '8px' }}>{part.tituloParte?.substring(0, 40)}...</td>
-                                            <td style={{ padding: '8px' }}>{part.funcao}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {extractedParts.length > 15 && (
-                                <div style={{ textAlign: 'center', color: '#6B7280', padding: '8px' }}>
-                                    ... e mais {extractedParts.length - 15} registros
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Actions */}
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => {
-                                    setShowExtractPreview(false);
-                                    setExtractedParts([]);
-                                    setExtractionInfo(null);
-                                }}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #E5E7EB',
-                                    background: 'white',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                ❌ Cancelar
-                            </button>
-                            <button
-                                onClick={handleDownloadExcel}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #3B82F6',
-                                    background: 'white',
-                                    color: '#3B82F6',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                ⬇️ Baixar Excel
-                            </button>
-                            <button
-                                onClick={handleConfirmExtraction}
-                                disabled={loading}
-                                style={{
-                                    padding: '10px 20px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: '#10B981',
-                                    color: 'white',
-                                    fontWeight: 'bold',
-                                    cursor: loading ? 'wait' : 'pointer',
-                                }}
-                            >
-                                {loading ? '⏳ Salvando...' : '✅ Confirmar e Importar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Batches */}
-            <div style={{ marginBottom: '20px' }}>
-                <h3>📦 Batches de Importação</h3>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                    {batches.map(batch => {
-                        // Extrair ano(s) do weekRange (ex: "8-14 de Janeiro - 26-1 de Fevereiro-Março")
-                        // O ano está implícito mas vamos derivar de weekId das partes ou usar o atual
-                        const yearMatch = batch.weekRange?.match(/\b(202\d)\b/);
-                        const year = yearMatch ? yearMatch[1] : (parts.length > 0 && activeBatch?.id === batch.id
-                            ? parts[0]?.weekId?.substring(0, 4)
-                            : new Date().getFullYear().toString());
-
-                        return (
-                            <div
-                                key={batch.id}
-                                onClick={() => setActiveBatch(batch)}
-                                style={{
-                                    padding: '12px',
-                                    border: activeBatch?.id === batch.id ? '2px solid #4F46E5' : '1px solid #E5E7EB',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    background: activeBatch?.id === batch.id ? '#EEF2FF' : 'white',
-                                    width: '220px',
-                                    maxWidth: '220px',
-                                    minWidth: '220px',
-                                    position: 'relative',
-                                    flexShrink: 0,
-                                }}
-                            >
-                                {/* Badge do Ano */}
-                                <span style={{
-                                    position: 'absolute',
-                                    top: '-8px',
-                                    right: '8px',
-                                    background: '#4F46E5',
-                                    color: 'white',
-                                    fontSize: '11px',
-                                    fontWeight: 'bold',
-                                    padding: '2px 8px',
-                                    borderRadius: '10px',
-                                }}>
-                                    {year}
-                                </span>
-                                <div style={{ fontWeight: 'bold', paddingRight: '40px' }}>{batch.fileName}</div>
-                                <div style={{ fontSize: '12px', color: '#6B7280' }}>{batch.weekRange}</div>
-
-                                {/* Lista de semanas (apenas para batch ativo e quando não está carregando) */}
-                                {activeBatch?.id === batch.id && !loading && uniqueWeeks.length > 0 && (
-                                    <div style={{ fontSize: '11px', color: '#4B5563', marginTop: '6px', maxHeight: '80px', overflowY: 'auto' }}>
-                                        <strong>Semanas ({uniqueWeeks.length}):</strong>
-                                        <ul style={{ margin: '4px 0', paddingLeft: '16px', listStyle: 'disc' }}>
-                                            {uniqueWeeks.slice(0, 8).map(w => (
-                                                <li key={w.weekId} style={{ marginBottom: '2px' }}>{w.weekDisplay}</li>
-                                            ))}
-                                            {uniqueWeeks.length > 8 && <li>... +{uniqueWeeks.length - 8} mais</li>}
-                                        </ul>
-                                    </div>
-                                )}
-                                {activeBatch?.id === batch.id && loading && (
-                                    <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '6px' }}>⏳ Carregando...</div>
-                                )}
-
-                                <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                                    <span style={{ color: '#9CA3AF' }}>Pendente: {batch.draftCount}</span>
-                                    {' | '}
-                                    <span style={{ color: '#F59E0B' }}>Proposta: {batch.refinedCount}</span>
-                                    {' | '}
-                                    <span style={{ color: '#10B981' }}>Designada: {batch.promotedCount}</span>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+            {/* Ações e Filtros - SEMPRE VISÍVEL */}
+            <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px' }}>
+                    🔄 Atualizar Dados
+                </button>
+                <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px' }}>
+                    🎯 Gerar Designações (Motor)
+                </button>
+                <button onClick={handleDeleteSelected} disabled={loading || selectedIds.size === 0} style={{ padding: '8px 16px', cursor: 'pointer', background: '#EF4444', color: 'white', border: 'none', borderRadius: '4px' }}>
+                    🗑️ Deletar ({selectedIds.size})
+                </button>
             </div>
 
-            {/* Ações e Filtros */}
-            {activeBatch && (
-                <>
-                    <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <button onClick={() => activeBatch && loadParts(activeBatch.id)} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px' }}>
-                            🔄 Atualizar Dados
-                        </button>
-                        <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px' }}>
-                            🎯 Gerar Designações (Motor)
-                        </button>
-                        <button onClick={handleDeleteSelected} disabled={loading || selectedIds.size === 0} style={{ padding: '8px 16px', cursor: 'pointer', background: '#EF4444', color: 'white', border: 'none', borderRadius: '4px' }}>
-                            🗑️ Deletar ({selectedIds.size})
-                        </button>
-                    </div>
+            {/* Filtros */}
+            <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input
+                    type="text"
+                    placeholder="🔍 Buscar..."
+                    value={searchText}
+                    onChange={e => setSearchText(e.target.value)}
+                    style={{ padding: '8px', width: '200px' }}
+                />
+                <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '8px', minWidth: '280px' }}>
+                    <option value="">Todas as semanas</option>
+                    {uniqueWeeks.map(w => (
+                        <option key={w.weekId} value={w.weekId}>
+                            {w.year} | {w.weekId} | {w.weekDisplay}
+                        </option>
+                    ))}
+                </select>
+                <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '8px' }}>
+                    <option value="">Todas as seções</option>
+                    {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} style={{ padding: '8px' }}>
+                    <option value="">Todos os tipos</option>
+                    {uniqueTipos.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px' }}>
+                    <option value="">Todos os status</option>
+                    <option value="PENDENTE">Pendente</option>
+                    <option value="PROPOSTA">Proposta</option>
+                    <option value="APROVADA">Aprovada</option>
+                    <option value="DESIGNADA">Designada</option>
+                    <option value="REJEITADA">Rejeitada</option>
+                    <option value="CONCLUIDA">Concluída</option>
+                </select>
+                <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '8px' }}>
+                    <option value="">Todas as funções</option>
+                    <option value="Titular">Titular</option>
+                    <option value="Ajudante">Ajudante</option>
+                </select>
+            </div>
 
-                    {/* Filtros */}
-                    <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <input
-                            type="text"
-                            placeholder="🔍 Buscar..."
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                            style={{ padding: '8px', width: '200px' }}
-                        />
-                        <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '8px', minWidth: '280px' }}>
-                            <option value="">Todas as semanas</option>
-                            {uniqueWeeks.map(w => (
-                                <option key={w.weekId} value={w.weekId}>
-                                    {w.year} | {w.weekId} | {w.weekDisplay}
-                                </option>
-                            ))}
-                        </select>
-                        <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '8px' }}>
-                            <option value="">Todas as seções</option>
-                            {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} style={{ padding: '8px' }}>
-                            <option value="">Todos os tipos</option>
-                            {uniqueTipos.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px' }}>
-                            <option value="">Todos os status</option>
-                            <option value="PENDENTE">Pendente</option>
-                            <option value="PROPOSTA">Proposta</option>
-                            <option value="APROVADA">Aprovada</option>
-                            <option value="DESIGNADA">Designada</option>
-                            <option value="REJEITADA">Rejeitada</option>
-                            <option value="CONCLUIDA">Concluída</option>
-                        </select>
-                        <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '8px' }}>
-                            <option value="">Todas as funções</option>
-                            <option value="Titular">Titular</option>
-                            <option value="Ajudante">Ajudante</option>
-                        </select>
-                    </div>
+            {/* Tabela */}
+            <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                        <tr style={{ background: '#4F46E5', color: 'white' }}>
+                            <th style={{ padding: '8px' }}>
+                                <input type="checkbox" checked={selectedIds.size === filteredParts.length && filteredParts.length > 0} onChange={selectAll} />
+                            </th>
+                            <th style={{ padding: '8px' }}>Ano</th>
+                            <th style={{ padding: '8px' }}>Semana</th>
+                            <th style={{ padding: '8px' }}>Seq</th>
+                            <th style={{ padding: '8px' }}>Seção</th>
+                            <th style={{ padding: '8px' }}>TipoParte</th>
+                            <th style={{ padding: '8px' }}>Modalidade</th>
+                            <th style={{ padding: '8px' }}>TituloParte</th>
+                            <th style={{ padding: '8px' }}>DescricaoParte</th>
+                            <th style={{ padding: '8px' }}>DetalhesParte</th>
+                            <th style={{ padding: '8px' }}>Dur</th>
+                            <th style={{ padding: '8px' }}>Ini</th>
+                            <th style={{ padding: '8px' }}>Fim</th>
+                            <th style={{ padding: '8px' }}>Função</th>
+                            <th style={{ padding: '8px' }}>Publicador</th>
+                            <th style={{ padding: '8px' }}>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredParts.map(part => {
+                            // SIMPLIFICADO: Usar apenas resolved_publisher_name
+                            const displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
 
-                    {/* Tabela */}
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                            <thead>
-                                <tr style={{ background: '#4F46E5', color: 'white' }}>
-                                    <th style={{ padding: '8px' }}>
-                                        <input type="checkbox" checked={selectedIds.size === filteredParts.length && filteredParts.length > 0} onChange={selectAll} />
-                                    </th>
-                                    <th style={{ padding: '8px' }}>Ano</th>
-                                    <th style={{ padding: '8px' }}>Semana</th>
-                                    <th style={{ padding: '8px' }}>Seq</th>
-                                    <th style={{ padding: '8px' }}>Seção</th>
-                                    <th style={{ padding: '8px' }}>TipoParte</th>
-                                    <th style={{ padding: '8px' }}>Modalidade</th>
-                                    <th style={{ padding: '8px' }}>TituloParte</th>
-                                    <th style={{ padding: '8px' }}>DescricaoParte</th>
-                                    <th style={{ padding: '8px' }}>DetalhesParte</th>
-                                    <th style={{ padding: '8px' }}>Dur</th>
-                                    <th style={{ padding: '8px' }}>Ini</th>
-                                    <th style={{ padding: '8px' }}>Fim</th>
-                                    <th style={{ padding: '8px' }}>Função</th>
-                                    <th style={{ padding: '8px' }}>Publicador</th>
-                                    <th style={{ padding: '8px' }}>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredParts.map(part => {
-                                    // SIMPLIFICADO: Usar apenas resolved_publisher_name
-                                    const displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
+                            // Tentar encontrar ID pelo nome
+                            let currentPubId = '';
+                            if (displayRaw) {
+                                const found = publishers.find(p => p.name === displayRaw);
+                                if (found) currentPubId = found.id;
+                            }
 
-                                    // Tentar encontrar ID pelo nome
-                                    let currentPubId = '';
-                                    if (displayRaw) {
-                                        const found = publishers.find(p => p.name === displayRaw);
-                                        if (found) currentPubId = found.id;
-                                    }
-
-                                    return (
-                                        <tr key={part.id} style={{ background: sectionColors[part.section] || 'white', color: '#1f2937' }}>
-                                            <td style={{ padding: '8px', textAlign: 'center' }}>
-                                                <input type="checkbox" checked={selectedIds.has(part.id)} onChange={() => toggleSelect(part.id)} />
-                                            </td>
-                                            <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
-                                            <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
-                                            <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
-                                            <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
-                                            <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
-                                            <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>{part.modalidade}</td>
-                                            <td style={{ padding: '8px' }}>
-                                                <input
-                                                    type="text"
-                                                    value={part.tituloParte}
-                                                    onChange={e => handleUpdatePart(part.id, 'tituloParte', e.target.value)}
-                                                    style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
-                                                />
-                                            </td>
-                                            <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>{part.descricaoParte}</td>
-                                            <td style={{ padding: '8px', fontSize: '10px', color: '#9CA3AF', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.detalhesParte}>{part.detalhesParte}</td>
-                                            <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.duracao}</td>
-                                            <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaInicio}</td>
-                                            <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaFim}</td>
-                                            <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
-                                            <td style={{ padding: '8px' }}>
-                                                {/* Dropdown Inteligente */}
-                                                <PublisherSelect
-                                                    part={part}
-                                                    publishers={publishers}
-                                                    value={currentPubId}
-                                                    displayName={displayRaw}
-                                                    onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
-                                                    style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
-                                                />
-                                                {/* Se não tiver ID correspondente, mostrar o nome raw como fallback visual ou alerta? 
+                            return (
+                                <tr key={part.id} style={{ background: sectionColors[part.section] || 'white', color: '#1f2937' }}>
+                                    <td style={{ padding: '8px', textAlign: 'center' }}>
+                                        <input type="checkbox" checked={selectedIds.has(part.id)} onChange={() => toggleSelect(part.id)} />
+                                    </td>
+                                    <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
+                                    <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
+                                    <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
+                                    <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
+                                    <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
+                                    <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>{part.modalidade}</td>
+                                    <td style={{ padding: '8px' }}>
+                                        <input
+                                            type="text"
+                                            value={part.tituloParte}
+                                            onChange={e => handleUpdatePart(part.id, 'tituloParte', e.target.value)}
+                                            style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
+                                        />
+                                    </td>
+                                    <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>{part.descricaoParte}</td>
+                                    <td style={{ padding: '8px', fontSize: '10px', color: '#9CA3AF', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.detalhesParte}>{part.detalhesParte}</td>
+                                    <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.duracao}</td>
+                                    <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaInicio}</td>
+                                    <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaFim}</td>
+                                    <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
+                                    <td style={{ padding: '8px' }}>
+                                        {/* Dropdown Inteligente */}
+                                        <PublisherSelect
+                                            part={part}
+                                            publishers={publishers}
+                                            value={currentPubId}
+                                            displayName={displayRaw}
+                                            onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
+                                            style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
+                                        />
+                                        {/* Se não tiver ID correspondente, mostrar o nome raw como fallback visual ou alerta? 
                                                     O PublisherSelect mostra "Selecione..." se vazio. 
                                                     Se temos um rawName que não match com ID, ele vai ficar vazio.
                                                     Podemos colocar um input fallback?
                                                 */}
-                                            </td>
-                                            <td style={{ padding: '8px', textAlign: 'center' }}>
-                                                <span style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '11px',
-                                                    background: statusColors[part.status] || '#9CA3AF',
-                                                    color: 'white',
-                                                }}>
-                                                    {part.status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                    </td>
+                                    <td style={{ padding: '8px', textAlign: 'center' }}>
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '11px',
+                                            background: statusColors[part.status] || '#9CA3AF',
+                                            color: 'white',
+                                        }}>
+                                            {part.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
 
-                    {filteredParts.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
-                            Nenhuma parte encontrada. {parts.length > 0 ? 'Ajuste os filtros.' : 'Faça upload de um arquivo.'}
-                        </div>
-                    )}
-
-                    <div style={{ marginTop: '16px', color: '#6B7280', fontSize: '13px' }}>
-                        Mostrando {filteredParts.length} de {parts.length} partes
-                    </div>
-                </>
+            {filteredParts.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
+                    Nenhuma parte encontrada. {parts.length > 0 ? 'Ajuste os filtros.' : 'Faça upload de um arquivo.'}
+                </div>
             )}
 
+            <div style={{ marginTop: '16px', color: '#6B7280', fontSize: '13px' }}>
+                Mostrando {filteredParts.length} de {parts.length} partes
+            </div>
             {loading && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
                     <div style={{ background: 'white', padding: '24px', borderRadius: '12px' }}>
                         ⏳ Carregando...
                     </div>

@@ -453,13 +453,11 @@ export const workbookService = {
      * Propõe um publicador para uma parte (atualiza status e publicador)
      * Usa apenas resolved_publisher_name (resolved_publisher_id é UUID e publishers usam IDs numéricos)
      */
-    async proposePublisher(partId: string, publisherId: string, publisherName: string): Promise<WorkbookPart> {
+    async proposePublisher(partId: string, publisherName: string): Promise<WorkbookPart> {
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
                 status: WorkbookStatus.PROPOSTA,
-                // resolved_publisher_id é UUID no banco, mas publishers usam IDs numéricos - incompatível
-                // Guardamos apenas o nome por enquanto
                 resolved_publisher_name: publisherName || null,
                 updated_at: new Date().toISOString(),
             })
@@ -474,7 +472,7 @@ export const workbookService = {
 
         // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
         if (updatedPart.tipoParte === 'Presidente') {
-            this.syncChairmanAssignments(updatedPart.weekId, publisherId, publisherName, WorkbookStatus.PROPOSTA);
+            this.syncChairmanAssignments(updatedPart.weekId, '', publisherName, WorkbookStatus.PROPOSTA);
         }
 
         return updatedPart;
@@ -510,17 +508,20 @@ export const workbookService = {
             .update({
                 status: WorkbookStatus.PENDENTE,
                 rejected_reason: reason,
-                proposed_publisher_id: null,
-                proposed_publisher_name: null,
-                proposed_at: null,
+                // Limpar a designação ao rejeitar
+                resolved_publisher_name: null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', partId)
-            .eq('status', WorkbookStatus.PROPOSTA)
+            // Aceita rejeitar se estiver PROPOSTA ou ate mesmo APROVADA se precisar voltar
+            .in('status', [WorkbookStatus.PROPOSTA, WorkbookStatus.APROVADA])
             .select()
             .maybeSingle();
 
         if (error) throw new Error(`Erro ao rejeitar proposta: ${error.message}`);
+        // Se não retornou data, pode ser que o status não batesse, mas ok não dar erro fatal
+        if (!data) throw new Error('Parte não encontrada ou status inválido para rejeição');
+
         return mapDbToWorkbookPart(data);
     },
 
@@ -529,27 +530,23 @@ export const workbookService = {
      * Também atualiza o resolved_publisher_id/name com os valores propostos
      */
     async confirmDesignation(partId: string): Promise<WorkbookPart> {
-        // Primeiro, buscar a parte para pegar os dados propostos
-        const { data: partData } = await supabase
-            .from('workbook_parts')
-            .select('proposed_publisher_id, proposed_publisher_name')
-            .eq('id', partId)
-            .maybeSingle();
-
+        // Apenas muda o status para DESIGNADA
+        // O nome já está em resolved_publisher_name desde a proposta
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
                 status: WorkbookStatus.DESIGNADA,
-                resolved_publisher_id: partData?.proposed_publisher_id,
-                resolved_publisher_name: partData?.proposed_publisher_name,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', partId)
-            .eq('status', WorkbookStatus.APROVADA)
+            // Permitir confirmar de APROVADA ou direto de PROPOSTA se o fluxo for curto
+            .in('status', [WorkbookStatus.APROVADA, WorkbookStatus.PROPOSTA])
             .select()
             .maybeSingle();
 
         if (error) throw new Error(`Erro ao confirmar designação: ${error.message}`);
+        if (!data) throw new Error('Parte não encontrada ou status inválido para confirmação');
+
         return mapDbToWorkbookPart(data);
     },
 
