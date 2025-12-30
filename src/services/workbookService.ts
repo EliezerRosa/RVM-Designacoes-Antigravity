@@ -349,19 +349,28 @@ export const workbookService = {
     },
 
     /**
-     * Retorna estatísticas de designações futuras (Hoje em diante)
+     * Retorna estatísticas de designações futuras (semana atual em diante)
      * Contagem agrupada por status
      * Usa fetchAllRows para garantir que TODAS as partes sejam contabilizadas
+     * IMPORTANTE: Usa o início da semana atual (segunda-feira) como referência,
+     * pois as partes têm a data da segunda-feira no campo 'date'
      */
     async getFutureStats(): Promise<Record<string, number>> {
-        const today = new Date().toISOString().split('T')[0];
+        // Calcular a segunda-feira da semana atual
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Ajustar para segunda
+        const monday = new Date(now);
+        monday.setDate(now.getDate() + diffToMonday);
+        monday.setHours(0, 0, 0, 0);
+        const mondayStr = monday.toISOString().split('T')[0];
 
         // Usar fetchAllRows para superar o limite de 1000 rows
         const data = await fetchAllRows<{ status: string }>(
             'workbook_parts',
             (query) => query
                 .select('status')
-                .gte('date', today)
+                .gte('date', mondayStr)
         );
 
         const stats: Record<string, number> = {};
