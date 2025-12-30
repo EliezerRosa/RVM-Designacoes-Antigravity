@@ -7,7 +7,7 @@ const POSITIONS = {
     NAME: { x: 60, y: 270 },
     ASSISTANT: { x: 86, y: 245 },
     DATE: { x: 60, y: 224 },
-    PART: { x: 135, y: 200 }, // Ajuste fino para "imediatamente após" (Original 150 -> 125 -> 105 -> 103 -> 95 -> 101)
+    PART: { x: 55, y: 200 }, // Ajustado para logo após ":" (baseado na seta verde do usuário)
     ROOM: { x: 70, y: 168 },
 };
 
