@@ -171,10 +171,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         setProcessingIds(prev => new Set(prev).add(partId));
 
         try {
-            // Atualiza o nome do publicador (SIMPLIFICADO)
-            await workbookService.updatePart(partId, {
-                resolvedPublisherName: newName.trim() || undefined,
-            });
+            // Atualiza o nome do publicador usando o método unificado (mantém status PROPOSTA e dispara triggers)
+            await workbookService.proposePublisher(partId, newName);
 
             // Recarrega lista
             await loadAssignments();
@@ -196,18 +194,10 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
         setProcessingIds(prev => new Set([...prev, ...ids]));
         try {
-            let updated = 0;
-            for (const id of ids) {
-                const part = assignments.find(p => p.id === id);
-                const finalPublisherName = part?.resolvedPublisherName || part?.rawPublisherName;
+            // Usar método de serviço dedicado para marcar como concluído
+            await workbookService.markAsCompleted(ids);
 
-                await workbookService.updatePart(id, {
-                    status: WorkbookStatus.CONCLUIDA,
-                    rawPublisherName: finalPublisherName
-                });
-                updated++;
-            }
-            alert(`✅ ${updated} partes marcadas como CONCLUÍDA na Apostila`);
+            alert(`✅ ${ids.length} partes marcadas como CONCLUÍDA na Apostila`);
             await loadAssignments();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao atualizar apostila');
