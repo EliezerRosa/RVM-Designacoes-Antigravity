@@ -71,14 +71,17 @@ export async function generateS89(part: WorkbookPart, assistantName?: string): P
         }
     }
 
-    // Número da Parte
-    const partNumberMatch = part.tituloParte?.match(/\d+/);
-    const partNumber = partNumberMatch ? partNumberMatch[0] : '';
+    // Número da Parte (User Request: Colocar Tema/Título, mesmo truncado)
+    // Coordenada PART: x: 150. Se for muito longo, truncamos para evitar sair da folha.
+    let partTitle = part.tituloParte || '';
+    if (partTitle.length > 55) {
+        partTitle = partTitle.substring(0, 52) + '...';
+    }
 
-    page.drawText(partNumber, {
+    page.drawText(partTitle, {
         x: POSITIONS.PART.x,
         y: POSITIONS.PART.y,
-        size: FONT_SIZE.DEFAULT,
+        size: FONT_SIZE.DEFAULT, // Pode ser necessário diminuir se for muito comum textos longos
         font: fontRegular,
     });
 
