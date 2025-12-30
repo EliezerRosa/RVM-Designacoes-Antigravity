@@ -455,10 +455,13 @@ export const workbookService = {
      * Usa apenas resolved_publisher_name (resolved_publisher_id é UUID e publishers usam IDs numéricos)
      */
     async proposePublisher(partId: string, publisherName: string): Promise<WorkbookPart> {
+        // Se remover o publicador, status volta para PENDENTE
+        const status = publisherName ? WorkbookStatus.PROPOSTA : WorkbookStatus.PENDENTE;
+
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
-                status: WorkbookStatus.PROPOSTA,
+                status: status,
                 resolved_publisher_name: publisherName || null,
                 updated_at: new Date().toISOString(),
             })
@@ -473,7 +476,7 @@ export const workbookService = {
 
         // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
         if (updatedPart.tipoParte === 'Presidente') {
-            this.syncChairmanAssignments(updatedPart.weekId, '', publisherName, WorkbookStatus.PROPOSTA);
+            this.syncChairmanAssignments(updatedPart.weekId, '', publisherName, status);
         }
 
         return updatedPart;
