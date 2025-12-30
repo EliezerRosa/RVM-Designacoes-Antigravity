@@ -1,26 +1,21 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import type { Publisher, Participation } from './types'
+import type { Publisher } from './types'
 import PublisherList from './components/PublisherList'
 import PublisherForm from './components/PublisherForm'
-import Dashboard from './components/Dashboard'
-import AssignmentGenerator from './components/AssignmentGenerator'
 import { initialPublishers } from './data/initialPublishers'
 import { api } from './services/api'
-
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
-import Reports from './components/Reports'
 import WorkbookManager from './components/WorkbookManager'
 import ApprovalPanel from './components/ApprovalPanel'
 
-type ActiveTab = 'dashboard' | 'publishers' | 'meetings' | 'assignments' | 's89' | 'reports' | 'workbook' | 'approvals'
+type ActiveTab = 'workbook' | 'approvals' | 'publishers'
 
 function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard')
+  const [activeTab, setActiveTab] = useState<ActiveTab>('workbook')
 
   // Data State
   const [publishers, setPublishers] = useState<Publisher[]>([])
-  const [participations, setParticipations] = useState<Participation[]>([])
 
   // UI State
   const [showPublisherForm, setShowPublisherForm] = useState(false)
@@ -49,16 +44,12 @@ function App() {
         console.log("Loading data from Supabase...")
 
         // 1. Fetch data and seeding flag in parallel
-        const [pubs, parts, savedTab, isSeeded] = await Promise.all([
+        const [pubs, savedTab, isSeeded] = await Promise.all([
           api.loadPublishers().catch(err => {
             console.warn("Failed to load publishers", err)
             return [] as Publisher[];
           }),
-          api.loadParticipations().catch(err => {
-            console.warn("Failed to load participations", err)
-            return []
-          }),
-          api.getSetting<ActiveTab>('activeTab', 'dashboard').catch(() => 'dashboard' as ActiveTab),
+          api.getSetting<ActiveTab>('activeTab', 'workbook').catch(() => 'workbook' as ActiveTab),
           api.getSetting<boolean>('isSeeded', false).catch(() => false)
         ])
 
@@ -85,8 +76,9 @@ function App() {
           setPublishers(pubs);
         }
 
-        setParticipations(parts)
-        setActiveTab(savedTab)
+        // Validate saved tab
+        const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers']
+        setActiveTab(validTabs.includes(savedTab) ? savedTab : 'workbook')
       } catch (error) {
         console.error("Critical error loading data", error)
         setStatusMessage("Erro crítico ao carregar dados.")
@@ -107,17 +99,10 @@ function App() {
       setPublishers(newPubs)
     })
 
-    // Subscribe to participations changes
-    const unsubParticipations = api.subscribeToParticipations((newParts) => {
-      console.log(`[REALTIME] Participations updated: ${newParts.length}`)
-      setParticipations(newParts)
-    })
-
     // Cleanup on unmount
     return () => {
       console.log('[REALTIME] Cleaning up subscriptions...')
       unsubPublishers()
-      unsubParticipations()
     }
   }, [])
 
@@ -171,30 +156,6 @@ function App() {
     setShowPublisherForm(true)
   }
 
-  const saveParticipation = async (participation: Participation) => {
-    setIsSaving(true)
-    setStatusMessage("Salvando participação...")
-    try {
-      // Generate ID if new
-      const isNew = !participation.id
-      if (isNew) {
-        participation.id = crypto.randomUUID()
-        await api.createParticipation(participation)
-        setParticipations(prev => [...prev, participation])
-      } else {
-        await api.updateParticipation(participation)
-        setParticipations(prev => prev.map(p => p.id === participation.id ? participation : p))
-      }
-      setStatusMessage("✅ Participação salva")
-    } catch (error) {
-      console.error("Error saving participation:", error)
-      setStatusMessage("❌ Erro ao salvar participação")
-    } finally {
-      setIsSaving(false)
-      setTimeout(() => setStatusMessage(null), 3000)
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -222,19 +183,6 @@ function App() {
 
         <nav className="main-nav">
           <button
-            className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => handleTabChange('dashboard')}
-          >
-            📊 Dashboard
-          </button>
-          <button
-            className={`nav-btn ${activeTab === 'publishers' ? 'active' : ''}`}
-            onClick={() => handleTabChange('publishers')}
-          >
-            👥 Publicadores
-          </button>
-          {/* Histórico tab removed - use Apostila instead */}
-          <button
             className={`nav-btn ${activeTab === 'workbook' ? 'active' : ''}`}
             onClick={() => handleTabChange('workbook')}
             title="Gerenciador de Apostila"
@@ -249,30 +197,23 @@ function App() {
             ✅ Aprovações
           </button>
           <button
-            className={`nav-btn ${activeTab === 'reports' ? 'active' : ''}`}
-            onClick={() => handleTabChange('reports')}
-            title="Relatórios de Participações"
+            className={`nav-btn ${activeTab === 'publishers' ? 'active' : ''}`}
+            onClick={() => handleTabChange('publishers')}
           >
-            📈 Relatórios
-          </button>
-          <button
-            className={`nav-btn ${activeTab === 's89' ? 'active' : ''}`}
-            onClick={() => handleTabChange('s89')}
-          >
-            📄 S-89
+            👥 Publicadores
           </button>
         </nav>
       </header>
 
       <main className="main-content">
-        {/* Dashboard */}
-        <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none' }}>
-          <Dashboard publishers={publishers} participations={participations} />
+        {/* Workbook */}
+        <div style={{ display: activeTab === 'workbook' ? 'block' : 'none' }}>
+          <WorkbookManager publishers={publishers} />
         </div>
 
-        {/* Reports */}
-        <div style={{ display: activeTab === 'reports' ? 'block' : 'none' }}>
-          <Reports publishers={publishers} participations={participations} />
+        {/* Approvals */}
+        <div style={{ display: activeTab === 'approvals' ? 'block' : 'none' }}>
+          <ApprovalPanel publishers={publishers} />
         </div>
 
         {/* Publishers */}
@@ -313,32 +254,6 @@ function App() {
             />
           )}
         </div>
-
-        {/* Assignments */}
-        <div style={{ display: activeTab === 'assignments' ? 'block' : 'none' }}>
-          <AssignmentGenerator
-            publishers={publishers}
-            participations={participations}
-            onSaveParticipation={saveParticipation}
-          />
-        </div>
-
-        {/* S-89 */}
-        <div style={{ display: activeTab === 's89' ? 'block' : 'none' }}>
-          <div style={{ padding: 20 }}>Gerador S-89 (Em construção)</div>
-        </div>
-
-        {/* Workbook */}
-        <div style={{ display: activeTab === 'workbook' ? 'block' : 'none' }}>
-          <WorkbookManager publishers={publishers} />
-        </div>
-
-        {/* Approvals */}
-        <div style={{ display: activeTab === 'approvals' ? 'block' : 'none' }}>
-          <ApprovalPanel publishers={publishers} />
-        </div>
-
-        {/* History tab removed - functionality consolidated into Apostila */}
       </main>
 
       {showPublisherForm && (
