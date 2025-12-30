@@ -4,47 +4,45 @@
  */
 
 import { supabase } from '../lib/supabase';
-import type { EventTemplate, SpecialEvent, EventImpactAction, ParticipationType } from '../types';
+import type { EventTemplate, SpecialEvent, EventImpactAction } from '../types';
 
 // ============================================================================
 // TEMPLATES PRÉ-DEFINIDOS (Pode ser movido para BD futuramente)
 // ============================================================================
 
 export const EVENT_TEMPLATES: EventTemplate[] = [
+    // EVENTO 1 (Discurso de Visitante) - REMOVIDO conforme solicitação do usuário
+
     {
-        id: 'discurso-visitante',
-        name: 'Discurso de Visitante',
-        description: 'Orador visitante de outra congregação substitui parte na Vida Cristã.',
-        impact: { action: 'REPLACE_PART', targetType: 'Nossa Vida Crista' as ParticipationType },
-        defaults: { duration: 15, requiresTheme: true, requiresAssignee: true },
-    },
-    {
-        id: 'discurso-co',
+        id: 'visita-sc',
         name: 'Visita do Superintendente de Circuito',
-        description: 'Discurso do CO substitui toda a seção Vida Cristã.',
-        impact: { action: 'REPLACE_SECTION', targetType: 'Nossa Vida Crista' as ParticipationType },
+        description: 'Semana de visita do SC. Cancela EBC, Necessidades Locais e Comentários Finais. Mantém Discurso de Ensino na Vida Cristã. Adiciona transição para o SC.',
+        impact: { action: 'SC_VISIT_LOGIC' },
         defaults: { duration: 30, requiresTheme: false, requiresAssignee: false },
     },
     {
-        id: 'assembleia',
-        name: 'Semana de Assembleia',
-        description: 'Não há reunião nesta semana devido à Assembleia.',
-        impact: { action: 'REPLACE_SECTION' }, // Cancela tudo
+        id: 'assembleia-congresso',
+        name: 'Assembleia de Circuito ou Congresso',
+        description: 'Não há reunião nesta semana devido à Assembleia de Circuito ou Congresso.',
+        impact: { action: 'CANCEL_WEEK' },
         defaults: { duration: 0, requiresTheme: false, requiresAssignee: false },
     },
     {
-        id: 'video-cg',
-        name: 'Vídeo do Corpo Governante',
-        description: 'Adiciona exibição de vídeo especial à reunião.',
+        id: 'boletim-cg',
+        name: 'Boletim do Corpo Governante',
+        description: 'Boletim AAAA nº NN do Corpo Governante. Adiciona parte extra e ajusta tempo do EBC (não exclui). Preserva tempo total.',
+        impact: {
+            action: 'TIME_ADJUSTMENT',
+            timeReduction: { targetPart: 'EBC', minutes: 10 }
+        },
+        defaults: { duration: 10, theme: 'Boletim do Corpo Governante', requiresTheme: true, requiresAssignee: false },
+    },
+    {
+        id: 'evento-especial',
+        name: 'Evento Especial',
+        description: 'Evento personalizado. Requer tema e responsável.',
         impact: { action: 'ADD_PART' },
-        defaults: { duration: 10, theme: 'Atualização Mensal', requiresTheme: true, requiresAssignee: false },
-    },
-    {
-        id: 'reuniao-abreviada',
-        name: 'Reunião Abreviada',
-        description: 'Reunião com tempo reduzido (ex: antes de evento).',
-        impact: { action: 'REASSIGN_PART' },
-        defaults: { duration: 0, requiresTheme: false, requiresAssignee: false },
+        defaults: { duration: 15, requiresTheme: true, requiresAssignee: true },
     },
 ];
 
@@ -141,7 +139,7 @@ export const specialEventService = {
                 if (template.impact.targetType) {
                     const { error, count } = await supabase
                         .from('workbook_parts')
-                        .update({ status: 'CANCELADA', cancelReason: `Evento: ${template.name}` })
+                        .update({ status: 'CANCELADA', cancel_reason: `Evento: ${template.name}`, affected_by_event_id: event.id })
                         .in('id', weekParts)
                         .eq('section', template.impact.targetType);
                     if (error) throw error;
@@ -151,23 +149,88 @@ export const specialEventService = {
 
             case 'REPLACE_SECTION':
                 // Marcar todas as partes da seção como CANCELADA
-                // Se não tem targetType, cancela TUDO (assembleia)
                 if (template.impact.targetType) {
                     const { error, count } = await supabase
                         .from('workbook_parts')
-                        .update({ status: 'CANCELADA', cancelReason: `Evento: ${template.name}` })
+                        .update({ status: 'CANCELADA', cancel_reason: `Evento: ${template.name}`, affected_by_event_id: event.id })
                         .in('id', weekParts)
                         .eq('section', template.impact.targetType);
                     if (error) throw error;
                     affected = count || 0;
-                } else {
-                    // Cancela TODAS as partes da semana
+                }
+                break;
+
+            case 'CANCEL_WEEK':
+                // Cancela TODAS as partes da semana (Assembleia/Congresso)
+                {
                     const { error, count } = await supabase
                         .from('workbook_parts')
-                        .update({ status: 'CANCELADA', cancelReason: `Evento: ${template.name}` })
+                        .update({ status: 'CANCELADA', cancel_reason: `Evento: ${template.name}`, affected_by_event_id: event.id })
                         .in('id', weekParts);
                     if (error) throw error;
                     affected = count || 0;
+                }
+                break;
+
+            case 'SC_VISIT_LOGIC':
+                // Lógica especial para Visita do Superintendente de Circuito
+                // Cancela: EBC, Necessidades Locais, Comentários Finais
+                // MANTÉM: Discurso de Ensino (primeira parte da Vida Cristã)
+                {
+                    // Buscar partes da semana para aplicar lógica granular
+                    const { data: parts } = await supabase
+                        .from('workbook_parts')
+                        .select('id, tipo_parte, section')
+                        .in('id', weekParts);
+
+                    if (parts) {
+                        const partsToCancel = parts.filter(p =>
+                            p.tipo_parte === 'Dirigente do EBC' ||
+                            p.tipo_parte === 'Leitor do EBC' ||
+                            p.tipo_parte === 'Necessidades Locais' ||
+                            p.tipo_parte === 'Comentários Finais'
+                        );
+
+                        if (partsToCancel.length > 0) {
+                            const idsToCancel = partsToCancel.map(p => p.id);
+                            const { error, count } = await supabase
+                                .from('workbook_parts')
+                                .update({ status: 'CANCELADA', cancel_reason: `Visita SC: ${template.name}`, affected_by_event_id: event.id })
+                                .in('id', idsToCancel);
+                            if (error) throw error;
+                            affected = count || 0;
+                        }
+                    }
+                }
+                break;
+
+            case 'TIME_ADJUSTMENT':
+                // Ajusta tempo do EBC e adiciona parte do Boletim
+                // Não cancela o EBC, apenas reduz a duração
+                {
+                    const { data: parts } = await supabase
+                        .from('workbook_parts')
+                        .select('id, tipo_parte, duracao')
+                        .in('id', weekParts);
+
+                    if (parts) {
+                        const ebcPart = parts.find(p => p.tipo_parte === 'Dirigente do EBC');
+                        if (ebcPart && template.impact.timeReduction) {
+                            const currentDuration = parseInt(ebcPart.duracao) || 30;
+                            const newDuration = Math.max(15, currentDuration - template.impact.timeReduction.minutes);
+
+                            const { error } = await supabase
+                                .from('workbook_parts')
+                                .update({
+                                    duracao: `${newDuration} min`,
+                                    original_duration: ebcPart.duracao,
+                                    affected_by_event_id: event.id
+                                })
+                                .eq('id', ebcPart.id);
+                            if (error) throw error;
+                            affected = 1;
+                        }
+                    }
                 }
                 break;
 
@@ -178,30 +241,65 @@ export const specialEventService = {
                 break;
 
             case 'REASSIGN_PART':
-                // Lógica para reduzir tempo (não muda status, apenas configuração)
-                // Pode ser implementada futuramente
+                // Lógica para reatribuir parte (não muda status)
                 affected = 0;
                 break;
         }
+
+        // Marcar evento como aplicado
+        await supabase
+            .from('special_events')
+            .update({ is_applied: true, applied_at: new Date().toISOString() })
+            .eq('id', event.id);
 
         return { affected };
     },
 
     /**
      * Reverte o impacto de um evento (ao deletar).
-     * Restaura partes canceladas para PENDENTE.
+     * Restaura partes canceladas para PENDENTE e durações originais.
      */
     async revertEventImpact(event: SpecialEvent): Promise<{ restored: number }> {
         const template = this.getTemplateById(event.templateId);
         if (!template) return { restored: 0 };
 
-        const { error, count } = await supabase
-            .from('workbook_parts')
-            .update({ status: 'PENDENTE', cancelReason: null })
-            .eq('weekId', event.week)
-            .eq('cancelReason', `Evento: ${template.name}`);
+        let restored = 0;
 
-        if (error) throw error;
-        return { restored: count || 0 };
+        // Restaurar partes canceladas
+        const { error: cancelError, count: cancelCount } = await supabase
+            .from('workbook_parts')
+            .update({ status: 'PENDENTE', cancel_reason: null, affected_by_event_id: null })
+            .eq('affected_by_event_id', event.id)
+            .eq('status', 'CANCELADA');
+
+        if (cancelError) throw cancelError;
+        restored += cancelCount || 0;
+
+        // Restaurar durações originais (para TIME_ADJUSTMENT)
+        if (template.impact.action === 'TIME_ADJUSTMENT') {
+            const { data: adjustedParts } = await supabase
+                .from('workbook_parts')
+                .select('id, original_duration')
+                .eq('affected_by_event_id', event.id)
+                .not('original_duration', 'is', null);
+
+            if (adjustedParts) {
+                for (const part of adjustedParts) {
+                    await supabase
+                        .from('workbook_parts')
+                        .update({ duracao: part.original_duration, original_duration: null, affected_by_event_id: null })
+                        .eq('id', part.id);
+                    restored++;
+                }
+            }
+        }
+
+        // Marcar evento como não aplicado
+        await supabase
+            .from('special_events')
+            .update({ is_applied: false, applied_at: null })
+            .eq('id', event.id);
+
+        return { restored };
     },
 };

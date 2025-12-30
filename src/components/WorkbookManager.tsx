@@ -12,6 +12,7 @@ import { checkEligibility } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
 import { PublisherSelect } from './PublisherSelect';
+import { SpecialEventManager } from './SpecialEventManager';
 import { getStatusConfig } from '../constants/status';
 
 interface Props {
@@ -683,6 +684,16 @@ export function WorkbookManager({ publishers }: Props) {
                     <option value="Ajudante">Ajudante</option>
                 </select>
             </div>
+
+            {/* Eventos Especiais - aparece quando filtrar por semana */}
+            {filterWeek && (
+                <SpecialEventManager
+                    weekId={filterWeek}
+                    weekDisplay={uniqueWeeks.find(w => w.weekId === filterWeek)?.weekDisplay || ''}
+                    publishers={publishers}
+                    onEventChange={() => loadAllParts()}
+                />
+            )}
 
             {/* Tabela */}
             <div style={{ overflowX: 'auto' }}>
