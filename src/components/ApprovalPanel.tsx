@@ -31,13 +31,13 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const [assignments, setAssignments] = useState<WorkbookPart[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'completed'>('pending');
+    const [filter, setFilter] = useState<'all' | 'unassigned' | 'pending' | 'approved' | 'completed'>('pending');
 
     // Estados de ação
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
-    const [stats, setStats] = useState<{ total: number; byStatus: Record<string, number> } | null>(null);
+    const [stats, setStats] = useState<Record<string, number> | null>(null);
 
     // Ordenar publicadores por nome
 
@@ -75,7 +75,9 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         try {
             let data: WorkbookPart[];
 
-            if (filter === 'pending') {
+            if (filter === 'unassigned') {
+                data = await workbookService.getByStatus(WorkbookStatus.PENDENTE);
+            } else if (filter === 'pending') {
                 data = await workbookService.getByStatus(WorkbookStatus.PROPOSTA);
             } else if (filter === 'approved') {
                 data = await workbookService.getByStatus([WorkbookStatus.APROVADA, WorkbookStatus.DESIGNADA]);
@@ -85,8 +87,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                 data = await workbookService.getAll();
             }
 
-            // Filtrar datas passadas no cliente (apenas para pending e approved)
-            if (filter === 'pending' || filter === 'approved') {
+            // Filtrar datas passadas no cliente (apenas para pending, unassigned e approved)
+            if (filter === 'pending' || filter === 'approved' || filter === 'unassigned') {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0); // Zerar hora
 
@@ -105,12 +107,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
             setAssignments(data);
 
-            // TODO: Se tiver API de stats no workbookService, usar aqui.
-            const byStatus: Record<string, number> = {};
-            data.forEach(p => {
-                byStatus[p.status] = (byStatus[p.status] || 0) + 1;
-            });
-            setStats({ total: data.length, byStatus });
+            setAssignments(data);
+            // Stats agora são carregadas separadamente via loadStats
 
         } catch (err) {
             console.error(err);
@@ -120,10 +118,21 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         }
     }, [filter]);
 
+    // Load stats independent of filter
+    const loadStats = useCallback(async () => {
+        try {
+            const s = await workbookService.getFutureStats();
+            setStats(s);
+        } catch (err) {
+            console.error('Erro ao carregar estatísticas:', err);
+        }
+    }, [] as any);
+
     useEffect(() => {
         loadAssignments();
+        loadStats();
         // Removido polling de 30s - usar realtime ou refresh manual
-    }, [loadAssignments]);
+    }, [loadAssignments, loadStats]);
 
     // Approve
     const handleApprove = async (id: string) => {
@@ -131,6 +140,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         try {
             await workbookService.approveProposal(id, elderId);
             await loadAssignments();
+            loadStats();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao aprovar');
         } finally {
@@ -152,6 +162,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
             setRejectingId(null);
             setRejectReason('');
             await loadAssignments();
+            loadStats();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao rejeitar');
         } finally {
@@ -176,6 +187,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
             // Recarrega lista
             await loadAssignments();
+            loadStats();
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao atualizar publicador');
@@ -199,6 +211,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
             alert(`✅ ${ids.length} partes marcadas como CONCLUÍDA na Apostila`);
             await loadAssignments();
+            loadStats();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao atualizar apostila');
         } finally {
@@ -245,8 +258,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                     marginBottom: '20px'
                 }}>
                     {Object.entries(STATUS_COLORS).map(([status, colors]) => {
-                        const count = stats.byStatus[status] || 0;
-                        if (filter !== 'all' && count === 0) return null; // Esconder zerados se não for view all
+                        const count = stats[status] || 0;
+                        if (count === 0) return null; // Esconder zerados
 
                         return (
                             <div
@@ -277,25 +290,37 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
             {/* Filter */}
             <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {(['pending', 'approved', 'completed', 'all'] as const).map(f => (
-                    <button
-                        key={f}
-                        onClick={() => setFilter(f)}
-                        style={{
-                            background: filter === f ? '#3b82f6' : '#374151',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '8px 16px',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        {f === 'pending' && '⏳ Pendentes'}
-                        {f === 'approved' && '✅ Aprovadas'}
-                        {f === 'completed' && '🏆 Concluídas'}
-                        {f === 'all' && '📋 Todas'}
-                    </button>
-                ))}
+                {(['unassigned', 'pending', 'approved', 'completed', 'all'] as const).map(f => {
+                    let count = 0;
+                    if (stats) {
+                        if (f === 'unassigned') count = stats['PENDENTE'] || 0;
+                        else if (f === 'pending') count = stats['PROPOSTA'] || 0;
+                        else if (f === 'approved') count = (stats['APROVADA'] || 0) + (stats['DESIGNADA'] || 0);
+                        else if (f === 'completed') count = stats['CONCLUIDA'] || 0;
+                        else if (f === 'all') count = Object.values(stats).reduce((a, b) => a + b, 0);
+                    }
+
+                    return (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            style={{
+                                background: filter === f ? '#3b82f6' : '#374151',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            {f === 'unassigned' && `📝 Não Designadas (${count})`}
+                            {f === 'pending' && `⏳ A Aprovar (${count})`}
+                            {f === 'approved' && `✅ Aprovadas (${count})`}
+                            {f === 'completed' && `🏆 Concluídas (${count})`}
+                            {f === 'all' && `📋 Todas (${count})`}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Error */}
