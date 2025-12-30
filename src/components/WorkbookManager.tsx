@@ -556,17 +556,19 @@ export function WorkbookManager({ publishers }: Props) {
 
             // Determinar novos valores e se precisa mudar status
             const isDesignada = part.status === 'DESIGNADA' || part.status === 'CONCLUIDA' || part.status === 'APROVADA';
-            const shouldChangeStatus = !isDesignada && part.status === 'PENDENTE';
 
             // Optimistic Update: Atualizar UI imediatamente
             setParts(prev => prev.map(p => {
                 if (p.id !== partId) return p;
 
                 const updated = { ...p };
-                // SIMPLIFICADO: Sempre usar resolvedPublisherName
                 updated.resolvedPublisherName = newName;
-                if (shouldChangeStatus) {
-                    updated.status = 'PROPOSTA';
+
+                // Se não estiver bloqueado (APROVADA/DESIGNADA/CONCLUIDA)
+                if (!isDesignada) {
+                    // Se tem nome -> PROPOSTA
+                    // Se não tem nome -> PENDENTE
+                    updated.status = newName ? 'PROPOSTA' : 'PENDENTE';
                 }
                 return updated;
             }));
