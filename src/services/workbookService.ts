@@ -541,27 +541,58 @@ export const workbookService = {
     /**
      * Rejeita uma proposta (PROPOSTA -> PENDENTE)
      */
+    /**
+     * Rejeita uma proposta ou Cancela uma designação (STATUS -> PENDENTE)
+     * Funciona para: PROPOSTA, APROVADA, DESIGNADA, CONCLUIDA (em caso de erro)
+     */
     async rejectProposal(partId: string, reason: string): Promise<WorkbookPart> {
+        // Primeiro, buscar a parte para saber quem estava designado (para log)
+        const { data: currentPart } = await supabase
+            .from('workbook_parts')
+            .select('resolved_publisher_name')
+            .eq('id', partId)
+            .single();
+
+        let enhancedReason = reason;
+        if (currentPart?.resolved_publisher_name) {
+            enhancedReason = `[${new Date().toLocaleDateString()}] Removido ${currentPart.resolved_publisher_name}: ${reason}`;
+        }
+
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
                 status: WorkbookStatus.PENDENTE,
-                rejected_reason: reason,
+                rejected_reason: enhancedReason,
                 // Limpar a designação ao rejeitar
                 resolved_publisher_name: null,
                 updated_at: new Date().toISOString(),
+                // Limpar metadados de aprovação/conclusão para resetar ciclo
+                approved_by_id: null,
+                approved_at: null,
+                completed_at: null
             })
             .eq('id', partId)
-            // Aceita rejeitar se estiver PROPOSTA ou ate mesmo APROVADA se precisar voltar
-            .in('status', [WorkbookStatus.PROPOSTA, WorkbookStatus.APROVADA])
+            // Aceita rejeitar de qualquer status avançado
+            .in('status', [
+                WorkbookStatus.PROPOSTA,
+                WorkbookStatus.APROVADA,
+                WorkbookStatus.DESIGNADA,
+                WorkbookStatus.CONCLUIDA
+            ])
             .select()
             .maybeSingle();
 
-        if (error) throw new Error(`Erro ao rejeitar proposta: ${error.message}`);
-        // Se não retornou data, pode ser que o status não batesse, mas ok não dar erro fatal
-        if (!data) throw new Error('Parte não encontrada ou status inválido para rejeição');
+        if (error) throw new Error(`Erro ao rejeitar/cancelar: ${error.message}`);
+        if (!data) throw new Error('Parte não encontrada ou status inválido para cancelamento');
 
-        return mapDbToWorkbookPart(data);
+        const updatedPart = mapDbToWorkbookPart(data);
+
+        // TRIGGER: Se for Presidente, limpar as partes filhas também
+        if (updatedPart.tipoParte === 'Presidente') {
+            this.syncChairmanAssignments(updatedPart.weekId, '', '', WorkbookStatus.PENDENTE);
+        }
+
+        return updatedPart;
     },
 
     // ========================================================================
