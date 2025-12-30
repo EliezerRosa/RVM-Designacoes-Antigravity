@@ -326,6 +326,7 @@ export const WorkbookStatus = {
     DESIGNADA: 'DESIGNADA',     // Publicador confirmado e notificado
     REJEITADA: 'REJEITADA',     // Sugestão rejeitada (volta para PENDENTE)
     CONCLUIDA: 'CONCLUIDA',     // Parte executada na reunião
+    CANCELADA: 'CANCELADA',     // Parte cancelada por evento especial
 } as const;
 
 export type WorkbookStatus = typeof WorkbookStatus[keyof typeof WorkbookStatus];
@@ -370,6 +371,7 @@ export interface WorkbookPart {
     approvedAt?: string;         // Data da aprovação
     rejectedReason?: string;     // Motivo da rejeição
     completedAt?: string;        // Data de conclusão
+    cancelReason?: string;       // Motivo do cancelamento (evento especial)
 }
 
 // Batch de importação (controle de versões)
