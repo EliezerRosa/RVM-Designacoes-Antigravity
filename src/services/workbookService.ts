@@ -349,6 +349,30 @@ export const workbookService = {
     },
 
     /**
+     * Retorna estatísticas de designações futuras (Hoje em diante)
+     * Contagem agrupada por status
+     */
+    async getFutureStats(): Promise<Record<string, number>> {
+        const today = new Date().toISOString().split('T')[0];
+
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .select('status')
+            .gte('date', today);
+
+        if (error) throw new Error(`Erro ao carregar estatísticas: ${error.message}`);
+
+        const stats: Record<string, number> = {};
+
+        (data || []).forEach(p => {
+            const s = p.status || 'UNKNOWN';
+            stats[s] = (stats[s] || 0) + 1;
+        });
+
+        return stats;
+    },
+
+    /**
      * Busca TODAS as partes (para filtro 'all' ou 'completed' histórico)
      * Útil para o ApprovalPanel listar histórico completo
      */
