@@ -7,7 +7,7 @@ const POSITIONS = {
     NAME: { x: 60, y: 270 },
     ASSISTANT: { x: 86, y: 245 },
     DATE: { x: 60, y: 224 },
-    PART: { x: 55, y: 200 }, // Ajustado para logo após ":" (baseado na seta verde do usuário)
+    PART: { x: 115, y: 200 }, // Corrigido: label "Número da parte:" é longo, x=115 fica logo após o ":"
     ROOM: { x: 70, y: 168 },
 };
 
