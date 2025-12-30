@@ -72,13 +72,19 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
             }
 
             // Filtrar datas passadas no cliente (apenas para pending, unassigned e approved)
+            // IMPORTANTE: Usa o início da semana atual (segunda-feira) como referência,
+            // pois as partes têm a data da segunda-feira no campo 'date'
             if (filter === 'pending' || filter === 'approved' || filter === 'unassigned') {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0); // Zerar hora
+                const now = new Date();
+                const dayOfWeek = now.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+                const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Ajustar para segunda
+                const monday = new Date(now);
+                monday.setDate(now.getDate() + diffToMonday);
+                monday.setHours(0, 0, 0, 0);
 
                 data = data.filter(p => {
                     const d = parseDate(p.date);
-                    return d >= today;
+                    return d >= monday;
                 });
             }
 
