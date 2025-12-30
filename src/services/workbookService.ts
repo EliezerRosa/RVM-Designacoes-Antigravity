@@ -351,20 +351,22 @@ export const workbookService = {
     /**
      * Retorna estatísticas de designações futuras (Hoje em diante)
      * Contagem agrupada por status
+     * Usa fetchAllRows para garantir que TODAS as partes sejam contabilizadas
      */
     async getFutureStats(): Promise<Record<string, number>> {
         const today = new Date().toISOString().split('T')[0];
 
-        const { data, error } = await supabase
-            .from('workbook_parts')
-            .select('status')
-            .gte('date', today);
-
-        if (error) throw new Error(`Erro ao carregar estatísticas: ${error.message}`);
+        // Usar fetchAllRows para superar o limite de 1000 rows
+        const data = await fetchAllRows<{ status: string }>(
+            'workbook_parts',
+            (query) => query
+                .select('status')
+                .gte('date', today)
+        );
 
         const stats: Record<string, number> = {};
 
-        (data || []).forEach(p => {
+        data.forEach(p => {
             const s = p.status || 'UNKNOWN';
             stats[s] = (stats[s] || 0) + 1;
         });
