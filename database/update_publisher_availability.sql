@@ -81,3 +81,28 @@ WHERE data->>'name' = 'Marcos Rogério';
 SELECT data->>'name' as nome, data->'availability' as disponibilidade
 FROM publishers
 WHERE data->>'name' = 'Marcos Rogério';
+
+-- ===== ANA PAULA OLIVEIRA =====
+-- Mesma ausência de Marcos Rogério: 15/12/2025 até 13/01/2026 (4 quintas-feiras)
+-- Modo: "always" (normalmente disponível) com exceptionDates (datas de ausência)
+UPDATE publishers 
+SET data = jsonb_set(
+    data::jsonb,
+    '{availability}',
+    '{
+        "mode": "always",
+        "availableDates": [],
+        "exceptionDates": [
+            "2025-12-18",
+            "2025-12-25",
+            "2026-01-01",
+            "2026-01-08"
+        ]
+    }'::jsonb
+)
+WHERE data->>'name' = 'Ana Paula Oliveira';
+
+-- Verificar resultado final:
+SELECT data->>'name' as nome, data->'availability' as disponibilidade
+FROM publishers
+WHERE data->>'name' IN ('Marcos Rogério', 'Ana Paula Oliveira');
