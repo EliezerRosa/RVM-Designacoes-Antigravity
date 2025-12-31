@@ -14,6 +14,7 @@ import { loadCompletedParticipations } from '../services/historyAdapter';
 import { PublisherSelect } from './PublisherSelect';
 import { SpecialEventManager } from './SpecialEventManager';
 import { getStatusConfig } from '../constants/status';
+import { downloadS140 } from '../services/s140Generator';
 
 interface Props {
     publishers: Publisher[];
@@ -642,6 +643,15 @@ export function WorkbookManager({ publishers }: Props) {
                 <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px' }}>
                     🎯 Gerar Designações (Motor)
                 </button>
+                {filterWeek && (
+                    <button
+                        onClick={() => downloadS140(filteredParts)}
+                        disabled={loading || filteredParts.length === 0}
+                        style={{ padding: '8px 16px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '4px' }}
+                    >
+                        📋 Gerar S-140
+                    </button>
+                )}
 
             </div>
 
