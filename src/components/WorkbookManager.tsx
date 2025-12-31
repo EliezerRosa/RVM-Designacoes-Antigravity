@@ -15,6 +15,7 @@ import { PublisherSelect } from './PublisherSelect';
 import { SpecialEventManager } from './SpecialEventManager';
 import { getStatusConfig } from '../constants/status';
 import { downloadS140 } from '../services/s140Generator';
+import { PartEditModal } from './PartEditModal';
 
 interface Props {
     publishers: Publisher[];
@@ -86,9 +87,12 @@ export function WorkbookManager({ publishers }: Props) {
     const [filterSection, setFilterSection] = useState<string>(() => localStorage.getItem('wm_filterSection') || '');
     const [filterTipo, setFilterTipo] = useState<string>(() => localStorage.getItem('wm_filterTipo') || '');
     const [filterStatus, setFilterStatus] = useState<string>(() => localStorage.getItem('wm_filterStatus') || '');
-    const [filterFuncao, setFilterFuncao] = useState<string>(() => localStorage.getItem('wm_filterFuncao') || '');
-    const [searchText, setSearchText] = useState<string>(() => localStorage.getItem('wm_searchText') || '');
+    const [filterFuncao, setFilterFuncao] = useState<string>('all');
+    const [searchText, setSearchText] = useState<string>('');
 
+    // Estado do Modal de Edição
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingPart, setEditingPart] = useState<WorkbookPart | null>(null);
 
 
     // ========================================================================
@@ -246,13 +250,7 @@ export function WorkbookManager({ publishers }: Props) {
     // ========================================================================
     // Ações
     // ========================================================================
-    const handleUpdatePart = async (id: string, field: keyof WorkbookPart, value: string | number) => {
-        try {
-            await workbookService.updatePart(id, { [field]: value });
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao atualizar');
-        }
-    };
+
 
 
     // ========================================================================
@@ -437,7 +435,7 @@ export function WorkbookManager({ publishers }: Props) {
                     // Melhor deixar 'PENDENTE' para que possa ser tentado de novo ou preenchido manualmente.
 
                     // Se por acaso estava em outro status e resetou? Aqui só pegamos o que não era DESIGNADA/CONCLUIDA.
-                    // Se estava PROPOSTA (mas vazia?) deve voltar pra PENDENTE?
+                    // Se estava PROPOSTA (but empty?) deve voltar pra PENDENTE?
                     // Por segurança, se não achamos ninguem, não mexemos.
                 }
             }
@@ -522,7 +520,7 @@ export function WorkbookManager({ publishers }: Props) {
             if (filterSection && p.section !== filterSection) return false;
             if (filterTipo && p.tipoParte !== filterTipo) return false;
             if (filterStatus && p.status !== filterStatus) return false;
-            if (filterFuncao && p.funcao !== filterFuncao) return false;
+            if (filterFuncao !== 'all' && p.funcao !== filterFuncao) return false;
             if (searchText) {
                 const search = searchText.toLowerCase();
                 // Inclui weekId e date no texto pesquisável
@@ -596,8 +594,34 @@ export function WorkbookManager({ publishers }: Props) {
     // ========================================================================
     // Render
     // ========================================================================
+
+    const handleEditPart = (part: WorkbookPart) => {
+        setEditingPart(part);
+        setIsEditModalOpen(true);
+    };
+
+    const handleSaveEditPart = async (id: string, updates: Partial<WorkbookPart>) => {
+        try {
+            const updatedPart = await workbookService.updatePart(id, updates);
+
+            // Atualizar estado local imediatamente
+            setParts(prev => prev.map(p => p.id === id ? updatedPart : p));
+
+            // Se mudou o nome do presidente, pode ter afetado outras partes, então recarregar é mais seguro?
+            // Mas queremos realtime. O service já retorna a parte atualizada.
+            // Se mudou o nome do presidente, o syncChairmanAssignments correu no background.
+            // Ideal seria ouvir o realtime, mas vamos atualizar o local pelo menos.
+
+            // Fechar modal é feito no componente modal ao chamar onSave com sucesso
+        } catch (error) {
+            console.error('Erro ao salvar parte:', error);
+            alert('Erro ao salvar alterações.');
+            throw error; // Repassar erro para o modal lidar (loading state)
+        }
+    };
+
     return (
-        <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ padding: '20px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
             <h2 style={{ marginBottom: '20px' }}>📖 Gerenciador de Apostila</h2>
 
             {/* Mensagens */}
@@ -762,17 +786,18 @@ export function WorkbookManager({ publishers }: Props) {
                                     <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
                                     <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
                                     <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
-                                    <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>{part.modalidade}</td>
-                                    <td style={{ padding: '8px' }}>
-                                        <input
-                                            type="text"
-                                            value={part.tituloParte}
-                                            onChange={e => handleUpdatePart(part.id, 'tituloParte', e.target.value)}
-                                            style={{ width: '100%', border: 'none', background: 'transparent', color: '#1f2937' }}
-                                        />
+                                    <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>
+                                        {part.modalidade}
                                     </td>
-                                    <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>{part.descricaoParte}</td>
-                                    <td style={{ padding: '8px', fontSize: '10px', color: '#9CA3AF', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.detalhesParte}>{part.detalhesParte}</td>
+                                    <td style={{ padding: '8px' }}>
+                                        <div style={{ fontWeight: '500', color: '#1f2937' }}>{part.tituloParte}</div>
+                                    </td>
+                                    <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>
+                                        {part.descricaoParte}
+                                    </td>
+                                    <td style={{ padding: '8px', fontSize: '10px', color: '#9CA3AF', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.detalhesParte}>
+                                        {part.detalhesParte}
+                                    </td>
                                     <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.duracao}</td>
                                     <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaInicio}</td>
                                     <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaFim}</td>
@@ -787,32 +812,37 @@ export function WorkbookManager({ publishers }: Props) {
                                             onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
                                             style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
                                         />
-                                        {/* Se não tiver ID correspondente, mostrar o nome raw como fallback visual ou alerta? 
-                                                    O PublisherSelect mostra "Selecione..." se vazio. 
-                                                    Se temos um rawName que não match com ID, ele vai ficar vazio.
-                                                    Podemos colocar um input fallback?
-                                                */}
                                     </td>
                                     <td style={{ padding: '8px', textAlign: 'center' }}>
-                                        {(() => {
-                                            const config = getStatusConfig(part.status);
-                                            return (
-                                                <span style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '11px',
-                                                    background: config.bg,
-                                                    color: config.text,
-                                                    border: `1px solid ${config.border}`,
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '4px',
-                                                    fontWeight: '600',
-                                                }}>
-                                                    {config.icon} {config.label}
-                                                </span>
-                                            );
-                                        })()}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                                            {(() => {
+                                                const config = getStatusConfig(part.status);
+                                                return (
+                                                    <span style={{
+                                                        padding: '2px 8px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '11px',
+                                                        background: config.bg,
+                                                        color: config.text,
+                                                        border: `1px solid ${config.border}`,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontWeight: '600',
+                                                    }}>
+                                                        {config.icon} {config.label}
+                                                    </span>
+                                                );
+                                            })()}
+                                            <button
+                                                onClick={() => handleEditPart(part)}
+                                                className="text-gray-400 hover:text-blue-600 transition-colors"
+                                                title="Editar Parte"
+                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                            >
+                                                ✏️
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             );
@@ -820,6 +850,13 @@ export function WorkbookManager({ publishers }: Props) {
                     </tbody>
                 </table>
             </div>
+
+            <PartEditModal
+                isOpen={isEditModalOpen}
+                part={editingPart}
+                onClose={() => setIsEditModalOpen(false)}
+                onSave={handleSaveEditPart}
+            />
 
             {filteredParts.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
