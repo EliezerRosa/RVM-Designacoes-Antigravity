@@ -807,8 +807,24 @@ export function WorkbookManager({ publishers }: Props) {
                 </div>
             )}
 
-            <div style={{ marginTop: '16px', color: '#6B7280', fontSize: '13px' }}>
+            <div style={{ marginTop: '16px', color: '#6B7280', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 Mostrando {filteredParts.length} de {parts.length} partes
+                <span
+                    title="Partes como Cânticos, Comentários Iniciais/Finais, Oração Inicial e Elogios são ocultadas por serem gerenciadas automaticamente."
+                    style={{
+                        cursor: 'help',
+                        background: 'rgba(107, 114, 128, 0.2)',
+                        borderRadius: '50%',
+                        width: '16px',
+                        height: '16px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '11px'
+                    }}
+                >
+                    ?
+                </span>
             </div>
             {loading && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
