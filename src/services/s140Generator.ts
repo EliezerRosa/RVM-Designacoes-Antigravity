@@ -38,7 +38,6 @@ export interface S140Part {
 // ============================================================================
 
 const CONGREGATION_NAME = 'PARQUE JACARAÍPE';
-const MEETING_START_TIME = '19:30'; // Hora de início da reunião
 
 // Cores oficiais das seções
 const SECTION_COLORS: Record<string, { bg: string; text: string }> = {
@@ -72,6 +71,12 @@ const STUDENT_PARTS = [
 
 /**
  * Prepara os dados do S-140 a partir das partes de uma semana
+ * AJUSTES:
+ * - Incluir TODAS as partes (inclusive ocultas)
+ * - Usar horaInicio do BD
+ * - Título = tituloParte (já tem a duração)
+ * - Combinar Titular/Ajudante da mesma parte
+ * - Nome só na parte "Presidente" (não Comentários/Oração)
  */
 export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
     if (parts.length === 0) {
@@ -81,52 +86,79 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
     // Ordenar por seq
     const sortedParts = [...parts].sort((a, b) => (a.seq || 0) - (b.seq || 0));
 
-    // Encontrar presidente, orações e leitura
-    const presidentPart = sortedParts.find(p => p.tipoParte === 'Presidente');
+    // Encontrar presidente, orações
+    const presidentPart = sortedParts.find(p => p.tipoParte === 'Presidente' || p.tipoParte === 'Presidente da Reunião');
     const prayerOpeningPart = sortedParts.find(p => p.tipoParte === 'Oração Inicial' || p.tipoParte === 'Oracao Inicial');
     const prayerClosingPart = sortedParts.find(p => p.tipoParte === 'Oração Final' || p.tipoParte === 'Oracao Final');
 
-    // Calcular horários
-    let currentMinutes = parseTimeToMinutes(MEETING_START_TIME);
+    // Agrupar Titular + Ajudante por tituloParte
+    const titularParts = sortedParts.filter(p => p.funcao === 'Titular');
+    const ajudanteParts = sortedParts.filter(p => p.funcao === 'Ajudante');
 
-    const preparedParts: S140Part[] = sortedParts.map(p => {
-        const time = minutesToTime(currentMinutes);
-        const duration = typeof p.duracao === 'string' ? parseInt(p.duracao, 10) || 0 : (p.duracao || 0);
-        currentMinutes += duration;
+    // Mapa de ajudantes por tituloParte
+    const ajudanteMap = new Map<string, string>();
+    ajudanteParts.forEach(a => {
+        const key = a.tituloParte || a.tipoParte;
+        const name = a.resolvedPublisherName || a.rawPublisherName || '';
+        if (name) {
+            ajudanteMap.set(key, name);
+        }
+    });
 
+    // Partes que mostram o nome do designado
+    const PARTS_WITH_ASSIGNEE = [
+        'Presidente', 'Presidente da Reunião',
+        'Tesouros', 'Tesouros da Palavra de Deus', 'Discurso Tesouros',
+        'Joias Espirituais',
+        'Leitura da Bíblia', 'Leitura da Biblia',
+        'Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças',
+        'Discurso de Estudante',
+        'Necessidades Locais', 'Necessidades da Congregação',
+        'Dirigente EBC', 'Leitor EBC', 'Estudo Bíblico de Congregação',
+        'Oração Inicial', 'Oracao Inicial', 'Oração Final', 'Oracao Final'
+    ];
+
+    const preparedParts: S140Part[] = titularParts.map(p => {
+        // Usar horaInicio do BD
+        const time = p.horaInicio || '';
+
+        // Checar se é parte de estudante
         const isStudentPart = STUDENT_PARTS.some(sp =>
             p.tipoParte.toLowerCase().includes(sp.toLowerCase())
         );
 
-        // Determinar assignee e assistant
-        const assignee = p.resolvedPublisherName || p.rawPublisherName || '';
+        // Determinar assignee
+        let assignee = '';
+        const showsAssignee = PARTS_WITH_ASSIGNEE.some(pa =>
+            p.tipoParte.includes(pa) || (p.tituloParte && p.tituloParte.includes(pa))
+        );
 
-        // Se tem "/" no nome, separar em principal e ajudante
-        if (assignee.includes('/')) {
-            const [main, helper] = assignee.split('/').map(s => s.trim());
-            return {
-                seq: p.seq || 0,
-                section: p.section,
-                time,
-                title: `${p.seq}. ${p.tituloParte || p.tipoParte}${duration ? ` (${duration} min)` : ''}`,
-                duration,
-                assignee: main,
-                assistant: helper,
-                isStudentPart,
-                tipoParte: p.tipoParte,
-            };
+        if (showsAssignee) {
+            assignee = p.resolvedPublisherName || p.rawPublisherName || '';
         }
+
+        // Buscar ajudante se houver
+        const titleKey = p.tituloParte || p.tipoParte;
+        const assistant = ajudanteMap.get(titleKey);
+
+        // Título: usar tituloParte se existir, senão tipoParte (já contém duração)
+        let title = p.tituloParte || p.tipoParte;
+
+        // Para cânticos, adicionar símbolo
+        if (p.tipoParte.startsWith('Cântico')) {
+            title = `□ ${title}`;
+        }
+
+        const duration = typeof p.duracao === 'string' ? parseInt(p.duracao, 10) || 0 : (p.duracao || 0);
 
         return {
             seq: p.seq || 0,
             section: p.section,
             time,
-            title: p.tipoParte.startsWith('Cântico')
-                ? `□ ${p.tipoParte}`
-                : `${p.seq || ''}. ${p.tituloParte || p.tipoParte}${duration ? ` (${duration} min)` : ''}`.replace(/^0?\. /, ''),
+            title,
             duration,
             assignee,
-            assistant: undefined,
+            assistant,
             isStudentPart,
             tipoParte: p.tipoParte,
         };
@@ -158,16 +190,6 @@ function extractBibleReading(parts: WorkbookPart[]): string {
     return '';
 }
 
-function parseTimeToMinutes(time: string): number {
-    const [hours, minutes] = time.split(':').map(Number);
-    return hours * 60 + minutes;
-}
-
-function minutesToTime(totalMinutes: number): string {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-}
 
 // ============================================================================
 // GERAÇÃO DE HTML
