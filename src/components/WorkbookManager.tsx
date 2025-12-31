@@ -26,6 +26,50 @@ const EXPECTED_COLUMNS = [
     'seq', 'funcao', 'duracao', 'horaInicio', 'horaFim', 'rawPublisherName', 'status'
 ];
 
+// ========================================================================
+// Funções de Temporalidade - "Semana Atual" = contém a segunda-feira
+// ========================================================================
+
+/**
+ * Retorna a segunda-feira da semana atual (meia-noite).
+ */
+const getMondayOfCurrentWeek = (): Date => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Dom, 1=Seg, 2=Ter, ...
+    // Se hoje é domingo (0), volta 6 dias; senão, volta (dayOfWeek - 1) dias
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - daysToSubtract);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+};
+
+/**
+ * Verifica se uma parte pertence a uma semana passada.
+ * Usa o campo `date` da parte (ex: "2024-01-04" ou "04/01/2024").
+ */
+const isPartInPastWeek = (partDate: string): boolean => {
+    if (!partDate) return false;
+
+    // Parse da data (suporta YYYY-MM-DD ou DD/MM/YYYY)
+    let dateObj: Date;
+    if (partDate.match(/^\d{4}-\d{2}-\d{2}/)) {
+        dateObj = new Date(partDate + 'T12:00:00');
+    } else {
+        const dmy = partDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (dmy) {
+            dateObj = new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
+        } else {
+            dateObj = new Date(partDate);
+        }
+    }
+
+    if (isNaN(dateObj.getTime())) return false;
+
+    const mondayOfCurrentWeek = getMondayOfCurrentWeek();
+    return dateObj < mondayOfCurrentWeek;
+};
+
 export function WorkbookManager({ publishers }: Props) {
     // ========================================================================
     // Estado
@@ -732,10 +776,30 @@ export function WorkbookManager({ publishers }: Props) {
                                 if (found) currentPubId = found.id;
                             }
 
+                            // Determinar se é semana passada (restringe ações)
+                            const isPast = isPartInPastWeek(part.date);
+
                             return (
-                                <tr key={part.id} style={{ background: sectionColors[part.section] || 'white', color: '#1f2937' }}>
+                                <tr
+                                    key={part.id}
+                                    style={{
+                                        background: isPast
+                                            ? 'rgba(156, 163, 175, 0.15)' // Fundo cinza sutil para passadas
+                                            : (sectionColors[part.section] || 'white'),
+                                        color: '#1f2937',
+                                        opacity: isPast ? 0.85 : 1
+                                    }}
+                                    title={isPast ? '📅 Semana passada - alterações limitadas' : ''}
+                                >
                                     <td style={{ padding: '8px', textAlign: 'center' }}>
-                                        <input type="checkbox" checked={selectedIds.has(part.id)} onChange={() => toggleSelect(part.id)} />
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(part.id)}
+                                            onChange={() => toggleSelect(part.id)}
+                                            disabled={isPast}
+                                            title={isPast ? 'Não é possível deletar partes de semanas passadas' : ''}
+                                            style={{ cursor: isPast ? 'not-allowed' : 'pointer' }}
+                                        />
                                     </td>
                                     <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
                                     <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
