@@ -645,8 +645,12 @@ export function WorkbookManager({ publishers }: Props) {
                 </button>
                 {filterWeek && (
                     <button
-                        onClick={() => downloadS140(filteredParts)}
-                        disabled={loading || filteredParts.length === 0}
+                        onClick={() => {
+                            // Incluir TODAS as partes da semana (inclusive ocultas)
+                            const weekParts = parts.filter(p => p.weekId === filterWeek);
+                            downloadS140(weekParts);
+                        }}
+                        disabled={loading || !filterWeek}
                         style={{ padding: '8px 16px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '4px' }}
                     >
                         📋 Gerar S-140
