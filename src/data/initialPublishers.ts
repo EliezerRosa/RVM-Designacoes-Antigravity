@@ -539,7 +539,25 @@ export const initialPublishers = [
             canParticipateInMinistry: true,
             canParticipateInLife: true,
         },
-        availability: { mode: "always" as const, exceptionDates: [], availableDates: [] },
+        availability: {
+            mode: "never" as const,
+            exceptionDates: [],
+            availableDates: [
+                // Quintas-feiras VERDES (Tempo Livre) de 2026 - extraídas do calendário de turnos
+                "2026-01-01", "2026-01-08", "2026-01-29",
+                "2026-02-05", "2026-02-12",
+                // Março: nenhuma quinta verde
+                "2026-04-02", "2026-04-09", "2026-04-30",
+                "2026-05-07", "2026-05-21",
+                "2026-06-04", "2026-06-11",
+                "2026-07-02", "2026-07-09", "2026-07-30",
+                "2026-08-20", "2026-08-27",
+                "2026-09-03", "2026-09-10",
+                "2026-10-01", "2026-10-08", "2026-10-29",
+                "2026-11-05", "2026-11-12",
+                "2026-12-03", "2026-12-10", "2026-12-31"
+            ]
+        },
         aliases: ["Emerso França"],
     },
     {
