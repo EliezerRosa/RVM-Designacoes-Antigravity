@@ -192,3 +192,24 @@ export function openWhatsApp(part: WorkbookPart, assistantName?: string, phone?:
     }
 }
 
+/**
+ * Fluxo Combinado: Baixa o S-89 e abre WhatsApp com mensagem pronta
+ * O usuário só precisa arrastar o arquivo baixado para a conversa
+ */
+export async function sendS89ViaWhatsApp(part: WorkbookPart, assistantName?: string, phone?: string): Promise<void> {
+    try {
+        // 1. Gerar e baixar o S-89
+        const pdfBytes = await generateS89(part, assistantName);
+        const fileName = `S-89_${part.date}_${part.resolvedPublisherName || part.rawPublisherName}.pdf`;
+        downloadS89(pdfBytes, fileName);
+
+        // 2. Pequeno delay para garantir que o download iniciou
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 3. Abrir WhatsApp com mensagem pronta
+        openWhatsApp(part, assistantName, phone);
+    } catch (error) {
+        console.error('Erro ao enviar S-89 via WhatsApp:', error);
+        throw error;
+    }
+}
