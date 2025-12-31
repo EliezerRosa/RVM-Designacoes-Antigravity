@@ -414,9 +414,9 @@ export const workbookService = {
         if (updates.section !== undefined) dbUpdates.section = updates.section;
         if (updates.tipoParte !== undefined) dbUpdates.tipo_parte = updates.tipoParte;
         if (updates.modalidade !== undefined) dbUpdates.modalidade = updates.modalidade;
-        if (updates.tituloParte !== undefined) dbUpdates.titulo_parte = updates.tituloParte;
-        if (updates.descricaoParte !== undefined) dbUpdates.descricao_parte = updates.descricaoParte;
-        if (updates.detalhesParte !== undefined) dbUpdates.detalhes_parte = updates.detalhesParte;
+        if (updates.tituloParte !== undefined) dbUpdates.part_title = updates.tituloParte;
+        if (updates.descricaoParte !== undefined) dbUpdates.descricao = updates.descricaoParte;
+        if (updates.detalhesParte !== undefined) dbUpdates.detalhes = updates.detalhesParte;
         if (updates.seq !== undefined) dbUpdates.seq = updates.seq;
         if (updates.funcao !== undefined) dbUpdates.funcao = updates.funcao;
         if (updates.duracao !== undefined) dbUpdates.duracao = updates.duracao;
