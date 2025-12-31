@@ -80,9 +80,6 @@ export function WorkbookManager({ publishers }: Props) {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-    // Seleção
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
     // Filtros - carregar do localStorage para persistência
     const [filterWeek, setFilterWeek] = useState<string>(() => localStorage.getItem('wm_filterWeek') || '');
     const [filterSection, setFilterSection] = useState<string>(() => localStorage.getItem('wm_filterSection') || '');
@@ -256,24 +253,6 @@ export function WorkbookManager({ publishers }: Props) {
         }
     };
 
-    const handleDeleteSelected = async () => {
-        if (selectedIds.size === 0) return;
-        if (!confirm(`Deletar ${selectedIds.size} partes selecionadas?`)) return;
-
-        try {
-            setLoading(true);
-            for (const id of selectedIds) {
-                await workbookService.deletePart(id);
-            }
-            setSelectedIds(new Set());
-            await loadAllParts();
-            setSuccessMessage(`✅ ${selectedIds.size} partes deletadas`);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao deletar');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     // ========================================================================
     // Gerar Designações (Motor Completo)
@@ -554,26 +533,6 @@ export function WorkbookManager({ publishers }: Props) {
     }, [parts, filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText]);
 
     // ========================================================================
-    // Seleção
-    // ========================================================================
-    const toggleSelect = (id: string) => {
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
-
-    const selectAll = () => {
-        if (selectedIds.size === filteredParts.length) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(filteredParts.map(p => p.id)));
-        }
-    };
-
-    // ========================================================================
     // Estilos inline
     // ========================================================================
     const sectionColors: Record<string, string> = {
@@ -683,9 +642,7 @@ export function WorkbookManager({ publishers }: Props) {
                 <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px' }}>
                     🎯 Gerar Designações (Motor)
                 </button>
-                <button onClick={handleDeleteSelected} disabled={loading || selectedIds.size === 0} style={{ padding: '8px 16px', cursor: 'pointer', background: '#EF4444', color: 'white', border: 'none', borderRadius: '4px' }}>
-                    🗑️ Deletar ({selectedIds.size})
-                </button>
+
             </div>
 
             {/* Filtros */}
@@ -744,9 +701,6 @@ export function WorkbookManager({ publishers }: Props) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                         <tr style={{ background: '#4F46E5', color: 'white' }}>
-                            <th style={{ padding: '8px' }}>
-                                <input type="checkbox" checked={selectedIds.size === filteredParts.length && filteredParts.length > 0} onChange={selectAll} />
-                            </th>
                             <th style={{ padding: '8px' }}>Ano</th>
                             <th style={{ padding: '8px' }}>Semana</th>
                             <th style={{ padding: '8px' }}>Seq</th>
@@ -783,24 +737,12 @@ export function WorkbookManager({ publishers }: Props) {
                                 <tr
                                     key={part.id}
                                     style={{
-                                        background: isPast
-                                            ? 'rgba(156, 163, 175, 0.15)' // Fundo cinza sutil para passadas
-                                            : (sectionColors[part.section] || 'white'),
+                                        background: sectionColors[part.section] || 'white',
                                         color: '#1f2937',
-                                        opacity: isPast ? 0.85 : 1
+                                        borderLeft: isPast ? '3px solid #9CA3AF' : 'none'
                                     }}
-                                    title={isPast ? '📅 Semana passada - alterações limitadas' : ''}
+                                    title={isPast ? '📅 Semana passada' : ''}
                                 >
-                                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedIds.has(part.id)}
-                                            onChange={() => toggleSelect(part.id)}
-                                            disabled={isPast}
-                                            title={isPast ? 'Não é possível deletar partes de semanas passadas' : ''}
-                                            style={{ cursor: isPast ? 'not-allowed' : 'pointer' }}
-                                        />
-                                    </td>
                                     <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
                                     <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
                                     <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
