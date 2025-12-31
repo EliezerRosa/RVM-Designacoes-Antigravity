@@ -47,26 +47,126 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    // Estilos comuns
-    const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '4px' };
-    const inputStyle = { width: '100%', padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '14px' };
+    // Estilos Inline (Substituindo Tailwind inexistente)
+    const overlayStyle: React.CSSProperties = {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '16px'
+    };
+
+    const modalStyle: React.CSSProperties = {
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        width: '100%',
+        maxWidth: '650px',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+    };
+
+    const headerStyle: React.CSSProperties = {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '16px 24px',
+        borderBottom: '1px solid #E5E7EB',
+    };
+
+    const bodyStyle: React.CSSProperties = {
+        padding: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+    };
+
+    const labelStyle: React.CSSProperties = {
+        display: 'block',
+        fontSize: '13px',
+        fontWeight: 600,
+        color: '#374151',
+        marginBottom: '6px'
+    };
+
+    const inputStyle: React.CSSProperties = {
+        width: '100%',
+        padding: '8px 12px',
+        border: '1px solid #D1D5DB',
+        borderRadius: '6px',
+        fontSize: '14px',
+        outline: 'none',
+        transition: 'border-color 0.15s ease-in-out',
+        boxSizing: 'border-box' // Importante para width: 100%
+    };
+
+    const rowStyle: React.CSSProperties = {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '16px',
+    };
+
+    const footerStyle: React.CSSProperties = {
+        padding: '16px 24px',
+        borderTop: '1px solid #E5E7EB',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '12px',
+        backgroundColor: '#F9FAFB',
+        borderBottomLeftRadius: '8px',
+        borderBottomRightRadius: '8px',
+    };
+
+    const btnCancelStyle: React.CSSProperties = {
+        padding: '8px 16px',
+        fontSize: '14px',
+        fontWeight: 500,
+        color: '#374151',
+        backgroundColor: 'white',
+        border: '1px solid #D1D5DB',
+        borderRadius: '6px',
+        cursor: 'pointer',
+    };
+
+    const btnSaveStyle: React.CSSProperties = {
+        padding: '8px 16px',
+        fontSize: '14px',
+        fontWeight: 500,
+        color: 'white',
+        backgroundColor: '#4F46E5', // Indigo 600
+        border: 'none',
+        borderRadius: '6px',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        opacity: loading ? 0.7 : 1,
+    };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-900">
+        <div style={overlayStyle}>
+            <div style={modalStyle}>
+                <div style={headerStyle}>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>
                         Editar Parte
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-500 text-2xl">
+                    <button
+                        onClick={onClose}
+                        style={{ border: 'none', background: 'transparent', fontSize: '24px', color: '#9CA3AF', cursor: 'pointer' }}
+                    >
                         &times;
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} style={bodyStyle}>
 
                     {/* Linha 1: Semana e Horário */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div style={rowStyle}>
                         <div>
                             <label style={labelStyle}>Semana (ID)</label>
                             <input
@@ -88,7 +188,7 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                     </div>
 
                     {/* Linha 2: Seção e Tipo */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div style={rowStyle}>
                         <div>
                             <label style={labelStyle}>Seção</label>
                             <select
@@ -130,14 +230,14 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                         <textarea
                             value={formData.descricaoParte || ''}
                             onChange={e => handleChange('descricaoParte', e.target.value)}
-                            style={{ ...inputStyle, minHeight: '80px' }}
+                            style={{ ...inputStyle, minHeight: '80px', fontFamily: 'inherit' }}
                         />
                     </div>
 
                     {/* Linha 5: Duração e Modalidade */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div style={rowStyle}>
                         <div>
-                            <label style={labelStyle}>Duração (minutos ou string)</label>
+                            <label style={labelStyle}>Duração (minutos)</label>
                             <input
                                 type="text"
                                 value={formData.duracao || ''}
@@ -155,24 +255,25 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                             />
                         </div>
                     </div>
-
-                    <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className={`px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            {loading ? 'Salvando...' : 'Salvar Alterações'}
-                        </button>
-                    </div>
                 </form>
+
+                <div style={footerStyle}>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        style={btnCancelStyle}
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => handleSubmit(e as any)}
+                        style={btnSaveStyle}
+                        disabled={loading}
+                    >
+                        {loading ? 'Salvando...' : 'Salvar Alterações'}
+                    </button>
+                </div>
             </div>
         </div>
     );
