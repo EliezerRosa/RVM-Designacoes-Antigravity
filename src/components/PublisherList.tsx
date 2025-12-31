@@ -481,6 +481,37 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                             </div>
                         </div>
 
+                        {/* Disponibilidade */}
+                        {publisher.availability && publisher.availability.mode !== 'always' && (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 'var(--spacing-sm)' }}>
+                                <strong>📅 Disponibilidade:</strong>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                                    {publisher.availability.mode === 'never' && (
+                                        <span style={{
+                                            color: '#f59e0b',
+                                            background: 'rgba(245, 158, 11, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem'
+                                        }}>
+                                            ⚠️ Apenas em datas específicas
+                                        </span>
+                                    )}
+                                    {publisher.availability.availableDates && publisher.availability.availableDates.length > 0 && (
+                                        <span style={{
+                                            color: '#22c55e',
+                                            background: 'rgba(34, 197, 94, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem'
+                                        }} title={publisher.availability.availableDates.join(', ')}>
+                                            ✓ {publisher.availability.availableDates.length} datas livres
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="publisher-actions">
                             <button className="btn-secondary" onClick={() => onEdit(publisher)}>
                                 ✏️ Editar
