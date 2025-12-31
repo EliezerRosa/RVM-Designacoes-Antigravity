@@ -96,6 +96,27 @@ function mapDbToWorkbookBatch(row: Record<string, unknown>): WorkbookBatch {
 // Service
 // ============================================================================
 
+// Helpers de Tempo (Privados)
+function parseTimeToMinutes(time: string): number {
+    if (!time) return 0;
+    const [hours, minutes] = time.split(':').map(Number);
+    return (hours * 60) + (minutes || 0);
+}
+
+function minutesToTime(totalMinutes: number): string {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    // Tratamento AM/PM simples se necessário, mas aqui usaremos 24h
+    // Ajustar para formato brasileiro (HH:mm)
+    let h = hours % 24;
+    return `${h.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+// Formatar para 12h com AM/PM para UI se necessário, mas o banco guarda string simples.
+// Vamos manter o formato simples HH:mm para consistência com o input type="time"
+
+
 export const workbookService = {
     // ========================================================================
     // BATCHES
@@ -454,7 +475,100 @@ export const workbookService = {
             }
         }
 
+        // TRIGGER DE RECÁLCULO DE HORÁRIOS
+        // Se mudou a duração, ou horaInicio (manual), ou ordem (seq), devemos recalcular a semana toda
+        // Para simplificar, recalculamos SEMPRE que houver update (exceto se for apenas status)
+        // Mas cuidado com loops infinitos. O recalculate vai fazer updates.
+        // Vamos checar se updates contém campos de tempo/ordem.
+        const timeFields = ['duracao', 'horaInicio', 'seq', 'tituloParte', 'tipoParte'];
+        const shouldRecalculate = Object.keys(updates).some(k => timeFields.includes(k));
+
+        if (shouldRecalculate) {
+            // Executar async para não bloquear o retorno da UI
+            console.log('[workbookService] ⏱️ Iniciando recálculo de horários para semana:', updatedPart.weekId);
+            this.recalculateWeekTimings(updatedPart.weekId).catch(err =>
+                console.error('[workbookService] ❌ Erro no recálculo de horários:', err)
+            );
+        }
+
         return updatedPart;
+    },
+
+    /**
+     * Recalcula os horários de todas as partes de uma semana
+     * Base: 19:30 (Reunião de Meio de Semana)
+     */
+    async recalculateWeekTimings(weekId: string): Promise<void> {
+        // 1. Buscar todas as partes da semana
+        // Precisamos buscar por week_id. Não temos método direto público, vamos fazer query aqui.
+
+        const { data: weekParts, error } = await supabase
+            .from('workbook_parts')
+            .select('*')
+            .eq('week_id', weekId)
+            .order('seq', { ascending: true }); // Importante: ordem sequencial
+
+        if (error || !weekParts) {
+            console.error('[workbookService] Erro ao buscar partes para recálculo:', error);
+            return;
+        }
+
+        // 2. Definir início
+        let currentMinutes = parseTimeToMinutes('19:30');
+
+        // 3. Iterar e atualizar
+        // Filtrar apenas Titulares para não contar tempo duplicado de ajudantes (mesmo seq)
+        // Se seq for igual, é mesma parte.
+        // Agrupar por seq.
+        const uniqueParts = new Map<number, any>();
+        weekParts.forEach(p => {
+            // Se já tem essa seq, mantemos o primeiro (geralmente Titular) para pegar duração
+            if (!uniqueParts.has(p.seq)) {
+                uniqueParts.set(p.seq, p);
+            }
+        });
+
+        // Ordenar chaves
+        const sortedSeqs = Array.from(uniqueParts.keys()).sort((a, b) => a - b);
+
+        for (const seq of sortedSeqs) {
+            const part = uniqueParts.get(seq);
+
+            // Duração: Tentar numérico, ou extrair de string "10 min"
+            let duration = 0;
+            if (part /* part existe */) {
+                // Parse duração
+                let dStr = String(part.duracao || '').toLowerCase();
+                // Remover ' min', 's', etc
+                dStr = dStr.replace(/[^0-9]/g, '');
+                duration = parseInt(dStr, 10) || 0;
+            }
+
+            // Calcular horários
+            const startStr = minutesToTime(currentMinutes);
+            currentMinutes += duration;
+            const endStr = minutesToTime(currentMinutes);
+
+            // Atualizar no banco TODAS as partes com esse seq e weekId
+            // Precisamos atualizar hora_inicio e hora_fim
+            // Evitar update se não mudou para economizar recursos? 
+            // O trigger no DB pode ser pesado? Não temos triggers pesados.
+
+            // Otimização: Update com IN (lista de ids do seq)
+            const idsToUpdate = weekParts.filter(p => p.seq === seq).map(p => p.id);
+
+            if (idsToUpdate.length > 0) {
+                await supabase
+                    .from('workbook_parts')
+                    .update({
+                        hora_inicio: startStr,
+                        hora_fim: endStr,
+                        updated_at: new Date().toISOString()
+                    })
+                    .in('id', idsToUpdate);
+            }
+        }
+        console.log('[workbookService] ✅ Horários recalculados com sucesso.');
     },
 
     /**

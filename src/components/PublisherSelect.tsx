@@ -157,7 +157,13 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     }
                 }}
                 disabled={disabled}
-                style={style}
+                style={{
+                    ...style,
+                    maxWidth: '100%',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden'
+                }}
             >
                 <option value="">Selecione...</option>
                 {/* Se temos um nome não encontrado na lista, mostrar como opção selecionada */}
