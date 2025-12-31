@@ -323,7 +323,24 @@ export const initialPublishers = [
             canParticipateInMinistry: true,
             canParticipateInLife: true,
         },
-        availability: { mode: "always" as const, exceptionDates: [], availableDates: [] },
+        availability: {
+            mode: "never" as const,
+            exceptionDates: [],
+            availableDates: [
+                // Datas de disponibilidade 2026 - informadas pelo usuário
+                "2026-02-26",
+                "2026-03-26",
+                "2026-04-23",
+                "2026-05-21",
+                "2026-06-18",
+                "2026-07-30",
+                "2026-08-27",
+                "2026-09-24",
+                "2026-10-22",
+                "2026-11-19",
+                "2026-12-17"
+            ]
+        },
         aliases: [],
     },
     {
