@@ -10,7 +10,7 @@ interface ApprovalPanelProps {
 }
 
 import { getStatusConfig, STATUS_CONFIG } from '../constants/status';
-import { generateS89, downloadS89, openWhatsApp, sendS89ViaWhatsApp } from '../services/s89Generator';
+import { sendS89ViaWhatsApp } from '../services/s89Generator';
 
 export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderName = 'Ancião', publishers = [] }: ApprovalPanelProps) {
     const [assignments, setAssignments] = useState<WorkbookPart[]>([]);
@@ -191,24 +191,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         }
     }
 
-    // Manda pro Zap
-    const handleZap = (part: WorkbookPart, assistantName?: string, phone?: string) => {
-        openWhatsApp(part, assistantName, phone);
-    };
-
-    // Imprime S-89
-    const handlePrintS89 = async (part: WorkbookPart, assistantName?: string) => {
-        try {
-            const pdfBytes = await generateS89(part, assistantName);
-            const fileName = `S-89_${part.date}_${part.resolvedPublisherName || part.rawPublisherName}.pdf`;
-            downloadS89(pdfBytes, fileName);
-        } catch (error) {
-            alert('Erro ao gerar S-89: ' + (error instanceof Error ? error.message : String(error)));
-            console.error(error);
-        }
-    };
-
-    // Fluxo Combinado: S-89 + WhatsApp
+    // Fluxo Combinado: S-89 + WhatsApp (substitui handleZap + handlePrintS89)
     const handleSendS89ViaWhatsApp = async (part: WorkbookPart, assistantName?: string, phone?: string) => {
         try {
             await sendS89ViaWhatsApp(part, assistantName, phone);
