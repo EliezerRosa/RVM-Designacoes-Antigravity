@@ -46,29 +46,22 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
         const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
 
-        return [...publishers].sort((a, b) => {
-            // Checar elegibilidade A
-            const eligibleA = checkEligibility(
-                a,
+        return [...publishers].map(p => {
+            // Checar elegibilidade de cada publicador
+            const result = checkEligibility(
+                p,
                 modalidade as Parameters<typeof checkEligibility>[1],
                 funcao,
                 { date: part.date, isOracaoInicial, secao: part.section }
-            ).eligible;
-
-            // Checar elegibilidade B
-            const eligibleB = checkEligibility(
-                b,
-                modalidade as Parameters<typeof checkEligibility>[1],
-                funcao,
-                { date: part.date, isOracaoInicial, secao: part.section }
-            ).eligible;
-
+            );
+            return { publisher: p, eligible: result.eligible, reason: result.reason };
+        }).sort((a, b) => {
             // 1. Elegível vem primeiro
-            if (eligibleA && !eligibleB) return -1;
-            if (!eligibleA && eligibleB) return 1;
+            if (a.eligible && !b.eligible) return -1;
+            if (!a.eligible && b.eligible) return 1;
 
             // 2. Ordem alfabética
-            return a.name.localeCompare(b.name);
+            return a.publisher.name.localeCompare(b.publisher.name);
         });
     }, [part, publishers]);
 
@@ -80,10 +73,26 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     };
 
     // Determinar o valor efetivo - tentar encontrar ID pelo nome se não temos ID
-    const { effectiveValue, foundPublisher } = useMemo(() => {
+    const { effectiveValue, foundPublisher, eligibilityInfo } = useMemo(() => {
+        const modalidade = getModalidade(part);
+        const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
+        const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+
         if (value) {
             const pub = publishers.find(p => p.id === value);
-            return { effectiveValue: value, foundPublisher: pub };
+            if (pub) {
+                const result = checkEligibility(
+                    pub,
+                    modalidade as Parameters<typeof checkEligibility>[1],
+                    funcao,
+                    { date: part.date, isOracaoInicial, secao: part.section }
+                );
+                return {
+                    effectiveValue: value,
+                    foundPublisher: pub,
+                    eligibilityInfo: { eligible: result.eligible, reason: result.reason }
+                };
+            }
         }
         if (displayName) {
             const normalizedDisplay = normalizeForMatch(displayName);
@@ -93,43 +102,107 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             if (!found) {
                 found = publishers.find(p => normalizeForMatch(p.name) === normalizedDisplay);
             }
-            if (found) return { effectiveValue: found.id, foundPublisher: found };
+            if (found) {
+                const result = checkEligibility(
+                    found,
+                    modalidade as Parameters<typeof checkEligibility>[1],
+                    funcao,
+                    { date: part.date, isOracaoInicial, secao: part.section }
+                );
+                return {
+                    effectiveValue: found.id,
+                    foundPublisher: found,
+                    eligibilityInfo: { eligible: result.eligible, reason: result.reason }
+                };
+            }
         }
-        return { effectiveValue: '', foundPublisher: undefined };
-    }, [value, displayName, publishers]);
+        return { effectiveValue: '', foundPublisher: undefined, eligibilityInfo: undefined };
+    }, [value, displayName, publishers, part]);
 
     // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
     const showUnmatchedName = displayName && !foundPublisher;
 
+    // Construir texto do tooltip
+    const getTooltipText = () => {
+        if (!foundPublisher) return 'Nenhum publicador selecionado';
+
+        const lines = [
+            `📋 ${foundPublisher.name}`,
+            `👔 ${foundPublisher.condition}`,
+            `${foundPublisher.gender === 'brother' ? '👨 Irmão' : '👩 Irmã'}`,
+        ];
+
+        if (eligibilityInfo) {
+            if (eligibilityInfo.eligible) {
+                lines.push('', '✅ ELEGÍVEL para esta parte');
+            } else {
+                lines.push('', `❌ NÃO ELEGÍVEL: ${eligibilityInfo.reason}`);
+            }
+        }
+
+        return lines.join('\n');
+    };
+
     return (
-        <select
-            value={effectiveValue}
-            onChange={(e) => {
-                const id = e.target.value;
-                if (!id || id === '__unmatched__') {
-                    onChange('', ''); // Limpar seleção
-                } else {
-                    const pub = publishers.find(p => p.id === id);
-                    if (pub) onChange(pub.id, pub.name);
-                }
-            }}
-            disabled={disabled}
-            style={style}
-        >
-            <option value="">Selecione...</option>
-            {/* Se temos um nome não encontrado na lista, mostrar como opção selecionada */}
-            {showUnmatchedName && (
-                <option value="__unmatched__" disabled style={{ fontStyle: 'italic', color: '#9CA3AF' }}>
-                    ⚠️ {displayName} (não encontrado)
-                </option>
-            )}
-            {sortedOptions.map(p => {
-                return (
-                    <option key={p.id} value={p.id}>
-                        {p.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <select
+                value={effectiveValue}
+                onChange={(e) => {
+                    const id = e.target.value;
+                    if (!id || id === '__unmatched__') {
+                        onChange('', ''); // Limpar seleção
+                    } else {
+                        const pub = publishers.find(p => p.id === id);
+                        if (pub) onChange(pub.id, pub.name);
+                    }
+                }}
+                disabled={disabled}
+                style={style}
+            >
+                <option value="">Selecione...</option>
+                {/* Se temos um nome não encontrado na lista, mostrar como opção selecionada */}
+                {showUnmatchedName && (
+                    <option value="__unmatched__" disabled style={{ fontStyle: 'italic', color: '#9CA3AF' }}>
+                        ⚠️ {displayName} (não encontrado)
                     </option>
-                );
-            })}
-        </select>
+                )}
+                {sortedOptions.map(({ publisher: p, eligible, reason }) => {
+                    return (
+                        <option
+                            key={p.id}
+                            value={p.id}
+                            style={{
+                                color: eligible ? 'inherit' : '#9CA3AF',
+                                fontStyle: eligible ? 'normal' : 'italic'
+                            }}
+                            title={eligible ? '✅ Elegível' : `❌ ${reason}`}
+                        >
+                            {eligible ? '' : '⚠️ '}{p.name}
+                        </option>
+                    );
+                })}
+            </select>
+
+            {/* Ícone de ajuda com tooltip de elegibilidade */}
+            <span
+                title={getTooltipText()}
+                style={{
+                    cursor: 'help',
+                    background: eligibilityInfo?.eligible === false ? 'rgba(239, 68, 68, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                    color: eligibilityInfo?.eligible === false ? '#ef4444' : '#6b7280',
+                    borderRadius: '50%',
+                    width: '18px',
+                    height: '18px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    flexShrink: 0
+                }}
+            >
+                ?
+            </span>
+        </div>
     );
 };
