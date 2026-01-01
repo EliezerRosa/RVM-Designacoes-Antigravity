@@ -745,21 +745,17 @@ export function WorkbookManager({ publishers }: Props) {
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '13px' }}>
                     <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                         <tr style={{ background: '#4F46E5', color: 'white' }}>
-                            <th style={{ padding: '8px', width: '50px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Ano</th>
-                            <th style={{ padding: '8px', minWidth: '100px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Semana</th>
-                            <th style={{ padding: '8px', width: '50px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Seq</th>
-                            <th style={{ padding: '8px', minWidth: '100px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Seção</th>
-                            <th style={{ padding: '8px', minWidth: '120px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>TipoParte</th>
-                            <th style={{ padding: '8px', minWidth: '100px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Modalidade</th>
-                            <th style={{ padding: '8px', minWidth: '200px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>TituloParte</th>
+                            <th style={{ padding: '8px', minWidth: '80px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Semana</th>
+                            <th style={{ padding: '8px', minWidth: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Seção</th>
+                            <th style={{ padding: '8px', minWidth: '80px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>TipoParte</th>
+                            <th style={{ padding: '8px', width: '80px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Modalidade</th>
+                            <th style={{ padding: '8px', minWidth: '150px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>TituloParte</th>
                             <th style={{ padding: '8px', width: '50px', textAlign: 'center', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }} title="Descrição da Parte">📝</th>
                             <th style={{ padding: '8px', width: '50px', textAlign: 'center', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }} title="Detalhes da Parte">ℹ️</th>
-                            <th style={{ padding: '8px', width: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Dur</th>
-                            <th style={{ padding: '8px', width: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Ini</th>
-                            <th style={{ padding: '8px', width: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Fim</th>
-                            <th style={{ padding: '8px', minWidth: '90px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Função</th>
-                            <th style={{ padding: '8px', minWidth: '220px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Publicador</th>
-                            <th style={{ padding: '8px', minWidth: '110px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Status</th>
+                            <th style={{ padding: '8px', minWidth: '120px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Horário</th>
+                            <th style={{ padding: '8px', width: '80px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Função</th>
+                            <th style={{ padding: '8px', width: '15%', minWidth: '150px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Publicador</th>
+                            <th style={{ padding: '8px', width: '90px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -787,9 +783,7 @@ export function WorkbookManager({ publishers }: Props) {
                                     }}
                                     title={isPast ? '📅 Semana passada' : ''}
                                 >
-                                    <td style={{ padding: '8px', textAlign: 'center' }}>{part.year}</td>
                                     <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
-                                    <td style={{ padding: '8px', textAlign: 'center', color: '#1f2937', fontWeight: '500' }}>{part.seq}</td>
                                     <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
                                     <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
                                     <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>
@@ -812,9 +806,10 @@ export function WorkbookManager({ publishers }: Props) {
                                             </span>
                                         )}
                                     </td>
-                                    <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.duracao}</td>
-                                    <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaInicio}</td>
-                                    <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaFim}</td>
+                                    <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>
+                                        <div>{part.horaInicio} - {part.horaFim}</div>
+                                        <div style={{ fontSize: '10px', color: '#9CA3AF' }}>({part.duracao})</div>
+                                    </td>
                                     <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
                                     <td style={{ padding: '8px' }}>
                                         {/* Dropdown Inteligente */}
