@@ -739,21 +739,21 @@ export function WorkbookManager({ publishers }: Props) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                         <tr style={{ background: '#4F46E5', color: 'white' }}>
-                            <th style={{ padding: '8px' }}>Ano</th>
-                            <th style={{ padding: '8px' }}>Semana</th>
-                            <th style={{ padding: '8px' }}>Seq</th>
-                            <th style={{ padding: '8px' }}>Seção</th>
-                            <th style={{ padding: '8px' }}>TipoParte</th>
-                            <th style={{ padding: '8px' }}>Modalidade</th>
-                            <th style={{ padding: '8px' }}>TituloParte</th>
-                            <th style={{ padding: '8px' }}>DescricaoParte</th>
-                            <th style={{ padding: '8px' }}>DetalhesParte</th>
-                            <th style={{ padding: '8px' }}>Dur</th>
-                            <th style={{ padding: '8px' }}>Ini</th>
-                            <th style={{ padding: '8px' }}>Fim</th>
-                            <th style={{ padding: '8px' }}>Função</th>
-                            <th style={{ padding: '8px' }}>Publicador</th>
-                            <th style={{ padding: '8px' }}>Status</th>
+                            <th style={{ padding: '8px', width: '50px' }}>Ano</th>
+                            <th style={{ padding: '8px', minWidth: '100px' }}>Semana</th>
+                            <th style={{ padding: '8px', width: '50px' }}>Seq</th>
+                            <th style={{ padding: '8px', minWidth: '100px' }}>Seção</th>
+                            <th style={{ padding: '8px', minWidth: '120px' }}>TipoParte</th>
+                            <th style={{ padding: '8px', minWidth: '100px' }}>Modalidade</th>
+                            <th style={{ padding: '8px', minWidth: '200px' }}>TituloParte</th>
+                            <th style={{ padding: '8px', minWidth: '180px' }}>DescricaoParte</th>
+                            <th style={{ padding: '8px', minWidth: '120px' }}>DetalhesParte</th>
+                            <th style={{ padding: '8px', width: '60px' }}>Dur</th>
+                            <th style={{ padding: '8px', width: '60px' }}>Ini</th>
+                            <th style={{ padding: '8px', width: '60px' }}>Fim</th>
+                            <th style={{ padding: '8px', minWidth: '90px' }}>Função</th>
+                            <th style={{ padding: '8px', minWidth: '220px' }}>Publicador</th>
+                            <th style={{ padding: '8px', minWidth: '110px' }}>Status</th>
                         </tr>
                     </thead>
                     <tbody>
