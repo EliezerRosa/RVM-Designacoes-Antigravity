@@ -94,6 +94,10 @@ export function WorkbookManager({ publishers }: Props) {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingPart, setEditingPart] = useState<WorkbookPart | null>(null);
 
+    // Paginação
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 100;
+
 
     // ========================================================================
     // Persistir filtros no localStorage
@@ -105,6 +109,7 @@ export function WorkbookManager({ publishers }: Props) {
         localStorage.setItem('wm_filterStatus', filterStatus);
         localStorage.setItem('wm_filterFuncao', filterFuncao);
         localStorage.setItem('wm_searchText', searchText);
+        setCurrentPage(1); // Resetar página ao filtrar
     }, [filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText]);
 
     // ========================================================================
@@ -757,7 +762,7 @@ export function WorkbookManager({ publishers }: Props) {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredParts.map(part => {
+                        {filteredParts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(part => {
                             // SIMPLIFICADO: Usar apenas resolved_publisher_name
                             const displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
 
@@ -850,6 +855,29 @@ export function WorkbookManager({ publishers }: Props) {
                     </tbody>
                 </table>
             </div>
+
+            {/* Controles de Paginação */}
+            {filteredParts.length > itemsPerPage && (
+                <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        style={{ padding: '8px 16px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.5 : 1 }}
+                    >
+                        ⬅️ Anterior
+                    </button>
+                    <span>
+                        Página <strong>{currentPage}</strong> de <strong>{Math.ceil(filteredParts.length / itemsPerPage)}</strong>
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredParts.length / itemsPerPage), p + 1))}
+                        disabled={currentPage >= Math.ceil(filteredParts.length / itemsPerPage)}
+                        style={{ padding: '8px 16px', cursor: currentPage >= Math.ceil(filteredParts.length / itemsPerPage) ? 'not-allowed' : 'pointer', opacity: currentPage >= Math.ceil(filteredParts.length / itemsPerPage) ? 0.5 : 1 }}
+                    >
+                        Próxima ➡️
+                    </button>
+                </div>
+            )}
 
             <PartEditModal
                 isOpen={isEditModalOpen}
