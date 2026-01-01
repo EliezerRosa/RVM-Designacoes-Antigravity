@@ -3,6 +3,9 @@
  * Executar com: npx tsx scripts/update_part_status.ts
  */
 
+// Polyfill fetch para Node.js
+import 'cross-fetch/polyfill';
+
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://mxycvuzwwjnimvqdgyhd.supabase.co';
