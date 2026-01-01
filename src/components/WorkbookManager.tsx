@@ -96,7 +96,6 @@ export function WorkbookManager({ publishers }: Props) {
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 100;
 
 
     // ========================================================================
@@ -934,34 +933,23 @@ export function WorkbookManager({ publishers }: Props) {
                 </table>
             </div>
 
-            {/* Controles de Paginação */}
-            {filteredParts.length > itemsPerPage && (
-                <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
-                    <button
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        style={{ padding: '8px 16px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPage === 1 ? 0.5 : 1 }}
-                    >
-                        ⬅️ Anterior
-                    </button>
-                    <span>
-                        Página <strong>{currentPage}</strong> de <strong>{Math.ceil(filteredParts.length / itemsPerPage)}</strong>
-                    </span>
-                    <button
-                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredParts.length / itemsPerPage), p + 1))}
-                        disabled={currentPage >= Math.ceil(filteredParts.length / itemsPerPage)}
-                        style={{ padding: '8px 16px', cursor: currentPage >= Math.ceil(filteredParts.length / itemsPerPage) ? 'not-allowed' : 'pointer', opacity: currentPage >= Math.ceil(filteredParts.length / itemsPerPage) ? 0.5 : 1 }}
-                    >
-                        Próxima ➡️
-                    </button>
-                </div>
-            )}
-
             <PartEditModal
                 isOpen={isEditModalOpen}
                 part={editingPart}
                 onClose={() => setIsEditModalOpen(false)}
                 onSave={handleSaveEditPart}
+                onNavigate={(direction) => {
+                    if (!editingPart) return;
+                    const currentIndex = filteredParts.findIndex(p => p.id === editingPart.id);
+                    if (currentIndex === -1) return;
+
+                    const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+                    if (newIndex >= 0 && newIndex < filteredParts.length) {
+                        setEditingPart(filteredParts[newIndex]);
+                    }
+                }}
+                currentIndex={editingPart ? filteredParts.findIndex(p => p.id === editingPart.id) + 1 : 0}
+                totalCount={filteredParts.length}
             />
 
             {filteredParts.length === 0 && (

@@ -6,9 +6,12 @@ interface PartEditModalProps {
     part: WorkbookPart | null;
     onClose: () => void;
     onSave: (id: string, updates: Partial<WorkbookPart>) => Promise<void>;
+    onNavigate?: (direction: 'prev' | 'next') => void;
+    currentIndex?: number;
+    totalCount?: number;
 }
 
-export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onClose, onSave }) => {
+export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onClose, onSave, onNavigate, currentIndex, totalCount }) => {
     const [formData, setFormData] = useState<Partial<WorkbookPart>>({});
     const [loading, setLoading] = useState(false);
 
@@ -80,7 +83,9 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
         alignItems: 'center',
         padding: '16px 24px',
         borderBottom: '1px solid #E5E7EB',
+        position: 'relative' // Para permitir centralização absoluta da navegação se necessário, mas flex funciona bem
     };
+
 
     const bodyStyle: React.CSSProperties = {
         padding: '24px',
@@ -155,6 +160,28 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                     <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>
                         Editar Parte
                     </h3>
+
+                    {onNavigate && currentIndex && totalCount ? (
+                        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '12px', background: '#F3F4F6', padding: '4px 12px', borderRadius: '20px' }}>
+                            <button
+                                onClick={() => onNavigate('prev')}
+                                disabled={currentIndex <= 1}
+                                style={{ border: 'none', background: 'none', cursor: currentIndex <= 1 ? 'not-allowed' : 'pointer', opacity: currentIndex <= 1 ? 0.3 : 1, fontSize: '14px' }}
+                            >
+                                ⬅️
+                            </button>
+                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                                Parte {currentIndex} de {totalCount}
+                            </span>
+                            <button
+                                onClick={() => onNavigate('next')}
+                                disabled={currentIndex >= totalCount}
+                                style={{ border: 'none', background: 'none', cursor: currentIndex >= totalCount ? 'not-allowed' : 'pointer', opacity: currentIndex >= totalCount ? 0.3 : 1, fontSize: '14px' }}
+                            >
+                                ➡️
+                            </button>
+                        </div>
+                    ) : null}
                     <button
                         onClick={onClose}
                         style={{ border: 'none', background: 'transparent', fontSize: '24px', color: '#9CA3AF', cursor: 'pointer' }}
