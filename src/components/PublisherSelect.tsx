@@ -189,25 +189,30 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 })}
             </select>
 
-            {/* Ícone de ajuda com tooltip de elegibilidade */}
-            <span
-                title={getTooltipText()}
-                style={{
-                    cursor: 'help',
-                    background: eligibilityInfo?.eligible === false ? 'rgba(239, 68, 68, 0.2)' : 'rgba(107, 114, 128, 0.2)',
-                    color: eligibilityInfo?.eligible === false ? '#ef4444' : '#6b7280',
-                    borderRadius: '50%',
-                    width: '18px',
-                    height: '18px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    flexShrink: 0
-                }}
-            >
-                ?
+            {/* Ícone de ajuda com tooltip customizado de elegibilidade */}
+            <span className="tooltip-container">
+                <span
+                    style={{
+                        cursor: 'help',
+                        background: eligibilityInfo?.eligible === false ? 'rgba(239, 68, 68, 0.2)' : 'rgba(107, 114, 128, 0.2)',
+                        color: eligibilityInfo?.eligible === false ? '#ef4444' : '#6b7280',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        flexShrink: 0,
+                        border: eligibilityInfo?.eligible === false ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(107, 114, 128, 0.3)'
+                    }}
+                >
+                    ?
+                </span>
+                <span className="tooltip-content">
+                    {getTooltipText()}
+                </span>
             </span>
         </div>
     );
