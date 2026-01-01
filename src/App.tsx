@@ -8,8 +8,9 @@ import { api } from './services/api'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import WorkbookManager from './components/WorkbookManager'
 import ApprovalPanel from './components/ApprovalPanel'
+import BackupRestore from './components/BackupRestore'
 
-type ActiveTab = 'workbook' | 'approvals' | 'publishers'
+type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'backup'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('workbook')
@@ -77,7 +78,7 @@ function App() {
         }
 
         // Validate saved tab
-        const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers']
+        const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'backup']
         setActiveTab(validTabs.includes(savedTab) ? savedTab : 'workbook')
       } catch (error) {
         console.error("Critical error loading data", error)
@@ -202,6 +203,13 @@ function App() {
           >
             👥 Publicadores
           </button>
+          <button
+            className={`nav-btn ${activeTab === 'backup' ? 'active' : ''}`}
+            onClick={() => handleTabChange('backup')}
+            title="Backup e Restauração"
+          >
+            💾 Backup
+          </button>
         </nav>
       </header>
 
@@ -253,6 +261,11 @@ function App() {
               onClose={() => setShowDuplicateChecker(false)}
             />
           )}
+        </div>
+
+        {/* Backup */}
+        <div style={{ display: activeTab === 'backup' ? 'block' : 'none' }}>
+          <BackupRestore />
         </div>
       </main>
 
