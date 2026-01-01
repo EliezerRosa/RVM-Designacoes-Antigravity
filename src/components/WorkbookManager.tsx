@@ -740,25 +740,26 @@ export function WorkbookManager({ publishers }: Props) {
             )}
 
             {/* Tabela */}
-            <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
+            {/* Tabela com Scroll e Sticky Header */}
+            <div style={{ overflowX: 'auto', maxHeight: '75vh', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '8px' }}>
+                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '13px' }}>
+                    <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                         <tr style={{ background: '#4F46E5', color: 'white' }}>
-                            <th style={{ padding: '8px', width: '50px' }}>Ano</th>
-                            <th style={{ padding: '8px', minWidth: '100px' }}>Semana</th>
-                            <th style={{ padding: '8px', width: '50px' }}>Seq</th>
-                            <th style={{ padding: '8px', minWidth: '100px' }}>Seção</th>
-                            <th style={{ padding: '8px', minWidth: '120px' }}>TipoParte</th>
-                            <th style={{ padding: '8px', minWidth: '100px' }}>Modalidade</th>
-                            <th style={{ padding: '8px', minWidth: '200px' }}>TituloParte</th>
-                            <th style={{ padding: '8px', width: '50px', textAlign: 'center' }} title="Descrição da Parte">📝</th>
-                            <th style={{ padding: '8px', width: '50px', textAlign: 'center' }} title="Detalhes da Parte">ℹ️</th>
-                            <th style={{ padding: '8px', width: '60px' }}>Dur</th>
-                            <th style={{ padding: '8px', width: '60px' }}>Ini</th>
-                            <th style={{ padding: '8px', width: '60px' }}>Fim</th>
-                            <th style={{ padding: '8px', minWidth: '90px' }}>Função</th>
-                            <th style={{ padding: '8px', minWidth: '220px' }}>Publicador</th>
-                            <th style={{ padding: '8px', minWidth: '110px' }}>Status</th>
+                            <th style={{ padding: '8px', width: '50px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Ano</th>
+                            <th style={{ padding: '8px', minWidth: '100px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Semana</th>
+                            <th style={{ padding: '8px', width: '50px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Seq</th>
+                            <th style={{ padding: '8px', minWidth: '100px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Seção</th>
+                            <th style={{ padding: '8px', minWidth: '120px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>TipoParte</th>
+                            <th style={{ padding: '8px', minWidth: '100px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Modalidade</th>
+                            <th style={{ padding: '8px', minWidth: '200px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>TituloParte</th>
+                            <th style={{ padding: '8px', width: '50px', textAlign: 'center', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }} title="Descrição da Parte">📝</th>
+                            <th style={{ padding: '8px', width: '50px', textAlign: 'center', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }} title="Detalhes da Parte">ℹ️</th>
+                            <th style={{ padding: '8px', width: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Dur</th>
+                            <th style={{ padding: '8px', width: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Ini</th>
+                            <th style={{ padding: '8px', width: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Fim</th>
+                            <th style={{ padding: '8px', minWidth: '90px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Função</th>
+                            <th style={{ padding: '8px', minWidth: '220px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Publicador</th>
+                            <th style={{ padding: '8px', minWidth: '110px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Status</th>
                         </tr>
                     </thead>
                     <tbody>
