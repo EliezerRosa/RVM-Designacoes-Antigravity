@@ -645,18 +645,18 @@ export function WorkbookManager({ publishers }: Props) {
 
             {/* Header Unificado: Ações e Filtros */}
             <div style={{
-                marginBottom: '20px',
+                marginBottom: '16px',
                 background: '#fff',
-                padding: '16px',
-                borderRadius: '12px',
+                padding: '12px',
+                borderRadius: '8px',
                 border: '1px solid #E5E7EB',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '16px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                gap: '12px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}>
                 {/* Linha Superior: Upload e Ações Principais */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                     {/* Upload Button Disfarçado */}
                     <div>
                         <input
@@ -674,11 +674,11 @@ export function WorkbookManager({ publishers }: Props) {
                                 fontWeight: '600',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px',
-                                fontSize: '14px',
-                                padding: '8px 12px',
+                                gap: '6px',
+                                fontSize: '13px',
+                                padding: '6px 10px',
                                 background: '#EEF2FF',
-                                borderRadius: '6px'
+                                borderRadius: '4px'
                             }}
                         >
                             📊 Carregar Excel
@@ -692,21 +692,21 @@ export function WorkbookManager({ publishers }: Props) {
                         const safePage = Math.min(Math.max(currentPage, 1), totalPages);
 
                         return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F3F4F6', padding: '6px 12px', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F3F4F6', padding: '4px 10px', borderRadius: '6px' }}>
                                 <button
                                     onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
                                     disabled={safePage === 1}
-                                    style={{ border: 'none', background: 'none', cursor: safePage === 1 ? 'not-allowed' : 'pointer', opacity: safePage === 1 ? 0.3 : 1, fontSize: '16px' }}
+                                    style={{ border: 'none', background: 'none', cursor: safePage === 1 ? 'not-allowed' : 'pointer', opacity: safePage === 1 ? 0.3 : 1, fontSize: '14px' }}
                                 >
                                     ⬅️
                                 </button>
-                                <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>
+                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
                                     Semana {safePage} de {totalPages}
                                 </span>
                                 <button
                                     onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
                                     disabled={safePage === totalPages}
-                                    style={{ border: 'none', background: 'none', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', opacity: safePage === totalPages ? 0.3 : 1, fontSize: '16px' }}
+                                    style={{ border: 'none', background: 'none', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', opacity: safePage === totalPages ? 0.3 : 1, fontSize: '14px' }}
                                 >
                                     ➡️
                                 </button>
@@ -716,10 +716,10 @@ export function WorkbookManager({ publishers }: Props) {
 
                     {/* Botões de Ação */}
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>
+                        <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '6px 12px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
                             🔄 Atualizar
                         </button>
-                        <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>
+                        <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '6px 12px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
                             🎯 Gerar
                         </button>
                         {filterWeek && (
@@ -729,7 +729,7 @@ export function WorkbookManager({ publishers }: Props) {
                                     downloadS140(weekParts);
                                 }}
                                 disabled={loading || !filterWeek}
-                                style={{ padding: '8px 16px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>
+                                style={{ padding: '6px 12px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
                                 📋 S-140
                             </button>
                         )}
@@ -743,25 +743,35 @@ export function WorkbookManager({ publishers }: Props) {
                         placeholder="🔍 Buscar..."
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
-                        style={{ padding: '8px 12px', width: '200px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}
+                        style={{ padding: '6px 10px', width: '180px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}
                     />
-                    <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '8px', minWidth: '200px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                    <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '6px', minWidth: '180px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
                         <option value="">Todas as semanas</option>
-                        {uniqueWeeks.map(w => (
-                            <option key={w.weekId} value={w.weekId}>
-                                {w.year} | {w.weekId} | {w.weekDisplay}
-                            </option>
-                        ))}
+                        {uniqueWeeks.map(w => {
+                            // FORMATO COMPACTO: YYYY | dd-dd MMMMM-MMMMM
+                            // Input: w.weekDisplay = "29-4 de Janeiro-Fevereiro" (assumido do parser) ou similar
+                            const cleanDisplay = w.weekDisplay.replace(/\bde\s+/gi, '').replace(/\s+/g, ' ').trim();
+                            return (
+                                <option key={w.weekId} value={w.weekId}>
+                                    {w.year} | {cleanDisplay}
+                                </option>
+                            );
+                        })}
                     </select>
-                    <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                    <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
                         <option value="">Seção: Todas</option>
                         {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                    <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
+                        <option value="">Função: Todas</option>
+                        <option value="Titular">Titular</option>
+                        <option value="Ajudante">Ajudante</option>
+                    </select>
+                    <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
                         <option value="">Tipo: Todos</option>
                         {uniqueTipos.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
                         <option value="">Status: Todos</option>
                         <option value="PENDENTE">Pendente</option>
                         <option value="PROPOSTA">Proposta</option>
@@ -769,11 +779,6 @@ export function WorkbookManager({ publishers }: Props) {
                         <option value="DESIGNADA">Designada</option>
                         <option value="REJEITADA">Rejeitada</option>
                         <option value="CONCLUIDA">Concluída</option>
-                    </select>
-                    <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
-                        <option value="">Função: Todas</option>
-                        <option value="Titular">Titular</option>
-                        <option value="Ajudante">Ajudante</option>
                     </select>
                 </div>
             </div>
