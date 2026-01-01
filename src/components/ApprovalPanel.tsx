@@ -475,10 +475,16 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                 <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     {part.tipoParte} {part.tituloParte ? `- ${part.tituloParte}` : ''}
                                                     {part.descricaoParte && (
-                                                        <span title={part.descricaoParte} style={{ cursor: 'help', fontSize: '0.8em' }}>📝</span>
+                                                        <span className="tooltip-container">
+                                                            <span style={{ cursor: 'help', fontSize: '0.9em' }}>📝</span>
+                                                            <span className="tooltip-content">{part.descricaoParte}</span>
+                                                        </span>
                                                     )}
                                                     {part.detalhesParte && (
-                                                        <span title={part.detalhesParte} style={{ cursor: 'help', fontSize: '0.8em' }}>ℹ️</span>
+                                                        <span className="tooltip-container">
+                                                            <span style={{ cursor: 'help', fontSize: '0.9em' }}>ℹ️</span>
+                                                            <span className="tooltip-content">{part.detalhesParte}</span>
+                                                        </span>
                                                     )}
                                                 </div>
                                                 <div style={{ marginTop: '8px', color: '#d1d5db', display: 'flex', alignItems: 'center', gap: '10px' }}>
