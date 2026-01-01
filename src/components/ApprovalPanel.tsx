@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { workbookService } from '../services/workbookService';
 import { type WorkbookPart, WorkbookStatus, type Publisher } from '../types';
 import { PublisherSelect } from './PublisherSelect';
+import { Tooltip } from './Tooltip';
 
 interface ApprovalPanelProps {
     elderId?: string;
@@ -475,16 +476,14 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                 <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     {part.tipoParte} {part.tituloParte ? `- ${part.tituloParte}` : ''}
                                                     {part.descricaoParte && (
-                                                        <span className="tooltip-container">
+                                                        <Tooltip content={part.descricaoParte}>
                                                             <span style={{ cursor: 'help', fontSize: '0.9em' }}>📝</span>
-                                                            <span className="tooltip-content">{part.descricaoParte}</span>
-                                                        </span>
+                                                        </Tooltip>
                                                     )}
                                                     {part.detalhesParte && (
-                                                        <span className="tooltip-container">
+                                                        <Tooltip content={part.detalhesParte}>
                                                             <span style={{ cursor: 'help', fontSize: '0.9em' }}>ℹ️</span>
-                                                            <span className="tooltip-content">{part.detalhesParte}</span>
-                                                        </span>
+                                                        </Tooltip>
                                                     )}
                                                 </div>
                                                 <div style={{ marginTop: '8px', color: '#d1d5db', display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart } from '../types';
 import { checkEligibility } from '../services/eligibilityService';
 import { EnumModalidade, EnumFuncao } from '../types';
+import { Tooltip } from './Tooltip';
 
 interface PublisherSelectProps {
     part: WorkbookPart;
@@ -189,8 +190,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 })}
             </select>
 
-            {/* Ícone de ajuda com tooltip customizado de elegibilidade */}
-            <span className="tooltip-container">
+            {/* Ícone de ajuda com tooltip dinâmico de elegibilidade */}
+            <Tooltip content={getTooltipText()}>
                 <span
                     style={{
                         cursor: 'help',
@@ -210,10 +211,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 >
                     ?
                 </span>
-                <span className="tooltip-content">
-                    {getTooltipText()}
-                </span>
-            </span>
+            </Tooltip>
         </div>
     );
 };
