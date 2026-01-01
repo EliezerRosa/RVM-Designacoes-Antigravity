@@ -638,7 +638,7 @@ export function WorkbookManager({ publishers }: Props) {
     };
 
     return (
-        <div style={{ padding: '20px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ padding: '12px 20px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
 
 
             {/* Mensagens */}
@@ -657,18 +657,18 @@ export function WorkbookManager({ publishers }: Props) {
 
             {/* Header Unificado: Ações e Filtros */}
             <div style={{
-                marginBottom: '16px',
+                marginBottom: '8px',
                 background: '#fff',
-                padding: '12px',
-                borderRadius: '8px',
+                padding: '8px 12px',
+                borderRadius: '6px',
                 border: '1px solid #E5E7EB',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px',
+                gap: '6px',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}>
                 {/* Linha Superior: Upload e Ações Principais */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                     {/* Upload Button Disfarçado */}
                     <div>
                         <input
@@ -686,9 +686,9 @@ export function WorkbookManager({ publishers }: Props) {
                                 fontWeight: '600',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px',
-                                fontSize: '13px',
-                                padding: '6px 10px',
+                                gap: '4px',
+                                fontSize: '12px',
+                                padding: '4px 8px',
                                 background: '#EEF2FF',
                                 borderRadius: '4px'
                             }}
@@ -704,7 +704,7 @@ export function WorkbookManager({ publishers }: Props) {
                         const safePage = Math.min(Math.max(currentPage, 1), totalPages);
 
                         return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F3F4F6', padding: '4px 10px', borderRadius: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F3F4F6', padding: '2px 8px', borderRadius: '4px' }}>
                                 <button
                                     onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
                                     disabled={safePage === 1}
@@ -727,11 +727,11 @@ export function WorkbookManager({ publishers }: Props) {
                     })()}
 
                     {/* Botões de Ação */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '6px 12px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                             🔄 Atualizar
                         </button>
-                        <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '6px 12px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
+                        <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                             🎯 Gerar
                         </button>
                         {filterWeek && (
@@ -749,7 +749,7 @@ export function WorkbookManager({ publishers }: Props) {
                 </div>
 
                 {/* Linha Inferior: Filtros e Busca */}
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <input
                         type="text"
                         placeholder="🔍 Buscar..."
