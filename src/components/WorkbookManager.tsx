@@ -685,13 +685,42 @@ export function WorkbookManager({ publishers }: Props) {
                         </label>
                     </div>
 
+                    {/* Paginação Central */}
+                    {(() => {
+                        const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort();
+                        const totalPages = currentFilteredWeeks.length || 1;
+                        const safePage = Math.min(Math.max(currentPage, 1), totalPages);
+
+                        return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#F3F4F6', padding: '6px 12px', borderRadius: '8px' }}>
+                                <button
+                                    onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
+                                    disabled={safePage === 1}
+                                    style={{ border: 'none', background: 'none', cursor: safePage === 1 ? 'not-allowed' : 'pointer', opacity: safePage === 1 ? 0.3 : 1, fontSize: '16px' }}
+                                >
+                                    ⬅️
+                                </button>
+                                <span style={{ fontSize: '13px', fontWeight: '600', color: '#374151' }}>
+                                    Semana {safePage} de {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
+                                    disabled={safePage === totalPages}
+                                    style={{ border: 'none', background: 'none', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', opacity: safePage === totalPages ? 0.3 : 1, fontSize: '16px' }}
+                                >
+                                    ➡️
+                                </button>
+                            </div>
+                        );
+                    })()}
+
                     {/* Botões de Ação */}
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>
-                            🔄 Atualizar Dados
+                            🔄 Atualizar
                         </button>
                         <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>
-                            🎯 Gerar Designações
+                            🎯 Gerar
                         </button>
                         {filterWeek && (
                             <button
@@ -700,8 +729,7 @@ export function WorkbookManager({ publishers }: Props) {
                                     downloadS140(weekParts);
                                 }}
                                 disabled={loading || !filterWeek}
-                                style={{ padding: '8px 16px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}
-                            >
+                                style={{ padding: '8px 16px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>
                                 📋 S-140
                             </button>
                         )}
@@ -780,103 +808,123 @@ export function WorkbookManager({ publishers }: Props) {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredParts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(part => {
-                            // SIMPLIFICADO: Usar apenas resolved_publisher_name
-                            const displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
+                        {(() => {
+                            // Lógica de Paginação por Semana
+                            // 1. Identificar semanas presentes nos dados filtrados
+                            const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort();
+                            const totalPages = currentFilteredWeeks.length || 1;
+                            const safePage = Math.min(Math.max(currentPage, 1), totalPages);
 
-                            // Tentar encontrar ID pelo nome
-                            let currentPubId = '';
-                            if (displayRaw) {
-                                const found = publishers.find(p => p.name === displayRaw);
-                                if (found) currentPubId = found.id;
+                            // Se a página mudou devido a filtros, atualizar estado (efeito colateral controlado)
+                            if (currentPage !== safePage && currentPage > 1) {
+                                // Nota: Idealmente isso seria um useEffect, mas para renderização direta funciona se gerenciarmos o display
+                                // Vamos apenas usar o safePage para renderizar
                             }
 
-                            // Determinar se é semana passada (restringe ações)
-                            const isPast = isPartInPastWeek(part.date);
+                            const targetWeekId = currentFilteredWeeks[safePage - 1];
+                            const partsToRender = targetWeekId ? filteredParts.filter(p => p.weekId === targetWeekId) : [];
 
-                            return (
-                                <tr
-                                    key={part.id}
-                                    style={{
-                                        background: sectionColors[part.section] || 'white',
-                                        color: '#1f2937',
-                                        borderLeft: isPast ? '3px solid #9CA3AF' : 'none'
-                                    }}
-                                    title={isPast ? '📅 Semana passada' : ''}
-                                >
-                                    <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.weekDisplay}</td>
-                                    <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
-                                    <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
-                                    <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>
-                                        {part.modalidade}
-                                    </td>
-                                    <td style={{ padding: '8px' }}>
-                                        <div style={{ fontWeight: '500', color: '#1f2937' }} title={part.tituloParte}>{part.tituloParte}</div>
-                                    </td>
-                                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                                        {part.descricaoParte && (
-                                            <span style={{ cursor: 'help', fontSize: '14px' }} title={part.descricaoParte}>
-                                                📝
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                                        {part.detalhesParte && (
-                                            <span style={{ cursor: 'help', fontSize: '14px' }} title={part.detalhesParte}>
-                                                ℹ️
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>
-                                        <div>{part.horaInicio} - {part.horaFim}</div>
-                                        <div style={{ fontSize: '10px', color: '#9CA3AF' }}>({part.duracao})</div>
-                                    </td>
-                                    <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
-                                    <td style={{ padding: '8px' }}>
-                                        {/* Dropdown Inteligente */}
-                                        <PublisherSelect
-                                            part={part}
-                                            publishers={publishers}
-                                            value={currentPubId}
-                                            displayName={displayRaw}
-                                            onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
-                                            style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
-                                        />
-                                    </td>
-                                    <td style={{ padding: '8px', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                                            {(() => {
-                                                const config = getStatusConfig(part.status);
-                                                return (
-                                                    <span style={{
-                                                        padding: '2px 8px',
-                                                        borderRadius: '12px',
-                                                        fontSize: '11px',
-                                                        background: config.bg,
-                                                        color: config.text,
-                                                        border: `1px solid ${config.border}`,
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        fontWeight: '600',
-                                                    }}>
-                                                        {config.icon} {config.label}
-                                                    </span>
-                                                );
-                                            })()}
-                                            <button
-                                                onClick={() => handleEditPart(part)}
-                                                className="text-gray-400 hover:text-blue-600 transition-colors"
-                                                title="Editar Parte"
-                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
-                                            >
-                                                ✏️
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                            return partsToRender.map(part => {
+                                // SIMPLIFICADO: Usar apenas resolved_publisher_name
+                                const displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
+
+                                // Tentar encontrar ID pelo nome
+                                let currentPubId = '';
+                                if (displayRaw) {
+                                    const found = publishers.find(p => p.name === displayRaw);
+                                    if (found) currentPubId = found.id;
+                                }
+
+                                // Determinar se é semana passada (restringe ações)
+                                const isPast = isPartInPastWeek(part.date);
+
+                                return (
+                                    <tr
+                                        key={part.id}
+                                        style={{
+                                            background: sectionColors[part.section] || 'white',
+                                            color: '#1f2937',
+                                            borderLeft: isPast ? '3px solid #9CA3AF' : 'none'
+                                        }}
+                                        title={isPast ? '📅 Semana passada' : ''}
+                                    >
+                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>
+                                            <div style={{ fontSize: '10px', color: '#6B7280', marginBottom: '2px' }}>{part.year}</div>
+                                            <div>{part.weekDisplay}</div>
+                                        </td>
+                                        <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
+                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
+                                        <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>
+                                            {part.modalidade}
+                                        </td>
+                                        <td style={{ padding: '8px' }}>
+                                            <div style={{ fontWeight: '500', color: '#1f2937' }} title={part.tituloParte}>{part.tituloParte}</div>
+                                        </td>
+                                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                                            {part.descricaoParte && (
+                                                <span style={{ cursor: 'help', fontSize: '14px' }} title={part.descricaoParte}>
+                                                    📝
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                                            {part.detalhesParte && (
+                                                <span style={{ cursor: 'help', fontSize: '14px' }} title={part.detalhesParte}>
+                                                    ℹ️
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>
+                                            <div>{part.horaInicio} - {part.horaFim}</div>
+                                            <div style={{ fontSize: '10px', color: '#9CA3AF' }}>({part.duracao})</div>
+                                        </td>
+                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
+                                        <td style={{ padding: '8px' }}>
+                                            {/* Dropdown Inteligente */}
+                                            <PublisherSelect
+                                                part={part}
+                                                publishers={publishers}
+                                                value={currentPubId}
+                                                displayName={displayRaw}
+                                                onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
+                                                style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                                                {(() => {
+                                                    const config = getStatusConfig(part.status);
+                                                    return (
+                                                        <span style={{
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '11px',
+                                                            background: config.bg,
+                                                            color: config.text,
+                                                            border: `1px solid ${config.border}`,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            fontWeight: '600',
+                                                        }}>
+                                                            {config.icon} {config.label}
+                                                        </span>
+                                                    );
+                                                })()}
+                                                <button
+                                                    onClick={() => handleEditPart(part)}
+                                                    className="text-gray-400 hover:text-blue-600 transition-colors"
+                                                    title="Editar Parte"
+                                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                                >
+                                                    ✏️
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            });
+                        })()}
                     </tbody>
                 </table>
             </div>
