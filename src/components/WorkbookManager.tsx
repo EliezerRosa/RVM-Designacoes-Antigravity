@@ -878,15 +878,17 @@ export function WorkbookManager({ publishers }: Props) {
                                         </td>
                                         <td style={{ padding: '4px', textAlign: 'center' }}>
                                             {part.descricaoParte && (
-                                                <span style={{ cursor: 'help', fontSize: '14px' }} title={part.descricaoParte}>
-                                                    📝
+                                                <span className="tooltip-container">
+                                                    <span style={{ cursor: 'help', fontSize: '14px' }}>📝</span>
+                                                    <span className="tooltip-content">{part.descricaoParte}</span>
                                                 </span>
                                             )}
                                         </td>
                                         <td style={{ padding: '4px', textAlign: 'center' }}>
                                             {part.detalhesParte && (
-                                                <span style={{ cursor: 'help', fontSize: '14px' }} title={part.detalhesParte}>
-                                                    ℹ️
+                                                <span className="tooltip-container">
+                                                    <span style={{ cursor: 'help', fontSize: '14px' }}>ℹ️</span>
+                                                    <span className="tooltip-content">{part.detalhesParte}</span>
                                                 </span>
                                             )}
                                         </td>
@@ -972,21 +974,23 @@ export function WorkbookManager({ publishers }: Props) {
 
             <div style={{ marginTop: '16px', color: '#6B7280', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 Mostrando {filteredParts.length} de {parts.length} partes
-                <span
-                    title="Partes como Cânticos, Comentários Iniciais/Finais, Oração Inicial e Elogios são ocultadas por serem gerenciadas automaticamente."
-                    style={{
-                        cursor: 'help',
-                        background: 'rgba(107, 114, 128, 0.2)',
-                        borderRadius: '50%',
-                        width: '16px',
-                        height: '16px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11px'
-                    }}
-                >
-                    ?
+                <span className="tooltip-container">
+                    <span
+                        style={{
+                            cursor: 'help',
+                            background: 'rgba(107, 114, 128, 0.2)',
+                            borderRadius: '50%',
+                            width: '18px',
+                            height: '18px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px'
+                        }}
+                    >
+                        ?
+                    </span>
+                    <span className="tooltip-content">Partes como Cânticos, Comentários Iniciais/Finais, Oração Inicial e Elogios são ocultadas por serem gerenciadas automaticamente.</span>
                 </span>
             </div>
             {loading && (
