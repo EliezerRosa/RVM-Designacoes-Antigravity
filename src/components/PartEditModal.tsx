@@ -26,6 +26,7 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                 duracao: part.duracao,
                 horaInicio: part.horaInicio,
                 modalidade: part.modalidade,
+                status: part.status,
             });
         }
     }, [part]);
@@ -192,7 +193,7 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
 
                 <form onSubmit={handleSubmit} style={bodyStyle}>
 
-                    {/* Linha 1: Semana e Horário */}
+                    {/* Linha 1: Semana e Status */}
                     <div style={rowStyle}>
                         <div>
                             <label style={labelStyle}>Semana (ID)</label>
@@ -204,13 +205,20 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                             />
                         </div>
                         <div>
-                            <label style={labelStyle}>Horário Início</label>
-                            <input
-                                type="time"
-                                value={formData.horaInicio || ''}
-                                onChange={e => handleChange('horaInicio', e.target.value)}
+                            <label style={labelStyle}>Status</label>
+                            <select
+                                value={formData.status || ''}
+                                onChange={e => handleChange('status', e.target.value)}
                                 style={inputStyle}
-                            />
+                            >
+                                <option value="PENDENTE">PENDENTE</option>
+                                <option value="PROPOSTA">PROPOSTA</option>
+                                <option value="APROVADA">APROVADA</option>
+                                <option value="DESIGNADA">DESIGNADA</option>
+                                <option value="REJEITADA">REJEITADA</option>
+                                <option value="CONCLUIDA">CONCLUIDA</option>
+                                <option value="CANCELADA">CANCELADA</option>
+                            </select>
                         </div>
                     </div>
 
@@ -261,8 +269,17 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                         />
                     </div>
 
-                    {/* Linha 5: Duração e Modalidade */}
-                    <div style={rowStyle}>
+                    {/* Linha 5: Horário, Duração e Modalidade */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                        <div>
+                            <label style={labelStyle}>Horário Início</label>
+                            <input
+                                type="time"
+                                value={formData.horaInicio || ''}
+                                onChange={e => handleChange('horaInicio', e.target.value)}
+                                style={inputStyle}
+                            />
+                        </div>
                         <div>
                             <label style={labelStyle}>Duração (minutos)</label>
                             <input
