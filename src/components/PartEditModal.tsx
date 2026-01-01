@@ -5,7 +5,7 @@ interface PartEditModalProps {
     isOpen: boolean;
     part: WorkbookPart | null;
     onClose: () => void;
-    onSave: (id: string, updates: Partial<WorkbookPart>) => Promise<void>;
+    onSave: (id: string, updates: Partial<WorkbookPart>, applyToWeek?: boolean) => Promise<void>;
     onNavigate?: (direction: 'prev' | 'next') => void;
     currentIndex?: number;
     totalCount?: number;
@@ -13,6 +13,7 @@ interface PartEditModalProps {
 
 export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onClose, onSave, onNavigate, currentIndex, totalCount }) => {
     const [formData, setFormData] = useState<Partial<WorkbookPart>>({});
+    const [applyToWeek, setApplyToWeek] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -28,6 +29,8 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                 modalidade: part.modalidade,
                 status: part.status,
             });
+            // Resetar checkbox sempre que abrir nova parte
+            setApplyToWeek(false);
         }
     }, [part]);
 
@@ -37,7 +40,7 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
         e.preventDefault();
         setLoading(true);
         try {
-            await onSave(part.id, formData);
+            await onSave(part.id, formData, applyToWeek);
             onClose();
         } catch (error) {
             console.error('Erro ao salvar:', error);
@@ -219,6 +222,23 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                                 <option value="CONCLUIDA">CONCLUIDA</option>
                                 <option value="CANCELADA">CANCELADA</option>
                             </select>
+
+                            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <input
+                                    type="checkbox"
+                                    id="applyToWeek"
+                                    checked={applyToWeek}
+                                    onChange={(e) => setApplyToWeek(e.target.checked)}
+                                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                />
+                                <label
+                                    htmlFor="applyToWeek"
+                                    style={{ fontSize: '13px', color: '#4B5563', cursor: 'pointer', userSelect: 'none' }}
+                                    title="Atenção: Isso mudará o status de TODAS as partes desta semana para o selecionado acima."
+                                >
+                                    Aplicar a toda a semana
+                                </label>
+                            </div>
                         </div>
                     </div>
 

@@ -604,22 +604,34 @@ export function WorkbookManager({ publishers }: Props) {
         setIsEditModalOpen(true);
     };
 
-    const handleSaveEditPart = async (id: string, updates: Partial<WorkbookPart>) => {
+    const handleSaveEditPart = async (id: string, updates: Partial<WorkbookPart>, applyToWeek?: boolean) => {
         try {
+            // 1. Atualizar a parte individual (Fluxo normal)
             const updatedPart = await workbookService.updatePart(id, updates);
 
-            // Atualizar estado local imediatamente
-            setParts(prev => prev.map(p => p.id === id ? updatedPart : p));
+            // 2. Se a flag applyToWeek estiver ativa, atualizar toda a semana
+            if (applyToWeek && updates.status && updatedPart.weekId) {
+                console.log(`[WorkbookManager] 🔄 Aplicando status '${updates.status}' para toda a semana ${updatedPart.weekId}`);
+                await workbookService.updateWeekStatus(updatedPart.weekId, updates.status);
 
-            // Se mudou o nome do presidente, pode ter afetado outras partes, então recarregar é mais seguro?
-            // Mas queremos realtime. O service já retorna a parte atualizada.
-            // Se mudou o nome do presidente, o syncChairmanAssignments correu no background.
-            // Ideal seria ouvir o realtime, mas vamos atualizar o local pelo menos.
+                // Atualizar estado local para TODAS as partes da semana
+                setParts(prev => prev.map(p =>
+                    p.weekId === updatedPart.weekId
+                        ? { ...p, status: updates.status! } // ! seguro pois verificamos if updates.status
+                        : p
+                ));
+
+                // Atualizar também a parte atual no loop (já que o updatePart retorna ela atualizada, mas aqui ajustamos tudo)
+                // O map acima já cuida disso se a parte atual tiver o mesmo weekId (dã, tem)
+            } else {
+                // Atualização Individual Apenas
+                setParts(prev => prev.map(p => p.id === id ? updatedPart : p));
+            }
 
             // Fechar modal é feito no componente modal ao chamar onSave com sucesso
         } catch (error) {
             console.error('Erro ao salvar parte:', error);
-            alert('Erro ao salvar alterações.');
+            alert('Erro ao salvar alterações: ' + (error instanceof Error ? error.message : String(error)));
             throw error; // Repassar erro para o modal lidar (loading state)
         }
     };
