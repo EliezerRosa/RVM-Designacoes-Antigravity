@@ -1,9 +1,10 @@
 /**
  * Tooltip Component - Posicionamento dinâmico para não ser cortado
  * Usa position:fixed e calcula posição baseada na viewport
+ * COMPORTAMENTO: Click toggle (clique para abrir, clique novamente para fechar)
  */
 
-import { useState, useRef, useCallback, type ReactNode, type CSSProperties } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactNode, type CSSProperties } from 'react';
 
 interface TooltipProps {
     content: ReactNode;
@@ -75,24 +76,57 @@ export function Tooltip({ content, children, triggerStyle, triggerClassName }: T
         setPosition({ top, left });
     }, []);
 
-    const handleMouseEnter = useCallback(() => {
-        setIsVisible(true);
-        // Calcular posição imediatamente e novamente após render
-        calculatePosition();
-        requestAnimationFrame(calculatePosition);
+    // Click toggle handler
+    const handleClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation(); // Evitar propagação do click
+        setIsVisible(prev => {
+            const newVisible = !prev;
+            if (newVisible) {
+                // Calcular posição ao abrir
+                requestAnimationFrame(calculatePosition);
+            }
+            return newVisible;
+        });
     }, [calculatePosition]);
 
-    const handleMouseLeave = useCallback(() => {
-        setIsVisible(false);
-    }, []);
+    // Fechar ao clicar fora
+    useEffect(() => {
+        if (!isVisible) return;
+
+        const handleClickOutside = (e: MouseEvent) => {
+            if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+                setIsVisible(false);
+            }
+        };
+
+        // Fechar ao scrollar
+        const handleScroll = () => {
+            setIsVisible(false);
+        };
+
+        document.addEventListener('click', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [isVisible]);
+
+    // Recalcular posição quando visível
+    useEffect(() => {
+        if (isVisible) {
+            calculatePosition();
+            requestAnimationFrame(calculatePosition);
+        }
+    }, [isVisible, calculatePosition]);
 
     return (
         <span
             ref={triggerRef}
             className={triggerClassName}
-            style={{ ...triggerStyle, position: 'relative', display: 'inline-flex' }}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            style={{ ...triggerStyle, position: 'relative', display: 'inline-flex', cursor: 'pointer' }}
+            onClick={handleClick}
         >
             {children}
             {isVisible && (
@@ -119,8 +153,9 @@ export function Tooltip({ content, children, triggerStyle, triggerClassName }: T
                         minWidth: '220px',
                         maxWidth: 'min(320px, calc(100vw - 40px))',
                         boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3), 0 4px 10px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1)',
-                        pointerEvents: 'none',
+                        pointerEvents: 'auto', // Permitir interação com o tooltip
                     }}
+                    onClick={(e) => e.stopPropagation()} // Evitar fechar ao clicar no tooltip
                 >
                     {content}
                 </span>
