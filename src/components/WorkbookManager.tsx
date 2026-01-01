@@ -627,7 +627,7 @@ export function WorkbookManager({ publishers }: Props) {
 
     return (
         <div style={{ padding: '20px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
-            <h2 style={{ marginBottom: '20px' }}>📖 Gerenciador de Apostila</h2>
+
 
             {/* Mensagens */}
             {error && (
@@ -643,90 +643,111 @@ export function WorkbookManager({ publishers }: Props) {
                 </div>
             )}
 
-            {/* Upload Options - APENAS EXCEL */}
-            <div style={{ marginBottom: '20px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                {/* Excel Upload */}
-                <div style={{ padding: '20px', border: '2px dashed #CBD5E1', borderRadius: '12px', textAlign: 'center', minWidth: '200px' }}>
-                    <input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={handleFileUpload}
-                        style={{ display: 'none' }}
-                        id="workbook-excel-upload"
-                    />
-                    <label htmlFor="workbook-excel-upload" style={{ cursor: 'pointer', color: '#4F46E5', fontWeight: 'bold' }}>
-                        📊 Carregar Planilha Excel
-                    </label>
+            {/* Header Unificado: Ações e Filtros */}
+            <div style={{
+                marginBottom: '20px',
+                background: '#fff',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid #E5E7EB',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
+                {/* Linha Superior: Upload e Ações Principais */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                    {/* Upload Button Disfarçado */}
+                    <div>
+                        <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={handleFileUpload}
+                            style={{ display: 'none' }}
+                            id="workbook-excel-upload"
+                        />
+                        <label
+                            htmlFor="workbook-excel-upload"
+                            style={{
+                                cursor: 'pointer',
+                                color: '#4F46E5',
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                fontSize: '14px',
+                                padding: '8px 12px',
+                                background: '#EEF2FF',
+                                borderRadius: '6px'
+                            }}
+                        >
+                            📊 Carregar Excel
+                        </label>
+                    </div>
+
+                    {/* Botões de Ação */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>
+                            🔄 Atualizar Dados
+                        </button>
+                        <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}>
+                            🎯 Gerar Designações
+                        </button>
+                        {filterWeek && (
+                            <button
+                                onClick={() => {
+                                    const weekParts = parts.filter(p => p.weekId === filterWeek);
+                                    downloadS140(weekParts);
+                                }}
+                                disabled={loading || !filterWeek}
+                                style={{ padding: '8px 16px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: '500' }}
+                            >
+                                📋 S-140
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-
-
-
-
-            {/* Ações e Filtros - SEMPRE VISÍVEL */}
-            <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px' }}>
-                    🔄 Atualizar Dados
-                </button>
-                <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '8px 16px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px' }}>
-                    🎯 Gerar Designações (Motor)
-                </button>
-                {filterWeek && (
-                    <button
-                        onClick={() => {
-                            // Incluir TODAS as partes da semana (inclusive ocultas)
-                            const weekParts = parts.filter(p => p.weekId === filterWeek);
-                            downloadS140(weekParts);
-                        }}
-                        disabled={loading || !filterWeek}
-                        style={{ padding: '8px 16px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '4px' }}
-                    >
-                        📋 Gerar S-140
-                    </button>
-                )}
-
-            </div>
-
-            {/* Filtros */}
-            <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <input
-                    type="text"
-                    placeholder="🔍 Buscar..."
-                    value={searchText}
-                    onChange={e => setSearchText(e.target.value)}
-                    style={{ padding: '8px', width: '200px' }}
-                />
-                <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '8px', minWidth: '280px' }}>
-                    <option value="">Todas as semanas</option>
-                    {uniqueWeeks.map(w => (
-                        <option key={w.weekId} value={w.weekId}>
-                            {w.year} | {w.weekId} | {w.weekDisplay}
-                        </option>
-                    ))}
-                </select>
-                <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '8px' }}>
-                    <option value="">Todas as seções</option>
-                    {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} style={{ padding: '8px' }}>
-                    <option value="">Todos os tipos</option>
-                    {uniqueTipos.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px' }}>
-                    <option value="">Todos os status</option>
-                    <option value="PENDENTE">Pendente</option>
-                    <option value="PROPOSTA">Proposta</option>
-                    <option value="APROVADA">Aprovada</option>
-                    <option value="DESIGNADA">Designada</option>
-                    <option value="REJEITADA">Rejeitada</option>
-                    <option value="CONCLUIDA">Concluída</option>
-                </select>
-                <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '8px' }}>
-                    <option value="">Todas as funções</option>
-                    <option value="Titular">Titular</option>
-                    <option value="Ajudante">Ajudante</option>
-                </select>
+                {/* Linha Inferior: Filtros e Busca */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input
+                        type="text"
+                        placeholder="🔍 Buscar..."
+                        value={searchText}
+                        onChange={e => setSearchText(e.target.value)}
+                        style={{ padding: '8px 12px', width: '200px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}
+                    />
+                    <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '8px', minWidth: '200px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                        <option value="">Todas as semanas</option>
+                        {uniqueWeeks.map(w => (
+                            <option key={w.weekId} value={w.weekId}>
+                                {w.year} | {w.weekId} | {w.weekDisplay}
+                            </option>
+                        ))}
+                    </select>
+                    <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                        <option value="">Seção: Todas</option>
+                        {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                        <option value="">Tipo: Todos</option>
+                        {uniqueTipos.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                        <option value="">Status: Todos</option>
+                        <option value="PENDENTE">Pendente</option>
+                        <option value="PROPOSTA">Proposta</option>
+                        <option value="APROVADA">Aprovada</option>
+                        <option value="DESIGNADA">Designada</option>
+                        <option value="REJEITADA">Rejeitada</option>
+                        <option value="CONCLUIDA">Concluída</option>
+                    </select>
+                    <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '13px' }}>
+                        <option value="">Função: Todas</option>
+                        <option value="Titular">Titular</option>
+                        <option value="Ajudante">Ajudante</option>
+                    </select>
+                </div>
             </div>
 
             {/* Eventos Especiais - aparece quando filtrar por semana */}
