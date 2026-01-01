@@ -10,7 +10,7 @@ interface ApprovalPanelProps {
 }
 
 import { getStatusConfig, STATUS_CONFIG } from '../constants/status';
-import { sendS89ViaWhatsApp } from '../services/s89Generator';
+import { sendS89ViaWhatsApp, copyS89ToClipboard } from '../services/s89Generator';
 
 export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderName = 'Ancião', publishers = [] }: ApprovalPanelProps) {
     const [assignments, setAssignments] = useState<WorkbookPart[]>([]);
@@ -75,19 +75,21 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
             // Filtrar datas passadas no cliente (apenas para pending, unassigned e approved)
             // IMPORTANTE: Usa o início da semana atual (segunda-feira) como referência,
             // pois as partes têm a data da segunda-feira no campo 'date'
-            if (filter === 'pending' || filter === 'approved' || filter === 'unassigned') {
-                const now = new Date();
-                const dayOfWeek = now.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
-                const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Ajustar para segunda
-                const monday = new Date(now);
-                monday.setDate(now.getDate() + diffToMonday);
-                monday.setHours(0, 0, 0, 0);
+            // Filtrar datas passadas no cliente (PARA TODOS OS FILTROS, exceto histórico explícito se houver no futuro)
+            // Solicitação do usuário: "Filtrar para exibir só as semanas atual e futuras"
+            // IMPORTANTE: Usa o início da semana atual (segunda-feira) como referência
+            const now = new Date();
+            const dayOfWeek = now.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Ajustar para segunda
+            const monday = new Date(now);
+            monday.setDate(now.getDate() + diffToMonday);
+            monday.setHours(0, 0, 0, 0);
 
-                data = data.filter(p => {
-                    const d = parseDate(p.date);
-                    return d >= monday;
-                });
-            }
+            // Filtragem local
+            data = data.filter(p => {
+                const d = parseDate(p.date);
+                return d >= monday;
+            });
 
             // Ordenar por data
             data.sort((a, b) => {
@@ -194,9 +196,22 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     // Fluxo Combinado: S-89 + WhatsApp (substitui handleZap + handlePrintS89)
     const handleSendS89ViaWhatsApp = async (part: WorkbookPart, assistantName?: string, phone?: string) => {
         try {
+            // 1. Tentar copiar imagem para clipboard (NOVO)
+            const copied = await copyS89ToClipboard(part, assistantName);
+            if (copied) {
+                // Feedback visual discreto ou via toast poderia ser bom aqui, mas vamos usar um alert rápido ou só logar
+                console.log('Imagem do S-89 copiada para o clipboard!');
+            }
+
+            // 2. Fluxo original: Baixar PDF + Abrir WhatsApp
             await sendS89ViaWhatsApp(part, assistantName, phone);
+
+            if (copied) {
+                // Aviso para usuário colar
+                // setTimeout(() => alert('📋 Imagem copiada! Cole no WhatsApp (Ctrl+V) junto com a mensagem.'), 1000);
+            }
         } catch (error) {
-            alert('Erro ao enviar S-89 via WhatsApp: ' + (error instanceof Error ? error.message : String(error)));
+            alert('Erro ao processar S-89: ' + (error instanceof Error ? error.message : String(error)));
             console.error(error);
         }
     };

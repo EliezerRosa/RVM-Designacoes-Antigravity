@@ -377,14 +377,22 @@ export const workbookService = {
      * pois as partes têm a data da segunda-feira no campo 'date'
      */
     async getFutureStats(): Promise<Record<string, number>> {
-        // Calcular a segunda-feira da semana atual
+        // Calcular a segunda-feira da semana atual (Lógica idêntica ao Frontend)
         const now = new Date();
         const dayOfWeek = now.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
         const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Ajustar para segunda
         const monday = new Date(now);
         monday.setDate(now.getDate() + diffToMonday);
         monday.setHours(0, 0, 0, 0);
-        const mondayStr = monday.toISOString().split('T')[0];
+
+        // Formato YYYY-MM-DD local para comparar com string do banco
+        // O banco guarda YYYY-MM-DD. Precisamos garantir que mondayStr seja a data correta.
+        // toISOString() converte para UTC, o que pode mudar o dia.
+        // Melhor construir YYYY-MM-DD manualmente com valores locais.
+        const year = monday.getFullYear();
+        const month = String(monday.getMonth() + 1).padStart(2, '0');
+        const day = String(monday.getDate()).padStart(2, '0');
+        const mondayStr = `${year}-${month}-${day}`;
 
         // Usar fetchAllRows para superar o limite de 1000 rows
         const data = await fetchAllRows<{ status: string }>(

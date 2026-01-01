@@ -213,3 +213,146 @@ export async function sendS89ViaWhatsApp(part: WorkbookPart, assistantName?: str
         throw error;
     }
 }
+
+// ============================================================================
+// S-89 Digital Card (Clipboard)
+// ============================================================================
+
+/**
+ * Cria uma imagem (Blob) de um cartão digital estilo S-89
+ */
+async function createS89CardBlob(part: WorkbookPart, assistantName?: string): Promise<Blob | null> {
+    // 1. Preparar dados
+    const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
+
+    // Data
+    let displayDate = part.date;
+    const dateParts = part.date.split('-');
+    if (dateParts.length === 3) {
+        const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+        // Lógica de pegar a próxima quinta-feira (ou dia da reunião)
+        const dayOfWeek = baseDate.getDay();
+        const daysToThursday = (4 - dayOfWeek + 7) % 7;
+        const thursdayDate = new Date(baseDate);
+        thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+
+        const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+            'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const day = thursdayDate.getDate();
+        const month = MESES[thursdayDate.getMonth()];
+        const year = thursdayDate.getFullYear();
+        displayDate = `${day} de ${month} de ${year}`;
+    }
+
+    const room = part.modalidade?.toLowerCase().includes('b') ? 'Sala B' : 'Sala Principal';
+
+    // 2. Criar SVG String
+    // Layout simples inspirado no S-89: Fundo branco, Header azul/cinza, Campos
+    const svgWidth = 400;
+    const svgHeight = 300;
+
+    const svgString = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
+        <!-- Background -->
+        <rect width="100%" height="100%" fill="#ffffff"/>
+        
+        <!-- Header / Logo Area -->
+        <rect x="0" y="0" width="100%" height="60" fill="#4B5563"/>
+        <text x="20" y="38" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#ffffff">Designação - Nossa Vida Cristã</text>
+        
+        <!-- Border -->
+        <rect x="0" y="0" width="100%" height="100%" fill="none" stroke="#E5E7EB" stroke-width="2"/>
+
+        <!-- Content -->
+        <g transform="translate(20, 90)">
+            <!-- Nome -->
+            <text x="0" y="0" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">Nome:</text>
+            <text x="0" y="20" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#111827">${studentName}</text>
+            
+            ${assistantName ? `
+            <!-- Ajudante (Se houver) -->
+            <text x="0" y="55" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">Ajudante:</text>
+            <text x="0" y="75" font-family="Arial, sans-serif" font-size="16" fill="#111827">${assistantName}</text>
+            ` : ''}
+
+            <!-- Data -->
+            <text x="0" y="${assistantName ? 110 : 60}" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">Data:</text>
+            <text x="0" y="${assistantName ? 130 : 80}" font-family="Arial, sans-serif" font-size="16" fill="#111827">${displayDate}</text>
+
+            <!-- Parte -->
+            <text x="0" y="${assistantName ? 165 : 115}" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">Parte/Tema:</text>
+            <text x="0" y="${assistantName ? 185 : 135}" font-family="Arial, sans-serif" font-size="14" fill="#111827" width="360">
+                ${(part.tituloParte || part.tipoParte).substring(0, 45)}${(part.tituloParte || part.tipoParte).length > 45 ? '...' : ''}
+            </text>
+
+            <!-- Sala -->
+            <text x="250" y="${assistantName ? 130 : 80}" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4F46E5">${room}</text>
+        </g>
+        
+        <!-- Footer Code -->
+        <text x="380" y="290" font-family="Arial, sans-serif" font-size="10" fill="#9CA3AF" text-anchor="end">S-89-T</text>
+    </svg>
+    `;
+
+    // 3. Converter SVG para Blob (PNG) via Canvas
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = svgWidth;
+            canvas.height = svgHeight;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject(new Error('Canvas context not supported'));
+                return;
+            }
+
+            // Desenhar fundo branco explícito (clipboard pode ser transparente)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.drawImage(img, 0, 0);
+
+            canvas.toBlob((blob) => {
+                URL.revokeObjectURL(url);
+                resolve(blob);
+            }, 'image/png');
+        };
+
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Erro ao carregar imagem SVG'));
+        };
+
+        img.src = url;
+    });
+}
+
+/**
+ * Copia a imagem do cartão S-89 para a área de transferência
+ */
+export async function copyS89ToClipboard(part: WorkbookPart, assistantName?: string): Promise<boolean> {
+    try {
+        const blob = await createS89CardBlob(part, assistantName);
+        if (!blob) return false;
+
+        // Verifica suporte a ClipboardItem e png
+        if (navigator.clipboard && navigator.clipboard.write) {
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    [blob.type]: blob
+                })
+            ]);
+            return true;
+        } else {
+            console.error('Clipboard API não suportada ou sem permissão');
+            return false;
+        }
+    } catch (error) {
+        console.error('Erro ao copiar S-89 para clipboard:', error);
+        return false;
+    }
+}
