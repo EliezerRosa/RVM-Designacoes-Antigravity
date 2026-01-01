@@ -136,6 +136,57 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         if (eligibilityInfo) {
             if (eligibilityInfo.eligible) {
                 lines.push('', '✅ ELEGÍVEL para esta parte');
+
+                // Explicação em linguagem natural do porquê é elegível
+                const modalidade = getModalidade(part);
+                const funcao = part.funcao === 'Ajudante' ? 'Ajudante' : 'Titular';
+                const explanations: string[] = [];
+
+                // Explicar baseado na modalidade/função
+                if (funcao === 'Ajudante') {
+                    explanations.push('Pode participar como ajudante em demonstrações');
+                } else {
+                    switch (modalidade) {
+                        case EnumModalidade.PRESIDENCIA:
+                            explanations.push(`${foundPublisher.condition} com privilégio de presidir`);
+                            break;
+                        case EnumModalidade.ORACAO:
+                            explanations.push('Irmão batizado com privilégio de orar');
+                            break;
+                        case EnumModalidade.DISCURSO_ENSINO:
+                            if (foundPublisher.condition === 'Ancião' || foundPublisher.condition === 'Anciao') {
+                                explanations.push('Ancião aprovado para discursos de ensino');
+                            } else {
+                                explanations.push('Servo Ministerial com privilégio de discurso');
+                            }
+                            break;
+                        case EnumModalidade.LEITURA_ESTUDANTE:
+                            explanations.push('Publicador atuante pode fazer leitura');
+                            break;
+                        case EnumModalidade.DEMONSTRACAO:
+                            if (foundPublisher.gender === 'sister') {
+                                explanations.push('Irmã atuante pode fazer demonstrações');
+                            } else {
+                                explanations.push('Irmão atuante pode fazer demonstrações');
+                            }
+                            break;
+                        case EnumModalidade.DISCURSO_ESTUDANTE:
+                            explanations.push('Irmão atuante pode fazer discurso de estudante');
+                            break;
+                        case EnumModalidade.DIRIGENTE_EBC:
+                            explanations.push('Ancião com privilégio de dirigir EBC');
+                            break;
+                        case EnumModalidade.LEITOR_EBC:
+                            explanations.push('Irmão com privilégio de ler no EBC');
+                            break;
+                        default:
+                            explanations.push('Atende os requisitos para esta parte');
+                    }
+                }
+
+                if (explanations.length > 0) {
+                    lines.push(`➡️ ${explanations.join('; ')}`);
+                }
             } else {
                 lines.push('', `❌ NÃO ELEGÍVEL: ${eligibilityInfo.reason}`);
             }
