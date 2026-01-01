@@ -16,6 +16,7 @@ import { SpecialEventManager } from './SpecialEventManager';
 import { getStatusConfig } from '../constants/status';
 import { downloadS140 } from '../services/s140Generator';
 import { PartEditModal } from './PartEditModal';
+import { Tooltip } from './Tooltip';
 
 interface Props {
     publishers: Publisher[];
@@ -878,18 +879,16 @@ export function WorkbookManager({ publishers }: Props) {
                                         </td>
                                         <td style={{ padding: '4px', textAlign: 'center' }}>
                                             {part.descricaoParte && (
-                                                <span className="tooltip-container">
+                                                <Tooltip content={part.descricaoParte}>
                                                     <span style={{ cursor: 'help', fontSize: '14px' }}>📝</span>
-                                                    <span className="tooltip-content">{part.descricaoParte}</span>
-                                                </span>
+                                                </Tooltip>
                                             )}
                                         </td>
                                         <td style={{ padding: '4px', textAlign: 'center' }}>
                                             {part.detalhesParte && (
-                                                <span className="tooltip-container">
+                                                <Tooltip content={part.detalhesParte}>
                                                     <span style={{ cursor: 'help', fontSize: '14px' }}>ℹ️</span>
-                                                    <span className="tooltip-content">{part.detalhesParte}</span>
-                                                </span>
+                                                </Tooltip>
                                             )}
                                         </td>
                                         <td style={{ padding: '4px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>
@@ -974,7 +973,7 @@ export function WorkbookManager({ publishers }: Props) {
 
             <div style={{ marginTop: '16px', color: '#6B7280', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 Mostrando {filteredParts.length} de {parts.length} partes
-                <span className="tooltip-container">
+                <Tooltip content="Partes como Cânticos, Comentários Iniciais/Finais, Oração Inicial e Elogios são ocultadas por serem gerenciadas automaticamente.">
                     <span
                         style={{
                             cursor: 'help',
@@ -990,8 +989,7 @@ export function WorkbookManager({ publishers }: Props) {
                     >
                         ?
                     </span>
-                    <span className="tooltip-content">Partes como Cânticos, Comentários Iniciais/Finais, Oração Inicial e Elogios são ocultadas por serem gerenciadas automaticamente.</span>
-                </span>
+                </Tooltip>
             </div>
             {loading && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
