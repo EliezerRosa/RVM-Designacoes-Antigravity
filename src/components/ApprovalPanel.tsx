@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { workbookService } from '../services/workbookService';
-import { type WorkbookPart, WorkbookStatus, type Publisher } from '../types';
+import { type WorkbookPart, WorkbookStatus, type Publisher, EnumModalidade, EnumFuncao } from '../types';
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
+import { checkEligibility } from '../services/eligibilityService';
 
 interface ApprovalPanelProps {
     elderId?: string;
@@ -433,10 +434,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
                                     // Tentar determinar o valor atual do Select (ID) pelo nome
                                     let currentSelectValue = '';
-                                    if (displayPublisher && displayPublisher !== '(Sem publicador)') {
-                                        const found = publishers.find(p => p.name === displayPublisher);
-                                        if (found) currentSelectValue = found.id;
-                                    }
+                                    const foundPublisher = publishers.find(p => p.name === displayPublisher);
+                                    if (foundPublisher) currentSelectValue = foundPublisher.id;
 
                                     return (
                                         <div
@@ -509,8 +508,91 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                             }}
                                                         />
                                                     ) : (
-                                                        // Se não for proposta ou não tiver ID, mostra texto estático
-                                                        <span>{displayPublisher}</span>
+                                                        // Se não for proposta ou não tiver ID, mostra texto estático com tooltip de elegibilidade
+                                                        <>
+                                                            <span>{displayPublisher}</span>
+                                                            {foundPublisher && (() => {
+                                                                // Helper para determinar modalidade
+                                                                const TIPO_TO_MODALIDADE: Record<string, string> = {
+                                                                    'Presidente': EnumModalidade.PRESIDENCIA,
+                                                                    'Oração Inicial': EnumModalidade.ORACAO,
+                                                                    'Oração Final': EnumModalidade.ORACAO,
+                                                                    'Leitura da Bíblia': EnumModalidade.LEITURA_ESTUDANTE,
+                                                                    'Dirigente EBC': EnumModalidade.DIRIGENTE_EBC,
+                                                                    'Leitor EBC': EnumModalidade.LEITOR_EBC,
+                                                                    'Discurso Tesouros': EnumModalidade.DISCURSO_ENSINO,
+                                                                    'Joias Espirituais': EnumModalidade.DISCURSO_ENSINO,
+                                                                    'Iniciando Conversas': EnumModalidade.DEMONSTRACAO,
+                                                                    'Cultivando o Interesse': EnumModalidade.DEMONSTRACAO,
+                                                                    'Fazendo Discípulos': EnumModalidade.DEMONSTRACAO,
+                                                                    'Explicando Suas Crenças': EnumModalidade.DEMONSTRACAO,
+                                                                    'Discurso de Estudante': EnumModalidade.DISCURSO_ESTUDANTE,
+                                                                };
+                                                                const modalidade = part.modalidade || TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
+                                                                const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+                                                                const eligibility = checkEligibility(foundPublisher, modalidade as any, funcao, { date: part.date, secao: part.section });
+
+                                                                // Construir tooltip
+                                                                const lines = [
+                                                                    `📋 ${foundPublisher.name}`,
+                                                                    `👔 ${foundPublisher.condition}`,
+                                                                    `${foundPublisher.gender === 'brother' ? '👨 Irmão' : '👩 Irmã'}`,
+                                                                    '',
+                                                                ];
+
+                                                                if (eligibility.eligible) {
+                                                                    lines.push('✅ ELEGÍVEL para esta parte');
+                                                                    // Explicação em linguagem natural
+                                                                    let explanation = '';
+                                                                    if (funcao === EnumFuncao.AJUDANTE) {
+                                                                        explanation = 'Pode participar como ajudante';
+                                                                    } else if (modalidade === EnumModalidade.PRESIDENCIA) {
+                                                                        explanation = `${foundPublisher.condition} com privilégio de presidir`;
+                                                                    } else if (modalidade === EnumModalidade.ORACAO) {
+                                                                        explanation = 'Irmão batizado com privilégio de orar';
+                                                                    } else if (modalidade === EnumModalidade.DISCURSO_ENSINO) {
+                                                                        explanation = foundPublisher.condition === 'Ancião' ? 'Ancião aprovado para discursos' : 'SM com privilégio de discurso';
+                                                                    } else if (modalidade === EnumModalidade.DEMONSTRACAO) {
+                                                                        explanation = foundPublisher.gender === 'sister' ? 'Irmã atuante pode fazer demonstrações' : 'Irmão atuante pode fazer demonstrações';
+                                                                    } else if (modalidade === EnumModalidade.LEITURA_ESTUDANTE) {
+                                                                        explanation = 'Publicador atuante pode fazer leitura';
+                                                                    } else if (modalidade === EnumModalidade.DIRIGENTE_EBC) {
+                                                                        explanation = 'Ancião com privilégio de dirigir EBC';
+                                                                    } else if (modalidade === EnumModalidade.LEITOR_EBC) {
+                                                                        explanation = 'Irmão com privilégio de ler no EBC';
+                                                                    } else {
+                                                                        explanation = 'Atende os requisitos para esta parte';
+                                                                    }
+                                                                    lines.push(`➡️ ${explanation}`);
+                                                                } else {
+                                                                    lines.push(`❌ NÃO ELEGÍVEL: ${eligibility.reason}`);
+                                                                }
+
+                                                                return (
+                                                                    <Tooltip content={lines.join('\n')}>
+                                                                        <span
+                                                                            style={{
+                                                                                cursor: 'help',
+                                                                                background: eligibility.eligible ? 'rgba(107, 114, 128, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                                                                color: eligibility.eligible ? '#6b7280' : '#ef4444',
+                                                                                borderRadius: '50%',
+                                                                                width: '18px',
+                                                                                height: '18px',
+                                                                                display: 'inline-flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center',
+                                                                                fontSize: '11px',
+                                                                                fontWeight: 'bold',
+                                                                                marginLeft: '6px',
+                                                                                border: eligibility.eligible ? '1px solid rgba(107, 114, 128, 0.3)' : '1px solid rgba(239, 68, 68, 0.4)'
+                                                                            }}
+                                                                        >
+                                                                            ?
+                                                                        </span>
+                                                                    </Tooltip>
+                                                                );
+                                                            })()}
+                                                        </>
                                                     )}
                                                     {isProcessing && <span style={{ fontSize: '0.8em', color: '#9ca3af' }}>⏳ Salvando...</span>}
                                                 </div>
