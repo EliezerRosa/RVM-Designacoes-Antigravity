@@ -795,7 +795,7 @@ export function WorkbookManager({ publishers }: Props) {
                                         {part.modalidade}
                                     </td>
                                     <td style={{ padding: '8px' }}>
-                                        <div style={{ fontWeight: '500', color: '#1f2937' }}>{part.tituloParte}</div>
+                                        <div style={{ fontWeight: '500', color: '#1f2937' }} title={part.tituloParte}>{part.tituloParte}</div>
                                     </td>
                                     <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>
                                         {part.descricaoParte}
