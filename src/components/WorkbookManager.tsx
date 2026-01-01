@@ -852,37 +852,37 @@ export function WorkbookManager({ publishers }: Props) {
                                         }}
                                         title={isPast ? '📅 Semana passada' : ''}
                                     >
-                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>
+                                        <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>
                                             <div style={{ fontSize: '10px', color: '#6B7280', marginBottom: '2px' }}>{part.year}</div>
                                             <div>{part.weekDisplay}</div>
                                         </td>
-                                        <td style={{ padding: '8px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
-                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
-                                        <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280' }}>
+                                        <td style={{ padding: '4px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
+                                        <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
+                                        <td style={{ padding: '4px', fontSize: '11px', color: '#6B7280' }}>
                                             {part.modalidade}
                                         </td>
                                         <td style={{ padding: '8px' }}>
                                             <div style={{ fontWeight: '500', color: '#1f2937' }} title={part.tituloParte}>{part.tituloParte}</div>
                                         </td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                                        <td style={{ padding: '4px', textAlign: 'center' }}>
                                             {part.descricaoParte && (
                                                 <span style={{ cursor: 'help', fontSize: '14px' }} title={part.descricaoParte}>
                                                     📝
                                                 </span>
                                             )}
                                         </td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                                        <td style={{ padding: '4px', textAlign: 'center' }}>
                                             {part.detalhesParte && (
                                                 <span style={{ cursor: 'help', fontSize: '14px' }} title={part.detalhesParte}>
                                                     ℹ️
                                                 </span>
                                             )}
                                         </td>
-                                        <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>
+                                        <td style={{ padding: '4px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>
                                             <div>{part.horaInicio} - {part.horaFim}</div>
                                             <div style={{ fontSize: '10px', color: '#9CA3AF' }}>({part.duracao})</div>
                                         </td>
-                                        <td style={{ padding: '8px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
+                                        <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
                                         <td style={{ padding: '8px' }}>
                                             {/* Dropdown Inteligente */}
                                             <PublisherSelect
@@ -894,7 +894,7 @@ export function WorkbookManager({ publishers }: Props) {
                                                 style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
                                             />
                                         </td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                                        <td style={{ padding: '4px', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
                                                 {(() => {
                                                     const config = getStatusConfig(part.status);
