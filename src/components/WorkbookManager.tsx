@@ -638,7 +638,7 @@ export function WorkbookManager({ publishers }: Props) {
     };
 
     return (
-        <div style={{ padding: '4px 20px 12px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ padding: '0 16px 8px', maxWidth: '1600px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
 
 
             {/* Mensagens */}
@@ -657,18 +657,18 @@ export function WorkbookManager({ publishers }: Props) {
 
             {/* Header Unificado: Ações e Filtros */}
             <div style={{
-                marginBottom: '4px',
+                marginBottom: '2px',
                 background: '#fff',
-                padding: '6px 10px',
-                borderRadius: '6px',
+                padding: '4px 8px',
+                borderRadius: '4px',
                 border: '1px solid #E5E7EB',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '4px',
+                gap: '2px',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}>
                 {/* Linha Superior: Upload e Ações Principais */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
                     {/* Upload Button Disfarçado */}
                     <div>
                         <input
@@ -749,7 +749,7 @@ export function WorkbookManager({ publishers }: Props) {
                 </div>
 
                 {/* Linha Inferior: Filtros e Busca */}
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <input
                         type="text"
                         placeholder="🔍 Buscar..."
