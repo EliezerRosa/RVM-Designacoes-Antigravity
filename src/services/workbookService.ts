@@ -603,6 +603,18 @@ export const workbookService = {
         if (error) throw new Error(`Erro ao atualizar status: ${error.message}`);
     },
 
+    /**
+     * Atualiza o status de TODAS as partes de uma semana específica
+     */
+    async updateWeekStatus(weekId: string, status: WorkbookStatus): Promise<void> {
+        const { error } = await supabase
+            .from('workbook_parts')
+            .update({ status })
+            .eq('week_id', weekId);
+
+        if (error) throw new Error(`Erro ao atualizar status da semana ${weekId}: ${error.message}`);
+    },
+
     // ========================================================================
     // CICLO DE VIDA DE DESIGNAÇÃO
     // ========================================================================
