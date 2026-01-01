@@ -751,8 +751,8 @@ export function WorkbookManager({ publishers }: Props) {
                             <th style={{ padding: '8px', minWidth: '120px' }}>TipoParte</th>
                             <th style={{ padding: '8px', minWidth: '100px' }}>Modalidade</th>
                             <th style={{ padding: '8px', minWidth: '200px' }}>TituloParte</th>
-                            <th style={{ padding: '8px', minWidth: '180px' }}>DescricaoParte</th>
-                            <th style={{ padding: '8px', minWidth: '120px' }}>DetalhesParte</th>
+                            <th style={{ padding: '8px', width: '50px', textAlign: 'center' }} title="Descrição da Parte">📝</th>
+                            <th style={{ padding: '8px', width: '50px', textAlign: 'center' }} title="Detalhes da Parte">ℹ️</th>
                             <th style={{ padding: '8px', width: '60px' }}>Dur</th>
                             <th style={{ padding: '8px', width: '60px' }}>Ini</th>
                             <th style={{ padding: '8px', width: '60px' }}>Fim</th>
@@ -797,11 +797,19 @@ export function WorkbookManager({ publishers }: Props) {
                                     <td style={{ padding: '8px' }}>
                                         <div style={{ fontWeight: '500', color: '#1f2937' }} title={part.tituloParte}>{part.tituloParte}</div>
                                     </td>
-                                    <td style={{ padding: '8px', fontSize: '11px', color: '#6B7280', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.descricaoParte}>
-                                        {part.descricaoParte}
+                                    <td style={{ padding: '8px', textAlign: 'center' }}>
+                                        {part.descricaoParte && (
+                                            <span style={{ cursor: 'help', fontSize: '14px' }} title={part.descricaoParte}>
+                                                📝
+                                            </span>
+                                        )}
                                     </td>
-                                    <td style={{ padding: '8px', fontSize: '10px', color: '#9CA3AF', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={part.detalhesParte}>
-                                        {part.detalhesParte}
+                                    <td style={{ padding: '8px', textAlign: 'center' }}>
+                                        {part.detalhesParte && (
+                                            <span style={{ cursor: 'help', fontSize: '14px' }} title={part.detalhesParte}>
+                                                ℹ️
+                                            </span>
+                                        )}
                                     </td>
                                     <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.duracao}</td>
                                     <td style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>{part.horaInicio}</td>
