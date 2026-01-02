@@ -249,8 +249,8 @@ export function generateS140HTML(weekData: S140WeekData): string {
                         background: ${colors.bg}; 
                         color: ${colors.text}; 
                         font-weight: bold; 
-                        padding: 6px 10px;
-                        font-size: 11px;
+                        padding: 8px 12px;
+                        font-size: 13px;
                         text-transform: uppercase;
                         letter-spacing: 0.5px;
                     ">
@@ -269,16 +269,16 @@ export function generateS140HTML(weekData: S140WeekData): string {
 
             partsHTML += `
                 <tr style="border-bottom: 1px solid #E5E7EB;">
-                    <td style="padding: 4px 8px; font-size: 10px; color: #6B7280; width: 45px; text-align: center;">
+                    <td style="padding: 6px 10px; font-size: 12px; color: #6B7280; width: 50px; text-align: center;">
                         ${part.duration > 0 ? part.time : ''}
                     </td>
-                    <td style="padding: 4px 8px; font-size: 11px; color: #1f2937;">
+                    <td style="padding: 6px 10px; font-size: 14px; color: #1f2937;">
                         ${part.title}
                     </td>
-                    <td style="padding: 4px 8px; font-size: 10px; color: #6B7280; width: 80px; text-align: center;">
+                    <td style="padding: 6px 10px; font-size: 12px; color: #6B7280; width: 90px; text-align: center;">
                         ${part.isStudentPart ? 'Estudante' : ''}
                     </td>
-                    <td style="padding: 4px 8px; font-size: 11px; color: #1f2937; font-weight: 500; width: 150px;">
+                    <td style="padding: 6px 10px; font-size: 14px; color: #1f2937; font-weight: 600; width: 170px;">
                         ${assigneeDisplay}
                     </td>
                 </tr>
@@ -294,9 +294,11 @@ export function generateS140HTML(weekData: S140WeekData): string {
             <style>
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 body { 
-                    font-family: Arial, sans-serif; 
-                    font-size: 11px;
-                    line-height: 1.3;
+                    font-family: 'Segoe UI', Arial, sans-serif; 
+                    font-size: 13px;
+                    line-height: 1.4;
+                    -webkit-font-smoothing: antialiased;
+                    -moz-osx-font-smoothing: grayscale;
                 }
                 .container {
                     width: 100%;
@@ -313,11 +315,12 @@ export function generateS140HTML(weekData: S140WeekData): string {
                     border-bottom: 2px solid #4F46E5;
                 }
                 .header h1 {
-                    font-size: 14px;
+                    font-size: 18px;
+                    font-weight: 700;
                     color: #1f2937;
                 }
                 .header .year {
-                    font-size: 14px;
+                    font-size: 18px;
                     font-weight: bold;
                     color: #4F46E5;
                 }
@@ -330,6 +333,7 @@ export function generateS140HTML(weekData: S140WeekData): string {
                     border-radius: 4px;
                 }
                 .week-date {
+                    font-size: 14px;
                     font-weight: bold;
                     color: #1f2937;
                 }
@@ -338,20 +342,22 @@ export function generateS140HTML(weekData: S140WeekData): string {
                     font-style: italic;
                 }
                 .week-president {
+                    font-size: 14px;
                     color: #4F46E5;
-                    font-weight: 500;
+                    font-weight: 600;
                 }
                 table {
                     width: 100%;
                     border-collapse: collapse;
-                    font-size: 11px;
+                    font-size: 13px;
                 }
                 th {
                     background: #4F46E5;
                     color: white;
-                    padding: 6px 8px;
+                    padding: 8px 10px;
                     text-align: left;
-                    font-size: 10px;
+                    font-size: 12px;
+                    font-weight: 600;
                 }
             </style>
         </head>
