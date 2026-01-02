@@ -15,6 +15,7 @@ import { PublisherSelect } from './PublisherSelect';
 import { SpecialEventManager } from './SpecialEventManager';
 import { getStatusConfig } from '../constants/status';
 import { downloadS140 } from '../services/s140Generator';
+import { downloadS140RoomB } from '../services/s140GeneratorRoomB';
 import { PartEditModal } from './PartEditModal';
 import { Tooltip } from './Tooltip';
 
@@ -779,6 +780,17 @@ export function WorkbookManager({ publishers }: Props) {
                                 disabled={loading || !filterWeek}
                                 style={{ padding: '6px 12px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
                                 📋 S-140
+                            </button>
+                        )}
+                        {filterWeek && (
+                            <button
+                                onClick={() => {
+                                    const weekParts = parts.filter(p => p.weekId === filterWeek);
+                                    downloadS140RoomB(weekParts);
+                                }}
+                                disabled={loading || !filterWeek}
+                                style={{ padding: '6px 12px', cursor: 'pointer', background: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
+                                📋 S-140 Sala B
                             </button>
                         )}
                     </div>
