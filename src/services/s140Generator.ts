@@ -90,18 +90,30 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
     const prayerOpeningPart = sortedParts.find(p => p.tipoParte === 'Oração Inicial' || p.tipoParte === 'Oracao Inicial');
     const prayerClosingPart = sortedParts.find(p => p.tipoParte === 'Oração Final' || p.tipoParte === 'Oracao Final');
 
-    // Agrupar Titular + Ajudante por seq (mais confiável que tituloParte)
+    // Agrupar Titular + Ajudante por tipoParte normalizado
     const titularParts = sortedParts.filter(p => p.funcao === 'Titular');
     const ajudanteParts = sortedParts.filter(p => p.funcao === 'Ajudante');
 
-    // Mapa de ajudantes por seq (cada parte tem seq único, ajudante tem mesmo seq do titular)
-    const ajudanteBySeq = new Map<number, string>();
+    // Função para normalizar tipoParte (remover "(Ajudante)", "(X min)", etc.)
+    const normalizeTipoParte = (tipo: string): string => {
+        return tipo
+            .replace(/\s*\(Ajudante\)\s*/gi, '')
+            .replace(/\s*\(\d+\s*min\)\s*/gi, '')
+            .trim();
+    };
+
+    // Mapa de ajudantes por tipoParte normalizado
+    const ajudanteByTipo = new Map<string, string>();
     ajudanteParts.forEach(a => {
         const name = a.resolvedPublisherName || a.rawPublisherName || '';
-        if (name && a.seq) {
-            ajudanteBySeq.set(a.seq, name);
+        const normalizedTipo = normalizeTipoParte(a.tipoParte);
+        if (name && normalizedTipo) {
+            ajudanteByTipo.set(normalizedTipo, name);
+            console.log(`[S140] Ajudante mapeado: "${normalizedTipo}" -> ${name}`);
         }
     });
+    console.log(`[S140] Total ajudantes mapeados: ${ajudanteByTipo.size}`);
+
 
     // Partes que mostram o nome do designado (ampliada para cobrir mais partes)
     const PARTS_WITH_ASSIGNEE = [
@@ -130,14 +142,16 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
         const showsAssignee = PARTS_WITH_ASSIGNEE.some(pa =>
             p.tipoParte.includes(pa) || (p.tituloParte && p.tituloParte.includes(pa))
         );
-
         if (showsAssignee) {
             assignee = p.resolvedPublisherName || p.rawPublisherName || '';
         }
 
-        // Buscar ajudante pelo seq (mais confiável)
-        const assistant = ajudanteBySeq.get(p.seq || 0);
-
+        // Buscar ajudante pelo tipoParte normalizado
+        const normalizedTipo = normalizeTipoParte(p.tipoParte);
+        const assistant = ajudanteByTipo.get(normalizedTipo);
+        if (isStudentPart) {
+            console.log(`[S140] Parte estudante "${normalizedTipo}": ${p.tipoParte} -> assistant=${assistant || 'NAO ENCONTRADO'}`);
+        }
         // Título: usar tituloParte se existir, senão tipoParte (já contém duração)
         let title = p.tituloParte || p.tipoParte;
 
@@ -262,7 +276,7 @@ export function generateS140HTML(weekData: S140WeekData): string {
                         ${part.title}
                     </td>
                     <td style="padding: 4px 8px; font-size: 10px; color: #6B7280; width: 80px; text-align: center;">
-                        ${part.isStudentPart ? 'Estudante' : ''}${part.isStudentPart && part.assistant ? '<br/><span style="font-size:9px">Ajd: ' + part.assistant + '</span>' : ''}
+                        ${part.isStudentPart ? 'Estudante' : ''}
                     </td>
                     <td style="padding: 4px 8px; font-size: 11px; color: #1f2937; font-weight: 500; width: 150px;">
                         ${assigneeDisplay}
@@ -350,7 +364,6 @@ export function generateS140HTML(weekData: S140WeekData): string {
 
                 <div class="week-header">
                     <span class="week-date">${weekData.weekDisplay.toUpperCase()}</span>
-                    <span class="week-reading">${weekData.bibleReading}</span>
                     <span class="week-president">Presidente: ${weekData.president}</span>
                 </div>
 
@@ -367,10 +380,6 @@ export function generateS140HTML(weekData: S140WeekData): string {
                         ${partsHTML}
                     </tbody>
                 </table>
-
-                <div style="margin-top: 10px; font-size: 10px; color: #9CA3AF; text-align: center;">
-                    Oração Inicial: ${weekData.prayerOpening} | Oração Final: ${weekData.prayerClosing}
-                </div>
             </div>
         </body>
         </html>
