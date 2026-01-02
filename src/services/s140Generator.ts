@@ -59,12 +59,11 @@ const HIDDEN_ASSIGNEE_PARTS = [
 
 // Partes de estudante (aparecem na Sala B)
 const STUDENT_PARTS = [
-    'Leitura da Bíblia', 'Leitura da Biblia',
+    'Leitura da Bíblia', 'Leitura da Biblia', 'Leitura',
     'Iniciando Conversas', 'Cultivando o Interesse',
     'Fazendo Discípulos', 'Explicando Suas Crenças',
     'Discurso de Estudante'
 ];
-
 // ============================================================================
 // FUNÇÕES DE PREPARAÇÃO DE DADOS
 // ============================================================================
@@ -91,31 +90,30 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
     const prayerOpeningPart = sortedParts.find(p => p.tipoParte === 'Oração Inicial' || p.tipoParte === 'Oracao Inicial');
     const prayerClosingPart = sortedParts.find(p => p.tipoParte === 'Oração Final' || p.tipoParte === 'Oracao Final');
 
-    // Agrupar Titular + Ajudante por tituloParte
+    // Agrupar Titular + Ajudante por seq (mais confiável que tituloParte)
     const titularParts = sortedParts.filter(p => p.funcao === 'Titular');
     const ajudanteParts = sortedParts.filter(p => p.funcao === 'Ajudante');
 
-    // Mapa de ajudantes por tituloParte
-    const ajudanteMap = new Map<string, string>();
+    // Mapa de ajudantes por seq (cada parte tem seq único, ajudante tem mesmo seq do titular)
+    const ajudanteBySeq = new Map<number, string>();
     ajudanteParts.forEach(a => {
-        const key = a.tituloParte || a.tipoParte;
         const name = a.resolvedPublisherName || a.rawPublisherName || '';
-        if (name) {
-            ajudanteMap.set(key, name);
+        if (name && a.seq) {
+            ajudanteBySeq.set(a.seq, name);
         }
     });
 
-    // Partes que mostram o nome do designado
+    // Partes que mostram o nome do designado (ampliada para cobrir mais partes)
     const PARTS_WITH_ASSIGNEE = [
         'Presidente', 'Presidente da Reunião',
-        'Tesouros', 'Tesouros da Palavra de Deus', 'Discurso Tesouros',
-        'Joias Espirituais',
-        'Leitura da Bíblia', 'Leitura da Biblia',
+        'Tesouros', 'Tesouros da Palavra de Deus', 'Discurso Tesouros', 'Joias', 'Joias Espirituais',
+        'Leitura da Bíblia', 'Leitura da Biblia', 'Leitura',
         'Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças',
-        'Discurso de Estudante',
-        'Necessidades Locais', 'Necessidades da Congregação',
-        'Dirigente EBC', 'Leitor EBC', 'Estudo Bíblico de Congregação',
-        'Oração Inicial', 'Oracao Inicial', 'Oração Final', 'Oracao Final'
+        'Discurso de Estudante', 'Discurso',
+        'Necessidades Locais', 'Necessidades da Congregação', 'Necessidades',
+        'Dirigente EBC', 'Leitor EBC', 'Estudo Bíblico de Congregação', 'Dirigente', 'Leitor',
+        'Oração Inicial', 'Oracao Inicial', 'Oração Final', 'Oracao Final',
+        'Lembre-se', 'Tire tempo', 'Parte Vida Cristã'
     ];
 
     const preparedParts: S140Part[] = titularParts.map(p => {
@@ -137,9 +135,8 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
             assignee = p.resolvedPublisherName || p.rawPublisherName || '';
         }
 
-        // Buscar ajudante se houver
-        const titleKey = p.tituloParte || p.tipoParte;
-        const assistant = ajudanteMap.get(titleKey);
+        // Buscar ajudante pelo seq (mais confiável)
+        const assistant = ajudanteBySeq.get(p.seq || 0);
 
         // Título: usar tituloParte se existir, senão tipoParte (já contém duração)
         let title = p.tituloParte || p.tipoParte;
@@ -265,7 +262,7 @@ export function generateS140HTML(weekData: S140WeekData): string {
                         ${part.title}
                     </td>
                     <td style="padding: 4px 8px; font-size: 10px; color: #6B7280; width: 80px; text-align: center;">
-                        ${part.isStudentPart ? 'Estudante' : ''}
+                        ${part.isStudentPart ? 'Estudante' : ''}${part.isStudentPart && part.assistant ? '<br/><span style="font-size:9px">Ajd: ' + part.assistant + '</span>' : ''}
                     </td>
                     <td style="padding: 4px 8px; font-size: 11px; color: #1f2937; font-weight: 500; width: 150px;">
                         ${assigneeDisplay}
