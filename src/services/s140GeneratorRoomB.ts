@@ -1,16 +1,18 @@
 /**
- * S-140 Generator com Sala B - Versão baseada no template oficial
- * Layout exato conforme S-140_T Sala B Template.docx
+ * S-140 Generator com Sala B - Versão baseada EXATAMENTE no template oficial
+ * Layout: S-140_T Sala B Template.docx
  * 
- * Especificações extraídas do template:
+ * Especificações do template:
  * - Fonte: Calibri
- * - Cabeçalho congregação: 11pt BOLD preto
- * - Labels (Presidente, Conselheiro): 8pt BOLD #575A5D
+ * - Cabeçalho: [CONGREGAÇÃO] | Programação da reunião do meio de semana — [ANO]
+ * - Labels: 8pt BOLD #575A5D
  * - Seções: 10pt BOLD branco
- *   - Tesouros: Background #575A5D
- *   - Ministério: Background #BE8F00 (dourado)
- *   - Vida Cristã: Background #7E0024 (vermelho escuro)
- * - Colunas nas partes de estudante: Sala B + Salão Principal
+ *   - Tesouros: #575A5D (cinza)
+ *   - Ministério: #BE8900 (dourado)  
+ *   - Vida Cristã: #7E0024 (vermelho escuro)
+ * - Cânticos: com bolinha colorida da seção
+ * - Colunas Sala B / Salão Principal apenas no Ministério
+ * - Excluir: "Elogios e Conselhos"
  */
 
 import html2pdf from 'html2pdf.js';
@@ -22,28 +24,34 @@ import type { WorkbookPart } from '../types';
 
 const CONGREGATION_NAME = 'PARQUE JACARAÍPE';
 
-// Cores exatas do template
+// Cores exatas do template (extraídas do DOCX)
 const COLORS = {
-    // Seções
+    // Seções - cores de fundo
     TESOUROS_BG: '#575A5D',
-    MINISTERIO_BG: '#BE8F00',
+    MINISTERIO_BG: '#BE8900',
     VIDA_CRISTA_BG: '#7E0024',
     // Texto
     HEADER_TEXT: '#000000',
     LABEL_TEXT: '#575A5D',
     WHITE: '#FFFFFF',
-    // Backgrounds
-    SALA_B_HEADER: '#E8F4FD',
-    SALAO_PRINCIPAL_HEADER: '#F0F0F0',
+    // Linha separadora
+    SEPARATOR: '#575A5D',
 };
 
-// Partes que não mostram nome
-const HIDDEN_ASSIGNEE_PARTS = [
-    'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico',
-    'Comentários Iniciais', 'Comentários Finais'
+// Partes a EXCLUIR do S-140
+const EXCLUDED_PARTS = [
+    'Elogios e Conselhos',
+    'Elogios',
+    'Conselhos',
 ];
 
-// Partes de estudante (mostram Sala B)
+// Partes que não mostram nome de designado
+const HIDDEN_ASSIGNEE_PARTS = [
+    'Comentários Iniciais', 'Comentários Finais',
+    'Comentários iniciais', 'Comentários finais',
+];
+
+// Partes de estudante (mostram Sala B no Ministério)
 const STUDENT_PARTS = [
     'Leitura da Bíblia', 'Leitura da Biblia', 'Leitura',
     'Iniciando Conversas', 'Cultivando o Interesse',
@@ -63,24 +71,34 @@ function normalizeTipoParte(tipo: string): string {
 }
 
 function getSectionColor(section: string): string {
-    if (section.includes('Tesouros')) return COLORS.TESOUROS_BG;
-    if (section.includes('Ministério')) return COLORS.MINISTERIO_BG;
-    if (section.includes('Vida Cristã')) return COLORS.VIDA_CRISTA_BG;
+    if (section?.includes('Tesouros')) return COLORS.TESOUROS_BG;
+    if (section?.includes('Ministério')) return COLORS.MINISTERIO_BG;
+    if (section?.includes('Vida Cristã')) return COLORS.VIDA_CRISTA_BG;
     return COLORS.TESOUROS_BG;
 }
 
 function getSectionName(section: string): string {
-    if (section.includes('Tesouros')) return 'TESOUROS DA PALAVRA DE DEUS';
-    if (section.includes('Ministério')) return 'FAÇA SEU MELHOR NO MINISTÉRIO';
-    if (section.includes('Vida Cristã')) return 'NOSSA VIDA CRISTÃ';
-    return section.toUpperCase();
+    if (section?.includes('Tesouros')) return 'TESOUROS DA PALAVRA DE DEUS';
+    if (section?.includes('Ministério')) return 'FAÇA SEU MELHOR NO MINISTÉRIO';
+    if (section?.includes('Vida Cristã')) return 'NOSSA VIDA CRISTÃ';
+    return section?.toUpperCase() || '';
+}
+
+function isCantico(tipoParte: string): boolean {
+    return tipoParte?.toLowerCase().includes('cântico') ||
+        tipoParte?.toLowerCase().includes('cantico');
+}
+
+function isOracao(tipoParte: string): boolean {
+    return tipoParte?.toLowerCase().includes('oração') ||
+        tipoParte?.toLowerCase().includes('oracao');
 }
 
 // ============================================================================
-// PREPARAÇÃO DE DADOS
+// TIPOS
 // ============================================================================
 
-interface S140RoomBPart {
+interface S140Part {
     seq: number;
     section: string;
     time: string;
@@ -92,35 +110,52 @@ interface S140RoomBPart {
     roomBAssistant?: string;
     isStudentPart: boolean;
     tipoParte: string;
-    showRoomColumns: boolean;
+    isInMinisterio: boolean;
+    isCantico: boolean;
+    isOracao: boolean;
 }
 
-interface S140RoomBWeekData {
+interface S140WeekData {
     weekId: string;
     weekDisplay: string;
     bibleReading: string;
     president: string;
     counselorRoomB: string;
-    parts: S140RoomBPart[];
+    parts: S140Part[];
+    openingPrayer: string;
+    closingPrayer: string;
 }
 
-export function prepareS140RoomBData(parts: WorkbookPart[]): S140RoomBWeekData {
+// ============================================================================
+// PREPARAÇÃO DE DADOS
+// ============================================================================
+
+export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
     if (parts.length === 0) {
         throw new Error('Nenhuma parte fornecida para o S-140');
     }
 
     const sortedParts = [...parts].sort((a, b) => (a.seq || 0) - (b.seq || 0));
 
+    // Encontrar partes especiais
     const presidentPart = sortedParts.find(p =>
         p.tipoParte === 'Presidente' || p.tipoParte === 'Presidente da Reunião'
     );
     const counselorPart = sortedParts.find(p =>
         p.tipoParte?.includes('Conselheiro') || p.tipoParte?.includes('Dirigente Sala B')
     );
+    const openingPrayerPart = sortedParts.find(p =>
+        p.tipoParte === 'Oração Inicial' || p.tipoParte === 'Oracao Inicial'
+    );
+    const closingPrayerPart = sortedParts.find(p =>
+        p.tipoParte === 'Oração Final' || p.tipoParte === 'Oracao Final'
+    );
 
+    // Separar titulares de ajudantes
     const titularParts = sortedParts.filter(p => p.funcao === 'Titular');
     const ajudanteParts = sortedParts.filter(p => p.funcao === 'Ajudante');
 
+    // Mapa de ajudantes
     const ajudanteByTipo = new Map<string, string>();
     ajudanteParts.forEach(a => {
         const name = a.resolvedPublisherName || a.rawPublisherName || '';
@@ -130,45 +165,44 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140RoomBWeekData {
         }
     });
 
-    const preparedParts: S140RoomBPart[] = titularParts.map(p => {
-        const time = p.horaInicio || '';
-        const isStudentPart = STUDENT_PARTS.some(sp =>
-            p.tipoParte.toLowerCase().includes(sp.toLowerCase())
-        );
+    // Preparar partes (excluindo as que devem ser excluídas)
+    const preparedParts: S140Part[] = titularParts
+        .filter(p => !EXCLUDED_PARTS.some(ex => p.tipoParte?.includes(ex)))
+        .map(p => {
+            const time = p.horaInicio || '';
+            const isStudentPart = STUDENT_PARTS.some(sp =>
+                p.tipoParte?.toLowerCase().includes(sp.toLowerCase())
+            );
+            const isInMinisterio = p.section?.includes('Ministério') || false;
 
-        // Só mostra colunas Sala B/Salão na seção Ministério
-        const showRoomColumns = p.section?.includes('Ministério') && isStudentPart;
+            let mainHallAssignee = '';
+            if (!HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte?.includes(h))) {
+                mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
+            }
 
-        let mainHallAssignee = '';
-        if (!HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte.includes(h))) {
-            mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
-        }
+            const normalizedTipo = normalizeTipoParte(p.tipoParte);
+            const mainHallAssistant = ajudanteByTipo.get(normalizedTipo);
 
-        const normalizedTipo = normalizeTipoParte(p.tipoParte);
-        const mainHallAssistant = ajudanteByTipo.get(normalizedTipo);
+            let title = p.tituloParte || p.tipoParte;
+            const duration = typeof p.duracao === 'string' ? parseInt(p.duracao, 10) || 0 : (p.duracao || 0);
 
-        let title = p.tituloParte || p.tipoParte;
-        if (p.tipoParte.startsWith('Cântico')) {
-            title = `Cântico ${title.replace(/[^0-9]/g, '')}`;
-        }
-
-        const duration = typeof p.duracao === 'string' ? parseInt(p.duracao, 10) || 0 : (p.duracao || 0);
-
-        return {
-            seq: p.seq || 0,
-            section: p.section,
-            time,
-            title,
-            duration,
-            mainHallAssignee,
-            mainHallAssistant,
-            roomBAssignee: '', // TODO: implementar quando tiver dados de Sala B
-            roomBAssistant: '',
-            isStudentPart,
-            tipoParte: p.tipoParte,
-            showRoomColumns,
-        };
-    });
+            return {
+                seq: p.seq || 0,
+                section: p.section || '',
+                time,
+                title,
+                duration,
+                mainHallAssignee,
+                mainHallAssistant,
+                roomBAssignee: '',
+                roomBAssistant: '',
+                isStudentPart,
+                tipoParte: p.tipoParte,
+                isInMinisterio,
+                isCantico: isCantico(p.tipoParte),
+                isOracao: isOracao(p.tipoParte),
+            };
+        });
 
     const leituraPart = sortedParts.find(p =>
         p.tipoParte === 'Leitura da Bíblia' || p.tipoParte === 'Leitura da Biblia'
@@ -181,6 +215,8 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140RoomBWeekData {
         president: presidentPart?.resolvedPublisherName || presidentPart?.rawPublisherName || '',
         counselorRoomB: counselorPart?.resolvedPublisherName || counselorPart?.rawPublisherName || '',
         parts: preparedParts,
+        openingPrayer: openingPrayerPart?.resolvedPublisherName || openingPrayerPart?.rawPublisherName || '',
+        closingPrayer: closingPrayerPart?.resolvedPublisherName || closingPrayerPart?.rawPublisherName || '',
     };
 }
 
@@ -188,46 +224,72 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140RoomBWeekData {
 // GERAÇÃO DE HTML
 // ============================================================================
 
-export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
+export function generateS140RoomBHTML(weekData: S140WeekData): string {
     const year = new Date().getFullYear();
 
-    // Agrupar partes por seção
-    const partsBySection: Record<string, S140RoomBPart[]> = {};
+    // Agrupar partes por seção preservando ordem
+    const sectionOrder = ['Tesouros', 'Ministério', 'Vida Cristã'];
+    const partsBySection: Map<string, S140Part[]> = new Map();
+
+    // Partes iniciais (antes de Tesouros)
+    const initialParts: S140Part[] = [];
+    // Partes finais (depois de Vida Cristã)  
+    const finalParts: S140Part[] = [];
+
     weekData.parts.forEach(p => {
-        const sectionKey = p.section || 'Outros';
-        if (!partsBySection[sectionKey]) {
-            partsBySection[sectionKey] = [];
+        const section = p.section || '';
+        const matchedSection = sectionOrder.find(s => section.includes(s));
+
+        if (matchedSection) {
+            if (!partsBySection.has(matchedSection)) {
+                partsBySection.set(matchedSection, []);
+            }
+            partsBySection.get(matchedSection)!.push(p);
+        } else if (p.seq <= 3 || p.isCantico && p.seq <= 5) {
+            // Partes iniciais: cântico inicial, oração
+            initialParts.push(p);
+        } else {
+            // Partes finais: comentários finais, cântico final, oração
+            finalParts.push(p);
         }
-        partsBySection[sectionKey].push(p);
     });
 
-    // Ordem das seções
-    const sectionOrder = [
-        'Tesouros da Palavra de Deus',
-        'Faça Seu Melhor no Ministério',
-        'Nossa Vida Cristã',
-    ];
+    // Gerar HTML
 
-    let partsHTML = '';
-    const sectionsRendered = new Set<string>();
+    // === PARTES INICIAIS ===
+    let initialHTML = '';
+    initialParts.forEach(part => {
+        const bulletColor = COLORS.TESOUROS_BG;
+        const bullet = part.isCantico ? `<span style="color: ${bulletColor}; font-size: 14px;">●</span> ` : '';
 
-    sectionOrder.forEach(section => {
-        // Encontrar seção que corresponde
-        const matchingSection = Object.keys(partsBySection).find(s =>
-            s.includes(section.split(' ')[0]) || section.includes(s.split(' ')[0])
-        );
-        if (!matchingSection || sectionsRendered.has(matchingSection)) return;
-        sectionsRendered.add(matchingSection);
+        initialHTML += `
+            <tr>
+                <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center;">
+                    ${part.time}
+                </td>
+                <td colspan="3" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: #333;">
+                    ${bullet}${part.title}
+                </td>
+                <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500;">
+                    ${part.mainHallAssignee}
+                </td>
+            </tr>
+        `;
+    });
 
-        const parts = partsBySection[matchingSection];
-        const bgColor = getSectionColor(matchingSection);
-        const sectionName = getSectionName(matchingSection);
-        const isMinisterio = matchingSection.includes('Ministério');
+    // === SEÇÕES PRINCIPAIS ===
+    let sectionsHTML = '';
+    sectionOrder.forEach(sectionKey => {
+        const parts = partsBySection.get(sectionKey);
+        if (!parts || parts.length === 0) return;
+
+        const bgColor = getSectionColor(sectionKey);
+        const sectionName = getSectionName(sectionKey);
+        const isMinisterio = sectionKey === 'Ministério';
 
         // Header da seção
         if (isMinisterio) {
-            // Seção Ministério tem cabeçalhos Sala B e Salão Principal
-            partsHTML += `
+            sectionsHTML += `
                 <tr>
                     <td colspan="3" style="
                         background: ${bgColor}; 
@@ -236,39 +298,35 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
                         font-size: 10pt;
                         font-weight: bold;
                         padding: 6px 10px;
-                        border: 1px solid #ccc;
                     ">
                         ${sectionName}
                     </td>
                     <td style="
-                        background: ${COLORS.SALA_B_HEADER}; 
+                        background: #E3F2FD; 
                         color: ${COLORS.LABEL_TEXT};
                         font-family: Calibri, sans-serif;
                         font-size: 9pt;
                         font-weight: bold;
                         text-align: center;
-                        padding: 6px 8px;
-                        border: 1px solid #ccc;
+                        padding: 4px;
                     ">
                         Sala B
                     </td>
                     <td style="
-                        background: ${COLORS.SALAO_PRINCIPAL_HEADER}; 
+                        background: #F5F5F5; 
                         color: ${COLORS.LABEL_TEXT};
                         font-family: Calibri, sans-serif;
                         font-size: 9pt;
                         font-weight: bold;
                         text-align: center;
-                        padding: 6px 8px;
-                        border: 1px solid #ccc;
+                        padding: 4px;
                     ">
                         Salão principal
                     </td>
                 </tr>
             `;
         } else {
-            // Outras seções sem colunas de sala
-            partsHTML += `
+            sectionsHTML += `
                 <tr>
                     <td colspan="5" style="
                         background: ${bgColor}; 
@@ -277,7 +335,6 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
                         font-size: 10pt;
                         font-weight: bold;
                         padding: 6px 10px;
-                        border: 1px solid #ccc;
                     ">
                         ${sectionName}
                     </td>
@@ -287,6 +344,9 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
 
         // Linhas das partes
         parts.forEach(part => {
+            const bullet = part.isCantico ? `<span style="color: ${bgColor}; font-size: 14px;">●</span> ` : '';
+            const textColor = bgColor; // Títulos com cor da seção
+
             const mainDisplay = part.mainHallAssistant
                 ? `${part.mainHallAssignee} / ${part.mainHallAssistant}`
                 : part.mainHallAssignee;
@@ -296,40 +356,59 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
                 : part.roomBAssignee || '';
 
             if (isMinisterio && part.isStudentPart) {
-                // Parte com colunas Sala B e Salão Principal
-                partsHTML += `
-                    <tr style="border: 1px solid #ddd;">
-                        <td style="padding: 5px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center; border: 1px solid #ddd;">
+                sectionsHTML += `
+                    <tr>
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center;">
                             ${part.time}
                         </td>
-                        <td colspan="2" style="padding: 5px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: #333; border: 1px solid #ddd;">
-                            ${part.title}
+                        <td colspan="2" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: ${textColor};">
+                            ${bullet}${part.title}
                         </td>
-                        <td style="padding: 5px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: #333; text-align: center; background: #fafeff; border: 1px solid #ddd; max-width: 130px; overflow: hidden; text-overflow: ellipsis;">
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; text-align: center; background: #FAFEFF;">
                             ${roomBDisplay}
                         </td>
-                        <td style="padding: 5px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: #333; font-weight: 500; text-align: center; background: #fafafa; border: 1px solid #ddd; max-width: 130px; overflow: hidden; text-overflow: ellipsis;">
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; text-align: center; background: #FAFAFA;">
                             ${mainDisplay}
                         </td>
                     </tr>
                 `;
             } else {
-                // Parte normal sem colunas de sala
-                partsHTML += `
-                    <tr style="border: 1px solid #ddd;">
-                        <td style="padding: 5px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center; border: 1px solid #ddd;">
+                sectionsHTML += `
+                    <tr>
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center;">
                             ${part.duration > 0 ? part.time : ''}
                         </td>
-                        <td colspan="3" style="padding: 5px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: #333; border: 1px solid #ddd;">
-                            ${part.title}
+                        <td colspan="3" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: ${textColor};">
+                            ${bullet}${part.title}
                         </td>
-                        <td style="padding: 5px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: #333; font-weight: 500; border: 1px solid #ddd; max-width: 150px; overflow: hidden; text-overflow: ellipsis;">
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500;">
                             ${mainDisplay}
                         </td>
                     </tr>
                 `;
             }
         });
+    });
+
+    // === PARTES FINAIS ===
+    let finalHTML = '';
+    finalParts.forEach(part => {
+        const bulletColor = COLORS.VIDA_CRISTA_BG;
+        const bullet = part.isCantico ? `<span style="color: ${bulletColor}; font-size: 14px;">●</span> ` : '';
+
+        finalHTML += `
+            <tr>
+                <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center;">
+                    ${part.time}
+                </td>
+                <td colspan="3" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: #333;">
+                    ${bullet}${part.title}
+                </td>
+                <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500;">
+                    ${part.mainHallAssignee}
+                </td>
+            </tr>
+        `;
     });
 
     return `
@@ -343,18 +422,19 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
                     font-family: Calibri, 'Segoe UI', sans-serif; 
                     font-size: 10pt;
                     line-height: 1.3;
-                    -webkit-font-smoothing: antialiased;
                 }
                 .container {
                     width: 100%;
-                    max-width: 750px;
+                    max-width: 720px;
                     margin: 0 auto;
-                    padding: 15px;
+                    padding: 12px;
                 }
                 .header-row {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
+                    border-bottom: 2px solid ${COLORS.SEPARATOR};
+                    padding-bottom: 6px;
                     margin-bottom: 8px;
                 }
                 .congregation {
@@ -363,19 +443,19 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
                     font-weight: bold;
                     color: ${COLORS.HEADER_TEXT};
                 }
-                .year {
+                .title-year {
                     font-family: Calibri, sans-serif;
-                    font-size: 11pt;
-                    font-weight: bold;
+                    font-size: 10pt;
                     color: ${COLORS.HEADER_TEXT};
+                }
+                .title-year strong {
+                    font-weight: bold;
                 }
                 .week-info {
                     display: flex;
                     justify-content: space-between;
-                    margin-bottom: 10px;
-                    padding: 6px 10px;
-                    background: #f5f5f5;
-                    border-radius: 4px;
+                    margin-bottom: 6px;
+                    padding: 4px 0;
                 }
                 .week-date {
                     font-family: Calibri, sans-serif;
@@ -383,7 +463,13 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
                     font-weight: bold;
                     color: #333;
                 }
-                .president-info, .counselor-info {
+                .president-info {
+                    font-family: Calibri, sans-serif;
+                    font-size: 8pt;
+                    font-weight: bold;
+                    color: ${COLORS.LABEL_TEXT};
+                }
+                .counselor-info {
                     font-family: Calibri, sans-serif;
                     font-size: 8pt;
                     font-weight: bold;
@@ -394,13 +480,16 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
                     border-collapse: collapse;
                     table-layout: fixed;
                 }
+                tr {
+                    border-bottom: 1px solid #E0E0E0;
+                }
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header-row">
                     <span class="congregation">${CONGREGATION_NAME}</span>
-                    <span class="year">${year}</span>
+                    <span class="title-year">Programação da reunião do meio de semana — <strong>${year}</strong></span>
                 </div>
 
                 <div class="week-info">
@@ -411,7 +500,9 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
 
                 <table>
                     <tbody>
-                        ${partsHTML}
+                        ${initialHTML}
+                        ${sectionsHTML}
+                        ${finalHTML}
                     </tbody>
                 </table>
             </div>
@@ -424,7 +515,7 @@ export function generateS140RoomBHTML(weekData: S140RoomBWeekData): string {
 // GERAÇÃO DE PDF
 // ============================================================================
 
-export async function generateS140RoomBPDF(weekData: S140RoomBWeekData): Promise<void> {
+export async function generateS140RoomBPDF(weekData: S140WeekData): Promise<void> {
     const html = generateS140RoomBHTML(weekData);
 
     const container = document.createElement('div');
@@ -451,9 +542,6 @@ export async function generateS140RoomBPDF(weekData: S140RoomBWeekData): Promise
     }
 }
 
-/**
- * Função de conveniência: prepara dados e gera PDF com Sala B
- */
 export async function downloadS140RoomB(parts: WorkbookPart[]): Promise<void> {
     const weekData = prepareS140RoomBData(parts);
     await generateS140RoomBPDF(weekData);
