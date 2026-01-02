@@ -113,25 +113,63 @@ export function WorkbookManager({ publishers }: Props) {
     }, [filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText]);
 
     // ========================================================================
-    // Carregar dados iniciais - TODAS AS PARTES (sem batches)
+    // Carregar dados - COM FILTROS SERVER-SIDE
     // ========================================================================
-    useEffect(() => {
-        loadAllParts();
-    }, []);
 
-    // Função para carregar TODAS as partes (sem filtro de batch)
-    const loadAllParts = async () => {
+    // Função para carregar partes com filtros server-side
+    const loadPartsWithFilters = async (filters?: {
+        weekId?: string;
+        section?: string;
+        tipoParte?: string;
+        status?: string;
+        funcao?: string;
+    }) => {
         try {
             setLoading(true);
-            const data = await workbookService.getAll();
+            const data = await workbookService.getAll(filters);
             setParts(data);
-
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao carregar partes');
         } finally {
             setLoading(false);
         }
     };
+
+    // Carregar dados inicialmente (sem filtros para ter o total)
+    useEffect(() => {
+        loadPartsWithFilters();
+    }, []);
+
+    // Recarregar dados quando filtros server-side mudarem
+    // Debounce para evitar muitas requisições
+    const [debouncedFilters, setDebouncedFilters] = useState({
+        section: filterSection,
+        status: filterStatus,
+    });
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedFilters({
+                section: filterSection,
+                status: filterStatus,
+            });
+        }, 300); // 300ms debounce
+        return () => clearTimeout(timer);
+    }, [filterSection, filterStatus]);
+
+    useEffect(() => {
+        // Recarregar apenas se houver filtros ativos (não carregar tudo de novo sem filtros)
+        const hasActiveFilters = debouncedFilters.section || debouncedFilters.status;
+        if (hasActiveFilters) {
+            loadPartsWithFilters({
+                section: debouncedFilters.section || undefined,
+                status: debouncedFilters.status || undefined,
+            });
+        } else {
+            // Se não houver filtros, recarregar tudo
+            loadPartsWithFilters();
+        }
+    }, [debouncedFilters]);
 
 
 
@@ -237,7 +275,7 @@ export function WorkbookManager({ publishers }: Props) {
 
             // Recarregar partes
             console.log('[WorkbookManager] 🔄 Recarregando partes...');
-            await loadAllParts();
+            await loadPartsWithFilters();
 
             console.log('[WorkbookManager] ✅ Upload completo!');
 
@@ -445,7 +483,7 @@ export function WorkbookManager({ publishers }: Props) {
                 }
             }
 
-            await loadAllParts();
+            await loadPartsWithFilters();
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao gerar designações');
@@ -728,7 +766,7 @@ export function WorkbookManager({ publishers }: Props) {
 
                     {/* Botões de Ação */}
                     <div style={{ display: 'flex', gap: '4px' }}>
-                        <button onClick={() => loadAllParts()} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
+                        <button onClick={() => loadPartsWithFilters()} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                             🔄 Atualizar
                         </button>
                         <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
@@ -801,7 +839,7 @@ export function WorkbookManager({ publishers }: Props) {
                     weekId={filterWeek}
                     weekDisplay={uniqueWeeks.find(w => w.weekId === filterWeek)?.weekDisplay || ''}
                     publishers={publishers}
-                    onEventChange={() => loadAllParts()}
+                    onEventChange={() => loadPartsWithFilters()}
                 />
             )}
 
