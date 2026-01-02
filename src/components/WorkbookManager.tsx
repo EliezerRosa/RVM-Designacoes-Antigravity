@@ -142,34 +142,32 @@ export function WorkbookManager({ publishers }: Props) {
 
     // Recarregar dados quando filtros server-side mudarem
     // Debounce para evitar muitas requisições
-    const [debouncedFilters, setDebouncedFilters] = useState({
-        section: filterSection,
-        status: filterStatus,
-    });
+    const [filterTrigger, setFilterTrigger] = useState(0);
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            setDebouncedFilters({
-                section: filterSection,
-                status: filterStatus,
-            });
+            // Incrementar trigger para forçar reload mesmo quando valores são vazios
+            setFilterTrigger(prev => prev + 1);
         }, 300); // 300ms debounce
         return () => clearTimeout(timer);
     }, [filterSection, filterStatus]);
 
     useEffect(() => {
-        // Recarregar apenas se houver filtros ativos (não carregar tudo de novo sem filtros)
-        const hasActiveFilters = debouncedFilters.section || debouncedFilters.status;
-        if (hasActiveFilters) {
-            loadPartsWithFilters({
-                section: debouncedFilters.section || undefined,
-                status: debouncedFilters.status || undefined,
-            });
-        } else {
-            // Se não houver filtros, recarregar tudo
-            loadPartsWithFilters();
-        }
-    }, [debouncedFilters]);
+        if (filterTrigger === 0) return; // Skip initial render
+
+        // Sempre recarregar quando trigger muda
+        const hasActiveFilters = filterSection || filterStatus;
+        console.log('[WorkbookManager] 🔄 Recarregando com filtros:', {
+            section: filterSection,
+            status: filterStatus,
+            hasActiveFilters
+        });
+
+        loadPartsWithFilters({
+            section: filterSection || undefined,
+            status: filterStatus || undefined,
+        });
+    }, [filterTrigger]);
 
 
 
