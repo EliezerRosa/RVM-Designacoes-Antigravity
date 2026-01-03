@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
+import { workbookService } from '../services/workbookService';
 import type { SpecialEvent, Publisher } from '../types';
 import { getStatusConfig } from '../constants/status';
 
@@ -30,6 +31,9 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
     const [observations, setObservations] = useState('');
     const [boletimYear, setBoletimYear] = useState<number>(new Date().getFullYear());
     const [boletimNumber, setBoletimNumber] = useState<number>(1);
+    // NEW: Target part for time reduction (satellite events)
+    const [targetPartId, setTargetPartId] = useState<string>('');
+    const [vidaCristaParts, setVidaCristaParts] = useState<Array<{ id: string; tituloParte: string; duracao: string }>>([]);
 
     // Load events for this week
     const loadEvents = useCallback(async () => {
@@ -51,19 +55,53 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
     // Get selected template
     const selectedTemplate = EVENT_TEMPLATES.find(t => t.id === selectedTemplateId);
 
+    // Check if template requires target part selection
+    const requiresTargetPart = selectedTemplate?.impact.action === 'REDUCE_VIDA_CRISTA_TIME';
+
     // Handle template change
-    const handleTemplateChange = (templateId: string) => {
+    const handleTemplateChange = async (templateId: string) => {
         setSelectedTemplateId(templateId);
+        setTargetPartId(''); // Reset target part
         const template = EVENT_TEMPLATES.find(t => t.id === templateId);
         if (template) {
             setDuration(template.defaults.duration);
             setTheme(template.defaults.theme || '');
+
+            // If template requires target part, load Vida Cristã parts
+            if (template.impact.action === 'REDUCE_VIDA_CRISTA_TIME') {
+                try {
+                    const allParts = await workbookService.getAll({ weekId });
+                    // Filter only Vida Cristã parts (excluding EBC)
+                    const vidaParts = allParts.filter((p: { section: string; tipoParte: string; funcao: string }) =>
+                        p.section === 'Nossa Vida Cristã' &&
+                        p.tipoParte !== 'Dirigente do EBC' &&
+                        p.tipoParte !== 'Leitor do EBC' &&
+                        p.funcao === 'Titular'
+                    );
+                    setVidaCristaParts(vidaParts.map((p: { id: string; tituloParte?: string; tipoParte: string; duracao: string }) => ({
+                        id: p.id,
+                        tituloParte: p.tituloParte || p.tipoParte,
+                        duracao: p.duracao
+                    })));
+                } catch (err) {
+                    console.error('Erro ao carregar partes:', err);
+                    setVidaCristaParts([]);
+                }
+            } else {
+                setVidaCristaParts([]);
+            }
         }
     };
 
     // Create event
     const handleCreate = async () => {
         if (!selectedTemplateId) return;
+
+        // Validate target part for satellite templates
+        if (requiresTargetPart && !targetPartId) {
+            setError('Selecione a parte que terá o tempo reduzido');
+            return;
+        }
 
         try {
             setLoading(true);
@@ -77,6 +115,7 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
                 observations,
                 boletimYear: selectedTemplateId === 'boletim-cg' ? boletimYear : undefined,
                 boletimNumber: selectedTemplateId === 'boletim-cg' ? boletimNumber : undefined,
+                targetPartId: requiresTargetPart ? targetPartId : undefined,
             });
             setShowModal(false);
             resetForm();
@@ -114,6 +153,8 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
         setObservations('');
         setBoletimYear(new Date().getFullYear());
         setBoletimNumber(1);
+        setTargetPartId('');
+        setVidaCristaParts([]);
     };
 
     const canceladaConfig = getStatusConfig('CANCELADA');
@@ -333,6 +374,43 @@ export function SpecialEventManager({ weekId, weekDisplay, publishers = [], onEv
                                         }}
                                     />
                                 )}
+                            </div>
+                        )}
+
+                        {/* Target Part (Satellite Events) */}
+                        {requiresTargetPart && (
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9em' }}>
+                                    📉 Parte a ter tempo reduzido:
+                                </label>
+                                {vidaCristaParts.length > 0 ? (
+                                    <select
+                                        value={targetPartId}
+                                        onChange={e => setTargetPartId(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid #374151',
+                                            background: '#111827',
+                                            color: '#fff',
+                                        }}
+                                    >
+                                        <option value="">Selecione uma parte...</option>
+                                        {vidaCristaParts.map(p => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.tituloParte} ({p.duracao})
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <div style={{ color: '#f59e0b', fontSize: '0.85em', fontStyle: 'italic' }}>
+                                        ⚠️ Nenhuma parte disponível na seção Vida Cristã desta semana.
+                                    </div>
+                                )}
+                                <div style={{ fontSize: '0.75em', color: '#9ca3af', marginTop: '4px' }}>
+                                    O tempo desta parte será reduzido em {duration} minutos.
+                                </div>
                             </div>
                         )}
 
