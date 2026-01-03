@@ -156,11 +156,8 @@ export function checkEligibility(
             if (publisher.condition === 'Ancião' || publisher.condition === 'Anciao') {
                 return { eligible: true };
             }
-            // SM: precisa de aprovação prévia para Tesouros
+            // SM: Precisa ter privilégio de ensino e não estar bloqueado na seção (já verificado acima)
             if (publisher.condition === 'Servo Ministerial') {
-                if (context.secao === EnumSecao.TESOUROS && !publisher.privileges.approvedForTreasuresTalks) {
-                    return { eligible: false, reason: 'SM não aprovado para discursos em Tesouros' };
-                }
                 return { eligible: true };
             }
             // Publicador comum não pode
