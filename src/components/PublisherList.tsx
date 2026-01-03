@@ -473,14 +473,55 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                         </div>
 
 
+
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                             <strong>Privilégios:</strong>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                                {publisher.privileges.canGiveTalks && <span className="badge">Discursos</span>}
-                                {publisher.privileges.canPray && <span className="badge">Oração</span>}
-                                {publisher.privileges.canConductCBS && <span className="badge">Dirigir EBC</span>}
-                                {publisher.privileges.canReadCBS && <span className="badge">Ler EBC</span>}
-                                {publisher.privileges.canPreside && <span className="badge">Presidir</span>}
+                                {publisher.privileges.canPreside && (
+                                    <span className="badge" style={{ background: 'rgba(147, 51, 234, 0.15)', color: '#9333ea' }} title="Pode presidir reuniões">
+                                        👔 Presidir
+                                    </span>
+                                )}
+                                {publisher.privileges.canPray && (
+                                    <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }} title="Pode fazer orações">
+                                        🙏 Orar
+                                    </span>
+                                )}
+                                {publisher.privileges.canGiveTalks && (
+                                    <span className="badge" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' }} title="Pode dar discursos de ensino">
+                                        🎤 Discursos
+                                    </span>
+                                )}
+                                {publisher.privileges.canConductCBS && (
+                                    <span className="badge" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#ca8a04' }} title="Pode dirigir Estudo Bíblico de Congregação">
+                                        📖 Dirigir EBC
+                                    </span>
+                                )}
+                                {publisher.privileges.canReadCBS && (
+                                    <span className="badge" style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9' }} title="Pode ler no Estudo Bíblico de Congregação">
+                                        📗 Ler EBC
+                                    </span>
+                                )}
+                                {publisher.privileges.approvedForTreasuresTalks && (
+                                    <span className="badge" style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' }} title="SM aprovado para discursos em Tesouros">
+                                        💎 Tesouros
+                                    </span>
+                                )}
+                                {publisher.privileges.canGiveStudentTalks && (
+                                    <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }} title="Pode dar discursos de estudante">
+                                        🎓 Discurso Estudante
+                                    </span>
+                                )}
+                                {/* Show message if no privileges */}
+                                {!publisher.privileges.canPreside &&
+                                    !publisher.privileges.canPray &&
+                                    !publisher.privileges.canGiveTalks &&
+                                    !publisher.privileges.canConductCBS &&
+                                    !publisher.privileges.canReadCBS && (
+                                        <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.75rem' }}>
+                                            Nenhum privilégio especial
+                                        </span>
+                                    )}
                             </div>
                         </div>
 
