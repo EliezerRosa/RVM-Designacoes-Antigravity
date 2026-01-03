@@ -287,49 +287,70 @@ export function generateS140RoomBHTML(weekData: S140WeekData): string {
 
         const bgColor = getSectionColor(sectionKey);
         const sectionName = getSectionName(sectionKey);
+        const isVidaCrista = sectionKey === 'Vida Cristã';
 
-        // Header da seção - TODAS as seções mostram colunas Sala B e Salão principal
-        sectionsHTML += `
-            <tr>
-                <td colspan="3" style="
-                    background: ${bgColor}; 
-                    color: ${COLORS.WHITE}; 
-                    font-family: Calibri, sans-serif;
-                    font-size: 10pt;
-                    font-weight: bold;
-                    padding: 6px 10px;
-                ">
-                    ${sectionName}
-                </td>
-                <td style="
-                    background: #E3F2FD; 
-                    color: ${COLORS.LABEL_TEXT};
-                    font-family: Calibri, sans-serif;
-                    font-size: 9pt;
-                    font-weight: bold;
-                    text-align: center;
-                    padding: 4px;
-                ">
-                    Sala B
-                </td>
-                <td style="
-                    background: #F5F5F5; 
-                    color: ${COLORS.LABEL_TEXT};
-                    font-family: Calibri, sans-serif;
-                    font-size: 9pt;
-                    font-weight: bold;
-                    text-align: center;
-                    padding: 4px;
-                ">
-                    Salão principal
-                </td>
-            </tr>
-        `;
+        // Header da seção - Sala B e Salão principal SÓ em Tesouros e Ministério (não em Vida Cristã)
+        if (isVidaCrista) {
+            // Vida Cristã: apenas barra de título, sem colunas Sala B / Salão
+            sectionsHTML += `
+                <tr>
+                    <td colspan="5" style="
+                        background: ${bgColor}; 
+                        color: ${COLORS.WHITE}; 
+                        font-family: Calibri, sans-serif;
+                        font-size: 10pt;
+                        font-weight: bold;
+                        padding: 6px 10px;
+                    ">
+                        ${sectionName}
+                    </td>
+                </tr>
+            `;
+        } else {
+            // Tesouros e Ministério: barra de título + colunas Sala B e Salão principal
+            sectionsHTML += `
+                <tr>
+                    <td colspan="3" style="
+                        background: ${bgColor}; 
+                        color: ${COLORS.WHITE}; 
+                        font-family: Calibri, sans-serif;
+                        font-size: 10pt;
+                        font-weight: bold;
+                        padding: 6px 10px;
+                    ">
+                        ${sectionName}
+                    </td>
+                    <td style="
+                        background: #E3F2FD; 
+                        color: ${COLORS.LABEL_TEXT};
+                        font-family: Calibri, sans-serif;
+                        font-size: 9pt;
+                        font-weight: bold;
+                        text-align: center;
+                        padding: 4px;
+                    ">
+                        Sala B
+                    </td>
+                    <td style="
+                        background: #F5F5F5; 
+                        color: ${COLORS.LABEL_TEXT};
+                        font-family: Calibri, sans-serif;
+                        font-size: 9pt;
+                        font-weight: bold;
+                        text-align: center;
+                        padding: 4px;
+                    ">
+                        Salão principal
+                    </td>
+                </tr>
+            `;
+        }
 
-        // Linhas das partes - TODAS com 5 colunas para alinhar com cabeçalhos
+        // Linhas das partes
         parts.forEach(part => {
+            // Cânticos SEMPRE têm texto preto (não colorido)
+            const textColor = part.isCantico ? '#333333' : bgColor;
             const bullet = part.isCantico ? `<span style="color: ${bgColor}; font-size: 14px;">●</span> ` : '';
-            const textColor = bgColor; // Títulos com cor da seção
 
             const mainDisplay = part.mainHallAssistant
                 ? `${part.mainHallAssignee} / ${part.mainHallAssistant}`
@@ -339,23 +360,40 @@ export function generateS140RoomBHTML(weekData: S140WeekData): string {
                 ? `${part.roomBAssignee} / ${part.roomBAssistant}`
                 : part.roomBAssignee || '';
 
-            // Todas as partes têm 5 colunas (Hora, Título colspan=2, Sala B, Salão Principal)
-            sectionsHTML += `
-                <tr>
-                    <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center;">
-                        ${part.duration > 0 ? part.time : ''}
-                    </td>
-                    <td colspan="2" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: ${textColor};">
-                        ${bullet}${part.title}
-                    </td>
-                    <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; text-align: center; background: ${part.isStudentPart ? '#FAFEFF' : 'transparent'};">
-                        ${part.isStudentPart ? roomBDisplay : ''}
-                    </td>
-                    <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; text-align: center; background: ${part.isStudentPart ? '#FAFAFA' : 'transparent'};">
-                        ${mainDisplay}
-                    </td>
-                </tr>
-            `;
+            if (isVidaCrista) {
+                // Vida Cristã: sem colunas de sala separadas
+                sectionsHTML += `
+                    <tr>
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center;">
+                            ${part.duration > 0 ? part.time : ''}
+                        </td>
+                        <td colspan="3" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: ${textColor};">
+                            ${bullet}${part.title}
+                        </td>
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; text-align: right;">
+                            ${mainDisplay}
+                        </td>
+                    </tr>
+                `;
+            } else {
+                // Tesouros e Ministério: 5 colunas (Hora, Título, Sala B, Salão Principal)
+                sectionsHTML += `
+                    <tr>
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 9pt; color: #666; width: 45px; text-align: center;">
+                            ${part.duration > 0 ? part.time : ''}
+                        </td>
+                        <td colspan="2" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: ${textColor};">
+                            ${bullet}${part.title}
+                        </td>
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; text-align: center; background: ${part.isStudentPart ? '#FAFEFF' : 'transparent'};">
+                            ${part.isStudentPart ? roomBDisplay : ''}
+                        </td>
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; text-align: center; background: ${part.isStudentPart ? '#FAFAFA' : 'transparent'};">
+                            ${mainDisplay}
+                        </td>
+                    </tr>
+                `;
+            }
         });
     });
 
