@@ -497,7 +497,7 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                 )}
                                 {publisher.privileges.canGiveTalks && (
                                     <span className="badge" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' }} title="Pode dar discursos de ensino">
-                                        🎤 Discursos
+                                        🎤 DISCURSO ENSINO
                                     </span>
                                 )}
                                 {publisher.privileges.canConductCBS && (
@@ -513,7 +513,7 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
 
                                 {publisher.privileges.canGiveStudentTalks && (
                                     <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }} title="Pode dar discursos de estudante">
-                                        🎓 Discurso Estudante
+                                        🎓 DISCURSO ESTUDANTE
                                     </span>
                                 )}
                                 {/* Show message if no privileges */}
