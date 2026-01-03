@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
-import { checkEligibility } from '../services/eligibilityService';
+import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
 import { PublisherSelect } from './PublisherSelect';
@@ -410,12 +410,14 @@ export function WorkbookManager({ publishers }: Props) {
                     const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
 
                     // 1. Filtrar publicadores elegíveis (respeita função e seção)
+                    // Nota: Para designação automática, só faz sentido para semanas futuras
+                    const isPast = isPastWeekDate(part.date);
                     const eligiblePublishers = publishers.filter(p => {
                         const result = checkEligibility(
                             p,
                             modalidade as Parameters<typeof checkEligibility>[1],
                             funcao,
-                            { date: part.date, isOracaoInicial, secao: part.section }
+                            { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
                         );
                         return result.eligible;
                     });
