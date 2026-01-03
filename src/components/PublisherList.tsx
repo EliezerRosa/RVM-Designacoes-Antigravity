@@ -1,5 +1,7 @@
 import type { Publisher } from '../types'
 import { useState } from 'react'
+import { usePersistedState } from '../hooks/usePersistedState'
+import { matchesSearch as fuzzyMatchesSearch } from '../utils/searchUtils'
 
 interface PublisherListProps {
     publishers: Publisher[]
@@ -17,22 +19,23 @@ type SortField = 'name' | 'condition' | 'gender' | 'ageGroup' | 'source';
 type SortOrder = 'asc' | 'desc';
 
 export default function PublisherList({ publishers, onEdit, onDelete }: PublisherListProps) {
-    const [searchTerm, setSearchTerm] = useState('')
-    const [filterCondition, setFilterCondition] = useState<FilterCondition>('all')
-    const [filterGender, setFilterGender] = useState<FilterGender>('all')
-    const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
-    const [filterFlag, setFilterFlag] = useState<FilterFlag>('all')
-    const [filterHelper, setFilterHelper] = useState<FilterHelper>('all')
-    const [filterAgeGroup, setFilterAgeGroup] = useState<FilterAgeGroup>('all')
-    const [sortBy, setSortBy] = useState<SortField>('name')
-    const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
+    // State persistence with localStorage
+    const [searchTerm, setSearchTerm] = usePersistedState('pl_searchTerm', '')
+    const [filterCondition, setFilterCondition] = usePersistedState<FilterCondition>('pl_filterCondition', 'all')
+    const [filterGender, setFilterGender] = usePersistedState<FilterGender>('pl_filterGender', 'all')
+    const [filterStatus, setFilterStatus] = usePersistedState<FilterStatus>('pl_filterStatus', 'all')
+    const [filterFlag, setFilterFlag] = usePersistedState<FilterFlag>('pl_filterFlag', 'all')
+    const [filterHelper, setFilterHelper] = usePersistedState<FilterHelper>('pl_filterHelper', 'all')
+    const [filterAgeGroup, setFilterAgeGroup] = usePersistedState<FilterAgeGroup>('pl_filterAgeGroup', 'all')
+    const [sortBy, setSortBy] = usePersistedState<SortField>('pl_sortBy', 'name')
+    const [sortOrder, setSortOrder] = usePersistedState<SortOrder>('pl_sortOrder', 'asc')
     const [showFilters, setShowFilters] = useState(false)
 
     const filteredPublishers = publishers.filter(p => {
-        // Text search
+        // Fuzzy/phonetic text search (ex: "eryc" matches "Erik", "Eric", "Eryck")
         const matchesSearch = searchTerm === '' ||
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.condition.toLowerCase().includes(searchTerm.toLowerCase());
+            fuzzyMatchesSearch(searchTerm, p.name) ||
+            fuzzyMatchesSearch(searchTerm, p.condition);
 
         // Condition filter
         const matchesCondition = filterCondition === 'all' || p.condition === filterCondition;
