@@ -10,6 +10,8 @@ import WorkbookManager from './components/WorkbookManager'
 import ApprovalPanel from './components/ApprovalPanel'
 import BackupRestore from './components/BackupRestore'
 
+import { workbookService } from './services/workbookService'
+
 type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'backup'
 
 function App() {
@@ -112,9 +114,24 @@ function App() {
     setStatusMessage("Salvando publicador...")
     try {
       if (editingPublisher) {
+        // Cap name changes for Phase 3.6
+        const oldName = editingPublisher.name;
+        const newName = publisher.name;
+
         // Update existing
         await api.updatePublisher(publisher)
         setPublishers(prev => prev.map(p => p.id === publisher.id ? publisher : p))
+
+        // Phase 3.6: Propagate name changes to workbook parts
+        if (oldName !== newName) {
+          console.log(`[App] Propagating name change: ${oldName} -> ${newName}`);
+          setStatusMessage("Atualizando designações...");
+          const updatedCount = await workbookService.propagateNameChange(oldName, newName);
+          if (updatedCount > 0) {
+            console.log(`[App] Updated ${updatedCount} workbook parts`);
+          }
+        }
+
         setStatusMessage("✅ Publicador atualizado")
       } else {
         // Create new

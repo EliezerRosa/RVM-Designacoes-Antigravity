@@ -136,76 +136,84 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
     const showUnmatchedName = displayName && !foundPublisher;
 
-    // Construir texto do tooltip
-    const getTooltipText = () => {
-        if (!foundPublisher) return 'Nenhum publicador selecionado';
+    // Renderizar conteúdo do tooltip (JSX)
+    const renderTooltipContent = () => {
+        if (!foundPublisher) {
+            if (showUnmatchedName) {
+                return (
+                    <div>
+                        <div style={{ color: '#fca5a5', fontWeight: 'bold', marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
+                            ⚠️ Publicador não encontrado
+                        </div>
+                        <div style={{ marginBottom: '6px' }}>
+                            O nome <strong style={{ color: '#fff' }}>"{displayName}"</strong> consta na apostila mas não tem cadastro.
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#9ca3af' }}>
+                            👉 Verifique erros de digitação ou crie um novo cadastro.
+                        </div>
+                    </div>
+                );
+            }
+            return <div>Nenhum publicador selecionado</div>;
+        }
 
-        const lines = [
-            `📋 ${foundPublisher.name}`,
-            `👔 ${foundPublisher.condition}`,
-            `${foundPublisher.gender === 'brother' ? '👨 Irmão' : '👩 Irmã'}`,
-        ];
+        const isEligible = eligibilityInfo?.eligible;
+        const reason = eligibilityInfo?.reason;
 
-        if (eligibilityInfo) {
-            if (eligibilityInfo.eligible) {
-                lines.push('', '✅ ELEGÍVEL para esta parte');
+        // Explicação positiva simplificada
+        let explanation = 'Atende os requisitos';
+        if (isEligible) {
+            const modalidade = getModalidade(part);
+            const funcao = part.funcao === 'Ajudante' ? 'Ajudante' : 'Titular';
 
-                // Explicação em linguagem natural do porquê é elegível
-                const modalidade = getModalidade(part);
-                const funcao = part.funcao === 'Ajudante' ? 'Ajudante' : 'Titular';
-                const explanations: string[] = [];
-
-                // Explicar baseado na modalidade/função
-                if (funcao === 'Ajudante') {
-                    explanations.push('Pode participar como ajudante em demonstrações');
-                } else {
-                    switch (modalidade) {
-                        case EnumModalidade.PRESIDENCIA:
-                            explanations.push(`${foundPublisher.condition} com privilégio de presidir`);
-                            break;
-                        case EnumModalidade.ORACAO:
-                            explanations.push('Irmão batizado com privilégio de orar');
-                            break;
-                        case EnumModalidade.DISCURSO_ENSINO:
-                            if (foundPublisher.condition === 'Ancião' || foundPublisher.condition === 'Anciao') {
-                                explanations.push('Ancião aprovado para discursos de ensino');
-                            } else {
-                                explanations.push('Servo Ministerial com privilégio de discurso');
-                            }
-                            break;
-                        case EnumModalidade.LEITURA_ESTUDANTE:
-                            explanations.push('Publicador atuante pode fazer leitura');
-                            break;
-                        case EnumModalidade.DEMONSTRACAO:
-                            if (foundPublisher.gender === 'sister') {
-                                explanations.push('Irmã atuante pode fazer demonstrações');
-                            } else {
-                                explanations.push('Irmão atuante pode fazer demonstrações');
-                            }
-                            break;
-                        case EnumModalidade.DISCURSO_ESTUDANTE:
-                            explanations.push('Irmão atuante pode fazer discurso de estudante');
-                            break;
-                        case EnumModalidade.DIRIGENTE_EBC:
-                            explanations.push('Ancião com privilégio de dirigir EBC');
-                            break;
-                        case EnumModalidade.LEITOR_EBC:
-                            explanations.push('Irmão com privilégio de ler no EBC');
-                            break;
-                        default:
-                            explanations.push('Atende os requisitos para esta parte');
-                    }
-                }
-
-                if (explanations.length > 0) {
-                    lines.push(`➡️ ${explanations.join('; ')}`);
-                }
+            if (funcao === 'Ajudante') {
+                explanation = 'Pode participar como ajudante';
             } else {
-                lines.push('', `❌ NÃO ELEGÍVEL: ${eligibilityInfo.reason}`);
+                switch (modalidade) {
+                    case EnumModalidade.PRESIDENCIA: explanation = `${foundPublisher.condition} com privilégio de presidir`; break;
+                    case EnumModalidade.ORACAO: explanation = 'Irmão batizado apto para orar'; break;
+                    case EnumModalidade.DISCURSO_ENSINO:
+                        explanation = (foundPublisher.condition === 'Ancião' || foundPublisher.condition === 'Anciao')
+                            ? 'Ancião apto para ensino' : 'Servo Ministerial aprovado';
+                        break;
+                    case EnumModalidade.LEITURA_ESTUDANTE: explanation = 'Publicador apto para leitura'; break;
+                    case EnumModalidade.DEMONSTRACAO: explanation = 'Publicador apto para demonstração'; break;
+                    case EnumModalidade.DISCURSO_ESTUDANTE: explanation = 'Irmão apto para discurso'; break;
+                    case EnumModalidade.DIRIGENTE_EBC: explanation = 'Ancião apto para dirigir EBC'; break;
+                    case EnumModalidade.LEITOR_EBC: explanation = 'Irmão apto para ler EBC'; break;
+                    default: explanation = 'Elegível para esta designação';
+                }
             }
         }
 
-        return lines.join('\n');
+        return (
+            <div>
+                <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '6px', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#fff' }}>
+                        {foundPublisher.name}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', fontSize: '0.85em', color: '#d1d5db' }}>
+                        <span>{foundPublisher.gender === 'brother' ? '👨 Irmão' : '👩 Irmã'}</span>
+                        <span>•</span>
+                        <span>{foundPublisher.condition}</span>
+                    </div>
+                </div>
+
+                <div style={{ marginBottom: '4px' }}>
+                    {isEligible ? (
+                        <div style={{ color: '#4ade80', fontWeight: 'bold' }}>✅ ELEGÍVEL</div>
+                    ) : (
+                        <div style={{ color: '#f87171', fontWeight: 'bold' }}>❌ NÃO ELEGÍVEL</div>
+                    )}
+                </div>
+
+                {isEligible ? (
+                    <div style={{ fontSize: '0.9em', color: '#e5e7eb' }}>➡️ {explanation}</div>
+                ) : (
+                    <div style={{ color: '#fca5a5', fontWeight: '500', fontSize: '0.95em' }}>⚠️ {reason}</div>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -227,7 +235,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     maxWidth: '100%',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    borderColor: showUnmatchedName ? '#f87171' : (style?.borderColor || 'var(--border-color)'),
+                    background: showUnmatchedName ? '#fef2f2' : (style?.background || 'var(--bg-secondary)'),
+                    color: showUnmatchedName ? '#ef4444' : (style?.color || 'var(--text-primary)')
                 }}
             >
                 <option value="">Selecione...</option>
@@ -254,13 +265,13 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 })}
             </select>
 
-            {/* Ícone de ajuda com tooltip dinâmico de elegibilidade */}
-            <Tooltip content={getTooltipText()}>
+            {/* Ícone de ajuda com tooltip dinâmico (HTML/JSX) */}
+            <Tooltip content={renderTooltipContent()}>
                 <span
                     style={{
                         cursor: 'help',
-                        background: eligibilityInfo?.eligible === false ? 'rgba(239, 68, 68, 0.2)' : 'rgba(107, 114, 128, 0.2)',
-                        color: eligibilityInfo?.eligible === false ? '#ef4444' : '#6b7280',
+                        background: showUnmatchedName ? 'rgba(248, 113, 113, 0.2)' : (eligibilityInfo?.eligible === false ? 'rgba(239, 68, 68, 0.2)' : 'rgba(107, 114, 128, 0.2)'),
+                        color: showUnmatchedName ? '#f87171' : (eligibilityInfo?.eligible === false ? '#ef4444' : '#6b7280'),
                         borderRadius: '50%',
                         width: '20px',
                         height: '20px',
@@ -270,10 +281,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         fontSize: '12px',
                         fontWeight: 'bold',
                         flexShrink: 0,
-                        border: eligibilityInfo?.eligible === false ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(107, 114, 128, 0.3)'
+                        border: showUnmatchedName ? '1px solid rgba(248, 113, 113, 0.4)' : (eligibilityInfo?.eligible === false ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(107, 114, 128, 0.3)')
                     }}
                 >
-                    ?
+                    {showUnmatchedName ? '!' : '?'}
                 </span>
             </Tooltip>
         </div>
