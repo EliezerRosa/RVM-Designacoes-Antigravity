@@ -238,6 +238,25 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
 
                                 <div className="form-group">
                                     <label className="form-label">Pais/Responsáveis</label>
+
+                                    {/* Phase 3.4: Display current parents above dropdown */}
+                                    {formData.parentIds && formData.parentIds.length > 0 && (
+                                        <div style={{
+                                            marginBottom: '8px',
+                                            padding: '8px 12px',
+                                            background: 'rgba(34, 197, 94, 0.1)',
+                                            borderRadius: '6px',
+                                            fontSize: '0.85rem',
+                                            color: 'var(--success-500)'
+                                        }}>
+                                            <strong>✓ Selecionados:</strong>{' '}
+                                            {formData.parentIds.map(id => {
+                                                const parent = publishers.find(p => p.id === id);
+                                                return parent?.name || id;
+                                            }).join(', ')}
+                                        </div>
+                                    )}
+
                                     <select
                                         multiple
                                         value={formData.parentIds || []}
@@ -258,8 +277,10 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                             color: 'var(--text-primary)',
                                         }}
                                     >
+                                        {/* Phase 3.7: Sort parents alphabetically */}
                                         {publishers
                                             .filter(p => p.ageGroup === 'Adulto' && p.id !== formData.id)
+                                            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
                                             .map(p => (
                                                 <option key={p.id} value={p.id}>
                                                     {p.name} ({p.gender === 'brother' ? 'Irmão' : 'Irmã'})
