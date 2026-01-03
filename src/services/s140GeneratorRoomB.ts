@@ -272,7 +272,7 @@ export function generateS140RoomBHTML(weekData: S140WeekData): string {
                     ${bullet}${part.title}
                 </td>
                 <td style="padding: 4px 8px;"></td>
-                <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; text-align: center;">
+                <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; color: #333333; text-align: center;">
                     ${part.mainHallAssignee}
                 </td>
             </tr>
@@ -370,7 +370,7 @@ export function generateS140RoomBHTML(weekData: S140WeekData): string {
                         <td colspan="3" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: ${textColor};">
                             ${bullet}${part.title}
                         </td>
-                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; text-align: right;">
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; color: #333333; text-align: right;">
                             ${mainDisplay}
                         </td>
                     </tr>
@@ -385,10 +385,10 @@ export function generateS140RoomBHTML(weekData: S140WeekData): string {
                         <td colspan="2" style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: ${textColor};">
                             ${bullet}${part.title}
                         </td>
-                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; text-align: center; background: ${part.isStudentPart ? '#FAFEFF' : 'transparent'};">
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; color: #333333; text-align: center; background: ${part.isStudentPart ? '#FAFEFF' : 'transparent'};">
                             ${part.isStudentPart ? roomBDisplay : ''}
                         </td>
-                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; text-align: center; background: ${part.isStudentPart ? '#FAFAFA' : 'transparent'};">
+                        <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; color: #333333; text-align: center; background: ${part.isStudentPart ? '#FAFAFA' : 'transparent'};">
                             ${mainDisplay}
                         </td>
                     </tr>
@@ -413,7 +413,7 @@ export function generateS140RoomBHTML(weekData: S140WeekData): string {
                     ${bullet}${part.title}
                 </td>
                 <td style="padding: 4px 8px;"></td>
-                <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; text-align: center;">
+                <td style="padding: 4px 8px; font-family: Calibri, sans-serif; font-size: 10pt; font-weight: 500; color: #333333; text-align: center;">
                     ${part.mainHallAssignee}
                 </td>
             </tr>
