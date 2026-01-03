@@ -340,3 +340,121 @@ export function getParticipationStats(
         averageIntervalDays: pubHistory.length > 1 ? totalInterval / (pubHistory.length - 1) : 0
     };
 }
+
+// ===== Alertas de Designação Múltipla =====
+
+/**
+ * Interface para alertas de designação múltipla
+ */
+export interface AssignmentWarning {
+    type: 'SAME_WEEK' | 'ADJACENT_WEEK';
+    weekId: string;
+    weekDisplay: string;
+    partTitle: string;
+    date: string;
+    message: string;
+}
+
+/**
+ * Verifica se um publicador tem múltiplas designações na mesma semana ou semanas adjacentes.
+ * Retorna alertas (warnings) em vez de bloquear - é informativo, não restritivo.
+ * 
+ * @param publisherName Nome do publicador a verificar
+ * @param targetWeekId weekId da parte sendo atribuída
+ * @param parts Lista de partes (WorkbookPart) para verificar
+ * @param excludePresidency Se true, não alerta para partes de presidência (Presidente geralmente tem múltiplas partes)
+ * @returns Lista de alertas encontrados
+ */
+export function checkMultipleAssignments(
+    publisherName: string,
+    targetWeekId: string,
+    parts: Array<{
+        id: string;
+        weekId: string;
+        weekDisplay: string;
+        tipoParte: string;
+        tituloParte: string;
+        date: string;
+        rawPublisherName: string;
+        resolvedPublisherName?: string;
+        status?: string;
+    }>,
+    excludePresidency: boolean = true
+): AssignmentWarning[] {
+    if (!publisherName || !targetWeekId) return [];
+
+    const warnings: AssignmentWarning[] = [];
+
+    // Partes de presidência que são exceção (não geram alerta)
+    const PRESIDENCY_TYPES = [
+        'Presidente', 'Presidente da Reunião',
+        'Comentários Iniciais', 'Comentarios Iniciais',
+        'Comentários Finais', 'Comentarios Finais',
+        'Oração Inicial', 'Oracao Inicial',
+        'Oração Final', 'Oracao Final',
+    ];
+
+    // Filtrar partes do publicador (PROPOSTA, APROVADA, DESIGNADA, CONCLUIDA - não PENDENTE/REJEITADA/CANCELADA)
+    const publisherParts = parts.filter(p => {
+        const isPublisher = (p.resolvedPublisherName === publisherName || p.rawPublisherName === publisherName);
+        const isActive = !p.status || !['PENDENTE', 'REJEITADA', 'CANCELADA'].includes(p.status);
+        return isPublisher && isActive;
+    });
+
+    if (publisherParts.length === 0) return [];
+
+    // Extrair números das semanas para comparação de adjacência
+    // weekId format esperado: "2025-01" ou "YYYY-WW"
+    const parseWeekNumber = (weekId: string): number => {
+        const match = weekId.match(/(\d{4})[^0-9]*(\d{1,2})$/);
+        if (match) {
+            return parseInt(match[1]) * 100 + parseInt(match[2]);
+        }
+        return 0;
+    };
+
+    const targetWeekNum = parseWeekNumber(targetWeekId);
+
+    for (const part of publisherParts) {
+        // Pular a própria parte sendo verificada se já existe
+        if (part.weekId === targetWeekId && part.id) continue;
+
+        // Pular partes de presidência se configurado
+        if (excludePresidency && PRESIDENCY_TYPES.some(t =>
+            part.tipoParte?.includes(t) || part.tituloParte?.includes(t)
+        )) {
+            continue;
+        }
+
+        const partWeekNum = parseWeekNumber(part.weekId);
+
+        // Mesma semana
+        if (part.weekId === targetWeekId) {
+            warnings.push({
+                type: 'SAME_WEEK',
+                weekId: part.weekId,
+                weekDisplay: part.weekDisplay,
+                partTitle: part.tituloParte || part.tipoParte,
+                date: part.date,
+                message: `Já tem designação nesta mesma semana: "${part.tituloParte || part.tipoParte}"`
+            });
+            continue;
+        }
+
+        // Semana adjacente (anterior ou posterior)
+        const diff = Math.abs(targetWeekNum - partWeekNum);
+        if (diff === 1) {
+            const direction = targetWeekNum > partWeekNum ? 'anterior' : 'posterior';
+            warnings.push({
+                type: 'ADJACENT_WEEK',
+                weekId: part.weekId,
+                weekDisplay: part.weekDisplay,
+                partTitle: part.tituloParte || part.tipoParte,
+                date: part.date,
+                message: `Tem designação na semana ${direction}: "${part.tituloParte || part.tipoParte}" (${part.weekDisplay})`
+            });
+        }
+    }
+
+    return warnings;
+}
