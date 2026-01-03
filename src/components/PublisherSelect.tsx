@@ -3,6 +3,7 @@ import { type Publisher, type WorkbookPart } from '../types';
 import { checkEligibility } from '../services/eligibilityService';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
+import { fuzzySearchWithScore, normalize } from '../utils/searchUtils';
 
 interface PublisherSelectProps {
     part: WorkbookPart;
@@ -66,14 +67,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         });
     }, [part, publishers]);
 
-    // Normalizar nome para comparação (lowercase + trim + remover acentos)
-    const normalizeForMatch = (s: string | undefined | null): string => {
-        if (!s) return '';
-        return s.toLowerCase().trim()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove acentos
-    };
-
     // Determinar o valor efetivo - tentar encontrar ID pelo nome se não temos ID
+    // Agora usa busca fonética/fuzzy para melhor match (ex: "eryc" encontra "Erik")
     const { effectiveValue, foundPublisher, eligibilityInfo } = useMemo(() => {
         const modalidade = getModalidade(part);
         const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
@@ -96,13 +91,28 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             }
         }
         if (displayName) {
-            const normalizedDisplay = normalizeForMatch(displayName);
             // Tentar match exato primeiro
             let found = publishers.find(p => p.name === displayName);
-            // Se não encontrou, tentar match normalizado
+
+            // Se não encontrou, tentar match normalizado (sem acentos, lowercase)
             if (!found) {
-                found = publishers.find(p => normalizeForMatch(p.name) === normalizedDisplay);
+                const normalizedDisplay = normalize(displayName);
+                found = publishers.find(p => normalize(p.name) === normalizedDisplay);
             }
+
+            // Se ainda não encontrou, tentar busca fonética/fuzzy
+            if (!found) {
+                const fuzzyResults = fuzzySearchWithScore(
+                    displayName,
+                    publishers,
+                    p => p.name,
+                    0.8 // Threshold alto para evitar falsos positivos
+                );
+                if (fuzzyResults.length > 0) {
+                    found = fuzzyResults[0].item;
+                }
+            }
+
             if (found) {
                 const result = checkEligibility(
                     found,
