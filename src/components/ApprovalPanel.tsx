@@ -4,6 +4,7 @@ import { type WorkbookPart, WorkbookStatus, type Publisher, EnumModalidade, Enum
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
 import { checkEligibility } from '../services/eligibilityService';
+import { usePersistedState } from '../hooks/usePersistedState';
 
 interface ApprovalPanelProps {
     elderId?: string;
@@ -18,7 +19,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const [assignments, setAssignments] = useState<WorkbookPart[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [filter, setFilter] = useState<'all' | 'unassigned' | 'pending' | 'approved' | 'completed'>('pending');
+    // Persisted filter - remembers user's last selection
+    const [filter, setFilter] = usePersistedState<'all' | 'unassigned' | 'pending' | 'approved' | 'completed'>('ap_filter', 'pending');
 
     // Estados de ação
     const [rejectingId, setRejectingId] = useState<string | null>(null);
