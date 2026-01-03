@@ -67,12 +67,26 @@ export interface RotationScore {
 // ===== Funções Principais =====
 
 /**
- * Calcula a prioridade de rodízio para um publicador
+ * Calcula a prioridade de rodízio para um publicador.
+ * ATUALIZADO: Considera também participações FUTURAS já agendadas (PROPOSTA/APROVADA/DESIGNADA).
+ * 
+ * @param publisherName Nome do publicador
+ * @param history Histórico de participações passadas (HistoryRecord[])
+ * @param today Data de referência
+ * @param futureAssignments Partes futuras já agendadas (opcional, formato simplificado)
  */
 export function calculateRotationPriority(
     publisherName: string,
     history: HistoryRecord[],
-    today: Date = new Date()
+    today: Date = new Date(),
+    futureAssignments?: Array<{
+        date: string;
+        tipoParte: string;
+        rawPublisherName?: string;
+        resolvedPublisherName?: string;
+        funcao?: string;
+        status?: string;
+    }>
 ): number {
     // Filtrar histórico do publicador pelo nome
     const publisherHistory = history.filter(h =>
@@ -80,12 +94,23 @@ export function calculateRotationPriority(
         h.rawPublisherName === publisherName
     );
 
-    if (publisherHistory.length === 0) {
-        // Nunca participou → prioridade máxima
+    // Contar participações futuras ativas (não PENDENTE/REJEITADA/CANCELADA)
+    let futureCount = 0;
+    if (futureAssignments) {
+        const activeStatuses = ['PROPOSTA', 'APROVADA', 'DESIGNADA', 'CONCLUIDA'];
+        futureCount = futureAssignments.filter(p => {
+            const isPublisher = (p.resolvedPublisherName === publisherName || p.rawPublisherName === publisherName);
+            const isActive = !p.status || activeStatuses.includes(p.status);
+            return isPublisher && isActive;
+        }).length;
+    }
+
+    if (publisherHistory.length === 0 && futureCount === 0) {
+        // Nunca participou e sem agendamentos futuros → prioridade máxima
         return Number.MAX_SAFE_INTEGER;
     }
 
-    // Categorizar e calcular dias
+    // Categorizar e calcular dias desde última participação
     const categoryDays = {
         PRESIDENCY: getDaysSinceCategoryLast(publisherHistory, 'PRESIDENCY', today),
         TEACHING: getDaysSinceCategoryLast(publisherHistory, 'TEACHING', today),
@@ -94,14 +119,23 @@ export function calculateRotationPriority(
     };
 
     // Aplicar fórmula de prioridade ponderada
-    const priority =
+    let priority =
         categoryDays.PRESIDENCY * CATEGORY_WEIGHTS.PRESIDENCY +
         categoryDays.TEACHING * CATEGORY_WEIGHTS.TEACHING +
         categoryDays.STUDENT * CATEGORY_WEIGHTS.STUDENT +
         categoryDays.HELPER * CATEGORY_WEIGHTS.HELPER;
 
+    // PENALIZAR por participações futuras já agendadas
+    // Cada participação futura reduz a prioridade significativamente
+    // (evita sobrecarregar quem já tem várias partes futuras)
+    if (futureCount > 0) {
+        const FUTURE_PENALTY = 0.5; // 50% de redução por cada parte futura
+        priority = priority * Math.pow(FUTURE_PENALTY, futureCount);
+    }
+
     return priority;
 }
+
 
 /**
  * Verifica se um publicador está em cooldown para um tipo de parte
