@@ -233,6 +233,11 @@ export function isEligibleForPartType(
         context.secao = EnumSecao.TESOUROS;
     }
 
+    // Contexto de seção para Ministério (Partes de Estudante)
+    if (tipoParte === EnumTipoParte.PARTE_ESTUDANTE) {
+        context.secao = EnumSecao.MINISTERIO;
+    }
+
     return isEligibleForModality(publisher, modalidade, funcao, context);
 }
 

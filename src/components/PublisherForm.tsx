@@ -92,6 +92,26 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
+
+        // Validation: Logic Coherence for Teaching Talks
+        if (formData.privileges.canGiveTalks) {
+            const blockedInTreasures = !formData.privilegesBySection.canParticipateInTreasures;
+            const blockedInLife = !formData.privilegesBySection.canParticipateInLife;
+
+            if (blockedInTreasures && blockedInLife) {
+                alert('⚠️ Incoerência Detectada:\n\nPara ter o privilégio "Dar Discurso de Ensino", o publicador deve poder participar em pelo menos uma das seções onde discursos ocorrem ("Tesouros" ou "Nossa Vida").\n\nPor favor, habilite a participação em uma dessas seções ou remova o privilégio de ensino.');
+                return;
+            }
+        }
+
+        // Validation: Student Talks require Ministry Section
+        if (formData.privileges.canGiveStudentTalks) {
+            if (!formData.privilegesBySection.canParticipateInMinistry) {
+                alert('⚠️ Atenção:\n\nO privilégio "Dar Discurso de Estudante" está ativo, mas a seção "Ministério" (onde ocorrem estas partes) está desativada.\n\nPor favor, ative a seção "Ministério" para este publicador ou remova o privilégio.');
+                return;
+            }
+        }
+
         onSave(formData)
     }
 
