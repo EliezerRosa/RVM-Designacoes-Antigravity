@@ -972,6 +972,58 @@ export const workbookService = {
             console.error('[workbookService] Erro ao sincronizar presidente:', updateError);
         }
     },
+
+    /**
+     * Phase 3.6: Propaga alteração de nome do publicador para todas as partes
+     * Deve ser chamado quando o nome de um publicador é alterado no formulário
+     * @param oldName Nome antigo do publicador
+     * @param newName Novo nome do publicador
+     * @returns Número de partes atualizadas
+     */
+    async propagateNameChange(oldName: string, newName: string): Promise<number> {
+        if (!oldName || !newName || oldName === newName) {
+            console.log('[workbookService] propagateNameChange: Nenhuma alteração necessária');
+            return 0;
+        }
+
+        console.log(`[workbookService] 🔄 Propagando alteração de nome: "${oldName}" → "${newName}"`);
+
+        // 1. Atualizar resolved_publisher_name
+        const { data: resolvedParts, error: resolvedError } = await supabase
+            .from('workbook_parts')
+            .update({
+                resolved_publisher_name: newName,
+                updated_at: new Date().toISOString()
+            })
+            .eq('resolved_publisher_name', oldName)
+            .select('id');
+
+        if (resolvedError) {
+            console.error('[workbookService] Erro ao propagar nome (resolved):', resolvedError);
+        }
+
+        // 2. Atualizar raw_publisher_name (para manter consistência)
+        const { data: rawParts, error: rawError } = await supabase
+            .from('workbook_parts')
+            .update({
+                raw_publisher_name: newName,
+                updated_at: new Date().toISOString()
+            })
+            .eq('raw_publisher_name', oldName)
+            .select('id');
+
+        if (rawError) {
+            console.error('[workbookService] Erro ao propagar nome (raw):', rawError);
+        }
+
+        const resolvedCount = resolvedParts?.length || 0;
+        const rawCount = rawParts?.length || 0;
+        const totalUpdated = resolvedCount + rawCount;
+
+        console.log(`[workbookService] ✅ Nome propagado: ${resolvedCount} resolved + ${rawCount} raw = ${totalUpdated} partes`);
+
+        return totalUpdated;
+    },
 };
 
 // ============================================================================
