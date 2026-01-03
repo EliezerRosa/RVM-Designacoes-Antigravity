@@ -49,7 +49,9 @@ export interface Publisher {
     aliases: string[];
     // Status flags from EMR categories
     isNotQualified?: boolean;          // Não apto para participar
+    notQualifiedReason?: string;        // Motivo da não qualificação (ex: "Necessita treinamento")
     requestedNoParticipation?: boolean; // "PEDIRAM PARA NÃO PARTICIPAR"
+    noParticipationReason?: string;     // Motivo (ex: "Viagem", "Problemas pessoais")
     // Data origin tracking
     source?: 'manual' | 'import' | 'sync' | 'initial'; // Onde o registro foi criado
     createdAt?: string;  // ISO timestamp of creation

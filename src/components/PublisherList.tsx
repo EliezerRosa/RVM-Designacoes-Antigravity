@@ -415,29 +415,37 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                     </span>
                                 )}
 
-                                {/* Not Qualified */}
+                                {/* Not Qualified - with reason tooltip */}
                                 {publisher.isNotQualified && (
-                                    <span style={{
-                                        color: 'var(--warning-500)',
-                                        background: 'rgba(245, 158, 11, 0.1)',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
-                                        fontSize: '0.75rem'
-                                    }}>
-                                        ⚠️ Não Apto
+                                    <span
+                                        style={{
+                                            color: 'var(--danger-500)',
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            cursor: publisher.notQualifiedReason ? 'help' : 'default'
+                                        }}
+                                        title={publisher.notQualifiedReason || 'Publicador marcado como não apto para participar'}
+                                    >
+                                        ⚠️ Não Apto{publisher.notQualifiedReason ? '*' : ''}
                                     </span>
                                 )}
 
-                                {/* No Participation */}
+                                {/* No Participation - with reason tooltip */}
                                 {publisher.requestedNoParticipation && (
-                                    <span style={{
-                                        color: 'var(--warning-500)',
-                                        background: 'rgba(245, 158, 11, 0.1)',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
-                                        fontSize: '0.75rem'
-                                    }}>
-                                        🙅 Não Participa
+                                    <span
+                                        style={{
+                                            color: 'var(--warning-500)',
+                                            background: 'rgba(245, 158, 11, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            cursor: publisher.noParticipationReason ? 'help' : 'default'
+                                        }}
+                                        title={publisher.noParticipationReason || 'Publicador pediu para não participar'}
+                                    >
+                                        🙅 Não Participa{publisher.noParticipationReason ? '*' : ''}
                                     </span>
                                 )}
 
