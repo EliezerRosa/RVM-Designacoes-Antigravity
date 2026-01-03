@@ -510,11 +510,7 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                         📗 Ler EBC
                                     </span>
                                 )}
-                                {publisher.privileges.approvedForTreasuresTalks && (
-                                    <span className="badge" style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' }} title="SM aprovado para discursos em Tesouros">
-                                        💎 Tesouros
-                                    </span>
-                                )}
+
                                 {publisher.privileges.canGiveStudentTalks && (
                                     <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7' }} title="Pode dar discursos de estudante">
                                         🎓 Discurso Estudante
