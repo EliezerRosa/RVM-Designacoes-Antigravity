@@ -136,7 +136,8 @@ export type EventImpactAction =
     | 'REASSIGN_PART'
     | 'SC_VISIT_LOGIC'
     | 'CANCEL_WEEK'
-    | 'TIME_ADJUSTMENT';
+    | 'TIME_ADJUSTMENT'
+    | 'REDUCE_VIDA_CRISTA_TIME';  // Para eventos satélite (Preparação/Recapitulação)
 
 export interface EventImpact {
     action: EventImpactAction;
@@ -184,6 +185,9 @@ export interface SpecialEvent {
     createdAt?: string;
     updatedAt?: string;
     createdBy?: string;
+    // Novos campos para eventos satélite
+    parentEventId?: string;     // Vincula a evento pai (Assembleia/Congresso)
+    targetPartId?: string;      // Parte específica a ter tempo reduzido
 }
 
 // ===== APOSTILA (WORKBOOK STAGING) =====

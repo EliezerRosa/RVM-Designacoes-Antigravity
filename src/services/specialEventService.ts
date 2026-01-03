@@ -21,9 +21,16 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
         defaults: { duration: 30, requiresTheme: false, requiresAssignee: false },
     },
     {
-        id: 'assembleia-congresso',
-        name: 'Assembleia de Circuito ou Congresso',
-        description: 'Não há reunião nesta semana devido à Assembleia de Circuito ou Congresso.',
+        id: 'assembleia-circuito',
+        name: 'Assembleia de Circuito',
+        description: 'Não há reunião nesta semana devido à Assembleia de Circuito.',
+        impact: { action: 'CANCEL_WEEK' },
+        defaults: { duration: 0, requiresTheme: false, requiresAssignee: false },
+    },
+    {
+        id: 'congresso',
+        name: 'Congresso Regional',
+        description: 'Não há reunião nesta semana devido ao Congresso Regional.',
         impact: { action: 'CANCEL_WEEK' },
         defaults: { duration: 0, requiresTheme: false, requiresAssignee: false },
     },
@@ -43,6 +50,35 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
         description: 'Evento personalizado. Requer tema e responsável.',
         impact: { action: 'ADD_PART' },
         defaults: { duration: 15, requiresTheme: true, requiresAssignee: true },
+    },
+    // --- EVENTOS SATÉLITE (Vinculados a Assembleia/Congresso) ---
+    {
+        id: 'preparacao-assembleia',
+        name: 'Preparação para Assembleia de Circuito',
+        description: 'Parte de preparação para assembleia. Reduz tempo de outra parte na Vida Cristã. Use na semana anterior à Assembleia.',
+        impact: { action: 'REDUCE_VIDA_CRISTA_TIME' },
+        defaults: { duration: 10, requiresTheme: true, requiresAssignee: true },
+    },
+    {
+        id: 'recapitulacao-assembleia',
+        name: 'Recapitulação da Assembleia de Circuito',
+        description: 'Parte de recapitulação da assembleia. Reduz tempo de outra parte na Vida Cristã. Use na semana posterior à Assembleia.',
+        impact: { action: 'REDUCE_VIDA_CRISTA_TIME' },
+        defaults: { duration: 10, requiresTheme: true, requiresAssignee: true },
+    },
+    {
+        id: 'preparacao-congresso',
+        name: 'Preparação para Congresso',
+        description: 'Parte de preparação para o congresso. Reduz tempo de outra parte na Vida Cristã. Use na semana anterior ao Congresso.',
+        impact: { action: 'REDUCE_VIDA_CRISTA_TIME' },
+        defaults: { duration: 10, requiresTheme: true, requiresAssignee: true },
+    },
+    {
+        id: 'recapitulacao-congresso',
+        name: 'Recapitulação do Congresso',
+        description: 'Parte de recapitulação do congresso. Reduz tempo de outra parte na Vida Cristã. Use na semana posterior ao Congresso.',
+        impact: { action: 'REDUCE_VIDA_CRISTA_TIME' },
+        defaults: { duration: 10, requiresTheme: true, requiresAssignee: true },
     },
 ];
 
@@ -238,6 +274,34 @@ export const specialEventService = {
                 // Não afeta partes existentes, apenas adiciona nova parte
                 // (A criação da nova parte seria feita separadamente)
                 affected = 0;
+                break;
+
+            case 'REDUCE_VIDA_CRISTA_TIME':
+                // Reduz tempo de uma parte específica na Vida Cristã (para eventos satélite)
+                if (event.targetPartId) {
+                    const { data: part } = await supabase
+                        .from('workbook_parts')
+                        .select('id, duracao')
+                        .eq('id', event.targetPartId)
+                        .single();
+
+                    if (part) {
+                        const currentDuration = parseInt(part.duracao) || 15;
+                        const reduction = event.duration || 10; // Tempo da parte nova
+                        const newDuration = Math.max(5, currentDuration - reduction);
+
+                        const { error } = await supabase
+                            .from('workbook_parts')
+                            .update({
+                                duracao: `${newDuration} min`,
+                                original_duration: part.duracao,
+                                affected_by_event_id: event.id
+                            })
+                            .eq('id', event.targetPartId);
+                        if (error) throw error;
+                        affected = 1;
+                    }
+                }
                 break;
 
             case 'REASSIGN_PART':
