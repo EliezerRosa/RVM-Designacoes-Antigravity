@@ -3,7 +3,7 @@ import { workbookService } from '../services/workbookService';
 import { type WorkbookPart, WorkbookStatus, type Publisher, EnumModalidade, EnumFuncao } from '../types';
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
-import { checkEligibility } from '../services/eligibilityService';
+import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
 import { usePersistedState } from '../hooks/usePersistedState';
 
 interface ApprovalPanelProps {
@@ -532,7 +532,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                                 };
                                                                 const modalidade = part.modalidade || TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
                                                                 const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
-                                                                const eligibility = checkEligibility(foundPublisher, modalidade as any, funcao, { date: part.date, secao: part.section });
+                                                                const isPast = isPastWeekDate(part.date);
+                                                                const eligibility = checkEligibility(foundPublisher, modalidade as any, funcao, { date: part.date, secao: part.section, isPastWeek: isPast });
 
                                                                 // Construir tooltip
                                                                 const lines = [

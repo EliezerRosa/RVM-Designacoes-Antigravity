@@ -29,6 +29,7 @@ export interface EligibilityContext {
     secao?: string;          // Seção da reunião (EnumSecao value)
     partTitle?: string;      // Título da parte (para regras específicas)
     isOracaoInicial?: boolean; // Se é oração inicial (requer canPreside)
+    isPastWeek?: boolean;    // Se é semana passada (não verifica disponibilidade)
 }
 
 export interface EligibilityResult {
@@ -78,7 +79,9 @@ export function checkEligibility(
     }
 
     // Regra 2: Não designar em datas indisponíveis
-    if (context.date && !isAvailableOnDate(publisher, context.date)) {
+    // IMPORTANTE: Só verifica disponibilidade para semanas FUTURAS.
+    // Para semanas passadas, o histórico factual é preservado.
+    if (context.date && !context.isPastWeek && !isAvailableOnDate(publisher, context.date)) {
         return { eligible: false, reason: 'Publicador indisponível nesta data' };
     }
 
@@ -290,6 +293,49 @@ function isAvailableOnDate(publisher: Publisher, date: string): boolean {
         // Modo "nunca disponível" - verificar exceções positivas
         return availability.availableDates.includes(date);
     }
+}
+
+/**
+ * Determina se uma data está em uma semana passada (antes da segunda-feira atual).
+ * Útil para saber se deve verificar disponibilidade ou não.
+ */
+export function isPastWeekDate(dateStr: string): boolean {
+    if (!dateStr) return false;
+
+    // Calcular segunda-feira da semana atual
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    // Parse da data fornecida
+    let partDate: Date;
+
+    // Suporta YYYY-MM-DD
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+        partDate = new Date(dateStr + 'T12:00:00');
+    }
+    // Suporta DD/MM/YYYY
+    else if (dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)) {
+        const parts = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (parts) {
+            partDate = new Date(`${parts[3]}-${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}T12:00:00`);
+        } else {
+            return false;
+        }
+    }
+    // Suporta Excel serial
+    else if (dateStr.match(/^\d+$/)) {
+        const serial = parseInt(dateStr, 10);
+        partDate = new Date((serial - 25569) * 86400 * 1000);
+    }
+    else {
+        partDate = new Date(dateStr);
+    }
+
+    return partDate < monday;
 }
 
 /**

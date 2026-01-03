@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart } from '../types';
-import { checkEligibility } from '../services/eligibilityService';
+import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
 import { fuzzySearchWithScore, normalize } from '../utils/searchUtils';
@@ -47,6 +47,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         const modalidade = getModalidade(part);
         const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
         const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+        const isPast = isPastWeekDate(part.date);
 
         return [...publishers].map(p => {
             // Checar elegibilidade de cada publicador
@@ -54,7 +55,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 p,
                 modalidade as Parameters<typeof checkEligibility>[1],
                 funcao,
-                { date: part.date, isOracaoInicial, secao: part.section }
+                { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
             );
             return { publisher: p, eligible: result.eligible, reason: result.reason };
         }).sort((a, b) => {
@@ -77,11 +78,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         if (value) {
             const pub = publishers.find(p => p.id === value);
             if (pub) {
+                const isPast = isPastWeekDate(part.date);
                 const result = checkEligibility(
                     pub,
                     modalidade as Parameters<typeof checkEligibility>[1],
                     funcao,
-                    { date: part.date, isOracaoInicial, secao: part.section }
+                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
                 );
                 return {
                     effectiveValue: value,
@@ -114,11 +116,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             }
 
             if (found) {
+                const isPast = isPastWeekDate(part.date);
                 const result = checkEligibility(
                     found,
                     modalidade as Parameters<typeof checkEligibility>[1],
                     funcao,
-                    { date: part.date, isOracaoInicial, secao: part.section }
+                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
                 );
                 return {
                     effectiveValue: found.id,
