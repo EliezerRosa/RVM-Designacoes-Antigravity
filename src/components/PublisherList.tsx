@@ -533,6 +533,54 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                             </div>
                         </div>
 
+                        {/* Section Permissions (Phase 3.2) */}
+                        {publisher.privilegesBySection && (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 'var(--spacing-sm)' }}>
+                                <strong>📍 Seções:</strong>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                                    <span
+                                        style={{
+                                            color: publisher.privilegesBySection.canParticipateInTreasures ? '#22c55e' : '#94a3b8',
+                                            background: publisher.privilegesBySection.canParticipateInTreasures ? 'rgba(34, 197, 94, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            textDecoration: publisher.privilegesBySection.canParticipateInTreasures ? 'none' : 'line-through'
+                                        }}
+                                        title={publisher.privilegesBySection.canParticipateInTreasures ? 'Pode participar' : 'Não pode participar'}
+                                    >
+                                        💎 Tesouros
+                                    </span>
+                                    <span
+                                        style={{
+                                            color: publisher.privilegesBySection.canParticipateInMinistry ? '#22c55e' : '#94a3b8',
+                                            background: publisher.privilegesBySection.canParticipateInMinistry ? 'rgba(34, 197, 94, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            textDecoration: publisher.privilegesBySection.canParticipateInMinistry ? 'none' : 'line-through'
+                                        }}
+                                        title={publisher.privilegesBySection.canParticipateInMinistry ? 'Pode participar' : 'Não pode participar'}
+                                    >
+                                        📚 Ministério
+                                    </span>
+                                    <span
+                                        style={{
+                                            color: publisher.privilegesBySection.canParticipateInLife ? '#22c55e' : '#94a3b8',
+                                            background: publisher.privilegesBySection.canParticipateInLife ? 'rgba(34, 197, 94, 0.1)' : 'rgba(148, 163, 184, 0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            textDecoration: publisher.privilegesBySection.canParticipateInLife ? 'none' : 'line-through'
+                                        }}
+                                        title={publisher.privilegesBySection.canParticipateInLife ? 'Pode participar' : 'Não pode participar'}
+                                    >
+                                        💚 Vida Cristã
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Disponibilidade */}
                         {publisher.availability && publisher.availability.mode !== 'always' && (
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 'var(--spacing-sm)' }}>
