@@ -695,6 +695,18 @@ export function WorkbookManager({ publishers }: Props) {
                 return updated;
             }));
 
+            // =====================================================================
+            // PASSO ESPECIAL: Se for Necessidades Locais, desvincular pré-designação anterior
+            // Isso permite re-designar manualmente uma NL que foi atribuída pelo motor
+            // =====================================================================
+            if (part.tipoParte === 'Necessidades Locais') {
+                try {
+                    await localNeedsService.unassignByPartId(partId);
+                } catch (unlinkErr) {
+                    console.warn('[WorkbookManager] Erro ao desvincular pré-designação NL:', unlinkErr);
+                }
+            }
+
             // Chamada ao Backend
             if (!isDesignada) {
                 await workbookService.proposePublisher(partId, newName);
@@ -708,10 +720,6 @@ export function WorkbookManager({ publishers }: Props) {
             const msg = e instanceof Error ? e.message : 'Erro desconhecido';
             setError(msg);
             alert(`Erro ao salvar: ${msg}`);
-            // Recarregar partes para desfazer optimistic update errado
-            // (Se eu tivesse acesso ao fetchParts, chamaria aqui. Mas ele está dentro do hook loadParts?
-            //  Na verdade handleGenerate chama setParts. 
-            //  O ideal para garantir consistência seria forçar um reload.)
         }
     };
 
