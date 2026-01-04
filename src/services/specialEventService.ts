@@ -339,8 +339,8 @@ export const specialEventService = {
         if (cancelError) throw cancelError;
         restored += cancelCount || 0;
 
-        // Restaurar durações originais (para TIME_ADJUSTMENT)
-        if (template.impact.action === 'TIME_ADJUSTMENT') {
+        // Restaurar durações originais (para TIME_ADJUSTMENT e REDUCE_VIDA_CRISTA_TIME)
+        if (template.impact.action === 'TIME_ADJUSTMENT' || template.impact.action === 'REDUCE_VIDA_CRISTA_TIME') {
             const { data: adjustedParts } = await supabase
                 .from('workbook_parts')
                 .select('id, original_duration')
