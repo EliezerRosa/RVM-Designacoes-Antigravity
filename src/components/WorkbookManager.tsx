@@ -11,8 +11,10 @@ import { workbookService, type WorkbookExcelRow } from '../services/workbookServ
 import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
+import { localNeedsService } from '../services/localNeedsService';
 import { PublisherSelect } from './PublisherSelect';
 import { SpecialEventManager } from './SpecialEventManager';
+import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { getStatusConfig } from '../constants/status';
 import { downloadS140 } from '../services/s140Generator';
 import { downloadS140RoomB } from '../services/s140GeneratorRoomB';
@@ -96,6 +98,9 @@ export function WorkbookManager({ publishers }: Props) {
     // Estado do Modal de Edição
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingPart, setEditingPart] = useState<WorkbookPart | null>(null);
+
+    // Estado do Modal de Fila de Necessidades Locais
+    const [isLocalNeedsQueueOpen, setIsLocalNeedsQueueOpen] = useState(false);
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -401,7 +406,22 @@ export function WorkbookManager({ publishers }: Props) {
             const selectedPublisherByPart = new Map<string, { id: string; name: string }>();
 
 
+            // =====================================================================
+            // PASSO 0: Buscar fila de pré-designações de Necessidades Locais
+            // =====================================================================
+            let localNeedsQueue: Awaited<ReturnType<typeof localNeedsService.getPendingQueue>> = [];
+            try {
+                localNeedsQueue = await localNeedsService.getPendingQueue();
+                console.log(`[Motor] 📋 Fila de Necessidades Locais: ${localNeedsQueue.length} itens`);
+            } catch (e) {
+                console.warn('[Motor] Não foi possível carregar fila de Necessidades Locais:', e);
+            }
+            let localNeedsQueueIndex = 0; // Índice para consumir a fila em ordem
+
             for (const [_weekId, weekParts] of Object.entries(byWeek)) {
+                // Ordenar partes por data para processar em ordem cronológica
+                weekParts.sort((a, b) => a.date.localeCompare(b.date));
+
                 for (const part of weekParts) {
                     const modalidade = getModalidade(part);
                     const partType = getPartTypeFromSection(part.section);
@@ -410,8 +430,46 @@ export function WorkbookManager({ publishers }: Props) {
                     // Determinar função (Titular ou Ajudante)
                     const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
 
+                    // =====================================================================
+                    // PASSO ESPECIAL: Necessidades Locais usa fila de pré-designações
+                    // PRIORIDADE: Eventos Especiais > Fila de NL
+                    // Se a parte está CANCELADA (por Evento Especial), NÃO consumir da fila
+                    // =====================================================================
+                    if (part.tipoParte === 'Necessidades Locais' && funcao === EnumFuncao.TITULAR) {
+                        // Verificar se a parte foi cancelada por Evento Especial
+                        if (part.status === 'CANCELADA') {
+                            console.log(`[Motor] 🚫 NL em ${part.date} está CANCELADA (Evento Especial). Fila de NL preservada.`);
+                            // NÃO consumir da fila - a pré-designação permanece para próxima NL
+                            continue; // Pular esta parte
+                        }
+
+                        if (localNeedsQueueIndex < localNeedsQueue.length) {
+                            const preassignment = localNeedsQueue[localNeedsQueueIndex];
+                            console.log(`[Motor] 📋 Usando pré-designação NL: "${preassignment.theme}" → ${preassignment.assigneeName}`);
+
+                            // Usar pré-designação da fila
+                            selectedPublisherByPart.set(part.id, {
+                                id: 'preassigned',
+                                name: preassignment.assigneeName
+                            });
+                            // Guardar tema e ID da pré-designação para atualizar depois
+                            (part as any)._localNeedsTheme = preassignment.theme;
+                            (part as any)._preassignmentId = preassignment.id;
+
+                            localNeedsQueueIndex++;
+                            totalWithPublisher++;
+                            continue; // Pular motor normal
+                        } else {
+                            console.warn(`[Motor] ⚠️ Nenhuma pré-designação disponível para Necessidades Locais em ${part.date}`);
+                            // Continuar com motor normal como fallback
+                        }
+                    }
+
+                    // =====================================================================
+                    // MOTOR NORMAL para outras partes
+                    // =====================================================================
+
                     // 1. Filtrar publicadores elegíveis (respeita função e seção)
-                    // Nota: Para designação automática, só faz sentido para semanas futuras
                     const isPast = isPastWeekDate(part.date);
                     const eligiblePublishers = publishers.filter(p => {
                         const result = checkEligibility(
@@ -433,9 +491,7 @@ export function WorkbookManager({ publishers }: Props) {
                             partType
                         );
 
-                        if (selectedPublisher) {
-                            // found
-                        } else {
+                        if (!selectedPublisher) {
                             // Fallback: primeiro elegível
                             selectedPublisher = eligiblePublishers[0];
                         }
@@ -449,7 +505,7 @@ export function WorkbookManager({ publishers }: Props) {
                 }
 
                 // Atualizar totalCreated baseado nas propostas geradas
-                totalCreated += partsNeedingAssignment.length;
+                totalCreated += weekParts.length;
             }
 
             setSuccessMessage(`✅ ${totalCreated} designações processadas (${totalWithPublisher} com publicador selecionado pelo motor).`);
@@ -464,6 +520,25 @@ export function WorkbookManager({ publishers }: Props) {
                         // Usar proposePublisher para transição correta no ciclo de vida
                         try {
                             await workbookService.proposePublisher(part.id, selectedPub.name);
+
+                            // =====================================================================
+                            // PASSO ESPECIAL: Marcar pré-designação de NL como usada
+                            // =====================================================================
+                            const preassignmentId = (part as any)._preassignmentId;
+                            const localNeedsTheme = (part as any)._localNeedsTheme;
+
+                            if (preassignmentId && localNeedsTheme) {
+                                try {
+                                    // Marcar pré-designação como atribuída a esta parte
+                                    await localNeedsService.assignToPart(preassignmentId, part.id);
+                                    console.log(`[Motor] ✅ Pré-designação NL marcada como usada: ${preassignmentId}`);
+
+                                    // TODO: Salvar tema na parte (requer campo local_needs_theme no banco)
+                                    // await workbookService.updatePart(part.id, { localNeedsTheme });
+                                } catch (nlErr) {
+                                    console.warn('[Motor] Erro ao marcar pré-designação NL:', nlErr);
+                                }
+                            }
                         } catch (e) {
                             // Fallback para update direto se proposePublisher falhar
                             await workbookService.updatePart(part.id, {
@@ -474,14 +549,7 @@ export function WorkbookManager({ publishers }: Props) {
                     }
                 } else {
                     // SE NÃO HÁ PUBLICADOR: Não mudar para PROPOSTA. Manter PENDENTE.
-                    // Isso evita registros "Proposta" em branco.
                     console.warn(`[Motor] Nenhum publicador encontrado para parte ${part.id} (${part.tipoParte}). Mantendo status original.`);
-                    // Opcional: Se quiser explicitar que falhou, poderia ter um status 'PENDENTE' mas com log de erro? 
-                    // Melhor deixar 'PENDENTE' para que possa ser tentado de novo ou preenchido manualmente.
-
-                    // Se por acaso estava em outro status e resetou? Aqui só pegamos o que não era DESIGNADA/CONCLUIDA.
-                    // Se estava PROPOSTA (but empty?) deve voltar pra PENDENTE?
-                    // Por segurança, se não achamos ninguem, não mexemos.
                 }
             }
 
@@ -773,6 +841,9 @@ export function WorkbookManager({ publishers }: Props) {
                         </button>
                         <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                             🎯 Gerar
+                        </button>
+                        <button onClick={() => setIsLocalNeedsQueueOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#0891B2', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
+                            📋 Fila NL
                         </button>
                         {filterWeek && (
                             <button
@@ -1075,6 +1146,26 @@ export function WorkbookManager({ publishers }: Props) {
                     </span>
                 </Tooltip>
             </div>
+            {/* Modal de Fila de Necessidades Locais */}
+            {isLocalNeedsQueueOpen && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9000
+                }}>
+                    <LocalNeedsQueue
+                        publishers={publishers.map(p => ({ id: p.id, name: p.name, condition: p.condition }))}
+                        onClose={() => setIsLocalNeedsQueueOpen(false)}
+                    />
+                </div>
+            )}
             {loading && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
                     <div style={{ background: 'white', padding: '24px', borderRadius: '12px' }}>
