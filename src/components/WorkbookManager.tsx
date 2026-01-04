@@ -13,7 +13,7 @@ import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
 import { localNeedsService } from '../services/localNeedsService';
 import { PublisherSelect } from './PublisherSelect';
-import { SpecialEventManager } from './SpecialEventManager';
+import { SpecialEventsManager } from './SpecialEventsManager';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { getStatusConfig } from '../constants/status';
 import { downloadS140 } from '../services/s140Generator';
@@ -101,6 +101,9 @@ export function WorkbookManager({ publishers }: Props) {
 
     // Estado do Modal de Fila de Necessidades Locais
     const [isLocalNeedsQueueOpen, setIsLocalNeedsQueueOpen] = useState(false);
+
+    // Estado do Modal de Eventos Especiais
+    const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -865,6 +868,9 @@ export function WorkbookManager({ publishers }: Props) {
                         <button onClick={() => setIsLocalNeedsQueueOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#0891B2', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                             📋 Fila NL
                         </button>
+                        <button onClick={() => setIsEventsModalOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#DC2626', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
+                            📅 Eventos
+                        </button>
                         {/* Botões S-140 - Sempre visíveis, usam semana da página em foco */}
                         {(() => {
                             // Calcular semana da página atual
@@ -960,16 +966,6 @@ export function WorkbookManager({ publishers }: Props) {
                     </select>
                 </div>
             </div>
-
-            {/* Eventos Especiais - aparece quando filtrar por semana */}
-            {filterWeek && (
-                <SpecialEventManager
-                    weekId={filterWeek}
-                    weekDisplay={uniqueWeeks.find(w => w.weekId === filterWeek)?.weekDisplay || ''}
-                    publishers={publishers}
-                    onEventChange={() => loadPartsWithFilters()}
-                />
-            )}
 
             {/* Tabela */}
             {/* Tabela com Scroll e Sticky Header */}
@@ -1211,6 +1207,34 @@ export function WorkbookManager({ publishers }: Props) {
                                 }))
                         }
                         onClose={() => setIsLocalNeedsQueueOpen(false)}
+                    />
+                </div>
+            )}
+            {/* Modal de Eventos Especiais */}
+            {isEventsModalOpen && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9000
+                }}>
+                    <SpecialEventsManager
+                        availableWeeks={
+                            [...new Set(parts.map(p => p.weekId))]
+                                .sort()
+                                .map(weekId => ({
+                                    weekId,
+                                    display: parts.find(p => p.weekId === weekId)?.weekDisplay || weekId
+                                }))
+                        }
+                        onClose={() => setIsEventsModalOpen(false)}
+                        onEventApplied={() => loadPartsWithFilters()}
                     />
                 </div>
             )}

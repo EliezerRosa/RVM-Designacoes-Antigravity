@@ -108,6 +108,17 @@ export const specialEventService = {
         return data || [];
     },
 
+    // Obter TODOS os eventos ordenados por semana
+    async getAllEvents(): Promise<SpecialEvent[]> {
+        const { data, error } = await supabase
+            .from('special_events')
+            .select('*')
+            .order('week', { ascending: true });
+
+        if (error) throw new Error(`Erro ao buscar eventos: ${error.message}`);
+        return data || [];
+    },
+
     // Obter todos os eventos futuros
     async getFutureEvents(): Promise<SpecialEvent[]> {
         const today = new Date().toISOString().split('T')[0];
