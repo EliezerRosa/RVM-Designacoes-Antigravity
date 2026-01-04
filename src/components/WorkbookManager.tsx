@@ -1212,10 +1212,14 @@ export function WorkbookManager({ publishers }: Props) {
                                 .map(p => p.weekId)
                             )]
                                 .sort()
-                                .map(weekId => ({
-                                    weekId,
-                                    display: parts.find(p => p.weekId === weekId)?.weekDisplay || weekId
-                                }))
+                                .map(weekId => {
+                                    const part = parts.find(p => p.weekId === weekId);
+                                    const year = part ? new Date(part.date).getFullYear() : '';
+                                    return {
+                                        weekId,
+                                        display: part?.weekDisplay ? `${part.weekDisplay} ${year}` : weekId
+                                    };
+                                })
                         }
                         onClose={() => setIsLocalNeedsQueueOpen(false)}
                     />
@@ -1239,10 +1243,14 @@ export function WorkbookManager({ publishers }: Props) {
                         availableWeeks={
                             [...new Set(parts.map(p => p.weekId))]
                                 .sort()
-                                .map(weekId => ({
-                                    weekId,
-                                    display: parts.find(p => p.weekId === weekId)?.weekDisplay || weekId
-                                }))
+                                .map(weekId => {
+                                    const part = parts.find(p => p.weekId === weekId);
+                                    const year = part ? new Date(part.date).getFullYear() : '';
+                                    return {
+                                        weekId,
+                                        display: part?.weekDisplay ? `${part.weekDisplay} ${year}` : weekId
+                                    };
+                                })
                         }
                         onClose={() => setIsEventsModalOpen(false)}
                         onEventApplied={() => loadPartsWithFilters()}
@@ -1280,9 +1288,14 @@ export function WorkbookManager({ publishers }: Props) {
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Semana Inicial</label>
                             <select value={s140StartWeek} onChange={e => setS140StartWeek(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '14px' }}>
                                 <option value="">Selecione...</option>
-                                {[...new Set(parts.map(p => p.weekId))].sort().map(weekId => (
-                                    <option key={weekId} value={weekId}>{parts.find(p => p.weekId === weekId)?.weekDisplay || weekId}</option>
-                                ))}
+                                {[...new Set(parts.map(p => p.weekId))].sort().map(weekId => {
+                                    const part = parts.find(p => p.weekId === weekId);
+                                    const year = part ? new Date(part.date).getFullYear() : '';
+                                    const display = part?.weekDisplay ? `${part.weekDisplay} ${year}` : weekId;
+                                    return (
+                                        <option key={weekId} value={weekId}>{display}</option>
+                                    );
+                                })}
                             </select>
                         </div>
 
@@ -1290,9 +1303,14 @@ export function WorkbookManager({ publishers }: Props) {
                             <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Semana Final</label>
                             <select value={s140EndWeek} onChange={e => setS140EndWeek(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '14px' }}>
                                 <option value="">Selecione...</option>
-                                {[...new Set(parts.map(p => p.weekId))].sort().map(weekId => (
-                                    <option key={weekId} value={weekId}>{parts.find(p => p.weekId === weekId)?.weekDisplay || weekId}</option>
-                                ))}
+                                {[...new Set(parts.map(p => p.weekId))].sort().map(weekId => {
+                                    const part = parts.find(p => p.weekId === weekId);
+                                    const year = part ? new Date(part.date).getFullYear() : '';
+                                    const display = part?.weekDisplay ? `${part.weekDisplay} ${year}` : weekId;
+                                    return (
+                                        <option key={weekId} value={weekId}>{display}</option>
+                                    );
+                                })}
                             </select>
                         </div>
 
