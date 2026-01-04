@@ -20,7 +20,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     // Persisted filter - remembers user's last selection
-    const [filter, setFilter] = usePersistedState<'all' | 'unassigned' | 'pending' | 'approved' | 'completed'>('ap_filter', 'pending');
+    const [filter, setFilter] = usePersistedState<'all' | 'unassigned' | 'pending' | 'approved' | 'completed' | 'cancelled'>('ap_filter', 'pending');
 
     // Estados de ação
     const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -72,6 +72,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                 data = await workbookService.getByStatus([WorkbookStatus.APROVADA, WorkbookStatus.DESIGNADA]);
             } else if (filter === 'completed') {
                 data = await workbookService.getByStatus(WorkbookStatus.CONCLUIDA);
+            } else if (filter === 'cancelled') {
+                data = await workbookService.getByStatus(WorkbookStatus.CANCELADA);
             } else {
                 data = await workbookService.getAll();
             }
@@ -331,13 +333,14 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
             {/* Filter */}
             <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {(['unassigned', 'pending', 'approved', 'completed', 'all'] as const).map(f => {
+                {(['unassigned', 'pending', 'approved', 'completed', 'cancelled', 'all'] as const).map(f => {
                     let count = 0;
                     if (stats) {
                         if (f === 'unassigned') count = stats['PENDENTE'] || 0;
                         else if (f === 'pending') count = stats['PROPOSTA'] || 0;
                         else if (f === 'approved') count = (stats['APROVADA'] || 0) + (stats['DESIGNADA'] || 0);
                         else if (f === 'completed') count = stats['CONCLUIDA'] || 0;
+                        else if (f === 'cancelled') count = stats['CANCELADA'] || 0;
                         else if (f === 'all') count = Object.values(stats).reduce((a, b) => a + b, 0);
                     }
 
@@ -346,7 +349,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                             key={f}
                             onClick={() => setFilter(f)}
                             style={{
-                                background: filter === f ? '#3b82f6' : '#374151',
+                                background: filter === f ? (f === 'cancelled' ? '#6b7280' : '#3b82f6') : '#374151',
                                 color: '#fff',
                                 border: 'none',
                                 padding: '8px 16px',
@@ -358,6 +361,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                             {f === 'pending' && `⏳ A Aprovar (${count})`}
                             {f === 'approved' && `✅ Aprovadas (${count})`}
                             {f === 'completed' && `🏆 Concluídas (${count})`}
+                            {f === 'cancelled' && `🚫 Canceladas (${count})`}
                             {f === 'all' && `📋 Todas (${count})`}
                         </button>
                     );
@@ -473,7 +477,27 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                     <span style={{ color: '#9ca3af', fontSize: '0.85em' }}>
                                                         {part.date} · {part.duracao}
                                                     </span>
+                                                    {/* Event impact indicator */}
+                                                    {(part as { affectedByEventId?: string }).affectedByEventId && (
+                                                        <Tooltip content="Parte afetada por Evento Especial">
+                                                            <span style={{ cursor: 'help', color: '#a855f7' }}>⚡</span>
+                                                        </Tooltip>
+                                                    )}
                                                 </div>
+                                                {/* Cancel reason display */}
+                                                {part.status === WorkbookStatus.CANCELADA && part.cancelReason && (
+                                                    <div style={{
+                                                        fontSize: '0.8em',
+                                                        color: '#9ca3af',
+                                                        background: '#1f2937',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '4px',
+                                                        marginBottom: '4px',
+                                                        display: 'inline-block'
+                                                    }}>
+                                                        🚫 {part.cancelReason}
+                                                    </div>
+                                                )}
                                                 <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     {part.modalidade} {part.tituloParte ? `- ${part.tituloParte}` : ''}
                                                     {part.descricaoParte && (

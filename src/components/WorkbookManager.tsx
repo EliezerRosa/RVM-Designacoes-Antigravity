@@ -973,7 +973,10 @@ export function WorkbookManager({ publishers }: Props) {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
                                                 {(() => {
                                                     const config = getStatusConfig(part.status);
-                                                    return (
+                                                    const isCancelled = part.status === 'CANCELADA';
+                                                    const hasEventImpact = !!(part as { affectedByEventId?: string }).affectedByEventId;
+
+                                                    const badge = (
                                                         <span style={{
                                                             padding: '2px 8px',
                                                             borderRadius: '12px',
@@ -985,10 +988,29 @@ export function WorkbookManager({ publishers }: Props) {
                                                             alignItems: 'center',
                                                             gap: '4px',
                                                             fontWeight: '600',
+                                                            cursor: isCancelled && part.cancelReason ? 'help' : 'default',
                                                         }}>
+                                                            {hasEventImpact && <span title="Afetado por Evento Especial">⚡</span>}
                                                             {config.icon} {config.label}
                                                         </span>
                                                     );
+
+                                                    // Wrap with tooltip only if cancelled with reason
+                                                    if (isCancelled && part.cancelReason) {
+                                                        return (
+                                                            <Tooltip
+                                                                content={
+                                                                    <div style={{ padding: '4px' }}>
+                                                                        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>🚫 Parte Cancelada</div>
+                                                                        <div style={{ fontSize: '12px' }}>Motivo: {part.cancelReason}</div>
+                                                                    </div>
+                                                                }
+                                                            >
+                                                                {badge}
+                                                            </Tooltip>
+                                                        );
+                                                    }
+                                                    return badge;
                                                 })()}
                                                 <button
                                                     onClick={() => handleEditPart(part)}
