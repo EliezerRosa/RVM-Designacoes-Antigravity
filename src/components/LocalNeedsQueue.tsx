@@ -8,10 +8,11 @@ import { localNeedsService, type LocalNeedsPreassignment } from '../services/loc
 
 interface Props {
     publishers: { id: string; name: string; condition: string }[];
+    availableWeeks?: { weekId: string; display: string }[];  // Semanas disponíveis para seleção
     onClose?: () => void;
 }
 
-export function LocalNeedsQueue({ publishers, onClose }: Props) {
+export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose }: Props) {
     const [queue, setQueue] = useState<LocalNeedsPreassignment[]>([]);
     const [history, setHistory] = useState<LocalNeedsPreassignment[]>([]);
     const [loading, setLoading] = useState(false);
@@ -21,6 +22,7 @@ export function LocalNeedsQueue({ publishers, onClose }: Props) {
     // Formulário de nova pré-designação
     const [newTheme, setNewTheme] = useState('');
     const [newAssignee, setNewAssignee] = useState('');
+    const [newTargetWeek, setNewTargetWeek] = useState('');  // Semana alvo (opcional)
 
     // Filtrar apenas Anciãos e SMs
     const eligiblePublishers = publishers.filter(p =>
@@ -55,9 +57,14 @@ export function LocalNeedsQueue({ publishers, onClose }: Props) {
 
         try {
             setLoading(true);
-            await localNeedsService.addToQueue(newTheme.trim(), newAssignee.trim());
+            await localNeedsService.addToQueue(
+                newTheme.trim(),
+                newAssignee.trim(),
+                newTargetWeek || null  // Passar semana alvo se selecionada
+            );
             setNewTheme('');
             setNewAssignee('');
+            setNewTargetWeek('');
             await loadQueue();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao adicionar');
@@ -186,7 +193,7 @@ export function LocalNeedsQueue({ publishers, onClose }: Props) {
                     onChange={(e) => setNewTheme(e.target.value)}
                     style={{
                         flex: '2',
-                        minWidth: '200px',
+                        minWidth: '180px',
                         padding: '8px 12px',
                         borderRadius: '6px',
                         border: '1px solid #D1D5DB',
@@ -197,15 +204,32 @@ export function LocalNeedsQueue({ publishers, onClose }: Props) {
                     onChange={(e) => setNewAssignee(e.target.value)}
                     style={{
                         flex: '1',
-                        minWidth: '150px',
+                        minWidth: '120px',
                         padding: '8px',
                         borderRadius: '6px',
                         border: '1px solid #D1D5DB',
                     }}
                 >
-                    <option value="">Selecione o responsável</option>
+                    <option value="">Responsável</option>
                     {eligiblePublishers.map(p => (
                         <option key={p.id} value={p.name}>{p.name}</option>
+                    ))}
+                </select>
+                <select
+                    value={newTargetWeek}
+                    onChange={(e) => setNewTargetWeek(e.target.value)}
+                    style={{
+                        flex: '1',
+                        minWidth: '130px',
+                        padding: '8px',
+                        borderRadius: '6px',
+                        border: '1px solid #D1D5DB',
+                        background: newTargetWeek ? '#DBEAFE' : 'white',
+                    }}
+                >
+                    <option value="">📅 Auto (fila)</option>
+                    {availableWeeks.map(w => (
+                        <option key={w.weekId} value={w.weekId}>{w.display}</option>
                     ))}
                 </select>
                 <button
@@ -221,7 +245,7 @@ export function LocalNeedsQueue({ publishers, onClose }: Props) {
                         fontWeight: '600',
                     }}
                 >
-                    ➕ Adicionar
+                    ➕
                 </button>
             </div>
 
@@ -263,10 +287,22 @@ export function LocalNeedsQueue({ publishers, onClose }: Props) {
                 ) : (
                     queue.map((item, index) => (
                         <div key={item.id} style={queueItemStyle}>
-                            <div style={badgeStyle}>{index + 1}</div>
+                            <div style={{
+                                ...badgeStyle,
+                                background: item.targetWeek ? '#0891B2' : '#7C3AED',  // Azul se tem semana específica
+                            }}>
+                                {item.targetWeek ? '📅' : (index + 1)}
+                            </div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: '600', color: '#1F2937' }}>{item.theme}</div>
-                                <div style={{ fontSize: '12px', color: '#6B7280' }}>{item.assigneeName}</div>
+                                <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                                    {item.assigneeName}
+                                    {item.targetWeek && (
+                                        <span style={{ marginLeft: '8px', color: '#0891B2', fontWeight: '500' }}>
+                                            → {item.targetWeek}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                             <div style={{ display: 'flex', gap: '4px' }}>
                                 <button

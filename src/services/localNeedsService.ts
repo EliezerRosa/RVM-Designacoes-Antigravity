@@ -14,6 +14,7 @@ export interface LocalNeedsPreassignment {
     theme: string;
     assigneeName: string;
     orderPosition: number;
+    targetWeek: string | null;  // WeekId específico ou null para usar ordem da fila
     assignedToPartId: string | null;
     assignedAt: string | null;
     createdAt: string;
@@ -25,6 +26,7 @@ interface DbRow {
     theme: string;
     assignee_name: string;
     order_position: number;
+    target_week: string | null;
     assigned_to_part_id: string | null;
     assigned_at: string | null;
     created_at: string;
@@ -41,6 +43,7 @@ function mapDbToPreassignment(row: DbRow): LocalNeedsPreassignment {
         theme: row.theme,
         assigneeName: row.assignee_name,
         orderPosition: row.order_position,
+        targetWeek: row.target_week,
         assignedToPartId: row.assigned_to_part_id,
         assignedAt: row.assigned_at,
         createdAt: row.created_at,
@@ -85,9 +88,9 @@ export const localNeedsService = {
 
     /**
      * Adiciona nova pré-designação à fila
-     * Posição padrão: final da fila
+     * @param targetWeek - WeekId específico (opcional). Se null, usa ordem da fila.
      */
-    async addToQueue(theme: string, assigneeName: string): Promise<LocalNeedsPreassignment> {
+    async addToQueue(theme: string, assigneeName: string, targetWeek?: string | null): Promise<LocalNeedsPreassignment> {
         // Buscar próxima posição
         const { data: lastItem } = await supabase
             .from('local_needs_preassignments')
@@ -105,6 +108,7 @@ export const localNeedsService = {
                 theme,
                 assignee_name: assigneeName,
                 order_position: nextPosition,
+                target_week: targetWeek || null,
             })
             .select()
             .single();
@@ -116,10 +120,11 @@ export const localNeedsService = {
     /**
      * Atualiza uma pré-designação
      */
-    async update(id: string, updates: Partial<{ theme: string; assigneeName: string }>): Promise<void> {
+    async update(id: string, updates: Partial<{ theme: string; assigneeName: string; targetWeek: string | null }>): Promise<void> {
         const dbUpdates: Record<string, unknown> = {};
         if (updates.theme !== undefined) dbUpdates.theme = updates.theme;
         if (updates.assigneeName !== undefined) dbUpdates.assignee_name = updates.assigneeName;
+        if (updates.targetWeek !== undefined) dbUpdates.target_week = updates.targetWeek;
 
         const { error } = await supabase
             .from('local_needs_preassignments')
@@ -193,12 +198,37 @@ export const localNeedsService = {
             .from('local_needs_preassignments')
             .select('*')
             .is('assigned_to_part_id', null)
+            .is('target_week', null)  // Apenas itens sem semana específica
             .order('order_position', { ascending: true })
             .limit(1)
             .maybeSingle();
 
         if (error) throw new Error(`Erro ao buscar próxima: ${error.message}`);
         return data ? mapDbToPreassignment(data) : null;
+    },
+
+    /**
+     * Busca pré-designação para uma semana específica
+     * Prioridade: target_week específico > próximo da fila (sem target_week)
+     */
+    async getForWeek(weekId: string): Promise<LocalNeedsPreassignment | null> {
+        // 1. Primeiro, buscar pré-designação específica para esta semana
+        const { data: specific, error: specificError } = await supabase
+            .from('local_needs_preassignments')
+            .select('*')
+            .is('assigned_to_part_id', null)
+            .eq('target_week', weekId)
+            .limit(1)
+            .maybeSingle();
+
+        if (specificError) throw new Error(`Erro ao buscar específica: ${specificError.message}`);
+
+        if (specific) {
+            return mapDbToPreassignment(specific);
+        }
+
+        // 2. Se não houver específica, buscar próxima da fila (sem target_week)
+        return this.getNext();
     },
 
     /**

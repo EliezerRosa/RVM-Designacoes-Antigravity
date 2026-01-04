@@ -416,7 +416,8 @@ export function WorkbookManager({ publishers }: Props) {
             } catch (e) {
                 console.warn('[Motor] Não foi possível carregar fila de Necessidades Locais:', e);
             }
-            let localNeedsQueueIndex = 0; // Índice para consumir a fila em ordem
+            const usedPreassignmentIds = new Set<string>(); // Rastreia IDs já usados nesta execução
+
 
             for (const [_weekId, weekParts] of Object.entries(byWeek)) {
                 // Ordenar partes por data para processar em ordem cronológica
@@ -432,22 +433,31 @@ export function WorkbookManager({ publishers }: Props) {
 
                     // =====================================================================
                     // PASSO ESPECIAL: Necessidades Locais usa fila de pré-designações
-                    // PRIORIDADE: Eventos Especiais > Fila de NL
+                    // PRIORIDADE: Eventos Especiais > target_week específico > ordem da fila
                     // Se a parte está CANCELADA (por Evento Especial), NÃO consumir da fila
                     // =====================================================================
                     if (part.tipoParte === 'Necessidades Locais' && funcao === EnumFuncao.TITULAR) {
                         // Verificar se a parte foi cancelada por Evento Especial
                         if (part.status === 'CANCELADA') {
                             console.log(`[Motor] 🚫 NL em ${part.date} está CANCELADA (Evento Especial). Fila de NL preservada.`);
-                            // NÃO consumir da fila - a pré-designação permanece para próxima NL
                             continue; // Pular esta parte
                         }
 
-                        if (localNeedsQueueIndex < localNeedsQueue.length) {
-                            const preassignment = localNeedsQueue[localNeedsQueueIndex];
-                            console.log(`[Motor] 📋 Usando pré-designação NL: "${preassignment.theme}" → ${preassignment.assigneeName}`);
+                        // Buscar pré-designação: primeiro por target_week, depois por ordem
+                        // 1. Procurar pré-designação específica para esta semana (weekId)
+                        const specificPreassignment = localNeedsQueue.find(p => p.targetWeek === part.weekId);
 
-                            // Usar pré-designação da fila
+                        // 2. Se não houver específica, usar próxima da fila (sem target_week)
+                        const nextFromQueue = localNeedsQueue.find(p =>
+                            !p.targetWeek && !usedPreassignmentIds.has(p.id)
+                        );
+
+                        const preassignment = specificPreassignment || nextFromQueue;
+
+                        if (preassignment) {
+                            console.log(`[Motor] 📋 Usando pré-designação NL${preassignment.targetWeek ? ' (específica)' : ''}: "${preassignment.theme}" → ${preassignment.assigneeName}`);
+
+                            // Usar pré-designação
                             selectedPublisherByPart.set(part.id, {
                                 id: 'preassigned',
                                 name: preassignment.assigneeName
@@ -456,7 +466,9 @@ export function WorkbookManager({ publishers }: Props) {
                             (part as any)._localNeedsTheme = preassignment.theme;
                             (part as any)._preassignmentId = preassignment.id;
 
-                            localNeedsQueueIndex++;
+                            // Marcar como usado para não reutilizar
+                            usedPreassignmentIds.add(preassignment.id);
+
                             totalWithPublisher++;
                             continue; // Pular motor normal
                         } else {
@@ -1175,6 +1187,21 @@ export function WorkbookManager({ publishers }: Props) {
                 }}>
                     <LocalNeedsQueue
                         publishers={publishers.map(p => ({ id: p.id, name: p.name, condition: p.condition }))}
+                        availableWeeks={
+                            // Semanas futuras únicas ordenadas
+                            [...new Set(parts
+                                .filter(p => {
+                                    const d = new Date(p.date);
+                                    return d >= new Date();
+                                })
+                                .map(p => p.weekId)
+                            )]
+                                .sort()
+                                .map(weekId => ({
+                                    weekId,
+                                    display: parts.find(p => p.weekId === weekId)?.weekDisplay || weekId
+                                }))
+                        }
                         onClose={() => setIsLocalNeedsQueueOpen(false)}
                     />
                 </div>
