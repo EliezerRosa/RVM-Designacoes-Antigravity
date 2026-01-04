@@ -22,6 +22,7 @@ export interface BackupData {
         workbook_parts: { count: number; data: WorkbookPart[] };
         special_events: { count: number; data: any[] };
         extraction_history: { count: number; data: any[] };
+        local_needs_preassignments: { count: number; data: any[] };
     };
 }
 
@@ -33,6 +34,7 @@ export interface ImportResult {
         workbook_parts: number;
         special_events: number;
         extraction_history: number;
+        local_needs_preassignments: number;
     };
     errors?: string[];
 }
@@ -75,6 +77,14 @@ async function fetchAllData(): Promise<BackupData> {
     // Tabela pode não existir ainda, ignorar erro
     const safeExtractionHistory = ehError ? [] : (extractionHistory || []);
 
+    // Fetch local_needs_preassignments
+    const { data: localNeeds, error: lnError } = await supabase
+        .from('local_needs_preassignments')
+        .select('*')
+        .range(0, 9999);
+    // Tabela pode não existir ainda, ignorar erro
+    const safeLocalNeeds = lnError ? [] : (localNeeds || []);
+
     return {
         metadata: {
             version: '1.0',
@@ -85,7 +95,8 @@ async function fetchAllData(): Promise<BackupData> {
             publishers: { count: publishers?.length || 0, data: publishers || [] },
             workbook_parts: { count: workbookParts?.length || 0, data: workbookParts || [] },
             special_events: { count: safeSpecialEvents.length, data: safeSpecialEvents },
-            extraction_history: { count: safeExtractionHistory.length, data: safeExtractionHistory }
+            extraction_history: { count: safeExtractionHistory.length, data: safeExtractionHistory },
+            local_needs_preassignments: { count: safeLocalNeeds.length, data: safeLocalNeeds }
         }
     };
 }
@@ -122,7 +133,11 @@ export async function exportToExcel(): Promise<Blob> {
     const historySheet = XLSX.utils.json_to_sheet(data.tables.extraction_history.data);
     XLSX.utils.book_append_sheet(workbook, historySheet, 'extraction_history');
 
-    // Sheet 5: Metadata
+    // Sheet 5: Local Needs Preassignments
+    const localNeedsSheet = XLSX.utils.json_to_sheet(data.tables.local_needs_preassignments.data);
+    XLSX.utils.book_append_sheet(workbook, localNeedsSheet, 'local_needs_preassignments');
+
+    // Sheet 6: Metadata
     const metadataSheet = XLSX.utils.json_to_sheet([{
         version: data.metadata.version,
         exportDate: data.metadata.exportDate,
@@ -130,7 +145,8 @@ export async function exportToExcel(): Promise<Blob> {
         publishers_count: data.tables.publishers.count,
         workbook_parts_count: data.tables.workbook_parts.count,
         special_events_count: data.tables.special_events.count,
-        extraction_history_count: data.tables.extraction_history.count
+        extraction_history_count: data.tables.extraction_history.count,
+        local_needs_preassignments_count: data.tables.local_needs_preassignments.count
     }]);
     XLSX.utils.book_append_sheet(workbook, metadataSheet, '_metadata');
 
@@ -210,6 +226,9 @@ export async function parseExcelBackup(file: File): Promise<BackupData> {
                 const extractionHistory = workbook.Sheets['extraction_history']
                     ? XLSX.utils.sheet_to_json(workbook.Sheets['extraction_history'])
                     : [];
+                const localNeeds = workbook.Sheets['local_needs_preassignments']
+                    ? XLSX.utils.sheet_to_json(workbook.Sheets['local_needs_preassignments'])
+                    : [];
                 const metadata = workbook.Sheets['_metadata']
                     ? XLSX.utils.sheet_to_json(workbook.Sheets['_metadata'])[0] as any
                     : { version: '1.0', exportDate: 'unknown', appVersion: 'unknown' };
@@ -224,7 +243,8 @@ export async function parseExcelBackup(file: File): Promise<BackupData> {
                         publishers: { count: publishers.length, data: publishers },
                         workbook_parts: { count: workbookParts.length, data: workbookParts },
                         special_events: { count: specialEvents.length, data: specialEvents },
-                        extraction_history: { count: extractionHistory.length, data: extractionHistory }
+                        extraction_history: { count: extractionHistory.length, data: extractionHistory },
+                        local_needs_preassignments: { count: localNeeds.length, data: localNeeds }
                     }
                 });
             } catch (error) {
@@ -245,7 +265,8 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
         publishers: 0,
         workbook_parts: 0,
         special_events: 0,
-        extraction_history: 0
+        extraction_history: 0,
+        local_needs_preassignments: 0
     };
 
     try {
@@ -255,6 +276,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
             await supabase.from('publishers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
             await supabase.from('special_events').delete().neq('id', '00000000-0000-0000-0000-000000000000');
             await supabase.from('extraction_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            await supabase.from('local_needs_preassignments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         }
 
         // Import publishers
@@ -310,6 +332,18 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
             }
         }
 
+        // Import local_needs_preassignments
+        if (data.tables.local_needs_preassignments.data.length > 0) {
+            const { error } = await supabase
+                .from('local_needs_preassignments')
+                .upsert(data.tables.local_needs_preassignments.data, { onConflict: 'id' });
+            if (error) {
+                errors.push(`Local Needs Preassignments: ${error.message}`);
+            } else {
+                counts.local_needs_preassignments = data.tables.local_needs_preassignments.data.length;
+            }
+        }
+
         return {
             success: errors.length === 0,
             message: errors.length === 0
@@ -337,7 +371,8 @@ export function getBackupPreview(data: BackupData): { table: string; count: numb
         { table: 'Publicadores', count: data.tables.publishers.count },
         { table: 'Partes da Apostila', count: data.tables.workbook_parts.count },
         { table: 'Eventos Especiais', count: data.tables.special_events.count },
-        { table: 'Histórico de Extração', count: data.tables.extraction_history.count }
+        { table: 'Histórico de Extração', count: data.tables.extraction_history.count },
+        { table: 'Fila de Necessidades', count: data.tables.local_needs_preassignments.count }
     ];
 }
 
