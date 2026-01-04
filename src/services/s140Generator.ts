@@ -435,3 +435,209 @@ export async function downloadS140(parts: WorkbookPart[]): Promise<void> {
     const weekData = prepareS140Data(parts);
     await generateS140PDF(weekData);
 }
+
+// ============================================================================
+// GERAÇÃO MULTI-SEMANAS
+// ============================================================================
+
+/**
+ * Gera HTML do S-140 para múltiplas semanas (uma página por semana)
+ */
+export function generateMultiWeekS140HTML(weeksData: S140WeekData[]): string {
+    const year = new Date().getFullYear();
+
+    let pagesHTML = '';
+
+    weeksData.forEach((weekData, index) => {
+        // Agrupar partes por seção
+        const partsBySection: Record<string, S140Part[]> = {};
+        weekData.parts.forEach(p => {
+            if (!partsBySection[p.section]) {
+                partsBySection[p.section] = [];
+            }
+            partsBySection[p.section].push(p);
+        });
+
+        const sectionOrder = [
+            'Início da Reunião',
+            'Tesouros da Palavra de Deus', 'Tesouros',
+            'Faça Seu Melhor no Ministério', 'Ministério',
+            'Nossa Vida Cristã', 'Vida Cristã',
+            'Final da Reunião'
+        ];
+
+        let partsHTML = '';
+        const sectionsRendered = new Set<string>();
+
+        sectionOrder.forEach(section => {
+            const parts = partsBySection[section];
+            if (!parts || sectionsRendered.has(section)) return;
+            sectionsRendered.add(section);
+
+            const colors = SECTION_COLORS[section] || { bg: '#E5E7EB', text: '#1f2937' };
+
+            if (!['Início da Reunião', 'Final da Reunião'].includes(section)) {
+                partsHTML += `
+                    <tr>
+                        <td colspan="4" style="
+                            background: ${colors.bg}; 
+                            color: ${colors.text}; 
+                            font-weight: bold; 
+                            padding: 6px 10px;
+                            font-size: 11px;
+                            text-transform: uppercase;
+                        ">
+                            ${section.toUpperCase()}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            parts.forEach(part => {
+                const showAssignee = !HIDDEN_ASSIGNEE_PARTS.some(h => part.tipoParte.includes(h));
+                const assigneeDisplay = showAssignee
+                    ? (part.assistant ? `${part.assignee} / ${part.assistant}` : part.assignee)
+                    : '';
+
+                partsHTML += `
+                    <tr style="border-bottom: 1px solid #E5E7EB;">
+                        <td style="padding: 4px 8px; font-size: 10px; color: #6B7280; width: 40px; text-align: center;">
+                            ${part.duration > 0 ? part.time : ''}
+                        </td>
+                        <td style="padding: 4px 8px; font-size: 11px; color: #1f2937;">
+                            ${part.title}
+                        </td>
+                        <td style="padding: 4px 8px; font-size: 10px; color: #6B7280; width: 70px; text-align: center;">
+                            ${part.isStudentPart ? 'Est.' : ''}
+                        </td>
+                        <td style="padding: 4px 8px; font-size: 11px; color: #1f2937; font-weight: 600; width: 140px;">
+                            ${assigneeDisplay}
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+
+        // Adicionar quebra de página entre semanas (exceto última)
+        const pageBreak = index < weeksData.length - 1 ? 'page-break-after: always;' : '';
+
+        pagesHTML += `
+            <div class="week-page" style="${pageBreak}">
+                <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid #4F46E5;">
+                    <h1 style="font-size: 16px; font-weight: 700; color: #1f2937; margin: 0;">${CONGREGATION_NAME}</h1>
+                    <span style="font-size: 16px; font-weight: bold; color: #4F46E5;">${year}</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; background: #F3F4F6; padding: 6px 10px; margin-bottom: 6px; border-radius: 4px;">
+                    <span style="font-size: 12px; font-weight: bold; color: #1f2937;">${weekData.weekDisplay.toUpperCase()}</span>
+                    <span style="font-size: 12px; color: #4F46E5; font-weight: 600;">Presidente: ${weekData.president}</span>
+                </div>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                    <thead>
+                        <tr>
+                            <th style="background: #4F46E5; color: white; padding: 6px 8px; text-align: left; font-size: 10px; width: 40px;">Hora</th>
+                            <th style="background: #4F46E5; color: white; padding: 6px 8px; text-align: left; font-size: 10px;">Programa</th>
+                            <th style="background: #4F46E5; color: white; padding: 6px 8px; text-align: left; font-size: 10px; width: 70px;">Sala B</th>
+                            <th style="background: #4F46E5; color: white; padding: 6px 8px; text-align: left; font-size: 10px; width: 140px;">Designado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${partsHTML}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    });
+
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: 'Segoe UI', Arial, sans-serif; 
+                    font-size: 11px;
+                    line-height: 1.3;
+                }
+                .week-page {
+                    padding: 8px;
+                }
+                @media print {
+                    .week-page { page-break-inside: avoid; }
+                }
+            </style>
+        </head>
+        <body>
+            ${pagesHTML}
+        </body>
+        </html>
+    `;
+}
+
+/**
+ * Gera PDF com múltiplas semanas e aciona download
+ */
+export async function generateMultiWeekS140PDF(weeksData: S140WeekData[]): Promise<void> {
+    if (weeksData.length === 0) {
+        throw new Error('Nenhuma semana para gerar PDF');
+    }
+
+    const html = generateMultiWeekS140HTML(weeksData);
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    document.body.appendChild(container);
+
+    try {
+        const firstWeek = weeksData[0].weekId;
+        const lastWeek = weeksData[weeksData.length - 1].weekId;
+        const filename = weeksData.length === 1
+            ? `S-140_${firstWeek}.pdf`
+            : `S-140_${firstWeek}_a_${lastWeek}.pdf`;
+
+        const opt = {
+            margin: 8,
+            filename,
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' as const },
+            pagebreak: { mode: ['css', 'legacy'] }
+        };
+
+        await html2pdf().set(opt).from(container).save();
+    } finally {
+        document.body.removeChild(container);
+    }
+}
+
+/**
+ * Gera S-140 para múltiplas semanas (conveniência)
+ * @param allParts Todas as partes (serão agrupadas por weekId)
+ * @param weekIds IDs das semanas a incluir (em ordem)
+ */
+export async function downloadS140MultiWeek(allParts: WorkbookPart[], weekIds: string[]): Promise<void> {
+    const weeksData: S140WeekData[] = [];
+
+    for (const weekId of weekIds) {
+        const weekParts = allParts.filter(p => p.weekId === weekId);
+        if (weekParts.length > 0) {
+            try {
+                weeksData.push(prepareS140Data(weekParts));
+            } catch (e) {
+                console.warn(`[S140] Erro ao preparar semana ${weekId}:`, e);
+            }
+        }
+    }
+
+    if (weeksData.length === 0) {
+        throw new Error('Nenhuma semana válida encontrada');
+    }
+
+    await generateMultiWeekS140PDF(weeksData);
+}
+
