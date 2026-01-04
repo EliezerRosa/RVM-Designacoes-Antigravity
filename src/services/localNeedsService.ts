@@ -285,4 +285,49 @@ export const localNeedsService = {
         if (error) throw new Error(`Erro ao contar fila: ${error.message}`);
         return count || 0;
     },
+
+    /**
+     * Desvincula pré-designação de uma parte (para permitir re-designar NL)
+     * Retorna a pré-designação de volta para o final da fila
+     */
+    async unassignByPartId(partId: string): Promise<void> {
+        // Buscar pré-designação vinculada a esta parte
+        const { data: preassignment, error: findError } = await supabase
+            .from('local_needs_preassignments')
+            .select('id')
+            .eq('assigned_to_part_id', partId)
+            .maybeSingle();
+
+        if (findError) {
+            console.warn('[LocalNeedsService] Erro ao buscar pré-designação:', findError.message);
+            return;
+        }
+
+        if (!preassignment) {
+            // Sem pré-designação vinculada, nada a fazer
+            return;
+        }
+
+        // Usar a função unassign existente
+        await this.unassign(preassignment.id);
+        console.log(`[LocalNeedsService] Pré-designação ${preassignment.id} desvinculada de parte ${partId}`);
+    },
+
+    /**
+     * Busca pré-designação vinculada a uma parte específica
+     */
+    async getByPartId(partId: string): Promise<LocalNeedsPreassignment | null> {
+        const { data, error } = await supabase
+            .from('local_needs_preassignments')
+            .select('*')
+            .eq('assigned_to_part_id', partId)
+            .maybeSingle();
+
+        if (error) {
+            console.warn('[LocalNeedsService] Erro ao buscar por partId:', error.message);
+            return null;
+        }
+
+        return data ? mapDbToPreassignment(data) : null;
+    },
 };
