@@ -845,39 +845,52 @@ export function WorkbookManager({ publishers }: Props) {
                         <button onClick={() => setIsLocalNeedsQueueOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#0891B2', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                             📋 Fila NL
                         </button>
-                        {filterWeek && (
-                            <button
-                                onClick={() => {
-                                    const weekParts = parts.filter(p => p.weekId === filterWeek);
-                                    downloadS140(weekParts);
-                                }}
-                                disabled={loading || !filterWeek}
-                                style={{ padding: '6px 12px', cursor: 'pointer', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
-                                📋 S-140
-                            </button>
-                        )}
-                        {filterWeek && (
-                            <button
-                                onClick={() => {
-                                    const weekParts = parts.filter(p => p.weekId === filterWeek);
-                                    downloadS140RoomB(weekParts);
-                                }}
-                                disabled={loading || !filterWeek}
-                                style={{ padding: '6px 12px', cursor: 'pointer', background: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
-                                📋 S-140 Sala B
-                            </button>
-                        )}
-                        {filterWeek && (
-                            <button
-                                onClick={() => {
-                                    const weekParts = parts.filter(p => p.weekId === filterWeek);
-                                    downloadS140RoomBEV(weekParts);
-                                }}
-                                disabled={loading || !filterWeek}
-                                style={{ padding: '6px 12px', cursor: 'pointer', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: '500' }}>
-                                ⚡ S-140 Sala B EV
-                            </button>
-                        )}
+                        {/* Botões S-140 - Sempre visíveis, usam semana da página em foco */}
+                        {(() => {
+                            // Calcular semana da página atual
+                            const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort();
+                            const safePage = Math.min(Math.max(currentPage, 1), currentFilteredWeeks.length || 1);
+                            const currentWeekId = currentFilteredWeeks[safePage - 1];
+                            const hasWeek = !!currentWeekId;
+
+                            return (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            if (currentWeekId) {
+                                                const weekParts = parts.filter(p => p.weekId === currentWeekId);
+                                                downloadS140(weekParts);
+                                            }
+                                        }}
+                                        disabled={loading || !hasWeek}
+                                        style={{ padding: '4px 10px', cursor: hasWeek ? 'pointer' : 'not-allowed', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500', opacity: hasWeek ? 1 : 0.5 }}>
+                                        📋 S-140
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (currentWeekId) {
+                                                const weekParts = parts.filter(p => p.weekId === currentWeekId);
+                                                downloadS140RoomB(weekParts);
+                                            }
+                                        }}
+                                        disabled={loading || !hasWeek}
+                                        style={{ padding: '4px 10px', cursor: hasWeek ? 'pointer' : 'not-allowed', background: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500', opacity: hasWeek ? 1 : 0.5 }}>
+                                        📋 Sala B
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (currentWeekId) {
+                                                const weekParts = parts.filter(p => p.weekId === currentWeekId);
+                                                downloadS140RoomBEV(weekParts);
+                                            }
+                                        }}
+                                        disabled={loading || !hasWeek}
+                                        style={{ padding: '4px 10px', cursor: hasWeek ? 'pointer' : 'not-allowed', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500', opacity: hasWeek ? 1 : 0.5 }}>
+                                        ⚡ Sala B EV
+                                    </button>
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
 
