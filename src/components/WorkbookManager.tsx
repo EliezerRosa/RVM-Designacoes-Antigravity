@@ -497,6 +497,28 @@ export function WorkbookManager({ publishers }: Props) {
 
                     // 1. Filtrar publicadores elegíveis (respeita função e seção)
                     const isPast = isPastWeekDate(part.date);
+
+                    // REGRA: Para ajudantes, buscar gênero do titular para garantir mesmo sexo
+                    let titularGender: 'brother' | 'sister' | undefined = undefined;
+                    if (funcao === EnumFuncao.AJUDANTE) {
+                        // Buscar o titular da mesma parte (mesmo week + seq)
+                        const titularPart = weekParts.find(p =>
+                            p.weekId === part.weekId &&
+                            p.seq === part.seq &&
+                            p.funcao === 'Titular'
+                        );
+                        if (titularPart) {
+                            // Buscar o publicador designado para o titular
+                            const titularPubInfo = selectedPublisherByPart.get(titularPart.id);
+                            if (titularPubInfo) {
+                                const titularPub = publishers.find(p => p.id === titularPubInfo.id || p.name === titularPubInfo.name);
+                                if (titularPub) {
+                                    titularGender = titularPub.gender;
+                                }
+                            }
+                        }
+                    }
+
                     const eligiblePublishers = publishers.filter(p => {
                         // Impedir repetição na mesma semana (exceto se a regra permitir - por enquanto bloqueio total)
                         if (publishersUsedInWeek.has(p.id)) return false;
@@ -505,7 +527,7 @@ export function WorkbookManager({ publishers }: Props) {
                             p,
                             modalidade as Parameters<typeof checkEligibility>[1],
                             funcao,
-                            { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
+                            { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
                         );
                         return result.eligible;
                     });

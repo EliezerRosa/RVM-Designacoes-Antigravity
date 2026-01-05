@@ -30,6 +30,7 @@ export interface EligibilityContext {
     partTitle?: string;      // Título da parte (para regras específicas)
     isOracaoInicial?: boolean; // Se é oração inicial (requer canPreside)
     isPastWeek?: boolean;    // Se é semana passada (não verifica disponibilidade)
+    titularGender?: 'brother' | 'sister'; // Gênero do titular (para validar ajudante)
 }
 
 export interface EligibilityResult {
@@ -106,7 +107,7 @@ export function checkEligibility(
 
     // ===== REGRAS DE AJUDANTE =====
     if (funcao === EnumFuncao.AJUDANTE) {
-        return canBeHelper(publisher);
+        return canBeHelper(publisher, context);
     }
 
     // ===== REGRAS POR MODALIDADE =====
@@ -371,13 +372,18 @@ function checkStudentPartEligibility(publisher: Publisher): EligibilityResult {
 
 /**
  * Verifica se pode ser ajudante em demonstrações
+ * REGRA: Ajudante deve ser do mesmo sexo que o titular
  */
-function canBeHelper(publisher: Publisher): EligibilityResult {
+function canBeHelper(publisher: Publisher, context: EligibilityContext = {}): EligibilityResult {
     if (publisher.isNotQualified) {
         return { eligible: false, reason: 'Publicador desqualificado' };
     }
     if (publisher.requestedNoParticipation) {
         return { eligible: false, reason: 'Publicador pediu para não participar' };
+    }
+    // REGRA: Ajudante deve ser do mesmo sexo que o titular
+    if (context.titularGender && publisher.gender !== context.titularGender) {
+        return { eligible: false, reason: `Ajudante deve ser ${context.titularGender === 'brother' ? 'irmão' : 'irmã'} (mesmo sexo do titular)` };
     }
     // Ajudantes podem ser qualquer pessoa qualificada (até crianças)
     return { eligible: true };
