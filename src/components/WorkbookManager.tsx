@@ -434,6 +434,8 @@ export function WorkbookManager({ publishers }: Props) {
                 // Ordenar partes por data para processar em ordem cronológica
                 weekParts.sort((a, b) => a.date.localeCompare(b.date));
 
+                const publishersUsedInWeek = new Set<string>();
+
                 for (const part of weekParts) {
                     const modalidade = getModalidade(part);
                     const partType = getPartTypeFromSection(part.section);
@@ -495,6 +497,9 @@ export function WorkbookManager({ publishers }: Props) {
                     // 1. Filtrar publicadores elegíveis (respeita função e seção)
                     const isPast = isPastWeekDate(part.date);
                     const eligiblePublishers = publishers.filter(p => {
+                        // Impedir repetição na mesma semana (exceto se a regra permitir - por enquanto bloqueio total)
+                        if (publishersUsedInWeek.has(p.id)) return false;
+
                         const result = checkEligibility(
                             p,
                             modalidade as Parameters<typeof checkEligibility>[1],
@@ -523,6 +528,7 @@ export function WorkbookManager({ publishers }: Props) {
                     // Armazenar publicador selecionado no Map para usar depois
                     if (selectedPublisher) {
                         selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
+                        publishersUsedInWeek.add(selectedPublisher.id); // Bloquear reuso nesta semana
                         totalWithPublisher++;
                     }
                 }
