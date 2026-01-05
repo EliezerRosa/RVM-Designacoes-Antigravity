@@ -519,11 +519,15 @@ export const workbookService = {
         const shouldRecalculate = Object.keys(updates).some(k => timeFields.includes(k));
 
         if (shouldRecalculate) {
-            // Executar async para não bloquear o retorno da UI
-            console.log('[workbookService] ⏱️ Iniciando recálculo de horários para semana:', updatedPart.weekId);
-            this.recalculateWeekTimings(updatedPart.weekId).catch(err =>
-                console.error('[workbookService] ❌ Erro no recálculo de horários:', err)
-            );
+            // AGUARDAR recálculo para que o frontend receba os dados já atualizados
+            console.log('[workbookService] ⏱️ Aguardando recálculo de horários para semana:', updatedPart.weekId);
+            try {
+                await this.recalculateWeekTimings(updatedPart.weekId);
+                console.log('[workbookService] ✅ Recálculo concluído.');
+            } catch (err) {
+                console.error('[workbookService] ❌ Erro no recálculo de horários:', err);
+                // Não bloquear o retorno por erro de recálculo
+            }
         }
 
         return updatedPart;

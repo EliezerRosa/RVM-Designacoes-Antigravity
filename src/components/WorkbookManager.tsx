@@ -822,12 +822,20 @@ export function WorkbookManager({ publishers }: Props) {
                         ? { ...p, status: updates.status! } // ! seguro pois verificamos if updates.status
                         : p
                 ));
-
-                // Atualizar também a parte atual no loop (já que o updatePart retorna ela atualizada, mas aqui ajustamos tudo)
-                // O map acima já cuida disso se a parte atual tiver o mesmo weekId (dã, tem)
             } else {
                 // Atualização Individual Apenas
                 setParts(prev => prev.map(p => p.id === id ? updatedPart : p));
+            }
+
+            // 3. Se campos de tempo foram alterados, o backend já recalculou (síncrono).
+            //    Recarregar para pegar os novos horaInicio/horaFim de TODAS as partes da semana.
+            const timeFields = ['duracao', 'horaInicio', 'seq', 'tituloParte', 'tipoParte'];
+            const changedTimeFields = Object.keys(updates).some(k => timeFields.includes(k));
+
+            if (changedTimeFields && updatedPart.weekId) {
+                console.log(`[WorkbookManager] ⏱️ Recarregando UI após recálculo de horários...`);
+                await loadPartsWithFilters(); // Reload limpo - React way
+                console.log(`[WorkbookManager] ✅ UI atualizada com novos horários`);
             }
 
             // Fechar modal é feito no componente modal ao chamar onSave com sucesso
