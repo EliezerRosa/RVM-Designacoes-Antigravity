@@ -7,8 +7,17 @@ import os
 SUPABASE_URL = 'https://pevstuyzlewvjidjkmea.supabase.co'
 SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBldnN0dXl6bGV3dmppZGprbWVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NzczNTYsImV4cCI6MjA4MTM1MzM1Nn0.myYaq8rshNyB2aGTas2f1IzsQVv_rihOGL2v8EPl-x0'
 
-JSON_PATH = r"c:\Antigravity - RVM Designações\backup_rvm_2026-01-05.json"
-XLSX_PATH = r"c:\Antigravity - RVM Designações\backup_rvm_2026-01-05.xlsx"
+JSON_PATH = r"c:\Antigravity - RVM Designações\backup_rvm_2026-01-05 v2.json"
+XLSX_PATH = r"c:\Antigravity - RVM Designações\backup_rvm_2026-01-05 v2.xlsx"
+
+EXPECTED_TABLES = [
+    'publishers',
+    'workbook_parts',
+    'workbook_batches',
+    'special_events',
+    'extraction_history',
+    'local_needs_preassignments'
+]
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -25,7 +34,16 @@ def verify_all_tables():
             print("⚠️ Nenhuma tabela encontrada na chave 'tables' do JSON.")
             return
 
-        print(f"Tabelas encontradas no JSON: {list(tables_data.keys())}")
+        found_keys = list(tables_data.keys())
+        print(f"Tabelas encontradas no JSON: {found_keys}")
+        
+        # Verificar faltantes
+        missing = [t for t in EXPECTED_TABLES if t not in found_keys]
+        if missing:
+             print(f"⚠️ ATENÇÃO: Tabelas esperadas NÃO encontradas no JSON: {missing}")
+        else:
+             print("✅ Todas as tabelas críticas estão presentes no JSON.")
+
     except Exception as e:
         print(f"❌ Erro ao ler JSON: {e}")
         return
