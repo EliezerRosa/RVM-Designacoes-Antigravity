@@ -83,6 +83,33 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
 ];
 
 // ============================================================================
+// HELPER: Converter snake_case do BD para camelCase do TypeScript
+// ============================================================================
+function mapDbToEvent(row: Record<string, unknown>): SpecialEvent {
+    return {
+        id: row.id as string,
+        week: row.week as string,
+        templateId: row.template_id as string,
+        theme: row.theme as string | undefined,
+        responsible: row.responsible as string | undefined,
+        duration: row.duration as number | undefined,
+        boletimYear: row.boletim_year as number | undefined,
+        boletimNumber: row.boletim_number as number | undefined,
+        guidelines: row.guidelines as string | undefined,
+        observations: row.observations as string | undefined,
+        configuration: row.configuration as SpecialEvent['configuration'],
+        isApplied: row.is_applied as boolean | undefined,
+        appliedAt: row.applied_at as string | undefined,
+        details: row.details as Record<string, unknown> | undefined,
+        createdAt: row.created_at as string | undefined,
+        updatedAt: row.updated_at as string | undefined,
+        createdBy: row.created_by as string | undefined,
+        parentEventId: row.parent_event_id as string | undefined,
+        targetPartId: row.target_part_id as string | undefined,
+    };
+}
+
+// ============================================================================
 // MÉTODOS DO SERVIÇO
 // ============================================================================
 
@@ -105,7 +132,7 @@ export const specialEventService = {
             .eq('week', weekId);
 
         if (error) throw new Error(`Erro ao buscar eventos: ${error.message}`);
-        return data || [];
+        return (data || []).map(row => mapDbToEvent(row as Record<string, unknown>));
     },
 
     // Obter TODOS os eventos ordenados por semana
@@ -116,7 +143,7 @@ export const specialEventService = {
             .order('week', { ascending: true });
 
         if (error) throw new Error(`Erro ao buscar eventos: ${error.message}`);
-        return data || [];
+        return (data || []).map(row => mapDbToEvent(row as Record<string, unknown>));
     },
 
     // Obter todos os eventos futuros
@@ -129,7 +156,7 @@ export const specialEventService = {
             .order('week', { ascending: true });
 
         if (error) throw new Error(`Erro ao buscar eventos: ${error.message}`);
-        return data || [];
+        return (data || []).map(row => mapDbToEvent(row as Record<string, unknown>));
     },
 
     // Criar novo evento
