@@ -125,6 +125,7 @@ interface S140WeekData {
 // ============================================================================
 
 export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
+    console.log('[S140] Initializing Room B Data Preparation v0.0.1 - FIX APPLIED');
     if (parts.length === 0) {
         throw new Error('Nenhuma parte fornecida para o S-140');
     }
