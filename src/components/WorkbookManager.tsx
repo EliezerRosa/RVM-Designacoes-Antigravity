@@ -598,8 +598,9 @@ export function WorkbookManager({ publishers }: Props) {
                                     await localNeedsService.assignToPart(preassignmentId, part.id);
                                     console.log(`[Motor] ✅ Pré-designação NL marcada como usada: ${preassignmentId}`);
 
-                                    // TODO: Salvar tema na parte (requer campo local_needs_theme no banco)
-                                    // await workbookService.updatePart(part.id, { localNeedsTheme });
+                                    // Salvar tema na parte (atualiza part_title no banco)
+                                    await workbookService.updatePart(part.id, { tituloParte: localNeedsTheme });
+                                    console.log(`[Motor] 📝 Tema atualizado na parte: "${localNeedsTheme}"`);
                                 } catch (nlErr) {
                                     console.warn('[Motor] Erro ao marcar pré-designação NL:', nlErr);
                                 }
