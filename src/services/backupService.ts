@@ -146,8 +146,14 @@ export async function exportToExcel(): Promise<Blob> {
     const partsSheet = XLSX.utils.json_to_sheet(data.tables.workbook_parts.data);
     XLSX.utils.book_append_sheet(workbook, partsSheet, 'workbook_parts');
 
-    // Sheet 3: Special Events
-    const eventsSheet = XLSX.utils.json_to_sheet(data.tables.special_events.data);
+    // Sheet 4: Special Events - Serializar objetos complexos
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const eventsForExcel = (data.tables.special_events.data as any[]).map(evt => ({
+        ...evt,
+        configuration: evt.configuration ? JSON.stringify(evt.configuration) : null,
+        details: evt.details ? JSON.stringify(evt.details) : null
+    }));
+    const eventsSheet = XLSX.utils.json_to_sheet(eventsForExcel);
     XLSX.utils.book_append_sheet(workbook, eventsSheet, 'special_events');
 
     // Sheet 4: Extraction History
@@ -251,9 +257,19 @@ export async function parseExcelBackup(file: File): Promise<BackupData> {
                 const workbookBatches = workbook.Sheets['workbook_batches']
                     ? XLSX.utils.sheet_to_json(workbook.Sheets['workbook_batches'])
                     : [];
-                const specialEvents = workbook.Sheets['special_events']
+
+                const rawSpecialEvents = workbook.Sheets['special_events']
                     ? XLSX.utils.sheet_to_json(workbook.Sheets['special_events'])
                     : [];
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const specialEvents = rawSpecialEvents.map((evt: any) => ({
+                    ...evt,
+                    configuration: evt.configuration && typeof evt.configuration === 'string'
+                        ? JSON.parse(evt.configuration) : evt.configuration,
+                    details: evt.details && typeof evt.details === 'string'
+                        ? JSON.parse(evt.details) : evt.details,
+                }));
+
                 const extractionHistory = workbook.Sheets['extraction_history']
                     ? XLSX.utils.sheet_to_json(workbook.Sheets['extraction_history'])
                     : [];

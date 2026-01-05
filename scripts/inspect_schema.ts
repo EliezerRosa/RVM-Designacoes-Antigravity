@@ -14,7 +14,7 @@ async function inspectSchema() {
 
     // 1. Get Columns by fetching one row
     const { data: rows, error: rowError } = await supabase
-        .from('workbook_parts')
+        .from('workbook_batches')
         .select('*')
         .limit(1);
 
