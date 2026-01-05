@@ -63,12 +63,6 @@ const STUDENT_PARTS = [
 // FUNÇÕES AUXILIARES
 // ============================================================================
 
-function normalizeTipoParte(tipo: string): string {
-    return tipo
-        .replace(/\s*\(Ajudante\)\s*/gi, '')
-        .replace(/\s*\(\d+\s*min\)\s*/gi, '')
-        .trim();
-}
 
 function getSectionColor(section: string): string {
     if (section?.includes('Tesouros')) return COLORS.TESOUROS_BG;
