@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
+import { supabase } from '../lib/supabase';
 import type { SpecialEvent } from '../types';
 
 interface Props {
@@ -122,9 +123,19 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         try {
             setLoading(true);
 
-            // Buscar IDs das partes da semana
-            const { data: weekParts } = await fetch(`/api/parts?weekId=${event.week}`).then(r => r.json()).catch(() => ({ data: [] }));
-            const partIds = weekParts?.map((p: { id: string }) => p.id) || [];
+            // Buscar IDs das partes da semana diretamente do Supabase
+            const { data: weekParts, error: fetchError } = await supabase
+                .from('workbook_parts')
+                .select('id')
+                .eq('week_id', event.week);
+
+            if (fetchError) throw new Error(`Erro ao buscar partes: ${fetchError.message}`);
+
+            const partIds = (weekParts || []).map((p: { id: string }) => p.id);
+
+            if (partIds.length === 0) {
+                throw new Error('Nenhuma parte encontrada para esta semana');
+            }
 
             // Aplicar impacto
             const result = await specialEventService.applyEventImpact(event, partIds);
