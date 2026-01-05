@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart } from '../types';
 import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
+import { checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
 import { fuzzySearchWithScore, normalize } from '../utils/searchUtils';
@@ -13,6 +14,8 @@ interface PublisherSelectProps {
     onChange: (id: string, name: string) => void;
     disabled?: boolean;
     style?: React.CSSProperties;
+    /** Lista de partes da semana para verificar múltiplas designações */
+    weekParts?: WorkbookPart[];
 }
 
 // Helpers copiados/adaptados para garantir compatibilidade com a lógica de elegibilidade
@@ -40,7 +43,7 @@ const getModalidade = (part: WorkbookPart): string => {
     return TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
 };
 
-export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style }: PublisherSelectProps) => {
+export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts }: PublisherSelectProps) => {
 
     // Memoizar a lista sorted para evitar recálculo excessivo
     const sortedOptions = useMemo(() => {
@@ -136,6 +139,31 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
     const showUnmatchedName = displayName && !foundPublisher;
 
+    // Verificar múltiplas designações na mesma semana ou semanas adjacentes
+    const multipleAssignmentWarnings = useMemo((): AssignmentWarning[] => {
+        if (!foundPublisher || !weekParts || weekParts.length === 0) return [];
+
+        // Converter weekParts para formato esperado pela função
+        const partsForCheck = weekParts.map(p => ({
+            id: p.id,
+            weekId: p.weekId,
+            weekDisplay: p.weekDisplay,
+            tipoParte: p.tipoParte,
+            tituloParte: p.tituloParte,
+            date: p.date,
+            rawPublisherName: p.rawPublisherName,
+            resolvedPublisherName: p.resolvedPublisherName,
+            status: p.status
+        }));
+
+        return checkMultipleAssignments(
+            foundPublisher.name,
+            part.weekId,
+            partsForCheck,
+            true // excluir partes de presidência (normal ter múltiplas)
+        );
+    }, [foundPublisher, weekParts, part.weekId]);
+
     // Renderizar conteúdo do tooltip (JSX)
     const renderTooltipContent = () => {
         if (!foundPublisher) {
@@ -211,6 +239,28 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     <div style={{ fontSize: '0.9em', color: '#e5e7eb' }}>➡️ {explanation}</div>
                 ) : (
                     <div style={{ color: '#fca5a5', fontWeight: '500', fontSize: '0.95em' }}>⚠️ {reason}</div>
+                )}
+
+                {/* Warnings de múltiplas designações */}
+                {multipleAssignmentWarnings.length > 0 && (
+                    <div style={{
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                        <div style={{ color: '#fbbf24', fontWeight: 'bold', marginBottom: '4px' }}>
+                            ⚠️ MÚLTIPLAS DESIGNAÇÕES
+                        </div>
+                        {multipleAssignmentWarnings.map((warning, idx) => (
+                            <div key={idx} style={{
+                                fontSize: '0.85em',
+                                color: warning.type === 'SAME_WEEK' ? '#fca5a5' : '#fcd34d',
+                                marginBottom: '2px'
+                            }}>
+                                {warning.type === 'SAME_WEEK' ? '🔴' : '🟡'} {warning.message}
+                            </div>
+                        ))}
+                    </div>
                 )}
             </div>
         );

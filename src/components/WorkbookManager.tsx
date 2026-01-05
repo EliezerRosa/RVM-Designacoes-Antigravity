@@ -514,10 +514,29 @@ export function WorkbookManager({ publishers }: Props) {
                     let selectedPublisher: Publisher | null = null;
 
                     if (eligiblePublishers.length > 0) {
+                        // Preparar lista de partes futuras já agendadas para penalizar publicadores sobrecarregados
+                        // Inclui partes com status PROPOSTA, APROVADA, DESIGNADA (não PENDENTE/REJEITADA/CANCELADA)
+                        const futureAssignments = parts
+                            .filter(p => {
+                                const d = parseDate(p.date);
+                                const isActive = ['PROPOSTA', 'APROVADA', 'DESIGNADA'].includes(p.status);
+                                return d >= today && isActive;
+                            })
+                            .map(p => ({
+                                date: p.date,
+                                tipoParte: p.tipoParte,
+                                rawPublisherName: p.rawPublisherName,
+                                resolvedPublisherName: p.resolvedPublisherName,
+                                funcao: p.funcao,
+                                status: p.status
+                            }));
+
                         selectedPublisher = selectBestCandidate(
                             eligiblePublishers,
                             historyRecords,
-                            partType
+                            partType,
+                            today,
+                            futureAssignments
                         );
 
                         if (!selectedPublisher) {
@@ -1171,6 +1190,7 @@ export function WorkbookManager({ publishers }: Props) {
                                                 value={currentPubId}
                                                 displayName={displayRaw}
                                                 onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
+                                                weekParts={partsToRender}
                                                 style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
                                             />
                                         </td>

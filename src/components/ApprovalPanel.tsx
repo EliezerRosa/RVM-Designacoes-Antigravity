@@ -521,6 +521,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                             onChange={(newId, newName) => {
                                                                 handleUpdatePublisher(part.id, newId, newName);
                                                             }}
+                                                            weekParts={weekParts}
                                                             disabled={isProcessing}
                                                             style={{
                                                                 padding: '6px 12px',

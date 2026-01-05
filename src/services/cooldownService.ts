@@ -178,15 +178,24 @@ export function getCooldownInfo(
 
 /**
  * Rankeia publicadores por prioridade de rodízio
+ * @param futureAssignments Partes futuras já agendadas para penalizar publicadores sobrecarregados
  */
 export function rankPublishersByRotation(
     publishers: Publisher[],
     history: HistoryRecord[],
     partType?: string,
-    today: Date = new Date()
+    today: Date = new Date(),
+    futureAssignments?: Array<{
+        date: string;
+        tipoParte: string;
+        rawPublisherName?: string;
+        resolvedPublisherName?: string;
+        funcao?: string;
+        status?: string;
+    }>
 ): RotationScore[] {
     const scores: RotationScore[] = publishers.map(pub => {
-        const priority = calculateRotationPriority(pub.name, history, today);
+        const priority = calculateRotationPriority(pub.name, history, today, futureAssignments);
         const cooldownInfo = partType ? getCooldownInfo(pub.name, partType, history, today) : null;
 
         // Aplicar penalidade de cooldown
@@ -216,16 +225,25 @@ export function rankPublishersByRotation(
 
 /**
  * Seleciona o melhor candidato para uma parte
+ * @param futureAssignments Partes futuras já agendadas para penalizar publicadores sobrecarregados
  */
 export function selectBestCandidate(
     eligiblePublishers: Publisher[],
     history: HistoryRecord[],
     partType: string,
-    today: Date = new Date()
+    today: Date = new Date(),
+    futureAssignments?: Array<{
+        date: string;
+        tipoParte: string;
+        rawPublisherName?: string;
+        resolvedPublisherName?: string;
+        funcao?: string;
+        status?: string;
+    }>
 ): Publisher | null {
     if (eligiblePublishers.length === 0) return null;
 
-    const ranked = rankPublishersByRotation(eligiblePublishers, history, partType, today);
+    const ranked = rankPublishersByRotation(eligiblePublishers, history, partType, today, futureAssignments);
 
     // O primeiro é o que tem maior prioridade
     const bestId = ranked[0]?.publisherId;
