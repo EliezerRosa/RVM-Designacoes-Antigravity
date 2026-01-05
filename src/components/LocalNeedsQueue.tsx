@@ -9,10 +9,11 @@ import { localNeedsService, type LocalNeedsPreassignment } from '../services/loc
 interface Props {
     publishers: { id: string; name: string; condition: string }[];
     availableWeeks?: { weekId: string; display: string }[];  // Semanas disponíveis para seleção
+    onManualAssignment?: (assignment: LocalNeedsPreassignment) => Promise<void>;
     onClose?: () => void;
 }
 
-export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose }: Props) {
+export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onManualAssignment }: Props) {
     const [queue, setQueue] = useState<LocalNeedsPreassignment[]>([]);
     const [history, setHistory] = useState<LocalNeedsPreassignment[]>([]);
     const [loading, setLoading] = useState(false);
@@ -62,6 +63,17 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose }: Pr
                 newAssignee.trim(),
                 newTargetWeek || null  // Passar semana alvo se selecionada
             );
+            // Se tiver semana alvo, tentar atribuição imediata
+            if (newTargetWeek && onClose) {
+                // Pequeno delay para garantir que o backend processou
+                // Idealmente o addToQueue retornaria o objeto completo
+                // Mas como retorna LocalNeedsPreassignment, podemos usar
+                const newItem = await localNeedsService.getForWeek(newTargetWeek);
+                if (newItem && onManualAssignment) {
+                    await onManualAssignment(newItem);
+                }
+            }
+
             setNewTheme('');
             setNewAssignee('');
             setNewTargetWeek('');

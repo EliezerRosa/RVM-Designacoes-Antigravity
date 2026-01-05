@@ -619,8 +619,9 @@ export function WorkbookManager({ publishers }: Props) {
                                     console.log(`[Motor] ✅ Pré-designação NL marcada como usada: ${preassignmentId}`);
 
                                     // Salvar tema na parte (atualiza part_title no banco)
-                                    await workbookService.updatePart(part.id, { tituloParte: localNeedsTheme });
-                                    console.log(`[Motor] 📝 Tema atualizado na parte: "${localNeedsTheme}"`);
+                                    const newTitle = `Necessidades Locais: ${localNeedsTheme}`;
+                                    await workbookService.updatePart(part.id, { tituloParte: newTitle });
+                                    console.log(`[Motor] 📝 Tema atualizado na parte: "${newTitle}"`);
                                 } catch (nlErr) {
                                     console.warn('[Motor] Erro ao marcar pré-designação NL:', nlErr);
                                 }
@@ -1336,6 +1337,55 @@ export function WorkbookManager({ publishers }: Props) {
                                 })
                         }
                         onClose={() => setIsLocalNeedsQueueOpen(false)}
+                        onManualAssignment={async (assignment) => {
+                            try {
+                                setLoading(true);
+                                // 1. Encontrar a parte de NL da semana alvo
+                                const targetPart = parts.find(p => p.weekId === assignment.targetWeek && p.tipoParte === 'Necessidades Locais');
+
+                                if (!targetPart) {
+                                    alert('Parte de Necessidades Locais não encontrada nesta semana!');
+                                    return;
+                                }
+
+                                if (targetPart.status === 'CANCELADA') {
+                                    alert('A parte de Necessidades Locais desta semana está cancelada (Evento Especial). A pré-designação ficará na fila.');
+                                    return;
+                                }
+
+                                // 2. Marcar pré-designação como atribuída
+                                await localNeedsService.assignToPart(assignment.id, targetPart.id);
+
+                                // 3. Atualizar a parte imediatamente
+                                const newTitle = `Necessidades Locais: ${assignment.theme}`;
+                                await workbookService.updatePart(targetPart.id, {
+                                    tituloParte: newTitle,
+                                    resolvedPublisherName: assignment.assigneeName,
+                                    status: 'PROPOSTA'
+                                });
+
+                                // 4. Atualizar UI
+                                setParts(prev => prev.map(p => {
+                                    if (p.id === targetPart.id) {
+                                        return {
+                                            ...p,
+                                            tituloParte: newTitle,
+                                            resolvedPublisherName: assignment.assigneeName,
+                                            status: 'PROPOSTA'
+                                        };
+                                    }
+                                    return p;
+                                }));
+
+                                setSuccessMessage(`✅ Atribuído com sucesso: ${newTitle}`);
+                                setIsLocalNeedsQueueOpen(false); // Fechar modal após sucesso
+
+                            } catch (err) {
+                                alert('Erro ao atribuir: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
                     />
                 </div>
             )}
