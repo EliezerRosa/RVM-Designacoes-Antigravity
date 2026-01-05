@@ -336,6 +336,7 @@ export function WorkbookManager({ publishers }: Props) {
             return (p.funcao === 'Titular' || p.funcao === 'Ajudante') &&
                 p.status !== 'DESIGNADA' &&
                 p.status !== 'CONCLUIDA' &&
+                p.status !== 'CANCELADA' &&
                 d >= today;
         });
 
