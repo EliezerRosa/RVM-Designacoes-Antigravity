@@ -940,19 +940,44 @@ export function WorkbookManager({ publishers }: Props) {
                         onChange={e => setSearchText(e.target.value)}
                         style={{ padding: '6px 10px', width: '180px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}
                     />
-                    <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '6px', minWidth: '180px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
-                        <option value="">Todas as semanas</option>
-                        {uniqueWeeks.map(w => {
-                            // FORMATO COMPACTO: YYYY | dd-dd MMMMM-MMMMM
-                            // Input: w.weekDisplay = "29-4 de Janeiro-Fevereiro" (assumido do parser) ou similar
-                            const cleanDisplay = w.weekDisplay.replace(/\bde\s+/gi, '').replace(/\s+/g, ' ').trim();
-                            return (
-                                <option key={w.weekId} value={w.weekId}>
-                                    {w.year} | {cleanDisplay}
-                                </option>
-                            );
-                        })}
-                    </select>
+                    {/* Navegação de Semanas com setas */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button
+                            onClick={() => {
+                                const idx = uniqueWeeks.findIndex(w => w.weekId === filterWeek);
+                                if (idx > 0) setFilterWeek(uniqueWeeks[idx - 1].weekId);
+                                else if (idx === -1 && uniqueWeeks.length > 0) setFilterWeek(uniqueWeeks[uniqueWeeks.length - 1].weekId);
+                            }}
+                            disabled={uniqueWeeks.length === 0}
+                            style={{ padding: '4px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', background: '#F9FAFB', cursor: 'pointer', fontSize: '14px' }}
+                            title="Semana anterior"
+                        >
+                            ⬅️
+                        </button>
+                        <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '6px', minWidth: '180px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
+                            <option value="">Todas as semanas</option>
+                            {uniqueWeeks.map(w => {
+                                const cleanDisplay = w.weekDisplay.replace(/\bde\s+/gi, '').replace(/\s+/g, ' ').trim();
+                                return (
+                                    <option key={w.weekId} value={w.weekId}>
+                                        {w.year} | {cleanDisplay}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        <button
+                            onClick={() => {
+                                const idx = uniqueWeeks.findIndex(w => w.weekId === filterWeek);
+                                if (idx >= 0 && idx < uniqueWeeks.length - 1) setFilterWeek(uniqueWeeks[idx + 1].weekId);
+                                else if (idx === -1 && uniqueWeeks.length > 0) setFilterWeek(uniqueWeeks[0].weekId);
+                            }}
+                            disabled={uniqueWeeks.length === 0}
+                            style={{ padding: '4px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', background: '#F9FAFB', cursor: 'pointer', fontSize: '14px' }}
+                            title="Próxima semana"
+                        >
+                            ➡️
+                        </button>
+                    </div>
                     <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
                         <option value="">Seção: Todas</option>
                         {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
