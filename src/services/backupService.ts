@@ -20,6 +20,7 @@ export interface BackupData {
     tables: {
         publishers: { count: number; data: Publisher[] };
         workbook_parts: { count: number; data: WorkbookPart[] };
+        workbook_batches: { count: number; data: any[] };
         special_events: { count: number; data: any[] };
         extraction_history: { count: number; data: any[] };
         local_needs_preassignments: { count: number; data: any[] };
@@ -32,6 +33,7 @@ export interface ImportResult {
     counts: {
         publishers: number;
         workbook_parts: number;
+        workbook_batches: number;
         special_events: number;
         extraction_history: number;
         local_needs_preassignments: number;
@@ -53,6 +55,14 @@ async function fetchAllData(): Promise<BackupData> {
         .select('*')
         .range(0, 9999);
     if (pubError) throw new Error(`Erro ao buscar publishers: ${pubError.message}`);
+
+    // Fetch workbook_batches
+    const { data: workbookBatches, error: wbError } = await supabase
+        .from('workbook_batches')
+        .select('*')
+        .range(0, 9999);
+    // Tabela pode não existir ainda, ignorar erro
+    const safeWorkbookBatches = wbError ? [] : (workbookBatches || []);
 
     // Fetch workbook_parts
     const { data: workbookParts, error: wpError } = await supabase
@@ -93,6 +103,7 @@ async function fetchAllData(): Promise<BackupData> {
         },
         tables: {
             publishers: { count: publishers?.length || 0, data: publishers || [] },
+            workbook_batches: { count: safeWorkbookBatches.length, data: safeWorkbookBatches },
             workbook_parts: { count: workbookParts?.length || 0, data: workbookParts || [] },
             special_events: { count: safeSpecialEvents.length, data: safeSpecialEvents },
             extraction_history: { count: safeExtractionHistory.length, data: safeExtractionHistory },
@@ -127,7 +138,11 @@ export async function exportToExcel(): Promise<Blob> {
     const publishersSheet = XLSX.utils.json_to_sheet(publishersForExcel);
     XLSX.utils.book_append_sheet(workbook, publishersSheet, 'publishers');
 
-    // Sheet 2: Workbook Parts
+    // Sheet 2: Workbook Batches
+    const batchesSheet = XLSX.utils.json_to_sheet(data.tables.workbook_batches.data);
+    XLSX.utils.book_append_sheet(workbook, batchesSheet, 'workbook_batches');
+
+    // Sheet 3: Workbook Parts
     const partsSheet = XLSX.utils.json_to_sheet(data.tables.workbook_parts.data);
     XLSX.utils.book_append_sheet(workbook, partsSheet, 'workbook_parts');
 
@@ -149,6 +164,7 @@ export async function exportToExcel(): Promise<Blob> {
         exportDate: data.metadata.exportDate,
         appVersion: data.metadata.appVersion,
         publishers_count: data.tables.publishers.count,
+        workbook_batches_count: data.tables.workbook_batches.count,
         workbook_parts_count: data.tables.workbook_parts.count,
         special_events_count: data.tables.special_events.count,
         extraction_history_count: data.tables.extraction_history.count,
@@ -232,6 +248,9 @@ export async function parseExcelBackup(file: File): Promise<BackupData> {
                     created_at: row.created_at
                 })) as unknown as Publisher[];
                 const workbookParts = XLSX.utils.sheet_to_json(workbook.Sheets['workbook_parts']) as WorkbookPart[];
+                const workbookBatches = workbook.Sheets['workbook_batches']
+                    ? XLSX.utils.sheet_to_json(workbook.Sheets['workbook_batches'])
+                    : [];
                 const specialEvents = workbook.Sheets['special_events']
                     ? XLSX.utils.sheet_to_json(workbook.Sheets['special_events'])
                     : [];
@@ -253,6 +272,7 @@ export async function parseExcelBackup(file: File): Promise<BackupData> {
                     },
                     tables: {
                         publishers: { count: publishers.length, data: publishers },
+                        workbook_batches: { count: workbookBatches.length, data: workbookBatches },
                         workbook_parts: { count: workbookParts.length, data: workbookParts },
                         special_events: { count: specialEvents.length, data: specialEvents },
                         extraction_history: { count: extractionHistory.length, data: extractionHistory },
@@ -276,6 +296,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
     const counts = {
         publishers: 0,
         workbook_parts: 0,
+        workbook_batches: 0,
         special_events: 0,
         extraction_history: 0,
         local_needs_preassignments: 0
@@ -283,8 +304,10 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
 
     try {
         // In replace mode, delete existing data first
+        // DELETE ORDER: Parts -> Batches (FK)
         if (mode === 'replace') {
             await supabase.from('workbook_parts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            await supabase.from('workbook_batches').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete batches after parts
             await supabase.from('publishers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
             await supabase.from('special_events').delete().neq('id', '00000000-0000-0000-0000-000000000000');
             await supabase.from('extraction_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -311,6 +334,18 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
                 errors.push(`Publishers: ${error.message}`);
             } else {
                 counts.publishers = data.tables.publishers.data.length;
+            }
+        }
+
+        // Import workbook_batches (INSERT ORDER: Batches -> Parts)
+        if (data.tables.workbook_batches?.data?.length > 0) {
+            const { error } = await supabase
+                .from('workbook_batches')
+                .upsert(data.tables.workbook_batches.data, { onConflict: 'id' });
+            if (error) {
+                errors.push(`Workbook Batches: ${error.message}`);
+            } else {
+                counts.workbook_batches = data.tables.workbook_batches.data.length;
             }
         }
 
@@ -392,6 +427,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
 export function getBackupPreview(data: BackupData): { table: string; count: number }[] {
     return [
         { table: 'Publicadores', count: data.tables.publishers?.count ?? 0 },
+        { table: 'Lotes (Batches)', count: data.tables.workbook_batches?.count ?? 0 },
         { table: 'Partes da Apostila', count: data.tables.workbook_parts?.count ?? 0 },
         { table: 'Eventos Especiais', count: data.tables.special_events?.count ?? 0 },
         { table: 'Histórico de Extração', count: data.tables.extraction_history?.count ?? 0 },
