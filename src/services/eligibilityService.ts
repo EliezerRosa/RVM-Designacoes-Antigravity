@@ -164,8 +164,12 @@ export function checkEligibility(
             // Publicador comum não pode
             return { eligible: false, reason: 'Discurso de ensino requer Ancião/SM' };
 
+
         case EnumModalidade.LEITURA_ESTUDANTE:
-            // Leitura de estudante: não-batizados também podem se elegíveis
+            // Regra: Leitura da Bíblia é feita apenas por irmãos
+            if (publisher.gender === 'sister') {
+                return { eligible: false, reason: 'Irmãs não fazem leitura da Bíblia' };
+            }
             return checkStudentPartEligibility(publisher);
 
         case EnumModalidade.DEMONSTRACAO:
