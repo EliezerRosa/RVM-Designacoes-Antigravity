@@ -417,6 +417,18 @@ export function WorkbookManager({ publishers }: Props) {
             // Map para armazenar publicador selecionado por partId
             const selectedPublisherByPart = new Map<string, { id: string; name: string }>();
 
+            // =====================================================================
+            // ARRAY DINÂMICO DE DESIGNAÇÕES FEITAS NESTE LOOP
+            // Usado para penalizar publicadores que acabaram de ser designados
+            // =====================================================================
+            const inLoopAssignments: Array<{
+                date: string;
+                tipoParte: string;
+                rawPublisherName: string;
+                resolvedPublisherName: string;
+                funcao: string;
+                status: string;
+            }> = [];
 
             // =====================================================================
             // PASSO 0: Buscar fila de pré-designações de Necessidades Locais
@@ -553,12 +565,15 @@ export function WorkbookManager({ publishers }: Props) {
                                 status: p.status
                             }));
 
+                        // COMBINAR futureAssignments do banco + inLoopAssignments desta execução
+                        const allFutureAssignments = [...futureAssignments, ...inLoopAssignments];
+
                         selectedPublisher = selectBestCandidate(
                             eligiblePublishers,
                             historyRecords,
                             partType,
                             today,
-                            futureAssignments
+                            allFutureAssignments
                         );
 
                         if (!selectedPublisher) {
@@ -572,6 +587,19 @@ export function WorkbookManager({ publishers }: Props) {
                         selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
                         publishersUsedInWeek.add(selectedPublisher.id); // Bloquear reuso nesta semana
                         totalWithPublisher++;
+
+                        // =====================================================================
+                        // ADICIONAR À LISTA DE DESIGNAÇÕES DESTE LOOP
+                        // Para que iterações futuras penalizem este publicador
+                        // =====================================================================
+                        inLoopAssignments.push({
+                            date: part.date,
+                            tipoParte: part.tipoParte,
+                            rawPublisherName: '',
+                            resolvedPublisherName: selectedPublisher.name,
+                            funcao: part.funcao,
+                            status: 'PROPOSTA'
+                        });
 
                         // =====================================================================
                         // ATUALIZAÇÃO DE HISTÓRICO DINÂMICA
