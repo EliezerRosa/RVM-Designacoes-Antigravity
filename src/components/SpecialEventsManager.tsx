@@ -26,6 +26,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const [formWeekId, setFormWeekId] = useState('');
     const [formTheme, setFormTheme] = useState('');
     const [formAssignee, setFormAssignee] = useState('');
+    const [formTargetPartId, setFormTargetPartId] = useState('');
+    const [targetParts, setTargetParts] = useState<Array<{ id: string; title: string; duration: string }>>([]);
 
     const templates = EVENT_TEMPLATES;
 
@@ -47,11 +49,54 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
+    // Carregar partes da seção Vida Cristã quando necessário
+    useEffect(() => {
+        const fetchParts = async () => {
+            if (!formWeekId || !selectedTemplate || selectedTemplate.impact.action !== 'REDUCE_VIDA_CRISTA_TIME') {
+                setTargetParts([]);
+                return;
+            }
+
+            try {
+                // Buscar partes da semana que sejam da seção Vida e Ministério
+                // Filtrar por seção que contenha "Vida" ou "Ministério" ou "Ministerio"
+                const { data, error } = await supabase
+                    .from('workbook_parts')
+                    .select('id, part_title, tipo_parte, duracao, section')
+                    .eq('week_id', formWeekId)
+                    .neq('status', 'CANCELADA'); // Não mostrar canceladas
+
+                if (error) throw error;
+
+                const vidaParts = (data || []).filter(p => {
+                    const sec = (p.section || '').toLowerCase();
+                    const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
+                    // Excluir partes de presidência/oração se houver
+                    const isPresidency = p.tipo_parte === 'Presidente' || p.tipo_parte?.includes('Oração');
+                    return isVida && !isPresidency;
+                }).map(p => ({
+                    id: p.id,
+                    title: p.part_title || p.tipo_parte,
+                    duration: p.duracao
+                }));
+
+                setTargetParts(vidaParts);
+            } catch (err) {
+                console.error('Erro ao buscar partes alvo:', err);
+                // Não bloquear erro
+            }
+        };
+
+        fetchParts();
+    }, [formWeekId, formTemplateId, selectedTemplate]);
+
     const resetForm = () => {
         setFormTemplateId('');
         setFormWeekId('');
         setFormTheme('');
         setFormAssignee('');
+        setFormTargetPartId('');
+        setTargetParts([]);
         setEditingEvent(null);
         setShowForm(false);
     };
@@ -59,6 +104,12 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const handleSubmit = async () => {
         if (!formTemplateId || !formWeekId) {
             setError('Selecione o tipo e a semana');
+            return;
+        }
+
+        // Validação adicional para eventos que reduzem tempo
+        if (selectedTemplate?.impact.action === 'REDUCE_VIDA_CRISTA_TIME' && !formTargetPartId) {
+            setError('Selecione a parte que terá o tempo reduzido');
             return;
         }
 
@@ -71,6 +122,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 theme: formTheme || undefined,
                 responsible: formAssignee || undefined,
                 duration: selectedTemplate?.defaults.duration,
+                targetPartId: formTargetPartId || undefined,
                 isApplied: false,
             };
 
@@ -95,6 +147,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormWeekId(event.week);
         setFormTheme(event.theme || '');
         setFormAssignee(event.responsible || '');
+        setFormTargetPartId(event.targetPartId || '');
         setShowForm(true);
     };
 
@@ -291,6 +344,29 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                             <option key={w.weekId} value={w.weekId}>{w.display}</option>
                         ))}
                     </select>
+
+                    {selectedTemplate?.impact.action === 'REDUCE_VIDA_CRISTA_TIME' && (
+                        <>
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                                Parte para Reduzir Tempo
+                                <span style={{ fontWeight: 'normal', color: '#6B7280', marginLeft: '4px' }}>
+                                    (Será reduzida em {selectedTemplate.defaults.duration} min)
+                                </span>
+                            </label>
+                            <select
+                                value={formTargetPartId}
+                                onChange={e => setFormTargetPartId(e.target.value)}
+                                style={inputStyle}
+                            >
+                                <option value="">Selecione a parte...</option>
+                                {targetParts.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.title} ({p.duration})
+                                    </option>
+                                ))}
+                            </select>
+                        </>
+                    )}
 
                     {selectedTemplate?.defaults.requiresTheme && (
                         <>
