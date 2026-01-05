@@ -155,13 +155,13 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
     const titularParts = sortedParts.filter(p => p.funcao === 'Titular');
     const ajudanteParts = sortedParts.filter(p => p.funcao === 'Ajudante');
 
-    // Mapa de ajudantes
-    const ajudanteByTipo = new Map<string, string>();
+    // Mapa de ajudantes por SEQUÊNCIA (não tipoParte)
+    // Isso evita sobrescrição quando há partes com mesmo tipoParte (ex: 2x "Iniciando Conversas")
+    const ajudanteBySeq = new Map<number, string>();
     ajudanteParts.forEach(a => {
         const name = a.resolvedPublisherName || a.rawPublisherName || '';
-        const normalizedTipo = normalizeTipoParte(a.tipoParte);
-        if (name && normalizedTipo) {
-            ajudanteByTipo.set(normalizedTipo, name);
+        if (name && a.seq) {
+            ajudanteBySeq.set(a.seq, name);
         }
     });
 
@@ -180,8 +180,8 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
                 mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
             }
 
-            const normalizedTipo = normalizeTipoParte(p.tipoParte);
-            const mainHallAssistant = ajudanteByTipo.get(normalizedTipo);
+            // Buscar ajudante pela mesma sequência (Titular seq=5, Ajudante seq=5)
+            const mainHallAssistant = ajudanteBySeq.get(p.seq || 0);
 
             let title = p.tituloParte || p.tipoParte;
             const duration = typeof p.duracao === 'string' ? parseInt(p.duracao, 10) || 0 : (p.duracao || 0);
