@@ -293,7 +293,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
 
         // Import publishers
         // Estrutura da tabela: id (text), data (jsonb) - igual ao api.ts
-        if (data.tables.publishers.data.length > 0) {
+        if (data.tables.publishers?.data?.length > 0) {
             // Converter para estrutura correta: {id, data: Publisher}
             const dbRows = data.tables.publishers.data.map((pub: Publisher & { data?: Record<string, unknown> }) => {
                 // Se já veio do banco com estrutura {id, data}, usar data diretamente
@@ -315,7 +315,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
         }
 
         // Import workbook_parts
-        if (data.tables.workbook_parts.data.length > 0) {
+        if (data.tables.workbook_parts?.data?.length > 0) {
             // Importar em lotes de 500 para evitar limites
             const batchSize = 500;
             for (let i = 0; i < data.tables.workbook_parts.data.length; i += batchSize) {
@@ -332,7 +332,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
         }
 
         // Import special_events
-        if (data.tables.special_events.data.length > 0) {
+        if (data.tables.special_events?.data?.length > 0) {
             const { error } = await supabase
                 .from('special_events')
                 .upsert(data.tables.special_events.data, { onConflict: 'id' });
@@ -344,7 +344,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
         }
 
         // Import extraction_history
-        if (data.tables.extraction_history.data.length > 0) {
+        if (data.tables.extraction_history?.data?.length > 0) {
             const { error } = await supabase
                 .from('extraction_history')
                 .upsert(data.tables.extraction_history.data, { onConflict: 'id' });
@@ -356,7 +356,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
         }
 
         // Import local_needs_preassignments
-        if (data.tables.local_needs_preassignments.data.length > 0) {
+        if (data.tables.local_needs_preassignments?.data?.length > 0) {
             const { error } = await supabase
                 .from('local_needs_preassignments')
                 .upsert(data.tables.local_needs_preassignments.data, { onConflict: 'id' });
@@ -391,11 +391,11 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
  */
 export function getBackupPreview(data: BackupData): { table: string; count: number }[] {
     return [
-        { table: 'Publicadores', count: data.tables.publishers.count },
-        { table: 'Partes da Apostila', count: data.tables.workbook_parts.count },
-        { table: 'Eventos Especiais', count: data.tables.special_events.count },
-        { table: 'Histórico de Extração', count: data.tables.extraction_history.count },
-        { table: 'Fila de Necessidades', count: data.tables.local_needs_preassignments.count }
+        { table: 'Publicadores', count: data.tables.publishers?.count ?? 0 },
+        { table: 'Partes da Apostila', count: data.tables.workbook_parts?.count ?? 0 },
+        { table: 'Eventos Especiais', count: data.tables.special_events?.count ?? 0 },
+        { table: 'Histórico de Extração', count: data.tables.extraction_history?.count ?? 0 },
+        { table: 'Fila de Necessidades', count: data.tables.local_needs_preassignments?.count ?? 0 }
     ];
 }
 
