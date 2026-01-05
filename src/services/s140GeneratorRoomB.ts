@@ -125,7 +125,7 @@ interface S140WeekData {
 // ============================================================================
 
 export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
-    console.log('[S140] Initializing Room B Data Preparation v0.0.1 - FIX APPLIED');
+    console.log('[S140] Initializing Room B Data Preparation v0.0.2 - HIDE REDUNDANT PRESIDENT NAMES');
     if (parts.length === 0) {
         throw new Error('Nenhuma parte fornecida para o S-140');
     }
@@ -136,6 +136,8 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
     const presidentPart = sortedParts.find(p =>
         p.tipoParte === 'Presidente' || p.tipoParte === 'Presidente da Reunião'
     );
+    const presidentName = presidentPart?.resolvedPublisherName || presidentPart?.rawPublisherName || '';
+
     const counselorPart = sortedParts.find(p =>
         p.tipoParte?.includes('Conselheiro') || p.tipoParte?.includes('Dirigente Sala B')
     );
@@ -182,6 +184,13 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
             let mainHallAssignee = '';
             if (!HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte?.includes(h))) {
                 mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
+
+                // Ocultar nome do Presidente em partes implícitas (Cântico, Oração)
+                // O usuário pediu: "Exceto na parte 'Presidente da Reunião' as demais partes neutras ou que caberiam à ele não precisa exibir o nome"
+                const isImpliedRole = isCantico(p.tipoParte) || isOracao(p.tipoParte) || p.tipoParte?.toLowerCase().includes('comentários');
+                if (mainHallAssignee === presidentName && isImpliedRole && !p.tipoParte?.includes('Presidente')) {
+                    mainHallAssignee = '';
+                }
             }
 
             // Buscar ajudante pelo número de sequência extraído do título
