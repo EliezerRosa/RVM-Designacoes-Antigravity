@@ -858,18 +858,33 @@ export function WorkbookManager({ publishers }: Props) {
 
     const handleSaveEditPart = async (id: string, updates: Partial<WorkbookPart>, applyToWeek?: boolean) => {
         try {
+            // =====================================================================
+            // REGRA: Se status voltar para PENDENTE, limpar o publicador
+            // =====================================================================
+            if (updates.status === 'PENDENTE') {
+                updates.resolvedPublisherName = ''; // Limpar publicador
+            }
+
             // 1. Atualizar a parte individual (Fluxo normal)
             const updatedPart = await workbookService.updatePart(id, updates);
 
             // 2. Se a flag applyToWeek estiver ativa, atualizar toda a semana
             if (applyToWeek && updates.status && updatedPart.weekId) {
                 console.log(`[WorkbookManager] 🔄 Aplicando status '${updates.status}' para toda a semana ${updatedPart.weekId}`);
-                await workbookService.updateWeekStatus(updatedPart.weekId, updates.status);
+
+                // Se PENDENTE, também limpar publicador de toda a semana
+                const clearPublisher = updates.status === 'PENDENTE';
+                await workbookService.updateWeekStatus(updatedPart.weekId, updates.status, clearPublisher);
 
                 // Atualizar estado local para TODAS as partes da semana
                 setParts(prev => prev.map(p =>
                     p.weekId === updatedPart.weekId
-                        ? { ...p, status: updates.status! } // ! seguro pois verificamos if updates.status
+                        ? {
+                            ...p,
+                            status: updates.status!,
+                            // Limpar publicador se voltou para PENDENTE
+                            ...(clearPublisher ? { resolvedPublisherName: '' } : {})
+                        }
                         : p
                 ));
             } else {
