@@ -134,9 +134,28 @@ export const specialEventService = {
 
     // Criar novo evento
     async createEvent(event: Omit<SpecialEvent, 'id'>): Promise<SpecialEvent> {
+        // Converter camelCase para snake_case
+        const dbEvent = {
+            template_id: event.templateId,
+            week: event.week,
+            theme: event.theme,
+            responsible: event.responsible,
+            duration: event.duration,
+            is_applied: event.isApplied ?? false,
+            applied_at: event.appliedAt,
+            boletim_year: event.boletimYear,
+            boletim_number: event.boletimNumber,
+            guidelines: event.guidelines,
+            observations: event.observations,
+            configuration: event.configuration,
+            details: event.details,
+            parent_event_id: event.parentEventId,
+            target_part_id: event.targetPartId,
+        };
+
         const { data, error } = await supabase
             .from('special_events')
-            .insert(event)
+            .insert(dbEvent)
             .select()
             .single();
 
@@ -146,9 +165,25 @@ export const specialEventService = {
 
     // Atualizar evento existente
     async updateEvent(id: string, updates: Partial<SpecialEvent>): Promise<void> {
+        // Converter camelCase para snake_case
+        const dbUpdates: Record<string, unknown> = {};
+        if (updates.templateId !== undefined) dbUpdates.template_id = updates.templateId;
+        if (updates.week !== undefined) dbUpdates.week = updates.week;
+        if (updates.theme !== undefined) dbUpdates.theme = updates.theme;
+        if (updates.responsible !== undefined) dbUpdates.responsible = updates.responsible;
+        if (updates.duration !== undefined) dbUpdates.duration = updates.duration;
+        if (updates.isApplied !== undefined) dbUpdates.is_applied = updates.isApplied;
+        if (updates.appliedAt !== undefined) dbUpdates.applied_at = updates.appliedAt;
+        if (updates.boletimYear !== undefined) dbUpdates.boletim_year = updates.boletimYear;
+        if (updates.boletimNumber !== undefined) dbUpdates.boletim_number = updates.boletimNumber;
+        if (updates.guidelines !== undefined) dbUpdates.guidelines = updates.guidelines;
+        if (updates.observations !== undefined) dbUpdates.observations = updates.observations;
+        if (updates.configuration !== undefined) dbUpdates.configuration = updates.configuration;
+        if (updates.details !== undefined) dbUpdates.details = updates.details;
+
         const { error } = await supabase
             .from('special_events')
-            .update(updates)
+            .update(dbUpdates)
             .eq('id', id);
 
         if (error) throw new Error(`Erro ao atualizar evento: ${error.message}`);
