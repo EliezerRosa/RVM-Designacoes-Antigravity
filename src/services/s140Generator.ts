@@ -82,8 +82,17 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
         throw new Error('Nenhuma parte fornecida para o S-140');
     }
 
+    // Filtrar partes canceladas (ex: por Eventos Especiais)
+    const activeParts = parts.filter(p => p.status !== 'CANCELADA');
+
+    if (activeParts.length === 0) {
+        // Se todas foram canceladas, ainda retornamos a estrutura básica (sem partes)
+        // para que o cabeçalho/presidente apareçam (se houver)
+        console.warn('[S140] Todas as partes desta semana estão canceladas.');
+    }
+
     // Ordenar por seq
-    const sortedParts = [...parts].sort((a, b) => (a.seq || 0) - (b.seq || 0));
+    const sortedParts = [...activeParts].sort((a, b) => (a.seq || 0) - (b.seq || 0));
 
     // Encontrar presidente, orações
     const presidentPart = sortedParts.find(p => p.tipoParte === 'Presidente' || p.tipoParte === 'Presidente da Reunião');
