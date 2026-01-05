@@ -113,6 +113,9 @@ export function WorkbookManager({ publishers }: Props) {
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
 
+    // Toggle para exibir partes ocultas (Cânticos, Comentários, Oração Inicial, Elogios)
+    const [showHiddenParts, setShowHiddenParts] = useState(false);
+
 
     // ========================================================================
     // Persistir filtros no localStorage
@@ -633,9 +636,7 @@ export function WorkbookManager({ publishers }: Props) {
 
     const filteredParts = useMemo(() => {
         return parts.filter(p => {
-            // OCULTAR IMEDIATAMENTE partes secundárias do Presidente (Comentários Iniciais/Finais)
-            // Elas são gerenciadas automaticamente pela parte "Presidente"
-            // OCULTAR IMEDIATAMENTE partes secundárias do Presidente
+            // OCULTAR partes secundárias (a menos que showHiddenParts esteja ativo)
             const HIDDEN_TYPES = [
                 'Comentários Iniciais', 'Comentarios Iniciais',
                 'Comentários Finais', 'Comentarios Finais',
@@ -644,7 +645,7 @@ export function WorkbookManager({ publishers }: Props) {
                 'Elogios e Conselhos', 'Elogios e conselhos'
             ];
 
-            if (HIDDEN_TYPES.includes(p.tipoParte)) {
+            if (!showHiddenParts && HIDDEN_TYPES.includes(p.tipoParte)) {
                 return false;
             }
 
@@ -662,7 +663,7 @@ export function WorkbookManager({ publishers }: Props) {
             }
             return true;
         });
-    }, [parts, filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText]);
+    }, [parts, filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText, showHiddenParts]);
 
     // ========================================================================
     // Estilos inline
@@ -1000,6 +1001,30 @@ export function WorkbookManager({ publishers }: Props) {
                         <option value="REJEITADA">Rejeitada</option>
                         <option value="CONCLUIDA">Concluída</option>
                     </select>
+                    {/* Toggle para exibir partes ocultas */}
+                    <label
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            color: '#6B7280',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            background: showHiddenParts ? '#FEF3C7' : '#F3F4F6',
+                            borderRadius: '4px',
+                            border: showHiddenParts ? '1px solid #F59E0B' : '1px solid #D1D5DB'
+                        }}
+                        title="Exibir Cânticos, Comentários Iniciais/Finais, Oração Inicial e Elogios"
+                    >
+                        <input
+                            type="checkbox"
+                            checked={showHiddenParts}
+                            onChange={e => setShowHiddenParts(e.target.checked)}
+                            style={{ cursor: 'pointer' }}
+                        />
+                        👁️ Ocultas
+                    </label>
                 </div>
             </div>
 
