@@ -149,13 +149,14 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
     const titularParts = sortedParts.filter(p => p.funcao === 'Titular');
     const ajudanteParts = sortedParts.filter(p => p.funcao === 'Ajudante');
 
-    // Mapa de ajudantes por SEQUÊNCIA (não tipoParte)
-    // Isso evita sobrescrição quando há partes com mesmo tipoParte (ex: 2x "Iniciando Conversas")
-    const ajudanteBySeq = new Map<number, string>();
+    // Mapa de ajudantes por tituloParte (não tipoParte)
+    // tituloParte é único mesmo para partes duplicadas (ex: "4. Iniciando conversas (1 min)" vs "5. Iniciando conversas (3 min)")
+    const ajudanteByTitulo = new Map<string, string>();
     ajudanteParts.forEach(a => {
         const name = a.resolvedPublisherName || a.rawPublisherName || '';
-        if (name && a.seq) {
-            ajudanteBySeq.set(a.seq, name);
+        const titulo = a.tituloParte || a.tipoParte;
+        if (name && titulo) {
+            ajudanteByTitulo.set(titulo, name);
         }
     });
 
@@ -174,8 +175,9 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
                 mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
             }
 
-            // Buscar ajudante pela mesma sequência (Titular seq=5, Ajudante seq=5)
-            const mainHallAssistant = ajudanteBySeq.get(p.seq || 0);
+            // Buscar ajudante pelo mesmo tituloParte
+            const titulo = p.tituloParte || p.tipoParte;
+            const mainHallAssistant = ajudanteByTitulo.get(titulo);
 
             let title = p.tituloParte || p.tipoParte;
             const duration = typeof p.duracao === 'string' ? parseInt(p.duracao, 10) || 0 : (p.duracao || 0);
