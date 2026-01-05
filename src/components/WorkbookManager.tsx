@@ -530,6 +530,42 @@ export function WorkbookManager({ publishers }: Props) {
                         selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
                         publishersUsedInWeek.add(selectedPublisher.id); // Bloquear reuso nesta semana
                         totalWithPublisher++;
+
+                        // =====================================================================
+                        // ATUALIZAÇÃO DE HISTÓRICO DINÂMICA
+                        // Adicionar esta nova designação ao histórico em memória para que o 
+                        // Cooldown Service a considere nas próximas semanas deste mesmo loop.
+                        // =====================================================================
+
+
+                        // Importar dinamicamente se necessário, ou usar mapeamento manual simples
+                        // Aqui fazemos um mapeamento manual simplificado compatível com HistoryRecord
+                        const tempHistoryRecord = {
+                            id: part.id,
+                            weekId: part.weekId,
+                            weekDisplay: part.weekDisplay,
+                            date: part.date,
+                            section: part.section,
+                            tipoParte: part.tipoParte,
+                            modalidade: part.modalidade || (TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO),
+                            tituloParte: part.tituloParte,
+                            descricaoParte: part.descricaoParte,
+                            detalhesParte: part.detalhesParte,
+                            seq: part.seq,
+                            funcao: part.funcao as 'Titular' | 'Ajudante',
+                            duracao: parseInt(part.duracao) || 0,
+                            horaInicio: part.horaInicio,
+                            horaFim: part.horaFim,
+                            rawPublisherName: '',
+                            resolvedPublisherName: selectedPublisher.name,
+                            status: 'APPROVED' as const, // APPROVED equivale a DESIGNADA no enum HistoryStatus
+                            importSource: 'Auto-Generate',
+                            importBatchId: '',
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                        };
+
+                        historyRecords.push(tempHistoryRecord as unknown as HistoryRecord);
                     }
                 }
 
