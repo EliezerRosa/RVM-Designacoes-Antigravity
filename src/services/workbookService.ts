@@ -636,11 +636,19 @@ export const workbookService = {
 
     /**
      * Atualiza o status de TODAS as partes de uma semana específica
+     * @param clearPublisher Se true, também limpa o resolved_publisher_name (útil quando volta para PENDENTE)
      */
-    async updateWeekStatus(weekId: string, status: WorkbookStatus): Promise<void> {
+    async updateWeekStatus(weekId: string, status: WorkbookStatus, clearPublisher: boolean = false): Promise<void> {
+        const updateData: Record<string, unknown> = { status };
+
+        // Se clearPublisher for true, também limpar o publicador
+        if (clearPublisher) {
+            updateData.resolved_publisher_name = null;
+        }
+
         const { error } = await supabase
             .from('workbook_parts')
-            .update({ status })
+            .update(updateData)
             .eq('week_id', weekId);
 
         if (error) throw new Error(`Erro ao atualizar status da semana ${weekId}: ${error.message}`);
