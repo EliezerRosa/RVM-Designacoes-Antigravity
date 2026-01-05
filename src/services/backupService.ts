@@ -281,9 +281,33 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
 
         // Import publishers
         if (data.tables.publishers.data.length > 0) {
+            // Sanitizar publishers - garantir que campos obrigatórios não sejam null
+            const sanitizedPublishers = data.tables.publishers.data.map((pub: Publisher & { data?: Record<string, unknown> }) => ({
+                ...pub,
+                // Garantir que o campo 'data' (JSONB) exista se a tabela usar esse formato
+                data: pub.data || {
+                    id: pub.id,
+                    name: pub.name || 'Sem Nome',
+                    gender: pub.gender || 'brother',
+                    condition: pub.condition || 'Publicador',
+                    phone: pub.phone || '',
+                    isBaptized: pub.isBaptized ?? true,
+                    isServing: pub.isServing ?? true,
+                    ageGroup: pub.ageGroup || 'Adulto',
+                    parentIds: pub.parentIds || [],
+                    isHelperOnly: pub.isHelperOnly ?? false,
+                    canPairWithNonParent: pub.canPairWithNonParent ?? true,
+                    privileges: pub.privileges || {},
+                    privilegesBySection: pub.privilegesBySection || {},
+                    availability: pub.availability || { mode: 'always', exceptionDates: [], availableDates: [] },
+                    aliases: pub.aliases || []
+                },
+                name: pub.name || 'Sem Nome'
+            }));
+
             const { error } = await supabase
                 .from('publishers')
-                .upsert(data.tables.publishers.data, { onConflict: 'id' });
+                .upsert(sanitizedPublishers, { onConflict: 'id' });
             if (error) {
                 errors.push(`Publishers: ${error.message}`);
             } else {
