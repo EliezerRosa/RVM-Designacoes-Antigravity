@@ -280,34 +280,21 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
         }
 
         // Import publishers
+        // Estrutura da tabela: id (text), data (jsonb) - igual ao api.ts
         if (data.tables.publishers.data.length > 0) {
-            // Sanitizar publishers - garantir que campos obrigatórios não sejam null
-            const sanitizedPublishers = data.tables.publishers.data.map((pub: Publisher & { data?: Record<string, unknown> }) => ({
-                ...pub,
-                // Garantir que o campo 'data' (JSONB) exista se a tabela usar esse formato
-                data: pub.data || {
-                    id: pub.id,
-                    name: pub.name || 'Sem Nome',
-                    gender: pub.gender || 'brother',
-                    condition: pub.condition || 'Publicador',
-                    phone: pub.phone || '',
-                    isBaptized: pub.isBaptized ?? true,
-                    isServing: pub.isServing ?? true,
-                    ageGroup: pub.ageGroup || 'Adulto',
-                    parentIds: pub.parentIds || [],
-                    isHelperOnly: pub.isHelperOnly ?? false,
-                    canPairWithNonParent: pub.canPairWithNonParent ?? true,
-                    privileges: pub.privileges || {},
-                    privilegesBySection: pub.privilegesBySection || {},
-                    availability: pub.availability || { mode: 'always', exceptionDates: [], availableDates: [] },
-                    aliases: pub.aliases || []
-                },
-                name: pub.name || 'Sem Nome'
-            }));
+            // Converter para estrutura correta: {id, data: Publisher}
+            const dbRows = data.tables.publishers.data.map((pub: Publisher & { data?: Record<string, unknown> }) => {
+                // Se já veio do banco com estrutura {id, data}, usar data diretamente
+                if (pub.data && typeof pub.data === 'object' && 'name' in pub.data) {
+                    return { id: pub.id, data: pub.data };
+                }
+                // Se veio como flat (Publisher direto), encapsular em data
+                return { id: pub.id, data: pub };
+            });
 
             const { error } = await supabase
                 .from('publishers')
-                .upsert(sanitizedPublishers, { onConflict: 'id' });
+                .upsert(dbRows, { onConflict: 'id' });
             if (error) {
                 errors.push(`Publishers: ${error.message}`);
             } else {

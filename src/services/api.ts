@@ -117,15 +117,32 @@ export const api = {
     // ===== REALTIME SUBSCRIPTIONS =====
     subscribeToPublishers(onUpdate: (publishers: Publisher[]) => void): () => void {
         console.log('[REALTIME] Subscribing to publishers changes...');
+
+        // Debounce para evitar loop infinito de reloads
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        let isProcessing = false;
+
         const channel = supabase
             .channel('publishers-changes')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'publishers' },
                 async () => {
-                    console.log('[REALTIME] Publishers changed, reloading...');
-                    const publishers = await this.loadPublishers();
-                    onUpdate(publishers);
+                    // Ignorar se já estiver processando
+                    if (isProcessing) return;
+
+                    // Debounce de 1 segundo para agrupar múltiplas mudanças
+                    if (debounceTimer) clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(async () => {
+                        try {
+                            isProcessing = true;
+                            console.log('[REALTIME] Publishers changed, reloading...');
+                            const publishers = await this.loadPublishers();
+                            onUpdate(publishers);
+                        } finally {
+                            isProcessing = false;
+                        }
+                    }, 1000);
                 }
             )
             .subscribe();
@@ -133,6 +150,7 @@ export const api = {
         // Return unsubscribe function
         return () => {
             console.log('[REALTIME] Unsubscribing from publishers...');
+            if (debounceTimer) clearTimeout(debounceTimer);
             supabase.removeChannel(channel);
         };
     },
