@@ -117,8 +117,14 @@ export async function exportToExcel(): Promise<Blob> {
 
     const workbook = XLSX.utils.book_new();
 
-    // Sheet 1: Publishers
-    const publishersSheet = XLSX.utils.json_to_sheet(data.tables.publishers.data);
+    // Sheet 1: Publishers - serializar campo 'data' como JSON string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const publishersForExcel = (data.tables.publishers.data as any[]).map(pub => ({
+        id: pub.id,
+        data: JSON.stringify(pub.data),  // Serializa JSONB como string
+        created_at: pub.created_at
+    }));
+    const publishersSheet = XLSX.utils.json_to_sheet(publishersForExcel);
     XLSX.utils.book_append_sheet(workbook, publishersSheet, 'publishers');
 
     // Sheet 2: Workbook Parts
@@ -218,7 +224,13 @@ export async function parseExcelBackup(file: File): Promise<BackupData> {
                 const workbook = XLSX.read(data, { type: 'array' });
 
                 // Read sheets
-                const publishers = XLSX.utils.sheet_to_json(workbook.Sheets['publishers']) as Publisher[];
+                const rawPublishers = XLSX.utils.sheet_to_json(workbook.Sheets['publishers']) as Array<{ id: string, data: string, created_at?: string }>;
+                // Parse JSON string de volta para objeto
+                const publishers = rawPublishers.map(row => ({
+                    id: row.id,
+                    data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
+                    created_at: row.created_at
+                })) as unknown as Publisher[];
                 const workbookParts = XLSX.utils.sheet_to_json(workbook.Sheets['workbook_parts']) as WorkbookPart[];
                 const specialEvents = workbook.Sheets['special_events']
                     ? XLSX.utils.sheet_to_json(workbook.Sheets['special_events'])
