@@ -149,14 +149,22 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
     const titularParts = sortedParts.filter(p => p.funcao === 'Titular');
     const ajudanteParts = sortedParts.filter(p => p.funcao === 'Ajudante');
 
-    // Mapa de ajudantes por tituloParte (não tipoParte)
-    // tituloParte é único mesmo para partes duplicadas (ex: "4. Iniciando conversas (1 min)" vs "5. Iniciando conversas (3 min)")
-    const ajudanteByTitulo = new Map<string, string>();
+    // NORMALIZAÇÃO: Extrair apenas o número de sequência do título
+    // Titular: "4. Iniciando conversas (1 min)" → "4"
+    // Ajudante: "4. Iniciando conversas - Ajudante" → "4"
+    const extractSeqNumber = (titulo: string): string => {
+        const match = titulo.match(/^(\d+)\./);
+        return match ? match[1] : titulo;
+    };
+
+    // Mapa de ajudantes por número de sequência
+    const ajudanteBySeq = new Map<string, string>();
     ajudanteParts.forEach(a => {
         const name = a.resolvedPublisherName || a.rawPublisherName || '';
         const titulo = a.tituloParte || a.tipoParte;
-        if (name && titulo) {
-            ajudanteByTitulo.set(titulo, name);
+        const seqNum = extractSeqNumber(titulo);
+        if (name && seqNum) {
+            ajudanteBySeq.set(seqNum, name);
         }
     });
 
@@ -175,9 +183,10 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
                 mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
             }
 
-            // Buscar ajudante pelo mesmo tituloParte
+            // Buscar ajudante pelo número de sequência extraído do título
             const titulo = p.tituloParte || p.tipoParte;
-            const mainHallAssistant = ajudanteByTitulo.get(titulo);
+            const seqNum = extractSeqNumber(titulo);
+            const mainHallAssistant = ajudanteBySeq.get(seqNum);
 
             let title = p.tituloParte || p.tipoParte;
             const duration = typeof p.duracao === 'string' ? parseInt(p.duracao, 10) || 0 : (p.duracao || 0);
