@@ -31,10 +31,9 @@ import {
     validatePartsBeforeGeneration,
     getGrupoPresidentes,
     getGrupoEnsino,
-    selectNextPresident,
-    selectNextEnsinoMember,
-    loadLinearIndex,
-    saveLinearIndex
+    getGrupoEnsinoExpandido,
+    getGrupoEstudante,
+    rankByPriority
 } from '../services/linearRotationService';
 
 interface Props {
@@ -468,59 +467,87 @@ export function WorkbookManager({ publishers }: Props) {
             const usedPreassignmentIds = new Set<string>(); // Rastreia IDs já usados nesta execução
 
             // =====================================================================
-            // FASE 1: PRESIDENTES - Rotação Linear Pura (v5.0)
+            // FASE 1: PRESIDENTES - Prioridade Dinâmica (v6.0)
             // Processa TODOS os presidentes ANTES do loop de outras partes
+            // Designa: Sem1→1º da lista, Sem2→2º, etc.
             // =====================================================================
             const grupoPresidentes = getGrupoPresidentes(publishers);
-            let presidenteIdx = loadLinearIndex('presidente');
-            console.log(`[Motor v5.0] 👔 Grupo Presidentes: ${grupoPresidentes.length} membros, índice inicial: ${presidenteIdx}`);
+            console.log(`[Motor v6.0] 👔 Grupo Presidentes: ${grupoPresidentes.length} membros`);
 
             // Coletar todas as partes de Presidente PENDENTES em ordem cronológica
-            const presidenterParts = partsNeedingAssignment
+            const presidenteParts = partsNeedingAssignment
                 .filter(p => p.tipoParte.toLowerCase().includes('presidente') && p.funcao === 'Titular')
                 .sort((a, b) => a.date.localeCompare(b.date));
 
-            console.log(`[Motor v5.0] 👔 ${presidenterParts.length} partes de Presidente a preencher`);
+            console.log(`[Motor v6.0] 👔 ${presidenteParts.length} partes de Presidente a preencher`);
 
-            for (const part of presidenterParts) {
-                // Verificar quem está indisponível na data
-                const unavailableNames = grupoPresidentes
-                    .filter(p => {
-                        const avail = p.availability;
-                        if (avail.mode === 'always') {
-                            return avail.exceptionDates.includes(part.date);
-                        } else {
-                            return !avail.availableDates.includes(part.date);
-                        }
-                    })
-                    .map(p => p.name);
+            // Filtrar elegíveis (disponíveis em pelo menos uma data)
+            const eligiblePresidentes = grupoPresidentes.filter(p => {
+                const avail = p.availability;
+                // Verificar se está disponível em pelo menos uma data de presidente
+                return presidenteParts.some(part => {
+                    if (avail.mode === 'always') {
+                        return !avail.exceptionDates.includes(part.date);
+                    } else {
+                        return avail.availableDates.includes(part.date);
+                    }
+                });
+            });
 
-                const result = selectNextPresident(grupoPresidentes, presidenteIdx, unavailableNames);
+            // Calcular prioridade e ordenar DESC
+            const rankedPresidentes = rankByPriority(
+                eligiblePresidentes,
+                historyRecords,
+                'Presidente da Reunião',
+                'Titular',
+                inLoopAssignments
+            );
 
-                if (result.publisher) {
-                    selectedPublisherByPart.set(part.id, { id: result.publisher.id, name: result.publisher.name });
-                    presidenteIdx = result.nextIndex;
-                    totalWithPublisher++;
+            console.log(`[Motor v6.0] 👔 ${rankedPresidentes.length} presidentes elegíveis ordenados por prioridade`);
 
-                    // Adicionar ao histórico in-loop para penalizar corretamente
-                    inLoopAssignments.push({
-                        date: part.date,
-                        tipoParte: part.tipoParte,
-                        rawPublisherName: '',
-                        resolvedPublisherName: result.publisher.name,
-                        funcao: 'Titular',
-                        status: 'PROPOSTA'
-                    });
+            // Designar: Sem1→1º, Sem2→2º, etc.
+            let presidenteListIndex = 0;
+            for (const part of presidenteParts) {
+                // Encontrar próximo disponível na data específica
+                while (presidenteListIndex < rankedPresidentes.length) {
+                    const candidate = rankedPresidentes[presidenteListIndex];
+                    const avail = candidate.publisher.availability;
 
-                    console.log(`[Motor v5.0] 👔 Presidente ${part.weekDisplay}: ${result.publisher.name}`);
-                } else {
-                    console.warn(`[Motor v5.0] ⚠️ Nenhum presidente disponível para ${part.weekDisplay}`);
+                    // Verificar disponibilidade na data específica
+                    let isAvailable = true;
+                    if (avail.mode === 'always') {
+                        isAvailable = !avail.exceptionDates.includes(part.date);
+                    } else {
+                        isAvailable = avail.availableDates.includes(part.date);
+                    }
+
+                    if (isAvailable) {
+                        selectedPublisherByPart.set(part.id, { id: candidate.publisher.id, name: candidate.publisher.name });
+                        totalWithPublisher++;
+
+                        // Adicionar ao histórico in-loop
+                        inLoopAssignments.push({
+                            date: part.date,
+                            tipoParte: part.tipoParte,
+                            rawPublisherName: '',
+                            resolvedPublisherName: candidate.publisher.name,
+                            funcao: 'Titular',
+                            status: 'PROPOSTA'
+                        });
+
+                        console.log(`[Motor v6.0] 👔 Presidente ${part.weekDisplay}: ${candidate.publisher.name} (${candidate.priority}pts)`);
+                        presidenteListIndex++;
+                        break;
+                    }
+                    presidenteListIndex++;
+                }
+
+                if (presidenteListIndex >= rankedPresidentes.length && !selectedPublisherByPart.has(part.id)) {
+                    console.warn(`[Motor v6.0] ⚠️ Nenhum presidente disponível para ${part.weekDisplay}`);
                 }
             }
 
-            // Persistir índice de presidentes
-            saveLinearIndex('presidente', presidenteIdx);
-            console.log(`[Motor v5.0] 👔 Índice de Presidentes salvo: ${presidenteIdx}`);
+            // Oração Inicial: Automaticamente = Presidente da semana (tratado na Fase 3)
 
             // =====================================================================
             // FASE 2 e 3: ENSINO e DEMAIS PARTES (loop por semana)
@@ -534,94 +561,176 @@ export function WorkbookManager({ publishers }: Props) {
                 const assignmentsByPublisherInWeek = new Map<string, Array<{ tipoParte: string, funcao: string }>>();
 
                 // =====================================================================
-                // FASE 2: ENSINO - Rotação Híbrida (Prioridade + Bônus Linear +10)
-                // Processa partes de ensino ANTES das demais partes da semana
+                // FASE 2: ENSINO - Prioridade Dinâmica (v6.0)
+                // Partes: Tesouros, Joias, Dirigente EBC, Leitor EBC
+                // Processa por TIPO na ordem da apostila
                 // =====================================================================
                 const grupoEnsino = getGrupoEnsino(publishers);
-                let ensinoIdx = loadLinearIndex('ensino');
+                const grupoEnsinoExpandido = getGrupoEnsinoExpandido(publishers);
 
                 // Identificar presidente designado para esta semana
                 const presidentePart = weekParts.find(p => p.tipoParte.toLowerCase().includes('presidente') && p.funcao === 'Titular');
                 const presidenteDaSemana = presidentePart ? selectedPublisherByPart.get(presidentePart.id)?.name : undefined;
 
-                // Partes de Ensino nesta semana (Discurso Tesouros, Joias, etc.)
-                const ensinoParts = weekParts.filter(p =>
-                    ['Discurso Tesouros', 'Joias Espirituais'].includes(p.tipoParte) &&
-                    p.funcao === 'Titular' &&
-                    !selectedPublisherByPart.has(p.id) // Ainda não processada
-                );
-
+                // Partes de Ensino nesta semana (na ordem da apostila)
+                const tiposEnsino = ['Discurso Tesouros', 'Joias Espirituais', 'Dirigente EBC', 'Leitor EBC'];
                 const namesJaTemEnsinoNaSemana: string[] = [];
 
-                for (const ensinoPart of ensinoParts) {
-                    // Excluir: Presidente da semana + quem já tem ensino na semana + indisponíveis
-                    const excludeNames = [
-                        presidenteDaSemana,
-                        ...namesJaTemEnsinoNaSemana
-                    ].filter(Boolean) as string[];
+                for (const tipoEnsino of tiposEnsino) {
+                    const ensinoParts = weekParts.filter(p =>
+                        p.tipoParte === tipoEnsino &&
+                        p.funcao === 'Titular' &&
+                        !selectedPublisherByPart.has(p.id)
+                    );
 
-                    // Filtrar elegíveis do grupo ensino
-                    const eligibleForEnsino = grupoEnsino.filter(p => {
-                        if (excludeNames.includes(p.name)) return false;
+                    if (ensinoParts.length === 0) continue;
+
+                    // Usar grupo expandido para Leitor EBC
+                    const grupoAtual = tipoEnsino === 'Leitor EBC' ? grupoEnsinoExpandido : grupoEnsino;
+
+                    // Filtrar elegíveis
+                    const eligibleForEnsino = grupoAtual.filter(p => {
+                        if (p.name === presidenteDaSemana) return false;
+                        if (namesJaTemEnsinoNaSemana.includes(p.name)) return false;
                         // Verificar disponibilidade
                         const avail = p.availability;
+                        const firstPart = ensinoParts[0];
                         if (avail.mode === 'always') {
-                            if (avail.exceptionDates.includes(ensinoPart.date)) return false;
+                            if (avail.exceptionDates.includes(firstPart.date)) return false;
                         } else {
-                            if (!avail.availableDates.includes(ensinoPart.date)) return false;
+                            if (!avail.availableDates.includes(firstPart.date)) return false;
                         }
                         return true;
                     });
 
-                    if (eligibleForEnsino.length > 0) {
-                        // Preparar futureAssignments para cooldown
-                        const futureAssignments = [...inLoopAssignments];
+                    if (eligibleForEnsino.length === 0) continue;
 
-                        const result = selectNextEnsinoMember(
-                            grupoEnsino,
-                            ensinoIdx,
-                            eligibleForEnsino,
-                            historyRecords,
-                            ensinoPart.tipoParte,
-                            futureAssignments
-                        );
+                    // Calcular prioridade e ordenar
+                    const rankedEnsino = rankByPriority(
+                        eligibleForEnsino,
+                        historyRecords,
+                        tipoEnsino,
+                        'Titular',
+                        inLoopAssignments
+                    );
 
-                        if (result.publisher) {
-                            selectedPublisherByPart.set(ensinoPart.id, { id: result.publisher.id, name: result.publisher.name });
-                            ensinoIdx = result.nextIndex;
-                            totalWithPublisher++;
-                            namesJaTemEnsinoNaSemana.push(result.publisher.name);
+                    // Designar: Parte1→1º, Parte2→2º, etc.
+                    let ensinoListIndex = 0;
+                    for (const ensinoPart of ensinoParts) {
+                        if (ensinoListIndex >= rankedEnsino.length) break;
 
-                            // Adicionar ao histórico in-loop
-                            inLoopAssignments.push({
-                                date: ensinoPart.date,
-                                tipoParte: ensinoPart.tipoParte,
-                                rawPublisherName: '',
-                                resolvedPublisherName: result.publisher.name,
-                                funcao: 'Titular',
-                                status: 'PROPOSTA'
-                            });
+                        const candidate = rankedEnsino[ensinoListIndex];
+                        selectedPublisherByPart.set(ensinoPart.id, { id: candidate.publisher.id, name: candidate.publisher.name });
+                        totalWithPublisher++;
+                        namesJaTemEnsinoNaSemana.push(candidate.publisher.name);
 
-                            console.log(`[Motor v5.0] 📚 Ensino ${ensinoPart.tipoParte} (${ensinoPart.weekDisplay}): ${result.publisher.name} ${result.wasLinearChoice ? '(próximo no ciclo)' : ''}`);
-                        }
+                        // Adicionar ao histórico in-loop
+                        inLoopAssignments.push({
+                            date: ensinoPart.date,
+                            tipoParte: ensinoPart.tipoParte,
+                            rawPublisherName: '',
+                            resolvedPublisherName: candidate.publisher.name,
+                            funcao: 'Titular',
+                            status: 'PROPOSTA'
+                        });
+
+                        console.log(`[Motor v6.0] 📚 ${tipoEnsino} (${ensinoPart.weekDisplay}): ${candidate.publisher.name} (${candidate.priority}pts)`);
+                        ensinoListIndex++;
                     }
                 }
 
-                // Persistir índice de ensino após cada semana
-                saveLinearIndex('ensino', ensinoIdx);
+                // =====================================================================
+                // FASE 3: ESTUDANTE - Prioridade Dinâmica (v6.0)
+                // Partes: Leitura, Demonstrações, Discurso Estudante
+                // =====================================================================
+                const grupoEstudante = getGrupoEstudante(publishers);
+                const tiposEstudante = ['Leitura da Bíblia', 'Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças', 'Discurso de Estudante'];
+                const namesJaTemEstudanteNaSemana: string[] = [];
+
+                for (const tipoEstudante of tiposEstudante) {
+                    const estudanteParts = weekParts.filter(p =>
+                        p.tipoParte === tipoEstudante &&
+                        p.funcao === 'Titular' &&
+                        !selectedPublisherByPart.has(p.id)
+                    );
+
+                    if (estudanteParts.length === 0) continue;
+
+                    // Filtrar elegíveis
+                    const eligibleForEstudante = grupoEstudante.filter(p => {
+                        if (p.name === presidenteDaSemana) return false;
+                        if (namesJaTemEnsinoNaSemana.includes(p.name)) return false;
+                        if (namesJaTemEstudanteNaSemana.includes(p.name)) return false;
+                        // Verificar disponibilidade
+                        const avail = p.availability;
+                        const firstPart = estudanteParts[0];
+                        if (avail.mode === 'always') {
+                            if (avail.exceptionDates.includes(firstPart.date)) return false;
+                        } else {
+                            if (!avail.availableDates.includes(firstPart.date)) return false;
+                        }
+                        return true;
+                    });
+
+                    if (eligibleForEstudante.length === 0) continue;
+
+                    // Calcular prioridade e ordenar
+                    const rankedEstudante = rankByPriority(
+                        eligibleForEstudante,
+                        historyRecords,
+                        tipoEstudante,
+                        'Titular',
+                        inLoopAssignments
+                    );
+
+                    // Designar: Parte1→1º, Parte2→2º, etc.
+                    let estudanteListIndex = 0;
+                    for (const estudantePart of estudanteParts) {
+                        if (estudanteListIndex >= rankedEstudante.length) break;
+
+                        const candidate = rankedEstudante[estudanteListIndex];
+                        selectedPublisherByPart.set(estudantePart.id, { id: candidate.publisher.id, name: candidate.publisher.name });
+                        totalWithPublisher++;
+                        namesJaTemEstudanteNaSemana.push(candidate.publisher.name);
+
+                        // Adicionar ao histórico in-loop
+                        inLoopAssignments.push({
+                            date: estudantePart.date,
+                            tipoParte: estudantePart.tipoParte,
+                            rawPublisherName: '',
+                            resolvedPublisherName: candidate.publisher.name,
+                            funcao: 'Titular',
+                            status: 'PROPOSTA'
+                        });
+
+                        console.log(`[Motor v6.0] 🎓 ${tipoEstudante} (${estudantePart.weekDisplay}): ${candidate.publisher.name} (${candidate.priority}pts)`);
+                        estudanteListIndex++;
+                    }
+                }
 
                 // =====================================================================
-                // FASE 3: DEMAIS PARTES (loop individual - lógica existente)
+                // FASE 4: DEMAIS PARTES (Ajudantes, Orações, etc.)
+                // Oração Inicial = Presidente da semana
                 // =====================================================================
                 for (const part of weekParts) {
-                    // SKIP: Partes já processadas na Fase 1 (Presidente) ou Fase 2 (Ensino)
+                    // SKIP: Partes já processadas
                     if (selectedPublisherByPart.has(part.id)) {
                         continue;
                     }
 
                     const modalidade = getModalidade(part);
-                    // const partType = getPartTypeFromSection(part.section); // REMOVIDO: Não calculado mais aqui
                     const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
+
+                    // Oração Inicial: Usar presidente da semana
+                    if (isOracaoInicial && presidenteDaSemana) {
+                        const presidentePub = publishers.find(p => p.name === presidenteDaSemana);
+                        if (presidentePub) {
+                            selectedPublisherByPart.set(part.id, { id: presidentePub.id, name: presidentePub.name });
+                            totalWithPublisher++;
+                            console.log(`[Motor v6.0] 🙏 Oração Inicial (${part.weekDisplay}): ${presidentePub.name} (= Presidente)`);
+                            continue;
+                        }
+                    }
 
                     // Determinar função (Titular ou Ajudante)
                     const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
