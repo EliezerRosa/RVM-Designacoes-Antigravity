@@ -27,6 +27,7 @@ import { Tooltip } from './Tooltip';
 import { ReportsTab } from './ReportsTab';
 import { generateSessionReport } from '../services/analyticsService';
 import type { AnalyticsSummary } from '../services/analyticsService';
+import { validatePartsBeforeGeneration } from '../services/linearRotationService';
 
 interface Props {
     publishers: Publisher[];
@@ -365,6 +366,16 @@ export function WorkbookManager({ publishers }: Props) {
         try {
             setLoading(true);
             setError(null);
+
+            // =================================================================
+            // VALIDAÇÃO v5.0: Avisar sobre partes de Titular sem duração
+            // =================================================================
+            const durationWarnings = validatePartsBeforeGeneration(partsNeedingAssignment);
+            if (durationWarnings.length > 0) {
+                const warningMessages = durationWarnings.map(w => w.message).join('\n');
+                console.warn('[Motor] ⚠️ Partes sem duração:', durationWarnings);
+                alert(`⚠️ ATENÇÃO: ${durationWarnings.length} parte(s) de Titular sem duração definida:\n\n${warningMessages}\n\nAs designações serão geradas, mas revise essas partes.`);
+            }
 
             // Carregar histórico para cooldown (usando historyAdapter)
             let historyRecords: HistoryRecord[] = [];
