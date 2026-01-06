@@ -16,6 +16,8 @@ interface PublisherSelectProps {
     style?: React.CSSProperties;
     /** Lista de partes da semana para verificar múltiplas designações */
     weekParts?: WorkbookPart[];
+    /** Todas as partes carregadas (para cálculo de prioridade entre semanas) */
+    allParts?: WorkbookPart[];
 }
 
 // Helpers copiados/adaptados para garantir compatibilidade com a lógica de elegibilidade
@@ -43,7 +45,7 @@ const getModalidade = (part: WorkbookPart): string => {
     return TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
 };
 
-export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts }: PublisherSelectProps) => {
+export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts }: PublisherSelectProps) => {
 
     // Memoizar a lista sorted para evitar recálculo excessivo
     const sortedOptions = useMemo(() => {
@@ -68,12 +70,13 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         }
 
         // Calcular "prioridade" com base no tempo desde última participação
-        // Usando weekParts como histórico simplificado
+        // Usa allParts (histórico completo) se disponível, senão usa weekParts
         const calculatePriority = (pubName: string): number => {
-            if (!weekParts || weekParts.length === 0) return 0;
+            const partsForPriority = allParts || weekParts;
+            if (!partsForPriority || partsForPriority.length === 0) return 0;
 
             const today = new Date();
-            const pubParts = weekParts.filter(wp =>
+            const pubParts = partsForPriority.filter(wp =>
                 wp.resolvedPublisherName === pubName || wp.rawPublisherName === pubName
             );
 
@@ -130,7 +133,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             // 3. Ordem alfabética como desempate
             return a.publisher.name.localeCompare(b.publisher.name);
         });
-    }, [part, publishers, weekParts]);
+    }, [part, publishers, weekParts, allParts]);
 
     // Determinar o valor efetivo - tentar encontrar ID pelo nome se não temos ID
     // Agora usa busca fonética/fuzzy para melhor match (ex: "eryc" encontra "Erik")

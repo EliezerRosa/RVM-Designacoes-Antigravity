@@ -522,6 +522,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                                 handleUpdatePublisher(part.id, newId, newName);
                                                             }}
                                                             weekParts={weekParts}
+                                                            allParts={assignments}
                                                             disabled={isProcessing}
                                                             style={{
                                                                 padding: '6px 12px',
