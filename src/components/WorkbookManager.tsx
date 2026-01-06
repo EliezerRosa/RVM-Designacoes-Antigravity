@@ -481,10 +481,17 @@ export function WorkbookManager({ publishers }: Props) {
 
             console.log(`[Motor v6.0] 👔 ${presidenteParts.length} partes de Presidente a preencher`);
 
-            // Filtrar elegíveis (disponíveis em pelo menos uma data)
+            // Filtrar elegíveis (disponíveis + elegíveis por regras)
             const eligiblePresidentes = grupoPresidentes.filter(p => {
-                const avail = p.availability;
+                // Verificar elegibilidade completa (isNotQualified, requestedNoParticipation, etc.)
+                const eligResult = checkEligibility(p, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR, {});
+                if (!eligResult.eligible) {
+                    console.log(`[Motor v6.0] 👔 ${p.name} não elegível: ${eligResult.reason}`);
+                    return false;
+                }
+
                 // Verificar se está disponível em pelo menos uma data de presidente
+                const avail = p.availability;
                 return presidenteParts.some(part => {
                     if (avail.mode === 'always') {
                         return !avail.exceptionDates.includes(part.date);
@@ -588,13 +595,22 @@ export function WorkbookManager({ publishers }: Props) {
                     // Usar grupo expandido para Leitor EBC
                     const grupoAtual = tipoEnsino === 'Leitor EBC' ? grupoEnsinoExpandido : grupoEnsino;
 
-                    // Filtrar elegíveis
+                    // Filtrar elegíveis (exclusões + elegibilidade completa)
                     const eligibleForEnsino = grupoAtual.filter(p => {
                         if (p.name === presidenteDaSemana) return false;
                         if (namesJaTemEnsinoNaSemana.includes(p.name)) return false;
+
+                        // Verificar elegibilidade completa (isNotQualified, requestedNoParticipation, etc.)
+                        const firstPart = ensinoParts[0];
+                        const eligResult = checkEligibility(p, EnumModalidade.DISCURSO_ENSINO, EnumFuncao.TITULAR, {
+                            date: firstPart.date
+                        });
+                        if (!eligResult.eligible) {
+                            return false;
+                        }
+
                         // Verificar disponibilidade
                         const avail = p.availability;
-                        const firstPart = ensinoParts[0];
                         if (avail.mode === 'always') {
                             if (avail.exceptionDates.includes(firstPart.date)) return false;
                         } else {
@@ -656,14 +672,27 @@ export function WorkbookManager({ publishers }: Props) {
 
                     if (estudanteParts.length === 0) continue;
 
-                    // Filtrar elegíveis
+                    // Filtrar elegíveis (exclusões + elegibilidade completa)
                     const eligibleForEstudante = grupoEstudante.filter(p => {
                         if (p.name === presidenteDaSemana) return false;
                         if (namesJaTemEnsinoNaSemana.includes(p.name)) return false;
                         if (namesJaTemEstudanteNaSemana.includes(p.name)) return false;
+
+                        // Verificar elegibilidade completa (isNotQualified, requestedNoParticipation, gênero para demos, etc.)
+                        const firstPart = estudanteParts[0];
+                        // Mapear tipoParte para modalidade
+                        const modalidade = tipoEstudante === 'Leitura da Bíblia'
+                            ? EnumModalidade.LEITURA_ESTUDANTE
+                            : EnumModalidade.DEMONSTRACAO;
+                        const eligResult = checkEligibility(p, modalidade, EnumFuncao.TITULAR, {
+                            date: firstPart.date
+                        });
+                        if (!eligResult.eligible) {
+                            return false;
+                        }
+
                         // Verificar disponibilidade
                         const avail = p.availability;
-                        const firstPart = estudanteParts[0];
                         if (avail.mode === 'always') {
                             if (avail.exceptionDates.includes(firstPart.date)) return false;
                         } else {
