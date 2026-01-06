@@ -1,176 +1,174 @@
 /**
- * Linear Rotation Service - RVM Designações v5.0
+ * Assignment Service - RVM Designações v6.0
  * 
- * Implementa rotação linear para:
- * - Presidentes: Ciclo puro (A→B→C→A)
- * - Ensino: Ciclo + Prioridade + Cooldown (híbrido)
+ * Implementa designação por prioridade dinâmica para 3 grupos:
+ * - Presidentes: Anciãos + SMs aprovados
+ * - Ensino: Anciãos + SMs (Tesouros, Joias, EBC)
+ * - Estudante: Todos elegíveis (Leitura, Demos)
  */
 
 import type { Publisher, HistoryRecord } from '../types';
 import { calculateRotationPriority } from './cooldownService';
 
 // ===== Constantes =====
-const LINEAR_BONUS = 10; // Bônus de pontos para próximo no ciclo
-
-// ===== Persistência de Índices =====
-
-export function loadLinearIndex(groupName: 'presidente' | 'ensino'): number {
-    const stored = localStorage.getItem(`rvm_${groupName}_idx`);
-    return stored ? parseInt(stored, 10) : 0;
-}
-
-export function saveLinearIndex(groupName: 'presidente' | 'ensino', index: number): void {
-    localStorage.setItem(`rvm_${groupName}_idx`, index.toString());
-}
 
 // ===== Grupos =====
 
 /**
  * Grupo Presidentes: Anciãos + SMs aprovados para presidir
- * Ordenado alfabeticamente para ciclo estável
  */
 export function getGrupoPresidentes(publishers: Publisher[]): Publisher[] {
-    return publishers
-        .filter(p =>
-            p.condition === 'Ancião' ||
-            p.condition === 'Anciao' ||
-            (p.condition === 'Servo Ministerial' && p.privileges?.canPreside)
-        )
-        .sort((a, b) => a.name.localeCompare(b.name));
+    return publishers.filter(p =>
+        p.condition === 'Ancião' ||
+        p.condition === 'Anciao' ||
+        (p.condition === 'Servo Ministerial' && p.privileges?.canPreside)
+    );
 }
 
 /**
  * Grupo Ensino: Todos Anciãos + SMs
- * Ordenado alfabeticamente para ciclo estável
+ * Para Leitor EBC, inclui também irmãos batizados elegíveis
  */
 export function getGrupoEnsino(publishers: Publisher[]): Publisher[] {
-    return publishers
-        .filter(p =>
-            p.condition === 'Ancião' ||
-            p.condition === 'Anciao' ||
-            p.condition === 'Servo Ministerial'
-        )
-        .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-// ===== Rotação Linear Pura (Presidentes) =====
-
-export interface LinearSelectionResult {
-    publisher: Publisher | null;
-    nextIndex: number;
-    skippedNames: string[];
+    return publishers.filter(p =>
+        p.condition === 'Ancião' ||
+        p.condition === 'Anciao' ||
+        p.condition === 'Servo Ministerial'
+    );
 }
 
 /**
- * Seleciona próximo presidente no ciclo linear.
- * Ignora prioridade/cooldown - apenas verifica disponibilidade.
+ * Grupo Ensino Expandido (para Leitor EBC): Anciãos + SMs + Irmãos batizados elegíveis
  */
-export function selectNextPresident(
-    grupo: Publisher[],
-    currentIndex: number,
-    unavailableNames: string[] = []
-): LinearSelectionResult {
-    if (grupo.length === 0) {
-        return { publisher: null, nextIndex: currentIndex, skippedNames: [] };
-    }
-
-    const skippedNames: string[] = [];
-    let attempts = 0;
-    let idx = currentIndex % grupo.length;
-
-    while (attempts < grupo.length) {
-        const candidate = grupo[idx];
-        if (!unavailableNames.includes(candidate.name)) {
-            return {
-                publisher: candidate,
-                nextIndex: (idx + 1) % grupo.length,
-                skippedNames
-            };
-        }
-        skippedNames.push(candidate.name);
-        idx = (idx + 1) % grupo.length;
-        attempts++;
-    }
-
-    // Ninguém disponível
-    return { publisher: null, nextIndex: currentIndex, skippedNames };
-}
-
-// ===== Rotação Linear + Prioridade + Cooldown (Ensino) =====
-
-export interface HybridSelectionResult {
-    publisher: Publisher | null;
-    nextIndex: number;
-    wasLinearChoice: boolean;
-    scores: Array<{ name: string; priority: number; linearBonus: number; total: number }>;
+export function getGrupoEnsinoExpandido(publishers: Publisher[]): Publisher[] {
+    return publishers.filter(p =>
+        p.condition === 'Ancião' ||
+        p.condition === 'Anciao' ||
+        p.condition === 'Servo Ministerial' ||
+        ((p.gender as string) === 'M' && p.isServing && (p.condition as string) === 'Publicador Batizado')
+    );
 }
 
 /**
- * Seleciona próximo membro de ensino usando lógica híbrida:
- * - Calcula prioridade normal para cada elegível
- * - Adiciona bônus de +10 para quem é próximo no ciclo
- * - Escolhe maior pontuação total
+ * Grupo Estudante: Todos elegíveis (batizados + não-batizados)
  */
-export function selectNextEnsinoMember(
-    grupo: Publisher[],
-    currentIndex: number,
+export function getGrupoEstudante(publishers: Publisher[]): Publisher[] {
+    return publishers.filter(p => p.isServing);
+}
+
+// ===== Ranking por Prioridade =====
+
+export interface RankedPublisher {
+    publisher: Publisher;
+    priority: number;
+}
+
+/**
+ * Calcula prioridade e retorna lista ordenada DESC (maior prioridade primeiro)
+ */
+export function rankByPriority(
     eligiblePublishers: Publisher[],
-    history: HistoryRecord[],
-    partType: string,
-    futureAssignments?: Array<{
+    historyRecords: HistoryRecord[],
+    tipoParte: string,
+    funcao: string,
+    inLoopAssignments: Array<{
         date: string;
         tipoParte: string;
-        rawPublisherName?: string;
-        resolvedPublisherName?: string;
-        funcao?: string;
-    }>
-): HybridSelectionResult {
-    if (eligiblePublishers.length === 0) {
-        return { publisher: null, nextIndex: currentIndex, wasLinearChoice: false, scores: [] };
-    }
-
-    const nextInCycle = grupo[currentIndex % grupo.length];
-    const scores: Array<{ name: string; priority: number; linearBonus: number; total: number }> = [];
+        resolvedPublisherName: string;
+        funcao: string;
+    }> = []
+): RankedPublisher[] {
+    const ranked: RankedPublisher[] = [];
 
     eligiblePublishers.forEach(pub => {
         const priority = calculateRotationPriority(
             pub.name,
-            history,
-            partType,
-            'Titular',
+            historyRecords,
+            tipoParte,
+            funcao,
             new Date(),
-            futureAssignments
+            inLoopAssignments
         );
 
-        const linearBonus = (pub.name === nextInCycle?.name) ? LINEAR_BONUS : 0;
-        const total = priority + linearBonus;
-
-        scores.push({
-            name: pub.name,
-            priority,
-            linearBonus,
-            total
+        ranked.push({
+            publisher: pub,
+            priority
         });
     });
 
-    // Ordenar por total (maior primeiro)
-    scores.sort((a, b) => b.total - a.total);
+    // Ordenar DESC (maior prioridade primeiro)
+    ranked.sort((a, b) => b.priority - a.priority);
 
-    const winner = eligiblePublishers.find(p => p.name === scores[0]?.name) || null;
-    const wasLinearChoice = winner?.name === nextInCycle?.name;
+    return ranked;
+}
 
-    // Avançar índice apenas se o escolhido for o próximo no ciclo
-    let nextIndex = currentIndex;
-    if (wasLinearChoice) {
-        nextIndex = (currentIndex + 1) % grupo.length;
+/**
+ * Tipo para resultado de designação em lote
+ */
+export interface BatchAssignmentResult {
+    assignments: Array<{ partId: string; publisher: Publisher }>;
+    remainingPublishers: Publisher[];
+    logs: string[];
+}
+
+/**
+ * Designa múltiplas partes do mesmo tipo em sequência.
+ * Semana1→1º, Semana2→2º, etc.
+ */
+export function assignInSequence(
+    parts: Array<{ id: string; date: string; weekDisplay: string }>,
+    rankedPublishers: RankedPublisher[],
+    inLoopAssignments: Array<{
+        date: string;
+        tipoParte: string;
+        resolvedPublisherName: string;
+        funcao: string;
+    }>,
+    _tipoParte: string
+): BatchAssignmentResult {
+    const assignments: Array<{ partId: string; publisher: Publisher }> = [];
+    const logs: string[] = [];
+    const usedNames = new Set<string>();
+
+    // Ordenar partes por data
+    const sortedParts = [...parts].sort((a, b) => a.date.localeCompare(b.date));
+
+    let publisherIndex = 0;
+
+    for (const part of sortedParts) {
+        // Encontrar próximo publicador disponível (não usado ainda nesta batch)
+        while (publisherIndex < rankedPublishers.length) {
+            const candidate = rankedPublishers[publisherIndex];
+
+            if (!usedNames.has(candidate.publisher.name)) {
+                // Verificar se não foi designado in-loop para mesma semana
+                const alreadyInWeek = inLoopAssignments.some(a =>
+                    a.resolvedPublisherName === candidate.publisher.name &&
+                    a.date === part.date
+                );
+
+                if (!alreadyInWeek) {
+                    assignments.push({ partId: part.id, publisher: candidate.publisher });
+                    usedNames.add(candidate.publisher.name);
+                    logs.push(`${part.weekDisplay}: ${candidate.publisher.name} (${candidate.priority}pts)`);
+                    publisherIndex++;
+                    break;
+                }
+            }
+            publisherIndex++;
+        }
+
+        if (publisherIndex >= rankedPublishers.length) {
+            logs.push(`${part.weekDisplay}: ⚠️ Sem publicadores disponíveis`);
+        }
     }
 
-    return {
-        publisher: winner,
-        nextIndex,
-        wasLinearChoice,
-        scores
-    };
+    // Publicadores não usados
+    const remainingPublishers = rankedPublishers
+        .filter(r => !usedNames.has(r.publisher.name))
+        .map(r => r.publisher);
+
+    return { assignments, remainingPublishers, logs };
 }
 
 // ===== Validações =====
