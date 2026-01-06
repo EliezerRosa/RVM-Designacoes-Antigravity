@@ -125,7 +125,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
             // Calcular prioridade usando o serviço centralizado
             // Isso garante consistência com o motor automático (fórmula Tempo - Quantidade)
-            const priority = calculateRotationPriority(p.name, historyRecords, today);
+            const priority = calculateRotationPriority(p.name, historyRecords, part.tipoParte, part.funcao, today);
 
             // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
             // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
