@@ -27,7 +27,13 @@ import { Tooltip } from './Tooltip';
 import { ReportsTab } from './ReportsTab';
 import { generateSessionReport } from '../services/analyticsService';
 import type { AnalyticsSummary } from '../services/analyticsService';
-import { validatePartsBeforeGeneration } from '../services/linearRotationService';
+import {
+    validatePartsBeforeGeneration,
+    getGrupoPresidentes,
+    selectNextPresident,
+    loadLinearIndex,
+    saveLinearIndex
+} from '../services/linearRotationService';
 
 interface Props {
     publishers: Publisher[];
@@ -459,7 +465,64 @@ export function WorkbookManager({ publishers }: Props) {
             }
             const usedPreassignmentIds = new Set<string>(); // Rastreia IDs já usados nesta execução
 
+            // =====================================================================
+            // FASE 1: PRESIDENTES - Rotação Linear Pura (v5.0)
+            // Processa TODOS os presidentes ANTES do loop de outras partes
+            // =====================================================================
+            const grupoPresidentes = getGrupoPresidentes(publishers);
+            let presidenteIdx = loadLinearIndex('presidente');
+            console.log(`[Motor v5.0] 👔 Grupo Presidentes: ${grupoPresidentes.length} membros, índice inicial: ${presidenteIdx}`);
 
+            // Coletar todas as partes de Presidente PENDENTES em ordem cronológica
+            const presidenterParts = partsNeedingAssignment
+                .filter(p => p.tipoParte.toLowerCase().includes('presidente') && p.funcao === 'Titular')
+                .sort((a, b) => a.date.localeCompare(b.date));
+
+            console.log(`[Motor v5.0] 👔 ${presidenterParts.length} partes de Presidente a preencher`);
+
+            for (const part of presidenterParts) {
+                // Verificar quem está indisponível na data
+                const unavailableNames = grupoPresidentes
+                    .filter(p => {
+                        const avail = p.availability;
+                        if (avail.mode === 'always') {
+                            return avail.exceptionDates.includes(part.date);
+                        } else {
+                            return !avail.availableDates.includes(part.date);
+                        }
+                    })
+                    .map(p => p.name);
+
+                const result = selectNextPresident(grupoPresidentes, presidenteIdx, unavailableNames);
+
+                if (result.publisher) {
+                    selectedPublisherByPart.set(part.id, { id: result.publisher.id, name: result.publisher.name });
+                    presidenteIdx = result.nextIndex;
+                    totalWithPublisher++;
+
+                    // Adicionar ao histórico in-loop para penalizar corretamente
+                    inLoopAssignments.push({
+                        date: part.date,
+                        tipoParte: part.tipoParte,
+                        rawPublisherName: '',
+                        resolvedPublisherName: result.publisher.name,
+                        funcao: 'Titular',
+                        status: 'PROPOSTA'
+                    });
+
+                    console.log(`[Motor v5.0] 👔 Presidente ${part.weekDisplay}: ${result.publisher.name}`);
+                } else {
+                    console.warn(`[Motor v5.0] ⚠️ Nenhum presidente disponível para ${part.weekDisplay}`);
+                }
+            }
+
+            // Persistir índice de presidentes
+            saveLinearIndex('presidente', presidenteIdx);
+            console.log(`[Motor v5.0] 👔 Índice de Presidentes salvo: ${presidenteIdx}`);
+
+            // =====================================================================
+            // FASE 2 e 3: ENSINO e DEMAIS PARTES (loop por semana)
+            // =====================================================================
             for (const [_weekId, weekParts] of Object.entries(byWeek)) {
                 // Ordenar partes por data para processar em ordem cronológica
                 weekParts.sort((a, b) => a.date.localeCompare(b.date));
