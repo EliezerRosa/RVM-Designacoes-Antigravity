@@ -1265,6 +1265,7 @@ export function WorkbookManager({ publishers }: Props) {
                                                 displayName={displayRaw}
                                                 onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
                                                 weekParts={partsToRender}
+                                                allParts={filteredParts}
                                                 style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
                                             />
                                         </td>
