@@ -1359,7 +1359,14 @@ export function WorkbookManager({ publishers }: Props) {
                                                     </td>
                                                     <td style={{ padding: '4px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>
                                                         <div>{part.horaInicio} - {part.horaFim}</div>
-                                                        <div style={{ fontSize: '10px', color: '#9CA3AF' }}>({part.duracao})</div>
+                                                        <div style={{ fontSize: '10px', color: '#9CA3AF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
+                                                            ({part.duracao || '?'})
+                                                            {(!part.duracao || parseInt(String(part.duracao)) <= 0) && part.funcao === 'Titular' && (
+                                                                <Tooltip content="⚠️ Duração não definida para esta parte de Titular">
+                                                                    <span style={{ cursor: 'help', color: '#F59E0B', fontSize: '12px' }}>⚠️</span>
+                                                                </Tooltip>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
                                                     <td style={{ padding: '8px' }}>
