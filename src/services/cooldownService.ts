@@ -2,16 +2,16 @@
  * Cooldown & Rotation Service - RVM Designações
  * 
  * Implementa as regras de:
- * - Rodízio Ponderado (TEACHING/STUDENT/HELPER)
- * - Cooldown por tipo de parte (6-8 semanas)
+ * - Rodízio Ponderado (MAIN/HELPER/IGNORED)
+ * - Cooldown por tipo de parte (6 semanas)
  * 
- * PESO DE CATEGORIA:
- * - TEACHING (x1.0): Discursos, Joias, Necessidades Locais
- * - STUDENT (x0.5): Leitura da Bíblia, Demonstrações (Titular), Discurso Estudante
+ * PESO DE CATEGORIA (v4.0 - Simplificado):
+ * - MAIN (x1.0): Discursos, Leitura, Demonstrações (Titular), EBC, Presidente
  * - HELPER (x0.1): Ajudante em Demonstrações
+ * - IGNORED (x0.0): Orações, Necessidades Locais, Cânticos (não contabilizados)
  * 
  * FÓRMULA DE PRIORIDADE:
- * Prioridade = Σ (Dias desde última parte[k]) × Peso[k]
+ * Prioridade = Dias_desde_última_parte_MAIN - (Total_MAIN × 7) - (Total_HELPER × 0.7) - (Futuras × 30) - Cooldown
  */
 
 import type { HistoryRecord, Publisher } from '../types';
@@ -24,45 +24,37 @@ export const COOLDOWN_WEEKS_HELPER = 4; // Semanas mínimas para Ajudante
 export const SOFT_COOLDOWN_PENALTY = 15; // Penalidade suave para repetição de tipo
 export const PARTICIPATION_COUNT_PENALTY = 7; // Penalidade base por contagem
 
-// Pesos por Categoria (para subtração da quantidade)
+// Pesos por Categoria (v4.0 - Simplificado)
 export const CATEGORY_WEIGHTS = {
-    TEACHING: 1.0,  // Ensino/Presidência: Penalidade TOTAL
-    STUDENT: 0.5,   // Estudante: Penalidade MÉDIA
-    HELPER: 0.2,    // Ajudante: Penalidade LEVE
-    OTHER: 0.0      // Cântico/Outros: Sem penalidade
+    MAIN: 1.0,      // Ensino + Estudante-Titular: Peso TOTAL
+    HELPER: 0.1,    // Ajudante: Peso MÍNIMO
+    IGNORED: 0.0    // Oração, NL, Cântico: NÃO CONTABILIZA
 } as const;
 
 export type ParticipationCategory = keyof typeof CATEGORY_WEIGHTS;
 
-// Helper para determinar categoria da parte
+/**
+ * Determina categoria da parte para cálculo de prioridade.
+ * v4.0: Simplificado para MAIN (conta), HELPER (pouco), IGNORED (não conta)
+ */
 export function getParticipationCategory(tipoParte: string, funcao: string = 'Titular'): ParticipationCategory {
-    // 1. Ajudante é sempre HELPER
+    // 1. Ajudante SEMPRE tem peso mínimo
     if (funcao === 'Ajudante') return 'HELPER';
 
     const lower = tipoParte?.toLowerCase() || '';
 
-    // 2. Presidência e Ensino
-    if (lower.includes('presidente') ||
-        lower.includes('oração') ||
-        lower.includes('discurso') ||
-        lower.includes('joias') ||
-        lower.includes('necessidades')) {
-        // Exceção: Discurso de Estudante é STUDENT
-        if (lower.includes('estudante')) return 'STUDENT';
-        return 'TEACHING';
+    // 2. IGNORADOS: Orações, NL, Cânticos - NÃO CONTAM no histórico
+    if (lower.includes('oração') ||
+        lower.includes('oracao') ||
+        lower.includes('necessidades') ||
+        lower.includes('cântico') ||
+        lower.includes('cantico')) {
+        return 'IGNORED';
     }
 
-    // 3. Estudante (Leitura, Demonstações)
-    if (lower.includes('leitura') ||
-        lower.includes('demonstração') ||
-        lower.includes('iniciando') ||
-        lower.includes('cultivando') ||
-        lower.includes('fazendo') ||
-        lower.includes('explicando')) {
-        return 'STUDENT';
-    }
-
-    return 'OTHER';
+    // 3. MAIN: Todo o resto (Ensino e Estudante-Titular) tem MESMO PESO
+    // Inclui: Presidente, Discursos, Tesouros, Joias, Leitura, Demonstrações, EBC, etc.
+    return 'MAIN';
 }
 
 // ===== Interfaces =====
@@ -137,13 +129,21 @@ export function calculateRotationPriority(
     let futureCount = 0;
     let softCooldownPenalty = 0;
 
+    // AJUSTE v4.0: Filtrar por DATA, não por status
+    // Futuro = data >= hoje (ignorar status completamente)
     if (futureAssignments) {
-        const activeStatuses = ['PROPOSTA', 'APROVADA', 'DESIGNADA', 'CONCLUIDA'];
+        const todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+
         futureAssignments.forEach(p => {
             const isPublisher = (p.resolvedPublisherName === publisherName || p.rawPublisherName === publisherName);
-            const isActive = !p.status || activeStatuses.includes(p.status);
 
-            if (isPublisher && isActive) {
+            // Verificar se a data da parte é HOJE ou no FUTURO
+            const partDate = new Date(p.date);
+            partDate.setHours(0, 0, 0, 0);
+            const isFutureOrToday = partDate >= todayStart;
+
+            if (isPublisher && isFutureOrToday) {
                 futureCount++;
                 const cat = getParticipationCategory(p.tipoParte, p.funcao);
                 weightedCount += CATEGORY_WEIGHTS[cat];
@@ -361,8 +361,8 @@ export function getParticipationStats(
 
     return {
         totalParticipations: pubHistory.length,
-        teachingCount: categories.filter(c => c === 'TEACHING').length,
-        studentCount: categories.filter(c => c === 'STUDENT').length,
+        teachingCount: categories.filter(c => c === 'MAIN').length, // v4.0: MAIN inclui Ensino + Estudante
+        studentCount: 0, // Obsoleto - mantido por compatibilidade
         helperCount: categories.filter(c => c === 'HELPER').length,
         lastParticipation: pubHistory.length > 0
             ? pubHistory[pubHistory.length - 1].date || null
