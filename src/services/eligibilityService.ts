@@ -288,17 +288,45 @@ export function getEligibilityDetails(
 // ===== Funções Auxiliares =====
 
 /**
- * Verifica se o publicador está disponível numa data específica
+ * Calcula a quinta-feira da semana a partir de uma data qualquer.
+ * A reunião Vida e Ministério é na quinta-feira.
+ * @param dateStr Data no formato YYYY-MM-DD
+ * @returns Data da quinta-feira no formato YYYY-MM-DD
+ */
+export function getThursdayFromDate(dateStr: string): string {
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+
+    const baseDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    const dayOfWeek = baseDate.getDay(); // 0=Dom, 1=Seg, ..., 4=Qui
+    const daysToThursday = (4 - dayOfWeek + 7) % 7;
+    const thursdayDate = new Date(baseDate);
+    thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+
+    // Formatar como YYYY-MM-DD
+    const year = thursdayDate.getFullYear();
+    const month = String(thursdayDate.getMonth() + 1).padStart(2, '0');
+    const day = String(thursdayDate.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Verifica se o publicador está disponível numa data específica.
+ * IMPORTANTE: Sempre compara com a QUINTA-FEIRA da semana, pois é o dia da reunião.
  */
 function isAvailableOnDate(publisher: Publisher, date: string): boolean {
     const availability = publisher.availability;
 
+    // Converter para quinta-feira da semana
+    const thursdayDate = getThursdayFromDate(date);
+
     if (availability.mode === 'always') {
         // Modo "sempre disponível" - verificar exceções negativas
-        return !availability.exceptionDates.includes(date);
+        return !availability.exceptionDates.includes(thursdayDate);
     } else {
         // Modo "nunca disponível" - verificar exceções positivas
-        return availability.availableDates.includes(date);
+        return availability.availableDates.includes(thursdayDate);
     }
 }
 

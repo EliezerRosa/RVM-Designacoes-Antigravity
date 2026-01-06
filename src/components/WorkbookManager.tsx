@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
-import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
+import { checkEligibility, isPastWeekDate, getThursdayFromDate } from '../services/eligibilityService';
 import { selectBestCandidate } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
 import { localNeedsService } from '../services/localNeedsService';
@@ -490,13 +490,14 @@ export function WorkbookManager({ publishers }: Props) {
                     return false;
                 }
 
-                // Verificar se está disponível em pelo menos uma data de presidente
+                // Verificar se está disponível em pelo menos uma quinta-feira de presidente
                 const avail = p.availability;
                 return presidenteParts.some(part => {
+                    const thursdayDate = getThursdayFromDate(part.date);
                     if (avail.mode === 'always') {
-                        return !avail.exceptionDates.includes(part.date);
+                        return !avail.exceptionDates.includes(thursdayDate);
                     } else {
-                        return avail.availableDates.includes(part.date);
+                        return avail.availableDates.includes(thursdayDate);
                     }
                 });
             });
@@ -520,12 +521,13 @@ export function WorkbookManager({ publishers }: Props) {
                     const candidate = rankedPresidentes[presidenteListIndex];
                     const avail = candidate.publisher.availability;
 
-                    // Verificar disponibilidade na data específica
+                    // Verificar disponibilidade na quinta-feira específica
+                    const thursdayDate = getThursdayFromDate(part.date);
                     let isAvailable = true;
                     if (avail.mode === 'always') {
-                        isAvailable = !avail.exceptionDates.includes(part.date);
+                        isAvailable = !avail.exceptionDates.includes(thursdayDate);
                     } else {
-                        isAvailable = avail.availableDates.includes(part.date);
+                        isAvailable = avail.availableDates.includes(thursdayDate);
                     }
 
                     if (isAvailable) {
@@ -609,12 +611,13 @@ export function WorkbookManager({ publishers }: Props) {
                             return false;
                         }
 
-                        // Verificar disponibilidade
+                        // Verificar disponibilidade na quinta-feira
                         const avail = p.availability;
+                        const thursdayDate = getThursdayFromDate(firstPart.date);
                         if (avail.mode === 'always') {
-                            if (avail.exceptionDates.includes(firstPart.date)) return false;
+                            if (avail.exceptionDates.includes(thursdayDate)) return false;
                         } else {
-                            if (!avail.availableDates.includes(firstPart.date)) return false;
+                            if (!avail.availableDates.includes(thursdayDate)) return false;
                         }
                         return true;
                     });
@@ -691,12 +694,13 @@ export function WorkbookManager({ publishers }: Props) {
                             return false;
                         }
 
-                        // Verificar disponibilidade
+                        // Verificar disponibilidade na quinta-feira
                         const avail = p.availability;
+                        const thursdayDate = getThursdayFromDate(firstPart.date);
                         if (avail.mode === 'always') {
-                            if (avail.exceptionDates.includes(firstPart.date)) return false;
+                            if (avail.exceptionDates.includes(thursdayDate)) return false;
                         } else {
-                            if (!avail.availableDates.includes(firstPart.date)) return false;
+                            if (!avail.availableDates.includes(thursdayDate)) return false;
                         }
                         return true;
                     });
