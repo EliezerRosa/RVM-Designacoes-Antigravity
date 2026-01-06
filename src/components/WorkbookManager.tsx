@@ -20,6 +20,7 @@ import { downloadS140, downloadS140MultiWeek } from '../services/s140Generator';
 import { downloadS140RoomB } from '../services/s140GeneratorRoomB';
 import { downloadS140RoomBEV } from '../services/s140GeneratorRoomBEvents';
 import { PartEditModal } from './PartEditModal';
+import { BulkResetModal } from './BulkResetModal';
 import { Tooltip } from './Tooltip';
 
 interface Props {
@@ -109,6 +110,9 @@ export function WorkbookManager({ publishers }: Props) {
     const [isS140MultiModalOpen, setIsS140MultiModalOpen] = useState(false);
     const [s140StartWeek, setS140StartWeek] = useState('');
     const [s140EndWeek, setS140EndWeek] = useState('');
+
+    // Estado do Modal de Reset em Lote
+    const [isBulkResetModalOpen, setIsBulkResetModalOpen] = useState(false);
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -1014,6 +1018,9 @@ export function WorkbookManager({ publishers }: Props) {
                         <button onClick={() => setIsEventsModalOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#DC2626', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                             📅 Eventos
                         </button>
+                        <button onClick={() => setIsBulkResetModalOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#F59E0B', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
+                            🔄 Reset Período
+                        </button>
                         {/* Botões S-140 - Sempre visíveis, usam semana da página em foco */}
                         {(() => {
                             // Calcular semana da página atual
@@ -1349,6 +1356,14 @@ export function WorkbookManager({ publishers }: Props) {
                 totalCount={filteredParts.length}
             />
 
+            <BulkResetModal
+                isOpen={isBulkResetModalOpen}
+                onClose={() => setIsBulkResetModalOpen(false)}
+                onSuccess={() => {
+                    // Recarregar partes após reset
+                    loadPartsWithFilters();
+                }}
+            />
             {filteredParts.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
                     Nenhuma parte encontrada. {parts.length > 0 ? 'Ajuste os filtros.' : 'Faça upload de um arquivo.'}
