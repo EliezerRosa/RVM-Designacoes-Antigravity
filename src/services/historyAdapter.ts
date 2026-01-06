@@ -43,16 +43,19 @@ export function workbookPartToHistoryRecord(part: WorkbookPart): HistoryRecord {
 }
 
 /**
- * Carrega histórico de participações COMPLETADAS da tabela workbook_parts
- * Inclui partes com status COMPLETED ou PROMOTED (ambos representam participações válidas)
+ * Carrega histórico de participações da tabela workbook_parts
+ * ATUALIZADO: Carrega TODAS as partes que têm publicador atribuído, independente do status.
+ * Isso garante que o motor considere designações recentes (PROPOSTA, APROVADA, etc.)
+ * para calcular prioridade corretamente.
  */
 export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
-    console.log('[historyAdapter] Carregando participações completadas...');
+    console.log('[historyAdapter] Carregando participações (todas com publicador atribuído)...');
 
     const { data, error } = await supabase
         .from('workbook_parts')
         .select('*')
-        .in('status', [WorkbookStatus.CONCLUIDA, WorkbookStatus.DESIGNADA])
+        // NÃO FILTRAR POR STATUS - carregar todas que têm publicador atribuído
+        .not('resolved_publisher_name', 'is', null)
         .order('date', { ascending: false })
         .range(0, 9999);
 
@@ -69,13 +72,14 @@ export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
 
 /**
  * Carrega histórico de participações para um publicador específico
+ * ATUALIZADO: Não filtra por status (consistente com loadCompletedParticipations)
  */
 export async function loadPublisherParticipations(publisherName: string): Promise<HistoryRecord[]> {
     const { data, error } = await supabase
         .from('workbook_parts')
         .select('*')
         .eq('resolved_publisher_name', publisherName)
-        .in('status', [WorkbookStatus.CONCLUIDA, WorkbookStatus.DESIGNADA])
+        // NÃO FILTRAR POR STATUS
         .order('date', { ascending: false })
         .range(0, 9999);
 
