@@ -654,6 +654,33 @@ export const workbookService = {
         if (error) throw new Error(`Erro ao atualizar status da semana ${weekId}: ${error.message}`);
     },
 
+    /**
+     * Reseta partes de um período de datas para PENDENTE e limpa publicadores
+     * @param fromDate Data inicial (YYYY-MM-DD)
+     * @param toDate Data final (YYYY-MM-DD)
+     * @returns Número de partes afetadas
+     */
+    async resetDateRange(fromDate: string, toDate: string): Promise<number> {
+        console.log(`[workbookService] Resetando partes de ${fromDate} até ${toDate}...`);
+
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .update({
+                status: 'PENDENTE',
+                resolved_publisher_name: null
+            })
+            .gte('date', fromDate)
+            .lte('date', toDate)
+            .select('id');
+
+        if (error) {
+            throw new Error(`Erro ao resetar período: ${error.message}`);
+        }
+
+        const count = data?.length || 0;
+        console.log(`[workbookService] ${count} partes resetadas`);
+        return count;
+    },
     // ========================================================================
     // CICLO DE VIDA DE DESIGNAÇÃO
     // ========================================================================
