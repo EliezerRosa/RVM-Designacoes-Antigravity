@@ -47,6 +47,33 @@ const EXPECTED_COLUMNS = [
     'seq', 'funcao', 'duracao', 'horaInicio', 'horaFim', 'rawPublisherName', 'status'
 ];
 
+// Mapeamento de tipo de parte para modalidade de elegibilidade
+// Usado para verificar elegibilidade corretamente no motor automático
+const TIPO_TO_MODALIDADE: Record<string, string> = {
+    'Presidente da Reunião': EnumModalidade.PRESIDENCIA,
+    'Presidente': EnumModalidade.PRESIDENCIA,
+    'Oração Inicial': EnumModalidade.ORACAO,
+    'Oração Final': EnumModalidade.ORACAO,
+    'Comentários Iniciais': EnumModalidade.PRESIDENCIA,
+    'Comentários Finais': EnumModalidade.PRESIDENCIA,
+    'Leitura da Bíblia': EnumModalidade.LEITURA_ESTUDANTE,
+    'Dirigente EBC': EnumModalidade.DIRIGENTE_EBC,
+    'Leitor EBC': EnumModalidade.LEITOR_EBC,
+    'Discurso Tesouros': EnumModalidade.DISCURSO_ENSINO,
+    'Joias Espirituais': EnumModalidade.DISCURSO_ENSINO,
+    'Iniciando Conversas': EnumModalidade.DEMONSTRACAO,
+    'Cultivando o Interesse': EnumModalidade.DEMONSTRACAO,
+    'Fazendo Discípulos': EnumModalidade.DEMONSTRACAO,
+    'Explicando Suas Crenças': EnumModalidade.DEMONSTRACAO,
+    'Discurso de Estudante': EnumModalidade.DISCURSO_ESTUDANTE,
+    'Necessidades Locais': EnumModalidade.DISCURSO_ENSINO,
+};
+
+// Função para obter modalidade a partir do tipo de parte
+const getModalidadeFromTipo = (tipoParte: string): string => {
+    return TIPO_TO_MODALIDADE[tipoParte] || EnumModalidade.DEMONSTRACAO;
+};
+
 // ========================================================================
 // Funções de Temporalidade - "Semana Atual" = contém a segunda-feira
 // ========================================================================
@@ -602,9 +629,10 @@ export function WorkbookManager({ publishers }: Props) {
                         if (p.name === presidenteDaSemana) return false;
                         if (namesJaTemEnsinoNaSemana.includes(p.name)) return false;
 
-                        // Verificar elegibilidade completa (isNotQualified, requestedNoParticipation, etc.)
+                        // Verificar elegibilidade completa com modalidade CORRETA
                         const firstPart = ensinoParts[0];
-                        const eligResult = checkEligibility(p, EnumModalidade.DISCURSO_ENSINO, EnumFuncao.TITULAR, {
+                        const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino);
+                        const eligResult = checkEligibility(p, modalidadeCorreta as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, {
                             date: firstPart.date
                         });
                         if (!eligResult.eligible) {
@@ -681,13 +709,11 @@ export function WorkbookManager({ publishers }: Props) {
                         if (namesJaTemEnsinoNaSemana.includes(p.name)) return false;
                         if (namesJaTemEstudanteNaSemana.includes(p.name)) return false;
 
-                        // Verificar elegibilidade completa (isNotQualified, requestedNoParticipation, gênero para demos, etc.)
+                        // Verificar elegibilidade completa com modalidade CORRETA
                         const firstPart = estudanteParts[0];
-                        // Mapear tipoParte para modalidade
-                        const modalidade = tipoEstudante === 'Leitura da Bíblia'
-                            ? EnumModalidade.LEITURA_ESTUDANTE
-                            : EnumModalidade.DEMONSTRACAO;
-                        const eligResult = checkEligibility(p, modalidade, EnumFuncao.TITULAR, {
+                        // Usar mapeamento correto (ex: Discurso Estudante → DISCURSO_ESTUDANTE, não DEMONSTRACAO)
+                        const modalidadeCorreta = getModalidadeFromTipo(tipoEstudante);
+                        const eligResult = checkEligibility(p, modalidadeCorreta as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, {
                             date: firstPart.date
                         });
                         if (!eligResult.eligible) {
