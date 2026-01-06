@@ -52,24 +52,85 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
         const isPast = isPastWeekDate(part.date);
 
+        // Coletar publicadores já designados nesta semana (excluindo a parte atual)
+        const publishersInSameWeek = new Set<string>();
+        if (weekParts) {
+            for (const wp of weekParts) {
+                // Pular a parte atual
+                if (wp.id === part.id) continue;
+                // Só considerar partes da mesma semana
+                if (wp.weekId !== part.weekId) continue;
+                // Só considerar partes com publicador atribuído
+                if (wp.resolvedPublisherName) {
+                    publishersInSameWeek.add(wp.resolvedPublisherName);
+                }
+            }
+        }
+
+        // Calcular "prioridade" com base no tempo desde última participação
+        // Usando weekParts como histórico simplificado
+        const calculatePriority = (pubName: string): number => {
+            if (!weekParts || weekParts.length === 0) return 0;
+
+            const today = new Date();
+            const pubParts = weekParts.filter(wp =>
+                wp.resolvedPublisherName === pubName || wp.rawPublisherName === pubName
+            );
+
+            if (pubParts.length === 0) {
+                // Nunca participou = prioridade máxima
+                return Number.MAX_SAFE_INTEGER;
+            }
+
+            // Encontrar a data mais recente
+            const dates = pubParts.map(wp => new Date(wp.date || '').getTime());
+            const mostRecent = Math.max(...dates);
+            const daysSince = Math.floor((today.getTime() - mostRecent) / (1000 * 60 * 60 * 24));
+
+            return daysSince;
+        };
+
         return [...publishers].map(p => {
+            // Verificar se já tem designação na mesma semana
+            const hasDesignationInSameWeek = publishersInSameWeek.has(p.name);
+
             // Checar elegibilidade de cada publicador
-            const result = checkEligibility(
+            let result = checkEligibility(
                 p,
                 modalidade as Parameters<typeof checkEligibility>[1],
                 funcao,
                 { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
             );
-            return { publisher: p, eligible: result.eligible, reason: result.reason };
+
+            // Se já tem designação na semana, marcar como inelegível
+            if (hasDesignationInSameWeek && result.eligible) {
+                result = { eligible: false, reason: 'Já tem designação nesta semana' };
+            }
+
+            // Calcular prioridade
+            const priority = calculatePriority(p.name);
+
+            return {
+                publisher: p,
+                eligible: result.eligible,
+                reason: result.reason,
+                priority,
+                hasDesignationInSameWeek
+            };
         }).sort((a, b) => {
             // 1. Elegível vem primeiro
             if (a.eligible && !b.eligible) return -1;
             if (!a.eligible && b.eligible) return 1;
 
-            // 2. Ordem alfabética
+            // 2. Ordenar por prioridade (maior primeiro = mais tempo sem participar)
+            if (a.priority !== b.priority) {
+                return b.priority - a.priority;
+            }
+
+            // 3. Ordem alfabética como desempate
             return a.publisher.name.localeCompare(b.publisher.name);
         });
-    }, [part, publishers]);
+    }, [part, publishers, weekParts]);
 
     // Determinar o valor efetivo - tentar encontrar ID pelo nome se não temos ID
     // Agora usa busca fonética/fuzzy para melhor match (ex: "eryc" encontra "Erik")
