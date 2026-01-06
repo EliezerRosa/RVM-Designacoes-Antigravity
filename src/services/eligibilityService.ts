@@ -376,7 +376,12 @@ function checkStudentPartEligibility(publisher: Publisher): EligibilityResult {
 
 /**
  * Verifica se pode ser ajudante em demonstrações
- * REGRA: Ajudante deve ser do mesmo sexo que o titular
+ * REGRA INEXORÁVEL (v4.0): Ajudante DEVE ser do mesmo sexo que o titular
+ * - Irmã + Irmã = OK
+ * - Irmão + Irmão = OK
+ * - Irmão + Irmã = BLOQUEADO
+ * - Irmã + Irmão = BLOQUEADO
+ * - Titular não definido = BLOQUEADO (requer seleção manual)
  */
 function canBeHelper(publisher: Publisher, context: EligibilityContext = {}): EligibilityResult {
     if (publisher.isNotQualified) {
@@ -385,11 +390,23 @@ function canBeHelper(publisher: Publisher, context: EligibilityContext = {}): El
     if (publisher.requestedNoParticipation) {
         return { eligible: false, reason: 'Publicador pediu para não participar' };
     }
-    // REGRA: Ajudante deve ser do mesmo sexo que o titular
-    if (context.titularGender && publisher.gender !== context.titularGender) {
-        return { eligible: false, reason: `Ajudante deve ser ${context.titularGender === 'brother' ? 'irmão' : 'irmã'} (mesmo sexo do titular)` };
+
+    // REGRA INEXORÁVEL: Se não sabemos o gênero do titular, NÃO PERMITIR seleção automática
+    if (!context.titularGender) {
+        return { eligible: false, reason: 'BLOQUEADO: Titular não definido - selecione o ajudante manualmente' };
     }
-    // Ajudantes podem ser qualquer pessoa qualificada (até crianças)
+
+    // REGRA INEXORÁVEL: Ajudante DEVE ser do mesmo sexo que o titular
+    if (publisher.gender !== context.titularGender) {
+        const publisherGenderLabel = publisher.gender === 'brother' ? 'Irmão' : 'Irmã';
+        const titularGenderLabel = context.titularGender === 'brother' ? 'irmão' : 'irmã';
+        return {
+            eligible: false,
+            reason: `BLOQUEADO: ${publisherGenderLabel} não pode ser ajudante de ${titularGenderLabel}`
+        };
+    }
+
+    // Ajudantes podem ser qualquer pessoa qualificada do mesmo sexo
     return { eligible: true };
 }
 
