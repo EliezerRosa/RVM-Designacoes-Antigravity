@@ -250,6 +250,41 @@ export function selectBestCandidate(
     return eligiblePublishers.find(p => p.id === bestId) || null;
 }
 
+/**
+ * Calcula prioridade baseada APENAS em tempo (ignora status).
+ * Usado para ordenação do dropdown de seleção.
+ * 
+ * @param publisherName Nome do publicador
+ * @param history Histórico de participações (HistoryRecord[])
+ * @param today Data de referência
+ * @returns Número representando prioridade (maior = mais tempo sem participar)
+ */
+export function calculateTimeOnlyPriority(
+    publisherName: string,
+    history: HistoryRecord[],
+    today: Date = new Date()
+): number {
+    // Filtrar histórico do publicador pelo nome
+    const publisherHistory = history.filter(h =>
+        h.resolvedPublisherName === publisherName ||
+        h.rawPublisherName === publisherName
+    );
+
+    if (publisherHistory.length === 0) {
+        // Nunca participou → prioridade máxima
+        return Number.MAX_SAFE_INTEGER;
+    }
+
+    // Encontrar a data mais recente de qualquer participação
+    const dates = publisherHistory.map(h => new Date(h.date || ''));
+    const mostRecent = dates.reduce((max, d) => d > max ? d : max, new Date(0));
+
+    // Calcular dias desde última participação
+    const daysSinceLast = Math.floor((today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));
+
+    return daysSinceLast;
+}
+
 // ===== Funções Auxiliares =====
 
 /**
