@@ -68,12 +68,19 @@ export interface RotationScore {
 
 /**
  * Calcula a prioridade de rodízio para um publicador.
- * ATUALIZADO: Considera também participações FUTURAS já agendadas (PROPOSTA/APROVADA/DESIGNADA).
+ * 
+ * FÓRMULA NOVA (v2.0):
+ *   Prioridade = Dias_desde_última_participação - (Total_participações × FATOR_QUANTIDADE)
+ * 
+ * Critérios:
+ * - Mais tempo sem participar → maior prioridade
+ * - Mais participações totais → menor prioridade (equidade)
+ * - Participações futuras → penalidade adicional
  * 
  * @param publisherName Nome do publicador
- * @param history Histórico de participações passadas (HistoryRecord[])
+ * @param history Histórico de participações (todas, sem filtro de status)
  * @param today Data de referência
- * @param futureAssignments Partes futuras já agendadas (opcional, formato simplificado)
+ * @param futureAssignments Partes futuras já agendadas (opcional)
  */
 export function calculateRotationPriority(
     publisherName: string,
@@ -88,13 +95,16 @@ export function calculateRotationPriority(
         status?: string;
     }>
 ): number {
+    // Fator de penalidade por quantidade total de participações
+    const PARTICIPATION_COUNT_PENALTY = 7; // Cada participação extra = -7 pontos
+
     // Filtrar histórico do publicador pelo nome
     const publisherHistory = history.filter(h =>
         h.resolvedPublisherName === publisherName ||
         h.rawPublisherName === publisherName
     );
 
-    // Contar participações futuras ativas (não PENDENTE/REJEITADA/CANCELADA)
+    // Contar participações futuras ativas
     let futureCount = 0;
     if (futureAssignments) {
         const activeStatuses = ['PROPOSTA', 'APROVADA', 'DESIGNADA', 'CONCLUIDA'];
@@ -105,32 +115,27 @@ export function calculateRotationPriority(
         }).length;
     }
 
-    if (publisherHistory.length === 0 && futureCount === 0) {
-        // Nunca participou e sem agendamentos futuros → prioridade máxima
+    // Total de participações (histórico + futuras)
+    const totalParticipations = publisherHistory.length + futureCount;
+
+    if (totalParticipations === 0) {
+        // Nunca participou → prioridade máxima
         return Number.MAX_SAFE_INTEGER;
     }
 
-    // Categorizar e calcular dias desde última participação
-    const categoryDays = {
-        PRESIDENCY: getDaysSinceCategoryLast(publisherHistory, 'PRESIDENCY', today),
-        TEACHING: getDaysSinceCategoryLast(publisherHistory, 'TEACHING', today),
-        STUDENT: getDaysSinceCategoryLast(publisherHistory, 'STUDENT', today),
-        HELPER: getDaysSinceCategoryLast(publisherHistory, 'HELPER', today)
-    };
+    // Calcular dias desde última participação (qualquer tipo)
+    const dates = publisherHistory.map(h => new Date(h.date || '').getTime());
+    const mostRecent = Math.max(...dates, 0);
+    const daysSinceLast = mostRecent > 0
+        ? Math.floor((today.getTime() - mostRecent) / (1000 * 60 * 60 * 24))
+        : 365; // Se só tem futuras, considerar 1 ano
 
-    // Aplicar fórmula de prioridade ponderada
-    let priority =
-        categoryDays.PRESIDENCY * CATEGORY_WEIGHTS.PRESIDENCY +
-        categoryDays.TEACHING * CATEGORY_WEIGHTS.TEACHING +
-        categoryDays.STUDENT * CATEGORY_WEIGHTS.STUDENT +
-        categoryDays.HELPER * CATEGORY_WEIGHTS.HELPER;
+    // FÓRMULA: Dias - (Quantidade × Fator)
+    let priority = daysSinceLast - (totalParticipations * PARTICIPATION_COUNT_PENALTY);
 
-    // PENALIZAR por participações futuras já agendadas
-    // Cada participação futura reduz a prioridade significativamente
-    // (evita sobrecarregar quem já tem várias partes futuras)
+    // Penalidade extra por participações futuras (sobrecarregado)
     if (futureCount > 0) {
-        const FUTURE_PENALTY = 0.5; // 50% de redução por cada parte futura
-        priority = priority * Math.pow(FUTURE_PENALTY, futureCount);
+        priority = priority - (futureCount * 30); // -30 pontos por cada parte futura
     }
 
     return priority;
@@ -198,10 +203,12 @@ export function rankPublishersByRotation(
         const priority = calculateRotationPriority(pub.name, history, today, futureAssignments);
         const cooldownInfo = partType ? getCooldownInfo(pub.name, partType, history, today) : null;
 
-        // Aplicar penalidade de cooldown
-        const adjustedPriority = cooldownInfo?.isInCooldown
-            ? priority * COOLDOWN_PENALTY_MULTIPLIER
-            : priority;
+        // REMOVIDO: Penalidade de cooldown (agora é apenas aviso visual)
+        // const adjustedPriority = cooldownInfo?.isInCooldown
+        //     ? priority * COOLDOWN_PENALTY_MULTIPLIER
+        //     : priority;
+
+        const adjustedPriority = priority;
 
         // Detalhes por categoria
         const pubHistory = history.filter(h =>

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { type Publisher, type WorkbookPart } from '../types';
+import { type Publisher, type WorkbookPart, type HistoryRecord, HistoryStatus } from '../types';
 import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
-import { checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
+import { calculateRotationPriority, getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
 import { fuzzySearchWithScore, normalize } from '../utils/searchUtils';
@@ -45,7 +45,40 @@ const getModalidade = (part: WorkbookPart): string => {
     return TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
 };
 
+// Mapper simples local para evitar dependência circular
+const mapToHistoryRecord = (wp: WorkbookPart): HistoryRecord => ({
+    id: wp.id,
+    weekId: wp.weekId,
+    weekDisplay: wp.weekDisplay,
+    date: wp.date,
+    section: wp.section,
+    tipoParte: wp.tipoParte,
+    modalidade: wp.modalidade,
+    tituloParte: wp.tituloParte,
+    descricaoParte: wp.descricaoParte,
+    detalhesParte: wp.detalhesParte,
+    seq: wp.seq,
+    funcao: wp.funcao,
+    duracao: parseInt(wp.duracao) || 0,
+    horaInicio: wp.horaInicio,
+    horaFim: wp.horaFim,
+    rawPublisherName: wp.rawPublisherName,
+    resolvedPublisherName: wp.resolvedPublisherName,
+    status: HistoryStatus.APPROVED, // Assumir aprovado para fins de cálculo
+    importSource: 'Manual',
+    importBatchId: '',
+    createdAt: new Date().toISOString()
+});
+
 export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts }: PublisherSelectProps) => {
+
+    // Converter allParts para HistoryRecord[] (Memoizado para uso geral)
+    // Isso é necessário tanto para o sorting quanto para o tooltip do item selecionado
+    const historyRecords = useMemo(() =>
+        (allParts || weekParts || []).map(mapToHistoryRecord),
+        [allParts, weekParts]);
+
+    const today = useMemo(() => new Date(), []);
 
     // Memoizar a lista sorted para evitar recálculo excessivo
     const sortedOptions = useMemo(() => {
@@ -53,6 +86,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
         const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
         const isPast = isPastWeekDate(part.date);
+
+
+
+        // historyRecords e today vêm do escopo externo agora
 
         // Coletar publicadores já designados nesta semana (excluindo a parte atual)
         const publishersInSameWeek = new Set<string>();
@@ -68,30 +105,6 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 }
             }
         }
-
-        // Calcular "prioridade" com base no tempo desde última participação
-        // Usa allParts (histórico completo) se disponível, senão usa weekParts
-        const calculatePriority = (pubName: string): number => {
-            const partsForPriority = allParts || weekParts;
-            if (!partsForPriority || partsForPriority.length === 0) return 0;
-
-            const today = new Date();
-            const pubParts = partsForPriority.filter(wp =>
-                wp.resolvedPublisherName === pubName || wp.rawPublisherName === pubName
-            );
-
-            if (pubParts.length === 0) {
-                // Nunca participou = prioridade máxima
-                return Number.MAX_SAFE_INTEGER;
-            }
-
-            // Encontrar a data mais recente
-            const dates = pubParts.map(wp => new Date(wp.date || '').getTime());
-            const mostRecent = Math.max(...dates);
-            const daysSince = Math.floor((today.getTime() - mostRecent) / (1000 * 60 * 60 * 24));
-
-            return daysSince;
-        };
 
         return [...publishers].map(p => {
             // Verificar se já tem designação na mesma semana
@@ -110,22 +123,28 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 result = { eligible: false, reason: 'Já tem designação nesta semana' };
             }
 
-            // Calcular prioridade
-            const priority = calculatePriority(p.name);
+            // Calcular prioridade usando o serviço centralizado
+            // Isso garante consistência com o motor automático (fórmula Tempo - Quantidade)
+            const priority = calculateRotationPriority(p.name, historyRecords, today);
+
+            // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
+            // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
+            const cooldownInfo = getCooldownInfo(p.name, part.tipoParte, historyRecords, today);
 
             return {
                 publisher: p,
                 eligible: result.eligible,
                 reason: result.reason,
                 priority,
-                hasDesignationInSameWeek
+                hasDesignationInSameWeek,
+                cooldownInfo // Passar info de cooldown para renderização
             };
         }).sort((a, b) => {
             // 1. Elegível vem primeiro
             if (a.eligible && !b.eligible) return -1;
             if (!a.eligible && b.eligible) return 1;
 
-            // 2. Ordenar por prioridade (maior primeiro = mais tempo sem participar)
+            // 2. Ordenar por prioridade (maior primeiro)
             if (a.priority !== b.priority) {
                 return b.priority - a.priority;
             }
@@ -228,6 +247,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         );
     }, [foundPublisher, weekParts, part.weekId]);
 
+    // Cooldown Info do publicador SELECIONADO (para tooltip)
+    const selectedCooldownInfo = useMemo(() => {
+        if (!foundPublisher) return null;
+        return getCooldownInfo(foundPublisher.name, part.tipoParte, historyRecords, today);
+    }, [foundPublisher, part.tipoParte, historyRecords, today]);
+
     // Renderizar conteúdo do tooltip (JSX)
     const renderTooltipContent = () => {
         if (!foundPublisher) {
@@ -305,6 +330,24 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     <div style={{ color: '#fca5a5', fontWeight: '500', fontSize: '0.95em' }}>⚠️ {reason}</div>
                 )}
 
+                {/* Aviso de Cooldown */}
+                {selectedCooldownInfo?.isInCooldown && (
+                    <div style={{
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                        <div style={{ color: '#fcd34d', fontWeight: 'bold', marginBottom: '4px' }}>
+                            ⏳ COOLDOWN ATIVO
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#fff' }}>
+                            Fez <strong>{selectedCooldownInfo.lastPartType}</strong> há {selectedCooldownInfo.weeksSinceLast} semanas.
+                            <br />
+                            <span style={{ color: '#9ca3af' }}>(Recomendado aguardar {selectedCooldownInfo.cooldownRemaining} semanas)</span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Warnings de múltiplas designações */}
                 {multipleAssignmentWarnings.length > 0 && (
                     <div style={{
@@ -362,18 +405,26 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         ⚠️ {displayName} (não encontrado)
                     </option>
                 )}
-                {sortedOptions.map(({ publisher: p, eligible, reason }) => {
+                {sortedOptions.map(({ publisher: p, eligible, reason, cooldownInfo }) => {
+                    // Ícone de status: Se inelegível = ⚠️; Senão se em cooldown = ⏳; Senão vazio
+                    const icon = !eligible ? '⚠️ ' : (cooldownInfo?.isInCooldown ? '⏳ ' : '');
+
                     return (
                         <option
                             key={p.id}
                             value={p.id}
                             style={{
                                 color: eligible ? 'inherit' : '#9CA3AF',
-                                fontStyle: eligible ? 'normal' : 'italic'
+                                fontStyle: eligible ? 'normal' : 'italic',
+                                fontWeight: (eligible && cooldownInfo?.isInCooldown) ? 'bold' : 'normal'
                             }}
-                            title={eligible ? '✅ Elegível' : `❌ ${reason}`}
+                            title={eligible
+                                ? (cooldownInfo?.isInCooldown
+                                    ? `⏳ Em cooldown: Fez ${cooldownInfo.lastPartType} há ${cooldownInfo.weeksSinceLast} semanas`
+                                    : '✅ Elegível')
+                                : `❌ ${reason}`}
                         >
-                            {eligible ? '' : '⚠️ '}{p.name}
+                            {icon}{p.name}
                         </option>
                     );
                 })}
