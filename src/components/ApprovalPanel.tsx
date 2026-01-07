@@ -683,15 +683,29 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                                         const foundPublisher = publishers.find(p => p.name === publisherName);
                                                                         const phone = foundPublisher?.phone;
 
+                                                                        // CORREÇÃO: Extrair número da parte do título (ex: "4. Iniciando conversas" → "4")
+                                                                        // Titular e Ajudante têm seq diferentes, mas o mesmo número no título
+                                                                        const extractPartNumber = (titulo: string): string => {
+                                                                            const match = titulo?.match(/^(\d+)\./);
+                                                                            return match ? match[1] : '';
+                                                                        };
+
+                                                                        const currentPartNumber = extractPartNumber(part.tituloParte || part.tipoParte);
+
                                                                         if (isAjudante) {
                                                                             // MENSAGEM PARA AJUDANTE: Buscar o titular da mesma parte
-                                                                            const titular = weekParts.find(p => p.seq === part.seq && p.funcao === 'Titular' && p.id !== part.id);
+                                                                            const titular = weekParts.find(p => {
+                                                                                const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
+                                                                                return pNum === currentPartNumber && p.funcao === 'Titular' && p.id !== part.id;
+                                                                            });
                                                                             const titularName = titular?.resolvedPublisherName || titular?.rawPublisherName;
-                                                                            // Sem ajudante para passar (esta é a parte do ajudante)
                                                                             handleSendS89ViaWhatsApp(part, undefined, phone, true, titularName);
                                                                         } else {
                                                                             // MENSAGEM PARA TITULAR: Buscar o ajudante
-                                                                            const assistant = weekParts.find(p => p.seq === part.seq && p.funcao === 'Ajudante' && p.id !== part.id);
+                                                                            const assistant = weekParts.find(p => {
+                                                                                const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
+                                                                                return pNum === currentPartNumber && p.funcao === 'Ajudante' && p.id !== part.id;
+                                                                            });
                                                                             const assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
                                                                             handleSendS89ViaWhatsApp(part, assistantName, phone, false, undefined);
                                                                         }
