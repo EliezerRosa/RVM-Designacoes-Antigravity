@@ -19,6 +19,7 @@ import { getStatusConfig } from '../constants/status';
 import { downloadS140, downloadS140MultiWeek } from '../services/s140Generator';
 import { downloadS140RoomB } from '../services/s140GeneratorRoomB';
 import { downloadS140RoomBEV } from '../services/s140GeneratorRoomBEvents';
+import { downloadS140RoomBA4 } from '../services/s140GeneratorRoomBA4';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
 
@@ -28,13 +29,13 @@ import { ReportsTab } from './ReportsTab';
 import { generateSessionReport } from '../services/analyticsService';
 import type { AnalyticsSummary } from '../services/analyticsService';
 import {
-    validatePartsBeforeGeneration,
-    getGrupoPresidentes,
-    getGrupoEnsino,
-    getGrupoEnsinoExpandido,
-    getGrupoEstudante,
-    rankByPriority
+    validatePartsBeforeGeneration
 } from '../services/linearRotationService';
+import {
+    getNextInRotation,
+    getGroupMembers,
+    type RotationGroup
+} from '../services/fairRotationService';
 
 interface Props {
     publishers: Publisher[];
@@ -494,96 +495,70 @@ export function WorkbookManager({ publishers }: Props) {
             const usedPreassignmentIds = new Set<string>(); // Rastreia IDs já usados nesta execução
 
             // =====================================================================
-            // FASE 1: PRESIDENTES - Prioridade Dinâmica (v6.0)
+            // FASE 1: PRESIDENTES - Rotação Linear v7.0
             // Processa TODOS os presidentes ANTES do loop de outras partes
-            // Designa: Sem1→1º da lista, Sem2→2º, etc.
+            // Usa índice persistido para garantir rotação justa na ordem de cadastro
             // =====================================================================
-            const grupoPresidentes = getGrupoPresidentes(publishers);
-            console.log(`[Motor v6.0] 👔 Grupo Presidentes: ${grupoPresidentes.length} membros`);
+            const grupoPresidentes = getGroupMembers(publishers, 'presidentes');
+            console.log(`[Motor v7.0] 👔 Grupo Presidentes: ${grupoPresidentes.length} membros (ordem de cadastro)`);
 
             // Coletar todas as partes de Presidente PENDENTES em ordem cronológica
             const presidenteParts = partsNeedingAssignment
                 .filter(p => p.tipoParte.toLowerCase().includes('presidente') && p.funcao === 'Titular')
                 .sort((a, b) => a.date.localeCompare(b.date));
 
-            console.log(`[Motor v6.0] 👔 ${presidenteParts.length} partes de Presidente a preencher`);
+            console.log(`[Motor v7.0] 👔 ${presidenteParts.length} partes de Presidente a preencher`);
 
-            // Filtrar elegíveis (disponíveis + elegíveis por regras)
-            const eligiblePresidentes = grupoPresidentes.filter(p => {
-                // Verificar elegibilidade completa (isNotQualified, requestedNoParticipation, etc.)
-                const eligResult = checkEligibility(p, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR, {});
-                if (!eligResult.eligible) {
-                    console.log(`[Motor v6.0] 👔 ${p.name} não elegível: ${eligResult.reason}`);
-                    return false;
-                }
+            // Designar presidentes usando rotação linear
+            for (const part of presidenteParts) {
+                const thursdayDate = getThursdayFromDate(part.date);
 
-                // Verificar se está disponível em pelo menos uma quinta-feira de presidente
-                const avail = p.availability;
-                return presidenteParts.some(part => {
-                    const thursdayDate = getThursdayFromDate(part.date);
+                // Filtro de disponibilidade para esta data específica
+                const availabilityFilter = (p: Publisher): boolean => {
+                    // Verificar elegibilidade completa
+                    const eligResult = checkEligibility(p, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR, {
+                        date: part.date
+                    });
+                    if (!eligResult.eligible) return false;
+
+                    // Verificar disponibilidade na quinta-feira
+                    const avail = p.availability;
                     if (avail.mode === 'always') {
                         return !avail.exceptionDates.includes(thursdayDate);
                     } else {
                         return avail.availableDates.includes(thursdayDate);
                     }
-                });
-            });
+                };
 
-            // Calcular prioridade e ordenar DESC
-            const rankedPresidentes = rankByPriority(
-                eligiblePresidentes,
-                historyRecords,
-                'Presidente da Reunião',
-                'Titular',
-                inLoopAssignments
-            );
+                // Obter próximo na rotação
+                const { publisher: candidate } = await getNextInRotation(
+                    publishers,
+                    'presidentes',
+                    new Set<string>(), // Presidentes podem repetir em semanas diferentes
+                    availabilityFilter
+                );
 
-            console.log(`[Motor v6.0] 👔 ${rankedPresidentes.length} presidentes elegíveis ordenados por prioridade`);
+                if (candidate) {
+                    selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
+                    totalWithPublisher++;
 
-            // Designar: Sem1→1º, Sem2→2º, etc.
-            let presidenteListIndex = 0;
-            for (const part of presidenteParts) {
-                // Encontrar próximo disponível na data específica
-                while (presidenteListIndex < rankedPresidentes.length) {
-                    const candidate = rankedPresidentes[presidenteListIndex];
-                    const avail = candidate.publisher.availability;
+                    // Adicionar ao histórico in-loop
+                    inLoopAssignments.push({
+                        date: part.date,
+                        tipoParte: part.tipoParte,
+                        rawPublisherName: '',
+                        resolvedPublisherName: candidate.name,
+                        funcao: 'Titular',
+                        status: 'PROPOSTA'
+                    });
 
-                    // Verificar disponibilidade na quinta-feira específica
-                    const thursdayDate = getThursdayFromDate(part.date);
-                    let isAvailable = true;
-                    if (avail.mode === 'always') {
-                        isAvailable = !avail.exceptionDates.includes(thursdayDate);
-                    } else {
-                        isAvailable = avail.availableDates.includes(thursdayDate);
-                    }
-
-                    if (isAvailable) {
-                        selectedPublisherByPart.set(part.id, { id: candidate.publisher.id, name: candidate.publisher.name });
-                        totalWithPublisher++;
-
-                        // Adicionar ao histórico in-loop
-                        inLoopAssignments.push({
-                            date: part.date,
-                            tipoParte: part.tipoParte,
-                            rawPublisherName: '',
-                            resolvedPublisherName: candidate.publisher.name,
-                            funcao: 'Titular',
-                            status: 'PROPOSTA'
-                        });
-
-                        console.log(`[Motor v6.0] 👔 Presidente ${part.weekDisplay}: ${candidate.publisher.name} (${candidate.priority}pts)`);
-                        presidenteListIndex++;
-                        break;
-                    }
-                    presidenteListIndex++;
-                }
-
-                if (presidenteListIndex >= rankedPresidentes.length && !selectedPublisherByPart.has(part.id)) {
-                    console.warn(`[Motor v6.0] ⚠️ Nenhum presidente disponível para ${part.weekDisplay}`);
+                    console.log(`[Motor v7.0] 👔 Presidente ${part.weekDisplay}: ${candidate.name} (rotação linear)`);
+                } else {
+                    console.warn(`[Motor v7.0] ⚠️ Nenhum presidente disponível para ${part.weekDisplay}`);
                 }
             }
 
-            // Oração Inicial: Automaticamente = Presidente da semana (tratado na Fase 3)
+            // Oração Inicial: Automaticamente = Presidente da semana (tratado na Fase 4)
 
             // =====================================================================
             // FASE 2 e 3: ENSINO e DEMAIS PARTES (loop por semana)
@@ -597,20 +572,21 @@ export function WorkbookManager({ publishers }: Props) {
                 const assignmentsByPublisherInWeek = new Map<string, Array<{ tipoParte: string, funcao: string }>>();
 
                 // =====================================================================
-                // FASE 2: ENSINO - Prioridade Dinâmica (v6.0)
+                // FASE 2: ENSINO - Rotação Linear v7.0
                 // Partes: Tesouros, Joias, Dirigente EBC, Leitor EBC
                 // Processa por TIPO na ordem da apostila
                 // =====================================================================
-                const grupoEnsino = getGrupoEnsino(publishers);
-                const grupoEnsinoExpandido = getGrupoEnsinoExpandido(publishers);
 
                 // Identificar presidente designado para esta semana
                 const presidentePart = weekParts.find(p => p.tipoParte.toLowerCase().includes('presidente') && p.funcao === 'Titular');
                 const presidenteDaSemana = presidentePart ? selectedPublisherByPart.get(presidentePart.id)?.name : undefined;
 
+                // Set de nomes excluídos para esta semana (acumula a cada designação)
+                const namesExcludedInWeek = new Set<string>();
+                if (presidenteDaSemana) namesExcludedInWeek.add(presidenteDaSemana);
+
                 // Partes de Ensino nesta semana (na ordem da apostila)
                 const tiposEnsino = ['Discurso Tesouros', 'Joias Espirituais', 'Dirigente EBC', 'Leitor EBC'];
-                const namesJaTemEnsinoNaSemana: string[] = [];
 
                 for (const tipoEnsino of tiposEnsino) {
                     const ensinoParts = weekParts.filter(p =>
@@ -621,78 +597,65 @@ export function WorkbookManager({ publishers }: Props) {
 
                     if (ensinoParts.length === 0) continue;
 
-                    // Usar grupo expandido para Leitor EBC
-                    const grupoAtual = tipoEnsino === 'Leitor EBC' ? grupoEnsinoExpandido : grupoEnsino;
-
-                    // Filtrar elegíveis (exclusões + elegibilidade completa)
-                    const eligibleForEnsino = grupoAtual.filter(p => {
-                        if (p.name === presidenteDaSemana) return false;
-                        if (namesJaTemEnsinoNaSemana.includes(p.name)) return false;
-
-                        // Verificar elegibilidade completa com modalidade CORRETA
-                        const firstPart = ensinoParts[0];
-                        const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino);
-                        const eligResult = checkEligibility(p, modalidadeCorreta as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, {
-                            date: firstPart.date
-                        });
-                        if (!eligResult.eligible) {
-                            return false;
-                        }
-
-                        // Verificar disponibilidade na quinta-feira
-                        const avail = p.availability;
-                        const thursdayDate = getThursdayFromDate(firstPart.date);
-                        if (avail.mode === 'always') {
-                            if (avail.exceptionDates.includes(thursdayDate)) return false;
-                        } else {
-                            if (!avail.availableDates.includes(thursdayDate)) return false;
-                        }
-                        return true;
-                    });
-
-                    if (eligibleForEnsino.length === 0) continue;
-
-                    // Calcular prioridade e ordenar
-                    const rankedEnsino = rankByPriority(
-                        eligibleForEnsino,
-                        historyRecords,
-                        tipoEnsino,
-                        'Titular',
-                        inLoopAssignments
-                    );
-
-                    // Designar: Parte1→1º, Parte2→2º, etc.
-                    let ensinoListIndex = 0;
                     for (const ensinoPart of ensinoParts) {
-                        if (ensinoListIndex >= rankedEnsino.length) break;
+                        const thursdayDate = getThursdayFromDate(ensinoPart.date);
+                        const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino);
 
-                        const candidate = rankedEnsino[ensinoListIndex];
-                        selectedPublisherByPart.set(ensinoPart.id, { id: candidate.publisher.id, name: candidate.publisher.name });
-                        totalWithPublisher++;
-                        namesJaTemEnsinoNaSemana.push(candidate.publisher.name);
+                        // Filtro de elegibilidade para esta parte específica
+                        const ensinoFilter = (p: Publisher): boolean => {
+                            // Verificar elegibilidade completa
+                            const eligResult = checkEligibility(p, modalidadeCorreta as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, {
+                                date: ensinoPart.date
+                            });
+                            if (!eligResult.eligible) return false;
 
-                        // Adicionar ao histórico in-loop
-                        inLoopAssignments.push({
-                            date: ensinoPart.date,
-                            tipoParte: ensinoPart.tipoParte,
-                            rawPublisherName: '',
-                            resolvedPublisherName: candidate.publisher.name,
-                            funcao: 'Titular',
-                            status: 'PROPOSTA'
-                        });
+                            // Verificar disponibilidade na quinta-feira
+                            const avail = p.availability;
+                            if (avail.mode === 'always') {
+                                return !avail.exceptionDates.includes(thursdayDate);
+                            } else {
+                                return avail.availableDates.includes(thursdayDate);
+                            }
+                        };
 
-                        console.log(`[Motor v6.0] 📚 ${tipoEnsino} (${ensinoPart.weekDisplay}): ${candidate.publisher.name} (${candidate.priority}pts)`);
-                        ensinoListIndex++;
+                        // Obter próximo na rotação (excluindo presidente e já designados na semana)
+                        const { publisher: candidate } = await getNextInRotation(
+                            publishers,
+                            'ensino',
+                            namesExcludedInWeek,
+                            ensinoFilter
+                        );
+
+                        if (candidate) {
+                            selectedPublisherByPart.set(ensinoPart.id, { id: candidate.id, name: candidate.name });
+                            totalWithPublisher++;
+                            namesExcludedInWeek.add(candidate.name);
+
+                            // Rastrear designações por publicador
+                            const existing = assignmentsByPublisherInWeek.get(candidate.id) || [];
+                            existing.push({ tipoParte: tipoEnsino, funcao: 'Titular' });
+                            assignmentsByPublisherInWeek.set(candidate.id, existing);
+
+                            // Adicionar ao histórico in-loop
+                            inLoopAssignments.push({
+                                date: ensinoPart.date,
+                                tipoParte: ensinoPart.tipoParte,
+                                rawPublisherName: '',
+                                resolvedPublisherName: candidate.name,
+                                funcao: 'Titular',
+                                status: 'PROPOSTA'
+                            });
+
+                            console.log(`[Motor v7.0] 📚 ${tipoEnsino} (${ensinoPart.weekDisplay}): ${candidate.name} (rotação linear)`);
+                        }
                     }
                 }
 
                 // =====================================================================
-                // FASE 3: ESTUDANTE - Prioridade Dinâmica (v6.0)
+                // FASE 3: ESTUDANTE - Rotação Linear v7.0
                 // Partes: Leitura, Demonstrações, Discurso Estudante
                 // =====================================================================
-                const grupoEstudante = getGrupoEstudante(publishers);
                 const tiposEstudante = ['Leitura da Bíblia', 'Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças', 'Discurso de Estudante'];
-                const namesJaTemEstudanteNaSemana: string[] = [];
 
                 for (const tipoEstudante of tiposEstudante) {
                     const estudanteParts = weekParts.filter(p =>
@@ -703,67 +666,57 @@ export function WorkbookManager({ publishers }: Props) {
 
                     if (estudanteParts.length === 0) continue;
 
-                    // Filtrar elegíveis (exclusões + elegibilidade completa)
-                    const eligibleForEstudante = grupoEstudante.filter(p => {
-                        if (p.name === presidenteDaSemana) return false;
-                        if (namesJaTemEnsinoNaSemana.includes(p.name)) return false;
-                        if (namesJaTemEstudanteNaSemana.includes(p.name)) return false;
-
-                        // Verificar elegibilidade completa com modalidade CORRETA
-                        const firstPart = estudanteParts[0];
-                        // Usar mapeamento correto (ex: Discurso Estudante → DISCURSO_ESTUDANTE, não DEMONSTRACAO)
-                        const modalidadeCorreta = getModalidadeFromTipo(tipoEstudante);
-                        const eligResult = checkEligibility(p, modalidadeCorreta as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, {
-                            date: firstPart.date
-                        });
-                        if (!eligResult.eligible) {
-                            return false;
-                        }
-
-                        // Verificar disponibilidade na quinta-feira
-                        const avail = p.availability;
-                        const thursdayDate = getThursdayFromDate(firstPart.date);
-                        if (avail.mode === 'always') {
-                            if (avail.exceptionDates.includes(thursdayDate)) return false;
-                        } else {
-                            if (!avail.availableDates.includes(thursdayDate)) return false;
-                        }
-                        return true;
-                    });
-
-                    if (eligibleForEstudante.length === 0) continue;
-
-                    // Calcular prioridade e ordenar
-                    const rankedEstudante = rankByPriority(
-                        eligibleForEstudante,
-                        historyRecords,
-                        tipoEstudante,
-                        'Titular',
-                        inLoopAssignments
-                    );
-
-                    // Designar: Parte1→1º, Parte2→2º, etc.
-                    let estudanteListIndex = 0;
                     for (const estudantePart of estudanteParts) {
-                        if (estudanteListIndex >= rankedEstudante.length) break;
+                        const thursdayDate = getThursdayFromDate(estudantePart.date);
+                        const modalidadeCorreta = getModalidadeFromTipo(tipoEstudante);
 
-                        const candidate = rankedEstudante[estudanteListIndex];
-                        selectedPublisherByPart.set(estudantePart.id, { id: candidate.publisher.id, name: candidate.publisher.name });
-                        totalWithPublisher++;
-                        namesJaTemEstudanteNaSemana.push(candidate.publisher.name);
+                        // Filtro de elegibilidade para esta parte específica
+                        const estudanteFilter = (p: Publisher): boolean => {
+                            // Verificar elegibilidade completa
+                            const eligResult = checkEligibility(p, modalidadeCorreta as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, {
+                                date: estudantePart.date
+                            });
+                            if (!eligResult.eligible) return false;
 
-                        // Adicionar ao histórico in-loop
-                        inLoopAssignments.push({
-                            date: estudantePart.date,
-                            tipoParte: estudantePart.tipoParte,
-                            rawPublisherName: '',
-                            resolvedPublisherName: candidate.publisher.name,
-                            funcao: 'Titular',
-                            status: 'PROPOSTA'
-                        });
+                            // Verificar disponibilidade na quinta-feira
+                            const avail = p.availability;
+                            if (avail.mode === 'always') {
+                                return !avail.exceptionDates.includes(thursdayDate);
+                            } else {
+                                return avail.availableDates.includes(thursdayDate);
+                            }
+                        };
 
-                        console.log(`[Motor v6.0] 🎓 ${tipoEstudante} (${estudantePart.weekDisplay}): ${candidate.publisher.name} (${candidate.priority}pts)`);
-                        estudanteListIndex++;
+                        // Obter próximo na rotação (excluindo todos já designados na semana)
+                        const { publisher: candidate } = await getNextInRotation(
+                            publishers,
+                            'estudante',
+                            namesExcludedInWeek,
+                            estudanteFilter
+                        );
+
+                        if (candidate) {
+                            selectedPublisherByPart.set(estudantePart.id, { id: candidate.id, name: candidate.name });
+                            totalWithPublisher++;
+                            namesExcludedInWeek.add(candidate.name);
+
+                            // Rastrear designações por publicador
+                            const existing = assignmentsByPublisherInWeek.get(candidate.id) || [];
+                            existing.push({ tipoParte: tipoEstudante, funcao: 'Titular' });
+                            assignmentsByPublisherInWeek.set(candidate.id, existing);
+
+                            // Adicionar ao histórico in-loop
+                            inLoopAssignments.push({
+                                date: estudantePart.date,
+                                tipoParte: estudantePart.tipoParte,
+                                rawPublisherName: '',
+                                resolvedPublisherName: candidate.name,
+                                funcao: 'Titular',
+                                status: 'PROPOSTA'
+                            });
+
+                            console.log(`[Motor v7.0] 🎓 ${tipoEstudante} (${estudantePart.weekDisplay}): ${candidate.name} (rotação linear)`);
+                        }
                     }
                 }
 
@@ -841,7 +794,7 @@ export function WorkbookManager({ publishers }: Props) {
                     }
 
                     // =====================================================================
-                    // MOTOR NORMAL para outras partes
+                    // MOTOR v7.0: Usar rotação linear para Ajudantes e Oração Final
                     // =====================================================================
 
                     // 1. Filtrar publicadores elegíveis (respeita função e seção)
@@ -868,83 +821,120 @@ export function WorkbookManager({ publishers }: Props) {
                         }
                     }
 
-                    const eligiblePublishers = publishers.filter(p => {
-                        // Impedir repetição na mesma semana (exceto se a regra permitir - por enquanto bloqueio total)
-                        // Verificar Multitarefa (substitui bloqueio total)
-                        const existingAssignments = assignmentsByPublisherInWeek.get(p.id) || [];
-                        if (existingAssignments.length > 0) {
-                            // Regra de Multitarefa:
-                            // 1. Limite máximo de 2 designações por semana
-                            if (existingAssignments.length >= 2) return false;
+                    const thursdayDate = getThursdayFromDate(part.date);
+                    const isOracaoFinal = part.tipoParte.toLowerCase().includes('oração final') || part.tipoParte.toLowerCase().includes('oracao final');
+                    const isAjudante = funcao === EnumFuncao.AJUDANTE;
 
-                            const newIsPrayer = part.tipoParte.toLowerCase().includes('oração final');
-                            const newIsHelper = funcao === EnumFuncao.AJUDANTE;
-
-                            for (const assigned of existingAssignments) {
-                                const assignedIsPrayer = assigned.tipoParte.toLowerCase().includes('oração final');
-                                const assignedIsHelper = assigned.funcao === EnumFuncao.AJUDANTE;
-
-                                // MATRIZ DE COMPATIBILIDADE
-
-                                // Oração Final combina com tudo (exceto outra oração final, teoricamente)
-                                if (newIsPrayer || assignedIsPrayer) {
-                                    continue; // Permitido (acumular com Oração Final)
-                                }
-
-                                // Ajudante conflita com Partes de Estudante/Ensino (Partes Principais)
-                                if (newIsHelper && !assignedIsPrayer) return false; // Ajudante só com Oração Final
-                                if (assignedIsHelper && !newIsPrayer) return false; // Se já é Ajudante, só aceita Oração Final
-
-                                // Padrão com Padrão (Leitura + Discurso) -> BLOQUEADO
-                                return false;
-                            }
-                        }
-
-                        const result = checkEligibility(
-                            p,
-                            modalidade as Parameters<typeof checkEligibility>[1],
-                            funcao,
-                            { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
-                        );
-                        return result.eligible;
-                    });
-
-                    // 2. Selecionar melhor candidato via cooldownService
+                    // 2. Selecionar via rotação linear v7.0
                     let selectedPublisher: Publisher | null = null;
 
-                    if (eligiblePublishers.length > 0) {
-                        // Preparar lista de partes futuras já agendadas para penalizar publicadores sobrecarregados
-                        // Inclui partes com status PROPOSTA, APROVADA, DESIGNADA (não PENDENTE/REJEITADA/CANCELADA)
-                        const futureAssignments = parts
-                            .filter(p => {
-                                const d = parseDate(p.date);
-                                const isActive = ['PROPOSTA', 'APROVADA', 'DESIGNADA'].includes(p.status);
-                                return d >= today && isActive;
-                            })
-                            .map(p => ({
-                                date: p.date,
-                                tipoParte: p.tipoParte,
-                                rawPublisherName: p.rawPublisherName,
-                                resolvedPublisherName: p.resolvedPublisherName,
-                                funcao: p.funcao,
-                                status: p.status
-                            }));
+                    if (isAjudante && titularGender) {
+                        // =====================================================================
+                        // AJUDANTES: Rotação linear SEPARADA por gênero
+                        // Não penaliza rotação de titular
+                        // =====================================================================
+                        const ajudanteGroup: RotationGroup = titularGender === 'brother' ? 'ajudante_m' : 'ajudante_f';
 
-                        // COMBINAR futureAssignments do banco + inLoopAssignments desta execução
-                        const allFutureAssignments = [...futureAssignments, ...inLoopAssignments];
+                        // Filtro de elegibilidade para ajudante
+                        const ajudanteFilter = (p: Publisher): boolean => {
+                            const eligResult = checkEligibility(
+                                p,
+                                modalidade as Parameters<typeof checkEligibility>[1],
+                                funcao,
+                                { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
+                            );
+                            if (!eligResult.eligible) return false;
 
-                        selectedPublisher = selectBestCandidate(
-                            eligiblePublishers,
-                            historyRecords,
-                            part.tipoParte, // Passar tipo específico
-                            funcao,         // Passar função
-                            today,
-                            allFutureAssignments
+                            // Verificar disponibilidade na quinta-feira
+                            const avail = p.availability;
+                            if (avail.mode === 'always') {
+                                return !avail.exceptionDates.includes(thursdayDate);
+                            } else {
+                                return avail.availableDates.includes(thursdayDate);
+                            }
+                        };
+
+                        // Ajudantes NÃO contam para exclusão semanal (regra do usuário)
+                        const { publisher: ajudante } = await getNextInRotation(
+                            publishers,
+                            ajudanteGroup,
+                            new Set<string>(), // Ajudantes podem repetir (não conta na exclusão)
+                            ajudanteFilter
                         );
 
-                        if (!selectedPublisher) {
-                            // Fallback: primeiro elegível
-                            selectedPublisher = eligiblePublishers[0];
+                        selectedPublisher = ajudante;
+                        if (selectedPublisher) {
+                            console.log(`[Motor v7.0] 🤝 Ajudante (${part.weekDisplay}): ${selectedPublisher.name} (rotação linear ${ajudanteGroup})`);
+                        }
+
+                    } else if (isOracaoFinal) {
+                        // =====================================================================
+                        // ORAÇÃO FINAL: Rotação linear INDEPENDENTE
+                        // Pode repetir na semana, não afeta outras rotações
+                        // =====================================================================
+
+                        // Filtro de elegibilidade para oração final
+                        const oracaoFilter = (p: Publisher): boolean => {
+                            const eligResult = checkEligibility(
+                                p,
+                                modalidade as Parameters<typeof checkEligibility>[1],
+                                funcao,
+                                { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
+                            );
+                            if (!eligResult.eligible) return false;
+
+                            // Verificar disponibilidade na quinta-feira
+                            const avail = p.availability;
+                            if (avail.mode === 'always') {
+                                return !avail.exceptionDates.includes(thursdayDate);
+                            } else {
+                                return avail.availableDates.includes(thursdayDate);
+                            }
+                        };
+
+                        // Oração Final NÃO conta para exclusão semanal (regra do usuário)
+                        const { publisher: orante } = await getNextInRotation(
+                            publishers,
+                            'oracao_final',
+                            new Set<string>(), // Pode repetir na semana
+                            oracaoFilter
+                        );
+
+                        selectedPublisher = orante;
+                        if (selectedPublisher) {
+                            console.log(`[Motor v7.0] 🙏 Oração Final (${part.weekDisplay}): ${selectedPublisher.name} (rotação linear independente)`);
+                        }
+
+                    } else {
+                        // =====================================================================
+                        // OUTRAS PARTES: Usar motor existente com cooldownService
+                        // =====================================================================
+                        const eligiblePublishers = publishers.filter(p => {
+                            // Verificar exclusão semanal
+                            if (namesExcludedInWeek.has(p.name)) return false;
+
+                            const result = checkEligibility(
+                                p,
+                                modalidade as Parameters<typeof checkEligibility>[1],
+                                funcao,
+                                { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
+                            );
+                            return result.eligible;
+                        });
+
+                        if (eligiblePublishers.length > 0) {
+                            selectedPublisher = selectBestCandidate(
+                                eligiblePublishers,
+                                historyRecords,
+                                part.tipoParte,
+                                funcao,
+                                today,
+                                inLoopAssignments
+                            );
+
+                            if (!selectedPublisher) {
+                                selectedPublisher = eligiblePublishers[0];
+                            }
                         }
                     }
 
@@ -1480,6 +1470,17 @@ export function WorkbookManager({ publishers }: Props) {
                                                     disabled={loading || !hasWeek}
                                                     style={{ padding: '4px 10px', cursor: hasWeek ? 'pointer' : 'not-allowed', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500', opacity: hasWeek ? 1 : 0.5 }}>
                                                     ⚡ Sala B EV
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (currentWeekId) {
+                                                            const weekParts = parts.filter(p => p.weekId === currentWeekId);
+                                                            downloadS140RoomBA4(weekParts);
+                                                        }
+                                                    }}
+                                                    disabled={loading || !hasWeek}
+                                                    style={{ padding: '4px 10px', cursor: hasWeek ? 'pointer' : 'not-allowed', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500', opacity: hasWeek ? 1 : 0.5 }}>
+                                                    🖨️ Sala B A4
                                                 </button>
                                                 <button
                                                     onClick={() => setIsS140MultiModalOpen(true)}
