@@ -26,6 +26,7 @@ import { BulkResetModal } from './BulkResetModal';
 
 import { Tooltip } from './Tooltip';
 import { ReportsTab } from './ReportsTab';
+import { ParticipationAnalytics } from './ParticipationAnalytics';
 import { generateSessionReport } from '../services/analyticsService';
 import type { AnalyticsSummary } from '../services/analyticsService';
 import {
@@ -154,7 +155,7 @@ export function WorkbookManager({ publishers }: Props) {
 
     // Estado para Relatórios
     const [reportData, setReportData] = useState<AnalyticsSummary | null>(null);
-    const [activeTab, setActiveTab] = useState<'planning' | 'reports'>('planning');
+    const [activeTab, setActiveTab] = useState<'planning' | 'reports' | 'analytics'>('planning');
 
     // Estado do Modal de Reset em Lote
     const [isBulkResetModalOpen, setIsBulkResetModalOpen] = useState(false);
@@ -1300,6 +1301,9 @@ export function WorkbookManager({ publishers }: Props) {
                         <button onClick={handleGenerateReport} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: activeTab === 'reports' ? '#E0E7FF' : 'transparent', color: activeTab === 'reports' ? '#4338CA' : '#6B7280', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span>📊</span> Relatórios
                         </button>
+                        <button onClick={() => setActiveTab('analytics')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: activeTab === 'analytics' ? '#E0E7FF' : 'transparent', color: activeTab === 'analytics' ? '#4338CA' : '#6B7280', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>📈</span> Análises
+                        </button>
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -1322,6 +1326,8 @@ export function WorkbookManager({ publishers }: Props) {
             <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
                 {activeTab === 'reports' ? (
                     <ReportsTab data={reportData} />
+                ) : activeTab === 'analytics' ? (
+                    <ParticipationAnalytics />
                 ) : (
                     <div style={{ padding: '0 16px 8px', maxWidth: '1600px', margin: '0 auto', minHeight: '100%' }}>
 
