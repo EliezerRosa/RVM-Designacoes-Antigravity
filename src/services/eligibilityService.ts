@@ -528,3 +528,46 @@ export function getEligibilityStats(publishers: Publisher[]): Record<string, num
         sisters: eligible.filter(p => p.gender === 'sister').length,
     };
 }
+
+// ===== FUNÇÕES v8.0 =====
+
+/**
+ * Ordena publicadores elegíveis priorizando irmãs para demonstrações.
+ * v8.0: Demonstrações devem priorizar irmãs (sexo feminino).
+ * 
+ * @param publishers Lista de publicadores elegíveis
+ * @param modalidade Modalidade da parte
+ * @returns Lista ordenada (irmãs primeiro para demonstrações)
+ */
+export function prioritizeForDemonstration(
+    publishers: Publisher[],
+    modalidade: string
+): Publisher[] {
+    // Se não é demonstração, retorna sem alteração
+    if (modalidade !== EnumModalidade.DEMONSTRACAO) {
+        return publishers;
+    }
+
+    // Priorizar irmãs: colocá-las no início da lista
+    const sisters = publishers.filter(p => p.gender === 'sister');
+    const brothers = publishers.filter(p => p.gender === 'brother');
+
+    return [...sisters, ...brothers];
+}
+
+/**
+ * Obtém publicadores elegíveis ordenados por prioridade v8.0.
+ * Combina elegibilidade + priorização de irmãs para demonstrações.
+ */
+export function getEligiblePublishersSorted(
+    publishers: Publisher[],
+    modalidade: Modalidade,
+    funcao: Funcao = EnumFuncao.TITULAR,
+    context: EligibilityContext = {}
+): Publisher[] {
+    const eligible = publishers.filter(p =>
+        isEligibleForModality(p, modalidade, funcao, context)
+    );
+
+    return prioritizeForDemonstration(eligible, modalidade);
+}

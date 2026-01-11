@@ -1,28 +1,37 @@
 /**
- * Cooldown & Rotation Service - RVM Designações
+ * Cooldown & Rotation Service - RVM Designações v8.0
  * 
  * Implementa as regras de:
- * - Rodízio Ponderado (MAIN/HELPER/IGNORED)
- * - Cooldown por tipo de parte (6 semanas)
+ * - Rodízio Ponderado por Peso de Duração
+ * - Cooldown por tipo de parte (3 semanas)
+ * - Gap mínimo entre participações (2 semanas = alerta grave)
  * 
- * PESO DE CATEGORIA (v4.0 - Simplificado):
- * - MAIN (x1.0): Discursos, Leitura, Demonstrações (Titular), EBC, Presidente
- * - HELPER (x0.1): Ajudante em Demonstrações
- * - IGNORED (x0.0): Orações, Necessidades Locais, Cânticos (não contabilizados)
+ * FÓRMULA DE SCORE v8.0:
+ * Score = (SemanasDesdeUltima × 50) - (PesoAcumulado × 5)
  * 
- * FÓRMULA DE PRIORIDADE:
- * Prioridade = Dias_desde_última_parte_MAIN - (Total_MAIN × 7) - (Total_HELPER × 0.7) - (Futuras × 30) - Cooldown
+ * PESOS POR DURAÇÃO:
+ * - EBC Dirigente (30min): 15 pts
+ * - Discurso (10-15min): 10 pts
+ * - Demonstração (3-5min): 5 pts
+ * - Leitura (4min): 3 pts
+ * - Ajudante: 2 pts
+ * - Oração/Cântico: 0 pts (ignorado)
  */
 
 import type { HistoryRecord, Publisher } from '../types';
+import { getPartWeight } from '../constants/partWeights';
 
 
-// ===== Constantes de Configuração =====
+// ===== Constantes de Configuração v8.0 =====
 
-export const COOLDOWN_WEEKS = 6; // Semanas mínimas entre mesma parte (Titular)
-export const COOLDOWN_WEEKS_HELPER = 4; // Semanas mínimas para Ajudante
-export const SOFT_COOLDOWN_PENALTY = 15; // Penalidade suave para repetição de tipo
-export const PARTICIPATION_COUNT_PENALTY = 7; // Penalidade base por contagem
+export const COOLDOWN_WEEKS = 3; // Semanas mínimas entre mesma parte (antes: 6)
+export const COOLDOWN_WEEKS_HELPER = 2; // Semanas mínimas para Ajudante
+export const MIN_WEEK_GAP = 2; // Gap mínimo entre qualquer participação (ALERTA GRAVE)
+export const SOFT_COOLDOWN_PENALTY = 15; // Penalidade para repetição de tipo
+
+// Fatores da fórmula de score v8.0
+export const WEEKS_FACTOR = 50; // Multiplicador de semanas desde última participação
+export const WEIGHT_FACTOR = 5; // Multiplicador de peso acumulado
 
 // Pesos por Categoria (v4.0 - Simplificado)
 export const CATEGORY_WEIGHTS = {
@@ -82,16 +91,18 @@ export interface RotationScore {
 /**
  * Calcula a prioridade de rodízio para um publicador.
  * 
- * FÓRMULA v3.0 (Contextual Priority + Weighted Counts + Soft Cooldown):
- * 1. Contextual: Considera histórico PRINCIPALMENTE da mesma categoria alvo (Filas Separadas).
- * 2. Weighted: Subtrai quantidade total ponderada (Ensino pesa mais que Ajudante).
- * 3. Soft Cooldown: Subtrai 15 pontos se fez o mesmo tipo de parte recentemente.
+ * FÓRMULA v8.0 (Score com Pesos por Duração):
+ * Score = (SemanasDesdeUltima × 50) - (PesoAcumulado × 5)
+ * 
+ * Onde:
+ * - SemanasDesdeUltima: Semanas desde qualquer participação (categoria MAIN)
+ * - PesoAcumulado: Soma dos pesos de todas as partes do publicador
  */
 export function calculateRotationPriority(
     publisherName: string,
     history: HistoryRecord[],
     targetPartType: string = '', // Tipo da parte que estamos tentando preencher
-    targetFuncao: string = 'Titular', // Função alvo
+    _targetFuncao: string = 'Titular', // Função alvo (reservado para uso futuro)
     today: Date = new Date(),
     futureAssignments?: Array<{
         date: string;
@@ -102,84 +113,79 @@ export function calculateRotationPriority(
         status?: string;
     }>
 ): number {
-    // 1. Identificar Categoria Alvo (para qual fila estamos calculando?)
-    const targetCategory = getParticipationCategory(targetPartType, targetFuncao);
-
-    // Filtrar todo histórico do publicador
+    // Filtrar histórico do publicador
     const fullHistory = history.filter(h =>
         h.resolvedPublisherName === publisherName ||
         h.rawPublisherName === publisherName
     );
 
-    // Filtrar histórico DA MESMA CATEGORIA (Contextual Priority)
-    // Se queremos um Orador (Teaching), olhamos quando foi o último Discurso (Teaching).
-    const categoryHistory = fullHistory.filter(h =>
-        getParticipationCategory(h.tipoParte, h.funcao) === targetCategory
-    );
-
-    // Contar total ponderado de participações (Weighted Counts)
-    // Aqui olhamos o histórico COMPLETO para evitar sobrecarga geral, mas aplicamos pesos
-    let weightedCount = 0;
+    // ========================================
+    // v8.0: Calcular Peso Acumulado por Duração
+    // ========================================
+    let weightedTotal = 0;
     fullHistory.forEach(h => {
-        const cat = getParticipationCategory(h.tipoParte, h.funcao);
-        weightedCount += CATEGORY_WEIGHTS[cat]; // +1.0, +0.5, ou +0.2
+        const weight = getPartWeight(h.tipoParte || '', h.funcao || 'Titular');
+        weightedTotal += weight;
     });
 
-    // Adicionar participações futuras à contagem ponderada
+    // Adicionar pesos de participações futuras
     let futureCount = 0;
-    let softCooldownPenalty = 0;
-
-    // AJUSTE v4.0: Filtrar por DATA, não por status
-    // Futuro = data >= hoje (ignorar status completamente)
     if (futureAssignments) {
         const todayStart = new Date(today);
         todayStart.setHours(0, 0, 0, 0);
 
         futureAssignments.forEach(p => {
             const isPublisher = (p.resolvedPublisherName === publisherName || p.rawPublisherName === publisherName);
-
-            // Verificar se a data da parte é HOJE ou no FUTURO
             const partDate = new Date(p.date);
             partDate.setHours(0, 0, 0, 0);
             const isFutureOrToday = partDate >= todayStart;
 
             if (isPublisher && isFutureOrToday) {
                 futureCount++;
-                const cat = getParticipationCategory(p.tipoParte, p.funcao);
-                weightedCount += CATEGORY_WEIGHTS[cat];
+                const weight = getPartWeight(p.tipoParte || '', p.funcao || 'Titular');
+                weightedTotal += weight;
             }
         });
     }
 
-    // Se nunca participou NA CATEGORIA ALVO -> Prioridade Máxima para essa fila
-    // (Mesmo que tenha participado em outras categorias)
-    if (categoryHistory.length === 0) {
-        // Reduzimos um pouco baseado na carga total para desempatar quem nunca fez nada vs quem já fez outras coisas
-        return Number.MAX_SAFE_INTEGER - Math.floor(weightedCount * 100);
+    // Filtrar apenas participações MAIN (não orações/cânticos) para calcular tempo
+    const mainHistory = fullHistory.filter(h =>
+        getParticipationCategory(h.tipoParte || '', h.funcao || '') === 'MAIN'
+    );
+
+    // Se nunca participou em partes MAIN -> Prioridade Máxima
+    if (mainHistory.length === 0) {
+        // Desempatar por peso acumulado (menos peso = maior prioridade)
+        return Number.MAX_SAFE_INTEGER - Math.floor(weightedTotal * 100);
     }
 
-    // Calcular dias desde última participação NA CATEGORIA
-    const dates = categoryHistory.map(h => new Date(h.date || '').getTime());
+    // ========================================
+    // v8.0: Calcular Semanas desde última participação
+    // ========================================
+    const dates = mainHistory.map(h => new Date(h.date || '').getTime());
     const mostRecent = Math.max(...dates, 0);
     const daysSinceLast = mostRecent > 0
         ? Math.floor((today.getTime() - mostRecent) / (1000 * 60 * 60 * 24))
         : 365;
+    const weeksSinceLast = Math.floor(daysSinceLast / 7);
 
-    // Verificar Soft Cooldown (Mesmo Tipo Específico)
-    // Se fez a MESMA parte recentemente (independente da categoria), aplica penalidade
-    const cooldownInfo = getCooldownInfo(publisherName, targetPartType, fullHistory, today); // Usa fullHistory aqui
+    // Verificar Soft Cooldown (mesmo tipo específico)
+    let softCooldownPenalty = 0;
+    const cooldownInfo = getCooldownInfo(publisherName, targetPartType, fullHistory, today);
     if (cooldownInfo?.isInCooldown) {
         softCooldownPenalty = SOFT_COOLDOWN_PENALTY;
     }
 
-    // FÓRMULA FINAL:
-    // Dias(Categoria) - (TotalPonderado * 7) - (Futuras * 30) - SoftCooldown
-    let priority = daysSinceLast
-        - (weightedCount * PARTICIPATION_COUNT_PENALTY)
+    // ========================================
+    // FÓRMULA v8.0:
+    // Score = (Semanas × 50) - (PesoAcumulado × 5) - Penalidades
+    // ========================================
+    const score = (weeksSinceLast * WEEKS_FACTOR)
+        - (weightedTotal * WEIGHT_FACTOR)
         - (futureCount * 30)
         - softCooldownPenalty;
 
-    return Math.floor(priority);
+    return Math.floor(score);
 }
 
 
