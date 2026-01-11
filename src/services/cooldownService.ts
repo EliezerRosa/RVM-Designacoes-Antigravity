@@ -32,15 +32,8 @@ export const SOFT_COOLDOWN_PENALTY = 15; // Penalidade para repetição de tipo
 // Fatores da fórmula de score v8.0
 export const WEEKS_FACTOR = 50; // Multiplicador de semanas desde última participação
 export const WEIGHT_FACTOR = 5; // Multiplicador de peso acumulado
-
-// Pesos por Categoria (v4.0 - Simplificado)
-export const CATEGORY_WEIGHTS = {
-    MAIN: 1.0,      // Ensino + Estudante-Titular: Peso TOTAL
-    HELPER: 0.1,    // Ajudante: Peso MÍNIMO
-    IGNORED: 0.0    // Oração, NL, Cântico: NÃO CONTABILIZA
-} as const;
-
-export type ParticipationCategory = keyof typeof CATEGORY_WEIGHTS;
+// Tipo para categorias de participação (usado em filtros)
+export type ParticipationCategory = 'MAIN' | 'HELPER' | 'IGNORED';
 
 /**
  * Determina categoria da parte para cálculo de prioridade.

@@ -1,18 +1,14 @@
 /**
- * Assignment Service - RVM Designações v6.1
+ * Linear Rotation Service - RVM Designações v6.2
  * 
- * Implementa designação por prioridade dinâmica.
+ * v6.2: Limpo - apenas validações e aliases deprecados.
  * 
- * v6.1: Delega definição de grupos para groupService.
- * 
- * NOTA: Este serviço está parcialmente deprecado.
- * - rankByPriority/assignInSequence: Não usados atualmente
- * - Funções de grupo: Mantidas como aliases para groupService (compatibilidade)
- * - validatePartsBeforeGeneration: Ainda utilizado
+ * FUNÇÕES MANTIDAS:
+ * - validatePartsBeforeGeneration: Validação de partes
+ * - getGrupo*: Aliases deprecados para groupService
  */
 
-import type { Publisher, HistoryRecord } from '../types';
-import { calculateRotationPriority } from './cooldownService';
+import type { Publisher } from '../types';
 import { getGroupMembers } from './groupService';
 
 // ===== Funções de Grupo (aliases para groupService) =====
@@ -43,122 +39,6 @@ export function getGrupoEnsinoExpandido(publishers: Publisher[]): Publisher[] {
  */
 export function getGrupoEstudante(publishers: Publisher[]): Publisher[] {
     return getGroupMembers(publishers, 'estudante');
-}
-
-// ===== Ranking por Prioridade =====
-
-
-export interface RankedPublisher {
-    publisher: Publisher;
-    priority: number;
-}
-
-/**
- * Calcula prioridade e retorna lista ordenada DESC (maior prioridade primeiro)
- */
-export function rankByPriority(
-    eligiblePublishers: Publisher[],
-    historyRecords: HistoryRecord[],
-    tipoParte: string,
-    funcao: string,
-    inLoopAssignments: Array<{
-        date: string;
-        tipoParte: string;
-        resolvedPublisherName: string;
-        funcao: string;
-    }> = []
-): RankedPublisher[] {
-    const ranked: RankedPublisher[] = [];
-
-    eligiblePublishers.forEach(pub => {
-        const priority = calculateRotationPriority(
-            pub.name,
-            historyRecords,
-            tipoParte,
-            funcao,
-            new Date(),
-            inLoopAssignments
-        );
-
-        ranked.push({
-            publisher: pub,
-            priority
-        });
-    });
-
-    // Ordenar DESC (maior prioridade primeiro)
-    ranked.sort((a, b) => b.priority - a.priority);
-
-    return ranked;
-}
-
-/**
- * Tipo para resultado de designação em lote
- */
-export interface BatchAssignmentResult {
-    assignments: Array<{ partId: string; publisher: Publisher }>;
-    remainingPublishers: Publisher[];
-    logs: string[];
-}
-
-/**
- * Designa múltiplas partes do mesmo tipo em sequência.
- * Semana1→1º, Semana2→2º, etc.
- */
-export function assignInSequence(
-    parts: Array<{ id: string; date: string; weekDisplay: string }>,
-    rankedPublishers: RankedPublisher[],
-    inLoopAssignments: Array<{
-        date: string;
-        tipoParte: string;
-        resolvedPublisherName: string;
-        funcao: string;
-    }>,
-    _tipoParte: string
-): BatchAssignmentResult {
-    const assignments: Array<{ partId: string; publisher: Publisher }> = [];
-    const logs: string[] = [];
-    const usedNames = new Set<string>();
-
-    // Ordenar partes por data
-    const sortedParts = [...parts].sort((a, b) => a.date.localeCompare(b.date));
-
-    let publisherIndex = 0;
-
-    for (const part of sortedParts) {
-        // Encontrar próximo publicador disponível (não usado ainda nesta batch)
-        while (publisherIndex < rankedPublishers.length) {
-            const candidate = rankedPublishers[publisherIndex];
-
-            if (!usedNames.has(candidate.publisher.name)) {
-                // Verificar se não foi designado in-loop para mesma semana
-                const alreadyInWeek = inLoopAssignments.some(a =>
-                    a.resolvedPublisherName === candidate.publisher.name &&
-                    a.date === part.date
-                );
-
-                if (!alreadyInWeek) {
-                    assignments.push({ partId: part.id, publisher: candidate.publisher });
-                    usedNames.add(candidate.publisher.name);
-                    logs.push(`${part.weekDisplay}: ${candidate.publisher.name} (${candidate.priority}pts)`);
-                    publisherIndex++;
-                    break;
-                }
-            }
-            publisherIndex++;
-        }
-
-        if (publisherIndex >= rankedPublishers.length) {
-            logs.push(`${part.weekDisplay}: ⚠️ Sem publicadores disponíveis`);
-        }
-    }
-
-    // Publicadores não usados
-    const remainingPublishers = rankedPublishers
-        .filter(r => !usedNames.has(r.publisher.name))
-        .map(r => r.publisher);
-
-    return { assignments, remainingPublishers, logs };
 }
 
 // ===== Validações =====
