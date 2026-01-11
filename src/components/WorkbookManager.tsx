@@ -399,35 +399,15 @@ export function WorkbookManager({ publishers }: Props) {
 
             // =====================================================================
             // UNIFIED NOMENCLATURE: Use part.modalidade directly (Phase 5)
-            // Fallback to tipoParte-based derivation for legacy data
+            // Fallback to tipoParte-based derivation using centralized mapping
             // =====================================================================
 
-            // Mapeamento tipoParte → modalidade (fallback para dados legados)
-            const TIPO_TO_MODALIDADE: Record<string, string> = {
-                'Presidente': EnumModalidade.PRESIDENCIA,
-                'Oração Inicial': EnumModalidade.ORACAO,
-                'Oração Final': EnumModalidade.ORACAO,
-                'Comentários Iniciais': EnumModalidade.PRESIDENCIA,
-                'Comentários Finais': EnumModalidade.PRESIDENCIA,
-                'Leitura da Bíblia': EnumModalidade.LEITURA_ESTUDANTE,
-                'Dirigente EBC': EnumModalidade.DIRIGENTE_EBC,
-                'Leitor EBC': EnumModalidade.LEITOR_EBC,
-                'Discurso Tesouros': EnumModalidade.DISCURSO_ENSINO,
-                'Joias Espirituais': EnumModalidade.DISCURSO_ENSINO,
-                'Iniciando Conversas': EnumModalidade.DEMONSTRACAO,
-                'Cultivando o Interesse': EnumModalidade.DEMONSTRACAO,
-                'Fazendo Discípulos': EnumModalidade.DEMONSTRACAO,
-                'Explicando Suas Crenças': EnumModalidade.DEMONSTRACAO,
-                'Discurso de Estudante': EnumModalidade.DISCURSO_ESTUDANTE,
-                'Necessidades Locais': EnumModalidade.DISCURSO_ENSINO,
-            };
-
-            // Usar modalidade do registro ou derivar do tipoParte
+            // Usar modalidade do registro ou derivar do tipoParte (via import centralizado)
             const getModalidade = (part: WorkbookPart): string => {
                 // PRIORITY 1: Use modalidade field directly (unified nomenclature)
                 if (part.modalidade) return part.modalidade;
-                // PRIORITY 2: Fallback to tipoParte mapping
-                return TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO;
+                // PRIORITY 2: Fallback to tipoParte mapping (usa getModalidadeFromTipo já importado)
+                return getModalidadeFromTipo(part.tipoParte);
             };
 
 
@@ -956,7 +936,7 @@ export function WorkbookManager({ publishers }: Props) {
                             date: part.date,
                             section: part.section,
                             tipoParte: part.tipoParte,
-                            modalidade: part.modalidade || (TIPO_TO_MODALIDADE[part.tipoParte] || EnumModalidade.DEMONSTRACAO),
+                            modalidade: part.modalidade || getModalidadeFromTipo(part.tipoParte),
                             tituloParte: part.tituloParte,
                             descricaoParte: part.descricaoParte,
                             detalhesParte: part.detalhesParte,
