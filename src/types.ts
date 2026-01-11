@@ -381,3 +381,65 @@ export interface ValidationResponse {
     isValid: boolean;
     reason: string;
 }
+
+// ===== PERÍODO DE ANÁLISE (v8.2) =====
+
+export interface AnalysisPeriod {
+    id?: string;
+    startDate: string;      // YYYY-MM-DD
+    endDate: string;        // YYYY-MM-DD
+    isDefault: boolean;     // Se é período default (último semestre)
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+// ===== AUTO-TUNING (v8.2) =====
+
+export interface TuningMetrics {
+    period: AnalysisPeriod;
+    totalParticipations: number;
+    activePublishers: number;
+    avgParticipationsPerPublisher: number;
+    distributionStdDev: number;     // Desvio padrão (ideal < 2.0)
+    maxOverload: number;            // Max - Média (ideal < 3)
+    idlePublishers: number;         // Sem parte > 8 semanas (ideal = 0)
+    gapViolations: number;          // Violações MIN_WEEK_GAP
+    collectedAt: string;
+}
+
+export interface TuningRecommendation {
+    parameter: string;
+    currentValue: number;
+    proposedValue: number;
+    reason: string;
+    impact: 'low' | 'medium' | 'high';
+}
+
+export interface TuningConfig {
+    // Parâmetros do Motor
+    weeksFactor: number;            // Default: 50
+    weightFactor: number;           // Default: 5
+    bimonthlyBonus: number;         // Default: 1000
+    cooldownWeeks: number;          // Default: 3
+    bimonthlyThreshold: number;     // Default: 8
+
+    // Configurações do Auto-Tuning
+    autoRunEnabled: boolean;        // Executar automaticamente
+    autoRunIntervalWeeks: number;   // Intervalo em semanas (8 = bimestral)
+    lastAutoRunAt?: string;         // Última execução automática
+
+    // Metadados
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export const DEFAULT_TUNING_CONFIG: TuningConfig = {
+    weeksFactor: 50,
+    weightFactor: 5,
+    bimonthlyBonus: 1000,
+    cooldownWeeks: 3,
+    bimonthlyThreshold: 8,
+    autoRunEnabled: true,
+    autoRunIntervalWeeks: 8,  // Bimestral
+};
+
