@@ -1,62 +1,52 @@
 /**
- * Assignment Service - RVM Designações v6.0
+ * Assignment Service - RVM Designações v6.1
  * 
- * Implementa designação por prioridade dinâmica para 3 grupos:
- * - Presidentes: Anciãos + SMs aprovados
- * - Ensino: Anciãos + SMs (Tesouros, Joias, EBC)
- * - Estudante: Todos elegíveis (Leitura, Demos)
+ * Implementa designação por prioridade dinâmica.
+ * 
+ * v6.1: Delega definição de grupos para groupService.
+ * 
+ * NOTA: Este serviço está parcialmente deprecado.
+ * - rankByPriority/assignInSequence: Não usados atualmente
+ * - Funções de grupo: Mantidas como aliases para groupService (compatibilidade)
+ * - validatePartsBeforeGeneration: Ainda utilizado
  */
 
 import type { Publisher, HistoryRecord } from '../types';
 import { calculateRotationPriority } from './cooldownService';
+import { getGroupMembers } from './groupService';
 
-// ===== Constantes =====
-
-// ===== Grupos =====
+// ===== Funções de Grupo (aliases para groupService) =====
 
 /**
- * Grupo Presidentes: Anciãos + SMs aprovados para presidir
+ * @deprecated Use getGroupMembers from groupService instead
  */
 export function getGrupoPresidentes(publishers: Publisher[]): Publisher[] {
-    return publishers.filter(p =>
-        p.condition === 'Ancião' ||
-        p.condition === 'Anciao' ||
-        (p.condition === 'Servo Ministerial' && p.privileges?.canPreside)
-    );
+    return getGroupMembers(publishers, 'presidentes');
 }
 
 /**
- * Grupo Ensino: Todos Anciãos + SMs
- * Para Leitor EBC, inclui também irmãos batizados elegíveis
+ * @deprecated Use getGroupMembers from groupService instead
  */
 export function getGrupoEnsino(publishers: Publisher[]): Publisher[] {
-    return publishers.filter(p =>
-        p.condition === 'Ancião' ||
-        p.condition === 'Anciao' ||
-        p.condition === 'Servo Ministerial'
-    );
+    return getGroupMembers(publishers, 'ensino');
 }
 
 /**
- * Grupo Ensino Expandido (para Leitor EBC): Anciãos + SMs + Irmãos batizados elegíveis
+ * @deprecated Use getGroupMembers from groupService instead
  */
 export function getGrupoEnsinoExpandido(publishers: Publisher[]): Publisher[] {
-    return publishers.filter(p =>
-        p.condition === 'Ancião' ||
-        p.condition === 'Anciao' ||
-        p.condition === 'Servo Ministerial' ||
-        ((p.gender as string) === 'M' && p.isServing && (p.condition as string) === 'Publicador Batizado')
-    );
+    return getGroupMembers(publishers, 'ensino_expandido');
 }
 
 /**
- * Grupo Estudante: Todos elegíveis (batizados + não-batizados)
+ * @deprecated Use getGroupMembers from groupService instead
  */
 export function getGrupoEstudante(publishers: Publisher[]): Publisher[] {
-    return publishers.filter(p => p.isServing);
+    return getGroupMembers(publishers, 'estudante');
 }
 
 // ===== Ranking por Prioridade =====
+
 
 export interface RankedPublisher {
     publisher: Publisher;

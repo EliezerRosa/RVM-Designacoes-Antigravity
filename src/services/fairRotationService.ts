@@ -1,7 +1,9 @@
 /**
- * Fair Rotation Service - RVM Designações v7.0
+ * Fair Rotation Service - RVM Designações v7.1
  * 
  * Implementa rotação justa LINEAR por grupo com índices persistidos.
+ * 
+ * v7.1: Usa groupService como fonte de verdade para definição de grupos.
  * 
  * Grupos:
  * - presidentes: Anciãos (+ SM aprovados)
@@ -14,9 +16,11 @@
 
 import { api } from './api';
 import type { Publisher } from '../types';
+import { getGroupMembers as getGroupMembersFromService, type PublisherGroup } from './groupService';
 
 // ===== Tipos =====
 
+// RotationGroup é subset de PublisherGroup (exclui ensino_expandido que não tem rotação)
 export type RotationGroup =
     | 'presidentes'
     | 'ensino'
@@ -68,67 +72,16 @@ async function saveRotationIndices(indices: Record<RotationGroup, number>): Prom
     }
 }
 
-// ===== Funções de Grupo =====
+// ===== Funções de Grupo (delegam para groupService) =====
 
 /**
- * Obtém lista de publicadores elegíveis para um grupo, ordenados por ID (ordem de cadastro)
+ * Obtém lista de publicadores elegíveis para um grupo.
+ * DELEGA para groupService como fonte de verdade.
+ * 
+ * @deprecated Preferir importar diretamente de groupService
  */
 export function getGroupMembers(publishers: Publisher[], group: RotationGroup): Publisher[] {
-    let members: Publisher[];
-
-    switch (group) {
-        case 'presidentes':
-            members = publishers.filter(p =>
-                (p.condition === 'Ancião' || p.condition === 'Anciao') ||
-                (p.condition === 'Servo Ministerial' && p.privileges?.canPreside)
-            );
-            break;
-
-        case 'ensino':
-            members = publishers.filter(p =>
-                p.condition === 'Ancião' ||
-                p.condition === 'Anciao' ||
-                p.condition === 'Servo Ministerial'
-            );
-            break;
-
-        case 'estudante':
-            members = publishers.filter(p => p.isServing);
-            break;
-
-        case 'ajudante_m':
-            members = publishers.filter(p =>
-                p.isServing &&
-                p.gender === 'brother' &&
-                !p.isHelperOnly // Se isHelperOnly, já está no ajudante
-            );
-            break;
-
-        case 'ajudante_f':
-            members = publishers.filter(p =>
-                p.isServing &&
-                p.gender === 'sister'
-            );
-            break;
-
-        case 'oracao_final':
-            members = publishers.filter(p =>
-                p.isBaptized &&
-                p.gender === 'brother' &&
-                p.privileges?.canPray
-            );
-            break;
-
-        default:
-            members = [];
-    }
-
-    // Ordenar por ID (ordem de cadastro) - IDs menores primeiro
-    return members.sort((a, b) => {
-        const idA = parseInt(a.id) || 0;
-        const idB = parseInt(b.id) || 0;
-        return idA - idB;
-    });
+    return getGroupMembersFromService(publishers, group as PublisherGroup);
 }
 
 // ===== Função Principal de Rotação =====
