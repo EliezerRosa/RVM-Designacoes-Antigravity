@@ -49,32 +49,8 @@ const EXPECTED_COLUMNS = [
     'seq', 'funcao', 'duracao', 'horaInicio', 'horaFim', 'rawPublisherName', 'status'
 ];
 
-// Mapeamento de tipo de parte para modalidade de elegibilidade
-// Usado para verificar elegibilidade corretamente no motor automático
-const TIPO_TO_MODALIDADE: Record<string, string> = {
-    'Presidente da Reunião': EnumModalidade.PRESIDENCIA,
-    'Presidente': EnumModalidade.PRESIDENCIA,
-    'Oração Inicial': EnumModalidade.ORACAO,
-    'Oração Final': EnumModalidade.ORACAO,
-    'Comentários Iniciais': EnumModalidade.PRESIDENCIA,
-    'Comentários Finais': EnumModalidade.PRESIDENCIA,
-    'Leitura da Bíblia': EnumModalidade.LEITURA_ESTUDANTE,
-    'Dirigente EBC': EnumModalidade.DIRIGENTE_EBC,
-    'Leitor EBC': EnumModalidade.LEITOR_EBC,
-    'Discurso Tesouros': EnumModalidade.DISCURSO_ENSINO,
-    'Joias Espirituais': EnumModalidade.DISCURSO_ENSINO,
-    'Iniciando Conversas': EnumModalidade.DEMONSTRACAO,
-    'Cultivando o Interesse': EnumModalidade.DEMONSTRACAO,
-    'Fazendo Discípulos': EnumModalidade.DEMONSTRACAO,
-    'Explicando Suas Crenças': EnumModalidade.DEMONSTRACAO,
-    'Discurso de Estudante': EnumModalidade.DISCURSO_ESTUDANTE,
-    'Necessidades Locais': EnumModalidade.DISCURSO_ENSINO,
-};
-
-// Função para obter modalidade a partir do tipo de parte
-const getModalidadeFromTipo = (tipoParte: string): string => {
-    return TIPO_TO_MODALIDADE[tipoParte] || EnumModalidade.DEMONSTRACAO;
-};
+// Importar mapeamento centralizado (substitui definição local)
+import { getModalidadeFromTipo } from '../constants/mappings';
 
 // ========================================================================
 // Funções de Temporalidade - "Semana Atual" = contém a segunda-feira
