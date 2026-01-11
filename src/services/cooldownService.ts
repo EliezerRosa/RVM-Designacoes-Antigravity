@@ -22,7 +22,7 @@ import type { HistoryRecord, Publisher } from '../types';
 import { getPartWeight } from '../constants/partWeights';
 
 
-// ===== Constantes de Configuração v8.0 =====
+// ===== Constantes de Configuração v8.1 =====
 
 export const COOLDOWN_WEEKS = 3; // Semanas mínimas entre mesma parte (antes: 6)
 export const COOLDOWN_WEEKS_HELPER = 2; // Semanas mínimas para Ajudante
@@ -32,6 +32,12 @@ export const SOFT_COOLDOWN_PENALTY = 15; // Penalidade para repetição de tipo
 // Fatores da fórmula de score v8.0
 export const WEEKS_FACTOR = 50; // Multiplicador de semanas desde última participação
 export const WEIGHT_FACTOR = 5; // Multiplicador de peso acumulado
+
+// v8.1: Garantia de Participação Bimestral
+// Publicador que não participou há 8+ semanas recebe MEGA BÔNUS
+export const BIMONTHLY_THRESHOLD_WEEKS = 8; // 2 meses = 8 semanas
+export const BIMONTHLY_BONUS = 1000; // Bônus alto para priorizar quem está "esquecido"
+
 // Tipo para categorias de participação (usado em filtros)
 export type ParticipationCategory = 'MAIN' | 'HELPER' | 'IGNORED';
 
@@ -170,13 +176,19 @@ export function calculateRotationPriority(
     }
 
     // ========================================
-    // FÓRMULA v8.0:
-    // Score = (Semanas × 50) - (PesoAcumulado × 5) - Penalidades
+    // FÓRMULA v8.1:
+    // Score = (Semanas × 50) - (PesoAcumulado × 5) - Penalidades + BônusBimestral
     // ========================================
+
+    // v8.1: Bônus para garantir participação mínima a cada 2 meses
+    // Se publicador está há 8+ semanas sem participar, recebe MEGA BÔNUS
+    const bimonthlyBonus = weeksSinceLast >= BIMONTHLY_THRESHOLD_WEEKS ? BIMONTHLY_BONUS : 0;
+
     const score = (weeksSinceLast * WEEKS_FACTOR)
         - (weightedTotal * WEIGHT_FACTOR)
         - (futureCount * 30)
-        - softCooldownPenalty;
+        - softCooldownPenalty
+        + bimonthlyBonus;
 
     return Math.floor(score);
 }
