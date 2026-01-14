@@ -239,6 +239,12 @@ export interface WorkbookPart {
     rejectedReason?: string;
     completedAt?: string;
     cancelReason?: string;
+
+    // Campos de Eventos Especiais
+    affectedByEventId?: string;     // Evento que afetou esta parte (aplicado)
+    pendingEventId?: string;        // Evento pendente que afetará esta parte
+    createdByEventId?: string;      // Evento que criou esta parte (ADD_PART)
+    originalDuration?: string;      // Duração original antes de ajuste
 }
 
 export interface WorkbookBatch {

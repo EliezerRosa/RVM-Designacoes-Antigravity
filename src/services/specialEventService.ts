@@ -344,9 +344,43 @@ export const specialEventService = {
                 break;
 
             case 'ADD_PART':
-                // Não afeta partes existentes, apenas adiciona nova parte
-                // (A criação da nova parte seria feita separadamente)
-                affected = 0;
+                // Criar nova parte física para o evento especial
+                {
+                    // Buscar última seq da seção Vida Cristã para posicionar a nova parte
+                    const { data: existingParts } = await supabase
+                        .from('workbook_parts')
+                        .select('seq, date, week_display, batch_id')
+                        .in('id', weekParts)
+                        .order('seq', { ascending: false })
+                        .limit(1);
+
+                    const lastPart = existingParts?.[0];
+                    const newSeq = lastPart ? (lastPart.seq + 1) : 99;
+
+                    // Criar nova parte
+                    const { error: insertError } = await supabase
+                        .from('workbook_parts')
+                        .insert({
+                            batch_id: lastPart?.batch_id,
+                            week_id: event.week,
+                            week_display: lastPart?.week_display || event.week,
+                            date: lastPart?.date || event.week,
+                            section: 'Vida Cristã',
+                            tipo_parte: 'Evento Especial',
+                            part_title: event.theme || template?.name || 'Evento Especial',
+                            modalidade: 'Discurso de Ensino',
+                            duracao: `${event.duration || template?.defaults.duration || 10} min`,
+                            seq: newSeq,
+                            funcao: 'Titular',
+                            raw_publisher_name: event.responsible || '',
+                            resolved_publisher_name: event.responsible || '',
+                            status: event.responsible ? 'DESIGNADA' : 'PENDENTE',
+                            created_by_event_id: event.id,
+                            affected_by_event_id: event.id,
+                        });
+                    if (insertError) throw insertError;
+                    affected = 1;
+                }
                 break;
 
             case 'REDUCE_VIDA_CRISTA_TIME':
@@ -431,6 +465,13 @@ export const specialEventService = {
             }
         }
 
+        // Deletar partes CRIADAS pelo evento (ADD_PART)
+        const { count: deletedCount } = await supabase
+            .from('workbook_parts')
+            .delete()
+            .eq('created_by_event_id', event.id);
+        restored += deletedCount || 0;
+
         // Marcar evento como não aplicado
         await supabase
             .from('special_events')
@@ -438,5 +479,111 @@ export const specialEventService = {
             .eq('id', event.id);
 
         return { restored };
+    },
+
+    /**
+     * Marca partes como "pendentes de impacto" (sem aplicar ainda).
+     * Usado quando o evento é criado sem auto-apply.
+     * Mostra indicadores visuais amarelos pulsantes.
+     */
+    async markPendingImpact(event: SpecialEvent, weekParts: string[]): Promise<{ marked: number }> {
+        const template = this.getTemplateById(event.templateId);
+        if (!template) return { marked: 0 };
+
+        const action = template.impact.action;
+        let marked = 0;
+
+        switch (action) {
+            case 'CANCEL_WEEK':
+                // Marcar TODAS as partes como pendentes
+                {
+                    const { count } = await supabase
+                        .from('workbook_parts')
+                        .update({ pending_event_id: event.id })
+                        .in('id', weekParts);
+                    marked = count || 0;
+                }
+                break;
+
+            case 'SC_VISIT_LOGIC':
+                // Marcar partes específicas como pendentes
+                {
+                    const { data: parts } = await supabase
+                        .from('workbook_parts')
+                        .select('id, tipo_parte')
+                        .in('id', weekParts);
+
+                    if (parts) {
+                        const partsToMark = parts.filter(p =>
+                            p.tipo_parte === 'Dirigente do EBC' ||
+                            p.tipo_parte === 'Leitor do EBC' ||
+                            p.tipo_parte === 'Necessidades Locais' ||
+                            p.tipo_parte === 'Comentários Finais'
+                        ).map(p => p.id);
+
+                        if (partsToMark.length > 0) {
+                            const { count } = await supabase
+                                .from('workbook_parts')
+                                .update({ pending_event_id: event.id })
+                                .in('id', partsToMark);
+                            marked = count || 0;
+                        }
+                    }
+                }
+                break;
+
+            case 'TIME_ADJUSTMENT':
+                // Marcar EBC como pendente
+                {
+                    const { data: parts } = await supabase
+                        .from('workbook_parts')
+                        .select('id, tipo_parte')
+                        .in('id', weekParts);
+
+                    if (parts) {
+                        const ebcPart = parts.find(p => p.tipo_parte === 'Dirigente do EBC');
+                        if (ebcPart) {
+                            await supabase
+                                .from('workbook_parts')
+                                .update({ pending_event_id: event.id })
+                                .eq('id', ebcPart.id);
+                            marked = 1;
+                        }
+                    }
+                }
+                break;
+
+            case 'REDUCE_VIDA_CRISTA_TIME':
+                // Marcar parte específica como pendente
+                if (event.targetPartId) {
+                    await supabase
+                        .from('workbook_parts')
+                        .update({ pending_event_id: event.id })
+                        .eq('id', event.targetPartId);
+                    marked = 1;
+                }
+                break;
+
+            case 'ADD_PART':
+                // Não há partes para marcar, evento será criado quando aplicado
+                marked = 0;
+                break;
+
+            default:
+                marked = 0;
+        }
+
+        return { marked };
+    },
+
+    /**
+     * Limpa marcações de "pendente" de um evento.
+     * Usado quando evento é deletado ou aplicado.
+     */
+    async clearPendingMarks(eventId: string): Promise<void> {
+        await supabase
+            .from('workbook_parts')
+            .update({ pending_event_id: null })
+            .eq('pending_event_id', eventId);
     },
 };

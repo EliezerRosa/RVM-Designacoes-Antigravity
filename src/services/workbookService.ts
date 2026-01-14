@@ -73,6 +73,12 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         approvedAt: row.approved_at as string | undefined,
         rejectedReason: row.rejected_reason as string | undefined,
         completedAt: row.completed_at as string | undefined,
+        cancelReason: (row.cancel_reason as string) || undefined,
+        // Campos de Eventos Especiais
+        affectedByEventId: (row.affected_by_event_id as string) || undefined,
+        pendingEventId: (row.pending_event_id as string) || undefined,
+        createdByEventId: (row.created_by_event_id as string) || undefined,
+        originalDuration: (row.original_duration as string) || undefined,
     };
 }
 
