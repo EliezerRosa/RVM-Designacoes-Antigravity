@@ -27,6 +27,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const [formTheme, setFormTheme] = useState('');
     const [formAssignee, setFormAssignee] = useState('');
     const [formTargetPartId, setFormTargetPartId] = useState('');
+    const [formAutoApply, setFormAutoApply] = useState(true);  // Padrão: aplicar automaticamente
     const [targetParts, setTargetParts] = useState<Array<{ id: string; title: string; duration: string }>>([]);
 
     const templates = EVENT_TEMPLATES;
@@ -96,6 +97,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormTheme('');
         setFormAssignee('');
         setFormTargetPartId('');
+        setFormAutoApply(true);  // Resetar para padrão
         setTargetParts([]);
         setEditingEvent(null);
         setShowForm(false);
@@ -126,14 +128,35 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 isApplied: false,
             };
 
+            let createdEvent: SpecialEvent;
+
             if (editingEvent) {
                 await specialEventService.updateEvent(editingEvent.id, eventData);
+                createdEvent = { ...editingEvent, ...eventData } as SpecialEvent;
             } else {
-                await specialEventService.createEvent(eventData as Omit<SpecialEvent, 'id'>);
+                createdEvent = await specialEventService.createEvent(eventData as Omit<SpecialEvent, 'id'>);
+            }
+
+            // Buscar IDs das partes da semana
+            const { data: weekParts } = await supabase
+                .from('workbook_parts')
+                .select('id')
+                .eq('week_id', formWeekId);
+            const partIds = (weekParts || []).map((p: { id: string }) => p.id);
+
+            if (formAutoApply && partIds.length > 0) {
+                // Aplicar automaticamente
+                await specialEventService.applyEventImpact(createdEvent, partIds);
+                console.log('[Eventos] ✅ Evento aplicado automaticamente');
+            } else if (partIds.length > 0) {
+                // Marcar como pendente (indicadores visuais)
+                await specialEventService.markPendingImpact(createdEvent, partIds);
+                console.log('[Eventos] ⏳ Evento marcado como pendente');
             }
 
             resetForm();
             await loadEvents();
+            onEventApplied?.();  // Recarregar partes na aba Apostila
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao salvar');
         } finally {
@@ -190,9 +213,12 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 throw new Error('Nenhuma parte encontrada para esta semana');
             }
 
+            // Limpar marcações de pendente antes de aplicar (para atualizar indicadores)
+            await specialEventService.clearPendingMarks(event.id);
+
             // Aplicar impacto
             const result = await specialEventService.applyEventImpact(event, partIds);
-            console.log(`[Eventos] Impacto aplicado: ${result.affected} partes afetadas`);
+            console.log(`[Eventos] ✅ Impacto aplicado: ${result.affected} partes afetadas`);
 
             await loadEvents();
             onEventApplied?.();
@@ -393,6 +419,36 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                             />
                         </>
                     )}
+
+                    {/* Opção de Auto-Aplicar */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '16px',
+                        padding: '8px 12px',
+                        background: formAutoApply ? '#DCFCE7' : '#FEF3C7',
+                        borderRadius: '6px',
+                        border: formAutoApply ? '1px solid #86EFAC' : '1px solid #FCD34D'
+                    }}>
+                        <input
+                            type="checkbox"
+                            id="autoApply"
+                            checked={formAutoApply}
+                            onChange={e => setFormAutoApply(e.target.checked)}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="autoApply" style={{
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            color: formAutoApply ? '#166534' : '#92400E',
+                            cursor: 'pointer'
+                        }}>
+                            {formAutoApply
+                                ? '✅ Aplicar automaticamente ao salvar'
+                                : '⏳ Manter pendente (com indicador visual)'}
+                        </label>
+                    </div>
 
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                         <button onClick={resetForm} style={btnStyle('#6B7280')}>

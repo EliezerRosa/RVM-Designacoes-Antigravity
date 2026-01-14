@@ -22,6 +22,7 @@ import { downloadS140RoomBEV } from '../services/s140GeneratorRoomBEvents';
 import { downloadS140RoomBA4 } from '../services/s140GeneratorRoomBA4';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
+import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
 
 
 import { Tooltip } from './Tooltip';
@@ -135,6 +136,9 @@ export function WorkbookManager({ publishers }: Props) {
 
     // Estado do Modal de Reset em Lote
     const [isBulkResetModalOpen, setIsBulkResetModalOpen] = useState(false);
+
+    // Estado do Modal de Geração
+    const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -341,7 +345,9 @@ export function WorkbookManager({ publishers }: Props) {
     // ========================================================================
     // Gerar Designações (Motor Completo)
     // ========================================================================
-    const handleGenerateDesignations = async () => {
+    const handleGenerateDesignations = async (config?: GenerationConfig): Promise<GenerationResult> => {
+        const isDryRun = config?.isDryRun ?? false;
+        const warnings: string[] = [];
 
         // Helper para normalizar data (duplicado do ApprovalPanel por enquanto)
         const parseDate = (dateStr: string): Date => {
@@ -367,12 +373,13 @@ export function WorkbookManager({ publishers }: Props) {
         });
 
         if (partsNeedingAssignment.length === 0) {
-            setError('Todas as partes já foram promovidas');
-            return;
-        }
-
-        if (!confirm(`Gerar designações para ${partsNeedingAssignment.length} partes usando o motor de elegibilidade? Isso criará registros na aba Aprovações.`)) {
-            return;
+            return {
+                success: false,
+                partsGenerated: 0,
+                warnings: [],
+                errors: ['Todas as partes já foram promovidas'],
+                dryRun: isDryRun,
+            };
         }
 
         try {
@@ -384,9 +391,8 @@ export function WorkbookManager({ publishers }: Props) {
             // =================================================================
             const durationWarnings = validatePartsBeforeGeneration(partsNeedingAssignment);
             if (durationWarnings.length > 0) {
-                const warningMessages = durationWarnings.map(w => w.message).join('\n');
+                durationWarnings.forEach(w => warnings.push(w.message));
                 console.warn('[Motor] ⚠️ Partes sem duração:', durationWarnings);
-                alert(`⚠️ ATENÇÃO: ${durationWarnings.length} parte(s) de Titular sem duração definida:\n\n${warningMessages}\n\nAs designações serão geradas, mas revise essas partes.`);
             }
 
             // Carregar histórico para cooldown (usando historyAdapter)
@@ -964,6 +970,18 @@ export function WorkbookManager({ publishers }: Props) {
 
             setSuccessMessage(`✅ ${totalCreated} designações processadas (${totalWithPublisher} com publicador selecionado pelo motor).`);
 
+            // Se for dry-run, NÃO salvar no banco
+            if (isDryRun) {
+                console.log('[Motor] 🔍 Dry-run: nenhuma alteração salva');
+                return {
+                    success: true,
+                    partsGenerated: totalWithPublisher,
+                    warnings,
+                    errors: [],
+                    dryRun: true,
+                };
+            }
+
             // Atualizar status das partes para PROPOSTA usando o ciclo de vida
             // Usa proposePublisher para preencher proposedPublisherId/proposedPublisherName
             for (const part of partsNeedingAssignment) {
@@ -1011,8 +1029,24 @@ export function WorkbookManager({ publishers }: Props) {
 
             await loadPartsWithFilters();
 
+            return {
+                success: true,
+                partsGenerated: totalWithPublisher,
+                warnings,
+                errors: [],
+                dryRun: false,
+            };
+
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erro ao gerar designações');
+            const errorMsg = err instanceof Error ? err.message : 'Erro ao gerar designações';
+            setError(errorMsg);
+            return {
+                success: false,
+                partsGenerated: 0,
+                warnings,
+                errors: [errorMsg],
+                dryRun: isDryRun,
+            };
         } finally {
             setLoading(false);
         }
@@ -1378,7 +1412,7 @@ export function WorkbookManager({ publishers }: Props) {
                                     <button onClick={() => loadPartsWithFilters()} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                                         🔄 Atualizar
                                     </button>
-                                    <button onClick={handleGenerateDesignations} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
+                                    <button onClick={() => setIsGenerationModalOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                                         🎯 Gerar
                                     </button>
                                     <button onClick={() => setIsLocalNeedsQueueOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#0891B2', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
@@ -1668,7 +1702,37 @@ export function WorkbookManager({ publishers }: Props) {
                                                             {(() => {
                                                                 const config = getStatusConfig(part.status);
                                                                 const isCancelled = part.status === 'CANCELADA';
-                                                                const hasEventImpact = !!(part as { affectedByEventId?: string }).affectedByEventId;
+                                                                const hasEventImpact = !!part.affectedByEventId;
+                                                                const hasPendingEvent = !!part.pendingEventId;
+                                                                const isCreatedByEvent = !!part.createdByEventId;
+
+                                                                // Determinar estilo de animação
+                                                                let animationStyle = {};
+                                                                let eventIcon = '';
+                                                                let eventTitle = '';
+
+                                                                if (hasEventImpact || isCancelled) {
+                                                                    // 🔴 Evento aplicado - pisca vermelho
+                                                                    animationStyle = {
+                                                                        animation: 'blink-red 1.5s ease-in-out infinite'
+                                                                    };
+                                                                    eventIcon = '⚡';
+                                                                    eventTitle = 'Afetado por Evento Especial (Aplicado)';
+                                                                } else if (hasPendingEvent) {
+                                                                    // 🟡 Evento pendente - pisca amarelo
+                                                                    animationStyle = {
+                                                                        animation: 'blink-yellow 1.2s ease-in-out infinite'
+                                                                    };
+                                                                    eventIcon = '⏳';
+                                                                    eventTitle = 'Evento Pendente - Será afetado quando aplicado';
+                                                                } else if (isCreatedByEvent) {
+                                                                    // 🔵 Parte criada por evento - pisca azul
+                                                                    animationStyle = {
+                                                                        animation: 'blink-blue 1.5s ease-in-out infinite'
+                                                                    };
+                                                                    eventIcon = '✨';
+                                                                    eventTitle = 'Parte criada por Evento Especial';
+                                                                }
 
                                                                 const badge = (
                                                                     <span style={{
@@ -1683,8 +1747,9 @@ export function WorkbookManager({ publishers }: Props) {
                                                                         gap: '4px',
                                                                         fontWeight: '600',
                                                                         cursor: isCancelled && part.cancelReason ? 'help' : 'default',
+                                                                        ...animationStyle,
                                                                     }}>
-                                                                        {hasEventImpact && <span title="Afetado por Evento Especial">⚡</span>}
+                                                                        {eventIcon && <span title={eventTitle}>{eventIcon}</span>}
                                                                         {config.icon} {config.label}
                                                                     </span>
                                                                 );
@@ -1697,6 +1762,20 @@ export function WorkbookManager({ publishers }: Props) {
                                                                                 <div style={{ padding: '4px' }}>
                                                                                     <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>🚫 Parte Cancelada</div>
                                                                                     <div style={{ fontSize: '12px' }}>Motivo: {part.cancelReason}</div>
+                                                                                </div>
+                                                                            }
+                                                                        >
+                                                                            {badge}
+                                                                        </Tooltip>
+                                                                    );
+                                                                }
+                                                                if (hasPendingEvent) {
+                                                                    return (
+                                                                        <Tooltip
+                                                                            content={
+                                                                                <div style={{ padding: '4px' }}>
+                                                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>⏳ Evento Pendente</div>
+                                                                                    <div style={{ fontSize: '12px' }}>Esta parte será afetada quando o evento for aplicado</div>
                                                                                 </div>
                                                                             }
                                                                         >
@@ -1998,6 +2077,16 @@ export function WorkbookManager({ publishers }: Props) {
                         </div>
                     )}
             </div>
+
+            {/* Modal de Geração Inteligente */}
+            <GenerationModal
+                isOpen={isGenerationModalOpen}
+                onClose={() => setIsGenerationModalOpen(false)}
+                onGenerate={handleGenerateDesignations}
+                parts={parts}
+                publishers={publishers}
+            />
+
             {loading && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
                     <div style={{ background: 'white', padding: '24px', borderRadius: '12px' }}>

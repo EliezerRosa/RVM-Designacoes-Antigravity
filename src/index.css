@@ -190,3 +190,52 @@ button:focus-visible {
     color: #ef4444;
   }
 }
+
+/* ============================================================================
+   Blinking Animations for Special Event Indicators
+   ============================================================================ */
+
+/* 🔴 Evento Aplicado - Vermelho pulsante */
+@keyframes blink-red {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(239, 68, 68, 0);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    transform: scale(1.02);
+  }
+}
+
+/* 🟡 Evento Pendente - Amarelo pulsante */
+@keyframes blink-yellow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(245, 158, 11, 0);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.7);
+    transform: scale(1.03);
+  }
+}
+
+/* 🔵 Parte Criada por Evento - Azul pulsante */
+@keyframes blink-blue {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(59, 130, 246, 0);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+    transform: scale(1.02);
+  }
+}
