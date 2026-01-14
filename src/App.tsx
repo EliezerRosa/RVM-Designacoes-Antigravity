@@ -92,9 +92,10 @@ function App() {
     loadData()
   }, [])
 
-  // Realtime subscriptions for multi-user sync
+  // Realtime subscriptions + Polling fallback for multi-user sync
   useEffect(() => {
     console.log('[REALTIME] Setting up subscriptions...')
+    let pollingInterval: ReturnType<typeof setInterval> | null = null;
 
     // Subscribe to publishers changes
     const unsubPublishers = api.subscribeToPublishers((newPubs) => {
@@ -102,10 +103,37 @@ function App() {
       setPublishers(newPubs)
     })
 
+    // Polling fallback: Check every 30 seconds if realtime misses updates
+    // Uses a simple hash to detect ANY changes (count, name, gender, etc.)
+    const computeHash = (pubs: Publisher[]) =>
+      pubs.map(p => `${p.id}:${p.name}:${p.gender}:${p.condition}:${p.isServing}`).join('|');
+
+    let lastHash = computeHash(publishers);
+
+    const startPolling = () => {
+      pollingInterval = setInterval(async () => {
+        try {
+          const freshPubs = await api.loadPublishers();
+          const newHash = computeHash(freshPubs);
+
+          if (newHash !== lastHash) {
+            console.log(`[POLLING] Change detected, refreshing publishers...`);
+            lastHash = newHash;
+            setPublishers(freshPubs);
+          }
+        } catch (e) {
+          console.warn('[POLLING] Error checking publishers:', e);
+        }
+      }, 30000); // 30 seconds
+    };
+
+    startPolling();
+
     // Cleanup on unmount
     return () => {
       console.log('[REALTIME] Cleaning up subscriptions...')
       unsubPublishers()
+      if (pollingInterval) clearInterval(pollingInterval);
     }
   }, [])
 
