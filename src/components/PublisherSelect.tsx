@@ -70,7 +70,24 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
         const isPast = isPastWeekDate(part.date);
 
-
+        // =====================================================================
+        // Para Ajudantes: Encontrar o gênero do Titular correspondente
+        // =====================================================================
+        let titularGender: 'brother' | 'sister' | undefined = undefined;
+        if (funcao === EnumFuncao.AJUDANTE && weekParts) {
+            // Encontrar o titular com mesmo seq e weekId
+            const titularPart = weekParts.find(wp =>
+                wp.weekId === part.weekId &&
+                wp.seq === part.seq &&
+                wp.funcao === 'Titular'
+            );
+            if (titularPart?.resolvedPublisherName) {
+                const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
+                if (titularPub) {
+                    titularGender = titularPub.gender;
+                }
+            }
+        }
 
         // historyRecords e today vêm do escopo externo agora
 
@@ -98,7 +115,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 p,
                 modalidade as Parameters<typeof checkEligibility>[1],
                 funcao,
-                { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
+                { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
             );
 
             // Se já tem designação na semana, marcar como inelegível
@@ -144,6 +161,22 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
         const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
 
+        // Para Ajudantes: Encontrar o gênero do Titular correspondente
+        let titularGender: 'brother' | 'sister' | undefined = undefined;
+        if (funcao === EnumFuncao.AJUDANTE && weekParts) {
+            const titularPart = weekParts.find(wp =>
+                wp.weekId === part.weekId &&
+                wp.seq === part.seq &&
+                wp.funcao === 'Titular'
+            );
+            if (titularPart?.resolvedPublisherName) {
+                const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
+                if (titularPub) {
+                    titularGender = titularPub.gender;
+                }
+            }
+        }
+
         if (value) {
             const pub = publishers.find(p => p.id === value);
             if (pub) {
@@ -152,7 +185,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     pub,
                     modalidade as Parameters<typeof checkEligibility>[1],
                     funcao,
-                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
+                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
                 );
                 return {
                     effectiveValue: value,
@@ -190,7 +223,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     found,
                     modalidade as Parameters<typeof checkEligibility>[1],
                     funcao,
-                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast }
+                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
                 );
                 return {
                     effectiveValue: found.id,
@@ -200,7 +233,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             }
         }
         return { effectiveValue: '', foundPublisher: undefined, eligibilityInfo: undefined };
-    }, [value, displayName, publishers, part]);
+    }, [value, displayName, publishers, part, weekParts]);
 
     // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
     const showUnmatchedName = displayName && !foundPublisher;
