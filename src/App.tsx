@@ -9,6 +9,7 @@ import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import WorkbookManager from './components/WorkbookManager'
 import ApprovalPanel from './components/ApprovalPanel'
 import BackupRestore from './components/BackupRestore'
+import { ChatAgent } from './components/ChatAgent'
 
 import { workbookService } from './services/workbookService'
 
@@ -28,6 +29,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
+
+  // Chat Agent state
+  const [isChatAgentOpen, setIsChatAgentOpen] = useState(false)
 
   // Persist active tab to Supabase
   const handleTabChange = async (tab: ActiveTab) => {
@@ -325,6 +329,49 @@ function App() {
           }}
         />
       )}
+
+      {/* Chat Agent Modal */}
+      <ChatAgent
+        isOpen={isChatAgentOpen}
+        onClose={() => setIsChatAgentOpen(false)}
+        publishers={publishers}
+        parts={[]}
+      />
+
+      {/* Floating Chat Button */}
+      <button
+        onClick={() => setIsChatAgentOpen(true)}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          width: '60px',
+          height: '60px',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+          color: 'white',
+          border: 'none',
+          boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+          cursor: 'pointer',
+          fontSize: '28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          zIndex: 9000,
+        }}
+        onMouseOver={e => {
+          e.currentTarget.style.transform = 'scale(1.1)';
+          e.currentTarget.style.boxShadow = '0 12px 32px rgba(139, 92, 246, 0.5)';
+        }}
+        onMouseOut={e => {
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 92, 246, 0.4)';
+        }}
+        title="Assistente RVM"
+      >
+        🤖
+      </button>
     </div>
   )
 }
