@@ -11,6 +11,7 @@ import {
     isAgentConfigured,
     getSuggestedQuestions,
     type ChatMessage,
+    type AccessLevel,
 } from '../services/agentService';
 
 interface Props {
@@ -83,6 +84,7 @@ export function ChatAgent({ isOpen, onClose, publishers, parts, history = [] }: 
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(true);
+    const [accessLevel, setAccessLevel] = useState<AccessLevel>('publisher');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll para última mensagem
@@ -123,7 +125,8 @@ export function ChatAgent({ isOpen, onClose, publishers, parts, history = [] }: 
             publishers,
             parts,
             history,
-            messages
+            messages,
+            accessLevel  // NOVO: passar nível de acesso
         );
 
         const assistantMessage: ChatMessage = {
@@ -200,6 +203,25 @@ export function ChatAgent({ isOpen, onClose, publishers, parts, history = [] }: 
                             </span>
                         </div>
                     </div>
+                    {/* NOVO: Seletor de Acesso */}
+                    <select
+                        value={accessLevel}
+                        onChange={(e) => setAccessLevel(e.target.value as AccessLevel)}
+                        style={{
+                            background: 'rgba(255,255,255,0.2)',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            marginRight: '8px',
+                        }}
+                    >
+                        <option value="publisher" style={{ color: '#1F2937' }}>👤 Publicador</option>
+                        <option value="elder" style={{ color: '#1F2937' }}>🔐 Ancião</option>
+                    </select>
                     <button
                         onClick={onClose}
                         style={{

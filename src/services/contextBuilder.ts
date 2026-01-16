@@ -25,6 +25,34 @@ export interface ParticipationSummary {
     funcao: string;
 }
 
+// NOVO: Designação detalhada de uma parte
+export interface PartDesignation {
+    tipoParte: string;
+    tituloParte: string;
+    funcao: 'Titular' | 'Ajudante';
+    designado: string;
+    status: string;
+    horaInicio: string;
+}
+
+// NOVO: Designações de uma semana
+export interface WeekDesignation {
+    weekId: string;
+    weekDisplay: string;
+    date: string;
+    parts: PartDesignation[];
+}
+
+// NOVO: Informações sensíveis de publicador (só para Anciãos)
+export interface SensitivePublisherInfo {
+    name: string;
+    isServing: boolean;
+    isNotQualified?: boolean;
+    notQualifiedReason?: string;
+    requestedNoParticipation?: boolean;
+    noParticipationReason?: string;
+}
+
 export interface AgentContext {
     // Resumo de publicadores
     totalPublishers: number;
@@ -40,6 +68,12 @@ export interface AgentContext {
     // Partes pendentes
     pendingPartsCount: number;
     pendingPartsByWeek: Record<string, number>;
+
+    // NOVO: Designações da semana atual e próximas
+    weekDesignations: WeekDesignation[];
+
+    // NOVO: Semana atual
+    currentWeek: string;
 
     // Data atual
     currentDate: string;
@@ -123,6 +157,48 @@ export function buildAgentContext(
         return acc;
     }, {} as Record<string, number>);
 
+    // NOVO: Agrupar designações por semana (apenas semanas com partes designadas)
+    const today = new Date().toISOString().split('T')[0];
+    const weekMap = new Map<string, WeekDesignation>();
+
+    // Ordenar parts por data
+    const sortedParts = [...parts].sort((a, b) => a.date.localeCompare(b.date));
+
+    for (const part of sortedParts) {
+        // Considerar apenas partes designadas ou com nome
+        const designado = part.resolvedPublisherName || part.rawPublisherName;
+        if (!designado) continue;
+
+        const weekId = part.weekId;
+        if (!weekMap.has(weekId)) {
+            weekMap.set(weekId, {
+                weekId,
+                weekDisplay: part.weekDisplay,
+                date: part.date,
+                parts: [],
+            });
+        }
+
+        weekMap.get(weekId)!.parts.push({
+            tipoParte: part.tipoParte,
+            tituloParte: part.tituloParte,
+            funcao: part.funcao,
+            designado,
+            status: part.status,
+            horaInicio: part.horaInicio,
+        });
+    }
+
+    // Converter para array e pegar últimas 4 semanas + 4 próximas
+    const allWeeks = Array.from(weekMap.values());
+    const pastWeeks = allWeeks.filter(w => w.date < today).slice(-4);
+    const futureWeeks = allWeeks.filter(w => w.date >= today).slice(0, 4);
+    const weekDesignations = [...pastWeeks, ...futureWeeks];
+
+    // Determinar semana atual
+    const currentWeekData = allWeeks.find(w => w.date >= today);
+    const currentWeek = currentWeekData?.weekDisplay || 'N/A';
+
     return {
         totalPublishers: publishers.length,
         activePublishers: activePublishers.length,
@@ -131,6 +207,8 @@ export function buildAgentContext(
         recentParticipations,
         pendingPartsCount: pendingParts.length,
         pendingPartsByWeek,
+        weekDesignations,
+        currentWeek,
         currentDate: new Date().toISOString().split('T')[0],
     };
 }
@@ -141,7 +219,8 @@ export function buildAgentContext(
 export function formatContextForPrompt(context: AgentContext): string {
     const lines: string[] = [];
 
-    lines.push(`=== DADOS ATUAIS (${context.currentDate}) ===\n`);
+    lines.push(`=== DADOS ATUAIS (${context.currentDate}) ===`);
+    lines.push(`SEMANA ATUAL: ${context.currentWeek}\n`);
 
     // Estatísticas gerais
     lines.push(`PUBLICADORES:`);
@@ -171,8 +250,28 @@ export function formatContextForPrompt(context: AgentContext): string {
         lines.push(`  ... e mais ${publishers.length - 20} publicadores`);
     }
 
+    // NOVO: Designações por semana
+    if (context.weekDesignations.length > 0) {
+        lines.push(`\n=== DESIGNAÇÕES POR SEMANA ===\n`);
+        for (const week of context.weekDesignations) {
+            const isCurrentWeek = week.weekDisplay === context.currentWeek;
+            lines.push(`📅 ${week.weekDisplay} (${week.date})${isCurrentWeek ? ' ← SEMANA ATUAL' : ''}`);
+
+            // Agrupar por hora de início para ordem cronológica
+            const sortedParts = [...week.parts].sort((a, b) =>
+                a.horaInicio.localeCompare(b.horaInicio)
+            );
+
+            for (const part of sortedParts) {
+                const funcaoLabel = part.funcao === 'Ajudante' ? ' (Ajudante)' : '';
+                lines.push(`  • ${part.tituloParte}${funcaoLabel}: ${part.designado}`);
+            }
+            lines.push('');
+        }
+    }
+
     // Partes pendentes
-    lines.push(`\nPARTES PENDENTES: ${context.pendingPartsCount}`);
+    lines.push(`PARTES PENDENTES: ${context.pendingPartsCount}`);
     Object.entries(context.pendingPartsByWeek).forEach(([week, count]) => {
         lines.push(`- ${week}: ${count} partes`);
     });
@@ -247,4 +346,57 @@ BLOQUEIOS AUTOMÁTICOS:
 - requestedNoParticipation = true → Não designar
 - Indisponível na data → Não designar
     `.trim();
+}
+
+/**
+ * Constrói contexto sensível (só para Anciãos)
+ * Contém informações sobre bloqueios e razões de não-participação
+ */
+export function buildSensitiveContext(publishers: Publisher[]): SensitivePublisherInfo[] {
+    return publishers
+        .filter(p =>
+            !p.isServing ||
+            p.isNotQualified ||
+            p.requestedNoParticipation
+        )
+        .map(p => ({
+            name: p.name,
+            isServing: p.isServing,
+            isNotQualified: p.isNotQualified,
+            notQualifiedReason: p.notQualifiedReason,
+            requestedNoParticipation: p.requestedNoParticipation,
+            noParticipationReason: p.noParticipationReason,
+        }));
+}
+
+/**
+ * Formata contexto sensível como texto para o prompt (só para Anciãos)
+ */
+export function formatSensitiveContext(sensitiveInfo: SensitivePublisherInfo[]): string {
+    if (sensitiveInfo.length === 0) {
+        return '\n=== INFORMAÇÕES CONFIDENCIAIS (APENAS ANCIÃOS) ===\nNenhum publicador com restrições no momento.';
+    }
+
+    const lines: string[] = [];
+    lines.push('\n=== INFORMAÇÕES CONFIDENCIAIS (APENAS ANCIÃOS) ===');
+    lines.push('Os seguintes publicadores têm restrições:\n');
+
+    for (const info of sensitiveInfo) {
+        const reasons: string[] = [];
+
+        if (!info.isServing) {
+            reasons.push('Inativo (isServing = false)');
+        }
+        if (info.isNotQualified) {
+            reasons.push(`Não qualificado${info.notQualifiedReason ? `: ${info.notQualifiedReason}` : ''}`);
+        }
+        if (info.requestedNoParticipation) {
+            reasons.push(`Pediu para não participar${info.noParticipationReason ? `: ${info.noParticipationReason}` : ''}`);
+        }
+
+        lines.push(`🔒 ${info.name}:`);
+        reasons.forEach(r => lines.push(`   - ${r}`));
+    }
+
+    return lines.join('\n');
 }
