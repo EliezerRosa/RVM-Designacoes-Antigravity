@@ -11,6 +11,8 @@ import {
     getEligibilityRulesText,
     buildSensitiveContext,
     formatSensitiveContext,
+    type SpecialEventInput,
+    type LocalNeedsInput,
 } from './contextBuilder';
 
 // ===== Configuração =====
@@ -100,7 +102,9 @@ export async function askAgent(
     parts: WorkbookPart[],
     history: HistoryRecord[] = [],
     chatHistory: ChatMessage[] = [],
-    accessLevel: AccessLevel = 'publisher'  // NOVO: nível de acesso
+    accessLevel: AccessLevel = 'publisher',
+    specialEvents: SpecialEventInput[] = [],
+    localNeeds: LocalNeedsInput[] = []
 ): Promise<AgentResponse> {
     if (!isAgentConfigured()) {
         return {
@@ -111,8 +115,8 @@ export async function askAgent(
     }
 
     try {
-        // Construir contexto
-        const context = buildAgentContext(publishers, parts, history);
+        // Construir contexto (agora com eventos e necessidades locais)
+        const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds);
         const contextText = formatContextForPrompt(context);
         const rulesText = getEligibilityRulesText();
 

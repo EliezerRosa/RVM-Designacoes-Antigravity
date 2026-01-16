@@ -53,6 +53,33 @@ export interface SensitivePublisherInfo {
     noParticipationReason?: string;
 }
 
+// NOVO: Resumo de evento especial
+export interface SpecialEventSummary {
+    week: string;
+    templateId: string;
+    templateName: string;
+    theme?: string;
+    assignee?: string;
+    isApplied: boolean;
+}
+
+// NOVO: Resumo de fila de necessidades locais
+export interface LocalNeedsSummary {
+    theme: string;
+    assignee: string;
+    position: number;
+    targetWeek?: string;
+    isAssigned: boolean;
+}
+
+// NOVO: Analytics de participação
+export interface ParticipationAnalytics {
+    totalParticipations: number;
+    avgPerPublisher: number;
+    mostActive: Array<{ name: string; count: number }>;
+    leastActive: Array<{ name: string; lastDate: string | null }>;
+}
+
 export interface AgentContext {
     // Resumo de publicadores
     totalPublishers: number;
@@ -74,6 +101,15 @@ export interface AgentContext {
 
     // NOVO: Semana atual
     currentWeek: string;
+
+    // NOVO: Eventos especiais
+    specialEvents: SpecialEventSummary[];
+
+    // NOVO: Fila de necessidades locais
+    localNeedsQueue: LocalNeedsSummary[];
+
+    // NOVO: Analytics
+    participationAnalytics: ParticipationAnalytics;
 
     // Data atual
     currentDate: string;
@@ -120,7 +156,9 @@ function summarizeParticipation(record: HistoryRecord | WorkbookPart): Participa
 export function buildAgentContext(
     publishers: Publisher[],
     parts: WorkbookPart[],
-    _history: HistoryRecord[] = []
+    _history: HistoryRecord[] = [],
+    specialEvents: SpecialEventInput[] = [],
+    localNeeds: LocalNeedsInput[] = []
 ): AgentContext {
     // Filtrar publicadores ativos
     const activePublishers = publishers.filter(p => p.isServing);
@@ -199,6 +237,28 @@ export function buildAgentContext(
     const currentWeekData = allWeeks.find(w => w.date >= today);
     const currentWeek = currentWeekData?.weekDisplay || 'N/A';
 
+    // NOVO: Processar eventos especiais
+    const specialEventsSummary: SpecialEventSummary[] = specialEvents.map(e => ({
+        week: e.week,
+        templateId: e.templateId,
+        templateName: e.templateName || e.templateId,
+        theme: e.theme,
+        assignee: e.responsible,
+        isApplied: e.isApplied || false,
+    }));
+
+    // NOVO: Processar fila de necessidades locais
+    const localNeedsQueue: LocalNeedsSummary[] = localNeeds.map(ln => ({
+        theme: ln.theme,
+        assignee: ln.assigneeName,
+        position: ln.orderPosition,
+        targetWeek: ln.targetWeek || undefined,
+        isAssigned: !!ln.assignedToPartId,
+    }));
+
+    // NOVO: Calcular analytics de participação
+    const participationAnalytics = buildParticipationAnalytics(parts, publishers);
+
     return {
         totalPublishers: publishers.length,
         activePublishers: activePublishers.length,
@@ -209,7 +269,84 @@ export function buildAgentContext(
         pendingPartsByWeek,
         weekDesignations,
         currentWeek,
+        specialEvents: specialEventsSummary,
+        localNeedsQueue,
+        participationAnalytics,
         currentDate: new Date().toISOString().split('T')[0],
+    };
+}
+
+// Tipos de entrada para os novos dados (exportados para agentService)
+export interface SpecialEventInput {
+    week: string;
+    templateId: string;
+    templateName?: string;
+    theme?: string;
+    responsible?: string;
+    isApplied?: boolean;
+}
+
+export interface LocalNeedsInput {
+    theme: string;
+    assigneeName: string;
+    orderPosition: number;
+    targetWeek?: string | null;
+    assignedToPartId?: string | null;
+}
+
+/**
+ * Calcula analytics de participação
+ */
+function buildParticipationAnalytics(
+    parts: WorkbookPart[],
+    publishers: Publisher[]
+): ParticipationAnalytics {
+    // Contar participações por publicador
+    const participationCount = new Map<string, number>();
+    const lastParticipation = new Map<string, string>();
+
+    for (const part of parts) {
+        const name = part.resolvedPublisherName;
+        if (!name) continue;
+
+        participationCount.set(name, (participationCount.get(name) || 0) + 1);
+
+        const currentLast = lastParticipation.get(name);
+        if (!currentLast || part.date > currentLast) {
+            lastParticipation.set(name, part.date);
+        }
+    }
+
+    const totalParticipations = Array.from(participationCount.values()).reduce((a, b) => a + b, 0);
+    const activePublishersCount = publishers.filter(p => p.isServing).length;
+    const avgPerPublisher = activePublishersCount > 0 ? totalParticipations / activePublishersCount : 0;
+
+    // Top 5 mais ativos
+    const sortedByCount = Array.from(participationCount.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
+
+    // Top 5 menos ativos (com base na última participação)
+    const leastActive: Array<{ name: string; lastDate: string | null }> = [];
+
+    for (const pub of publishers.filter(p => p.isServing)) {
+        const lastDate = lastParticipation.get(pub.name) || null;
+        leastActive.push({ name: pub.name, lastDate });
+    }
+
+    leastActive.sort((a, b) => {
+        if (!a.lastDate && !b.lastDate) return 0;
+        if (!a.lastDate) return -1;
+        if (!b.lastDate) return 1;
+        return a.lastDate.localeCompare(b.lastDate);
+    });
+
+    return {
+        totalParticipations,
+        avgPerPublisher: Math.round(avgPerPublisher * 10) / 10,
+        mostActive: sortedByCount,
+        leastActive: leastActive.slice(0, 5),
     };
 }
 
@@ -288,6 +425,48 @@ export function formatContextForPrompt(context: AgentContext): string {
         Object.entries(byPublisher).slice(0, 15).forEach(([name, parts]) => {
             lines.push(`- ${name}: ${parts.length}x (${parts.slice(0, 3).join(', ')}${parts.length > 3 ? '...' : ''})`);
         });
+    }
+
+    // NOVO: Eventos Especiais
+    if (context.specialEvents.length > 0) {
+        lines.push(`\n=== EVENTOS ESPECIAIS ===`);
+        for (const event of context.specialEvents) {
+            const status = event.isApplied ? '✅' : '⏳';
+            lines.push(`${status} ${event.week}: ${event.templateName}`);
+            if (event.theme) lines.push(`   Tema: ${event.theme}`);
+            if (event.assignee) lines.push(`   Responsável: ${event.assignee}`);
+        }
+    }
+
+    // NOVO: Fila de Necessidades Locais
+    if (context.localNeedsQueue.length > 0) {
+        lines.push(`\n=== FILA DE NECESSIDADES LOCAIS ===`);
+        for (const ln of context.localNeedsQueue) {
+            const status = ln.isAssigned ? '✅' : `#${ln.position}`;
+            const targetInfo = ln.targetWeek ? ` → ${ln.targetWeek}` : '';
+            lines.push(`${status} "${ln.theme}" - ${ln.assignee}${targetInfo}`);
+        }
+    }
+
+    // NOVO: Analytics de Participação
+    if (context.participationAnalytics) {
+        const analytics = context.participationAnalytics;
+        lines.push(`\n=== ANALYTICS DE PARTICIPAÇÃO ===`);
+        lines.push(`- Total de participações: ${analytics.totalParticipations}`);
+        lines.push(`- Média por publicador ativo: ${analytics.avgPerPublisher}`);
+
+        if (analytics.mostActive.length > 0) {
+            lines.push(`\nMAIS ATIVOS:`);
+            analytics.mostActive.forEach(p => lines.push(`  🏆 ${p.name}: ${p.count} partes`));
+        }
+
+        if (analytics.leastActive.length > 0) {
+            lines.push(`\nMENOS ATIVOS (sem parte há mais tempo):`);
+            analytics.leastActive.forEach(p => {
+                const info = p.lastDate ? `última: ${p.lastDate}` : 'nunca participou';
+                lines.push(`  ⏰ ${p.name}: ${info}`);
+            });
+        }
     }
 
     return lines.join('\n');
