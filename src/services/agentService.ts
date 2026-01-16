@@ -8,7 +8,9 @@ import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import {
     buildAgentContext,
     formatContextForPrompt,
-    getEligibilityRulesText
+    getEligibilityRulesText,
+    buildSensitiveContext,
+    formatSensitiveContext,
 } from './contextBuilder';
 
 // ===== Configuração =====
@@ -31,14 +33,18 @@ export interface AgentResponse {
     error?: string;
 }
 
+// NOVO: Nível de acesso do usuário
+export type AccessLevel = 'publisher' | 'elder';
+
 // ===== System Prompt =====
 
-const SYSTEM_PROMPT = `Você é o Assistente RVM, um especialista do sistema RVM Designações.
+const SYSTEM_PROMPT_BASE = `Você é o Assistente RVM, um especialista do sistema RVM Designações.
 
 VOCÊ PODE:
 - Responder sobre perfis de publicadores (quem são, condições, privilégios)
 - Explicar regras de elegibilidade para cada tipo de parte
 - Informar estatísticas de participação
+- Informar quem está designado para cada semana
 - Sugerir publicadores para designações
 - Explicar por que alguém é ou não elegível
 
@@ -53,6 +59,28 @@ FORMATO:
 - Use listas quando apropriado
 - Negrite termos importantes com **asteriscos**
 - Seja direto ao ponto`;
+
+const SYSTEM_PROMPT_ELDER_ADDON = `
+
+ACESSO ESPECIAL - ANCIÃOS:
+Você tem acesso a informações confidenciais sobre publicadores:
+- Quem pediu para não participar e por quê
+- Quem não está qualificado e por quê
+- Quem está inativo
+- Razões detalhadas de bloqueios
+
+Quando perguntarem sobre por que alguém não foi designado, você pode explicar os motivos reais.`;
+
+const SYSTEM_PROMPT_PUBLISHER_ADDON = `
+
+RESTRIÇÕES DE ACESSO - PUBLICADOR:
+Você NÃO tem acesso a informações confidenciais sobre publicadores.
+Se perguntarem por que alguém não foi designado, responda de forma genérica:
+- "Não posso informar detalhes pessoais sobre outros publicadores."
+- "Essa informação é confidencial e restrita aos anciãos."
+- "O sistema considera vários fatores, mas não posso detalhar para publicadores específicos."
+
+Você pode apenas informar quem ESTÁ designado, não por que alguém NÃO está.`;
 
 // ===== Funções =====
 
@@ -71,7 +99,8 @@ export async function askAgent(
     publishers: Publisher[],
     parts: WorkbookPart[],
     history: HistoryRecord[] = [],
-    chatHistory: ChatMessage[] = []
+    chatHistory: ChatMessage[] = [],
+    accessLevel: AccessLevel = 'publisher'  // NOVO: nível de acesso
 ): Promise<AgentResponse> {
     if (!isAgentConfigured()) {
         return {
@@ -87,6 +116,19 @@ export async function askAgent(
         const contextText = formatContextForPrompt(context);
         const rulesText = getEligibilityRulesText();
 
+        // NOVO: Montar system prompt baseado no nível de acesso
+        let systemPrompt = SYSTEM_PROMPT_BASE;
+        let sensitiveContextText = '';
+
+        if (accessLevel === 'elder') {
+            systemPrompt += SYSTEM_PROMPT_ELDER_ADDON;
+            // Adicionar contexto sensível para anciãos
+            const sensitiveInfo = buildSensitiveContext(publishers);
+            sensitiveContextText = formatSensitiveContext(sensitiveInfo);
+        } else {
+            systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
+        }
+
         // Montar histórico de chat (últimas 5 mensagens)
         const recentChat = chatHistory.slice(-5).map(msg => ({
             role: msg.role === 'user' ? 'user' : 'model',
@@ -99,11 +141,11 @@ export async function askAgent(
                 // System instruction como primeira mensagem
                 {
                     role: 'user',
-                    parts: [{ text: `${SYSTEM_PROMPT}\n\n${rulesText}\n\n${contextText}` }],
+                    parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }],
                 },
                 {
                     role: 'model',
-                    parts: [{ text: 'Entendido! Estou pronto para responder perguntas sobre o sistema RVM Designações. Como posso ajudar?' }],
+                    parts: [{ text: `Entendido! Sou o Assistente RVM com acesso de ${accessLevel === 'elder' ? 'Ancião' : 'Publicador'}. Como posso ajudar?` }],
                 },
                 // Histórico de chat
                 ...recentChat,
