@@ -13,6 +13,8 @@ import {
     type ChatMessage,
     type AccessLevel,
 } from '../services/agentService';
+import { specialEventService } from '../services/specialEventService';
+import { localNeedsService } from '../services/localNeedsService';
 
 interface Props {
     isOpen: boolean;
@@ -120,13 +122,45 @@ export function ChatAgent({ isOpen, onClose, publishers, parts, history = [] }: 
         setLoading(true);
         setShowSuggestions(false);
 
+        // NOVO: Buscar eventos especiais e necessidades locais em tempo real
+        let specialEvents: Array<{ week: string; templateId: string; templateName?: string; theme?: string; responsible?: string; isApplied?: boolean }> = [];
+        let localNeeds: Array<{ theme: string; assigneeName: string; orderPosition: number; targetWeek?: string | null; assignedToPartId?: string | null }> = [];
+
+        try {
+            const [eventsResult, needsResult] = await Promise.all([
+                specialEventService.getAllEvents(),
+                localNeedsService.getPendingQueue(),
+            ]);
+
+            specialEvents = eventsResult.map(e => ({
+                week: e.week,
+                templateId: e.templateId,
+                templateName: specialEventService.getTemplateById(e.templateId)?.name || e.templateId,
+                theme: e.theme,
+                responsible: e.responsible,
+                isApplied: e.isApplied,
+            }));
+
+            localNeeds = needsResult.map(ln => ({
+                theme: ln.theme,
+                assigneeName: ln.assigneeName,
+                orderPosition: ln.orderPosition,
+                targetWeek: ln.targetWeek,
+                assignedToPartId: ln.assignedToPartId,
+            }));
+        } catch (err) {
+            console.warn('Não foi possível carregar eventos/NL para o agente:', err);
+        }
+
         const response = await askAgent(
             userMessage.content,
             publishers,
             parts,
             history,
             messages,
-            accessLevel  // NOVO: passar nível de acesso
+            accessLevel,
+            specialEvents,
+            localNeeds
         );
 
         const assistantMessage: ChatMessage = {
