@@ -161,7 +161,7 @@ export async function askAgent(
             ],
             generationConfig: {
                 temperature: 0.7,
-                maxOutputTokens: 4096,  // Aumentado de 1024 para respostas mais completas
+                maxOutputTokens: 8192,  // Máximo para respostas completas
                 topP: 0.95,
             },
         };
