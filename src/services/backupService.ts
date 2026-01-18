@@ -41,6 +41,15 @@ export interface ImportResult {
     errors?: string[];
 }
 
+// Tipo para conflitos de duplicatas detectados antes do restore
+export interface DuplicateConflict {
+    backupName: string;
+    backupId: string;
+    existingName: string;
+    existingId: string;
+    similarity: number;  // 0-100 (100 = idêntico)
+}
+
 // =============================================================================
 // EXPORT FUNCTIONS
 // =============================================================================
@@ -456,4 +465,133 @@ export function getBackupPreview(data: BackupData): { table: string; count: numb
  */
 export function getLastBackupDate(): string | null {
     return localStorage.getItem('lastBackupDate');
+}
+
+// =============================================================================
+// DUPLICATE DETECTION FUNCTIONS
+// =============================================================================
+
+/**
+ * Levenshtein distance algorithm for name similarity
+ */
+function levenshtein(a: string, b: string): number {
+    const matrix: number[][] = [];
+
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+
+    return matrix[b.length][a.length];
+}
+
+/**
+ * Calculate similarity percentage between two names
+ */
+function calculateSimilarity(name1: string, name2: string): number {
+    const n1 = name1.toLowerCase().trim();
+    const n2 = name2.toLowerCase().trim();
+
+    if (n1 === n2) return 100;
+
+    const distance = levenshtein(n1, n2);
+    const maxLength = Math.max(n1.length, n2.length);
+
+    if (maxLength === 0) return 100;
+
+    return Math.round((1 - distance / maxLength) * 100);
+}
+
+/**
+ * Extract publisher name from backup data (handles both flat and nested structures)
+ */
+function getPublisherName(pub: any): string {
+    if (pub.data && typeof pub.data === 'object' && pub.data.name) {
+        return pub.data.name;
+    }
+    return pub.name || '';
+}
+
+/**
+ * Detect potential duplicates between backup data and existing database
+ * Returns conflicts where similarity is >= 85%
+ */
+export async function detectDuplicates(backupData: BackupData): Promise<DuplicateConflict[]> {
+    const conflicts: DuplicateConflict[] = [];
+    const SIMILARITY_THRESHOLD = 85; // 85% or higher is considered a potential duplicate
+
+    // Fetch existing publishers from database
+    const { data: existingRows, error } = await supabase
+        .from('publishers')
+        .select('id, data')
+        .range(0, 9999);
+
+    if (error || !existingRows) {
+        console.warn('[detectDuplicates] Could not fetch existing publishers:', error);
+        return [];
+    }
+
+    // Create map of existing publishers: name -> {id, name}
+    const existingMap = new Map<string, { id: string; name: string }>();
+    for (const row of existingRows) {
+        const name = (row.data as any)?.name || '';
+        if (name) {
+            existingMap.set(name.toLowerCase().trim(), { id: row.id, name });
+        }
+    }
+
+    // Check each backup publisher against existing
+    const backupPublishers = backupData.tables.publishers?.data || [];
+
+    for (const backupPub of backupPublishers) {
+        const backupName = getPublisherName(backupPub);
+        if (!backupName) continue;
+
+
+        // Check against all existing publishers
+        for (const [, existing] of existingMap) {
+            // Skip if same ID (not a duplicate, just an update)
+            if (backupPub.id === existing.id) continue;
+
+            const similarity = calculateSimilarity(backupName, existing.name);
+
+            if (similarity >= SIMILARITY_THRESHOLD) {
+                // Avoid duplicate entries in conflicts
+                const alreadyExists = conflicts.some(
+                    c => c.backupId === backupPub.id && c.existingId === existing.id
+                );
+
+                if (!alreadyExists) {
+                    conflicts.push({
+                        backupName,
+                        backupId: backupPub.id,
+                        existingName: existing.name,
+                        existingId: existing.id,
+                        similarity
+                    });
+                }
+            }
+        }
+    }
+
+    // Sort by similarity (highest first)
+    conflicts.sort((a, b) => b.similarity - a.similarity);
+
+    return conflicts;
 }
