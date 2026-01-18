@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import type { Publisher } from './types'
+import type { Publisher, WorkbookPart } from './types'
 import PublisherList from './components/PublisherList'
 import PublisherForm from './components/PublisherForm'
 import { initialPublishers } from './data/initialPublishers'
@@ -20,6 +20,7 @@ function App() {
 
   // Data State
   const [publishers, setPublishers] = useState<Publisher[]>([])
+  const [workbookParts, setWorkbookParts] = useState<WorkbookPart[]>([])
 
   // UI State
   const [showPublisherForm, setShowPublisherForm] = useState(false)
@@ -140,6 +141,19 @@ function App() {
       if (pollingInterval) clearInterval(pollingInterval);
     }
   }, [])
+
+  // Load workbook parts when ChatAgent opens
+  useEffect(() => {
+    if (isChatAgentOpen && workbookParts.length === 0) {
+      console.log('[ChatAgent] Loading workbook parts for AI agent...');
+      workbookService.getAll().then((parts: WorkbookPart[]) => {
+        console.log(`[ChatAgent] Loaded ${parts.length} parts for AI agent`);
+        setWorkbookParts(parts);
+      }).catch((err: unknown) => {
+        console.warn('[ChatAgent] Error loading parts:', err);
+      });
+    }
+  }, [isChatAgentOpen, workbookParts.length]);
 
   const savePublisher = async (publisher: Publisher) => {
     setIsSaving(true)
@@ -335,7 +349,7 @@ function App() {
         isOpen={isChatAgentOpen}
         onClose={() => setIsChatAgentOpen(false)}
         publishers={publishers}
-        parts={[]}
+        parts={workbookParts}
       />
 
       {/* Floating Chat Button */}
