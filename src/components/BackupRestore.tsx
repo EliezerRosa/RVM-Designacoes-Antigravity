@@ -10,8 +10,10 @@ import {
     importBackup,
     getBackupPreview,
     getLastBackupDate,
+    detectDuplicates,
     type BackupData,
-    type ImportResult
+    type ImportResult,
+    type DuplicateConflict
 } from '../services/backupService';
 
 export function BackupRestore() {
@@ -19,6 +21,8 @@ export function BackupRestore() {
     const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
     const [previewData, setPreviewData] = useState<BackupData | null>(null);
     const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
+    const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateConflict[]>([]);
+    const [showDuplicateDetails, setShowDuplicateDetails] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const lastBackup = getLastBackupDate();
@@ -49,6 +53,8 @@ export function BackupRestore() {
         setLoading(true);
         setMessage(null);
         setPreviewData(null);
+        setDuplicateWarnings([]);
+        setShowDuplicateDetails(false);
 
         try {
             let data: BackupData;
@@ -63,7 +69,16 @@ export function BackupRestore() {
             }
 
             setPreviewData(data);
-            setMessage({ type: 'info', text: `📋 Arquivo carregado: ${file.name}` });
+
+            // Detectar duplicatas potenciais
+            const duplicates = await detectDuplicates(data);
+            setDuplicateWarnings(duplicates);
+
+            if (duplicates.length > 0) {
+                setMessage({ type: 'info', text: `📋 Arquivo carregado: ${file.name}\n⚠️ ${duplicates.length} possíveis duplicatas detectadas!` });
+            } else {
+                setMessage({ type: 'info', text: `📋 Arquivo carregado: ${file.name}\n✅ Nenhuma duplicata detectada.` });
+            }
         } catch (error) {
             setMessage({ type: 'error', text: `❌ Erro ao ler arquivo: ${error instanceof Error ? error.message : String(error)}` });
         } finally {
@@ -247,7 +262,64 @@ export function BackupRestore() {
                             </tbody>
                         </table>
 
-                        {/* Import Mode */}
+                        {/* Duplicate Warnings */}
+                        {duplicateWarnings.length > 0 && (
+                            <div style={{
+                                marginTop: '16px',
+                                padding: '12px',
+                                background: '#FEF3C7',
+                                border: '1px solid #F59E0B',
+                                borderRadius: '8px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    <span style={{ fontWeight: '600', color: '#92400E', fontSize: '14px' }}>
+                                        ⚠️ {duplicateWarnings.length} possíveis duplicatas detectadas
+                                    </span>
+                                    <button
+                                        onClick={() => setShowDuplicateDetails(!showDuplicateDetails)}
+                                        style={{
+                                            padding: '4px 10px',
+                                            background: '#F59E0B',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            fontSize: '12px'
+                                        }}
+                                    >
+                                        {showDuplicateDetails ? '🔼 Ocultar' : '🔽 Ver detalhes'}
+                                    </button>
+                                </div>
+                                <p style={{ color: '#92400E', fontSize: '12px', margin: 0 }}>
+                                    Nomes do backup similares a publicadores existentes. Revise antes de importar.
+                                </p>
+
+                                {showDuplicateDetails && (
+                                    <div style={{ marginTop: '12px', maxHeight: '200px', overflowY: 'auto' }}>
+                                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', background: '#fff' }}>
+                                            <thead>
+                                                <tr style={{ background: '#FDE68A' }}>
+                                                    <th style={{ padding: '6px', textAlign: 'left' }}>Backup</th>
+                                                    <th style={{ padding: '6px', textAlign: 'left' }}>Existente</th>
+                                                    <th style={{ padding: '6px', textAlign: 'right' }}>Similar.</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {duplicateWarnings.map((dup, i) => (
+                                                    <tr key={i} style={{ borderBottom: '1px solid #FDE68A' }}>
+                                                        <td style={{ padding: '6px' }}>{dup.backupName}</td>
+                                                        <td style={{ padding: '6px' }}>{dup.existingName}</td>
+                                                        <td style={{ padding: '6px', textAlign: 'right', fontWeight: '600', color: dup.similarity === 100 ? '#DC2626' : '#92400E' }}>
+                                                            {dup.similarity}%
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <div style={{ marginTop: '16px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#374151', fontSize: '14px' }}>
                                 Modo de importação:
