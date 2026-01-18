@@ -189,31 +189,60 @@ export function ChatAgent({ isOpen, onClose, publishers, parts, history = [] }: 
 
     const renderMessage = (msg: ChatMessage, idx: number) => {
         const isUser = msg.role === 'user';
+        const hasContinuation = !isUser && msg.content.includes('[CONTINUA...]');
+        const displayContent = hasContinuation
+            ? msg.content.replace('[CONTINUA...]', '').trim()
+            : msg.content;
 
         return (
-            <div
-                key={idx}
-                style={{
-                    alignSelf: isUser ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%',
-                    padding: '12px 16px',
-                    borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: isUser
-                        ? 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)'
-                        : 'white',
-                    color: isUser ? 'white' : '#1F2937',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    fontSize: '14px',
-                    lineHeight: '1.5',
-                }}
-            >
-                {/* Renderizar markdown simples */}
-                {msg.content.split('**').map((part, i) =>
-                    i % 2 === 1
-                        ? <strong key={i}>{part}</strong>
-                        : part
+            <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', gap: '8px' }}>
+                <div
+                    style={{
+                        maxWidth: '85%',
+                        padding: '12px 16px',
+                        borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                        background: isUser
+                            ? 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)'
+                            : 'white',
+                        color: isUser ? 'white' : '#1F2937',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        fontSize: '14px',
+                        lineHeight: '1.5',
+                    }}
+                >
+                    {/* Renderizar markdown simples */}
+                    {displayContent.split('**').map((part, i) =>
+                        i % 2 === 1
+                            ? <strong key={i}>{part}</strong>
+                            : part
+                    )}
+                </div>
+                {/* Botão Ver mais quando há continuação */}
+                {hasContinuation && idx === messages.length - 1 && !loading && (
+                    <button
+                        onClick={() => {
+                            setInput('continue');
+                            setTimeout(() => handleSend(), 100);
+                        }}
+                        style={{
+                            padding: '8px 16px',
+                            background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                        }}
+                    >
+                        📄 Ver mais
+                    </button>
                 )}
             </div>
         );

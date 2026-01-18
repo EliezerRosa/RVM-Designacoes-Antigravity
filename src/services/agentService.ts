@@ -60,7 +60,15 @@ REGRAS DE RESPOSTA:
 FORMATO:
 - Use listas quando apropriado
 - Negrite termos importantes com **asteriscos**
-- Seja direto ao ponto`;
+- Seja direto ao ponto
+
+PAGINAÇÃO DE RESPOSTAS LONGAS:
+- Limite cada resposta a no máximo 600 palavras
+- Se a resposta completa precisar de mais que isso, PARE e termine com exatamente: "[CONTINUA...]"
+- Quando o usuário enviar "continue" ou "mais", continue de onde parou
+- Lembre-se do contexto anterior para dar continuidade
+- Sempre indique qual parte está mostrando (ex: "Parte 2 de 3")
+- NUNCA corte uma frase no meio - sempre termine em um ponto lógico`;
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
 
