@@ -242,9 +242,75 @@ export function BackupRestore() {
                         <h4 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: '14px' }}>
                             📋 Preview do Backup
                         </h4>
-                        <p style={{ color: '#6B7280', fontSize: '12px', marginBottom: '8px' }}>
-                            Data do backup: {previewData.metadata.exportDate}
-                        </p>
+
+                        {/* Date Conflict Alert */}
+                        {(() => {
+                            const backupDate = new Date(previewData.metadata.exportDate);
+                            const now = new Date();
+                            const diffMs = now.getTime() - backupDate.getTime();
+                            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                            const diffMonths = Math.floor(diffDays / 30);
+                            const diffYears = Math.floor(diffDays / 365);
+
+                            let timeAgo = '';
+                            let severity: 'low' | 'medium' | 'high' = 'low';
+
+                            if (diffDays < 0) {
+                                timeAgo = 'Backup do futuro (!)';
+                                severity = 'high';
+                            } else if (diffDays === 0) {
+                                timeAgo = 'Backup de hoje';
+                                severity = 'low';
+                            } else if (diffDays === 1) {
+                                timeAgo = 'Backup de ontem';
+                                severity = 'low';
+                            } else if (diffDays < 7) {
+                                timeAgo = `${diffDays} dias atrás`;
+                                severity = 'low';
+                            } else if (diffDays < 30) {
+                                const weeks = Math.floor(diffDays / 7);
+                                timeAgo = `${weeks} semana${weeks > 1 ? 's' : ''} atrás`;
+                                severity = 'medium';
+                            } else if (diffMonths < 12) {
+                                timeAgo = `${diffMonths} ${diffMonths === 1 ? 'mês' : 'meses'} atrás`;
+                                severity = 'high';
+                            } else {
+                                timeAgo = `${diffYears} ano${diffYears > 1 ? 's' : ''} e ${diffMonths % 12} meses atrás`;
+                                severity = 'high';
+                            }
+
+                            const bgColor = severity === 'low' ? '#D1FAE5' : severity === 'medium' ? '#FEF3C7' : '#FEE2E2';
+                            const borderColor = severity === 'low' ? '#10B981' : severity === 'medium' ? '#F59E0B' : '#EF4444';
+                            const textColor = severity === 'low' ? '#065F46' : severity === 'medium' ? '#92400E' : '#991B1B';
+                            const icon = severity === 'low' ? '✅' : severity === 'medium' ? '⚠️' : '🚨';
+
+                            return (
+                                <div style={{
+                                    padding: '10px 14px',
+                                    background: bgColor,
+                                    border: `1px solid ${borderColor}`,
+                                    borderRadius: '6px',
+                                    marginBottom: '12px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <span style={{ fontWeight: '600', color: textColor, fontSize: '13px' }}>
+                                            {icon} {timeAgo}
+                                        </span>
+                                        <p style={{ margin: '4px 0 0 0', color: textColor, fontSize: '11px', opacity: 0.8 }}>
+                                            Backup: {backupDate.toLocaleDateString('pt-BR')} às {backupDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                    {severity !== 'low' && (
+                                        <span style={{ fontSize: '11px', color: textColor, fontWeight: '500' }}>
+                                            Retroage {diffDays} dias
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })()}
                         <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ background: '#E5E7EB' }}>
