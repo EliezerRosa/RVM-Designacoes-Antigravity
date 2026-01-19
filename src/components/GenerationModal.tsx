@@ -130,6 +130,30 @@ const buttonStyle = (bg: string, disabled = false): React.CSSProperties => ({
     opacity: disabled ? 0.6 : 1,
 });
 
+// Componente Tooltip Info
+const InfoTooltip = ({ text }: { text: string }) => (
+    <span
+        title={text}
+        style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            background: '#E5E7EB',
+            color: '#6B7280',
+            fontSize: '11px',
+            fontWeight: '700',
+            cursor: 'help',
+            marginLeft: '4px',
+            verticalAlign: 'middle',
+        }}
+    >
+        ?
+    </span>
+);
+
 // ===== Componente =====
 
 export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers, onNavigateToPart }: Props) {
@@ -458,25 +482,37 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                                 <div style={{ fontSize: '20px', fontWeight: '700', color: '#4F46E5' }}>
                                     {metrics.totalParticipations}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#6B7280' }}>Participações</div>
+                                <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                                    Participações
+                                    <InfoTooltip text="Total de participações registradas no período de análise. Usado como base para calcular distribuição." />
+                                </div>
                             </div>
                             <div style={cardStyle}>
                                 <div style={{ fontSize: '20px', fontWeight: '700', color: '#059669' }}>
                                     {metrics.activePublishers}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#6B7280' }}>Publicadores Ativos</div>
+                                <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                                    Publicadores Ativos
+                                    <InfoTooltip text="Quantidade de publicadores que receberam pelo menos 1 designação no período. Ideal: todos os aptos participando." />
+                                </div>
                             </div>
                             <div style={cardStyle}>
                                 <div style={{ fontSize: '20px', fontWeight: '700', color: metrics.distributionStdDev > 2 ? '#DC2626' : '#059669' }}>
                                     {metrics.distributionStdDev.toFixed(1)}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#6B7280' }}>Desvio Padrão</div>
+                                <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                                    Desvio Padrão
+                                    <InfoTooltip text="Mede o equilíbrio na distribuição. Ideal: < 2.0 (verde). Valores altos indicam que alguns publicadores recebem muito mais partes que outros." />
+                                </div>
                             </div>
                             <div style={cardStyle}>
                                 <div style={{ fontSize: '20px', fontWeight: '700', color: metrics.idlePublishers > 0 ? '#F59E0B' : '#059669' }}>
                                     {metrics.idlePublishers}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#6B7280' }}>Ociosos</div>
+                                <div style={{ fontSize: '11px', color: '#6B7280' }}>
+                                    Ociosos
+                                    <InfoTooltip text="Publicadores aptos sem designação há mais de 8 semanas. Ideal: 0 (verde). Amarelo indica publicadores que precisam participar." />
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -499,6 +535,7 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                             <div>
                                 <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
                                     Fator Tempo (weeksFactor)
+                                    <InfoTooltip text="Multiplica os dias desde a última designação. Valor maior = prioriza quem está há mais tempo sem participar. Padrão: 50" />
                                 </label>
                                 <input
                                     type="number"
@@ -512,6 +549,7 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                             <div>
                                 <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
                                     Semanas de Cooldown
+                                    <InfoTooltip text="Intervalo mínimo entre participações do mesmo publicador. Impede designações consecutivas muito próximas. Padrão: 3 semanas" />
                                 </label>
                                 <input
                                     type="number"
@@ -525,6 +563,7 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                             <div>
                                 <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
                                     Bônus Bimestral
+                                    <InfoTooltip text="Pontuação extra para publicadores que não participaram nas últimas 8+ semanas. Ajuda a garantir rotatividade. Padrão: 1000 pontos" />
                                 </label>
                                 <input
                                     type="number"
@@ -538,6 +577,7 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                             <div>
                                 <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
                                     Fator Peso (weightFactor)
+                                    <InfoTooltip text="Influencia a pontuação base de cada categoria de parte (Ensino=1.0, Estudante=0.5, Ajudante=0.1). Valor maior = mais peso para categoria. Padrão: 5" />
                                 </label>
                                 <input
                                     type="number"
