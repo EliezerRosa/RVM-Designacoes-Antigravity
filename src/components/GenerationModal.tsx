@@ -272,12 +272,17 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
     };
 
     // Executar geração
-    const handleGenerate = async () => {
+    const handleGenerate = async (forceDryRun?: boolean) => {
         if (!period) return;
+
+        // Usar o parâmetro forçado se fornecido, senão usar o estado
+        const effectiveDryRun = forceDryRun !== undefined ? forceDryRun : isDryRun;
+        console.log('[Modal] handleGenerate chamado com dryRun:', effectiveDryRun);
 
         try {
             setLoading(true);
             setError(null);
+            setShowS140Preview(false); // Reset preview
 
             // Salvar período e config se alterados
             await saveAnalysisPeriod(period);
@@ -295,11 +300,19 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                 period,
                 tuningConfig: config,
                 runAutoTuning: runAutoTuningOption,
-                isDryRun,
+                isDryRun: effectiveDryRun,
             };
 
+            console.log('[Modal] Chamando onGenerate com config:', genConfig);
             const genResult = await onGenerate(genConfig);
+            console.log('[Modal] Resultado da geração:', genResult);
             setResult(genResult);
+
+            // Se foi simulação e teve sucesso, mostrar preview automaticamente
+            if (genResult.success && genResult.dryRun) {
+                console.log('[Modal] Simulação bem-sucedida, habilitando preview S-140');
+                setShowS140Preview(true);
+            }
 
             if (genResult.success && !genResult.dryRun) {
                 // Fechar modal após sucesso (não dry-run)
@@ -307,6 +320,7 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro na geração');
+            console.error('[Modal] Erro na geração:', err);
         } finally {
             setLoading(false);
         }
@@ -644,18 +658,18 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                         Cancelar
                     </button>
                     <button
-                        onClick={() => { setIsDryRun(true); handleGenerate(); }}
+                        onClick={() => handleGenerate(true)}
                         disabled={loading || pendingParts.length === 0}
                         style={buttonStyle('#0891B2', loading || pendingParts.length === 0)}
                     >
-                        🔍 Simular
+                        {loading && isDryRun ? '⏳ Simulando...' : '🔍 Simular'}
                     </button>
                     <button
-                        onClick={() => { setIsDryRun(false); handleGenerate(); }}
+                        onClick={() => handleGenerate(false)}
                         disabled={loading || pendingParts.length === 0}
                         style={buttonStyle('#4F46E5', loading || pendingParts.length === 0)}
                     >
-                        {loading ? '⏳ Gerando...' : '🎯 Gerar'}
+                        {loading && !isDryRun ? '⏳ Gerando...' : '🎯 Gerar'}
                     </button>
                 </div>
             </div>
