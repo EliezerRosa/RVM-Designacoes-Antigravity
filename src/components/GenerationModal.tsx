@@ -10,7 +10,7 @@
  * - Auto-Tuning opcional
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { WorkbookPart, Publisher, AnalysisPeriod, TuningConfig, TuningMetrics } from '../types';
 import { DEFAULT_TUNING_CONFIG } from '../types';
 import {
@@ -27,10 +27,13 @@ import { S140PreviewCarousel } from './S140PreviewCarousel';
 // ===== Tipos =====
 
 export interface GenerationConfig {
-    period: AnalysisPeriod;
+    period: AnalysisPeriod;           // Período de análise (para tuning)
     tuningConfig: TuningConfig;
     runAutoTuning: boolean;
     isDryRun: boolean;
+    // Novo: Período de geração (separado do tuning)
+    generationWeeks?: string[];       // Semanas específicas para gerar (weekId)
+    forceAllPartsInPeriod?: boolean;  // Se true, ignora status quando período definido
 }
 
 export interface GenerationResult {
@@ -183,13 +186,62 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
     const [error, setError] = useState<string | null>(null);
     const [showS140Preview, setShowS140Preview] = useState(false);
 
-    // Partes pendentes (filtradas)
-    const pendingParts = parts.filter(p =>
-        (p.funcao === 'Titular' || p.funcao === 'Ajudante') &&
-        p.status !== 'DESIGNADA' &&
-        p.status !== 'CONCLUIDA' &&
-        p.status !== 'CANCELADA'
-    );
+    // Estado do período de geração (separado do tuning)
+    const [selectedWeeks, setSelectedWeeks] = useState<string[]>([]);
+
+    // Semanas disponíveis para seleção (futuras, ordenadas)
+    const availableWeeks = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const parseDate = (dateStr: string): Date => {
+            if (!dateStr) return new Date(0);
+            if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(dateStr + 'T12:00:00');
+            const dmy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
+            return new Date(dateStr);
+        };
+
+        const weekMap = new Map<string, { weekId: string; weekDisplay: string; date: Date }>();
+        parts.forEach(p => {
+            const d = parseDate(p.date);
+            if (d >= today && !weekMap.has(p.weekId)) {
+                weekMap.set(p.weekId, { weekId: p.weekId, weekDisplay: p.weekDisplay, date: d });
+            }
+        });
+
+        return Array.from(weekMap.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+    }, [parts]);
+
+    // Partes a gerar - lógica XOR
+    const pendingParts = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const parseDate = (dateStr: string): Date => {
+            if (!dateStr) return new Date(0);
+            if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(dateStr + 'T12:00:00');
+            const dmy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
+            return new Date(dateStr);
+        };
+
+        return parts.filter(p => {
+            const d = parseDate(p.date);
+            if (d < today) return false; // Sempre excluir passadas
+            if (p.funcao !== 'Titular' && p.funcao !== 'Ajudante') return false;
+            if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA') return false;
+
+            // LÓGICA XOR:
+            // Se semanas específicas selecionadas → incluir TODAS do período
+            if (selectedWeeks.length > 0) {
+                return selectedWeeks.includes(p.weekId);
+            }
+
+            // Senão → só PENDENTE ou sem publicador
+            return p.status === 'PENDENTE' || !p.resolvedPublisherName;
+        });
+    }, [parts, selectedWeeks]);
 
     // Agrupar por semana para preview (usando weekDisplay para exibição)
     const partsByWeek = pendingParts.reduce((acc, part) => {
@@ -325,6 +377,8 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                 tuningConfig: config,
                 runAutoTuning: runAutoTuningOption,
                 isDryRun: effectiveDryRun,
+                generationWeeks: selectedWeeks.length > 0 ? selectedWeeks : undefined,
+                forceAllPartsInPeriod: selectedWeeks.length > 0,
             };
 
             console.log('[Modal] Chamando onGenerate com config:', genConfig);
@@ -470,6 +524,61 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                     </div>
                 </div>
 
+                {/* Seção: Período de Geração (separado do tuning) */}
+                <div style={sectionStyle}>
+                    <div style={sectionTitleStyle}>
+                        <span>🎯</span> Período de Geração
+                        <InfoTooltip text="Selecione semanas específicas para gerar TODAS as partes (ignora status). Se nenhuma selecionada, só gera PENDENTE ou sem publicador." />
+                    </div>
+                    <div style={{ marginBottom: '8px', fontSize: '12px', color: '#6B7280' }}>
+                        {selectedWeeks.length > 0
+                            ? `${selectedWeeks.length} semana(s) selecionada(s) - gerará TODAS as partes`
+                            : 'Nenhuma semana selecionada - só gerará partes PENDENTE ou sem publicador'}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
+                        {availableWeeks.map(week => {
+                            const isSelected = selectedWeeks.includes(week.weekId);
+                            return (
+                                <button
+                                    key={week.weekId}
+                                    onClick={() => {
+                                        if (isSelected) {
+                                            setSelectedWeeks(prev => prev.filter(w => w !== week.weekId));
+                                        } else {
+                                            setSelectedWeeks(prev => [...prev, week.weekId]);
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '4px 10px',
+                                        fontSize: '11px',
+                                        border: isSelected ? '2px solid #4F46E5' : '1px solid #D1D5DB',
+                                        borderRadius: '16px',
+                                        background: isSelected ? '#EEF2FF' : 'white',
+                                        color: isSelected ? '#4F46E5' : '#374151',
+                                        cursor: 'pointer',
+                                        fontWeight: isSelected ? '600' : '400',
+                                    }}
+                                >
+                                    {week.weekDisplay}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={() => setSelectedWeeks(availableWeeks.map(w => w.weekId))}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '4px', background: 'white', cursor: 'pointer' }}
+                        >
+                            Selecionar Todas
+                        </button>
+                        <button
+                            onClick={() => setSelectedWeeks([])}
+                            style={{ padding: '4px 8px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '4px', background: 'white', cursor: 'pointer' }}
+                        >
+                            Limpar Seleção
+                        </button>
+                    </div>
+                </div>
                 {/* Seção: Métricas */}
                 <div style={sectionStyle}>
                     <div style={sectionTitleStyle}>
