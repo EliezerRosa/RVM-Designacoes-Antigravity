@@ -62,6 +62,12 @@ BEGIN
                    WHERE table_name = 'workbook_parts' AND column_name = 'affected_by_event_id') THEN
         ALTER TABLE workbook_parts ADD COLUMN affected_by_event_id UUID REFERENCES special_events(id) ON DELETE SET NULL;
     END IF;
+    
+    -- Coluna para ID do evento pendente (indicador visual)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'workbook_parts' AND column_name = 'pending_event_id') THEN
+        ALTER TABLE workbook_parts ADD COLUMN pending_event_id UUID REFERENCES special_events(id) ON DELETE SET NULL;
+    END IF;
 END $$;
 
 -- 3. RLS Policies

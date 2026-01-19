@@ -1639,6 +1639,7 @@ export function WorkbookManager({ publishers }: Props) {
                                             return (
                                                 <tr
                                                     key={part.id}
+                                                    data-part-id={part.id}
                                                     style={{
                                                         background: sectionColors[part.section] || 'white',
                                                         color: '#1f2937',
@@ -2085,6 +2086,32 @@ export function WorkbookManager({ publishers }: Props) {
                 onGenerate={handleGenerateDesignations}
                 parts={parts}
                 publishers={publishers}
+                onNavigateToPart={(partId) => {
+                    // Encontrar a parte e navegar para sua semana
+                    const targetPart = parts.find(p => p.id === partId);
+                    if (targetPart) {
+                        // 1. Navegar para a aba Apostila (planning)
+                        setActiveTab('planning');
+
+                        // 2. Limpar filtros e definir filtro de semana
+                        setFilterSection('');
+                        setFilterFuncao('');
+                        setFilterTipo('');
+                        setFilterStatus('');
+                        setFilterWeek(targetPart.weekId);
+
+                        // 3. Destacar a parte visualmente (usar setTimeout para esperar renderização)
+                        setTimeout(() => {
+                            const row = document.querySelector(`tr[data-part-id="${partId}"]`);
+                            if (row) {
+                                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                (row as HTMLElement).style.animation = 'highlight-flash 2s ease-out';
+                            }
+                        }, 300);
+
+                        console.log(`[GenerationModal] Navegando para parte: ${targetPart.tituloParte} (${targetPart.weekDisplay})`);
+                    }
+                }}
             />
 
             {loading && (

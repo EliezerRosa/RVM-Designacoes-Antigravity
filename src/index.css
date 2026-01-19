@@ -239,3 +239,24 @@ button:focus-visible {
     transform: scale(1.02);
   }
 }
+
+/* 🟢 Highlight Flash - Para destacar parte navegada */
+@keyframes highlight-flash {
+
+  0% {
+    background-color: #FEF08A !important;
+    box-shadow: 0 0 20px rgba(250, 204, 21, 0.8);
+    transform: scale(1.01);
+  }
+
+  50% {
+    background-color: #FDE047 !important;
+    box-shadow: 0 0 30px rgba(250, 204, 21, 1);
+  }
+
+  100% {
+    background-color: inherit;
+    box-shadow: none;
+    transform: scale(1);
+  }
+}
