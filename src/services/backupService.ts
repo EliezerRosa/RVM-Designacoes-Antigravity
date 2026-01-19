@@ -50,6 +50,23 @@ export interface DuplicateConflict {
     similarity: number;  // 0-100 (100 = idêntico)
 }
 
+// Tipo para histórico de operações de backup
+export interface BackupHistoryEntry {
+    id: number;
+    operation: 'export' | 'import';
+    backup_date: string | null;
+    origin: string;  // 'json', 'excel', nome do arquivo
+    counts: {
+        publishers?: number;
+        workbook_parts?: number;
+        workbook_batches?: number;
+        special_events?: number;
+    };
+    status: 'success' | 'error' | 'partial';
+    error_message: string | null;
+    created_at: string;
+}
+
 // =============================================================================
 // EXPORT FUNCTIONS
 // =============================================================================
@@ -197,10 +214,10 @@ export async function exportToExcel(): Promise<Blob> {
  */
 export async function exportAll(): Promise<void> {
     const timestamp = new Date().toISOString().split('T')[0];
+    const data = await fetchAllData();
 
     // Export JSON
-    const jsonData = await exportToJSON();
-    const jsonBlob = new Blob([jsonData], { type: 'application/json' });
+    const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     downloadBlob(jsonBlob, `backup_rvm_${timestamp}.json`);
 
     // Export Excel
@@ -209,6 +226,14 @@ export async function exportAll(): Promise<void> {
 
     // Save last export date in localStorage
     localStorage.setItem('lastBackupDate', new Date().toISOString());
+
+    // Log to history
+    await logBackupOperation('export', 'json+excel', {
+        publishers: data.tables.publishers.count,
+        workbook_parts: data.tables.workbook_parts.count,
+        workbook_batches: data.tables.workbook_batches.count,
+        special_events: data.tables.special_events.count
+    });
 }
 
 function downloadBlob(blob: Blob, filename: string): void {
@@ -427,7 +452,7 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
             }
         }
 
-        return {
+        const result = {
             success: errors.length === 0,
             message: errors.length === 0
                 ? `Importação concluída com sucesso!`
@@ -436,7 +461,29 @@ export async function importBackup(data: BackupData, mode: 'replace' | 'merge' =
             errors: errors.length > 0 ? errors : undefined
         };
 
+        // Log to history
+        await logBackupOperation(
+            'import',
+            mode,
+            counts,
+            result.success ? 'success' : 'partial',
+            result.errors?.join('; '),
+            data.metadata.exportDate
+        );
+
+        return result;
+
     } catch (error) {
+        // Log error to history
+        await logBackupOperation(
+            'import',
+            mode,
+            counts,
+            'error',
+            error instanceof Error ? error.message : String(error),
+            data.metadata.exportDate
+        );
+
         return {
             success: false,
             message: `Erro na importação: ${error instanceof Error ? error.message : String(error)}`,
@@ -594,4 +641,52 @@ export async function detectDuplicates(backupData: BackupData): Promise<Duplicat
     conflicts.sort((a, b) => b.similarity - a.similarity);
 
     return conflicts;
+}
+
+// =============================================================================
+// BACKUP HISTORY FUNCTIONS
+// =============================================================================
+
+/**
+ * Log a backup operation (export or import) to the history table
+ */
+export async function logBackupOperation(
+    operation: 'export' | 'import',
+    origin: string,
+    counts: Record<string, number>,
+    status: 'success' | 'error' | 'partial' = 'success',
+    errorMessage?: string,
+    backupDate?: string
+): Promise<void> {
+    try {
+        await supabase.from('backup_history').insert({
+            operation,
+            backup_date: backupDate || null,
+            origin,
+            counts,
+            status,
+            error_message: errorMessage || null
+        });
+    } catch (error) {
+        // Don't fail the main operation if logging fails
+        console.warn('[BackupService] Failed to log backup operation:', error);
+    }
+}
+
+/**
+ * Get backup history (most recent first)
+ */
+export async function getBackupHistory(limit: number = 20): Promise<BackupHistoryEntry[]> {
+    const { data, error } = await supabase
+        .from('backup_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+    if (error) {
+        console.warn('[BackupService] Failed to get backup history:', error);
+        return [];
+    }
+
+    return (data || []) as BackupHistoryEntry[];
 }

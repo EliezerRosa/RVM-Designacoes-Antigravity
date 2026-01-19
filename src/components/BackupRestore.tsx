@@ -2,7 +2,7 @@
  * BackupRestore Component - UI for backup and restore operations
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
     exportAll,
     parseJSONBackup,
@@ -11,9 +11,11 @@ import {
     getBackupPreview,
     getLastBackupDate,
     detectDuplicates,
+    getBackupHistory,
     type BackupData,
     type ImportResult,
-    type DuplicateConflict
+    type DuplicateConflict,
+    type BackupHistoryEntry
 } from '../services/backupService';
 
 export function BackupRestore() {
@@ -23,9 +25,22 @@ export function BackupRestore() {
     const [importMode, setImportMode] = useState<'replace' | 'merge'>('replace');
     const [duplicateWarnings, setDuplicateWarnings] = useState<DuplicateConflict[]>([]);
     const [showDuplicateDetails, setShowDuplicateDetails] = useState(false);
+    const [backupHistory, setBackupHistory] = useState<BackupHistoryEntry[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const lastBackup = getLastBackupDate();
+
+    // Load backup history on mount
+    useEffect(() => {
+        getBackupHistory(10).then(setBackupHistory).catch(console.warn);
+    }, []);
+
+    // Reload history after operations
+    const reloadHistory = async () => {
+        const history = await getBackupHistory(10);
+        setBackupHistory(history);
+    };
 
     // =====================
     // EXPORT
@@ -36,6 +51,7 @@ export function BackupRestore() {
         try {
             await exportAll();
             setMessage({ type: 'success', text: '✅ Backup exportado com sucesso! (JSON + Excel)' });
+            await reloadHistory();
         } catch (error) {
             setMessage({ type: 'error', text: `❌ Erro ao exportar: ${error instanceof Error ? error.message : String(error)}` });
         } finally {
@@ -113,6 +129,7 @@ export function BackupRestore() {
                 });
                 setPreviewData(null);
                 if (fileInputRef.current) fileInputRef.current.value = '';
+                await reloadHistory();
             } else {
                 setMessage({
                     type: 'error',
@@ -447,6 +464,78 @@ export function BackupRestore() {
                                 Cancelar
                             </button>
                         </div>
+                    </div>
+                )}
+            </div>
+
+            {/* HISTORY SECTION */}
+            <div style={{
+                background: '#fff',
+                border: '1px solid #E5E7EB',
+                borderRadius: '12px',
+                padding: '20px',
+                marginTop: '20px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <h3 style={{ margin: 0, color: '#374151', fontSize: '16px' }}>
+                        📜 Histórico de Operações
+                    </h3>
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        style={{
+                            padding: '4px 10px',
+                            background: showHistory ? '#6B7280' : '#4F46E5',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                        }}
+                    >
+                        {showHistory ? '🔼 Ocultar' : `🔽 Ver (${backupHistory.length})`}
+                    </button>
+                </div>
+
+                {showHistory && (
+                    <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                        {backupHistory.length === 0 ? (
+                            <p style={{ color: '#9CA3AF', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
+                                Nenhuma operação registrada ainda.
+                            </p>
+                        ) : (
+                            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ background: '#F3F4F6' }}>
+                                        <th style={{ padding: '8px', textAlign: 'left' }}>Operação</th>
+                                        <th style={{ padding: '8px', textAlign: 'left' }}>Origem</th>
+                                        <th style={{ padding: '8px', textAlign: 'right' }}>Registros</th>
+                                        <th style={{ padding: '8px', textAlign: 'center' }}>Status</th>
+                                        <th style={{ padding: '8px', textAlign: 'right' }}>Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {backupHistory.map((entry) => (
+                                        <tr key={entry.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
+                                            <td style={{ padding: '8px' }}>
+                                                {entry.operation === 'export' ? '📤 Export' : '📥 Import'}
+                                            </td>
+                                            <td style={{ padding: '8px', color: '#6B7280' }}>
+                                                {entry.origin}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '500' }}>
+                                                {entry.counts?.publishers || 0} pub
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                {entry.status === 'success' ? '✅' : entry.status === 'partial' ? '⚠️' : '❌'}
+                                            </td>
+                                            <td style={{ padding: '8px', textAlign: 'right', color: '#6B7280', fontSize: '11px' }}>
+                                                {new Date(entry.created_at).toLocaleDateString('pt-BR')} {new Date(entry.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 )}
             </div>
