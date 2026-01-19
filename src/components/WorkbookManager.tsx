@@ -798,12 +798,19 @@ export function WorkbookManager({ publishers }: Props) {
                     // 2. Selecionar via rotação linear v7.0
                     let selectedPublisher: Publisher | null = null;
 
-                    if (isAjudante && titularGender) {
+                    if (isAjudante) {
                         // =====================================================================
                         // AJUDANTES: Rotação linear SEPARADA por gênero
-                        // Não penaliza rotação de titular
+                        // Se não souber o gênero do titular, usar grupo genérico
                         // =====================================================================
-                        const ajudanteGroup: RotationGroup = titularGender === 'brother' ? 'ajudante_m' : 'ajudante_f';
+                        let ajudanteGroup: RotationGroup;
+                        if (titularGender) {
+                            ajudanteGroup = titularGender === 'brother' ? 'ajudante_m' : 'ajudante_f';
+                        } else {
+                            // Fallback: usar grupo genérico de estudante (inclui todos elegíveis)
+                            ajudanteGroup = 'estudante';
+                            console.log(`[Motor v7.0] ⚠️ Ajudante sem gênero do titular conhecido - usando grupo genérico`);
+                        }
 
                         // Filtro de elegibilidade para ajudante
                         const ajudanteFilter = (p: Publisher): boolean => {
@@ -835,6 +842,8 @@ export function WorkbookManager({ publishers }: Props) {
                         selectedPublisher = ajudante;
                         if (selectedPublisher) {
                             console.log(`[Motor v7.0] 🤝 Ajudante (${part.weekDisplay}): ${selectedPublisher.name} (rotação linear ${ajudanteGroup})`);
+                        } else {
+                            console.warn(`[Motor v7.0] ⚠️ Nenhum ajudante elegível para ${part.tipoParte} (${part.weekDisplay})`);
                         }
 
                     } else if (isOracaoFinal) {
