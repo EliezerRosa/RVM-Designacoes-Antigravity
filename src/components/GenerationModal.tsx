@@ -22,6 +22,7 @@ import {
     runAutoTuning,
 } from '../services/autoTuningService';
 import { validatePartsBeforeGeneration, type ValidationWarning } from '../services/linearRotationService';
+import { S140PreviewCarousel } from './S140PreviewCarousel';
 
 // ===== Tipos =====
 
@@ -38,6 +39,7 @@ export interface GenerationResult {
     warnings: string[];
     errors: string[];
     dryRun: boolean;
+    generatedWeeks?: string[];  // IDs das semanas que foram geradas
 }
 
 interface Props {
@@ -46,6 +48,7 @@ interface Props {
     onGenerate: (config: GenerationConfig) => Promise<GenerationResult>;
     parts: WorkbookPart[];
     publishers: Publisher[];
+    onNavigateToPart?: (partId: string) => void;  // Navegar para parte na aba Apostila
 }
 
 // ===== Estilos =====
@@ -129,7 +132,7 @@ const buttonStyle = (bg: string, disabled = false): React.CSSProperties => ({
 
 // ===== Componente =====
 
-export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers }: Props) {
+export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers, onNavigateToPart }: Props) {
     // Estado do período
     const [period, setPeriod] = useState<AnalysisPeriod | null>(null);
     const [tempStartDate, setTempStartDate] = useState('');
@@ -154,6 +157,7 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<GenerationResult | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [showS140Preview, setShowS140Preview] = useState(false);
 
     // Partes pendentes (filtradas)
     const pendingParts = parts.filter(p =>
@@ -163,13 +167,24 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
         p.status !== 'CANCELADA'
     );
 
-    // Agrupar por semana para preview
+    // Agrupar por semana para preview (usando weekDisplay para exibição)
     const partsByWeek = pendingParts.reduce((acc, part) => {
         const week = part.weekDisplay || part.weekId;
         if (!acc[week]) acc[week] = [];
         acc[week].push(part);
         return acc;
     }, {} as Record<string, WorkbookPart[]>);
+
+    // Agrupar por weekId para o carrossel S-140 (precisa de todas as partes da semana)
+    const partsByWeekId = parts.reduce((acc, part) => {
+        const weekId = part.weekId;
+        if (!acc[weekId]) acc[weekId] = [];
+        acc[weekId].push(part);
+        return acc;
+    }, {} as Record<string, WorkbookPart[]>);
+
+    // Semanas ordenadas para o carrossel
+    const weekOrder = [...new Set(pendingParts.map(p => p.weekId))].sort();
 
     // Carregar dados iniciais
     useEffect(() => {
@@ -353,6 +368,24 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                     </div>
                 )}
 
+                {/* Seção: Preview S-140 (após simulação) */}
+                {result && result.dryRun && result.success && (
+                    <div style={sectionStyle}>
+                        <div style={{ ...sectionTitleStyle, cursor: 'pointer' }} onClick={() => setShowS140Preview(!showS140Preview)}>
+                            <span>📄</span> Preview S-140 Sala B A4
+                            <span style={{ fontSize: '12px', color: '#6B7280', marginLeft: 'auto' }}>
+                                {showS140Preview ? '▲ Ocultar' : '▼ Mostrar'} ({weekOrder.length} semanas)
+                            </span>
+                        </div>
+                        {showS140Preview && (
+                            <S140PreviewCarousel
+                                weekParts={partsByWeekId}
+                                weekOrder={weekOrder}
+                            />
+                        )}
+                    </div>
+                )}
+
                 {/* Seção: Período de Análise */}
                 <div style={sectionStyle}>
                     <div style={sectionTitleStyle}>
@@ -524,10 +557,47 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                         ))}
                     </div>
 
-                    {/* Avisos de validação */}
+                    {/* Avisos de validação com links clicáveis */}
                     {validationWarnings.length > 0 && (
-                        <div style={{ marginTop: '12px', padding: '8px 12px', background: '#FEF3C7', borderRadius: '6px', fontSize: '12px', color: '#92400E' }}>
-                            ⚠️ {validationWarnings.length} parte(s) sem duração definida
+                        <div style={{ marginTop: '12px', padding: '10px 12px', background: '#FEF3C7', borderRadius: '6px', fontSize: '12px', color: '#92400E' }}>
+                            <div style={{ fontWeight: '600', marginBottom: '8px' }}>
+                                ⚠️ {validationWarnings.length} parte(s) com problemas:
+                            </div>
+                            <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                                {validationWarnings.map((w, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '4px 0',
+                                            borderBottom: idx < validationWarnings.length - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none'
+                                        }}
+                                    >
+                                        <span style={{ flex: 1 }}>{w.message}</span>
+                                        {onNavigateToPart && w.partId && (
+                                            <button
+                                                onClick={() => onNavigateToPart(w.partId!)}
+                                                style={{
+                                                    padding: '2px 8px',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    background: '#F59E0B',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    fontSize: '10px',
+                                                    fontWeight: '500',
+                                                    marginLeft: '8px',
+                                                }}
+                                                title="Ver esta parte na aba Apostila"
+                                            >
+                                                → Ver
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
