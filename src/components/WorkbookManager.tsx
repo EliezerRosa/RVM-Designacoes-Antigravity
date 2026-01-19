@@ -361,15 +361,22 @@ export function WorkbookManager({ publishers }: Props) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // Filtrar partes que precisam de designação (Titular OU Ajudante, não promovidas)
-        // E filtrar APENAS partes futuras (data >= hoje) usando parseDate robusto
+        // LÓGICA XOR: períodos específicos OU partes pendentes/sem publicador
+        // Se generationWeeks definido → incluir TODAS as partes do período (ignora status)
+        // Senão → só PENDENTE ou sem publicador
         const partsNeedingAssignment = parts.filter(p => {
             const d = parseDate(p.date);
-            return (p.funcao === 'Titular' || p.funcao === 'Ajudante') &&
-                p.status !== 'DESIGNADA' &&
-                p.status !== 'CONCLUIDA' &&
-                p.status !== 'CANCELADA' &&
-                d >= today;
+            if (d < today) return false; // Sempre excluir passadas
+            if (p.funcao !== 'Titular' && p.funcao !== 'Ajudante') return false;
+            if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA') return false;
+
+            // XOR: Se semanas específicas definidas → incluir TODAS do período
+            if (config?.generationWeeks && config.generationWeeks.length > 0) {
+                return config.generationWeeks.includes(p.weekId);
+            }
+
+            // Senão → só PENDENTE ou sem publicador
+            return p.status === 'PENDENTE' || !p.resolvedPublisherName;
         });
 
         if (partsNeedingAssignment.length === 0) {
