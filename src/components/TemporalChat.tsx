@@ -1,24 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 import { chatHistoryService } from '../services/chatHistoryService';
+import { askAgent, isAgentConfigured } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
+import type { Publisher, WorkbookPart } from '../types';
 
 /**
- * TemporalChat - Simple chat interface with persistent history (14‑day retention).
- * Uses the existing `chatHistoryService` to store messages locally in IndexedDB.
- * For now the component creates a single session titled "Temporal Chat" and
- * displays its messages. Future enhancements may tie the session to the current
- * week ID or agent context.
+ * TemporalChat - Chat interface with persistent history (14‑day retention)
+ * and integration with Gemini via agentService.
  */
-export default function TemporalChat() {
+
+interface Props {
+    publishers: Publisher[];
+    parts: WorkbookPart[];
+}
+
+export default function TemporalChat({ publishers, parts }: Props) {
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Load or create a session on mount
     useEffect(() => {
         async function init() {
-            // Try to find an existing session named "Temporal Chat"
             const recent = await chatHistoryService.getRecentSessions(5);
             const existing = recent.find(s => s.title === 'Temporal Chat');
             if (existing) {
@@ -33,32 +38,71 @@ export default function TemporalChat() {
         init();
     }, []);
 
-    // Keep messages up‑to‑date when the session changes
-    useEffect(() => {
-        if (!sessionId) return;
-        const interval = setInterval(async () => {
-            const sess = await chatHistoryService.getSession(sessionId);
-            if (sess) setMessages(sess.messages);
-        }, 2000); // poll every 2 s – simple approach for now
-        return () => clearInterval(interval);
-    }, [sessionId]);
-
     // Scroll to bottom when messages change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
     const sendMessage = async () => {
-        if (!input.trim() || !sessionId) return;
-        const newMsg: ChatMessage = {
+        if (!input.trim() || !sessionId || isLoading) return;
+
+        const userMsg: ChatMessage = {
             role: 'user',
             content: input.trim(),
             timestamp: new Date(),
         };
-        await chatHistoryService.addMessage(sessionId, newMsg);
+
+        // Add user message to UI and IndexedDB
+        await chatHistoryService.addMessage(sessionId, userMsg);
+        setMessages(prev => [...prev, userMsg]);
         setInput('');
-        // Optimistically add to UI (will be refreshed by poll)
-        setMessages(prev => [...prev, newMsg]);
+        setIsLoading(true);
+
+        try {
+            // Check if agent is configured
+            if (!isAgentConfigured()) {
+                const errorMsg: ChatMessage = {
+                    role: 'assistant',
+                    content: '⚠️ API Key do Gemini não configurada. Configure VITE_GEMINI_API_KEY no arquivo .env.local',
+                    timestamp: new Date(),
+                };
+                await chatHistoryService.addMessage(sessionId, errorMsg);
+                setMessages(prev => [...prev, errorMsg]);
+                return;
+            }
+
+            // Call the agent
+            const response = await askAgent(
+                userMsg.content,
+                publishers,
+                parts,
+                [], // history (empty for now)
+                messages, // chatHistory
+                'elder', // accessLevel
+                [], // specialEvents
+                [] // localNeeds
+            );
+
+            const agentMsg: ChatMessage = {
+                role: 'assistant',
+                content: response.success ? response.message : `❌ Erro: ${response.error}`,
+                timestamp: new Date(),
+            };
+
+            await chatHistoryService.addMessage(sessionId, agentMsg);
+            setMessages(prev => [...prev, agentMsg]);
+        } catch (error) {
+            console.error('[TemporalChat] Error calling agent:', error);
+            const errorMsg: ChatMessage = {
+                role: 'assistant',
+                content: `❌ Erro ao processar mensagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+                timestamp: new Date(),
+            };
+            await chatHistoryService.addMessage(sessionId, errorMsg);
+            setMessages(prev => [...prev, errorMsg]);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -71,6 +115,12 @@ export default function TemporalChat() {
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+                {messages.length === 0 && (
+                    <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '20px' }}>
+                        <p>👋 Olá! Sou o Assistente RVM.</p>
+                        <p style={{ fontSize: '12px' }}>Pergunte sobre publicadores, designações ou regras de elegibilidade.</p>
+                    </div>
+                )}
                 {messages.map((msg, idx) => (
                     <div key={idx} style={{ marginBottom: '8px' }}>
                         <span style={{ fontWeight: 'bold', color: msg.role === 'assistant' ? '#4F46E5' : '#111' }}>
@@ -81,6 +131,11 @@ export default function TemporalChat() {
                         </span>
                     </div>
                 ))}
+                {isLoading && (
+                    <div style={{ marginBottom: '8px', color: '#9CA3AF' }}>
+                        <span>🤖 Pensando...</span>
+                    </div>
+                )}
                 <div ref={messagesEndRef} />
             </div>
             <div style={{ borderTop: '1px solid #E5E7EB', padding: '8px', display: 'flex', gap: '8px' }}>
@@ -90,13 +145,22 @@ export default function TemporalChat() {
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKey}
+                    disabled={isLoading}
                     style={{ flex: 1, padding: '6px 10px', borderRadius: '4px', border: '1px solid #D1D5DB' }}
                 />
                 <button
                     onClick={sendMessage}
-                    style={{ background: '#4F46E5', color: '#fff', border: 'none', borderRadius: '4px', padding: '6px 12px' }}
+                    disabled={isLoading}
+                    style={{
+                        background: isLoading ? '#9CA3AF' : '#4F46E5',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '6px 12px',
+                        cursor: isLoading ? 'not-allowed' : 'pointer'
+                    }}
                 >
-                    Enviar
+                    {isLoading ? '...' : 'Enviar'}
                 </button>
             </div>
         </div>
