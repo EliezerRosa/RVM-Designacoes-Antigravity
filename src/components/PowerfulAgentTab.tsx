@@ -108,6 +108,8 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         weekOrder={weekOrder}
                         currentWeekId={currentWeekId}
                         onWeekChange={handleCarouselNavigation}
+                        onPartClick={(partId) => setSelectedPartId(partId)}
+                        selectedPartId={selectedPartId}
                     />
                     <div style={{ padding: '10px', fontSize: '12px', color: '#6B7280', textAlign: 'center' }}>
                         Navegue para dar contexto ao Agente
