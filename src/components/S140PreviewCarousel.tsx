@@ -18,9 +18,11 @@ interface Props {
     // NEW: External control props
     currentWeekId?: string | null;
     onWeekChange?: (weekId: string) => void;
+    onPartClick?: (partId: string) => void;
+    selectedPartId?: string | null;
 }
 
-export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWeekChange }: Props) {
+export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWeekChange, onPartClick, selectedPartId }: Props) {
     const [currentIndex, setCurrentIndex] = useState(0);
 
     // Sync with external control
@@ -180,6 +182,44 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
                         style={{ transform: 'scale(0.6)', transformOrigin: 'top left', width: '166%' }}
                     />
                 </div>
+
+                {/* Lista de partes clicáveis */}
+                {onPartClick && (
+                    <div style={{
+                        maxHeight: '120px',
+                        overflowY: 'auto',
+                        borderTop: '1px solid #E5E7EB',
+                        background: '#FAFAFA',
+                    }}>
+                        <div style={{ padding: '6px 8px', fontSize: '10px', fontWeight: '600', color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}>
+                            📋 Partes desta semana (clique para selecionar)
+                        </div>
+                        {currentParts.map(part => (
+                            <div
+                                key={part.id}
+                                onClick={() => onPartClick(part.id)}
+                                style={{
+                                    padding: '6px 10px',
+                                    cursor: 'pointer',
+                                    fontSize: '11px',
+                                    borderBottom: '1px solid #E5E7EB',
+                                    background: selectedPartId === part.id ? '#EEF2FF' : 'transparent',
+                                    borderLeft: selectedPartId === part.id ? '3px solid #4F46E5' : '3px solid transparent',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <span style={{ color: '#374151' }}>
+                                    {part.tituloParte || part.tipoParte}
+                                </span>
+                                <span style={{ color: '#9CA3AF', fontSize: '10px' }}>
+                                    {part.rawPublisherName || '—'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Footer com botão ampliar */}
                 <div style={{
