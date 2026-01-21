@@ -98,7 +98,12 @@ Você pode apenas informar quem ESTÁ designado, não por que alguém NÃO está
  * Verifica se a API está configurada
  */
 export function isAgentConfigured(): boolean {
-    return !!GEMINI_API_KEY && GEMINI_API_KEY.length > 10;
+    // Se tiver chave local configurada, ótimo
+    if (!!GEMINI_API_KEY && GEMINI_API_KEY.length > 10) return true;
+
+    // Se não tiver chave, assumimos que pode funcionar via proxy (/api/chat) na Vercel
+    // Em localhost sem chave, a chamada ao proxy vai falhar (404 ou 500), mas deixamos tentar
+    return true;
 }
 
 /**
@@ -174,18 +179,37 @@ export async function askAgent(
             },
         };
 
-        // Chamar API
-        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-        });
+        // Decidir se usa Proxy (Vercel) ou Direto (Local)
+        let response: Response;
+
+        const hasLocalKey = !!GEMINI_API_KEY && GEMINI_API_KEY.length > 10;
+
+        if (hasLocalKey) {
+            // MODO LOCAL: Chama direto com a chave do .env.local
+            response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+            });
+        } else {
+            // MODO PRODUÇÃO/VERCEL: Chama o proxy (sem chave na URL)
+            response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+            });
+        }
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || `Erro HTTP ${response.status}`);
+
+            // Tratamento especial para erro de chave vazada
+            const errorMessage = errorData.error?.message || `Erro HTTP ${response.status}`;
+            if (errorMessage.includes('API key not valid') || errorMessage.includes('key was reported as leaked')) {
+                throw new Error('A API Key foi invalidada. Por favor, verifique a configuração na Vercel.');
+            }
+
+            throw new Error(errorMessage);
         }
 
         const data = await response.json();
