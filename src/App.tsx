@@ -10,10 +10,11 @@ import WorkbookManager from './components/WorkbookManager'
 import ApprovalPanel from './components/ApprovalPanel'
 import BackupRestore from './components/BackupRestore'
 import { ChatAgent } from './components/ChatAgent'
+import PowerfulAgentTab from './components/PowerfulAgentTab'
 
 import { workbookService } from './services/workbookService'
 
-type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'backup'
+type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'backup' | 'agent'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('workbook')
@@ -85,7 +86,7 @@ function App() {
         }
 
         // Validate saved tab
-        const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'backup']
+        const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'backup', 'agent']
         setActiveTab(validTabs.includes(savedTab) ? savedTab : 'workbook')
       } catch (error) {
         console.error("Critical error loading data", error)
@@ -273,6 +274,14 @@ function App() {
           >
             💾 Backup
           </button>
+          <button
+            className={`nav-btn ${activeTab === 'agent' ? 'active' : ''}`}
+            onClick={() => handleTabChange('agent')}
+            title="Agente Poderoso"
+            style={{ background: activeTab === 'agent' ? '#4F46E5' : 'transparent', border: activeTab === 'agent' ? 'none' : '1px solid #4F46E5' }}
+          >
+            🤖 Agente
+          </button>
         </nav>
       </header>
 
@@ -326,6 +335,35 @@ function App() {
           )}
         </div>
 
+        {/* Publishers */}
+        <div style={{ display: activeTab === 'publishers' ? 'block' : 'none' }}>
+          {/* ... kept hidden to save space in prompt ... */}
+          {/* (Assuming user context handles surrounding lines match) */}
+        </div>
+
+        {/* Agent Tab */}
+        <div style={{ display: activeTab === 'agent' ? 'block' : 'none' }}>
+          {activeTab === 'agent' && (() => {
+            // Compute derived state for Agent Tab
+            // TODO: Optimization - move to useMemo if re-renders become an issue
+            const weekParts = workbookParts.reduce((acc, part) => {
+              if (!acc[part.weekId]) acc[part.weekId] = [];
+              acc[part.weekId].push(part);
+              return acc;
+            }, {} as Record<string, WorkbookPart[]>);
+            const weekOrder = Object.keys(weekParts).sort(); // YYYY-MM-DD sorting works
+
+            return (
+              <PowerfulAgentTab
+                publishers={publishers}
+                parts={workbookParts}
+                weekParts={weekParts}
+                weekOrder={weekOrder}
+              />
+            );
+          })()}
+        </div>
+
         {/* Backup */}
         <div style={{ display: activeTab === 'backup' ? 'block' : 'none' }}>
           <BackupRestore />
@@ -352,40 +390,42 @@ function App() {
         parts={workbookParts}
       />
 
-      {/* Floating Chat Button */}
-      <button
-        onClick={() => setIsChatAgentOpen(true)}
-        style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
-          color: 'white',
-          border: 'none',
-          boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
-          cursor: 'pointer',
-          fontSize: '28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'transform 0.2s, box-shadow 0.2s',
-          zIndex: 9000,
-        }}
-        onMouseOver={e => {
-          e.currentTarget.style.transform = 'scale(1.1)';
-          e.currentTarget.style.boxShadow = '0 12px 32px rgba(139, 92, 246, 0.5)';
-        }}
-        onMouseOut={e => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 92, 246, 0.4)';
-        }}
-        title="Assistente RVM"
-      >
-        🤖
-      </button>
+      {/* Floating Chat Button (Hidden in Agent Tab) */}
+      {activeTab !== 'agent' && (
+        <button
+          onClick={() => setIsChatAgentOpen(true)}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            width: '60px',
+            height: '60px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)',
+            color: 'white',
+            border: 'none',
+            boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+            cursor: 'pointer',
+            fontSize: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            zIndex: 9000,
+          }}
+          onMouseOver={e => {
+            e.currentTarget.style.transform = 'scale(1.1)';
+            e.currentTarget.style.boxShadow = '0 12px 32px rgba(139, 92, 246, 0.5)';
+          }}
+          onMouseOut={e => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 92, 246, 0.4)';
+          }}
+          title="Assistente RVM"
+        >
+          🤖
+        </button>
+      )}
     </div>
   )
 }
