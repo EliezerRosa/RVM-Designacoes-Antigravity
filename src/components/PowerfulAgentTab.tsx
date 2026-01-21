@@ -121,7 +121,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     <span>🤖</span> Agente RVM
                 </div>
                 <div style={contentStyle}>
-                    <TemporalChat />
+                    <TemporalChat publishers={publishers} parts={parts} />
                 </div>
             </div>
 
