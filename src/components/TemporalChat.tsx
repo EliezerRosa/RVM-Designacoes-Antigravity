@@ -76,7 +76,7 @@ export default function TemporalChat() {
                         <span style={{ fontWeight: 'bold', color: msg.role === 'assistant' ? '#4F46E5' : '#111' }}>
                             {msg.role === 'assistant' ? '🤖' : '👤'}:
                         </span>{' '}
-                        <span style={{ wordBreak: 'break-word' }}>
+                        <span style={{ wordBreak: 'break-word', color: '#111' }}>
                             {msg.content ? msg.content : <em>(sem conteúdo)</em>}
                         </span>
                     </div>
