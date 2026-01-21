@@ -1,0 +1,84 @@
+name: Atomic Writer (Distributed Mutex)
+
+on:
+  repository_dispatch:
+    types: [atomic_write]
+
+concurrency:
+  group: write-${{ github.event.client_payload.block_id }}
+  cancel-in-progress: false
+
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Atomic Write Operation
+        env:
+          BLOCK_ID: ${{ github.event.client_payload.block_id }}
+          CONTENT_JSON: ${{ toJson(github.event.client_payload.content) }}
+        run: |
+          import os
+          import json
+          
+          block_id = os.environ['BLOCK_ID']
+          # CONTENT_JSON comes as a string representing the JSON object (because of toJson)
+          # We might need to check if it matches the structure or if we need to parse it.
+          # Ideally, client_payload.content is a dict. toJson converts it to a JSON string.
+          content_str = os.environ['CONTENT_JSON']
+          
+          print(f"Processing write for block: {block_id}")
+          
+          # Map block_id to file path
+          # security check: prevent directory traversal
+          if '..' in block_id or '/' in block_id or '\\' in block_id:
+             print("Invalid block_id")
+             exit(1)
+
+          # Define Mapping logic
+          # Assuming simple mapping for now
+          target_path = ''
+          if block_id == 'publishers':
+              target_path = 'src/data/publishers.json'
+          elif block_id == 'participations':
+              target_path = 'src/data/participations.json'
+          else:
+              # Default fallback or specific rule
+              target_path = f'src/data/{block_id}.json'
+          
+          print(f"Target file: {target_path}")
+          
+          # Write content
+          try:
+            # Parse the JSON string from env var to ensure valid JSON formatting in file
+            # content_str is a JSON representation of the object.
+            data = json.loads(content_str)
+            
+            with open(target_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            
+            print("File written successfully.")
+          except Exception as e:
+            print(f"Error writing file: {e}")
+            exit(1)
+        shell: python
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name 'Atomic Writer Bot'
+          git config --global user.email 'bot@antigravity.io'
+          git add .
+          git commit -m "Atomic Write: Update ${{ github.event.client_payload.block_id }}" || echo "No changes to commit"
+          git push
