@@ -8,17 +8,31 @@
  * - Renderiza HTML inline do S-140
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { WorkbookPart } from '../types';
 import { prepareS140RoomBA4Data, generateS140RoomBA4HTML } from '../services/s140GeneratorRoomBA4';
 
 interface Props {
     weekParts: Record<string, WorkbookPart[]>;  // weekId -> parts
     weekOrder: string[];  // Ordem das semanas
+    // NEW: External control props
+    currentWeekId?: string | null;
+    onWeekChange?: (weekId: string) => void;
 }
 
-export function S140PreviewCarousel({ weekParts, weekOrder }: Props) {
+export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWeekChange }: Props) {
     const [currentIndex, setCurrentIndex] = useState(0);
+
+    // Sync with external control
+    useEffect(() => {
+        if (currentWeekId) {
+            const index = weekOrder.indexOf(currentWeekId);
+            if (index !== -1 && index !== currentIndex) {
+                setCurrentIndex(index);
+            }
+        }
+    }, [currentWeekId, weekOrder]);
+
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     if (weekOrder.length === 0) {
@@ -29,8 +43,8 @@ export function S140PreviewCarousel({ weekParts, weekOrder }: Props) {
         );
     }
 
-    const currentWeekId = weekOrder[currentIndex];
-    const currentParts = weekParts[currentWeekId] || [];
+    const activeWeekId = weekOrder[currentIndex];
+    const currentParts = weekParts[activeWeekId] || [];
 
     // Gerar HTML do S-140
     let s140HTML = '<div style="padding: 20px; color: #666;">Sem partes para esta semana</div>';
@@ -43,16 +57,29 @@ export function S140PreviewCarousel({ weekParts, weekOrder }: Props) {
         s140HTML = `<div style="padding: 20px; color: #B91C1C;">Erro ao gerar preview: ${e}</div>`;
     }
 
+    const handleNavigate = (newIndex: number) => {
+        setCurrentIndex(newIndex);
+        if (onWeekChange) {
+            onWeekChange(weekOrder[newIndex]);
+        }
+    };
+
     const goToPrev = () => {
-        setCurrentIndex(prev => Math.max(0, prev - 1));
+        if (currentIndex > 0) {
+            handleNavigate(currentIndex - 1);
+        }
     };
 
     const goToNext = () => {
-        setCurrentIndex(prev => Math.min(weekOrder.length - 1, prev + 1));
+        if (currentIndex < weekOrder.length - 1) {
+            // Check if user is navigating beyond current retention/visibility logic if needed
+            // For now, allow navigation
+            handleNavigate(currentIndex + 1);
+        }
     };
 
     // Obter display da semana
-    const weekDisplay = currentParts[0]?.weekDisplay || currentWeekId;
+    const weekDisplay = currentParts[0]?.weekDisplay || activeWeekId;
 
     // Estilos
     const containerStyle: React.CSSProperties = {
