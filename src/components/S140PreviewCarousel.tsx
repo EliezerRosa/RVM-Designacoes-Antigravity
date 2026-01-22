@@ -111,7 +111,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
     };
 
     const previewStyle: React.CSSProperties = {
-        height: '400px',
+        height: '280px',
         overflow: 'auto',
         background: 'white',
         padding: '10px',
@@ -179,14 +179,14 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
                 <div style={previewStyle}>
                     <div
                         dangerouslySetInnerHTML={{ __html: s140HTML }}
-                        style={{ transform: 'scale(0.6)', transformOrigin: 'top left', width: '166%' }}
+                        style={{ transform: 'scale(0.5)', transformOrigin: 'top left', width: '200%' }}
                     />
                 </div>
 
                 {/* Lista de partes clicáveis */}
                 {onPartClick && (
                     <div style={{
-                        maxHeight: '120px',
+                        maxHeight: '180px',
                         overflowY: 'auto',
                         borderTop: '1px solid #E5E7EB',
                         background: '#FAFAFA',

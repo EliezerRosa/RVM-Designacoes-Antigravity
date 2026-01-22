@@ -195,6 +195,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         publishers={publishers}
                         parts={parts}
                         onAction={handleAgentAction}
+                        onNavigateToWeek={handleCarouselNavigation}
                     />
                 </div>
             </div>

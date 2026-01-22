@@ -10,9 +10,10 @@ interface Props {
     publishers: Publisher[];
     parts: WorkbookPart[];
     onAction?: (result: SimulationResult) => void;
+    onNavigateToWeek?: (weekId: string) => void;  // NEW: Navigate S-140 when agent mentions a week
 }
 
-export default function TemporalChat({ publishers, parts, onAction }: Props) {
+export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek }: Props) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -129,6 +130,17 @@ export default function TemporalChat({ publishers, parts, onAction }: Props) {
             await chatHistoryService.addMessage(sessionId, agentMsg);
             setMessages(prev => [...prev, agentMsg]);
 
+            // NEW: Detect week patterns in response and navigate
+            if (response.success && onNavigateToWeek) {
+                // Pattern: YYYY-MM-DD format
+                const weekPattern = /(\d{4}-\d{2}-\d{2})/;
+                const match = response.message.match(weekPattern);
+                if (match) {
+                    console.log('[TemporalChat] Navigating to week:', match[1]);
+                    onNavigateToWeek(match[1]);
+                }
+            }
+
             // Handle Action if present
             if (response.success && response.action) {
                 console.log('[TemporalChat] Executing action:', response.action);
@@ -209,7 +221,7 @@ export default function TemporalChat({ publishers, parts, onAction }: Props) {
                 <div ref={messagesEndRef} />
             </div>
             {pendingResult && pendingResult.success && (
-                <div style={{ padding: '10px', background: '#F0F9FF', borderTop: '1px solid #BAE6FD' }}>
+                <div style={{ padding: '12px', background: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)', borderTop: '2px solid #0EA5E9', boxShadow: '0 -2px 10px rgba(14, 165, 233, 0.15)' }}>
                     <div style={{ fontWeight: 'bold', color: '#0369A1', marginBottom: '4px' }}>
                         Ação Pendente (Simulação)
                     </div>
