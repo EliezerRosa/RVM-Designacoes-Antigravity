@@ -1,4 +1,8 @@
-import type { Publisher, WorkbookPart } from '../types';
+import { useState, useEffect } from 'react';
+import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
+import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
+import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
+import { loadPublisherParticipations } from '../services/historyAdapter';
 
 /**
  * ActionControlPanel – Exibe detalhes da parte selecionada
@@ -10,6 +14,11 @@ interface Props {
     publishers: Publisher[];
 }
 
+interface PublisherStats {
+    lastDate: string | null;
+    totalAssignments: number;
+}
+
 export default function ActionControlPanel({ selectedPartId, parts, publishers }: Props) {
     const selectedPart = parts.find(p => p.id === selectedPartId);
 
@@ -19,6 +28,76 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
             pub.name.toLowerCase() === selectedPart.rawPublisherName?.toLowerCase()
         )
         : null;
+
+    // Estados para dados assíncronos
+    const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
+    const [cooldown, setCooldown] = useState<CooldownInfo | null>(null);
+    const [stats, setStats] = useState<PublisherStats | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function fetchData() {
+            if (!selectedPart || !assignedPublisher) {
+                setEligibility(null);
+                setCooldown(null);
+                setStats(null);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                // 1. Verificar Elegibilidade (Rápido, Síncrono)
+                const elig = checkEligibility(
+                    assignedPublisher,
+                    selectedPart.modalidade as any, // Cast simples, idealmente tipar melhor no WorkbookPart
+                    selectedPart.funcao as any,
+                    {
+                        date: selectedPart.date,
+                        partTitle: selectedPart.tituloParte,
+                        secao: selectedPart.section
+                    }
+                );
+
+                if (isMounted) setEligibility(elig);
+
+                // 2. Buscar Histórico (Assíncrono)
+                const history = await loadPublisherParticipations(assignedPublisher.name);
+
+                if (!isMounted) return;
+
+                // 3. Calcular Cooldown
+                const cdInfo = getCooldownInfo(
+                    assignedPublisher.name,
+                    selectedPart.tipoParte,
+                    history,
+                    new Date() // Hoje
+                );
+                setCooldown(cdInfo);
+
+                // 4. Calcular Estatísticas Simples
+                // Filtrar apenas partes do mesmo tipo para "Última vez"
+                const sameTypeHistory = history.filter(h => h.tipoParte === selectedPart.tipoParte);
+                const lastDate = sameTypeHistory.length > 0 ? sameTypeHistory[0].date : null;
+
+                setStats({
+                    lastDate,
+                    totalAssignments: history.length
+                });
+
+            } catch (error) {
+                console.error("Erro ao buscar dados do publicador:", error);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        }
+
+        fetchData();
+
+        return () => { isMounted = false; };
+    }, [selectedPart, assignedPublisher]);
+
 
     // Estilo para badges de status
     const getBadgeStyle = (type: 'success' | 'warning' | 'info' | 'error'): React.CSSProperties => {
@@ -141,6 +220,68 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                         )}
                     </div>
 
+                    {/* Painel de Análise (Substitui Placeholder) */}
+                    {assignedPublisher && (
+                        <div style={{ ...sectionStyle, background: '#FFFFFF', borderColor: '#D1D5DB' }}>
+                            <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '12px', color: '#374151' }}>
+                                📊 Análise do Designado
+                            </div>
+
+                            {loading ? (
+                                <div style={{ fontSize: '11px', color: '#6B7280', fontStyle: 'italic' }}>
+                                    Carregando histórico...
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+                                    {/* Elegibilidade */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '11px', color: '#4B5563' }}>Elegibilidade</span>
+                                        {eligibility?.eligible ? (
+                                            <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold' }}>✓ Apto com Louvor</span>
+                                        ) : (
+                                            <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: 'bold' }}>
+                                                ⚠️ {eligibility?.reason || 'Restrição Encontrada'}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Cooldown */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '11px', color: '#4B5563' }}>Intervalo (Cooldown)</span>
+                                        {cooldown?.isInCooldown ? (
+                                            <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 'bold' }}>
+                                                ⏳ Aguarde {cooldown.cooldownRemaining} sem.
+                                            </span>
+                                        ) : (
+                                            <span style={{ fontSize: '11px', color: '#059669' }}>
+                                                ✓ Liberado
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Estatísticas */}
+                                    {stats && (
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Última vez nesta parte</span>
+                                                <span style={{ fontSize: '11px', fontWeight: '500' }}>
+                                                    {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nunca'}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Total de Designações</span>
+                                                <span style={{ fontSize: '11px', fontWeight: '500' }}>
+                                                    {stats.totalAssignments}
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Detalhes da Parte */}
                     {selectedPart.descricaoParte && (
                         <div style={sectionStyle}>
@@ -163,20 +304,6 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                                 <div style={valueStyle}>{selectedPart.modalidade || '—'}</div>
                             </div>
                         </div>
-                    </div>
-
-                    {/* Placeholder para ações futuras */}
-                    <div style={{
-                        marginTop: '16px',
-                        padding: '12px',
-                        background: '#FEF3C7',
-                        borderRadius: '8px',
-                        border: '1px dashed #F59E0B',
-                        textAlign: 'center',
-                        fontSize: '11px',
-                        color: '#92400E',
-                    }}>
-                        🚧 Ações (designar, remover, trocar) serão implementadas na próxima fase
                     </div>
                 </>
             ) : (

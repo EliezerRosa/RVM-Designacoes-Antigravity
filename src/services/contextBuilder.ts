@@ -306,8 +306,9 @@ function buildParticipationAnalytics(
     const lastParticipation = new Map<string, string>();
 
     for (const part of parts) {
-        const name = part.resolvedPublisherName;
-        if (!name) continue;
+        // Tenta usar nome resolvido, senão raw, senão ignora
+        const name = part.resolvedPublisherName || part.rawPublisherName;
+        if (!name || name === 'N/A') continue;
 
         participationCount.set(name, (participationCount.get(name) || 0) + 1);
 

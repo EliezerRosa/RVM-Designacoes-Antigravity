@@ -37,6 +37,23 @@ O aplicativo foca em TRÊS pilares principais:
 - `workbookService.ts`: Lógica pesada de designação.
 - `cooldownService.ts`: Lógica de rodízio baseada em `HistoryRecord` (adaptado de `WorkbookPart`).
 
+### Agente Poderoso (Agente RVM)
+Implementado em **Jan/2026**, o Agente RVM agora é uma "Aba Poderosa" integrada:
+- **Chat Temporal:** Mantém histórico de 14 dias persistente no navegador.
+- **Contexto Rico:** O agente "vê" quem são os publicadores, regras e estatísticas.
+- **Segurança (Vercel):** As chamadas API agora passam por uma *Serverless Function* (`api/chat.ts`), protegendo a chave do Gemini em produção.
+- **Ações Ativas:** O agente pode **SIMULAR** designações. Ao pedir "Simule que o irmão X fará a parte Y", o sistema:
+    1.  Detecta a intenção.
+    2.  Executa a lógica em memória em `agentActionService.ts`.
+    3.  Atualiza o carrossel de visualização com um badge "Simulação Ativa".
+    4.  Navega automaticamente para a semana relevante.
+
+### Correções Recentes
+1.  **Tela Branca Local:** Corrigido `vite.config.ts` para detectar modo de desenvolvimento (`npm run dev`) e servir na raiz, evitando conflito de base path.
+2.  **Erro de Tipos:** Corrigido erro de importação em `agentActionService.ts` (`import type` para interfaces), resolvendo crash do navegador.
+3.  **Deploy Vercel:** Configurado para funcionar na raiz, mas **Requer Configuração de Variável de Ambiente** (`GEMINI_API_KEY`) no painel da Vercel para funcionar (erro 500 atual).
+
 ### Próximos Passos
-- Implementar geração de PDF (S-140) direto do `WorkbookManager`.
-- Refinar lógica de Eventos Especiais.
+- Validar simulação em produção após configuração da chave.
+- Implementar "Confirmar" ação (efetivar no banco).
+- Testar geração de PDF.

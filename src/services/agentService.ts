@@ -4,6 +4,7 @@
  * Processa perguntas do usuário usando contexto do app
  */
 
+import { agentActionService, AgentAction } from './agentActionService';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import {
     buildAgentContext,
@@ -33,6 +34,7 @@ export interface AgentResponse {
     success: boolean;
     message: string;
     error?: string;
+    action?: AgentAction;
 }
 
 // NOVO: Nível de acesso do usuário
@@ -61,6 +63,34 @@ FORMATO:
 - Use listas quando apropriado
 - Negrite termos importantes com **asteriscos**
 - Seja direto ao ponto
+
+AÇÕES E COMANDOS:
+Se o usuário pedir para "simular", "alocar", "designar" ou "remover" alguém, você DEVE incluir um bloco JSON no final da resposta com a ação estruturada.
+
+Formato do JSON para Simulação:
+\`\`\`json
+{
+  "type": "SIMULATE_ASSIGNMENT",
+  "params": {
+    "publisherName": "Nome do Publicador",
+    "partId": "ID_da_Parte (se souber, senão omita ou peça confirmação)"
+  },
+  "description": "Explicação curta do que foi feito"
+}
+\`\`\`
+
+Formato do JSON para Remoção:
+\`\`\`json
+{
+  "type": "REMOVE_ASSIGNMENT",
+  "params": { 
+    "partId": "ID_da_Parte"
+  },
+  "description": "Removendo designação..."
+}
+\`\`\`
+
+IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown (\`\`\`json ... \`\`\`).
 
 PAGINAÇÃO DE RESPOSTAS LONGAS:
 - Limite cada resposta a no máximo 600 palavras
@@ -221,9 +251,12 @@ export async function askAgent(
             throw new Error('Resposta vazia do Gemini');
         }
 
+        const detectedAction = agentActionService.detectAction(content);
+
         return {
             success: true,
             message: content,
+            action: detectedAction || undefined
         };
 
     } catch (error) {

@@ -143,18 +143,19 @@ function App() {
     }
   }, [])
 
-  // Load workbook parts when ChatAgent opens
+  // Load workbook parts when ChatAgent opens OR Agent tab is active
   useEffect(() => {
-    if (isChatAgentOpen && workbookParts.length === 0) {
-      console.log('[ChatAgent] Loading workbook parts for AI agent...');
+    const needsParts = isChatAgentOpen || activeTab === 'agent';
+    if (needsParts && workbookParts.length === 0) {
+      console.log('[Agent] Loading workbook parts for AI...');
       workbookService.getAll().then((parts: WorkbookPart[]) => {
-        console.log(`[ChatAgent] Loaded ${parts.length} parts for AI agent`);
+        console.log(`[Agent] Loaded ${parts.length} parts for AI`);
         setWorkbookParts(parts);
       }).catch((err: unknown) => {
-        console.warn('[ChatAgent] Error loading parts:', err);
+        console.warn('[Agent] Error loading parts:', err);
       });
     }
-  }, [isChatAgentOpen, workbookParts.length]);
+  }, [isChatAgentOpen, activeTab, workbookParts.length]);
 
   const savePublisher = async (publisher: Publisher) => {
     setIsSaving(true)
