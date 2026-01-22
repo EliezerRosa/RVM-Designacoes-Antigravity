@@ -1,4 +1,5 @@
 import type { WorkbookPart, Publisher } from '../types';
+import { WorkbookStatus } from '../types';
 
 export type AgentActionType = 'SIMULATE_ASSIGNMENT' | 'REMOVE_ASSIGNMENT' | 'CHECK_ELIGIBILITY';
 
@@ -57,14 +58,12 @@ export const agentActionService = {
                     return { success: false, message: `Parte não encontrada (ID: ${partId})` };
                 }
 
-                // If finding by name (common for LLM), resolve ID
-                let resolvedPublisherId = publisherId;
+                // If finding by name (common for LLM), resolve name
                 let resolvedName = publisherName;
 
                 if (!publisherId && publisherName) {
                     const pub = publishers.find(p => p.name.toLowerCase().includes(publisherName.toLowerCase()));
                     if (pub) {
-                        resolvedPublisherId = pub.id;
                         resolvedName = pub.name;
                     } else {
                         return { success: false, message: `Publicador '${publisherName}' não encontrado.` };
@@ -78,14 +77,13 @@ export const agentActionService = {
                 // Create simulated part
                 const simulatedPart: WorkbookPart = {
                     ...targetPart,
-                    resolvedPublisherId: resolvedPublisherId,
                     resolvedPublisherName: resolvedName,
-                    status: 'PENDING'
+                    status: WorkbookStatus.PENDENTE
                 };
 
                 return {
                     success: true,
-                    message: `Simulado: ${resolvedName} designado para '${targetPart.partTitle || 'Parte'}'`,
+                    message: `Simulado: ${resolvedName} designado para '${targetPart.tituloParte || 'Parte'}'`,
                     affectedParts: [simulatedPart]
                 };
 
@@ -98,17 +96,17 @@ export const agentActionService = {
 
                 const cleanedPart: WorkbookPart = {
                     ...partToRemove,
-                    resolvedPublisherId: undefined,
                     resolvedPublisherName: undefined,
-                    status: 'PENDING'
+                    status: WorkbookStatus.PENDENTE
                 };
 
                 return {
                     success: true,
-                    message: `Simulado: Designação removida de '${partToRemove.partTitle}'`,
+                    message: `Simulado: Designação removida de '${partToRemove.tituloParte}'`,
                     affectedParts: [cleanedPart]
                 };
 
+            default:
                 return { success: false, message: 'Ação desconhecida' };
         }
     },
