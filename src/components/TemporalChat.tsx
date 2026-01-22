@@ -228,6 +228,13 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 const waitSeconds = Math.ceil(parseFloat(rateLimitMatch[1]));
                 setRateLimitCountdown(waitSeconds);
 
+                // SYNC: If API says we are limited, consume all local credits immediately
+                // This prevents "15/15" display when actually blocked server-side
+                const now = Date.now();
+                // Add enough fake timestamps to drop credits to 0
+                const fakeTimestamps = Array(MAX_REQUESTS_PER_MINUTE).fill(now);
+                setRequestTimestamps(fakeTimestamps);
+
                 const rateLimitMsg: ChatMessage = {
                     role: 'assistant',
                     content: `⏳ Limite de requisições atingido. Aguarde ${waitSeconds} segundos...`,
@@ -383,11 +390,14 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             </div>
             <div style={{ padding: '0 8px 4px 8px', display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#9CA3AF' }}>
                 <span title="Créditos restantes nesta janela de 1 minuto">
-                    💳 Créditos: {creditsRemaining}/{MAX_REQUESTS_PER_MINUTE}
+                    {rateLimitCountdown > 0
+                        ? <span style={{ color: '#EF4444', fontWeight: 'bold' }}>⛔ Bloqueado pela API</span>
+                        : `💳 Créditos: ${creditsRemaining}/${MAX_REQUESTS_PER_MINUTE}`
+                    }
                 </span>
                 {refillInSeconds > 0 && (
                     <span title="Tempo para liberar mais uma requisição">
-                        ⏳ Recarga em: {refillInSeconds}s
+                        ⏳ Recarga em: {rateLimitCountdown > 0 ? rateLimitCountdown : refillInSeconds}s
                     </span>
                 )}
             </div>
