@@ -22,6 +22,15 @@ import {
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
+// SEGURANÇA: Modelos permitidos no Free Tier
+// Se tentar usar um modelo fora desta lista, o sistema bloqueará para evitar cobranças acidentais.
+const FREE_TIER_SAFE_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b'
+];
+
 // ===== Tipos =====
 
 export interface ChatMessage {
@@ -137,6 +146,17 @@ export function isAgentConfigured(): boolean {
 }
 
 /**
+ * SEGURANÇA: Verifica se o modelo configurado é seguro (Free Tier)
+ */
+function checkSafetyMode(url: string): void {
+    const isSafe = FREE_TIER_SAFE_MODELS.some(model => url.includes(model));
+    if (!isSafe) {
+        console.warn('🚨 ALERTA DE COBRANÇA: O sistema tentou usar um modelo fora da lista segura (Free Tier).');
+        throw new Error('Bloqueio de Segurança: Tentativa de uso de modelo não-verificado (potencialmente pago). Use apenas modelos Flash.');
+    }
+}
+
+/**
  * Processa uma pergunta do usuário
  */
 export async function askAgent(
@@ -216,6 +236,10 @@ export async function askAgent(
 
         if (hasLocalKey) {
             // MODO LOCAL: Chama direto com a chave do .env.local
+
+            // 🔒 Safety Check
+            checkSafetyMode(GEMINI_API_URL);
+
             response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
