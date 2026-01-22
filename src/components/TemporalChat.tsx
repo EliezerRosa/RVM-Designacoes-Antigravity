@@ -21,6 +21,9 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Rate Limit Countdown State
+    const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
+
     // Action Handling State
     const [pendingResult, setPendingResult] = useState<SimulationResult | null>(null);
 
@@ -78,6 +81,23 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, pendingResult]);
+
+    // Countdown timer for rate limiting
+    useEffect(() => {
+        if (rateLimitCountdown <= 0) return;
+
+        const timer = setInterval(() => {
+            setRateLimitCountdown(prev => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [rateLimitCountdown]);
 
     const sendMessage = async () => {
         if (!input.trim() || !sessionId || isLoading) return;
@@ -175,13 +195,30 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
 
         } catch (error) {
             console.error('[TemporalChat] Error calling agent:', error);
-            const errorMsg: ChatMessage = {
-                role: 'assistant',
-                content: `❌ Erro ao processar mensagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
-                timestamp: new Date(),
-            };
-            await chatHistoryService.addMessage(sessionId, errorMsg);
-            setMessages(prev => [...prev, errorMsg]);
+            const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+
+            // Detect rate limit error and extract wait time
+            const rateLimitMatch = errorMessage.match(/Please retry in ([\d.]+)s/);
+            if (rateLimitMatch) {
+                const waitSeconds = Math.ceil(parseFloat(rateLimitMatch[1]));
+                setRateLimitCountdown(waitSeconds);
+
+                const rateLimitMsg: ChatMessage = {
+                    role: 'assistant',
+                    content: `⏳ Limite de requisições atingido. Aguarde ${waitSeconds} segundos...`,
+                    timestamp: new Date(),
+                };
+                await chatHistoryService.addMessage(sessionId, rateLimitMsg);
+                setMessages(prev => [...prev, rateLimitMsg]);
+            } else {
+                const errorMsg: ChatMessage = {
+                    role: 'assistant',
+                    content: `❌ Erro ao processar mensagem: ${errorMessage}`,
+                    timestamp: new Date(),
+                };
+                await chatHistoryService.addMessage(sessionId, errorMsg);
+                setMessages(prev => [...prev, errorMsg]);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -261,29 +298,62 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     </div>
                 </div>
             )}
+            {rateLimitCountdown > 0 && (
+                <div style={{
+                    padding: '10px 12px',
+                    background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
+                    borderTop: '2px solid #F59E0B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        background: '#F59E0B',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 'bold',
+                        fontSize: '14px'
+                    }}>
+                        {rateLimitCountdown}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', color: '#92400E', fontSize: '13px' }}>
+                            ⏳ Limite de requisições atingido
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#B45309' }}>
+                            Aguarde {rateLimitCountdown} segundos para enviar nova mensagem
+                        </div>
+                    </div>
+                </div>
+            )}
             <div style={{ borderTop: '1px solid #E5E7EB', padding: '8px', display: 'flex', gap: '8px' }}>
                 <input
                     type="text"
-                    placeholder="Digite sua mensagem..."
+                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : "Digite sua mensagem..."}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKey}
-                    disabled={isLoading}
-                    style={{ flex: 1, padding: '6px 10px', borderRadius: '4px', border: '1px solid #D1D5DB' }}
+                    disabled={isLoading || rateLimitCountdown > 0}
+                    style={{ flex: 1, padding: '6px 10px', borderRadius: '4px', border: '1px solid #D1D5DB', opacity: rateLimitCountdown > 0 ? 0.6 : 1 }}
                 />
                 <button
                     onClick={sendMessage}
-                    disabled={isLoading}
+                    disabled={isLoading || rateLimitCountdown > 0}
                     style={{
-                        background: isLoading ? '#9CA3AF' : '#4F46E5',
+                        background: (isLoading || rateLimitCountdown > 0) ? '#9CA3AF' : '#4F46E5',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '4px',
                         padding: '6px 12px',
-                        cursor: isLoading ? 'not-allowed' : 'pointer'
+                        cursor: (isLoading || rateLimitCountdown > 0) ? 'not-allowed' : 'pointer'
                     }}
                 >
-                    {isLoading ? '...' : 'Enviar'}
+                    {isLoading ? '...' : rateLimitCountdown > 0 ? `${rateLimitCountdown}s` : 'Enviar'}
                 </button>
             </div>
         </div>
