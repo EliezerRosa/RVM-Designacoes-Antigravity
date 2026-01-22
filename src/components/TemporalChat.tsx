@@ -3,24 +3,59 @@ import { chatHistoryService } from '../services/chatHistoryService';
 import { askAgent, isAgentConfigured } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
 import type { Publisher, WorkbookPart } from '../types';
-
-/**
- * TemporalChat - Chat interface with persistent history (14‑day retention)
- * and integration with Gemini via agentService.
- */
+import { agentActionService } from '../services/agentActionService';
+import type { SimulationResult } from '../services/agentActionService';
 
 interface Props {
     publishers: Publisher[];
     parts: WorkbookPart[];
+    onAction?: (result: SimulationResult) => void;
 }
 
-export default function TemporalChat({ publishers, parts }: Props) {
+export default function TemporalChat({ publishers, parts, onAction }: Props) {
+    // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Action Handling State
+    const [pendingResult, setPendingResult] = useState<SimulationResult | null>(null);
+
+    const handleConfirmAction = async () => {
+        if (!pendingResult || !sessionId) return;
+
+        try {
+            await agentActionService.commitAction(pendingResult);
+
+            const successMsg: ChatMessage = {
+                role: 'assistant',
+                content: `✅ Ação efetuada com sucesso! As designações foram atualizadas no banco de dados.`,
+                timestamp: new Date(),
+            };
+
+            await chatHistoryService.addMessage(sessionId, successMsg);
+            setMessages(prev => [...prev, successMsg]);
+            setPendingResult(null);
+
+        } catch (error) {
+            console.error('Failed to commit action:', error);
+            const errorMsg: ChatMessage = {
+                role: 'assistant',
+                content: `❌ Erro ao salvar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+                timestamp: new Date(),
+            };
+            await chatHistoryService.addMessage(sessionId, errorMsg);
+            setMessages(prev => [...prev, errorMsg]);
+        }
+    };
+
+    const handleCancelAction = () => {
+        setPendingResult(null);
+    };
+
+    // ... existing useEffects ...
     // Load or create a session on mount
     useEffect(() => {
         async function init() {
@@ -41,7 +76,7 @@ export default function TemporalChat({ publishers, parts }: Props) {
     // Scroll to bottom when messages change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages, pendingResult]);
 
     const sendMessage = async () => {
         if (!input.trim() || !sessionId || isLoading) return;
@@ -57,6 +92,7 @@ export default function TemporalChat({ publishers, parts }: Props) {
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setIsLoading(true);
+        setPendingResult(null); // Clear any previous pending action
 
         try {
             // Check if agent is configured
@@ -83,6 +119,7 @@ export default function TemporalChat({ publishers, parts }: Props) {
                 [] // localNeeds
             );
 
+            // Base message from agent
             const agentMsg: ChatMessage = {
                 role: 'assistant',
                 content: response.success ? response.message : `❌ Erro: ${response.error}`,
@@ -91,6 +128,39 @@ export default function TemporalChat({ publishers, parts }: Props) {
 
             await chatHistoryService.addMessage(sessionId, agentMsg);
             setMessages(prev => [...prev, agentMsg]);
+
+            // Handle Action if present
+            if (response.success && response.action) {
+                console.log('[TemporalChat] Executing action:', response.action);
+                const result = await agentActionService.simulateAction(response.action, parts, publishers);
+
+                if (result.success) {
+                    // Notify parent to update view
+                    if (onAction) onAction(result);
+
+                    // Set as pending for confirmation
+                    setPendingResult(result);
+
+                    // Add system feedback message
+                    const systemMsg: ChatMessage = {
+                        role: 'assistant',
+                        content: `👁️ Simulação: ${result.message}`,
+                        timestamp: new Date(),
+                    };
+                    await chatHistoryService.addMessage(sessionId, systemMsg);
+                    setMessages(prev => [...prev, systemMsg]);
+                } else {
+                    // Error in simulation
+                    const errorMsg: ChatMessage = {
+                        role: 'assistant',
+                        content: `⚠️ Não foi possível realizar a ação: ${result.message}`,
+                        timestamp: new Date(),
+                    };
+                    await chatHistoryService.addMessage(sessionId, errorMsg);
+                    setMessages(prev => [...prev, errorMsg]);
+                }
+            }
+
         } catch (error) {
             console.error('[TemporalChat] Error calling agent:', error);
             const errorMsg: ChatMessage = {
@@ -138,6 +208,47 @@ export default function TemporalChat({ publishers, parts }: Props) {
                 )}
                 <div ref={messagesEndRef} />
             </div>
+            {pendingResult && pendingResult.success && (
+                <div style={{ padding: '10px', background: '#F0F9FF', borderTop: '1px solid #BAE6FD' }}>
+                    <div style={{ fontWeight: 'bold', color: '#0369A1', marginBottom: '4px' }}>
+                        Ação Pendente (Simulação)
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#0C4A6E', marginBottom: '8px' }}>
+                        {pendingResult.message}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={handleConfirmAction}
+                            style={{
+                                flex: 1,
+                                background: '#0EA5E9',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                padding: '6px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Confirmar
+                        </button>
+                        <button
+                            onClick={handleCancelAction}
+                            style={{
+                                flex: 1,
+                                background: 'white',
+                                color: '#64748B',
+                                border: '1px solid #E2E8F0',
+                                borderRadius: '4px',
+                                padding: '6px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
             <div style={{ borderTop: '1px solid #E5E7EB', padding: '8px', display: 'flex', gap: '8px' }}>
                 <input
                     type="text"
