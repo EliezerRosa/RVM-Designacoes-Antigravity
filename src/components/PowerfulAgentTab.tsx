@@ -38,6 +38,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     // Debug log
     console.log('[AgentTab] Debug:', { publishersCount: publishers.length, partsCount: parts.length, weekCount: weekOrder.length, currentWeekId });
     const [showContextAlert, setShowContextAlert] = useState(false);
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
     // Sync week navigation with TemporalChat (placeholder implementation)
     useEffect(() => {
@@ -189,16 +190,18 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             Semana: {currentWeekId}
                         </span>
                     )}
-                    <span style={{
-                        marginLeft: 'auto',
-                        fontSize: '10px',
-                        background: '#DCFCE7',
-                        color: '#166534',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        border: '1px solid #86EFAC',
-                        cursor: 'help',
-                    }} title="Proteção ativa: Uso restrito a modelos gratuitos">
+                    <span
+                        onClick={() => setShowSubscriptionModal(true)}
+                        style={{
+                            marginLeft: 'auto',
+                            fontSize: '10px',
+                            background: '#DCFCE7',
+                            color: '#166534',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            border: '1px solid #86EFAC',
+                            cursor: 'help',
+                        }} title="Clique para ver detalhes do plano">
                         🛡️ Free Tier
                     </span>
                 </div>
@@ -210,6 +213,67 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         onNavigateToWeek={handleCarouselNavigation}
                     />
                 </div>
+
+                {/* Modal de Status da Assinatura */}
+                {showSubscriptionModal && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 9999
+                    }} onClick={() => setShowSubscriptionModal(false)}>
+                        <div style={{
+                            background: 'white',
+                            padding: '24px',
+                            borderRadius: '12px',
+                            maxWidth: '400px',
+                            width: '90%',
+                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                        }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h3 style={{ margin: 0, color: '#111827' }}>📊 Situação da Assinatura</h3>
+                                <button onClick={() => setShowSubscriptionModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px' }}>&times;</button>
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <div style={{ marginBottom: '12px', padding: '10px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                                    <div style={{ fontWeight: '600', color: '#166534', fontSize: '14px' }}>Plano Ativo: Gemini Free Tier</div>
+                                    <div style={{ fontSize: '12px', color: '#15803D' }}>Modelo: gemini-2.5-flash</div>
+                                </div>
+
+                                <h4 style={{ fontSize: '13px', color: '#374151', margin: '0 0 8px 0' }}>Limites de Uso (Gratuito):</h4>
+                                <ul style={{ fontSize: '13px', color: '#4B5563', paddingLeft: '20px', margin: '0 0 16px 0' }}>
+                                    <li><strong>Velocidade:</strong> 15 requisições/minuto</li>
+                                    <li><strong>Diário:</strong> 1.500 requisições/dia</li>
+                                </ul>
+
+                                <div style={{ fontSize: '12px', color: '#6B7280', fontStyle: 'italic', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                                    ℹ️ O Google não fornece dados de consumo acumulado via API. O contador "Créditos" abaixo do chat é uma estimativa local para evitar bloqueios.
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => setShowSubscriptionModal(false)}
+                                    style={{
+                                        padding: '8px 16px',
+                                        background: '#4F46E5',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    Entendi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Coluna 3: Painel de Controle */}
