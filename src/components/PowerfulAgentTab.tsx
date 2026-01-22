@@ -178,17 +178,29 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     <span>🤖</span> Agente RVM
                     {currentWeekId && (
                         <span style={{
-                            marginLeft: 'auto',
                             fontSize: '0.8em',
                             background: '#E5E7EB',
                             padding: '2px 8px',
                             borderRadius: '12px',
                             color: '#4B5563',
-                            fontWeight: 'normal'
+                            fontWeight: 'normal',
+                            marginRight: '8px'
                         }}>
                             Semana: {currentWeekId}
                         </span>
                     )}
+                    <span style={{
+                        marginLeft: 'auto',
+                        fontSize: '10px',
+                        background: '#DCFCE7',
+                        color: '#166534',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        border: '1px solid #86EFAC',
+                        cursor: 'help',
+                    }} title="Proteção ativa: Uso restrito a modelos gratuitos">
+                        🛡️ Free Tier
+                    </span>
                 </div>
                 <div style={contentStyle}>
                     <TemporalChat
