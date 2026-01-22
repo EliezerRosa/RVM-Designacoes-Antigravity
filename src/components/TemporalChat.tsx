@@ -21,8 +21,19 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Rate Limit Countdown State
+    // Rate Limit Countdown State (from API error)
     const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
+
+    // Local Rate Limit Tracking (15 req/min)
+    const [requestTimestamps, setRequestTimestamps] = useState<number[]>([]);
+    const MAX_REQUESTS_PER_MINUTE = 15;
+
+    // Calculate Credits & Refill
+    const now = Date.now();
+    const recentRequests = requestTimestamps.filter(t => now - t < 60000);
+    const creditsRemaining = Math.max(0, MAX_REQUESTS_PER_MINUTE - recentRequests.length);
+    const oldestRequest = recentRequests.length > 0 ? recentRequests[0] : null;
+    const refillInSeconds = oldestRequest ? Math.ceil((oldestRequest + 60000 - now) / 1000) : 0;
 
     // Action Handling State
     const [pendingResult, setPendingResult] = useState<SimulationResult | null>(null);
@@ -82,7 +93,18 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, pendingResult]);
 
-    // Countdown timer for rate limiting
+    // Timer to update UI for local rate limit (every second)
+    useEffect(() => {
+        if (requestTimestamps.length === 0) return;
+
+        const timer = setInterval(() => {
+            // Force re-render to update 'refillInSeconds'
+            setRequestTimestamps(prev => prev.filter(t => Date.now() - t < 60000));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [requestTimestamps]);
+
+    // Countdown timer for API rate limiting error
     useEffect(() => {
         if (rateLimitCountdown <= 0) return;
 
@@ -127,6 +149,9 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 setMessages(prev => [...prev, errorMsg]);
                 return;
             }
+
+            // Track request Locally
+            setRequestTimestamps(prev => [...prev, Date.now()]);
 
             // Call the agent
             const response = await askAgent(
@@ -343,18 +368,28 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 />
                 <button
                     onClick={sendMessage}
-                    disabled={isLoading || rateLimitCountdown > 0}
+                    disabled={isLoading || rateLimitCountdown > 0 || creditsRemaining === 0}
                     style={{
-                        background: (isLoading || rateLimitCountdown > 0) ? '#9CA3AF' : '#4F46E5',
+                        background: (isLoading || rateLimitCountdown > 0 || creditsRemaining === 0) ? '#9CA3AF' : '#4F46E5',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '4px',
                         padding: '6px 12px',
-                        cursor: (isLoading || rateLimitCountdown > 0) ? 'not-allowed' : 'pointer'
+                        cursor: (isLoading || rateLimitCountdown > 0 || creditsRemaining === 0) ? 'not-allowed' : 'pointer'
                     }}
                 >
-                    {isLoading ? '...' : rateLimitCountdown > 0 ? `${rateLimitCountdown}s` : 'Enviar'}
+                    {isLoading ? '...' : rateLimitCountdown > 0 ? `${rateLimitCountdown}s` : creditsRemaining === 0 ? 'Aguarde recarga...' : 'Enviar'}
                 </button>
+            </div>
+            <div style={{ padding: '0 8px 4px 8px', display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#9CA3AF' }}>
+                <span title="Créditos restantes nesta janela de 1 minuto">
+                    💳 Créditos: {creditsRemaining}/{MAX_REQUESTS_PER_MINUTE}
+                </span>
+                {refillInSeconds > 0 && (
+                    <span title="Tempo para liberar mais uma requisição">
+                        ⏳ Recarga em: {refillInSeconds}s
+                    </span>
+                )}
             </div>
         </div>
     );
