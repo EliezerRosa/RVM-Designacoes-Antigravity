@@ -4,7 +4,7 @@
  * Processa perguntas do usuário usando contexto do app
  */
 
-import { agentActionService, AgentAction } from './agentActionService';
+import { agentActionService, type AgentAction } from './agentActionService';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import {
     buildAgentContext,

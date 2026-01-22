@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
+import type { Publisher, WorkbookPart } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
 import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
 import { loadPublisherParticipations } from '../services/historyAdapter';
