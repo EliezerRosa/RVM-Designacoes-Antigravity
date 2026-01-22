@@ -26,8 +26,17 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     const [currentWeekId, setCurrentWeekId] = useState<string | null>(weekOrder[0] || null);
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
 
-    // Silence linter for unused vars (Phase 1 placeholder)
-    console.log('[AgentTab] Debug:', { publishersCount: publishers.length, partsCount: parts.length, selectedPartId, setSelectedPartId });
+    // Sync currentWeekId when weekOrder arrives asynchronously
+    useEffect(() => {
+        // Only update if currentWeekId is null AND weekOrder now has data
+        if (currentWeekId === null && weekOrder.length > 0) {
+            console.log('[AgentTab] Setting initial week to:', weekOrder[0]);
+            setCurrentWeekId(weekOrder[0]);
+        }
+    }, [weekOrder, currentWeekId]);
+
+    // Debug log
+    console.log('[AgentTab] Debug:', { publishersCount: publishers.length, partsCount: parts.length, weekCount: weekOrder.length, currentWeekId });
     const [showContextAlert, setShowContextAlert] = useState(false);
 
     // Sync week navigation with TemporalChat (placeholder implementation)
