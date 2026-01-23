@@ -293,11 +293,11 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             </button>
                         </div>
                     </div>
-                    </div>
-                )}
-        </div>
 
-            {/* Coluna 3: Painel de Controle */ }
+                )}
+            </div>
+
+            {/* Coluna 3: Painel de Controle */}
             <div style={columnStyle}>
                 <div style={headerStyle}>
                     <span>⚙️</span> Controle & Explicações
