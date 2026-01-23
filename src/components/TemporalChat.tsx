@@ -11,9 +11,10 @@ interface Props {
     parts: WorkbookPart[];
     onAction?: (result: SimulationResult) => void;
     onNavigateToWeek?: (weekId: string) => void;  // NEW: Navigate S-140 when agent mentions a week
+    onModelChange?: (model: string) => void;      // NEW: Notify parent about active model
 }
 
-export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek }: Props) {
+export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange }: Props) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -194,6 +195,11 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     console.log('[TemporalChat] Navigating to week:', match[1]);
                     onNavigateToWeek(match[1]);
                 }
+            }
+
+            // Notify parent about model used
+            if (response.success && response.modelUsed && onModelChange) {
+                onModelChange(response.modelUsed);
             }
 
             // Handle Action if present

@@ -53,6 +53,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     console.log('[AgentTab] Debug:', { publishersCount: publishers.length, partsCount: parts.length, weekCount: weekOrder.length, currentWeekId });
     const [showContextAlert, setShowContextAlert] = useState(false);
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [activeModel, setActiveModel] = useState<string>('gemini-1.5-flash'); // Default model active
 
     // Sync week navigation with TemporalChat (placeholder implementation)
     useEffect(() => {
@@ -226,6 +227,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         parts={parts}
                         onAction={handleAgentAction}
                         onNavigateToWeek={handleCarouselNavigation}
+                        onModelChange={setActiveModel}
                     />
                 </div>
 
@@ -255,9 +257,11 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
                             <div style={{ marginBottom: '20px' }}>
                                 <div style={{ fontWeight: '600', color: '#166534', fontSize: '14px' }}>Plano Ativo: Gemini Free Tier</div>
-                                <div style={{ fontSize: '12px', color: '#15803D' }}>Modelo: gemini-1.5-flash (Smart Fallback)</div>
+                                <div style={{ fontSize: '12px', color: '#15803D' }}>
+                                    Modelo Atual: <strong>{activeModel}</strong>
+                                </div>
                                 <div style={{ fontSize: '11px', color: '#15803D', marginTop: '4px' }}>
-                                    Backup: 2.0-flash-exp (Automático)
+                                    Robustez: Smart Fallback Ativo
                                 </div>
                             </div>
 
