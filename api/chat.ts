@@ -84,9 +84,10 @@ export default async function handler(request: Request) {
 
                 // Se for erro de cliente (ex: Bad Request 400), NÃO adianta tentar outro modelo.
                 // Erros de cota geralmente são 429 ou 403 (com mensagem específica)
-                // Vamos tentar o próximo apenas se for 429 (Too Many Requests) ou 5xx (Server Error)
+                // Vamos tentar o próximo apenas se for 429 (Too Many Requests) ou 5xx (Server Error) ou 404 (Model Not Found)
                 const isRetryable = response.status === 429 || response.status >= 500 ||
-                    (response.status === 403 && errorText.includes('quota'));
+                    (response.status === 403 && errorText.includes('quota')) ||
+                    response.status === 404;
 
                 if (!isRetryable) {
                     // Erro fatal (ex: payload inválido), retorna erro para o cliente
