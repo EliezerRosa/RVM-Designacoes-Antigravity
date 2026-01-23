@@ -247,8 +247,10 @@ export async function sendS89ViaWhatsApp(
 
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configurar worker do PDF.js (CDN como fallback seguro para evitar problemas de build com Vite)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Configurar worker do PDF.js (Local para evitar erro de CDN/MIME type)
+// O arquivo pdf.worker.min.mjs deve ser copiado para a pasta public/ no build
+const baseUrl = import.meta.env.BASE_URL || '/';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `${baseUrl.replace(/\/$/, '')}/pdf.worker.min.mjs`;
 
 /**
  * Renderiza a primeira página de um PDF (bytes) para um Blob PNG (exato e fiel)
