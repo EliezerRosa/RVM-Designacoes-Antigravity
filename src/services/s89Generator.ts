@@ -245,132 +245,71 @@ export async function sendS89ViaWhatsApp(
     }
 }
 
-// ============================================================================
-// S-89 Digital Card (Clipboard)
-// ============================================================================
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configurar worker do PDF.js (CDN como fallback seguro para evitar problemas de build com Vite)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 /**
- * Cria uma imagem (Blob) de um cartão digital estilo S-89
+ * Renderiza a primeira página de um PDF (bytes) para um Blob PNG (exato e fiel)
  */
-async function createS89CardBlob(part: WorkbookPart, assistantName?: string): Promise<Blob | null> {
-    // 1. Preparar dados
-    const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
+async function renderPdfToPngBlob(pdfBytes: Uint8Array): Promise<Blob | null> {
+    try {
+        // 1. Carregar Documento
+        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+        const pdf = await loadingTask.promise;
 
-    // Data
-    let displayDate = part.date;
-    const dateParts = part.date.split('-');
-    if (dateParts.length === 3) {
-        const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-        // Lógica de pegar a próxima quinta-feira (ou dia da reunião)
-        const dayOfWeek = baseDate.getDay();
-        const daysToThursday = (4 - dayOfWeek + 7) % 7;
-        const thursdayDate = new Date(baseDate);
-        thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+        // 2. Pegar Página 1
+        const page = await pdf.getPage(1);
 
-        const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-            'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-        const day = thursdayDate.getDate();
-        const month = MESES[thursdayDate.getMonth()];
-        const year = thursdayDate.getFullYear();
-        displayDate = `${day} de ${month} de ${year}`;
-    }
+        // 3. Configurar Viewport (Scale 2.0 para alta qualidade / Retina)
+        const scale = 2.0;
+        const viewport = page.getViewport({ scale });
 
-    const room = part.modalidade?.toLowerCase().includes('b') ? 'Sala B' : 'Sala Principal';
+        // 4. Preparar Canvas
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Canvas context not available');
 
-    // 2. Criar SVG String
-    // Layout simples inspirado no S-89: Fundo branco, Header azul/cinza, Campos
-    const svgWidth = 400;
-    const svgHeight = 300;
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-    const svgString = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
-        <!-- Background -->
-        <rect width="100%" height="100%" fill="#ffffff"/>
-        
-        <!-- Header / Logo Area -->
-        <rect x="0" y="0" width="100%" height="60" fill="#4B5563"/>
-        <text x="20" y="38" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#ffffff">Designação - Nossa Vida Cristã</text>
-        
-        <!-- Border -->
-        <rect x="0" y="0" width="100%" height="100%" fill="none" stroke="#E5E7EB" stroke-width="2"/>
+        // 5. Renderizar
+        const renderContext = {
+            canvasContext: context,
+            viewport: viewport,
+            canvas: canvas, // Fix TS: require canvas property
+        };
 
-        <!-- Content -->
-        <g transform="translate(20, 90)">
-            <!-- Nome -->
-            <text x="0" y="0" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">Nome:</text>
-            <text x="0" y="20" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#111827">${studentName}</text>
-            
-            ${assistantName ? `
-            <!-- Ajudante (Se houver) -->
-            <text x="0" y="55" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">Ajudante:</text>
-            <text x="0" y="75" font-family="Arial, sans-serif" font-size="16" fill="#111827">${assistantName}</text>
-            ` : ''}
+        await page.render(renderContext).promise;
 
-            <!-- Data -->
-            <text x="0" y="${assistantName ? 110 : 60}" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">Data:</text>
-            <text x="0" y="${assistantName ? 130 : 80}" font-family="Arial, sans-serif" font-size="16" fill="#111827">${displayDate}</text>
-
-            <!-- Parte -->
-            <text x="0" y="${assistantName ? 165 : 115}" font-family="Arial, sans-serif" font-size="12" fill="#6B7280">Parte/Tema:</text>
-            <text x="0" y="${assistantName ? 185 : 135}" font-family="Arial, sans-serif" font-size="14" fill="#111827" width="360">
-                ${(part.tituloParte || part.tipoParte).substring(0, 45)}${(part.tituloParte || part.tipoParte).length > 45 ? '...' : ''}
-            </text>
-
-            <!-- Sala -->
-            <text x="250" y="${assistantName ? 130 : 80}" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#4F46E5">${room}</text>
-        </g>
-        
-        <!-- Footer Code -->
-        <text x="380" y="290" font-family="Arial, sans-serif" font-size="10" fill="#9CA3AF" text-anchor="end">S-89-T</text>
-    </svg>
-    `;
-
-    // 3. Converter SVG para Blob (PNG) via Canvas
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(svgBlob);
-
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = svgWidth;
-            canvas.height = svgHeight;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                reject(new Error('Canvas context not supported'));
-                return;
-            }
-
-            // Desenhar fundo branco explícito (clipboard pode ser transparente)
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.drawImage(img, 0, 0);
-
+        // 6. Exportar Blob
+        return new Promise((resolve) => {
             canvas.toBlob((blob) => {
-                URL.revokeObjectURL(url);
                 resolve(blob);
             }, 'image/png');
-        };
+        });
 
-        img.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject(new Error('Erro ao carregar imagem SVG'));
-        };
-
-        img.src = url;
-    });
+    } catch (error) {
+        console.error('Erro ao renderizar PDF para Imagem:', error);
+        throw error;
+    }
 }
 
 /**
- * Copia a imagem do cartão S-89 para a área de transferência
+ * Copia a imagem FIEL do cartão S-89 (renderizada do PDF) para a área de transferência
  */
 export async function copyS89ToClipboard(part: WorkbookPart, assistantName?: string): Promise<boolean> {
     try {
-        const blob = await createS89CardBlob(part, assistantName);
+        // 1. Gerar o PDF real (Fiel)
+        const pdfBytes = await generateS89(part, assistantName);
+
+        // 2. Renderizar PDF -> PNG (Fiel)
+        const blob = await renderPdfToPngBlob(pdfBytes);
+
         if (!blob) return false;
 
-        // Verifica suporte a ClipboardItem e png
+        // 3. Copiar para Clipboard
         if (navigator.clipboard && navigator.clipboard.write) {
             await navigator.clipboard.write([
                 new ClipboardItem({
