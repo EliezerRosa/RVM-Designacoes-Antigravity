@@ -247,10 +247,7 @@ export async function sendS89ViaWhatsApp(
 
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configurar worker do PDF.js (Local para evitar erro de CDN/MIME type)
-// O arquivo pdf.worker.min.mjs deve ser copiado para a pasta public/ no build
-const baseUrl = import.meta.env.BASE_URL || '/';
-pdfjsLib.GlobalWorkerOptions.workerSrc = `${baseUrl.replace(/\/$/, '')}/pdf.worker.min.mjs`;
+// Configuração do Worker movida para main.tsx para garantir inicialização precoce
 
 /**
  * Renderiza a primeira página de um PDF (bytes) para um Blob PNG (exato e fiel)
