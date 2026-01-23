@@ -13,6 +13,7 @@ import S140PreviewCarousel from './S140PreviewCarousel';
 import TemporalChat from './TemporalChat';
 import ActionControlPanel from './ActionControlPanel';
 import { chatHistoryService } from '../services/chatHistoryService';
+import { S89SelectionModal } from './S89SelectionModal';
 
 interface Props {
     publishers: Publisher[];
@@ -23,17 +24,30 @@ interface Props {
 
 export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder }: Props) {
     // Estado de Navegação Híbrida
-    const [currentWeekId, setCurrentWeekId] = useState<string | null>(weekOrder[0] || null);
+    // Inicializar do localStorage se disponível
+    const [currentWeekId, setCurrentWeekId] = useState<string | null>(() => {
+        const stored = localStorage.getItem('rvm_agent_last_week_id');
+        // Validar se o stored ainda existe em weekOrder seria ideal, mas weekOrder pode estar vazio no init
+        return stored || weekOrder[0] || null;
+    });
+
+    const [showS89Modal, setShowS89Modal] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
 
-    // Sync currentWeekId when weekOrder arrives asynchronously
+    // Sync currentWeekId when weekOrder arrives asynchronously OR fallback if stored is invalid
     useEffect(() => {
-        // Only update if currentWeekId is null AND weekOrder now has data
-        if (currentWeekId === null && weekOrder.length > 0) {
+        if (!currentWeekId && weekOrder.length > 0) {
             console.log('[AgentTab] Setting initial week to:', weekOrder[0]);
             setCurrentWeekId(weekOrder[0]);
         }
     }, [weekOrder, currentWeekId]);
+
+    // Persist changes
+    useEffect(() => {
+        if (currentWeekId) {
+            localStorage.setItem('rvm_agent_last_week_id', currentWeekId);
+        }
+    }, [currentWeekId]);
 
     // Debug log
     console.log('[AgentTab] Debug:', { publishersCount: publishers.length, partsCount: parts.length, weekCount: weekOrder.length, currentWeekId });
@@ -166,6 +180,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         onWeekChange={handleCarouselNavigation}
                         onPartClick={(partId) => setSelectedPartId(partId)}
                         selectedPartId={selectedPartId}
+                        onRequestS89={() => setShowS89Modal(true)}
                     />
                     <div style={{ padding: '10px', fontSize: '12px', color: '#6B7280', textAlign: 'center' }}>
                         Navegue para dar contexto ao Agente
@@ -294,6 +309,14 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     )}
                 </div>
             </div>
+
+            <S89SelectionModal
+                isOpen={showS89Modal}
+                onClose={() => setShowS89Modal(false)}
+                weekParts={weekParts[currentWeekId || ''] || []}
+                weekId={currentWeekId || ''}
+                publishers={publishers}
+            />
         </div>
     );
 }

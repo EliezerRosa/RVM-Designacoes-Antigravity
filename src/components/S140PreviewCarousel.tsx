@@ -20,9 +20,10 @@ interface Props {
     onWeekChange?: (weekId: string) => void;
     onPartClick?: (partId: string) => void;
     selectedPartId?: string | null;
+    onRequestS89?: () => void;
 }
 
-export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWeekChange, onPartClick, selectedPartId }: Props) {
+export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWeekChange, onPartClick, selectedPartId, onRequestS89 }: Props) {
     const [currentIndex, setCurrentIndex] = useState(0);
 
     // Sync with external control
@@ -159,8 +160,26 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
                         ◀️
                     </button>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontWeight: '600', fontSize: '14px' }}>
-                            📄 S-140 Sala B A4
+                        <div style={{ fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                            <span>📄 S-140 B A4</span>
+                            {onRequestS89 && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onRequestS89(); }}
+                                    style={{
+                                        background: '#22c55e',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        padding: '2px 6px',
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                    }}
+                                    title="Enviar S-89 desta semana"
+                                >
+                                    Zap 📤
+                                </button>
+                            )}
                         </div>
                         <div style={{ fontSize: '12px', opacity: 0.8 }}>
                             {weekDisplay} ({currentIndex + 1}/{weekOrder.length})
