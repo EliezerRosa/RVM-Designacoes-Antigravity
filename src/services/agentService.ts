@@ -43,10 +43,6 @@ export interface AgentResponse {
     success: boolean;
     message: string;
     error?: string;
-    message: string;
-    error?: string;
-    action?: AgentAction;
-    error?: string;
     action?: AgentAction;
     isFallback?: boolean;
     modelUsed?: string;
@@ -266,50 +262,47 @@ export async function askAgent(
             });
         }
 
-    });
-}
+        // Check for Fallback Header (Only works in Proxy mode, but safe to check always)
+        const isFallback = response.headers.get('X-RVM-Model-Fallback') === 'true';
 
-// Check for Fallback Header (Only works in Proxy mode, but safe to check always)
-const isFallback = response.headers.get('X-RVM-Model-Fallback') === 'true';
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
 
-if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+            // Tratamento especial para erro de chave vazada
+            const errorMessage = errorData.error?.message || `Erro HTTP ${response.status}`;
+            if (errorMessage.includes('API key not valid') || errorMessage.includes('key was reported as leaked')) {
+                throw new Error('A API Key foi invalidada. Por favor, verifique a configuração na Vercel.');
+            }
 
-    // Tratamento especial para erro de chave vazada
-    const errorMessage = errorData.error?.message || `Erro HTTP ${response.status}`;
-    if (errorMessage.includes('API key not valid') || errorMessage.includes('key was reported as leaked')) {
-        throw new Error('A API Key foi invalidada. Por favor, verifique a configuração na Vercel.');
-    }
+            throw new Error(errorMessage);
+        }
 
-    throw new Error(errorMessage);
-}
+        const data = await response.json();
 
-const data = await response.json();
+        // Extrair resposta
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-// Extrair resposta
-const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!content) {
+            throw new Error('Resposta vazia do Gemini');
+        }
 
-if (!content) {
-    throw new Error('Resposta vazia do Gemini');
-}
+        const detectedAction = agentActionService.detectAction(content);
 
-const detectedAction = agentActionService.detectAction(content);
-
-return {
-    success: true,
-    message: content,
-    action: detectedAction || undefined,
-    isFallback: isFallback
-};
+        return {
+            success: true,
+            message: content,
+            action: detectedAction || undefined,
+            isFallback: isFallback
+        };
 
     } catch (error) {
-    console.error('[Agent] Error:', error);
-    return {
-        success: false,
-        message: '',
-        error: error instanceof Error ? error.message : 'Erro desconhecido',
-    };
-}
+        console.error('[Agent] Error:', error);
+        return {
+            success: false,
+            message: '',
+            error: error instanceof Error ? error.message : 'Erro desconhecido',
+        };
+    }
 }
 
 /**
