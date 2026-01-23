@@ -46,7 +46,10 @@ export interface AgentResponse {
     message: string;
     error?: string;
     action?: AgentAction;
+    error?: string;
+    action?: AgentAction;
     isFallback?: boolean;
+    modelUsed?: string;
 }
 
 // NOVO: Nível de acesso do usuário
