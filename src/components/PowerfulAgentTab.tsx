@@ -254,44 +254,46 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             </div>
 
                             <div style={{ marginBottom: '20px' }}>
-                                <div style={{ marginBottom: '12px', padding: '10px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
-                                    <div style={{ fontWeight: '600', color: '#166534', fontSize: '14px' }}>Plano Ativo: Gemini Free Tier</div>
-                                    <div style={{ fontSize: '12px', color: '#15803D' }}>Modelo: gemini-1.5-flash (Otimizado)</div>
-                                </div>
-
-                                <h4 style={{ fontSize: '13px', color: '#374151', margin: '0 0 8px 0' }}>Limites de Uso (Gratuito):</h4>
-                                <ul style={{ fontSize: '13px', color: '#4B5563', paddingLeft: '20px', margin: '0 0 16px 0' }}>
-                                    <li><strong>Velocidade:</strong> 15 requisições/minuto</li>
-                                    <li><strong>Diário:</strong> 1.500 requisições/dia</li>
-                                </ul>
-
-                                <div style={{ fontSize: '12px', color: '#6B7280', fontStyle: 'italic', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
-                                    ℹ️ O Google não fornece dados de consumo acumulado via API. O contador "Créditos" abaixo do chat é uma estimativa local para evitar bloqueios.
+                                <div style={{ fontWeight: '600', color: '#166534', fontSize: '14px' }}>Plano Ativo: Gemini Free Tier</div>
+                                <div style={{ fontSize: '12px', color: '#15803D' }}>Modelo: gemini-1.5-flash (Smart Fallback)</div>
+                                <div style={{ fontSize: '11px', color: '#15803D', marginTop: '4px' }}>
+                                    Backup: 2.0-flash-exp (Automático)
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                <button
-                                    onClick={() => setShowSubscriptionModal(false)}
-                                    style={{
-                                        padding: '8px 16px',
-                                        background: '#4F46E5',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        fontWeight: '500'
-                                    }}
-                                >
-                                    Entendi
-                                </button>
+                            <h4 style={{ fontSize: '13px', color: '#374151', margin: '0 0 8px 0' }}>Limites de Uso (Gratuito):</h4>
+                            <ul style={{ fontSize: '13px', color: '#4B5563', paddingLeft: '20px', margin: '0 0 16px 0' }}>
+                                <li><strong>Velocidade:</strong> 15 requisições/minuto</li>
+                                <li><strong>Diário:</strong> 1.500 requisições/dia</li>
+                            </ul>
+
+                            <div style={{ fontSize: '12px', color: '#6B7280', fontStyle: 'italic', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                                ℹ️ O Google não fornece dados de consumo acumulado via API. O contador "Créditos" abaixo do chat é uma estimativa local para evitar bloqueios.
                             </div>
                         </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setShowSubscriptionModal(false)}
+                                style={{
+                                    padding: '8px 16px',
+                                    background: '#4F46E5',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontWeight: '500'
+                                }}
+                            >
+                                Entendi
+                            </button>
+                        </div>
+                    </div>
                     </div>
                 )}
-            </div>
+        </div>
 
-            {/* Coluna 3: Painel de Controle */}
+            {/* Coluna 3: Painel de Controle */ }
             <div style={columnStyle}>
                 <div style={headerStyle}>
                     <span>⚙️</span> Controle & Explicações
@@ -317,6 +319,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 weekId={currentWeekId || ''}
                 publishers={publishers}
             />
-        </div>
+        </div >
     );
 }
