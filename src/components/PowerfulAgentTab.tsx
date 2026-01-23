@@ -241,7 +241,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             <div style={{ marginBottom: '20px' }}>
                                 <div style={{ marginBottom: '12px', padding: '10px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
                                     <div style={{ fontWeight: '600', color: '#166534', fontSize: '14px' }}>Plano Ativo: Gemini Free Tier</div>
-                                    <div style={{ fontSize: '12px', color: '#15803D' }}>Modelo: gemini-2.5-flash</div>
+                                    <div style={{ fontSize: '12px', color: '#15803D' }}>Modelo: gemini-1.5-flash (Otimizado)</div>
                                 </div>
 
                                 <h4 style={{ fontSize: '13px', color: '#374151', margin: '0 0 8px 0' }}>Limites de Uso (Gratuito):</h4>
