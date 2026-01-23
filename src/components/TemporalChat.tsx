@@ -175,6 +175,16 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             await chatHistoryService.addMessage(sessionId, agentMsg);
             setMessages(prev => [...prev, agentMsg]);
 
+            if (response.isFallback) {
+                // Notificação simples de Fallback
+                const fallbackMsg: ChatMessage = {
+                    role: 'assistant',
+                    content: 'ℹ️ **Aviso do Sistema:** O modelo principal estava indisponível. Ativei o *Smart Fallback* e usei um modelo de backup para processar sua solicitação sem erros.',
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, fallbackMsg]);
+            }
+
             // NEW: Detect week patterns in response and navigate
             if (response.success && onNavigateToWeek) {
                 // Pattern: YYYY-MM-DD format
