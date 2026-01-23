@@ -52,9 +52,18 @@ export default async function handler(request: Request) {
                 // Se sucesso (200), retorna imediatamente
                 if (response.ok) {
                     const data = await response.json();
+
+                    // Adicionar header indicando se houve fallback (se não for o primeiro modelo)
+                    const isFallback = model !== MODELS[0];
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'X-RVM-Model-Used': model,
+                        'X-RVM-Model-Fallback': isFallback ? 'true' : 'false'
+                    };
+
                     return new Response(JSON.stringify(data), {
                         status: 200,
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: headers,
                     });
                 }
 
