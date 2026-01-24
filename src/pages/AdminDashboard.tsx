@@ -112,9 +112,9 @@ export function AdminDashboard() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 {/* Charts */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="bg-white p-6 rounded-lg shadow-md" style={{ minHeight: '350px' }}>
                     <h3 className="text-lg font-semibold mb-4">Model Distribution</h3>
-                    <div className="h-64">
+                    <div style={{ width: '100%', height: '256px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -138,9 +138,9 @@ export function AdminDashboard() {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="bg-white p-6 rounded-lg shadow-md" style={{ minHeight: '350px' }}>
                     <h3 className="text-lg font-semibold mb-4">Thinking Levels</h3>
-                    <div className="h-64">
+                    <div style={{ width: '100%', height: '256px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={stats.byLevel}>
                                 <CartesianGrid strokeDasharray="3 3" />
