@@ -8,12 +8,13 @@ export const config = {
 };
 
 const MODELS = [
-    'gemini-1.5-flash',       // Primary
-    'gemini-1.5-flash-002',   // Alternate 1: Specific version
-    'gemini-1.5-flash-001',   // Alternate 2: Older specific version
-    'gemini-2.0-flash-exp',   // Fallback 3: Experimental (often quota limited)
-    'gemini-1.5-pro',         // Fallback 4: Standard Pro
-    'gemini-pro'              // Fallback 5: Legacy 1.0 (Emergency)
+    'gemini-1.5-flash-002',   // Primary: Specific version closest to stable
+    'gemini-1.5-flash',       // Fallback: Generic alias
+    'gemini-1.5-flash-001',   // Fallback: Older stable
+    'gemini-2.0-flash-exp',   // Fallback: Experimental (Limit: 0 often)
+    'gemini-1.5-pro',         // Fallback: Standard Pro
+    'gemini-1.5-pro-002',     // Fallback: Specific Pro
+    'gemini-pro'              // Emergency: Legacy
 ];
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -28,7 +29,8 @@ export default async function handler(request: Request) {
 
     try {
         const body = await request.json();
-        const apiKey = process.env.GEMINI_API_KEY;
+        // Sanitize API Key (remove quotes and spaces)
+        const apiKey = process.env.GEMINI_API_KEY?.replace(/['"]/g, '').trim();
 
         if (!apiKey) {
             return new Response(JSON.stringify({ error: 'Server misconfiguration: API Key not found' }), {
@@ -83,8 +85,11 @@ export default async function handler(request: Request) {
                 const failureMsg = `[${model}]: ${response.status} - ${errorData.error?.message || errorText}`;
                 errorTrace.push(failureMsg);
 
+                // Masked Key for debug
+                const maskedKey = apiKey ? `...${apiKey.slice(-4)}` : 'MISSING';
+
                 // Log do erro (interno Vercel)
-                console.warn(`[Proxy] Falha no modelo ${model}:`, failureMsg);
+                console.warn(`[Proxy] Falha no modelo ${model} (Key: ${maskedKey}):`, failureMsg);
 
                 // Se for erro de cliente (ex: Bad Request 400), NÃO adianta tentar outro modelo.
                 // Erros de cota geralmente são 429 ou 403 (com mensagem específica)
