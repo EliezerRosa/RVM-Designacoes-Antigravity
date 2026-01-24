@@ -1150,6 +1150,48 @@ function similarity(s1: string, s2: string): number {
 // FUNÇÃO TEMPORÁRIA: Atualizar status em massa por data
 // Executar no console: window.updateStatusByDate()
 // ============================================================================
+    /**
+     * Propaga a mudança de nome de um publicador para todo o histórico de designações
+     * Atualiza tanto raw_publisher_name quanto resolved_publisher_name
+     */
+    async propagateNameChange(oldName: string, newName: string): Promise < number > {
+    console.log(`[workbookService] Propagando mudança de nome: "${oldName}" -> "${newName}"`);
+
+    // 1. Atualizar raw_publisher_name (se houver, embora raro mudar o raw importado)
+    const { error: rawError, count: rawCount } = await supabase
+        .from('workbook_parts')
+        .update({ raw_publisher_name: newName })
+        .eq('raw_publisher_name', oldName)
+        .select('id', { count: 'exact' });
+
+    if(rawError) {
+        console.error('[workbookService] Erro ao atualizar raw_publisher_name:', rawError);
+        throw new Error(`Erro ao propagar nome (raw): ${rawError.message}`);
+    }
+
+        // 2. Atualizar resolved_publisher_name (o mais importante para designações)
+        const { error: resError, count: resCount } = await supabase
+        .from('workbook_parts')
+        .update({ resolved_publisher_name: newName })
+        .eq('resolved_publisher_name', oldName)
+        .select('id', { count: 'exact' });
+
+    if(resError) {
+        console.error('[workbookService] Erro ao atualizar resolved_publisher_name:', resError);
+        throw new Error(`Erro ao propagar nome (resolved): ${resError.message}`);
+    }
+
+        const total = (rawCount || 0) + (resCount || 0);
+    console.log(`[workbookService] ✅ Nome propagado. Parts afetadas: ${total} (Raw: ${rawCount}, Resolved: ${resCount})`);
+
+    return total;
+},
+};
+
+// ============================================================================
+// FUNÇÃO TEMPORÁRIA: Atualizar status em massa por data (Standalone)
+// Executar no console: window.updateStatusByDate()
+// ============================================================================
 async function updateStatusByDate(): Promise<void> {
     console.log('🔄 Iniciando atualização de status...\n');
 
