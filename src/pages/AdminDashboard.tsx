@@ -110,50 +110,64 @@ export function AdminDashboard() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                {/* Charts */}
-                <div className="bg-white p-6 rounded-lg shadow-md" style={{ minHeight: '350px' }}>
+            {/* Charts Section */}
+            <div className="flex flex-wrap gap-8 mb-8">
+                {/* Model Distribution */}
+                <div className="bg-white p-6 rounded-lg shadow-md flex-1 min-w-[300px]" style={{ height: '400px' }}>
                     <h3 className="text-lg font-semibold mb-4">Model Distribution</h3>
-                    <div style={{ width: '100%', height: '256px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={stats.byModel}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    fill="#8884d8"
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {stats.byModel.map((_entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
+                    <div style={{ width: '100%', height: '300px' }}>
+                        {stats.total > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={stats.byModel}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {stats.byModel.map((_entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                                Nenhum dado coletado ainda
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-md" style={{ minHeight: '350px' }}>
+                {/* Thinking Levels */}
+                <div className="bg-white p-6 rounded-lg shadow-md flex-1 min-w-[300px]" style={{ height: '400px' }}>
                     <h3 className="text-lg font-semibold mb-4">Thinking Levels</h3>
-                    <div style={{ width: '100%', height: '256px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={stats.byLevel}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <Tooltip />
-                                <Bar dataKey="value" fill="#8884d8">
-                                    {stats.byLevel.map((_entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <div style={{ width: '100%', height: '300px' }}>
+                        {stats.total > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={stats.byLevel}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Bar dataKey="value" fill="#8884d8">
+                                        {stats.byLevel.map((_entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                                Aguardando interações...
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
