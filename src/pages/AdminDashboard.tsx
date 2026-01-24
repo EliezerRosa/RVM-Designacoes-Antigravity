@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import {
     BarChart,
@@ -75,6 +75,14 @@ export function AdminDashboard() {
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
+    if (loading) {
+        return (
+            <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+                <div className="text-xl text-gray-500">Loading Intelligence...</div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
             <h1 className="text-3xl font-bold mb-6 text-gray-800">🧠 Antigravity Admin Core</h1>
@@ -119,7 +127,7 @@ export function AdminDashboard() {
                                     paddingAngle={5}
                                     dataKey="value"
                                 >
-                                    {stats.byModel.map((entry, index) => (
+                                    {stats.byModel.map((_entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
@@ -140,7 +148,7 @@ export function AdminDashboard() {
                                 <YAxis />
                                 <Tooltip />
                                 <Bar dataKey="value" fill="#8884d8">
-                                    {stats.byLevel.map((entry, index) => (
+                                    {stats.byLevel.map((_entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Bar>
