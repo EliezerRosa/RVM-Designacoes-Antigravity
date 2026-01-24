@@ -7,15 +7,31 @@ export const config = {
     runtime: 'edge', // Usa Vercel Edge Runtime (mais rápido/barato)
 };
 
-const MODELS = [
-    'gemini-1.5-flash-002',   // Primary: Specific version closest to stable
-    'gemini-1.5-flash',       // Fallback: Generic alias
-    'gemini-1.5-flash-001',   // Fallback: Older stable
-    'gemini-2.0-flash-exp',   // Fallback: Experimental (Limit: 0 often)
-    'gemini-1.5-pro',         // Fallback: Standard Pro
-    'gemini-1.5-pro-002',     // Fallback: Specific Pro
-    'gemini-pro'              // Emergency: Legacy
-];
+// Modelo de Estratégia (Resilience Architecture)
+// Duplicado de src/lib/ai/types.ts para garantir independência da Serverless Function
+const MODEL_STRATEGY = {
+    // LOW: Tarefas rápidas, OCR, formatação (High Efficiency)
+    // Equivale a "2.5-flash-lite"
+    LOW: [
+        'gemini-1.5-flash-8b',
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-001'
+    ],
+    // MEDIUM: Raciocínio padrão, respostas gerais
+    MEDIUM: [
+        'gemini-1.5-flash-002', // Stable
+        'gemini-1.5-flash',     // Alias
+        'gemini-2.0-flash-exp'  // Fallback
+    ],
+    // HIGH: Arquitetura, decisões complexas, "Gemini 3"
+    HIGH: [
+        'gemini-2.0-flash-exp', // Current SOTA
+        'gemini-1.5-pro',
+        'gemini-1.5-pro-002'
+    ]
+};
+
+type ThinkingLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -29,8 +45,14 @@ export default async function handler(request: Request) {
 
     try {
         const body = await request.json();
-        // Sanitize API Key (remove quotes and spaces)
+        // Sanitize API Key
         const apiKey = process.env.GEMINI_API_KEY?.replace(/['"]/g, '').trim();
+
+        // Determinar nível de pensamento (Default: MEDIUM)
+        const thinkingLevel: ThinkingLevel = (body.thinking_level || 'MEDIUM').toUpperCase();
+        const modelsToTry = MODEL_STRATEGY[thinkingLevel] || MODEL_STRATEGY.MEDIUM;
+
+        console.log(`[Orchestrator] Level: ${thinkingLevel} -> Models: ${modelsToTry.join(', ')}`);
 
         if (!apiKey) {
             return new Response(JSON.stringify({ error: 'Server misconfiguration: API Key not found' }), {
@@ -39,14 +61,59 @@ export default async function handler(request: Request) {
             });
         }
 
+        // --- CACHE LAYER (Intention Cache) ---
+        // Calcular hash do prompt para servir de chave
+        const promptText = JSON.stringify(body);
+        let promptHash = '';
+        try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(promptText);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            promptHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+            console.warn('[Cache] Erro ao gerar hash:', e);
+        }
+
+        // Tentar recuperar do Supabase
+        if (promptHash && process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {
+            try {
+                const { createClient } = await import('@supabase/supabase-js');
+                const supabase = createClient(
+                    process.env.VITE_SUPABASE_URL,
+                    process.env.VITE_SUPABASE_ANON_KEY
+                );
+
+                const { data: cached, error } = await supabase
+                    .from('ai_intent_cache')
+                    .select('response, thinking_level, model_used')
+                    .eq('prompt_hash', promptHash)
+                    .maybeSingle();
+
+                if (cached && !error) {
+                    console.log(`[Cache] HIT! (${promptHash.substring(0, 8)})`);
+                    return new Response(JSON.stringify(cached.response), {
+                        status: 200,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-RVM-Cache-Hit': 'true',
+                            'X-RVM-Model-Used': cached.model_used || 'cached'
+                        },
+                    });
+                }
+            } catch (err) {
+                console.warn('[Cache] Falha ao verificar cache (prosseguindo sem cache):', err);
+            }
+        }
+
         let lastStatus = 500;
+        // Loop de Tentativas (Circuit Breaker)
+        let lastError = null;
         const errorTrace: string[] = [];
 
-        // Tentar modelos em sequência (Circuit Breaker / Fallback)
-        for (const model of MODELS) {
+        for (const model of modelsToTry) {
             try {
-                // console.log(`[Proxy] Tentando modelo: ${model}...`);
-
+                // console.log(`[Proxy] Tentando modelo: ${model}...`); // Verbose off
                 const url = `${BASE_URL}/${model}:generateContent?key=${apiKey}`;
                 const response = await fetch(url, {
                     method: 'POST',
@@ -58,8 +125,34 @@ export default async function handler(request: Request) {
                 if (response.ok) {
                     const data = await response.json();
 
+                    // --- CACHE SAVE ---
+                    // Salvar resposta no cache para o futuro (Fire & Forget)
+                    if (promptHash && process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {
+                        try {
+                            const { createClient } = await import('@supabase/supabase-js');
+                            const supabase = createClient(
+                                process.env.VITE_SUPABASE_URL,
+                                process.env.VITE_SUPABASE_ANON_KEY
+                            );
+
+                            // Não precisamos esperar o insert (Edge function tem tempo curto, mas fire-and-forget ajuda)
+                            // Nota: Edge functions as vezes matam promessas pendentes. O ideal é ctx.waitUntil, 
+                            // mas handler padrão web não tem isso fácil. Vamos tentar await rápido ou ignorar erro.
+                            await supabase.from('ai_intent_cache').upsert({
+                                prompt_hash: promptHash,
+                                prompt_preview: promptText.substring(0, 200),
+                                thinking_level: thinkingLevel,
+                                model_used: model,
+                                response: data,
+                                created_at: new Date().toISOString()
+                            });
+                        } catch (saveErr) {
+                            console.warn('[Cache] Erro ao salvar:', saveErr);
+                        }
+                    }
+
                     // Adicionar header indicando se houve fallback (se não for o primeiro modelo)
-                    const isFallback = model !== MODELS[0];
+                    const isFallback = model !== modelsToTry[0];
                     const headers = {
                         'Content-Type': 'application/json',
                         'X-RVM-Model-Used': model,
@@ -117,9 +210,10 @@ export default async function handler(request: Request) {
 
         // Se chegou aqui, todos os modelos falharam
         console.error('[Proxy] Todos os modelos falharam.');
+        const maskedKeyFinal = apiKey ? `...${apiKey.slice(-4)}` : 'UNKNOWN';
         return new Response(JSON.stringify({
             error: {
-                message: 'Todos os modelos de IA falharam (Fallback esgotado). Detalhes: ' + errorTrace.join(' | ')
+                message: `Todos os modelos falharam (Key: ${maskedKeyFinal}). Detalhes: ` + errorTrace.join(' | ')
             }
         }), {
             status: lastStatus,

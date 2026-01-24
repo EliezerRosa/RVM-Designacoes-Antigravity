@@ -13,7 +13,7 @@
   },
   "homepage": "https://EliezerRosa.github.io/RVM-Designacoes-Antigravity",
   "dependencies": {
-    "@supabase/supabase-js": "^2.87.1",
+    "@supabase/supabase-js": "^2.91.1",
     "html2pdf.js": "^0.12.1",
     "idb": "^8.0.3",
     "pdf-lib": "^1.17.1",
