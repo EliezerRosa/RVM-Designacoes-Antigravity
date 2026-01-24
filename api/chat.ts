@@ -211,27 +211,35 @@ export default async function handler(request: Request) {
         console.error('[Proxy] Todos os modelos falharam.');
         const maskedKeyFinal = apiKey ? `...${apiKey.slice(-4)}` : 'UNKNOWN';
 
-        // TENTATIVA DE DIAGNÓSTICO FINAL: Listar modelos disponíveis
-        let availableModelsList = 'Não foi possível listar modelos.';
-        try {
-            const listModelsUrl = `${BASE_URL}?key=${apiKey}`;
-            const listResponse = await fetch(listModelsUrl);
-            const listData = await listResponse.json();
-            if (listData.models) {
-                const modelNames = listData.models.map((m: any) => m.name.replace('models/', ''));
-                availableModelsList = `Modelos Disponíveis para sua Key: [${modelNames.join(', ')}]`;
-                console.warn('[Proxy Diagnostics]', availableModelsList);
+        // --- SYSTEM LOGGING (Centralized Alerts) ---
+        if (process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {
+            try {
+                const { createClient } = await import('@supabase/supabase-js');
+                const supabase = createClient(
+                    process.env.VITE_SUPABASE_URL,
+                    process.env.VITE_SUPABASE_ANON_KEY
+                );
+
+                await supabase.from('ai_system_logs').insert({
+                    level: 'ERROR',
+                    message: `Todos os modelos falharam para a Key ${maskedKeyFinal}`,
+                    details: {
+                        errorTrace,
+                        thinkingLevel,
+                        promptPreview: promptText.substring(0, 100)
+                    }
+                });
+            } catch (logErr) {
+                console.error('[Proxy] Falha ao registrar log de sistema:', logErr);
             }
-        } catch (diagErr) {
-            console.error('[Proxy Diagnostics Error]', diagErr);
         }
 
         return new Response(JSON.stringify({
             error: {
-                message: `Todos os modelos falharam (Key: ${maskedKeyFinal}). Detalhes: ` + errorTrace.join(' | ') + ` | DIAGNÓSTICO: ${availableModelsList}`
+                message: "⚠️ Ocorreu um erro técnico na comunicação com a IA. Um alerta detalhado foi enviado para o painel administrativo."
             }
         }), {
-            status: lastStatus,
+            status: lastStatus || 500,
             headers: { 'Content-Type': 'application/json' },
         });
 
