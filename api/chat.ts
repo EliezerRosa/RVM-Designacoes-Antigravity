@@ -8,9 +8,12 @@ export const config = {
 };
 
 const MODELS = [
-    'gemini-1.5-flash',       // Primary: Stable, Free Tier
-    'gemini-2.0-flash-exp',   // Fallback 1: High limits
-    'gemini-1.5-pro'          // Fallback 2: Slower but more powerful (Emergency backup)
+    'gemini-1.5-flash',       // Primary
+    'gemini-1.5-flash-002',   // Alternate 1: Specific version
+    'gemini-1.5-flash-001',   // Alternate 2: Older specific version
+    'gemini-2.0-flash-exp',   // Fallback 3: Experimental (often quota limited)
+    'gemini-1.5-pro',         // Fallback 4: Standard Pro
+    'gemini-pro'              // Fallback 5: Legacy 1.0 (Emergency)
 ];
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
