@@ -12,21 +12,21 @@ export const config = {
 const MODEL_STRATEGY = {
     // LOW: Tarefas rápidas
     LOW: [
-        'gemini-1.5-flash',      // Primary Stable
-        'gemini-1.5-flash-8b',   // Fast
-        'gemini-pro'             // Legacy Safe Harbor (v1.0)
+        'gemini-1.5-flash-001',  // Pinned Stable (v1.5)
+        'gemini-1.5-flash',      // Alias
+        'gemini-1.0-pro'         // Legacy (v1.0)
     ],
     // MEDIUM: Raciocínio padrão
     MEDIUM: [
-        'gemini-1.5-flash',      // Primary Stable
-        'gemini-1.5-pro',        // Secondary Stable
-        'gemini-pro'             // Legacy Safe Harbor
+        'gemini-1.5-flash-001',  // Pinned Stable
+        'gemini-1.5-pro-001',    // Pinned Stable
+        'gemini-1.0-pro'         // Legacy
     ],
     // HIGH: Arquitetura
     HIGH: [
-        'gemini-1.5-pro',        // Primary
-        'gemini-2.0-flash-exp',  // Experimental
-        'gemini-pro'             // Legacy Safe Harbor
+        'gemini-1.5-pro-001',    // Pinned Stable
+        'gemini-2.0-flash-exp',  // Experimental (Quota heavy)
+        'gemini-1.0-pro'         // Legacy Fallback
     ]
 };
 
