@@ -16,6 +16,10 @@ try {
   console.error('[PDF.js] Error configuring worker:', e);
 }
 
+// Build Timestamp for Debugging
+const BUILD_TIMESTAMP = new Date().toISOString();
+console.log(`[App] Build Version: ${BUILD_TIMESTAMP}`);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

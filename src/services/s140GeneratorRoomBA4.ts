@@ -228,7 +228,8 @@ export function prepareS140RoomBA4Data(parts: WorkbookPart[]): S140WeekData {
 // ============================================================================
 
 export function generateS140RoomBA4HTML(weekData: S140WeekData): string {
-    const year = new Date().getFullYear();
+    // Extrair ano da semana (weekId format: YYYY-MM-DD) ou usar atual como fallback
+    const year = weekData.weekId.split('-')[0] || new Date().getFullYear();
 
     // Agrupar partes por seção preservando ordem
     const sectionOrder = ['Tesouros', 'Ministério', 'Vida Cristã'];
