@@ -10,24 +10,23 @@ export const config = {
 // Modelo de Estratégia (Resilience Architecture)
 // Duplicado de src/lib/ai/types.ts para garantir independência da Serverless Function
 const MODEL_STRATEGY = {
-    // LOW: Tarefas rápidas, OCR, formatação (High Efficiency)
-    // Usando versões pinned 002 (Latest Stable)
+    // LOW: Tarefas rápidas
     LOW: [
-        'gemini-1.5-flash-002',  // Stable Updated
-        'gemini-1.5-flash',      // General Alias
-        'gemini-2.0-flash-exp'   // Fallback
+        'gemini-1.5-flash',      // Primary Stable
+        'gemini-1.5-flash-8b',   // Fast
+        'gemini-pro'             // Legacy Safe Harbor (v1.0)
     ],
-    // MEDIUM: Raciocínio padrão, respostas gerais
+    // MEDIUM: Raciocínio padrão
     MEDIUM: [
-        'gemini-1.5-flash-002',  // Stable Updated
-        'gemini-1.5-pro-002',    // High Intellect Stable
-        'gemini-2.0-flash-exp'   // Fallback
+        'gemini-1.5-flash',      // Primary Stable
+        'gemini-1.5-pro',        // Secondary Stable
+        'gemini-pro'             // Legacy Safe Harbor
     ],
-    // HIGH: Arquitetura, decisões complexas
+    // HIGH: Arquitetura
     HIGH: [
-        'gemini-1.5-pro-002',    // Primary Stable High Intellect
-        'gemini-2.0-flash-exp',  // Experimental SOTA
-        'gemini-1.0-pro'         // Last resort (classic)
+        'gemini-1.5-pro',        // Primary
+        'gemini-2.0-flash-exp',  // Experimental
+        'gemini-pro'             // Legacy Safe Harbor
     ]
 };
 
