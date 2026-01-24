@@ -11,22 +11,23 @@ export const config = {
 // Duplicado de src/lib/ai/types.ts para garantir independência da Serverless Function
 const MODEL_STRATEGY = {
     // LOW: Tarefas rápidas, OCR, formatação (High Efficiency)
+    // Usando alias genérico para evitar 404 em versões específicas
     LOW: [
-        'gemini-1.5-flash-8b',  // Newest, dedicated quota
-        'gemini-1.5-flash-001', // Pinned stable
-        'gemini-1.5-flash'      // Alias last
+        'gemini-1.5-flash',      // Primary Stable Alias
+        'gemini-1.5-flash-8b',   // Try specific 8b if available
+        'gemini-2.0-flash-exp'   // Fallback (High power)
     ],
     // MEDIUM: Raciocínio padrão, respostas gerais
     MEDIUM: [
-        'gemini-1.5-flash-8b',  // Promotion to Medium due to 404s on others
-        'gemini-1.5-flash-001', // Stable
-        'gemini-2.0-flash-exp'  // Fallback (High power)
+        'gemini-1.5-flash',      // Primary Stable
+        'gemini-1.5-pro',        // Secondary Stable
+        'gemini-2.0-flash-exp'   // Fallback
     ],
     // HIGH: Arquitetura, decisões complexas
     HIGH: [
-        'gemini-2.0-flash-exp', // SOTA
-        'gemini-1.5-pro-002',   // Pinned
-        'gemini-1.5-pro'        // Alias
+        'gemini-1.5-pro',        // Primary Stable High Intellect
+        'gemini-2.0-flash-exp',  // Experimental SOTA
+        'gemini-1.5-flash'       // Catch-all fallback
     ]
 };
 

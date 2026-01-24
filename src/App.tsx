@@ -380,9 +380,12 @@ function App() {
         </div>
 
         {/* Admin Dashboard */}
-        <div style={{ display: activeTab === 'admin' ? 'block' : 'none' }}>
-          <AdminDashboard />
-        </div>
+        {/* Admin Dashboard */}
+        {activeTab === 'admin' && (
+          <div className="admin-container">
+            <AdminDashboard />
+          </div>
+        )}
       </main>
 
       {showPublisherForm && (
