@@ -9,8 +9,8 @@ export const config = {
 
 const MODELS = [
     'gemini-1.5-flash',       // Primary: Stable, Free Tier
-    'gemini-2.0-flash-exp',   // Fallback 1: Experimental, usually higher limits
-    'gemini-1.5-flash-8b'     // Fallback 2: Smaller, faster, backup
+    'gemini-2.0-flash-exp',   // Fallback 1: High limits
+    'gemini-1.5-pro'          // Fallback 2: Slower but more powerful (Emergency backup)
 ];
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -34,8 +34,8 @@ export default async function handler(request: Request) {
             });
         }
 
-        let lastError = null;
         let lastStatus = 500;
+        const errorTrace: string[] = [];
 
         // Tentar modelos em sequência (Circuit Breaker / Fallback)
         for (const model of MODELS) {
@@ -77,10 +77,11 @@ export default async function handler(request: Request) {
                 }
 
                 lastStatus = response.status;
-                lastError = errorData;
+                const failureMsg = `[${model}]: ${response.status} - ${errorData.error?.message || errorText}`;
+                errorTrace.push(failureMsg);
 
                 // Log do erro (interno Vercel)
-                console.warn(`[Proxy] Falha no modelo ${model} (${response.status}):`, errorData.error?.message || errorText);
+                console.warn(`[Proxy] Falha no modelo ${model}:`, failureMsg);
 
                 // Se for erro de cliente (ex: Bad Request 400), NÃO adianta tentar outro modelo.
                 // Erros de cota geralmente são 429 ou 403 (com mensagem específica)
@@ -91,7 +92,7 @@ export default async function handler(request: Request) {
 
                 if (!isRetryable) {
                     // Erro fatal (ex: payload inválido), retorna erro para o cliente
-                    return new Response(JSON.stringify(lastError), {
+                    return new Response(JSON.stringify(errorData), {
                         status: lastStatus,
                         headers: { 'Content-Type': 'application/json' },
                     });
@@ -100,14 +101,19 @@ export default async function handler(request: Request) {
                 // Se for retryable, o loop continua para o próximo modelo...
 
             } catch (networkError) {
-                console.error(`[Proxy] Erro de rede com ${model}:`, networkError);
-                lastError = { error: { message: 'Network error connecting to Gemini API' } };
+                const netMsg = `[${model}]: Network Error - ${networkError}`;
+                console.error(netMsg);
+                errorTrace.push(netMsg);
             }
         }
 
         // Se chegou aqui, todos os modelos falharam
         console.error('[Proxy] Todos os modelos falharam.');
-        return new Response(JSON.stringify(lastError || { error: 'All models failed' }), {
+        return new Response(JSON.stringify({
+            error: {
+                message: 'Todos os modelos de IA falharam (Fallback esgotado). Detalhes: ' + errorTrace.join(' | ')
+            }
+        }), {
             status: lastStatus,
             headers: { 'Content-Type': 'application/json' },
         });
