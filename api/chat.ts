@@ -210,9 +210,25 @@ export default async function handler(request: Request) {
         // Se chegou aqui, todos os modelos falharam
         console.error('[Proxy] Todos os modelos falharam.');
         const maskedKeyFinal = apiKey ? `...${apiKey.slice(-4)}` : 'UNKNOWN';
+
+        // TENTATIVA DE DIAGNÓSTICO FINAL: Listar modelos disponíveis
+        let availableModelsList = 'Não foi possível listar modelos.';
+        try {
+            const listModelsUrl = `${BASE_URL}?key=${apiKey}`;
+            const listResponse = await fetch(listModelsUrl);
+            const listData = await listResponse.json();
+            if (listData.models) {
+                const modelNames = listData.models.map((m: any) => m.name.replace('models/', ''));
+                availableModelsList = `Modelos Disponíveis para sua Key: [${modelNames.join(', ')}]`;
+                console.warn('[Proxy Diagnostics]', availableModelsList);
+            }
+        } catch (diagErr) {
+            console.error('[Proxy Diagnostics Error]', diagErr);
+        }
+
         return new Response(JSON.stringify({
             error: {
-                message: `Todos os modelos falharam (Key: ${maskedKeyFinal}). Detalhes: ` + errorTrace.join(' | ')
+                message: `Todos os modelos falharam (Key: ${maskedKeyFinal}). Detalhes: ` + errorTrace.join(' | ') + ` | DIAGNÓSTICO: ${availableModelsList}`
             }
         }), {
             status: lastStatus,
