@@ -118,15 +118,27 @@ export interface AgentContext {
 // ===== Funções =====
 
 /**
- * Converte Publisher para resumo compacto
+ * Converte Publisher para resumo compacto e completo
  */
-function summarizePublisher(p: Publisher): PublisherSummary {
+function summarizePublisher(p: Publisher): PublisherSummary & {
+    ageGroup: string;
+    hasParents: boolean;
+    availability: string;
+    restrictions: string[];
+} {
     const privileges: string[] = [];
     if (p.privileges.canPreside) privileges.push('Presidir');
     if (p.privileges.canPray) privileges.push('Orar');
     if (p.privileges.canGiveTalks) privileges.push('Discursos');
     if (p.privileges.canConductCBS) privileges.push('Dirigir EBC');
     if (p.privileges.canReadCBS) privileges.push('Ler EBC');
+    if (p.privileges.canGiveStudentTalks) privileges.push('Estudante');
+
+    const restrictions: string[] = [];
+    if (!p.isServing) restrictions.push('Inativo');
+    if (p.isNotQualified) restrictions.push(`ÑQualificado(${p.notQualifiedReason || ''})`);
+    if (p.requestedNoParticipation) restrictions.push(`PediuSair(${p.noParticipationReason || ''})`);
+    if (p.availability.mode === 'never') restrictions.push('Indisponível(Geral)');
 
     return {
         name: p.name,
@@ -135,20 +147,16 @@ function summarizePublisher(p: Publisher): PublisherSummary {
         isServing: p.isServing,
         isBaptized: p.isBaptized,
         privileges,
+        ageGroup: p.ageGroup,
+        hasParents: (p.parentIds && p.parentIds.length > 0) || false,
+        availability: p.availability.mode === 'always'
+            ? `Sempre (${p.availability.exceptionDates.length} exceções)`
+            : 'Nunca',
+        restrictions
     };
 }
 
-/**
- * Converte participação para resumo
- */
-function summarizeParticipation(record: HistoryRecord | WorkbookPart): ParticipationSummary {
-    return {
-        publisherName: record.resolvedPublisherName || record.rawPublisherName || 'N/A',
-        date: record.date,
-        partType: record.tipoParte,
-        funcao: record.funcao,
-    };
-}
+
 
 /**
  * Constrói o contexto completo para o agente
@@ -163,24 +171,26 @@ export function buildAgentContext(
     // Filtrar publicadores ativos
     const activePublishers = publishers.filter(p => p.isServing);
 
-    // Sumarizar publicadores
+    // Sumarizar publicadores (TODOS, sem exceção)
     const publisherSummaries = publishers.map(summarizePublisher);
 
     // Estatísticas de elegibilidade
     const eligibilityStats = getEligibilityStats(publishers);
 
-    // Participações recentes (últimos 30 dias)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Participações completas (Ciclo de Vida - 6 meses atrás até infinito)
+    const lookbackDate = new Date();
+    lookbackDate.setMonth(lookbackDate.getMonth() - 6); // 6 meses atrás
 
-    const recentParticipations = parts
-        .filter(p => {
-            if (!p.resolvedPublisherName) return false;
-            const partDate = new Date(p.date);
-            return partDate >= thirtyDaysAgo;
-        })
-        .map(summarizeParticipation)
-        .slice(0, 100); // Limitar a 100 para não sobrecarregar o contexto
+    // Filtrar partes válidas
+    const validParts = parts.filter(p => {
+        if (!p.resolvedPublisherName) return false;
+        const partDate = new Date(p.date);
+        return partDate >= lookbackDate; // De 6 meses atrás em diante
+    });
+
+    const recentParticipations = validParts
+        .map(summarizeParticipation);
+    // REMOVIDO: .slice(0, 100) - Agora enviamos tudo
 
     // Partes pendentes
     const pendingParts = parts.filter(p =>
@@ -195,7 +205,7 @@ export function buildAgentContext(
         return acc;
     }, {} as Record<string, number>);
 
-    // NOVO: Agrupar designações por semana (apenas semanas com partes designadas)
+    // Agrupar designações por semana (TODAS com partes)
     const today = new Date().toISOString().split('T')[0];
     const weekMap = new Map<string, WeekDesignation>();
 
@@ -227,17 +237,15 @@ export function buildAgentContext(
         });
     }
 
-    // Converter para array e pegar últimas 4 semanas + 4 próximas
+    // LISTA COMPLETA DE SEMANAS (Sem .slice)
     const allWeeks = Array.from(weekMap.values());
-    const pastWeeks = allWeeks.filter(w => w.date < today).slice(-4);
-    const futureWeeks = allWeeks.filter(w => w.date >= today).slice(0, 4);
-    const weekDesignations = [...pastWeeks, ...futureWeeks];
+    const weekDesignations = allWeeks; // Enviamos tudo o que temos
 
     // Determinar semana atual
     const currentWeekData = allWeeks.find(w => w.date >= today);
     const currentWeek = currentWeekData?.weekDisplay || 'N/A';
 
-    // NOVO: Processar eventos especiais
+    // Processar eventos especiais
     const specialEventsSummary: SpecialEventSummary[] = specialEvents.map(e => ({
         week: e.week,
         templateId: e.templateId,
@@ -247,7 +255,7 @@ export function buildAgentContext(
         isApplied: e.isApplied || false,
     }));
 
-    // NOVO: Processar fila de necessidades locais
+    // Processar fila de necessidades locais
     const localNeedsQueue: LocalNeedsSummary[] = localNeeds.map(ln => ({
         theme: ln.theme,
         assignee: ln.assigneeName,
@@ -256,7 +264,7 @@ export function buildAgentContext(
         isAssigned: !!ln.assignedToPartId,
     }));
 
-    // NOVO: Calcular analytics de participação
+    // Analytics de participação (usa lista completa 'parts')
     const participationAnalytics = buildParticipationAnalytics(parts, publishers);
 
     return {
@@ -275,6 +283,7 @@ export function buildAgentContext(
         currentDate: new Date().toISOString().split('T')[0],
     };
 }
+
 
 // Tipos de entrada para os novos dados (exportados para agentService)
 export interface SpecialEventInput {
@@ -357,45 +366,49 @@ function buildParticipationAnalytics(
 export function formatContextForPrompt(context: AgentContext): string {
     const lines: string[] = [];
 
-    lines.push(`=== DADOS ATUAIS (${context.currentDate}) ===`);
-    lines.push(`SEMANA ATUAL: ${context.currentWeek}\n`);
+    lines.push(`=== DADOS DO AMBIENTE (Data: ${context.currentDate} | Semana: ${context.currentWeek}) ===\n`);
 
     // Estatísticas gerais
-    lines.push(`PUBLICADORES:`);
-    lines.push(`- Total: ${context.totalPublishers}`);
+    lines.push(`RESUMO DA CONGREGAÇÃO:`);
+    lines.push(`- Total Publicadores: ${context.totalPublishers}`);
     lines.push(`- Ativos: ${context.activePublishers}`);
-    lines.push(`- Podem Presidir: ${context.eligibilityStats.canPreside}`);
-    lines.push(`- Podem Orar: ${context.eligibilityStats.canPray}`);
-    lines.push(`- Podem dar Discursos: ${context.eligibilityStats.canGiveTalks}`);
     lines.push(`- Anciãos/SM: ${context.eligibilityStats.eldersAndMS}`);
-    lines.push(`- Irmãos: ${context.eligibilityStats.brothers}`);
-    lines.push(`- Irmãs: ${context.eligibilityStats.sisters}\n`);
+    lines.push(`- Irmãos/Irmãs: ${context.eligibilityStats.brothers}/${context.eligibilityStats.sisters}\n`);
 
-    // Lista de publicadores por condição
-    const elders = context.publishers.filter(p => p.condition === 'Ancião' || p.condition === 'Anciao');
-    const servants = context.publishers.filter(p => p.condition === 'Servo Ministerial');
-    const publishers = context.publishers.filter(p => p.condition === 'Publicador');
+    // LISTA COMPLETA DE PUBLICADORES (SEM LIMITES)
+    // Agrupando para facilitar leitura
+    const elders = context.publishers.filter((p: any) => p.condition.includes('Anci'));
+    const servants = context.publishers.filter((p: any) => p.condition.includes('Servo'));
+    const regular = context.publishers.filter((p: any) => !p.condition.includes('Anci') && !p.condition.includes('Servo'));
 
-    lines.push(`ANCIÃOS (${elders.length}):`);
-    elders.forEach(p => lines.push(`- ${p.name} (${p.gender === 'brother' ? 'Irmão' : 'Irmã'})`));
+    const formatPub = (p: any) => {
+        const info = [`${p.condition}`];
+        if (p.ageGroup && p.ageGroup !== 'Adulto') info.push(p.ageGroup);
+        if (p.hasParents) info.push('Filho(a)');
+        if (p.privileges.length > 0) info.push(`Priv: [${p.privileges.join(', ')}]`);
+        if (p.restrictions.length > 0) info.push(`🛑 RESTRIÇÃO: ${p.restrictions.join(', ')}`);
 
-    lines.push(`\nSERVOS MINISTERIAIS (${servants.length}):`);
-    servants.forEach(p => lines.push(`- ${p.name}`));
+        return `- ${p.name} (${p.gender === 'brother' ? 'M' : 'F'}) | ${info.join(' | ')}`;
+    };
 
-    lines.push(`\nPUBLICADORES (${publishers.length}):`);
-    publishers.slice(0, 20).forEach(p => lines.push(`- ${p.name} (${p.gender === 'brother' ? 'Irmão' : 'Irmã'})`));
-    if (publishers.length > 20) {
-        lines.push(`  ... e mais ${publishers.length - 20} publicadores`);
-    }
+    lines.push(`=== LISTA DE PUBLICADORES ===`);
+    lines.push(`\n-- ANCIÃOS (${elders.length}) --`);
+    elders.forEach(p => lines.push(formatPub(p)));
 
-    // NOVO: Designações por semana
+    lines.push(`\n-- SERVOS MINISTERIAIS (${servants.length}) --`);
+    servants.forEach(p => lines.push(formatPub(p)));
+
+    lines.push(`\n-- PUBLICADORES (${regular.length}) --`);
+    // REMOVIDO: .slice(0, 20) - Agora enviamos a lista completa
+    regular.forEach(p => lines.push(formatPub(p)));
+
+    // Designações por semana
     if (context.weekDesignations.length > 0) {
-        lines.push(`\n=== DESIGNAÇÕES POR SEMANA ===\n`);
+        lines.push(`\n=== DESIGNAÇÕES (HISTÓRICO E FUTURO) ===\n`);
         for (const week of context.weekDesignations) {
             const isCurrentWeek = week.weekDisplay === context.currentWeek;
             lines.push(`📅 ${week.weekDisplay} (${week.date})${isCurrentWeek ? ' ← SEMANA ATUAL' : ''}`);
 
-            // Agrupar por hora de início para ordem cronológica
             const sortedParts = [...week.parts].sort((a, b) =>
                 a.horaInicio.localeCompare(b.horaInicio)
             );
@@ -414,63 +427,42 @@ export function formatContextForPrompt(context: AgentContext): string {
         lines.push(`- ${week}: ${count} partes`);
     });
 
-    // Participações recentes
-    if (context.recentParticipations.length > 0) {
-        lines.push(`\nPARTICIPAÇÕES RECENTES (últimos 30 dias):`);
-        const byPublisher = context.recentParticipations.reduce((acc, p) => {
-            if (!acc[p.publisherName]) acc[p.publisherName] = [];
-            acc[p.publisherName].push(p.partType);
-            return acc;
-        }, {} as Record<string, string[]>);
-
-        Object.entries(byPublisher).slice(0, 15).forEach(([name, parts]) => {
-            lines.push(`- ${name}: ${parts.length}x (${parts.slice(0, 3).join(', ')}${parts.length > 3 ? '...' : ''})`);
-        });
-    }
-
-    // NOVO: Eventos Especiais
+    // Eventos Especiais
     if (context.specialEvents.length > 0) {
         lines.push(`\n=== EVENTOS ESPECIAIS ===`);
         for (const event of context.specialEvents) {
-            const status = event.isApplied ? '✅' : '⏳';
-            lines.push(`${status} ${event.week}: ${event.templateName}`);
-            if (event.theme) lines.push(`   Tema: ${event.theme}`);
-            if (event.assignee) lines.push(`   Responsável: ${event.assignee}`);
+            lines.push(`${event.isApplied ? '✅' : '⏳'} ${event.week}: ${event.templateName} (${event.theme || 'Sem tema'})`);
         }
     }
 
-    // NOVO: Fila de Necessidades Locais
+    // Fila de Necessidades Locais
     if (context.localNeedsQueue.length > 0) {
-        lines.push(`\n=== FILA DE NECESSIDADES LOCAIS ===`);
+        lines.push(`\n=== NECESSIDADES LOCAIS ===`);
         for (const ln of context.localNeedsQueue) {
-            const status = ln.isAssigned ? '✅' : `#${ln.position}`;
-            const targetInfo = ln.targetWeek ? ` → ${ln.targetWeek}` : '';
-            lines.push(`${status} "${ln.theme}" - ${ln.assignee}${targetInfo}`);
+            lines.push(`#${ln.position} ${ln.theme} -> ${ln.assignee} ${ln.isAssigned ? '(Já designado)' : '(Pendente)'}`);
         }
     }
 
-    // NOVO: Analytics de Participação
+    // Analytics
     if (context.participationAnalytics) {
-        const analytics = context.participationAnalytics;
-        lines.push(`\n=== ANALYTICS DE PARTICIPAÇÃO ===`);
-        lines.push(`- Total de participações: ${analytics.totalParticipations}`);
-        lines.push(`- Média por publicador ativo: ${analytics.avgPerPublisher}`);
-
-        if (analytics.mostActive.length > 0) {
-            lines.push(`\nMAIS ATIVOS:`);
-            analytics.mostActive.forEach(p => lines.push(`  🏆 ${p.name}: ${p.count} partes`));
-        }
-
-        if (analytics.leastActive.length > 0) {
-            lines.push(`\nMENOS ATIVOS (sem parte há mais tempo):`);
-            analytics.leastActive.forEach(p => {
-                const info = p.lastDate ? `última: ${p.lastDate}` : 'nunca participou';
-                lines.push(`  ⏰ ${p.name}: ${info}`);
-            });
-        }
+        lines.push(`\n=== ESTATÍSTICAS (Média: ${context.participationAnalytics.avgPerPublisher}) ===`);
+        lines.push(`Mais ativos: ${context.participationAnalytics.mostActive.map(p => `${p.name}(${p.count})`).join(', ')}`);
+        lines.push(`Menos ativos: ${context.participationAnalytics.leastActive.map(p => `${p.name}(${p.lastDate || 'Nunca'})`).join(', ')}`);
     }
 
     return lines.join('\n');
+}
+
+/**
+ * Converte participação para resumo
+ */
+function summarizeParticipation(record: HistoryRecord | WorkbookPart): ParticipationSummary {
+    return {
+        publisherName: record.resolvedPublisherName || record.rawPublisherName || 'N/A',
+        date: record.date,
+        partType: record.tipoParte,
+        funcao: record.funcao,
+    };
 }
 
 /**
