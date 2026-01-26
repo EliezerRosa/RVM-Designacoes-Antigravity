@@ -107,6 +107,18 @@ Formato do JSON para Remoção:
 }
 \`\`\`
 
+Formato do JSON para Enviar WhatsApp (S-140):
+\`\`\`json
+{
+  "type": "SHARE_S140_WHATSAPP",
+  "params": { 
+    "weekId": "2024-03-18",
+    "targetGroup": "elders"
+  },
+  "description": "Gerando imagem S-140..."
+}
+\`\`\`
+
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown (\`\`\`json ... \`\`\`).
 
 PAGINAÇÃO DE RESPOSTAS LONGAS:

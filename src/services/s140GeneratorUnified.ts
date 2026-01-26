@@ -729,3 +729,19 @@ export async function downloadS140UnifiedMultiWeek(
 
     await generateMultiWeekS140UnifiedPDF(weeksData);
 }
+
+export function renderS140ToElement(weekData: S140WeekDataUnified): HTMLElement {
+    const html = generateS140UnifiedHTML(weekData);
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    // Extra adjustment for image capture: ensure explicit white background and sizing
+    const content = container.querySelector('.container') as HTMLElement;
+    if (content) {
+        content.style.backgroundColor = '#ffffff';
+        content.style.width = '800px'; // Fixed width for consistent image
+        content.style.padding = '20px';
+    }
+
+    return container;
+}
