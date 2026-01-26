@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord, HistoryStatus } from '../types';
-import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
+import { checkEligibility, isPastWeekDate, isElderOrMS } from '../services/eligibilityService';
 import { calculateRotationPriority, getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
@@ -153,14 +153,45 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             if (a.eligible && !b.eligible) return -1;
             if (!a.eligible && b.eligible) return 1;
 
-            // 2. Prioridade para Irmãs em Demonstrações (v8.1) - Apenas se ambos forem elegíveis
-            if (a.eligible && b.eligible) {
-                if (a.isSisterForDemo && !b.isSisterForDemo) return -1;
-                if (!a.isSisterForDemo && b.isSisterForDemo) return 1;
+            // 2. (Removido) Prioridade v8.1 substituída pela lógica unificada v8.2 abaixo
+
+            // EXCEÇÃO PARA DEMONSTRAÇÕES (v8.2)
+            // Ordem: Irmã > Varão Comum > SM > Ancião
+            if (modalidade === EnumModalidade.DEMONSTRACAO && a.eligible && b.eligible) {
+                const getDemoScore = (p: Publisher) => {
+                    if (p.gender === 'sister') return 4; // Irmã (Máxima)
+                    if (!isElderOrMS(p)) return 3; // Varão Comum (Alta)
+                    if (p.condition === 'Servo Ministerial') return 2; // SM (Média)
+                    return 1; // Ancião (Baixa)
+                }
+                const scoreA = getDemoScore(a.publisher);
+                const scoreB = getDemoScore(b.publisher);
+
+                if (scoreA !== scoreB) {
+                    return scoreB - scoreA;
+                }
             }
 
             // 3. Ordenar por prioridade de rotação (maior primeiro)
             if (a.priority !== b.priority) {
+                // EXCEÇÃO DE ORDENAÇÃO PARA LEITOR EBC (v8.2)
+                // Se for Leitor EBC, queremos agrupar por categoria hierárquica ANTES da pontuação
+                // Ordem: Varão > SM > Ancião
+                if (modalidade === EnumModalidade.LEITOR_EBC && a.eligible && b.eligible) {
+                    const getScore = (p: Publisher) => {
+                        if (!isElderOrMS(p)) return 3; // Varão Comum (Alta)
+                        if (p.condition === 'Servo Ministerial') return 2; // SM (Média)
+                        return 1; // Ancião (Baixa)
+                    }
+                    const scoreA = getScore(a.publisher);
+                    const scoreB = getScore(b.publisher);
+
+                    if (scoreA !== scoreB) {
+                        return scoreB - scoreA; // Maior score (3) aparece primeiro
+                    }
+                    // Se empate na categoria, usa prioridade normal abaixo
+                }
+
                 return b.priority - a.priority;
             }
 

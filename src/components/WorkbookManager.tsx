@@ -592,13 +592,66 @@ export function WorkbookManager({ publishers }: Props) {
                             }
                         };
 
-                        // Obter próximo na rotação (excluindo presidente e já designados na semana)
-                        const { publisher: candidate } = await getNextInRotation(
-                            publishers,
-                            'ensino',
-                            namesExcludedInWeek,
-                            ensinoFilter
-                        );
+                        // Determinar candidato base
+                        let candidate: Publisher | null = null;
+                        const isLeitorEBC = (tipoEnsino === 'Leitor EBC' || tipoEnsino === EnumTipoParte.LEITOR_EBC);
+
+                        if (isLeitorEBC) {
+                            // =====================================================================
+                            // LOGICA ESPECIAL LEITOR EBC: Varão Comum > SM > Ancião
+                            // =====================================================================
+
+                            // 1. Tentar Varão Comum (Não A nem SM)
+                            const commonBrotherResult = await getNextInRotation(
+                                publishers,
+                                'ensino',
+                                namesExcludedInWeek,
+                                (p) => !isElderOrMS(p) && ensinoFilter(p)
+                            );
+
+                            if (commonBrotherResult.publisher) {
+                                candidate = commonBrotherResult.publisher;
+                                console.log(`[Motor v8.2] 📖 Leitor EBC (Prioridade 1 - Varão): ${candidate.name}`);
+                            }
+
+                            // 2. Tentar SM (se não achou varão)
+                            if (!candidate) {
+                                const msResult = await getNextInRotation(
+                                    publishers,
+                                    'ensino',
+                                    namesExcludedInWeek,
+                                    (p) => p.condition === 'Servo Ministerial' && ensinoFilter(p)
+                                );
+                                if (msResult.publisher) {
+                                    candidate = msResult.publisher;
+                                    console.log(`[Motor v8.2] 📖 Leitor EBC (Prioridade 2 - SM): ${candidate.name}`);
+                                }
+                            }
+
+                            // 3. Tentar Ancião (se não achou SM)
+                            if (!candidate) {
+                                const elderResult = await getNextInRotation(
+                                    publishers,
+                                    'ensino',
+                                    namesExcludedInWeek,
+                                    (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && ensinoFilter(p)
+                                );
+                                if (elderResult.publisher) {
+                                    candidate = elderResult.publisher;
+                                    console.log(`[Motor v8.2] 📖 Leitor EBC (Prioridade 3 - Ancião): ${candidate.name}`);
+                                }
+                            }
+
+                        } else {
+                            // LOGICA PADRÃO (Discursos, Joias, etc)
+                            const standardResult = await getNextInRotation(
+                                publishers,
+                                'ensino',
+                                namesExcludedInWeek,
+                                ensinoFilter
+                            );
+                            candidate = standardResult.publisher;
+                        }
 
                         if (candidate) {
                             selectedPublisherByPart.set(ensinoPart.id, { id: candidate.id, name: candidate.name });
@@ -669,23 +722,70 @@ export function WorkbookManager({ publishers }: Props) {
                         let candidate: Publisher | null = null;
 
                         if (isDemonstracao) {
-                            // TENTATIVA 1: Priorizar IRMÃS (strict filter)
-                            // Isso força o motor a pular irmãos na fila de rotação se for uma demonstração
+                            // =====================================================================
+                            // LOGICA ESPECIAL DEMONSTRAÇÕES (v8.2): 
+                            // 1. Irmãs
+                            // 2. Varões Comuns
+                            // 3. SMs
+                            // 4. Anciãos
+                            // =====================================================================
+
+                            // TENTATIVA 1: Priorizar IRMÃS
                             const sisterResult = await getNextInRotation(
                                 publishers,
                                 'estudante',
                                 namesExcludedInWeek,
                                 (p) => p.gender === 'sister' && estudanteFilter(p)
                             );
-
                             if (sisterResult.publisher) {
                                 candidate = sisterResult.publisher;
-                                console.log(`[Motor v8.1] 👩 Demonstração (Irmã Prioritária): ${candidate.name}`);
+                                console.log(`[Motor v8.2] 👩 Demonstração (Prioridade 1 - Irmã): ${candidate.name}`);
                             }
-                        }
 
-                        // TENTATIVA 2 (Fallback ou Padrão): Qualquer publicador elegível
-                        if (!candidate) {
+                            // TENTATIVA 2: Varões Comuns (fallback se não houver irmã)
+                            if (!candidate) {
+                                const brotherResult = await getNextInRotation(
+                                    publishers,
+                                    'estudante',
+                                    namesExcludedInWeek,
+                                    (p) => p.gender === 'brother' && !isElderOrMS(p) && estudanteFilter(p)
+                                );
+                                if (brotherResult.publisher) {
+                                    candidate = brotherResult.publisher;
+                                    console.log(`[Motor v8.2] 👨 Demonstração (Prioridade 2 - Varão): ${candidate.name}`);
+                                }
+                            }
+
+                            // TENTATIVA 3: Servos Ministeriais
+                            if (!candidate) {
+                                const msResult = await getNextInRotation(
+                                    publishers,
+                                    'estudante',
+                                    namesExcludedInWeek,
+                                    (p) => p.condition === 'Servo Ministerial' && estudanteFilter(p)
+                                );
+                                if (msResult.publisher) {
+                                    candidate = msResult.publisher;
+                                    console.log(`[Motor v8.2] 👨 Demonstração (Prioridade 3 - SM): ${candidate.name}`);
+                                }
+                            }
+
+                            // TENTATIVA 4: Anciãos
+                            if (!candidate) {
+                                const elderResult = await getNextInRotation(
+                                    publishers,
+                                    'estudante',
+                                    namesExcludedInWeek,
+                                    (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && estudanteFilter(p)
+                                );
+                                if (elderResult.publisher) {
+                                    candidate = elderResult.publisher;
+                                    console.log(`[Motor v8.2] 👨 Demonstração (Prioridade 4 - Ancião): ${candidate.name}`);
+                                }
+                            }
+
+                        } else {
+                            // LOGICA PADRÃO (Leitura, Discursos)
                             const standardResult = await getNextInRotation(
                                 publishers,
                                 'estudante',
@@ -693,9 +793,6 @@ export function WorkbookManager({ publishers }: Props) {
                                 estudanteFilter
                             );
                             candidate = standardResult.publisher;
-                            if (candidate && isDemonstracao) {
-                                console.log(`[Motor v8.1] 👨 Demonstração (Fallback p/ Irmão): ${candidate.name}`);
-                            }
                         }
 
                         if (candidate) {
