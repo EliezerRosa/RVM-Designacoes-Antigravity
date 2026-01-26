@@ -5,13 +5,15 @@ import type { ChatMessage } from '../services/agentService';
 import type { Publisher, WorkbookPart } from '../types';
 import { agentActionService } from '../services/agentActionService';
 import type { SimulationResult } from '../services/agentActionService';
+import html2canvas from 'html2canvas';
+import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
 
 interface Props {
     publishers: Publisher[];
     parts: WorkbookPart[];
     onAction?: (result: SimulationResult) => void;
-    onNavigateToWeek?: (weekId: string) => void;  // NEW: Navigate S-140 when agent mentions a week
-    onModelChange?: (model: string) => void;      // NEW: Notify parent about active model
+    onNavigateToWeek?: (weekId: string) => void;
+    onModelChange?: (model: string) => void;
 }
 
 export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange }: Props) {
@@ -21,6 +23,12 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Share S-140 State
+    const [shareModalOpen, setShareModalOpen] = useState(false);
+    const [shareImageData, setShareImageData] = useState<string | null>(null);
+    const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+    const [shareWeekId, setShareWeekId] = useState<string>('');
 
     // Rate Limit Countdown State (from API error)
     const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
@@ -69,6 +77,54 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
 
     const handleCancelAction = () => {
         setPendingResult(null);
+    };
+
+    // Handle Share S-140 Action
+    const handleShareS140 = async (weekId: string) => {
+        try {
+            setIsGeneratingImage(true);
+            setShareWeekId(weekId);
+            setShareModalOpen(true);
+            setShareImageData(null);
+
+            // Filter parts for the week
+            const weekParts = parts.filter(p => p.weekId === weekId);
+            if (weekParts.length === 0) {
+                alert('Nenhuma designação encontrada para esta semana.');
+                setShareModalOpen(false);
+                return;
+            }
+
+            // Prepare Data and HTML
+            const weekData = await prepareS140UnifiedData(weekParts);
+            const element = renderS140ToElement(weekData);
+
+            // Append to body effectively invisible but rendered
+            element.style.position = 'absolute';
+            element.style.left = '-9999px';
+            element.style.top = '0';
+            document.body.appendChild(element);
+
+            // Capture
+            const canvas = await html2canvas(element.querySelector('.container') as HTMLElement, {
+                scale: 2, // High resolution
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+
+            // Cleanup
+            document.body.removeChild(element);
+
+            // Set Data
+            setShareImageData(canvas.toDataURL('image/png'));
+
+        } catch (err) {
+            console.error('Error generating S-140 image:', err);
+            alert('Erro ao gerar imagem para compartilhamento.');
+            setShareModalOpen(false);
+        } finally {
+            setIsGeneratingImage(false);
+        }
     };
 
     // ... existing useEffects ...
@@ -177,8 +233,6 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             setMessages(prev => [...prev, agentMsg]);
 
             if (response.isFallback) {
-                // Notificação de Fallback suprimida da UI do Agente conforme regra de negócio.
-                // Esta informação deve ser visível apenas no Admin Dashboard.
                 console.warn('[TemporalChat] Smart Fallback activated (System alert suppressed in UI)');
             }
 
@@ -201,6 +255,26 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             // Handle Action if present
             if (response.success && response.action) {
                 console.log('[TemporalChat] Executing action:', response.action);
+
+                // SPECIAL HANDLER FOR WHATSAPP SHARE
+                if (response.action.type === 'SHARE_S140_WHATSAPP') {
+                    // Start generation flow immediately
+                    const weekId = response.action.params.weekId;
+                    if (weekId) {
+                        handleShareS140(weekId);
+                    }
+
+                    // Add system message about it
+                    const systemMsg: ChatMessage = {
+                        role: 'assistant',
+                        content: `📱 Abrindo painel de compartilhamento para semana ${weekId}...`,
+                        timestamp: new Date(),
+                    };
+                    await chatHistoryService.addMessage(sessionId, systemMsg);
+                    setMessages(prev => [...prev, systemMsg]);
+                    return; // Don't process via simulateAction normally
+                }
+
                 const result = await agentActionService.simulateAction(response.action, parts, publishers);
 
                 if (result.success) {
@@ -241,9 +315,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 setRateLimitCountdown(waitSeconds);
 
                 // SYNC: If API says we are limited, consume all local credits immediately
-                // This prevents "15/15" display when actually blocked server-side
                 const now = Date.now();
-                // Add enough fake timestamps to drop credits to 0
                 const fakeTimestamps = Array(MAX_REQUESTS_PER_MINUTE).fill(now);
                 setRequestTimestamps(fakeTimestamps);
 
@@ -342,6 +414,70 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     </div>
                 </div>
             )}
+
+            {/* Share S-140 Modal */}
+            {shareModalOpen && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.8)',
+                    zIndex: 10000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <div style={{ background: 'white', padding: '20px', borderRadius: '12px', maxWidth: '500px', width: '90%' }}>
+                        <h3 style={{ margin: '0 0 10px 0', color: '#065F46' }}>📱 Compartilhar com Anciãos</h3>
+
+                        {isGeneratingImage ? (
+                            <div style={{ padding: '20px', textAlign: 'center' }}>🔄 Gerando imagem...</div>
+                        ) : shareImageData ? (
+                            <div>
+                                <img src={shareImageData} alt="S-140 Preview" style={{ width: '100%', borderRadius: '8px', border: '1px solid #eee', marginBottom: '10px' }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                const blob = await (await fetch(shareImageData)).blob();
+                                                await navigator.clipboard.write([
+                                                    new ClipboardItem({ 'image/png': blob })
+                                                ]);
+                                                alert('Imagem copiada! Agora cole no WhatsApp.');
+                                            } catch (e) {
+                                                alert('Erro ao copiar imagem. Tente baixar ou tirar print.');
+                                            }
+                                        }}
+                                        style={{ padding: '10px', background: '#F3F4F6', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                    >
+                                        📋 1. Copiar Imagem
+                                    </button>
+                                    <a
+                                        href={`https://wa.me/?text=Segue%20designações%20da%20semana%20${shareWeekId}%20(Cole%20a%20imagem)`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{ display: 'block', textAlign: 'center', padding: '10px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}
+                                    >
+                                        💬 2. Abrir WhatsApp
+                                    </a>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ color: 'red' }}>Erro ao criar imagem.</div>
+                        )}
+
+                        <button
+                            onClick={() => setShareModalOpen(false)}
+                            style={{ width: '100%', marginTop: '10px', padding: '8px', border: 'none', background: 'transparent', color: '#666', cursor: 'pointer' }}
+                        >
+                            Fechar
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {rateLimitCountdown > 0 && (
                 <div style={{
                     padding: '10px 12px',

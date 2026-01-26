@@ -1,7 +1,7 @@
 import type { WorkbookPart, Publisher } from '../types';
 import { WorkbookStatus } from '../types';
 
-export type AgentActionType = 'SIMULATE_ASSIGNMENT' | 'REMOVE_ASSIGNMENT' | 'CHECK_ELIGIBILITY';
+export type AgentActionType = 'SIMULATE_ASSIGNMENT' | 'REMOVE_ASSIGNMENT' | 'CHECK_ELIGIBILITY' | 'SHARE_S140_WHATSAPP';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -23,14 +23,18 @@ export const agentActionService = {
     detectAction(responseContent: string): AgentAction | null {
         // Try to find JSON block
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{[\s\S]*"type"\s*:\s*"SIMULATE_ASSIGNMENT"[\s\S]*}/);
+            responseContent.match(/{[\s\S]*"type"\s*:\s*"(?:SIMULATE_ASSIGNMENT|SHARE_S140_WHATSAPP|REMOVE_ASSIGNMENT)"[\s\S]*}/);
 
         if (jsonMatch) {
             try {
                 const jsonStr = jsonMatch[1] || jsonMatch[0];
                 const data = JSON.parse(jsonStr);
 
-                if (data.type && (data.type === 'SIMULATE_ASSIGNMENT' || data.type === 'REMOVE_ASSIGNMENT')) {
+                if (data.type && (
+                    data.type === 'SIMULATE_ASSIGNMENT' ||
+                    data.type === 'REMOVE_ASSIGNMENT' ||
+                    data.type === 'SHARE_S140_WHATSAPP'
+                )) {
                     return {
                         type: data.type,
                         params: data.params || {},
@@ -49,7 +53,18 @@ export const agentActionService = {
         console.log('[AgentAction] Simulating:', action);
 
         switch (action.type) {
+            case 'SHARE_S140_WHATSAPP':
+                const { weekId } = action.params;
+                if (!weekId) {
+                    return { success: false, message: 'Semana não especificada para compartilhamento.' };
+                }
+                return {
+                    success: true,
+                    message: `Preparando imagem do S-140 para semana ${weekId}...`
+                };
+
             case 'SIMULATE_ASSIGNMENT':
+                // ... (existing implementation)
                 const { partId, publisherId, publisherName } = action.params;
 
                 // Find target part

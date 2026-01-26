@@ -389,7 +389,7 @@ export function isPastWeekDate(dateStr: string): boolean {
 /**
  * Verifica se o publicador é Ancião ou Servo Ministerial
  */
-function isElderOrMS(publisher: Publisher): boolean {
+export function isElderOrMS(publisher: Publisher): boolean {
     return publisher.condition === 'Ancião' ||
         publisher.condition === 'Anciao' ||
         publisher.condition === 'Servo Ministerial';
