@@ -23,6 +23,7 @@ import {
 } from '../services/autoTuningService';
 import { validatePartsBeforeGeneration, type ValidationWarning } from '../services/linearRotationService';
 import { S140PreviewCarousel } from './S140PreviewCarousel';
+import { rebalanceAllQueues } from '../services/queueBalancerService';
 
 // ===== Tipos =====
 
@@ -404,6 +405,27 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
         }
     };
 
+    // Rebalancear Filas (IA)
+    const handleRebalance = async () => {
+        if (!confirm('Isso irá reorganizar a fila de rotação baseada no Score de Justiça e resetar a ordem atual. O próximo gerado será o mais prioritário. Deseja continuar?')) return;
+
+        try {
+            setLoading(true);
+            await rebalanceAllQueues(publishers);
+            alert('Filas rebalanceadas com sucesso! O Robô agora seguirá a nova ordem otimizada.');
+
+            // Recarregar métricas para garantir dados frescos
+            if (period) {
+                await loadMetrics(period, publishers);
+            }
+        } catch (err) {
+            console.error('Erro ao rebalancear:', err);
+            alert('Erro ao rebalancear filas: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -699,6 +721,35 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                             </div>
                         </div>
                     )}
+
+
+                    {/* v8.3: Botão de Rebalanceamento IA */}
+                    <div style={{ marginTop: '12px', borderTop: '1px solid #E5E7EB', paddingTop: '12px' }}>
+                        <button
+                            onClick={handleRebalance}
+                            disabled={loading}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 12px',
+                                background: 'linear-gradient(to right, #4F46E5, #7C3AED)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                width: '100%',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <span>🦾</span> Rebalancear Fila com IA (Justiça)
+                        </button>
+                        <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px', textAlign: 'center' }}>
+                            Reorganiza a fila do robô para priorizar quem tem maior score (mais tempo sem fazer).
+                        </div>
+                    </div>
                 </div>
 
                 {/* Seção: Preview de Partes */}
@@ -822,6 +873,6 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

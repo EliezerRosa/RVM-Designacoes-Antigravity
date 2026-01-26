@@ -17,6 +17,7 @@
 import { api } from './api';
 import type { Publisher } from '../types';
 import { getGroupMembers as getGroupMembersFromService, type PublisherGroup } from './groupService';
+import { loadRotationQueues } from './queueBalancerService';
 
 // ===== Tipos =====
 
@@ -108,7 +109,28 @@ export async function getNextInRotation(
     additionalFilter?: (p: Publisher) => boolean
 ): Promise<RotationResult> {
     const indices = await loadRotationIndices();
-    const members = getGroupMembers(publishers, group);
+    let members = getGroupMembers(publishers, group);
+
+    // v8.3: Carregar Fila Inteligente (se houver)
+    const queues = await loadRotationQueues();
+    const queueIds = queues[group];
+
+    if (queueIds && queueIds.length > 0) {
+        // Reordenar membros baseado na fila salva
+        // Membros NA fila vêm primeiro (na ordem da fila)
+        // Membros FORA da fila vêm depois (alfabético)
+        const idToIndex = new Map(queueIds.map((id, index) => [id, index]));
+
+        members.sort((a, b) => {
+            const indexA = idToIndex.has(a.id) ? idToIndex.get(a.id)! : Number.MAX_SAFE_INTEGER;
+            const indexB = idToIndex.has(b.id) ? idToIndex.get(b.id)! : Number.MAX_SAFE_INTEGER;
+
+            if (indexA !== indexB) return indexA - indexB;
+            return a.name.localeCompare(b.name); // Desempate alfabético pros novos
+        });
+
+        console.log(`[FairRotation] Usando Fila Inteligente para ${group} (${queueIds.length} IDs conhecidos)`);
+    }
 
     if (members.length === 0) {
         return { publisher: null, newIndex: 0, skipped: [] };
