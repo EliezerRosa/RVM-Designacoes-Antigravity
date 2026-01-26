@@ -16,7 +16,9 @@ interface PublisherSelectProps {
     style?: React.CSSProperties;
     /** Lista de partes da semana para verificar múltiplas designações */
     weekParts?: WorkbookPart[];
-    /** Todas as partes carregadas (para cálculo de prioridade entre semanas) */
+    /** Histórico completo para cálculo de cooldown (se não fornecido, usa allParts/weekParts mas pode ser incompleto) */
+    history?: HistoryRecord[];
+    /** Callback para fallback (compatibilidade) */
     allParts?: WorkbookPart[];
 }
 
@@ -53,13 +55,13 @@ const mapToHistoryRecord = (wp: WorkbookPart): HistoryRecord => ({
     createdAt: new Date().toISOString()
 });
 
-export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts }: PublisherSelectProps) => {
+export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts, history }: PublisherSelectProps) => {
 
     // Converter allParts para HistoryRecord[] (Memoizado para uso geral)
-    // Isso é necessário tanto para o sorting quanto para o tooltip do item selecionado
+    // Se history já for fornecido (preferencial), usa ele.
     const historyRecords = useMemo(() =>
-        (allParts || weekParts || []).map(mapToHistoryRecord),
-        [allParts, weekParts]);
+        history || (allParts || weekParts || []).map(mapToHistoryRecord),
+        [history, allParts, weekParts]);
 
     const today = useMemo(() => new Date(), []);
 
@@ -131,25 +133,38 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
             const cooldownInfo = getCooldownInfo(p.name, part.tipoParte, historyRecords, today);
 
+            // v8.1: Prioridade para irmãs em demonstrações
+            const isSisterForDemo =
+                modalidade === EnumModalidade.DEMONSTRACAO &&
+                p.gender === 'sister' &&
+                part.funcao === 'Titular';
+
             return {
                 publisher: p,
                 eligible: result.eligible,
                 reason: result.reason,
                 priority,
                 hasDesignationInSameWeek,
-                cooldownInfo // Passar info de cooldown para renderização
+                cooldownInfo,
+                isSisterForDemo
             };
         }).sort((a, b) => {
             // 1. Elegível vem primeiro
             if (a.eligible && !b.eligible) return -1;
             if (!a.eligible && b.eligible) return 1;
 
-            // 2. Ordenar por prioridade (maior primeiro)
+            // 2. Prioridade para Irmãs em Demonstrações (v8.1) - Apenas se ambos forem elegíveis
+            if (a.eligible && b.eligible) {
+                if (a.isSisterForDemo && !b.isSisterForDemo) return -1;
+                if (!a.isSisterForDemo && b.isSisterForDemo) return 1;
+            }
+
+            // 3. Ordenar por prioridade de rotação (maior primeiro)
             if (a.priority !== b.priority) {
                 return b.priority - a.priority;
             }
 
-            // 3. Ordem alfabética como desempate
+            // 4. Ordem alfabética como desempate
             return a.publisher.name.localeCompare(b.publisher.name);
         });
     }, [part, publishers, weekParts, allParts]);

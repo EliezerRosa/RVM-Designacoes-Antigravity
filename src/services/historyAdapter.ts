@@ -48,16 +48,29 @@ export function workbookPartToHistoryRecord(part: WorkbookPart): HistoryRecord {
  * Isso garante que o motor considere designações recentes (PROPOSTA, APROVADA, etc.)
  * para calcular prioridade corretamente.
  */
+import { HISTORY_LOOKBACK_MONTHS } from '../constants/config';
+
+// ... (imports anteriores mantidos)
+
+/**
+ * Carrega histórico de participações da tabela workbook_parts
+ * ATUALIZADO: Respeita janela de histórico definida em config.ts (12 meses)
+ */
 export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
-    console.log('[historyAdapter] Carregando participações (todas com publicador atribuído)...');
+    console.log(`[historyAdapter] Carregando participações (últimos ${HISTORY_LOOKBACK_MONTHS} meses)...`);
+
+    // Calcular data limite
+    const limitDate = new Date();
+    limitDate.setMonth(limitDate.getMonth() - HISTORY_LOOKBACK_MONTHS);
+    const dateStr = limitDate.toISOString().split('T')[0];
 
     const { data, error } = await supabase
         .from('workbook_parts')
         .select('*')
         // NÃO FILTRAR POR STATUS - carregar todas que têm publicador atribuído
         .not('resolved_publisher_name', 'is', null)
-        .order('date', { ascending: false })
-        .range(0, 9999);
+        .gte('date', dateStr) // v8.2: Limitar histórico
+        .order('date', { ascending: false });
 
     if (error) {
         console.error('[historyAdapter] Erro ao carregar participações:', error);

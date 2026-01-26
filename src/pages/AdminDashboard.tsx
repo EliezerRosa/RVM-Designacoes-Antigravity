@@ -13,6 +13,9 @@ interface CacheItem {
     created_at: string;
 }
 
+import { ELIGIBILITY_RULES_VERSION } from '../services/eligibilityService';
+import { RULES_TEXT_VERSION } from '../services/contextBuilder.ts';
+
 interface SystemLog {
     id: string;
     level: string;
@@ -105,6 +108,36 @@ export function AdminDashboard() {
                     <h1>🧠 Antigravity Admin Core</h1>
                     <p>Monitoramento em tempo real do ecossistema de Inteligência Artificial</p>
                 </header>
+
+                {/* Seção de Auditoria de Regras v8.1 */}
+                <div style={{ marginBottom: '24px', padding: '16px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🛡️ Auditoria de Regras (Code vs Agent)
+                    </h3>
+                    <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Versão Código (eligibilityService)</span>
+                            <span style={{ fontSize: '1.1rem', fontFamily: 'monospace', color: '#fff' }}>{ELIGIBILITY_RULES_VERSION}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Versão Texto (Agente)</span>
+                            <span style={{ fontSize: '1.1rem', fontFamily: 'monospace', color: '#fff' }}>{RULES_TEXT_VERSION}</span>
+                        </div>
+                        <div style={{
+                            marginLeft: 'auto', padding: '6px 16px', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem',
+                            background: ELIGIBILITY_RULES_VERSION === RULES_TEXT_VERSION ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                            color: ELIGIBILITY_RULES_VERSION === RULES_TEXT_VERSION ? '#4ade80' : '#f87171',
+                            border: `1px solid ${ELIGIBILITY_RULES_VERSION === RULES_TEXT_VERSION ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+                        }}>
+                            {ELIGIBILITY_RULES_VERSION === RULES_TEXT_VERSION ? '✅ SINCRONIZADO' : '❌ ERRO DE SINCRONIA'}
+                        </div>
+                    </div>
+                    {ELIGIBILITY_RULES_VERSION !== RULES_TEXT_VERSION && (
+                        <div style={{ marginTop: '12px', padding: '8px', background: 'rgba(239, 68, 68, 0.1)', borderLeft: '4px solid #ef4444', color: '#fca5a5', fontSize: '0.9rem' }}>
+                            ⚠️ ATENÇÃO: As regras que o Agente lê estão desatualizadas em relação ao código. Atualize `contextBuilder.ts` imediatamente.
+                        </div>
+                    )}
+                </div>
 
                 <div className="stats-grid">
                     {/* Stat Cards */}

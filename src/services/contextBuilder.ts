@@ -6,6 +6,9 @@
 
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getEligibilityStats } from './eligibilityService';
+import { HISTORY_LOOKBACK_MONTHS } from '../constants/config';
+
+export const RULES_TEXT_VERSION = '2024-01-25.01'; // v8.1
 
 // ===== Tipos =====
 
@@ -177,9 +180,11 @@ export function buildAgentContext(
     // Estatísticas de elegibilidade
     const eligibilityStats = getEligibilityStats(publishers);
 
-    // Participações completas (Ciclo de Vida - 6 meses atrás até infinito)
+
+
+    // Participações completas (Ciclo de Vida - 12 meses atrás até infinito)
     const lookbackDate = new Date();
-    lookbackDate.setMonth(lookbackDate.getMonth() - 6); // 6 meses atrás
+    lookbackDate.setMonth(lookbackDate.getMonth() - HISTORY_LOOKBACK_MONTHS); // v8.2: 12 meses
 
     // Filtrar partes válidas
     const validParts = parts.filter(p => {
@@ -489,11 +494,13 @@ REGRAS DE ELEGIBILIDADE DO SISTEMA:
    - Qualquer publicador qualificado
 
 5. DEMONSTRAÇÃO:
-   - Prioriza irmãs para titular
-   - Ajudante DEVE ser do mesmo sexo que o titular
+   - PRIORIDADE ABSOLUTA: Designe IRMÃS sempre que possível.
+   - Irmãos só devem ser designados se nenhuma irmã estiver disponível.
+   - AJUDANTE: DEVE ser OBRIGATORIAMENTE do mesmo sexo que o titular.
    - Irmã + Irmã = OK
    - Irmão + Irmão = OK
-   - Sexos diferentes = BLOQUEADO
+   - Irmão + Irmã = PROIBIDO (Incompatibilidade de gênero)
+   - Irmã + Irmão = PROIBIDO (Incompatibilidade de gênero)
 
 6. DISCURSO DE ESTUDANTE:
    - Somente irmãos
