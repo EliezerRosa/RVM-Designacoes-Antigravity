@@ -99,6 +99,7 @@ export const EnumModalidade = {
     LEITURA_ESTUDANTE: 'Leitura de Estudante',
     DEMONSTRACAO: 'Demonstração',
     DISCURSO_ESTUDANTE: 'Discurso de Estudante',
+    NECESSIDADES_LOCAIS: 'Necessidades Locais',
     DIRIGENTE_EBC: 'Dirigente de EBC',
     LEITOR_EBC: 'Leitor de EBC',
 } as const;

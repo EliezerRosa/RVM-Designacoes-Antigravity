@@ -211,6 +211,17 @@ export function checkEligibility(
             }
             return { eligible: true };
 
+        case EnumModalidade.NECESSIDADES_LOCAIS:
+            // Regra RESTRITA: Somente Anciãos podem fazer Necessidades Locais
+            if (publisher.condition !== 'Ancião' && publisher.condition !== 'Anciao') {
+                return { eligible: false, reason: 'Necessidades Locais requer ser Ancião' };
+            }
+            // Verifica também se tem privilégio de ensino (redundante para ancião, mas boa prática)
+            if (!publisher.privileges.canGiveTalks) {
+                return { eligible: false, reason: 'Não tem privilégio de ensino' };
+            }
+            return { eligible: true };
+
         default:
             console.warn(`[Eligibility] Modalidade desconhecida: ${modalidade}`);
             return { eligible: false, reason: 'Modalidade desconhecida' };
@@ -476,6 +487,9 @@ function mapTipoParteToModalidade(tipoParte: TipoParte): Modalidade {
         case EnumTipoParte.LEITOR_EBC:
             return EnumModalidade.LEITOR_EBC;
 
+        case 'Necessidades Locais': // String literal caso não esteja no EnumTipoParte
+            return EnumModalidade.NECESSIDADES_LOCAIS;
+
         default:
             return EnumModalidade.PRESIDENCIA;
     }
@@ -502,6 +516,8 @@ export function getCompatiblePartTypes(modalidade: Modalidade): TipoParte[] {
             return [EnumTipoParte.DIRIGENTE_EBC];
         case EnumModalidade.LEITOR_EBC:
             return [EnumTipoParte.LEITOR_EBC];
+        case EnumModalidade.NECESSIDADES_LOCAIS:
+            return ['Necessidades Locais' as any];
         default:
             return [];
     }

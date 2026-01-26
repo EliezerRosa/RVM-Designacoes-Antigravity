@@ -35,7 +35,7 @@ export const TIPO_TO_MODALIDADE: Record<string, string> = {
     'Discurso de Estudante': EnumModalidade.DISCURSO_ESTUDANTE,
 
     // Nossa Vida Cristã
-    'Necessidades Locais': EnumModalidade.DISCURSO_ENSINO,
+    'Necessidades Locais': EnumModalidade.NECESSIDADES_LOCAIS,
     'Dirigente EBC': EnumModalidade.DIRIGENTE_EBC,
     'Leitor EBC': EnumModalidade.LEITOR_EBC,
 };
