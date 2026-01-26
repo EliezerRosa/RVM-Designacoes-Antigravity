@@ -465,19 +465,19 @@ export function WorkbookManager({ publishers }: Props) {
             const usedPreassignmentIds = new Set<string>(); // Rastreia IDs já usados nesta execução
 
             // =====================================================================
-            // FASE 1: PRESIDENTES - Rotação Linear v7.0
+            // FASE 1: PRESIDENTES - Rotação Linear v8.3
             // Processa TODOS os presidentes ANTES do loop de outras partes
             // Usa índice persistido para garantir rotação justa na ordem de cadastro
             // =====================================================================
             const grupoPresidentes = getGroupMembers(publishers, 'presidentes');
-            console.log(`[Motor v7.0] 👔 Grupo Presidentes: ${grupoPresidentes.length} membros (ordem de cadastro)`);
+            console.log(`[Motor v8.3] 👔 Grupo Presidentes: ${grupoPresidentes.length} membros (ordem de cadastro)`);
 
             // Coletar todas as partes de Presidente PENDENTES em ordem cronológica
             const presidenteParts = partsNeedingAssignment
                 .filter(p => p.tipoParte.toLowerCase().includes('presidente') && p.funcao === 'Titular')
                 .sort((a, b) => a.date.localeCompare(b.date));
 
-            console.log(`[Motor v7.0] 👔 ${presidenteParts.length} partes de Presidente a preencher`);
+            console.log(`[Motor v8.3] 👔 ${presidenteParts.length} partes de Presidente a preencher`);
 
             // Designar presidentes usando rotação linear
             for (const part of presidenteParts) {
@@ -522,9 +522,9 @@ export function WorkbookManager({ publishers }: Props) {
                         status: 'PROPOSTA'
                     });
 
-                    console.log(`[Motor v7.0] 👔 Presidente ${part.weekDisplay}: ${candidate.name} (rotação linear)`);
+                    console.log(`[Motor v8.3] 👔 Presidente ${part.weekDisplay}: ${candidate.name} (rotação linear)`);
                 } else {
-                    console.warn(`[Motor v7.0] ⚠️ Nenhum presidente disponível para ${part.weekDisplay}`);
+                    console.warn(`[Motor v8.3] ⚠️ Nenhum presidente disponível para ${part.weekDisplay}`);
                 }
             }
 
@@ -542,7 +542,7 @@ export function WorkbookManager({ publishers }: Props) {
                 const assignmentsByPublisherInWeek = new Map<string, Array<{ tipoParte: string, funcao: string }>>();
 
                 // =====================================================================
-                // FASE 2: ENSINO - Rotação Linear v7.0
+                // FASE 2: ENSINO - Rotação Linear v8.3
                 // Partes: Tesouros, Joias, Dirigente EBC, Leitor EBC
                 // Processa por TIPO na ordem da apostila
                 // =====================================================================
@@ -607,7 +607,7 @@ export function WorkbookManager({ publishers }: Props) {
 
                             if (commonBrotherResult.publisher) {
                                 candidate = commonBrotherResult.publisher;
-                                console.log(`[Motor v8.2] 📖 Leitor EBC (Prioridade 1 - Varão): ${candidate.name}`);
+                                console.log(`[Motor v8.3] 📖 Leitor EBC (Prioridade 1 - Varão): ${candidate.name}`);
                             }
 
                             // 2. Tentar SM (se não achou varão)
@@ -620,7 +620,7 @@ export function WorkbookManager({ publishers }: Props) {
                                 );
                                 if (msResult.publisher) {
                                     candidate = msResult.publisher;
-                                    console.log(`[Motor v8.2] 📖 Leitor EBC (Prioridade 2 - SM): ${candidate.name}`);
+                                    console.log(`[Motor v8.3] 📖 Leitor EBC (Prioridade 2 - SM): ${candidate.name}`);
                                 }
                             }
 
@@ -634,7 +634,7 @@ export function WorkbookManager({ publishers }: Props) {
                                 );
                                 if (elderResult.publisher) {
                                     candidate = elderResult.publisher;
-                                    console.log(`[Motor v8.2] 📖 Leitor EBC (Prioridade 3 - Ancião): ${candidate.name}`);
+                                    console.log(`[Motor v8.3] 📖 Leitor EBC (Prioridade 3 - Ancião): ${candidate.name}`);
                                 }
                             }
 
@@ -669,7 +669,7 @@ export function WorkbookManager({ publishers }: Props) {
                                 status: 'PROPOSTA'
                             });
 
-                            console.log(`[Motor v7.0] 📚 ${tipoEnsino} (${ensinoPart.weekDisplay}): ${candidate.name} (rotação linear)`);
+                            console.log(`[Motor v8.3] 📚 ${tipoEnsino} (${ensinoPart.weekDisplay}): ${candidate.name} (rotação linear)`);
                         }
                     }
                 }
@@ -712,14 +712,14 @@ export function WorkbookManager({ publishers }: Props) {
                             }
                         };
 
-                        // V8.1: Lógica de Prioridade para Demonstrações (Irmãs > Irmãos)
+                        // V8.3: Lógica de Prioridade para Demonstrações (Irmãs > Irmãos)
                         const isDemonstracao = modalidadeCorreta === EnumModalidade.DEMONSTRACAO;
 
                         let candidate: Publisher | null = null;
 
                         if (isDemonstracao) {
                             // =====================================================================
-                            // LOGICA ESPECIAL DEMONSTRAÇÕES (v8.2): 
+                            // LOGICA ESPECIAL DEMONSTRAÇÕES (v8.3): 
                             // 1. Irmãs
                             // 2. Varões Comuns
                             // 3. SMs
@@ -735,7 +735,7 @@ export function WorkbookManager({ publishers }: Props) {
                             );
                             if (sisterResult.publisher) {
                                 candidate = sisterResult.publisher;
-                                console.log(`[Motor v8.2] 👩 Demonstração (Prioridade 1 - Irmã): ${candidate.name}`);
+                                console.log(`[Motor v8.3] 👩 Demonstração (Prioridade 1 - Irmã): ${candidate.name}`);
                             }
 
                             // TENTATIVA 2: Varões Comuns (fallback se não houver irmã)
@@ -748,7 +748,7 @@ export function WorkbookManager({ publishers }: Props) {
                                 );
                                 if (brotherResult.publisher) {
                                     candidate = brotherResult.publisher;
-                                    console.log(`[Motor v8.2] 👨 Demonstração (Prioridade 2 - Varão): ${candidate.name}`);
+                                    console.log(`[Motor v8.3] 👨 Demonstração (Prioridade 2 - Varão): ${candidate.name}`);
                                 }
                             }
 
@@ -762,7 +762,7 @@ export function WorkbookManager({ publishers }: Props) {
                                 );
                                 if (msResult.publisher) {
                                     candidate = msResult.publisher;
-                                    console.log(`[Motor v8.2] 👨 Demonstração (Prioridade 3 - SM): ${candidate.name}`);
+                                    console.log(`[Motor v8.3] 👨 Demonstração (Prioridade 3 - SM): ${candidate.name}`);
                                 }
                             }
 
@@ -776,7 +776,7 @@ export function WorkbookManager({ publishers }: Props) {
                                 );
                                 if (elderResult.publisher) {
                                     candidate = elderResult.publisher;
-                                    console.log(`[Motor v8.2] 👨 Demonstração (Prioridade 4 - Ancião): ${candidate.name}`);
+                                    console.log(`[Motor v8.3] 👨 Demonstração (Prioridade 4 - Ancião): ${candidate.name}`);
                                 }
                             }
 
@@ -811,7 +811,7 @@ export function WorkbookManager({ publishers }: Props) {
                                 status: 'PROPOSTA'
                             });
 
-                            console.log(`[Motor v7.0] 🎓 ${tipoEstudante} (${estudantePart.weekDisplay}): ${candidate.name} (rotação linear)`);
+                            console.log(`[Motor v8.3] 🎓 ${tipoEstudante} (${estudantePart.weekDisplay}): ${candidate.name} (rotação linear)`);
                         }
                     }
                 }
@@ -835,7 +835,7 @@ export function WorkbookManager({ publishers }: Props) {
                         if (presidentePub) {
                             selectedPublisherByPart.set(part.id, { id: presidentePub.id, name: presidentePub.name });
                             totalWithPublisher++;
-                            console.log(`[Motor v6.0] 🙏 Oração Inicial (${part.weekDisplay}): ${presidentePub.name} (= Presidente)`);
+                            console.log(`[Motor v8.3] 🙏 Oração Inicial (${part.weekDisplay}): ${presidentePub.name} (= Presidente)`);
                             continue;
                         }
                     }
@@ -890,7 +890,7 @@ export function WorkbookManager({ publishers }: Props) {
                     }
 
                     // =====================================================================
-                    // MOTOR v7.0: Usar rotação linear para Ajudantes e Oração Final
+                    // MOTOR v8.3: Usar rotação linear para Ajudantes e Oração Final
                     // =====================================================================
 
                     // 1. Filtrar publicadores elegíveis (respeita função e seção)
@@ -921,7 +921,7 @@ export function WorkbookManager({ publishers }: Props) {
                     const isOracaoFinal = part.tipoParte.toLowerCase().includes('oração final') || part.tipoParte.toLowerCase().includes('oracao final');
                     const isAjudante = funcao === EnumFuncao.AJUDANTE;
 
-                    // 2. Selecionar via rotação linear v7.0
+                    // 2. Selecionar via rotação linear v8.3
                     let selectedPublisher: Publisher | null = null;
 
                     if (isAjudante) {
@@ -935,7 +935,7 @@ export function WorkbookManager({ publishers }: Props) {
                         } else {
                             // Fallback: usar grupo genérico de estudante (inclui todos elegíveis)
                             ajudanteGroup = 'estudante';
-                            console.log(`[Motor v7.0] ⚠️ Ajudante sem gênero do titular conhecido - usando grupo genérico`);
+                            console.log(`[Motor v8.3] ⚠️ Ajudante sem gênero do titular conhecido - usando grupo genérico`);
                         }
 
                         // Filtro de elegibilidade para ajudante
@@ -967,9 +967,9 @@ export function WorkbookManager({ publishers }: Props) {
 
                         selectedPublisher = ajudante;
                         if (selectedPublisher) {
-                            console.log(`[Motor v7.0] 🤝 Ajudante (${part.weekDisplay}): ${selectedPublisher.name} (rotação linear ${ajudanteGroup})`);
+                            console.log(`[Motor v8.3] 🤝 Ajudante (${part.weekDisplay}): ${selectedPublisher.name} (rotação linear ${ajudanteGroup})`);
                         } else {
-                            console.warn(`[Motor v7.0] ⚠️ Nenhum ajudante elegível para ${part.tipoParte} (${part.weekDisplay})`);
+                            console.warn(`[Motor v8.3] ⚠️ Nenhum ajudante elegível para ${part.tipoParte} (${part.weekDisplay})`);
                         }
 
                     } else if (isOracaoFinal) {
@@ -1007,7 +1007,7 @@ export function WorkbookManager({ publishers }: Props) {
 
                         selectedPublisher = orante;
                         if (selectedPublisher) {
-                            console.log(`[Motor v7.0] 🙏 Oração Final (${part.weekDisplay}): ${selectedPublisher.name} (rotação linear independente)`);
+                            console.log(`[Motor v8.3] 🙏 Oração Final (${part.weekDisplay}): ${selectedPublisher.name} (rotação linear independente)`);
                         }
 
                     } else {
