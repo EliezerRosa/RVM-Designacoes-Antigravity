@@ -675,22 +675,24 @@ export function WorkbookManager({ publishers }: Props) {
                 }
 
                 // =====================================================================
-                // FASE 3: ESTUDANTE - Rotação Linear v7.0
+                // FASE 3: ESTUDANTE - Rotação Linear v8.3 (DYNAMICO)
                 // Partes: Leitura, Demonstrações, Discurso Estudante
+                // v8.3: Filtra dinamicamente para garantir que TODOS os titulares de estudante
+                // sejam escalados ANTES dos seus ajudantes na Fase 4.
                 // =====================================================================
-                const tiposEstudante = ['Leitura da Bíblia', 'Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças', 'Discurso de Estudante'];
-
-                for (const tipoEstudante of tiposEstudante) {
-                    const estudanteParts = weekParts.filter(p =>
-                        p.tipoParte === tipoEstudante &&
-                        p.funcao === 'Titular' &&
-                        !selectedPublisherByPart.has(p.id)
+                const estudanteParts = weekParts.filter(p => {
+                    const mod = getModalidadeFromTipo(p.tipoParte);
+                    return p.funcao === 'Titular' && !selectedPublisherByPart.has(p.id) && (
+                        mod === EnumModalidade.LEITURA_ESTUDANTE ||
+                        mod === EnumModalidade.DEMONSTRACAO ||
+                        mod === EnumModalidade.DISCURSO_ESTUDANTE
                     );
+                });
 
-                    if (estudanteParts.length === 0) continue;
-
+                if (estudanteParts.length > 0) {
                     for (const estudantePart of estudanteParts) {
                         const thursdayDate = getThursdayFromDate(estudantePart.date);
+                        const tipoEstudante = estudantePart.tipoParte;
                         const modalidadeCorreta = getModalidadeFromTipo(tipoEstudante);
 
                         // Filtro de elegibilidade para esta parte específica
@@ -711,9 +713,7 @@ export function WorkbookManager({ publishers }: Props) {
                         };
 
                         // V8.1: Lógica de Prioridade para Demonstrações (Irmãs > Irmãos)
-                        const isDemonstracao =
-                            tipoEstudante !== 'Leitura da Bíblia' &&
-                            tipoEstudante !== 'Discurso de Estudante';
+                        const isDemonstracao = modalidadeCorreta === EnumModalidade.DEMONSTRACAO;
 
                         let candidate: Publisher | null = null;
 
