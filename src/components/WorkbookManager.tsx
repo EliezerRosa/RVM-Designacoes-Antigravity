@@ -106,6 +106,7 @@ export function WorkbookManager({ publishers }: Props) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
 
     // Filtros - carregar do localStorage para persistência
     const [filterWeek, setFilterWeek] = useState<string>(() => localStorage.getItem('wm_filterWeek') || '');
@@ -186,6 +187,8 @@ export function WorkbookManager({ publishers }: Props) {
     // Carregar dados inicialmente (sem filtros para ter o total)
     useEffect(() => {
         loadPartsWithFilters();
+        // Carregar histórico completo para cooldown (12 meses) de forma independente dos filtros
+        loadCompletedParticipations().then(setHistoryRecords);
     }, []);
 
     // Recarregar dados quando filtros server-side mudarem
@@ -657,13 +660,42 @@ export function WorkbookManager({ publishers }: Props) {
                             }
                         };
 
-                        // Obter próximo na rotação (excluindo todos já designados na semana)
-                        const { publisher: candidate } = await getNextInRotation(
-                            publishers,
-                            'estudante',
-                            namesExcludedInWeek,
-                            estudanteFilter
-                        );
+                        // V8.1: Lógica de Prioridade para Demonstrações (Irmãs > Irmãos)
+                        const isDemonstracao =
+                            tipoEstudante !== 'Leitura da Bíblia' &&
+                            tipoEstudante !== 'Discurso de Estudante';
+
+                        let candidate: Publisher | null = null;
+
+                        if (isDemonstracao) {
+                            // TENTATIVA 1: Priorizar IRMÃS (strict filter)
+                            // Isso força o motor a pular irmãos na fila de rotação se for uma demonstração
+                            const sisterResult = await getNextInRotation(
+                                publishers,
+                                'estudante',
+                                namesExcludedInWeek,
+                                (p) => p.gender === 'sister' && estudanteFilter(p)
+                            );
+
+                            if (sisterResult.publisher) {
+                                candidate = sisterResult.publisher;
+                                console.log(`[Motor v8.1] 👩 Demonstração (Irmã Prioritária): ${candidate.name}`);
+                            }
+                        }
+
+                        // TENTATIVA 2 (Fallback ou Padrão): Qualquer publicador elegível
+                        if (!candidate) {
+                            const standardResult = await getNextInRotation(
+                                publishers,
+                                'estudante',
+                                namesExcludedInWeek,
+                                estudanteFilter
+                            );
+                            candidate = standardResult.publisher;
+                            if (candidate && isDemonstracao) {
+                                console.log(`[Motor v8.1] 👨 Demonstração (Fallback p/ Irmão): ${candidate.name}`);
+                            }
+                        }
 
                         if (candidate) {
                             selectedPublisherByPart.set(estudantePart.id, { id: candidate.id, name: candidate.name });
@@ -1711,6 +1743,7 @@ export function WorkbookManager({ publishers }: Props) {
                                                             onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
                                                             weekParts={partsToRender}
                                                             allParts={filteredParts}
+                                                            history={historyRecords} // v8.2: Histórico completo (correção cooldown)
                                                             style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
                                                         />
                                                     </td>
