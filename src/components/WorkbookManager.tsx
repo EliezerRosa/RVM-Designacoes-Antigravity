@@ -20,6 +20,7 @@ import { downloadS140, downloadS140MultiWeek } from '../services/s140Generator';
 import { downloadS140RoomB } from '../services/s140GeneratorRoomB';
 import { downloadS140RoomBEV } from '../services/s140GeneratorRoomBEvents';
 import { downloadS140RoomBA4 } from '../services/s140GeneratorRoomBA4';
+import { downloadS140Unified } from '../services/s140GeneratorUnified';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
@@ -1525,6 +1526,17 @@ export function WorkbookManager({ publishers }: Props) {
                                                     disabled={loading || !hasWeek}
                                                     style={{ padding: '4px 10px', cursor: hasWeek ? 'pointer' : 'not-allowed', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500', opacity: hasWeek ? 1 : 0.5 }}>
                                                     🖨️ Sala B A4
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (currentWeekId) {
+                                                            const weekParts = parts.filter(p => p.weekId === currentWeekId);
+                                                            downloadS140Unified(weekParts);
+                                                        }
+                                                    }}
+                                                    disabled={loading || !hasWeek}
+                                                    style={{ padding: '4px 10px', cursor: hasWeek ? 'pointer' : 'not-allowed', background: '#e11d48', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500', opacity: hasWeek ? 1 : 0.5 }}>
+                                                    🎯 S-140 Unificado
                                                 </button>
                                                 <button
                                                     onClick={() => setIsS140MultiModalOpen(true)}
