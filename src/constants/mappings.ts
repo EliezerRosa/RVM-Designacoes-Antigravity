@@ -42,8 +42,32 @@ export const TIPO_TO_MODALIDADE: Record<string, string> = {
 
 /**
  * Obtém a modalidade para um tipo de parte.
- * Retorna DEMONSTRACAO como fallback se não encontrado.
+ * v8.3: Busca case-insensitive e flexível para lidar com variações da apostila.
  */
 export function getModalidadeFromTipo(tipoParte: string): string {
-    return TIPO_TO_MODALIDADE[tipoParte] || EnumModalidade.DEMONSTRACAO;
+    if (!tipoParte) return EnumModalidade.DEMONSTRACAO;
+
+    const normalized = tipoParte.toLowerCase().trim();
+
+    // 1. Match exato (normalizado)
+    for (const [key, value] of Object.entries(TIPO_TO_MODALIDADE)) {
+        if (key.toLowerCase() === normalized) return value;
+    }
+
+    // 2. Procura por palavras-chave em partes de estudante (Demonstrações)
+    if (normalized.includes('conversas') ||
+        normalized.includes('interesse') ||
+        normalized.includes('discípulos') ||
+        normalized.includes('crenças') ||
+        normalized.includes('demonstração')) {
+        return EnumModalidade.DEMONSTRACAO;
+    }
+
+    // 3. Casos especiais
+    if (normalized.includes('leitura')) return EnumModalidade.LEITURA_ESTUDANTE;
+    if (normalized.includes('discurso de estudante')) return EnumModalidade.DISCURSO_ESTUDANTE;
+    if (normalized.includes('oração')) return EnumModalidade.ORACAO;
+    if (normalized.includes('presidente') || normalized.includes('comentários')) return EnumModalidade.PRESIDENCIA;
+
+    return EnumModalidade.DEMONSTRACAO; // Fallback seguro para estudantes
 }
