@@ -487,7 +487,7 @@ function mapTipoParteToModalidade(tipoParte: TipoParte): Modalidade {
         case EnumTipoParte.LEITOR_EBC:
             return EnumModalidade.LEITOR_EBC;
 
-        case 'Necessidades Locais': // String literal caso não esteja no EnumTipoParte
+        case EnumTipoParte.NECESSIDADES_LOCAIS:
             return EnumModalidade.NECESSIDADES_LOCAIS;
 
         default:
@@ -517,7 +517,7 @@ export function getCompatiblePartTypes(modalidade: Modalidade): TipoParte[] {
         case EnumModalidade.LEITOR_EBC:
             return [EnumTipoParte.LEITOR_EBC];
         case EnumModalidade.NECESSIDADES_LOCAIS:
-            return ['Necessidades Locais' as any];
+            return [EnumTipoParte.NECESSIDADES_LOCAIS];
         default:
             return [];
     }

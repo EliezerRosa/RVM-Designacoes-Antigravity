@@ -83,6 +83,7 @@ export const EnumTipoParte = {
     PARTE_VIDA_CRISTA: 'Parte na Vida Cristã',
     DIRIGENTE_EBC: 'Dirigente do EBC',
     LEITOR_EBC: 'Leitor do EBC',
+    NECESSIDADES_LOCAIS: 'Necessidades Locais',
     COMENTARIOS_FINAIS: 'Comentários Finais',
     CANTICO_FINAL: 'Cântico Final',
     ORACAO_FINAL: 'Oração Final',
