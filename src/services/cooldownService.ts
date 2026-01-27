@@ -1,10 +1,15 @@
 /**
- * Cooldown & Rotation Service - RVM Designações v8.0
+ * Cooldown & Rotation Service - RVM Designações v8.3
+ * 
+ * ⚠️ IMPORTANTE: Este serviço NÃO bloqueia publicadores.
+ * O "cooldown" é uma PENALIZAÇÃO no score, não um bloqueio.
+ * Publicadores em cooldown ainda podem ser selecionados se forem
+ * os únicos elegíveis disponíveis ou se tiverem score alto.
  * 
  * Implementa as regras de:
  * - Rodízio Ponderado por Peso de Duração
- * - Cooldown por tipo de parte (3 semanas)
- * - Gap mínimo entre participações (2 semanas = alerta grave)
+ * - Penalização por tipo de parte (3 semanas de penalidade)
+ * - Gap mínimo entre participações (2 semanas = alerta visual)
  * 
  * FÓRMULA DE SCORE v8.0:
  * Score = (SemanasDesdeUltima × 50) - (PesoAcumulado × 5)

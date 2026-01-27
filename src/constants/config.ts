@@ -11,4 +11,4 @@ export const HISTORY_LOOKBACK_MONTHS = 12;
 
 // Versão das Regras (Sincronizada manualmente)
 // Usado para auditoria Code x Agent
-export const CURRENT_RULES_VERSION = '2024-01-25.01'; // v8.1 (Auditada)
+export const CURRENT_RULES_VERSION = '2024-01-27.01'; // v8.3 - Sync

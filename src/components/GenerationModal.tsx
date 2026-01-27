@@ -653,13 +653,16 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                     )}
                 </div>
 
-                {/* Seção: Configuração do Motor */}
+                {/* Seção: Configuração Avançada (Fase 4) */}
                 <div style={sectionStyle}>
                     <div style={{ ...sectionTitleStyle, cursor: 'pointer' }} onClick={() => setShowAdvanced(!showAdvanced)}>
-                        <span>🎛️</span> Configuração do Motor
+                        <span>🎛️</span> Configuração Avançada (Fase 4)
                         <span style={{ fontSize: '12px', color: '#6B7280', marginLeft: 'auto' }}>
                             {showAdvanced ? '▲ Ocultar' : '▼ Mostrar'}
                         </span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', fontStyle: 'italic' }}>
+                        ℹ️ Estes parâmetros afetam apenas Ajudantes, Orações e outras partes da Fase 4. Presidentes, Ensino e Estudantes usam rotação linear fixa.
                     </div>
                     {showAdvanced && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
@@ -679,8 +682,8 @@ export function GenerationModal({ isOpen, onClose, onGenerate, parts, publishers
                             </div>
                             <div>
                                 <label style={{ fontSize: '12px', color: '#6B7280', display: 'block', marginBottom: '4px' }}>
-                                    Semanas de Cooldown
-                                    <InfoTooltip text="Intervalo mínimo entre participações do mesmo publicador. Impede designações consecutivas muito próximas. Padrão: 3 semanas" />
+                                    Semanas de Penalização
+                                    <InfoTooltip text="Participações recentes (dentro deste período) recebem penalização no score, mas NÃO são bloqueadas. Valor maior = penaliza por mais tempo. Padrão: 3 semanas" />
                                 </label>
                                 <input
                                     type="number"
