@@ -1,8 +1,9 @@
 /**
- * Fair Rotation Service - RVM Designações v7.1
+ * Fair Rotation Service - RVM Designações v8.3
  * 
  * Implementa rotação justa LINEAR por grupo com índices persistidos.
  * 
+ * v8.3: Consulta seleções manuais (Dropdown) para evitar duplicatas.
  * v7.1: Usa groupService como fonte de verdade para definição de grupos.
  * 
  * Grupos:
@@ -18,6 +19,7 @@ import { api } from './api';
 import type { Publisher } from '../types';
 import { getGroupMembers as getGroupMembersFromService, type PublisherGroup } from './groupService';
 import { loadRotationQueues } from './queueBalancerService';
+import { getRecentManualSelections } from './manualSelectionTracker';
 
 // ===== Tipos =====
 
@@ -134,6 +136,15 @@ export async function getNextInRotation(
 
     if (members.length === 0) {
         return { publisher: null, newIndex: 0, skipped: [] };
+    }
+
+    // v8.3: Carregar seleções manuais recentes e adicionar às exclusões
+    const manualSelections = await getRecentManualSelections(30);
+    for (const ms of manualSelections) {
+        excludeNames.add(ms.publisherName);
+    }
+    if (manualSelections.length > 0) {
+        console.log(`[FairRotation] v8.3: ${manualSelections.length} seleções manuais excluídas da rotação`);
     }
 
     let currentIndex = indices[group] % members.length;

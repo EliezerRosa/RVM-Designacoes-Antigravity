@@ -24,7 +24,7 @@ type Modalidade = typeof EnumModalidade[keyof typeof EnumModalidade];
 type TipoParte = typeof EnumTipoParte[keyof typeof EnumTipoParte];
 type Funcao = typeof EnumFuncao[keyof typeof EnumFuncao];
 
-export const ELIGIBILITY_RULES_VERSION = '2024-01-25.01'; // v8.1
+export const ELIGIBILITY_RULES_VERSION = '2024-01-27.01'; // v8.3 - Sync com contextBuilder
 
 export interface EligibilityContext {
     date?: string;           // Data da reunião (para verificar disponibilidade)

@@ -8,7 +8,7 @@ import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getEligibilityStats } from './eligibilityService';
 import { HISTORY_LOOKBACK_MONTHS } from '../constants/config';
 
-export const RULES_TEXT_VERSION = '2024-01-25.01'; // v8.1
+export const RULES_TEXT_VERSION = '2024-01-27.01'; // v8.3 - Elegibilidade no contexto
 
 // ===== Tipos =====
 

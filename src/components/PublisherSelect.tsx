@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord, HistoryStatus } from '../types';
 import { checkEligibility, isPastWeekDate, isElderOrMS } from '../services/eligibilityService';
 import { calculateRotationPriority, getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
+import { markManualSelection } from '../services/manualSelectionTracker';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
 import { fuzzySearchWithScore, normalize } from '../utils/searchUtils';
@@ -445,7 +446,11 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         onChange('', ''); // Limpar seleção
                     } else {
                         const pub = publishers.find(p => p.id === id);
-                        if (pub) onChange(pub.id, pub.name);
+                        if (pub) {
+                            onChange(pub.id, pub.name);
+                            // v8.3: Registrar seleção manual para evitar duplicatas na próxima geração
+                            markManualSelection(pub.name, part.tipoParte, part.weekId, part.date);
+                        }
                     }
                 }}
                 disabled={disabled}
