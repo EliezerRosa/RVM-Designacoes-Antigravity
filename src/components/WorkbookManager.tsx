@@ -9,7 +9,7 @@ import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao, EnumTipoParte } from '../types';
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } from '../services/eligibilityService';
-import { selectBestCandidate } from '../services/cooldownService';
+import { isBlocked } from '../services/cooldownService';
 import { loadCompletedParticipations } from '../services/historyAdapter';
 import { localNeedsService } from '../services/localNeedsService';
 import { PublisherSelect } from './PublisherSelect';
@@ -32,9 +32,9 @@ import {
 } from '../services/linearRotationService';
 import {
     getNextInRotation,
-    getGroupMembers,
     type RotationGroup
 } from '../services/fairRotationService';
+import { getGroupMembers } from '../services/groupService';
 
 interface Props {
     publishers: Publisher[];
@@ -897,23 +897,71 @@ export function WorkbookManager({ publishers }: Props) {
                     const isPast = isPastWeekDate(part.date);
 
                     // REGRA: Para ajudantes, buscar gênero do titular para garantir mesmo sexo
+                    // v9.1: Múltiplas estratégias de busca do titular
                     let titularGender: 'brother' | 'sister' | undefined = undefined;
                     if (funcao === EnumFuncao.AJUDANTE) {
-                        // Buscar o titular da mesma parte (mesmo week + seq)
-                        const titularPart = weekParts.find(p =>
+                        let titularPart: WorkbookPart | undefined = undefined;
+                        let titularPubInfo: { id: string; name: string } | undefined = undefined;
+
+                        // ESTRATÉGIA 1: Buscar por seq + tipoParte (mais preciso)
+                        titularPart = weekParts.find(p =>
                             p.weekId === part.weekId &&
                             p.seq === part.seq &&
-                            p.funcao === 'Titular'
+                            p.funcao === 'Titular' &&
+                            p.tipoParte === part.tipoParte
                         );
-                        if (titularPart) {
-                            // Buscar o publicador designado para o titular
-                            const titularPubInfo = selectedPublisherByPart.get(titularPart.id);
-                            if (titularPubInfo) {
-                                const titularPub = publishers.find(p => p.id === titularPubInfo.id || p.name === titularPubInfo.name);
-                                if (titularPub) {
-                                    titularGender = titularPub.gender;
+
+                        // ESTRATÉGIA 2: Se não encontrou, buscar só por seq
+                        if (!titularPart) {
+                            titularPart = weekParts.find(p =>
+                                p.weekId === part.weekId &&
+                                p.seq === part.seq &&
+                                p.funcao === 'Titular'
+                            );
+                        }
+
+                        // ESTRATÉGIA 3: Se ainda não encontrou, buscar por posição sequencial
+                        // (Ajudante geralmente vem logo após o seu Titular na lista ordenada por seq)
+                        if (!titularPart) {
+                            // Ordenar partes da semana por seq
+                            const sortedParts = [...weekParts].sort((a, b) => a.seq - b.seq);
+                            const currentIndex = sortedParts.findIndex(p => p.id === part.id);
+
+                            if (currentIndex > 0) {
+                                // Verificar se a parte anterior é Titular do mesmo tipoParte
+                                const prevPart = sortedParts[currentIndex - 1];
+                                if (prevPart.funcao === 'Titular' && prevPart.tipoParte === part.tipoParte) {
+                                    titularPart = prevPart;
+                                    console.log(`[Motor v9.1] 🔍 Titular encontrado por posição sequencial: ${prevPart.tipoParte}`);
                                 }
                             }
+                        }
+
+                        // Buscar o publicador designado para o titular (se encontrado)
+                        if (titularPart) {
+                            titularPubInfo = selectedPublisherByPart.get(titularPart.id);
+                            if (titularPubInfo) {
+                                const titularPub = publishers.find(p => p.id === titularPubInfo!.id || p.name === titularPubInfo!.name);
+                                if (titularPub) {
+                                    titularGender = titularPub.gender;
+                                    console.log(`[Motor v9.1] ✅ Gênero do titular: ${titularGender} (${titularPub.name})`);
+                                }
+                            } else {
+                                // Titular existe mas não foi designado ainda - verificar no rawPublisherName
+                                if (titularPart.rawPublisherName || titularPart.resolvedPublisherName) {
+                                    const titularName = titularPart.resolvedPublisherName || titularPart.rawPublisherName;
+                                    const titularPub = publishers.find(p => p.name === titularName);
+                                    if (titularPub) {
+                                        titularGender = titularPub.gender;
+                                        console.log(`[Motor v9.1] ✅ Gênero do titular (via rawName): ${titularGender} (${titularPub.name})`);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Log de diagnóstico se não encontrou
+                        if (!titularGender) {
+                            console.warn(`[Motor v9.1] ⚠️ Não foi possível determinar gênero do titular para ${part.tipoParte} (seq=${part.seq}). Usando fallback.`);
                         }
                     }
 
@@ -926,50 +974,83 @@ export function WorkbookManager({ publishers }: Props) {
 
                     if (isAjudante) {
                         // =====================================================================
-                        // AJUDANTES: Rotação linear SEPARADA por gênero
-                        // Se não souber o gênero do titular, usar grupo genérico
+                        // AJUDANTES v9.1: Rotação linear SEPARADA por gênero
+                        // Se não souber o gênero do titular, tentar irmãs primeiro (mais comum)
                         // =====================================================================
-                        let ajudanteGroup: RotationGroup;
-                        if (titularGender) {
-                            ajudanteGroup = titularGender === 'brother' ? 'ajudante_m' : 'ajudante_f';
-                        } else {
-                            // Fallback: usar grupo genérico de estudante (inclui todos elegíveis)
-                            ajudanteGroup = 'estudante';
-                            console.log(`[Motor v8.3] ⚠️ Ajudante sem gênero do titular conhecido - usando grupo genérico`);
-                        }
 
-                        // Filtro de elegibilidade para ajudante
-                        const ajudanteFilter = (p: Publisher): boolean => {
-                            const eligResult = checkEligibility(
-                                p,
-                                modalidade as Parameters<typeof checkEligibility>[1],
-                                funcao,
-                                { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
-                            );
-                            if (!eligResult.eligible) return false;
+                        // Filtro de elegibilidade para ajudante (COM gênero especificado)
+                        const createAjudanteFilter = (forceGender: 'brother' | 'sister' | undefined) => {
+                            return (p: Publisher): boolean => {
+                                // Se forçando gênero específico, verificar primeiro
+                                if (forceGender && p.gender !== forceGender) return false;
 
-                            // Verificar disponibilidade na quinta-feira
-                            const avail = p.availability;
-                            if (avail.mode === 'always') {
-                                return !avail.exceptionDates.includes(thursdayDate);
-                            } else {
-                                return avail.availableDates.includes(thursdayDate);
-                            }
+                                const eligResult = checkEligibility(
+                                    p,
+                                    modalidade as Parameters<typeof checkEligibility>[1],
+                                    funcao,
+                                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender: forceGender }
+                                );
+                                if (!eligResult.eligible) return false;
+
+                                // Verificar disponibilidade na quinta-feira
+                                const avail = p.availability;
+                                if (avail.mode === 'always') {
+                                    return !avail.exceptionDates.includes(thursdayDate);
+                                } else {
+                                    return avail.availableDates.includes(thursdayDate);
+                                }
+                            };
                         };
 
-                        // Ajudantes NÃO contam para exclusão semanal (regra do usuário)
-                        const { publisher: ajudante } = await getNextInRotation(
-                            publishers,
-                            ajudanteGroup,
-                            new Set<string>(), // Ajudantes podem repetir (não conta na exclusão)
-                            ajudanteFilter
-                        );
+                        if (titularGender) {
+                            // Caso ideal: sabemos o gênero do titular
+                            const ajudanteGroup: RotationGroup = titularGender === 'brother' ? 'ajudante_m' : 'ajudante_f';
 
-                        selectedPublisher = ajudante;
-                        if (selectedPublisher) {
-                            console.log(`[Motor v8.3] 🤝 Ajudante (${part.weekDisplay}): ${selectedPublisher.name} (rotação linear ${ajudanteGroup})`);
+                            const { publisher: ajudante } = await getNextInRotation(
+                                publishers,
+                                ajudanteGroup,
+                                new Set<string>(),
+                                createAjudanteFilter(titularGender)
+                            );
+
+                            selectedPublisher = ajudante;
+                            if (selectedPublisher) {
+                                console.log(`[Motor v9.1] 🤝 Ajudante (${part.weekDisplay}): ${selectedPublisher.name} (mesmo gênero: ${titularGender})`);
+                            }
                         } else {
-                            console.warn(`[Motor v8.3] ⚠️ Nenhum ajudante elegível para ${part.tipoParte} (${part.weekDisplay})`);
+                            // FALLBACK v9.1: Não sabemos o gênero do titular
+                            // Tentar primeiro irmãs (mais comum em demonstrações), depois irmãos
+                            console.log(`[Motor v9.1] 🔄 Tentando fallback para ajudante sem gênero do titular...`);
+
+                            // Tentativa 1: Irmãs
+                            const { publisher: sisterHelper } = await getNextInRotation(
+                                publishers,
+                                'ajudante_f',
+                                new Set<string>(),
+                                createAjudanteFilter('sister')
+                            );
+
+                            if (sisterHelper) {
+                                selectedPublisher = sisterHelper;
+                                console.log(`[Motor v9.1] 🤝 Ajudante FALLBACK (${part.weekDisplay}): ${selectedPublisher.name} (irmã - fallback)`);
+                            } else {
+                                // Tentativa 2: Irmãos
+                                const { publisher: brotherHelper } = await getNextInRotation(
+                                    publishers,
+                                    'ajudante_m',
+                                    new Set<string>(),
+                                    createAjudanteFilter('brother')
+                                );
+
+                                if (brotherHelper) {
+                                    selectedPublisher = brotherHelper;
+                                    console.log(`[Motor v9.1] 🤝 Ajudante FALLBACK (${part.weekDisplay}): ${selectedPublisher.name} (irmão - fallback)`);
+                                }
+                            }
+                        }
+
+                        if (!selectedPublisher) {
+                            console.warn(`[Motor v9.1] ⚠️ Nenhum ajudante elegível para ${part.tipoParte} (${part.weekDisplay}). Deixando em branco para seleção manual.`);
                         }
 
                     } else if (isOracaoFinal) {
@@ -1012,11 +1093,12 @@ export function WorkbookManager({ publishers }: Props) {
 
                     } else {
                         // =====================================================================
-                        // OUTRAS PARTES: Usar motor existente com cooldownService
+                        // v9.0: OUTRAS PARTES (não Ajudante, não Oração Final)
+                        // Usar primeiro elegível não bloqueado (rotação já feita pra ensino/estudante acima)
                         // =====================================================================
                         const eligiblePublishers = publishers.filter(p => {
-                            // Verificar exclusão semanal
                             if (namesExcludedInWeek.has(p.name)) return false;
+                            if (isBlocked(p.name, historyRecords, today)) return false;
 
                             const result = checkEligibility(
                                 p,
@@ -1027,20 +1109,7 @@ export function WorkbookManager({ publishers }: Props) {
                             return result.eligible;
                         });
 
-                        if (eligiblePublishers.length > 0) {
-                            selectedPublisher = selectBestCandidate(
-                                eligiblePublishers,
-                                historyRecords,
-                                part.tipoParte,
-                                funcao,
-                                today,
-                                inLoopAssignments
-                            );
-
-                            if (!selectedPublisher) {
-                                selectedPublisher = eligiblePublishers[0];
-                            }
-                        }
+                        selectedPublisher = eligiblePublishers[0] || null;
                     }
 
                     // Armazenar publicador selecionado no Map para usar depois

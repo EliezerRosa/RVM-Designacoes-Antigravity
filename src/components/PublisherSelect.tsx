@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord, HistoryStatus } from '../types';
 import { checkEligibility, isPastWeekDate, isElderOrMS } from '../services/eligibilityService';
-import { calculateRotationPriority, getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
+import { calculateTimeOnlyPriority, getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { markManualSelection } from '../services/manualSelectionTracker';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
@@ -128,7 +128,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
             // Calcular prioridade usando o serviço centralizado
             // Isso garante consistência com o motor automático (fórmula Tempo - Quantidade)
-            const priority = calculateRotationPriority(p.name, historyRecords, part.tipoParte, part.funcao, today);
+            const priority = calculateTimeOnlyPriority(p.name, historyRecords, today);
 
             // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
             // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
@@ -305,10 +305,11 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         return checkMultipleAssignments(
             foundPublisher.name,
             part.weekId,
+            part.id,  // currentPartId (estava faltando)
             partsForCheck,
             true // excluir partes de presidência (normal ter múltiplas)
         );
-    }, [foundPublisher, weekParts, part.weekId]);
+    }, [foundPublisher, weekParts, part.weekId, part.id]);
 
     // Cooldown Info do publicador SELECIONADO (para tooltip)
     const selectedCooldownInfo = useMemo(() => {

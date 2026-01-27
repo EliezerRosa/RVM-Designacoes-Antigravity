@@ -1,10 +1,11 @@
 /**
- * Fair Rotation Service - RVM Designações v8.3
+ * Fair Rotation Service - RVM Designações v9.0
  * 
  * Implementa rotação justa LINEAR por grupo com índices persistidos.
  * 
+ * v9.0: Adiciona BLOQUEIO real por cooldown (não apenas penalização).
+ *       Remove dependência do queueBalancerService (Fila IA).
  * v8.3: Consulta seleções manuais (Dropdown) para evitar duplicatas.
- * v7.1: Usa groupService como fonte de verdade para definição de grupos.
  * 
  * Grupos:
  * - presidentes: Anciãos (+ SM aprovados)
@@ -16,10 +17,11 @@
  */
 
 import { api } from './api';
-import type { Publisher } from '../types';
+import type { Publisher, HistoryRecord } from '../types';
 import { getGroupMembers as getGroupMembersFromService, type PublisherGroup } from './groupService';
-import { loadRotationQueues } from './queueBalancerService';
 import { getRecentManualSelections } from './manualSelectionTracker';
+import { isBlocked } from './cooldownService';
+import { loadCompletedParticipations } from './historyAdapter';
 
 // ===== Tipos =====
 
@@ -38,9 +40,15 @@ export interface RotationIndex {
     updatedAt: string;
 }
 
+export interface RotationResult {
+    publisher: Publisher | null;
+    newIndex: number;
+    skipped: string[];
+}
+
 // ===== Funções de Persistência =====
 
-const ROTATION_SETTING_KEY = 'rotation_indices_v7';
+const ROTATION_SETTING_KEY = 'rotation_indices_v9';
 
 /**
  * Carrega todos os índices de rotação do Supabase
@@ -59,13 +67,13 @@ async function loadRotationIndices(): Promise<Record<RotationGroup, number>> {
         const saved = await api.getSetting<Record<RotationGroup, number>>(ROTATION_SETTING_KEY, defaultIndices);
         return { ...defaultIndices, ...saved };
     } catch (e) {
-        console.warn('[FairRotation] Erro ao carregar índices:', e);
+        console.warn('[FairRotation] Erro ao carregar índices, usando defaults:', e);
         return defaultIndices;
     }
 }
 
 /**
- * Salva todos os índices de rotação no Supabase
+ * Salva os índices de rotação no Supabase
  */
 async function saveRotationIndices(indices: Record<RotationGroup, number>): Promise<void> {
     try {
@@ -75,67 +83,60 @@ async function saveRotationIndices(indices: Record<RotationGroup, number>): Prom
     }
 }
 
-// ===== Funções de Grupo (delegam para groupService) =====
+// ===== Funções de Grupo =====
 
 /**
- * Obtém lista de publicadores elegíveis para um grupo.
- * DELEGA para groupService como fonte de verdade.
- * 
- * @deprecated Preferir importar diretamente de groupService
+ * Obtém os membros de um grupo ordenados alfabeticamente.
+ * v7.1: Usa groupService como fonte autoritativa
  */
-export function getGroupMembers(publishers: Publisher[], group: RotationGroup): Publisher[] {
-    return getGroupMembersFromService(publishers, group as PublisherGroup);
+function getGroupMembers(publishers: Publisher[], group: RotationGroup): Publisher[] {
+    // Mapear RotationGroup para PublisherGroup (são iguais neste caso)
+    const members = getGroupMembersFromService(publishers, group as PublisherGroup);
+
+    // Ordenar alfabeticamente para consistência entre reloads
+    return members.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// ===== Função Principal de Rotação =====
-
-export interface RotationResult {
-    publisher: Publisher | null;
-    newIndex: number;
-    skipped: string[]; // Nomes dos que foram pulados
-}
+// ===== Funções de Rotação =====
 
 /**
- * Obtém o próximo publicador na rotação para um grupo.
+ * v9.0: Obtém o próximo publicador na rotação para um grupo.
+ * 
+ * MUDANÇAS v9.0:
+ * - Verifica bloqueio por cooldown (isBlocked) e PULA publicadores bloqueados
+ * - Remove lógica de Fila Inteligente (queueBalancer)
+ * - Mantém consulta de seleções manuais para evitar duplicatas
  * 
  * @param publishers Lista completa de publicadores
  * @param group Grupo de rotação
  * @param excludeNames Nomes a excluir (já designados na semana)
  * @param additionalFilter Filtro adicional (ex: disponibilidade)
+ * @param history Histórico de participações (para verificar bloqueio)
  * @returns O publicador selecionado e o novo índice
  */
 export async function getNextInRotation(
     publishers: Publisher[],
     group: RotationGroup,
     excludeNames: Set<string>,
-    additionalFilter?: (p: Publisher) => boolean
+    additionalFilter?: (p: Publisher) => boolean,
+    history?: HistoryRecord[]
 ): Promise<RotationResult> {
     const indices = await loadRotationIndices();
-    let members = getGroupMembers(publishers, group);
-
-    // v8.3: Carregar Fila Inteligente (se houver)
-    const queues = await loadRotationQueues();
-    const queueIds = queues[group];
-
-    if (queueIds && queueIds.length > 0) {
-        // Reordenar membros baseado na fila salva
-        // Membros NA fila vêm primeiro (na ordem da fila)
-        // Membros FORA da fila vêm depois (alfabético)
-        const idToIndex = new Map(queueIds.map((id, index) => [id, index]));
-
-        members.sort((a, b) => {
-            const indexA = idToIndex.has(a.id) ? idToIndex.get(a.id)! : Number.MAX_SAFE_INTEGER;
-            const indexB = idToIndex.has(b.id) ? idToIndex.get(b.id)! : Number.MAX_SAFE_INTEGER;
-
-            if (indexA !== indexB) return indexA - indexB;
-            return a.name.localeCompare(b.name); // Desempate alfabético pros novos
-        });
-
-        console.log(`[FairRotation] Usando Fila Inteligente para ${group} (${queueIds.length} IDs conhecidos)`);
-    }
+    const members = getGroupMembers(publishers, group);
 
     if (members.length === 0) {
         return { publisher: null, newIndex: 0, skipped: [] };
+    }
+
+    // v9.0: Carregar histórico para verificar bloqueio (se não fornecido)
+    let historyRecords = history;
+    if (!historyRecords) {
+        try {
+            historyRecords = await loadCompletedParticipations();
+        } catch (e) {
+            console.warn('[FairRotation] Erro ao carregar histórico, bloqueio desabilitado:', e);
+            historyRecords = [];
+        }
     }
 
     // v8.3: Carregar seleções manuais recentes e adicionar às exclusões
@@ -144,12 +145,12 @@ export async function getNextInRotation(
         excludeNames.add(ms.publisherName);
     }
     if (manualSelections.length > 0) {
-        console.log(`[FairRotation] v8.3: ${manualSelections.length} seleções manuais excluídas da rotação`);
+        console.log(`[FairRotation] v9.0: ${manualSelections.length} seleções manuais excluídas`);
     }
 
     let currentIndex = indices[group] % members.length;
-    const startIndex = currentIndex;
     const skipped: string[] = [];
+    const today = new Date();
 
     // Tentar encontrar alguém elegível, fazendo no máximo uma volta completa
     let attempts = 0;
@@ -157,27 +158,36 @@ export async function getNextInRotation(
         const candidate = members[currentIndex];
 
         // Verificar exclusões
-        if (!excludeNames.has(candidate.name)) {
-            // Verificar filtro adicional (ex: disponibilidade)
-            if (!additionalFilter || additionalFilter(candidate)) {
-                // Encontrou! Avançar índice para próxima vez
-                const newIndex = (currentIndex + 1) % members.length;
-                indices[group] = newIndex;
-                await saveRotationIndices(indices);
-
-                console.log(`[FairRotation] ${group}: ${candidate.name} (idx ${currentIndex}→${newIndex})`);
-                return { publisher: candidate, newIndex, skipped };
-            }
+        if (excludeNames.has(candidate.name)) {
+            skipped.push(candidate.name + ' (excluído)');
+            currentIndex = (currentIndex + 1) % members.length;
+            attempts++;
+            continue;
         }
 
-        skipped.push(candidate.name);
-        currentIndex = (currentIndex + 1) % members.length;
-        attempts++;
-
-        // Se voltou ao início, não há candidatos
-        if (currentIndex === startIndex && attempts > 0) {
-            break;
+        // v9.0: Verificar bloqueio por cooldown
+        if (isBlocked(candidate.name, historyRecords, today)) {
+            skipped.push(candidate.name + ' (bloqueado)');
+            currentIndex = (currentIndex + 1) % members.length;
+            attempts++;
+            continue;
         }
+
+        // Verificar filtro adicional (ex: disponibilidade)
+        if (additionalFilter && !additionalFilter(candidate)) {
+            skipped.push(candidate.name + ' (filtro)');
+            currentIndex = (currentIndex + 1) % members.length;
+            attempts++;
+            continue;
+        }
+
+        // Encontrou! Avançar índice para próxima vez
+        const newIndex = (currentIndex + 1) % members.length;
+        indices[group] = newIndex;
+        await saveRotationIndices(indices);
+
+        console.log(`[FairRotation] ${group}: ${candidate.name} (idx ${currentIndex}→${newIndex})`);
+        return { publisher: candidate, newIndex, skipped };
     }
 
     console.log(`[FairRotation] ${group}: Nenhum candidato disponível (pulados: ${skipped.join(', ')})`);
@@ -187,13 +197,6 @@ export async function getNextInRotation(
 /**
  * Obtém múltiplos publicadores em sequência para o mesmo grupo.
  * Útil para preencher várias partes do mesmo tipo de uma vez.
- * 
- * @param publishers Lista completa de publicadores
- * @param group Grupo de rotação
- * @param count Quantas partes preencher
- * @param baseExcludeNames Nomes a excluir inicialmente
- * @param additionalFilter Filtro adicional
- * @returns Lista de publicadores na ordem de rotação
  */
 export async function getMultipleInRotation(
     publishers: Publisher[],
@@ -205,12 +208,21 @@ export async function getMultipleInRotation(
     const result: Publisher[] = [];
     const excludeNames = new Set(baseExcludeNames);
 
+    // Carregar histórico uma vez para todas as chamadas
+    let history: HistoryRecord[] = [];
+    try {
+        history = await loadCompletedParticipations();
+    } catch (e) {
+        console.warn('[FairRotation] Erro ao carregar histórico:', e);
+    }
+
     for (let i = 0; i < count; i++) {
         const { publisher } = await getNextInRotation(
             publishers,
             group,
             excludeNames,
-            additionalFilter
+            additionalFilter,
+            history
         );
 
         if (publisher) {

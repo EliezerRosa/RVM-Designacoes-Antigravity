@@ -25,9 +25,10 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
     const [newAssignee, setNewAssignee] = useState('');
     const [newTargetWeek, setNewTargetWeek] = useState('');  // Semana alvo (opcional)
 
-    // Filtrar apenas Anciãos e SMs
+    // Filtrar apenas Anciãos (regra: somente Anciãos podem fazer Necessidades Locais)
+    // Alinhado com eligibilityService.ts linha 214-223
     const eligiblePublishers = publishers.filter(p =>
-        p.condition === 'Ancião' || p.condition === 'Anciao' || p.condition === 'Servo Ministerial'
+        p.condition === 'Ancião' || p.condition === 'Anciao'
     );
 
     const loadQueue = useCallback(async () => {
