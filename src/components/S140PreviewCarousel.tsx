@@ -232,9 +232,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
                                 <span style={{ color: '#374151' }}>
                                     {part.tituloParte || part.tipoParte}
                                 </span>
-                                <span style={{ color: '#9CA3AF', fontSize: '10px' }}>
-                                    {part.rawPublisherName || '—'}
-                                </span>
+                                {part.resolvedPublisherName || part.rawPublisherName || '—'}
                             </div>
                         ))}
                     </div>
