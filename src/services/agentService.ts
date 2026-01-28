@@ -119,8 +119,10 @@ Formato do JSON para Enviar WhatsApp (S-140):
 }
 \`\`\`
 
-AÇÕES EM LOTE (v9.2):
-Quando o usuário pedir para "preencher semana", "designar todas as partes", "gerar todas" ou similar:
+AÇÕES EM LOTE (v9.2) - ESSENCIAL:
+Quando o usuário pedir para "preencher semana", "designar todas as partes", "gerar todas", "preencha todas" ou similar:
+**NÃO PEÇA CLARIFICAÇÃO** - execute imediatamente o comando SIMULATE_BATCH.
+O sistema irá preencher automaticamente TODAS as partes pendentes da semana usando o motor de rotação.
 \`\`\`json
 {
   "type": "SIMULATE_BATCH",
@@ -128,11 +130,12 @@ Quando o usuário pedir para "preencher semana", "designar todas as partes", "ge
     "weekId": "2024-03-18",
     "strategy": "rotation"
   },
-  "description": "Preenchendo partes pendentes da semana..."
+  "description": "Preenchendo todas as partes pendentes da semana..."
 }
 \`\`\`
-- weekId: Data da segunda-feira da semana em formato ISO (YYYY-MM-DD)
+- weekId: Use a data da semana mencionada ou a semana atual em formato ISO (YYYY-MM-DD)
 - strategy: "rotation" usa o motor de rotação padrão
+- Após o JSON, diga apenas: "Gerando designações em lote..."
 
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown (\`\`\`json ... \`\`\`).
 
