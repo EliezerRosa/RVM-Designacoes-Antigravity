@@ -1,8 +1,11 @@
-import type { WorkbookPart, Publisher } from '../types';
+import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { WorkbookStatus } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
+import { getNextInRotation, type RotationGroup } from './fairRotationService';
+import { checkEligibility } from './eligibilityService';
+import { loadCompletedParticipations } from './historyAdapter';
 
-export type AgentActionType = 'SIMULATE_ASSIGNMENT' | 'REMOVE_ASSIGNMENT' | 'CHECK_ELIGIBILITY' | 'SHARE_S140_WHATSAPP';
+export type AgentActionType = 'SIMULATE_ASSIGNMENT' | 'SIMULATE_BATCH' | 'REMOVE_ASSIGNMENT' | 'CHECK_ELIGIBILITY' | 'SHARE_S140_WHATSAPP';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -17,6 +20,14 @@ export interface SimulationResult {
     validationErrors?: string[];
 }
 
+export interface BatchSimulationResult {
+    success: boolean;
+    message: string;
+    results: SimulationResult[];
+    skipped: { partId: string; partTitle: string; reason: string }[];
+    weekId: string;
+}
+
 // Mock service for now, to be expanded
 export const agentActionService = {
 
@@ -24,7 +35,7 @@ export const agentActionService = {
     detectAction(responseContent: string): AgentAction | null {
         // Try to find JSON block
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{[\s\S]*"type"\s*:\s*"(?:SIMULATE_ASSIGNMENT|SHARE_S140_WHATSAPP|REMOVE_ASSIGNMENT)"[\s\S]*}/);
+            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:SIMULATE_ASSIGNMENT|SIMULATE_BATCH|SHARE_S140_WHATSAPP|REMOVE_ASSIGNMENT)"[\s\S]*}/);
 
         if (jsonMatch) {
             try {
@@ -33,6 +44,7 @@ export const agentActionService = {
 
                 if (data.type && (
                     data.type === 'SIMULATE_ASSIGNMENT' ||
+                    data.type === 'SIMULATE_BATCH' ||
                     data.type === 'REMOVE_ASSIGNMENT' ||
                     data.type === 'SHARE_S140_WHATSAPP'
                 )) {
@@ -160,5 +172,147 @@ export const agentActionService = {
                 }
             }
         }
+    },
+
+    /**
+     * v9.2: Simula designação em lote para uma semana inteira
+     * Usa o Motor de rotação (getNextInRotation) para cada parte pendente
+     */
+    async simulateBatchAction(
+        weekId: string,
+        parts: WorkbookPart[],
+        publishers: Publisher[],
+        strategy: 'rotation' | 'suggest' = 'rotation'
+    ): Promise<BatchSimulationResult> {
+        console.log(`[AgentAction] Batch simulation for week ${weekId}, strategy: ${strategy}`);
+
+        // Filtrar partes pendentes desta semana (sem designação)
+        const pendingParts = parts.filter(p =>
+            p.weekId === weekId &&
+            !p.rawPublisherName &&
+            !p.resolvedPublisherName &&
+            p.status !== 'CANCELADA' &&
+            p.funcao === 'Titular' // Só Titulares, ajudantes vêm depois
+        );
+
+        if (pendingParts.length === 0) {
+            return {
+                success: false,
+                message: `Nenhuma parte pendente encontrada para a semana ${weekId}.`,
+                results: [],
+                skipped: [],
+                weekId
+            };
+        }
+
+        console.log(`[AgentAction] Found ${pendingParts.length} pending parts`);
+
+        // Carregar histórico para cooldown
+        let history: HistoryRecord[] = [];
+        try {
+            history = await loadCompletedParticipations();
+        } catch (e) {
+            console.warn('[AgentAction] Failed to load history for batch:', e);
+        }
+
+        const results: SimulationResult[] = [];
+        const skipped: { partId: string; partTitle: string; reason: string }[] = [];
+        const assignedInBatch = new Set<string>(); // Evitar duplicar na mesma semana
+
+        // Mapear tipoParte para RotationGroup
+        const getRotationGroup = (part: WorkbookPart): RotationGroup | null => {
+            const tipoParte = part.tipoParte?.toUpperCase() || '';
+            if (tipoParte.includes('PRESIDENTE')) return 'presidentes';
+            if (tipoParte.includes('TESOUROS') || tipoParte.includes('JOIAS') || tipoParte.includes('DIRIGENTE')) return 'ensino';
+            if (tipoParte.includes('ORAÇÃO') || tipoParte.includes('ORACAO')) return 'oracao_final';
+            if (tipoParte.includes('LEITURA') || tipoParte.includes('DEMONSTR') || tipoParte.includes('DISCURSO')) return 'estudante';
+            return 'estudante'; // Fallback
+        };
+
+        // Processar cada parte
+        for (const part of pendingParts) {
+            const group = getRotationGroup(part);
+            if (!group) {
+                skipped.push({ partId: part.id, partTitle: part.tituloParte || part.tipoParte || 'Parte', reason: 'Grupo de rotação não identificado' });
+                continue;
+            }
+
+            try {
+                // Buscar próximo na rotação
+                const { publisher } = await getNextInRotation(
+                    publishers,
+                    group,
+                    assignedInBatch,
+                    (p) => {
+                        // Filtro de elegibilidade
+                        const result = checkEligibility(p, part.modalidade as any, part.funcao as any, {
+                            date: part.date,
+                            partTitle: part.tituloParte,
+                            secao: part.section
+                        });
+                        return result.eligible;
+                    },
+                    history
+                );
+
+                if (publisher) {
+                    assignedInBatch.add(publisher.name);
+
+                    const simulatedPart: WorkbookPart = {
+                        ...part,
+                        resolvedPublisherName: publisher.name,
+                        rawPublisherName: publisher.name,
+                        status: WorkbookStatus.PENDENTE
+                    };
+
+                    results.push({
+                        success: true,
+                        message: `${publisher.name} → ${part.tituloParte || part.tipoParte}`,
+                        affectedParts: [simulatedPart]
+                    });
+                } else {
+                    skipped.push({
+                        partId: part.id,
+                        partTitle: part.tituloParte || part.tipoParte || 'Parte',
+                        reason: 'Nenhum publicador elegível disponível'
+                    });
+                }
+            } catch (e) {
+                console.error(`[AgentAction] Error processing part ${part.id}:`, e);
+                skipped.push({
+                    partId: part.id,
+                    partTitle: part.tituloParte || part.tipoParte || 'Parte',
+                    reason: 'Erro ao processar'
+                });
+            }
+        }
+
+        const successCount = results.length;
+        const skipCount = skipped.length;
+
+        return {
+            success: successCount > 0,
+            message: `Simulado: ${successCount} designações criadas${skipCount > 0 ? `, ${skipCount} partes puladas` : ''}.`,
+            results,
+            skipped,
+            weekId
+        };
+    },
+
+    /**
+     * v9.2: Commit de designações em lote
+     */
+    async commitBatchAction(batchResult: BatchSimulationResult): Promise<void> {
+        if (!batchResult.success || batchResult.results.length === 0) {
+            return;
+        }
+
+        console.log(`[AgentAction] Committing batch of ${batchResult.results.length} assignments`);
+
+        for (const result of batchResult.results) {
+            await this.commitAction(result);
+        }
+
+        console.log(`[AgentAction] Batch commit complete for week ${batchResult.weekId}`);
     }
 };

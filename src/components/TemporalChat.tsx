@@ -4,9 +4,10 @@ import { askAgent, isAgentConfigured } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
 import type { Publisher, WorkbookPart } from '../types';
 import { agentActionService } from '../services/agentActionService';
-import type { SimulationResult } from '../services/agentActionService';
+import type { SimulationResult, BatchSimulationResult } from '../services/agentActionService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
+import BatchSimulationPanel from './BatchSimulationPanel';
 
 interface Props {
     publishers: Publisher[];
@@ -47,6 +48,10 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     // Action Handling State
     const [pendingResult, setPendingResult] = useState<SimulationResult | null>(null);
 
+    // v9.2: Batch Action State
+    const [pendingBatchResult, setPendingBatchResult] = useState<BatchSimulationResult | null>(null);
+    const [isCommittingBatch, setIsCommittingBatch] = useState(false);
+
     const handleConfirmAction = async () => {
         if (!pendingResult || !sessionId) return;
 
@@ -77,6 +82,66 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
 
     const handleCancelAction = () => {
         setPendingResult(null);
+    };
+
+    // v9.2: Batch Action Handlers
+    const handleConfirmBatch = async () => {
+        if (!pendingBatchResult || !sessionId) return;
+        setIsCommittingBatch(true);
+        try {
+            await agentActionService.commitBatchAction(pendingBatchResult);
+            const successMsg: ChatMessage = {
+                role: 'assistant',
+                content: `✅ ${pendingBatchResult.results.length} designações salvas com sucesso!`,
+                timestamp: new Date(),
+            };
+            await chatHistoryService.addMessage(sessionId, successMsg);
+            setMessages(prev => [...prev, successMsg]);
+            setPendingBatchResult(null);
+        } catch (error) {
+            console.error('Failed to commit batch:', error);
+            const errorMsg: ChatMessage = {
+                role: 'assistant',
+                content: `❌ Erro ao salvar lote: ${error instanceof Error ? error.message : 'Erro'}`,
+                timestamp: new Date(),
+            };
+            await chatHistoryService.addMessage(sessionId, errorMsg);
+            setMessages(prev => [...prev, errorMsg]);
+        } finally {
+            setIsCommittingBatch(false);
+        }
+    };
+
+    const handleConfirmBatchSelected = async (partIds: string[]) => {
+        if (!pendingBatchResult || !sessionId) return;
+        setIsCommittingBatch(true);
+        try {
+            // Filter results to only selected parts
+            const filteredResults = pendingBatchResult.results.filter(r =>
+                r.affectedParts?.[0]?.id && partIds.includes(r.affectedParts[0].id)
+            );
+            const filteredBatch: BatchSimulationResult = {
+                ...pendingBatchResult,
+                results: filteredResults
+            };
+            await agentActionService.commitBatchAction(filteredBatch);
+            const successMsg: ChatMessage = {
+                role: 'assistant',
+                content: `✅ ${filteredResults.length} de ${pendingBatchResult.results.length} designações salvas!`,
+                timestamp: new Date(),
+            };
+            await chatHistoryService.addMessage(sessionId, successMsg);
+            setMessages(prev => [...prev, successMsg]);
+            setPendingBatchResult(null);
+        } catch (error) {
+            console.error('Failed to commit selected batch:', error);
+        } finally {
+            setIsCommittingBatch(false);
+        }
+    };
+
+    const handleCancelBatch = () => {
+        setPendingBatchResult(null);
     };
 
     // Handle Share S-140 Action
@@ -256,6 +321,52 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             if (response.success && response.action) {
                 console.log('[TemporalChat] Executing action:', response.action);
 
+                // v9.2: BATCH DESIGNATION HANDLER
+                if (response.action.type === 'SIMULATE_BATCH') {
+                    const { weekId, strategy } = response.action.params;
+                    if (!weekId) {
+                        const errorMsg: ChatMessage = {
+                            role: 'assistant',
+                            content: '⚠️ Semana não especificada para designação em lote.',
+                            timestamp: new Date(),
+                        };
+                        await chatHistoryService.addMessage(sessionId, errorMsg);
+                        setMessages(prev => [...prev, errorMsg]);
+                        return;
+                    }
+
+                    const batchResult = await agentActionService.simulateBatchAction(
+                        weekId,
+                        parts,
+                        publishers,
+                        strategy || 'rotation'
+                    );
+
+                    if (batchResult.success) {
+                        setPendingBatchResult(batchResult);
+                        const systemMsg: ChatMessage = {
+                            role: 'assistant',
+                            content: `📋 ${batchResult.message}`,
+                            timestamp: new Date(),
+                        };
+                        await chatHistoryService.addMessage(sessionId, systemMsg);
+                        setMessages(prev => [...prev, systemMsg]);
+
+                        if (onNavigateToWeek) {
+                            onNavigateToWeek(weekId);
+                        }
+                    } else {
+                        const errorMsg: ChatMessage = {
+                            role: 'assistant',
+                            content: `⚠️ ${batchResult.message}`,
+                            timestamp: new Date(),
+                        };
+                        await chatHistoryService.addMessage(sessionId, errorMsg);
+                        setMessages(prev => [...prev, errorMsg]);
+                    }
+                    return;
+                }
+
                 // SPECIAL HANDLER FOR WHATSAPP SHARE
                 if (response.action.type === 'SHARE_S140_WHATSAPP') {
                     // Start generation flow immediately
@@ -413,6 +524,17 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* v9.2: Batch Simulation Panel */}
+            {pendingBatchResult && pendingBatchResult.success && (
+                <BatchSimulationPanel
+                    batchResult={pendingBatchResult}
+                    onConfirmAll={handleConfirmBatch}
+                    onConfirmSelected={handleConfirmBatchSelected}
+                    onCancelAll={handleCancelBatch}
+                    isCommitting={isCommittingBatch}
+                />
             )}
 
             {/* Share S-140 Modal */}
