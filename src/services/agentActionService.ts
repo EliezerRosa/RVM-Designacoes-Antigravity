@@ -3,6 +3,7 @@ import { markManualSelection } from './manualSelectionTracker';
 
 import { generationService } from './generationService';
 import { workbookService } from './workbookService';
+import { undoService } from './undoService';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -69,11 +70,31 @@ export const agentActionService = {
                         isDryRun: false
                     });
 
+                    // Capture Undo State for Generation is handled inside generationService? 
+                    // No, usually handled in UI. But here we run headless.
+                    // We should capture BEFORE generation.
+                    // BUT generationService filters parts internally.
+                    // Ideally generationService should use undoService if running in "write" mode.
+                    // For now, let's filter parts manually here to capture snapshot
+                    const partsInWeek = parts.filter(p => p.weekId === weekId);
+                    undoService.captureBatch(partsInWeek, `Agente: Gerar Semana ${weekId}`);
+
                     return {
                         success: result.success,
                         message: result.message || (result.success ? 'Geração concluída com sucesso.' : 'Falha na geração.'),
                         data: result,
                         actionType: 'GENERATE_WEEK'
+                    };
+                }
+
+                case 'UNDO_LAST': {
+                    const success = await undoService.undo();
+                    const desc = undoService.getLastDescription();
+
+                    return {
+                        success,
+                        message: success ? `Ação desfeita: ${desc || 'Desconhecida'}` : 'Não há ações para desfazer.',
+                        actionType: 'UNDO_LAST'
                     };
                 }
 
@@ -134,6 +155,9 @@ export const agentActionService = {
                             ? targetPart.status
                             : 'PROPOSTA';
 
+                        // UNDO Capture
+                        undoService.captureSingle(targetPart, `Agente: Designar ${resolvedName}`);
+
                         await workbookService.updatePart(targetPart.id, {
                             resolvedPublisherName: resolvedName,
                             status: newStatus
@@ -167,13 +191,7 @@ export const agentActionService = {
                     };
                 }
 
-                case 'UNDO_LAST': {
-                    return {
-                        success: true,
-                        message: 'Solicitação de UNDO recebida. (Não implementado nesta camada)',
-                        actionType: 'UNDO_LAST'
-                    };
-                }
+
 
                 case 'NAVIGATE_WEEK': {
                     const { weekId } = action.params;
