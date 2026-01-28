@@ -190,7 +190,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                     {/* Publicador Designado */}
                     <div style={sectionStyle}>
                         <div style={labelStyle}>Publicador Designado</div>
-                        {selectedPart.rawPublisherName ? (
+                        {(selectedPart.resolvedPublisherName || selectedPart.rawPublisherName) ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                                 <div style={{
                                     width: '32px',
@@ -204,10 +204,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                                     fontSize: '14px',
                                     fontWeight: '600',
                                 }}>
-                                    {selectedPart.rawPublisherName.charAt(0).toUpperCase()}
+                                    {(selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || '?').charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <div style={valueStyle}>{selectedPart.rawPublisherName}</div>
+                                    <div style={valueStyle}>{selectedPart.resolvedPublisherName || selectedPart.rawPublisherName}</div>
                                     {assignedPublisher && (
                                         <div style={{ fontSize: '10px', color: '#6B7280' }}>
                                             {assignedPublisher.gender === 'brother' ? '👨' : '👩'} {assignedPublisher.condition}
