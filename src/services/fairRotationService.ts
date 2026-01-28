@@ -119,7 +119,8 @@ export async function getNextInRotation(
     group: RotationGroup,
     excludeNames: Set<string>,
     additionalFilter?: (p: Publisher) => boolean,
-    history?: HistoryRecord[]
+    history?: HistoryRecord[],
+    skipManualExclusion: boolean = false // v9.2.3: Para batch mode
 ): Promise<RotationResult> {
     const indices = await loadRotationIndices();
     const members = getGroupMembers(publishers, group);
@@ -140,13 +141,17 @@ export async function getNextInRotation(
     }
 
     // v8.3: Carregar seleções manuais recentes e adicionar às exclusões
-    const manualSelections = await getRecentManualSelections(30);
-    for (const ms of manualSelections) {
-        excludeNames.add(ms.publisherName);
+    // v9.2.3: Pular para batch mode (batch gerencia próprias exclusões via assignedInBatch)
+    if (!skipManualExclusion) {
+        const manualSelections = await getRecentManualSelections(30);
+        for (const ms of manualSelections) {
+            excludeNames.add(ms.publisherName);
+        }
+        if (manualSelections.length > 0) {
+            console.log(`[FairRotation] v9.0: ${manualSelections.length} seleções manuais excluídas`);
+        }
     }
-    if (manualSelections.length > 0) {
-        console.log(`[FairRotation] v9.0: ${manualSelections.length} seleções manuais excluídas`);
-    }
+
 
     let currentIndex = indices[group] % members.length;
     const skipped: string[] = [];
