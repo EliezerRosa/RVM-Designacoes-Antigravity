@@ -505,7 +505,9 @@ export function WorkbookManager({ publishers }: Props) {
                     publishers,
                     'presidentes',
                     new Set<string>(), // Presidentes podem repetir em semanas diferentes
-                    availabilityFilter
+                    availabilityFilter,
+                    historyRecords,
+                    true // Skip manual exclusion for batch generation
                 );
 
                 if (candidate) {
@@ -602,7 +604,9 @@ export function WorkbookManager({ publishers }: Props) {
                                 publishers,
                                 'ensino',
                                 namesExcludedInWeek,
-                                (p) => !isElderOrMS(p) && ensinoFilter(p)
+                                (p) => !isElderOrMS(p) && ensinoFilter(p),
+                                historyRecords,
+                                true
                             );
 
                             if (commonBrotherResult.publisher) {
@@ -616,7 +620,9 @@ export function WorkbookManager({ publishers }: Props) {
                                     publishers,
                                     'ensino',
                                     namesExcludedInWeek,
-                                    (p) => p.condition === 'Servo Ministerial' && ensinoFilter(p)
+                                    (p) => p.condition === 'Servo Ministerial' && ensinoFilter(p),
+                                    historyRecords,
+                                    true
                                 );
                                 if (msResult.publisher) {
                                     candidate = msResult.publisher;
@@ -630,7 +636,9 @@ export function WorkbookManager({ publishers }: Props) {
                                     publishers,
                                     'ensino',
                                     namesExcludedInWeek,
-                                    (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && ensinoFilter(p)
+                                    (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && ensinoFilter(p),
+                                    historyRecords,
+                                    true
                                 );
                                 if (elderResult.publisher) {
                                     candidate = elderResult.publisher;
@@ -644,7 +652,9 @@ export function WorkbookManager({ publishers }: Props) {
                                 publishers,
                                 'ensino',
                                 namesExcludedInWeek,
-                                ensinoFilter
+                                ensinoFilter,
+                                historyRecords,
+                                true
                             );
                             candidate = standardResult.publisher;
                         }
@@ -731,7 +741,9 @@ export function WorkbookManager({ publishers }: Props) {
                                 publishers,
                                 'estudante',
                                 namesExcludedInWeek,
-                                (p) => p.gender === 'sister' && estudanteFilter(p)
+                                (p) => p.gender === 'sister' && estudanteFilter(p),
+                                historyRecords,
+                                true
                             );
                             if (sisterResult.publisher) {
                                 candidate = sisterResult.publisher;
@@ -744,7 +756,9 @@ export function WorkbookManager({ publishers }: Props) {
                                     publishers,
                                     'estudante',
                                     namesExcludedInWeek,
-                                    (p) => p.gender === 'brother' && !isElderOrMS(p) && estudanteFilter(p)
+                                    (p) => p.gender === 'brother' && !isElderOrMS(p) && estudanteFilter(p),
+                                    historyRecords,
+                                    true
                                 );
                                 if (brotherResult.publisher) {
                                     candidate = brotherResult.publisher;
@@ -758,7 +772,9 @@ export function WorkbookManager({ publishers }: Props) {
                                     publishers,
                                     'estudante',
                                     namesExcludedInWeek,
-                                    (p) => p.condition === 'Servo Ministerial' && estudanteFilter(p)
+                                    (p) => p.condition === 'Servo Ministerial' && estudanteFilter(p),
+                                    historyRecords,
+                                    true
                                 );
                                 if (msResult.publisher) {
                                     candidate = msResult.publisher;
@@ -772,7 +788,9 @@ export function WorkbookManager({ publishers }: Props) {
                                     publishers,
                                     'estudante',
                                     namesExcludedInWeek,
-                                    (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && estudanteFilter(p)
+                                    (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && estudanteFilter(p),
+                                    historyRecords,
+                                    true
                                 );
                                 if (elderResult.publisher) {
                                     candidate = elderResult.publisher;
@@ -786,7 +804,9 @@ export function WorkbookManager({ publishers }: Props) {
                                 publishers,
                                 'estudante',
                                 namesExcludedInWeek,
-                                estudanteFilter
+                                estudanteFilter,
+                                historyRecords,
+                                true
                             );
                             candidate = standardResult.publisher;
                         }
@@ -1010,7 +1030,9 @@ export function WorkbookManager({ publishers }: Props) {
                                 publishers,
                                 ajudanteGroup,
                                 new Set<string>(),
-                                createAjudanteFilter(titularGender)
+                                createAjudanteFilter(titularGender),
+                                historyRecords,
+                                true
                             );
 
                             selectedPublisher = ajudante;
@@ -1027,7 +1049,9 @@ export function WorkbookManager({ publishers }: Props) {
                                 publishers,
                                 'ajudante_f',
                                 new Set<string>(),
-                                createAjudanteFilter('sister')
+                                createAjudanteFilter('sister'),
+                                historyRecords,
+                                true
                             );
 
                             if (sisterHelper) {
@@ -1039,7 +1063,9 @@ export function WorkbookManager({ publishers }: Props) {
                                     publishers,
                                     'ajudante_m',
                                     new Set<string>(),
-                                    createAjudanteFilter('brother')
+                                    createAjudanteFilter('brother'),
+                                    historyRecords,
+                                    true
                                 );
 
                                 if (brotherHelper) {
@@ -1083,7 +1109,9 @@ export function WorkbookManager({ publishers }: Props) {
                             publishers,
                             'oracao_final',
                             new Set<string>(), // Pode repetir na semana
-                            oracaoFilter
+                            oracaoFilter,
+                            historyRecords,
+                            true
                         );
 
                         selectedPublisher = orante;

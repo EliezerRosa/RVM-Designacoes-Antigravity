@@ -84,12 +84,26 @@ export const agentActionService = {
                     let targetPart = parts.find(p => p.id === partId);
 
                     // Fallback: Tentar encontrar por Nome + Semana se ID não fornecido
+                    // Fallback: Tentar encontrar por Nome + Semana se ID não fornecido
                     if (!targetPart && weekId && partName) {
                         const candidates = parts.filter(p => p.weekId === weekId);
-                        targetPart = candidates.find(p =>
-                            (p.tituloParte && p.tituloParte.toLowerCase().includes(partName.toLowerCase())) ||
-                            (p.tipoParte && p.tipoParte.toLowerCase().includes(partName.toLowerCase()))
-                        );
+                        const qName = partName.toLowerCase();
+
+                        targetPart = candidates.find(p => {
+                            const pTitle = (p.tituloParte || '').toLowerCase();
+                            const pType = (p.tipoParte || '').toLowerCase();
+
+                            // 1. Query inside DB (standard)
+                            if (pTitle && pTitle.includes(qName)) return true;
+                            if (pType && pType.includes(qName)) return true;
+
+                            // 2. DB inside Query (handles "1. Term..." vs "Term")
+                            // Must correspond to significant length to avoid false positives with short words
+                            if (pTitle && pTitle.length > 5 && qName.includes(pTitle)) return true;
+                            if (pType && pType.length > 5 && qName.includes(pType)) return true;
+
+                            return false;
+                        });
                     }
 
                     if (!targetPart) {
