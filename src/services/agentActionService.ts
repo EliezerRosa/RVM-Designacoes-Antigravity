@@ -79,11 +79,21 @@ export const agentActionService = {
 
                 case 'ASSIGN_PART':
                 case 'SIMULATE_ASSIGNMENT': {
-                    const { partId, publisherId, publisherName } = action.params;
+                    const { partId, publisherId, publisherName, weekId, partName } = action.params;
 
-                    const targetPart = parts.find(p => p.id === partId);
+                    let targetPart = parts.find(p => p.id === partId);
+
+                    // Fallback: Tentar encontrar por Nome + Semana se ID não fornecido
+                    if (!targetPart && weekId && partName) {
+                        const candidates = parts.filter(p => p.weekId === weekId);
+                        targetPart = candidates.find(p =>
+                            (p.tituloParte && p.tituloParte.toLowerCase().includes(partName.toLowerCase())) ||
+                            (p.tipoParte && p.tipoParte.toLowerCase().includes(partName.toLowerCase()))
+                        );
+                    }
+
                     if (!targetPart) {
-                        return { success: false, message: `Parte não encontrada (ID: ${partId})` };
+                        return { success: false, message: `Parte não encontrada (ID: ${partId} | Nome: ${partName})` };
                     }
 
                     // Resolve Publisher
