@@ -15,6 +15,7 @@ import { localNeedsService } from '../services/localNeedsService';
 import { PublisherSelect } from './PublisherSelect';
 import { SpecialEventsManager } from './SpecialEventsManager';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
+import { undoService } from '../services/undoService';
 import { getStatusConfig } from '../constants/status';
 import { downloadS140Unified, downloadS140UnifiedMultiWeek } from '../services/s140GeneratorUnified';
 import { PartEditModal } from './PartEditModal';
@@ -127,6 +128,19 @@ export function WorkbookManager({ publishers }: Props) {
     const [isS140MultiModalOpen, setIsS140MultiModalOpen] = useState(false);
     const [s140StartWeek, setS140StartWeek] = useState('');
     const [s140EndWeek, setS140EndWeek] = useState('');
+
+    // Undo State
+    const [canUndo, setCanUndo] = useState(false);
+    const [undoDescription, setUndoDescription] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        // Subscribe to UndoService
+        const unsubscribe = undoService.subscribe((hasUndo, desc) => {
+            setCanUndo(hasUndo);
+            setUndoDescription(desc);
+        });
+        return unsubscribe;
+    }, []);
 
     // Estado para Relatórios
     const [reportData, setReportData] = useState<AnalyticsSummary | null>(null);
@@ -401,6 +415,11 @@ export function WorkbookManager({ publishers }: Props) {
                 durationWarnings.forEach(w => warnings.push(w.message));
                 console.warn('[Motor] ⚠️ Partes sem duração:', durationWarnings);
             }
+
+            // =================================================================
+            // UNDO: Capture state BEFORE generation
+            // =================================================================
+            undoService.captureBatch(partsNeedingAssignment, `Geração Automática (${partsNeedingAssignment.length} partes)`);
 
             // Carregar histórico para cooldown (usando historyAdapter)
             let historyRecords: HistoryRecord[] = [];
@@ -1394,6 +1413,9 @@ export function WorkbookManager({ publishers }: Props) {
             // Determinar novos valores e se precisa mudar status
             const isDesignada = part.status === 'DESIGNADA' || part.status === 'CONCLUIDA' || part.status === 'APROVADA';
 
+            // UNDO: Capture state BEFORE update
+            undoService.captureSingle(part, `Alteração Manual: ${part.tituloParte}`);
+
             // Optimistic Update: Atualizar UI imediatamente
             setParts(prev => prev.map(p => {
                 if (p.id !== partId) return p;
@@ -1648,6 +1670,43 @@ export function WorkbookManager({ publishers }: Props) {
 
                                 {/* Botões de Ação */}
                                 <div style={{ display: 'flex', gap: '4px' }}>
+                                    {/* Botão UNDO */}
+                                    <button
+                                        onClick={async () => {
+                                            if (!canUndo) return;
+                                            try {
+                                                setLoading(true);
+                                                const success = await undoService.undo();
+                                                if (success) {
+                                                    setSuccessMessage(`↩️ Desfeito: ${undoDescription}`);
+                                                    await loadPartsWithFilters();
+                                                }
+                                            } catch (err) {
+                                                alert('Erro ao desfazer');
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
+                                        disabled={loading || !canUndo}
+                                        title={undoDescription ? `Desfazer: ${undoDescription}` : 'Nada para desfazer'}
+                                        style={{
+                                            padding: '4px 10px',
+                                            cursor: canUndo ? 'pointer' : 'not-allowed',
+                                            background: canUndo ? '#EF4444' : '#E5E7EB', // Red if active
+                                            color: canUndo ? 'white' : '#9CA3AF',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        ↩️ Desfazer
+                                    </button>
+
                                     <button onClick={() => loadPartsWithFilters()} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
                                         🔄 Atualizar
                                     </button>
@@ -2107,7 +2166,7 @@ export function WorkbookManager({ publishers }: Props) {
                                                 })
                                         }
                                         onClose={() => setIsLocalNeedsQueueOpen(false)}
-                                        onManualAssignment={async (assignment) => {
+                                        onManualAssignment={async (assignment: any) => {
                                             try {
                                                 setLoading(true);
                                                 // 1. Encontrar a parte de NL da semana alvo
