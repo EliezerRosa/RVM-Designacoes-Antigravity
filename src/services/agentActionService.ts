@@ -1,5 +1,6 @@
 import type { WorkbookPart, Publisher } from '../types';
 import { WorkbookStatus } from '../types';
+import { markManualSelection } from './manualSelectionTracker';
 
 export type AgentActionType = 'SIMULATE_ASSIGNMENT' | 'REMOVE_ASSIGNMENT' | 'CHECK_ELIGIBILITY' | 'SHARE_S140_WHATSAPP';
 
@@ -142,6 +143,22 @@ export const agentActionService = {
                 resolvedPublisherName: part.resolvedPublisherName,
                 status: part.status
             });
+
+            // v9.1: Marcar seleção feita pelo Agente para evitar duplicatas pelo Motor
+            // Isso garante que o fairRotationService exclua este publicador da próxima geração
+            if (part.resolvedPublisherName) {
+                try {
+                    await markManualSelection(
+                        part.resolvedPublisherName,
+                        part.tipoParte || 'Parte via Agente',
+                        part.weekId || '',
+                        part.date || ''
+                    );
+                    console.log(`[AgentAction] Seleção marcada no tracker: ${part.resolvedPublisherName}`);
+                } catch (e) {
+                    console.warn('[AgentAction] Erro ao marcar seleção no tracker:', e);
+                }
+            }
         }
     }
 };
