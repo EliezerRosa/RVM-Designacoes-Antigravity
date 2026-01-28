@@ -6,7 +6,7 @@
 
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getEligibilityStats } from './eligibilityService';
-import { HISTORY_LOOKBACK_MONTHS } from '../constants/config';
+import { HISTORY_LOOKBACK_MONTHS, AGENT_CONTEXT_WEEKS, AGENT_HISTORY_LOOKBACK_WEEKS } from '../constants/config';
 
 export const RULES_TEXT_VERSION = '2024-01-27.01'; // v8.3 - Elegibilidade no contexto
 
@@ -242,9 +242,18 @@ export function buildAgentContext(
         });
     }
 
-    // LISTA COMPLETA DE SEMANAS (Sem .slice)
+    // v9.2.2: Limitar semanas ao contexto do agente para evitar timeout da API
+    // Inclui: últimas N semanas (referência) + próximas M semanas (operação)
+    const historyLimitDate = new Date();
+    historyLimitDate.setDate(historyLimitDate.getDate() - (AGENT_HISTORY_LOOKBACK_WEEKS * 7));
+    const futureLimitDate = new Date();
+    futureLimitDate.setDate(futureLimitDate.getDate() + (AGENT_CONTEXT_WEEKS * 7));
+
     const allWeeks = Array.from(weekMap.values());
-    const weekDesignations = allWeeks; // Enviamos tudo o que temos
+    const weekDesignations = allWeeks.filter(w => {
+        const weekDate = new Date(w.date);
+        return weekDate >= historyLimitDate && weekDate <= futureLimitDate;
+    });
 
     // Determinar semana atual
     const currentWeekData = allWeeks.find(w => w.date >= today);
