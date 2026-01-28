@@ -32,7 +32,17 @@ const COLORS = {
 };
 
 const EXCLUDED_PARTS = ['Elogios e Conselhos', 'Elogios', 'Conselhos'];
-const HIDDEN_ASSIGNEE_PARTS = ['Comentários Iniciais', 'Comentários Finais', 'Comentários iniciais', 'Comentários finais'];
+
+// Partes que NÃO devem ter nome do designado impresso no S-140:
+// - Cânticos: não têm designado (toda a congregação canta)
+// - Oração Inicial: automática do Presidente
+// - Comentários Iniciais/Finais: automáticos do Presidente
+const HIDDEN_ASSIGNEE_PARTS = [
+    'Comentários Iniciais', 'Comentários Finais',
+    'Comentários iniciais', 'Comentários finais',
+    'Oração Inicial', 'Oracao Inicial',
+    'Cântico', 'Cantico'  // Qualquer cântico (inicial, do meio, final)
+];
 const STUDENT_PARTS = [
     'Leitura da Bíblia', 'Leitura da Biblia', 'Leitura',
     'Iniciando Conversas', 'Cultivando o Interesse',
@@ -187,13 +197,10 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
             const isInMinisterio = p.section?.includes('Ministério') || false;
 
             let mainHallAssignee = '';
-            if (!HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte?.includes(h))) {
+            // Verificar se deve mostrar nome - usa HIDDEN_ASSIGNEE_PARTS
+            const shouldHideName = HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte?.includes(h));
+            if (!shouldHideName) {
                 mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
-
-                const isImpliedRole = isCantico(p.tipoParte) || isOracao(p.tipoParte) || p.tipoParte?.toLowerCase().includes('comentários');
-                if (mainHallAssignee === presidentName && isImpliedRole && !p.tipoParte?.includes('Presidente')) {
-                    mainHallAssignee = '';
-                }
             }
 
             const titulo = p.tituloParte || p.tipoParte;
