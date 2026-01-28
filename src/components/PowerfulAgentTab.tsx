@@ -14,20 +14,21 @@ import TemporalChat from './TemporalChat';
 import ActionControlPanel from './ActionControlPanel';
 import { chatHistoryService } from '../services/chatHistoryService';
 import { S89SelectionModal } from './S89SelectionModal';
+import type { ActionResult } from '../services/agentActionService';
 
 interface Props {
     publishers: Publisher[];
     parts: WorkbookPart[];
     weekParts: Record<string, WorkbookPart[]>;
     weekOrder: string[];
+    onDataChange?: () => void; // Trigger reload of parts
 }
 
-export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder }: Props) {
+export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder, onDataChange }: Props) {
     // Estado de Navegação Híbrida
     // Inicializar do localStorage se disponível
     const [currentWeekId, setCurrentWeekId] = useState<string | null>(() => {
         const stored = localStorage.getItem('rvm_agent_last_week_id');
-        // Validar se o stored ainda existe em weekOrder seria ideal, mas weekOrder pode estar vazio no init
         return stored || weekOrder[0] || null;
     });
 
@@ -49,8 +50,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         }
     }, [currentWeekId]);
 
-    // Debug log
-    console.log('[AgentTab] Debug:', { publishersCount: publishers.length, partsCount: parts.length, weekCount: weekOrder.length, currentWeekId });
     const [showContextAlert, setShowContextAlert] = useState(false);
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
     const [activeModel, setActiveModel] = useState<string>('gemini-1.5-flash'); // Default model active
@@ -76,43 +75,25 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         return () => clearTimeout(timer);
     }, [currentWeekId]);
 
-    // State for Simulation
-    const [simulatedPartsMap, setSimulatedPartsMap] = useState<Record<string, WorkbookPart>>({});
-
-    // Merge simulated parts with real parts for display
-    const getDisplayedWeekParts = () => {
-        const displayMap = { ...weekParts };
-
-        Object.values(simulatedPartsMap).forEach(simPart => {
-            const weekId = simPart.weekId;
-            if (displayMap[weekId]) {
-                displayMap[weekId] = displayMap[weekId].map(p =>
-                    p.id === simPart.id ? simPart : p
-                );
-            }
-        });
-        return displayMap;
-    };
-
-    const displayedWeekParts = getDisplayedWeekParts();
-
     // Handle actions from Chat
-    const handleAgentAction = (result: any) => { // Using any efficiently to bypass strict type import for now
-        if (result.success && result.affectedParts) {
-            console.log('[PowerfulAgent] Applying simulation:', result.affectedParts);
+    const handleAgentAction = (result: ActionResult) => {
+        if (result.success) {
+            console.log('[PowerfulAgent] Action successful, requesting reload...');
 
-            setSimulatedPartsMap(prev => {
-                const newMap = { ...prev };
-                result.affectedParts.forEach((part: WorkbookPart) => {
-                    newMap[part.id] = part;
-                });
-                return newMap;
-            });
+            // Trigger data reload
+            if (onDataChange) onDataChange();
 
-            // Auto-navigate to the week of the simulated part
-            const firstAffected = result.affectedParts[0];
-            if (firstAffected && firstAffected.weekId !== currentWeekId) {
-                handleCarouselNavigation(firstAffected.weekId);
+            // Auto-navigate to the week if hints are present
+            if (result.actionType === 'GENERATE_WEEK' && result.data?.generatedWeeks?.[0]) {
+                handleCarouselNavigation(result.data.generatedWeeks[0]);
+            } else if (result.actionType === 'ASSIGN_PART' && result.data?.partId) {
+                // Check if we need to navigate
+                const part = parts.find(p => p.id === result.data.partId);
+                if (part && part.weekId !== currentWeekId) {
+                    handleCarouselNavigation(part.weekId);
+                }
+            } else if (result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId) {
+                handleCarouselNavigation(result.data.weekId);
             }
         }
     };
@@ -120,8 +101,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     // Callback de navegação do carrossel (Manual)
     const handleCarouselNavigation = (weekId: string) => {
         setCurrentWeekId(weekId);
-        console.log(`[AgentTab] Usuário navegou para: ${weekId}`);
-        // TODO: Notificar chat ("Vendo contexto da semana X...")
+        // console.log(`[AgentTab] Usuário navegou para: ${weekId}`);
     };
 
     // Estilos
@@ -153,8 +133,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         gap: '8px',
     };
 
-    // handlePartClick removed – not needed for current UI (debug button was removed)
-
     const contentStyle: React.CSSProperties = {
         flex: 1,
         overflow: 'auto',
@@ -167,15 +145,10 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
             <div style={columnStyle}>
                 <div style={headerStyle}>
                     <span>📄</span> Visualização Contextual (S-140)
-                    {Object.keys(simulatedPartsMap).length > 0 && (
-                        <span style={{ marginLeft: 'auto', fontSize: '10px', background: '#FEF3C7', color: '#D97706', padding: '2px 6px', borderRadius: '4px' }}>
-                            Simulação Ativa
-                        </span>
-                    )}
                 </div>
                 <div style={{ ...contentStyle, padding: '10px' }}>
                     <S140PreviewCarousel
-                        weekParts={displayedWeekParts} // Use merged parts
+                        weekParts={weekParts} // Use real parts
                         weekOrder={weekOrder}
                         currentWeekId={currentWeekId}
                         onWeekChange={handleCarouselNavigation}
@@ -302,10 +275,10 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 <div style={headerStyle}>
                     <span>⚙️</span> Controle & Explicações
                 </div>
-                <div style={contentStyle}>
+                <div style={{ ...contentStyle, padding: '10px' }}>
                     <ActionControlPanel
                         selectedPartId={selectedPartId}
-                        parts={parts} // TODO: Should also use displayed parts here? For now keep real state
+                        parts={parts}
                         publishers={publishers}
                     />
                     {showContextAlert && (
@@ -323,6 +296,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 weekId={currentWeekId || ''}
                 publishers={publishers}
             />
-        </div >
+        </div>
     );
 }
