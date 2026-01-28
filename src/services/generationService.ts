@@ -148,7 +148,9 @@ export const generationService = {
                     publishers,
                     'presidentes',
                     new Set<string>(),
-                    availabilityFilter
+                    availabilityFilter,
+                    historyRecords,
+                    true // Skip manual exclusion for batch generation
                 );
 
                 if (candidate) {
@@ -197,18 +199,18 @@ export const generationService = {
 
                         if (isLeitorEBC) {
                             // Varão > SM > Ancião
-                            const commonBrotherResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => !isElderOrMS(p) && ensinoFilter(p));
+                            const commonBrotherResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => !isElderOrMS(p) && ensinoFilter(p), historyRecords, true);
                             if (commonBrotherResult.publisher) candidate = commonBrotherResult.publisher;
                             else {
-                                const msResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => p.condition === 'Servo Ministerial' && ensinoFilter(p));
+                                const msResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => p.condition === 'Servo Ministerial' && ensinoFilter(p), historyRecords, true);
                                 if (msResult.publisher) candidate = msResult.publisher;
                                 else {
-                                    const elderResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && ensinoFilter(p));
+                                    const elderResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && ensinoFilter(p), historyRecords, true);
                                     if (elderResult.publisher) candidate = elderResult.publisher;
                                 }
                             }
                         } else {
-                            const standardResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, ensinoFilter);
+                            const standardResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, ensinoFilter, historyRecords, true);
                             candidate = standardResult.publisher;
                         }
 
@@ -245,22 +247,22 @@ export const generationService = {
 
                     if (isDemonstracao) {
                         // Irmãs > Varões > SMs > Anciãos
-                        const sisterResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.gender === 'sister' && estudanteFilter(p));
+                        const sisterResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.gender === 'sister' && estudanteFilter(p), historyRecords, true);
                         if (sisterResult.publisher) candidate = sisterResult.publisher;
                         else {
-                            const brotherResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.gender === 'brother' && !isElderOrMS(p) && estudanteFilter(p));
+                            const brotherResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.gender === 'brother' && !isElderOrMS(p) && estudanteFilter(p), historyRecords, true);
                             if (brotherResult.publisher) candidate = brotherResult.publisher;
                             else {
-                                const msResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.condition === 'Servo Ministerial' && estudanteFilter(p));
+                                const msResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.condition === 'Servo Ministerial' && estudanteFilter(p), historyRecords, true);
                                 if (msResult.publisher) candidate = msResult.publisher;
                                 else {
-                                    const elderResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && estudanteFilter(p));
+                                    const elderResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && estudanteFilter(p), historyRecords, true);
                                     if (elderResult.publisher) candidate = elderResult.publisher;
                                 }
                             }
                         }
                     } else {
-                        const standardResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, estudanteFilter);
+                        const standardResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, estudanteFilter, historyRecords, true);
                         candidate = standardResult.publisher;
                     }
 
