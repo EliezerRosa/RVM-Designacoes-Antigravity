@@ -23,9 +23,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
     const selectedPart = parts.find(p => p.id === selectedPartId);
 
     // Buscar o publicador designado para esta parte
-    const assignedPublisher = selectedPart?.rawPublisherName
+    // Buscar o publicador designado para esta parte (Prioridade: Resolved > Raw)
+    const effectiveName = selectedPart?.resolvedPublisherName || selectedPart?.rawPublisherName;
+    const assignedPublisher = effectiveName
         ? publishers.find(pub =>
-            pub.name.toLowerCase() === selectedPart.rawPublisherName?.toLowerCase()
+            pub.name.toLowerCase() === effectiveName.toLowerCase()
         )
         : null;
 
