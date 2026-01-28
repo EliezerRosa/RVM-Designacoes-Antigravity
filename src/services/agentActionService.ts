@@ -287,7 +287,7 @@ export const agentActionService = {
             }
 
             try {
-                // Buscar próximo na rotação
+                // v9.2.3: Buscar próximo na rotação (skipManualExclusion=true para batch)
                 const { publisher } = await getNextInRotation(
                     publishers,
                     group,
@@ -301,7 +301,8 @@ export const agentActionService = {
                         });
                         return result.eligible;
                     },
-                    history
+                    history,
+                    true // skipManualExclusion - batch gerencia próprias exclusões
                 );
 
                 if (publisher) {
