@@ -219,14 +219,63 @@ export const agentActionService = {
         const skipped: { partId: string; partTitle: string; reason: string }[] = [];
         const assignedInBatch = new Set<string>(); // Evitar duplicar na mesma semana
 
-        // Mapear tipoParte para RotationGroup
+        // v9.2.3: Mapear tipoParte para RotationGroup (abrangente)
         const getRotationGroup = (part: WorkbookPart): RotationGroup | null => {
-            const tipoParte = part.tipoParte?.toUpperCase() || '';
+            const tipoParte = (part.tipoParte || '').toUpperCase();
+            const section = (part.section || '').toUpperCase();
+
+            // Presidente da Reunião
             if (tipoParte.includes('PRESIDENTE')) return 'presidentes';
-            if (tipoParte.includes('TESOUROS') || tipoParte.includes('JOIAS') || tipoParte.includes('DIRIGENTE')) return 'ensino';
-            if (tipoParte.includes('ORAÇÃO') || tipoParte.includes('ORACAO')) return 'oracao_final';
-            if (tipoParte.includes('LEITURA') || tipoParte.includes('DEMONSTR') || tipoParte.includes('DISCURSO')) return 'estudante';
-            return 'estudante'; // Fallback
+
+            // Orações
+            if (tipoParte.includes('ORAÇÃO') || tipoParte.includes('ORACAO')) {
+                return 'oracao_final';
+            }
+
+            // Seção Tesouros - Ensino (Anciãos/SM)
+            if (section.includes('TESOUROS') || tipoParte.includes('TESOUROS') ||
+                tipoParte.includes('JOIAS') || tipoParte.includes('DIRIGENTE') ||
+                tipoParte.includes('JOÍAS')) {
+                return 'ensino';
+            }
+
+            // Leitura da Bíblia - Irmãos jovens
+            if (tipoParte.includes('LEITURA') && (tipoParte.includes('BÍBLIA') || tipoParte.includes('BIBLIA'))) {
+                return 'estudante';
+            }
+
+            // Seção Ministério - Estudantes
+            if (section.includes('MINISTÉRIO') || section.includes('MINISTERIO') ||
+                tipoParte.includes('INICIANDO') || tipoParte.includes('CULTIVANDO') ||
+                tipoParte.includes('FAZENDO') || tipoParte.includes('DEMONSTR') ||
+                tipoParte.includes('DISCURSO DE ESTUDANTE')) {
+                return 'estudante';
+            }
+
+            // Seção Vida Cristã - Ensino
+            if (section.includes('VIDA CRISTÃ') || section.includes('VIDA CRISTA')) {
+                // EBC = Ancião/SM
+                if (tipoParte.includes('EBC') || tipoParte.includes('ESTUDO BÍBLICO') ||
+                    tipoParte.includes('ESTUDO BIBLICO') || tipoParte.includes('LEITOR') ||
+                    tipoParte.includes('DIRIGENTE')) {
+                    return 'ensino';
+                }
+                // Outras partes de Vida Cristã = Ensino
+                return 'ensino';
+            }
+
+            // Comentários iniciais - Presidente (já coberto acima)
+            if (tipoParte.includes('COMENTÁRIOS') || tipoParte.includes('COMENTARIOS')) {
+                return 'presidentes';
+            }
+
+            // Cânticos - Não precisam de designação
+            if (tipoParte.includes('CÂNTICO') || tipoParte.includes('CANTICO')) {
+                return null;
+            }
+
+            console.log(`[AgentAction] Unknown tipoParte: "${part.tipoParte}" section: "${part.section}"`);
+            return 'estudante'; // Fallback para estudante
         };
 
         // Processar cada parte

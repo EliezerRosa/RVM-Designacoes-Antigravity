@@ -342,6 +342,13 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                         strategy || 'rotation'
                     );
 
+                    console.log('[TemporalChat] Batch result:', {
+                        success: batchResult.success,
+                        resultsCount: batchResult.results.length,
+                        skippedCount: batchResult.skipped.length,
+                        weekId: batchResult.weekId
+                    });
+
                     if (batchResult.success) {
                         setPendingBatchResult(batchResult);
                         const systemMsg: ChatMessage = {
