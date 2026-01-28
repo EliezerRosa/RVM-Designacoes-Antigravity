@@ -1,9 +1,6 @@
-import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
-import { WorkbookStatus } from '../types';
+import type { WorkbookPart, Publisher } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
-import { getNextInRotation, type RotationGroup } from './fairRotationService';
-import { checkEligibility } from './eligibilityService';
-import { loadCompletedParticipations } from './historyAdapter';
+
 import { generationService } from './generationService';
 import { workbookService } from './workbookService';
 

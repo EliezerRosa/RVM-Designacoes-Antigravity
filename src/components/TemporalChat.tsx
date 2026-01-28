@@ -50,37 +50,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
 
     // v9.3: Batch removed - Agent uses existing Workbook UI
 
-    const handleConfirmAction = async () => {
-        if (!pendingResult || !sessionId) return;
 
-        try {
-            await agentActionService.commitAction(pendingResult);
-
-            const successMsg: ChatMessage = {
-                role: 'assistant',
-                content: `✅ Ação efetuada com sucesso! As designações foram atualizadas no banco de dados.`,
-                timestamp: new Date(),
-            };
-
-            await chatHistoryService.addMessage(sessionId, successMsg);
-            setMessages(prev => [...prev, successMsg]);
-            setPendingResult(null);
-
-        } catch (error) {
-            console.error('Failed to commit action:', error);
-            const errorMsg: ChatMessage = {
-                role: 'assistant',
-                content: `❌ Erro ao salvar: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
-                timestamp: new Date(),
-            };
-            await chatHistoryService.addMessage(sessionId, errorMsg);
-            setMessages(prev => [...prev, errorMsg]);
-        }
-    };
-
-    const handleCancelAction = () => {
-        setPendingResult(null);
-    };
 
     // v9.3: Batch handlers removed - Agent delegates to generationService
 
@@ -153,7 +123,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     // Scroll to bottom when messages change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, pendingResult]);
+    }, [messages]);
 
     // Timer to update UI for local rate limit (every second)
     useEffect(() => {
@@ -197,7 +167,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setIsLoading(true);
-        setPendingResult(null); // Clear any previous pending action
+
 
         try {
             // Check if agent is configured

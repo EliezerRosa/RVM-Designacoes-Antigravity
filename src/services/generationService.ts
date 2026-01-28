@@ -1,10 +1,11 @@
-import { WorkbookPart, Publisher, HistoryRecord, EnumModalidade, EnumFuncao, EnumTipoParte } from '../types';
+import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
+import { EnumModalidade, EnumFuncao, EnumTipoParte } from '../types';
 import { workbookService } from './workbookService';
 import { localNeedsService } from './localNeedsService';
 import { loadCompletedParticipations } from './historyAdapter';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } from './eligibilityService';
-import { getNextInRotation, type RotationGroup } from './fairRotationService';
-import { getGroupMembers } from './groupService';
+import { getNextInRotation } from './fairRotationService';
+
 import { getModalidadeFromTipo } from '../constants/mappings';
 import { validatePartsBeforeGeneration } from './linearRotationService';
 import { isBlocked } from './cooldownService';
@@ -112,14 +113,7 @@ export const generationService = {
             const selectedPublisherByPart = new Map<string, { id: string; name: string }>();
 
             // Rastreamento in-loop para cooldown imediato
-            const inLoopAssignments: Array<{
-                date: string;
-                tipoParte: string;
-                rawPublisherName: string;
-                resolvedPublisherName: string;
-                funcao: string;
-                status: string;
-            }> = [];
+
 
             // Carregar fila de Necessidades Locais
             let localNeedsQueue: Awaited<ReturnType<typeof localNeedsService.getPendingQueue>> = [];
@@ -160,14 +154,6 @@ export const generationService = {
                 if (candidate) {
                     selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
                     totalWithPublisher++;
-                    inLoopAssignments.push({
-                        date: part.date,
-                        tipoParte: part.tipoParte,
-                        rawPublisherName: '',
-                        resolvedPublisherName: candidate.name,
-                        funcao: 'Titular',
-                        status: 'PROPOSTA'
-                    });
                 }
             }
 
@@ -230,10 +216,6 @@ export const generationService = {
                             selectedPublisherByPart.set(ensinoPart.id, { id: candidate.id, name: candidate.name });
                             totalWithPublisher++;
                             namesExcludedInWeek.add(candidate.name);
-                            inLoopAssignments.push({
-                                date: ensinoPart.date, tipoParte: ensinoPart.tipoParte, rawPublisherName: '',
-                                resolvedPublisherName: candidate.name, funcao: 'Titular', status: 'PROPOSTA'
-                            });
                         }
                     }
                 }
@@ -286,10 +268,6 @@ export const generationService = {
                         selectedPublisherByPart.set(estudantePart.id, { id: candidate.id, name: candidate.name });
                         totalWithPublisher++;
                         namesExcludedInWeek.add(candidate.name);
-                        inLoopAssignments.push({
-                            date: estudantePart.date, tipoParte: estudantePart.tipoParte, rawPublisherName: '',
-                            resolvedPublisherName: candidate.name, funcao: 'Titular', status: 'PROPOSTA'
-                        });
                     }
                 }
 
