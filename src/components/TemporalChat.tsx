@@ -4,15 +4,14 @@ import { askAgent, isAgentConfigured } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
 import type { Publisher, WorkbookPart } from '../types';
 import { agentActionService } from '../services/agentActionService';
-import type { SimulationResult, BatchSimulationResult } from '../services/agentActionService';
+import type { ActionResult } from '../services/agentActionService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
-import BatchSimulationPanel from './BatchSimulationPanel';
 
 interface Props {
     publishers: Publisher[];
     parts: WorkbookPart[];
-    onAction?: (result: SimulationResult) => void;
+    onAction?: (result: ActionResult) => void;
     onNavigateToWeek?: (weekId: string) => void;
     onModelChange?: (model: string) => void;
 }
@@ -46,11 +45,10 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     const refillInSeconds = oldestRequest ? Math.ceil((oldestRequest + 60000 - now) / 1000) : 0;
 
     // Action Handling State
-    const [pendingResult, setPendingResult] = useState<SimulationResult | null>(null);
+    // Action Handling State (No longer used for pendingResult, actions are immediate)
 
-    // v9.2: Batch Action State
-    const [pendingBatchResult, setPendingBatchResult] = useState<BatchSimulationResult | null>(null);
-    const [isCommittingBatch, setIsCommittingBatch] = useState(false);
+
+    // v9.3: Batch removed - Agent uses existing Workbook UI
 
     const handleConfirmAction = async () => {
         if (!pendingResult || !sessionId) return;
@@ -84,65 +82,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
         setPendingResult(null);
     };
 
-    // v9.2: Batch Action Handlers
-    const handleConfirmBatch = async () => {
-        if (!pendingBatchResult || !sessionId) return;
-        setIsCommittingBatch(true);
-        try {
-            await agentActionService.commitBatchAction(pendingBatchResult);
-            const successMsg: ChatMessage = {
-                role: 'assistant',
-                content: `✅ ${pendingBatchResult.results.length} designações salvas com sucesso!`,
-                timestamp: new Date(),
-            };
-            await chatHistoryService.addMessage(sessionId, successMsg);
-            setMessages(prev => [...prev, successMsg]);
-            setPendingBatchResult(null);
-        } catch (error) {
-            console.error('Failed to commit batch:', error);
-            const errorMsg: ChatMessage = {
-                role: 'assistant',
-                content: `❌ Erro ao salvar lote: ${error instanceof Error ? error.message : 'Erro'}`,
-                timestamp: new Date(),
-            };
-            await chatHistoryService.addMessage(sessionId, errorMsg);
-            setMessages(prev => [...prev, errorMsg]);
-        } finally {
-            setIsCommittingBatch(false);
-        }
-    };
-
-    const handleConfirmBatchSelected = async (partIds: string[]) => {
-        if (!pendingBatchResult || !sessionId) return;
-        setIsCommittingBatch(true);
-        try {
-            // Filter results to only selected parts
-            const filteredResults = pendingBatchResult.results.filter(r =>
-                r.affectedParts?.[0]?.id && partIds.includes(r.affectedParts[0].id)
-            );
-            const filteredBatch: BatchSimulationResult = {
-                ...pendingBatchResult,
-                results: filteredResults
-            };
-            await agentActionService.commitBatchAction(filteredBatch);
-            const successMsg: ChatMessage = {
-                role: 'assistant',
-                content: `✅ ${filteredResults.length} de ${pendingBatchResult.results.length} designações salvas!`,
-                timestamp: new Date(),
-            };
-            await chatHistoryService.addMessage(sessionId, successMsg);
-            setMessages(prev => [...prev, successMsg]);
-            setPendingBatchResult(null);
-        } catch (error) {
-            console.error('Failed to commit selected batch:', error);
-        } finally {
-            setIsCommittingBatch(false);
-        }
-    };
-
-    const handleCancelBatch = () => {
-        setPendingBatchResult(null);
-    };
+    // v9.3: Batch handlers removed - Agent delegates to generationService
 
     // Handle Share S-140 Action
     const handleShareS140 = async (weekId: string) => {
@@ -321,58 +261,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             if (response.success && response.action) {
                 console.log('[TemporalChat] Executing action:', response.action);
 
-                // v9.2: BATCH DESIGNATION HANDLER
-                if (response.action.type === 'SIMULATE_BATCH') {
-                    const { weekId, strategy } = response.action.params;
-                    if (!weekId) {
-                        const errorMsg: ChatMessage = {
-                            role: 'assistant',
-                            content: '⚠️ Semana não especificada para designação em lote.',
-                            timestamp: new Date(),
-                        };
-                        await chatHistoryService.addMessage(sessionId, errorMsg);
-                        setMessages(prev => [...prev, errorMsg]);
-                        return;
-                    }
-
-                    const batchResult = await agentActionService.simulateBatchAction(
-                        weekId,
-                        parts,
-                        publishers,
-                        strategy || 'rotation'
-                    );
-
-                    console.log('[TemporalChat] Batch result:', {
-                        success: batchResult.success,
-                        resultsCount: batchResult.results.length,
-                        skippedCount: batchResult.skipped.length,
-                        weekId: batchResult.weekId
-                    });
-
-                    if (batchResult.success) {
-                        setPendingBatchResult(batchResult);
-                        const systemMsg: ChatMessage = {
-                            role: 'assistant',
-                            content: `📋 ${batchResult.message}`,
-                            timestamp: new Date(),
-                        };
-                        await chatHistoryService.addMessage(sessionId, systemMsg);
-                        setMessages(prev => [...prev, systemMsg]);
-
-                        if (onNavigateToWeek) {
-                            onNavigateToWeek(weekId);
-                        }
-                    } else {
-                        const errorMsg: ChatMessage = {
-                            role: 'assistant',
-                            content: `⚠️ ${batchResult.message}`,
-                            timestamp: new Date(),
-                        };
-                        await chatHistoryService.addMessage(sessionId, errorMsg);
-                        setMessages(prev => [...prev, errorMsg]);
-                    }
-                    return;
-                }
+                // v9.3: SIMULATE_BATCH removed - Agent delegates to generationService
 
                 // SPECIAL HANDLER FOR WHATSAPP SHARE
                 if (response.action.type === 'SHARE_S140_WHATSAPP') {
@@ -390,28 +279,35 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     };
                     await chatHistoryService.addMessage(sessionId, systemMsg);
                     setMessages(prev => [...prev, systemMsg]);
-                    return; // Don't process via simulateAction normally
+                    return; // Don't process via executeAction normally
                 }
 
-                const result = await agentActionService.simulateAction(response.action, parts, publishers);
+                // EXECUTE ACTION DIRECTLY
+                const result = await agentActionService.executeAction(response.action, parts, publishers);
 
                 if (result.success) {
                     // Notify parent to update view
                     if (onAction) onAction(result);
 
-                    // Set as pending for confirmation
-                    setPendingResult(result);
-
                     // Add system feedback message
                     const systemMsg: ChatMessage = {
                         role: 'assistant',
-                        content: `👁️ Simulação: ${result.message}`,
+                        content: `✅ ${result.message}`,
                         timestamp: new Date(),
                     };
                     await chatHistoryService.addMessage(sessionId, systemMsg);
                     setMessages(prev => [...prev, systemMsg]);
+
+                    // Auto-navigate if applicable
+                    if (result.actionType === 'GENERATE_WEEK' && result.data?.generatedWeeks?.[0] && onNavigateToWeek) {
+                        onNavigateToWeek(result.data.generatedWeeks[0]);
+                    }
+                    if (result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId && onNavigateToWeek) {
+                        onNavigateToWeek(result.data.weekId);
+                    }
+
                 } else {
-                    // Error in simulation
+                    // Error in execution
                     const errorMsg: ChatMessage = {
                         role: 'assistant',
                         content: `⚠️ Não foi possível realizar a ação: ${result.message}`,
@@ -491,58 +387,9 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 )}
                 <div ref={messagesEndRef} />
             </div>
-            {pendingResult && pendingResult.success && (
-                <div style={{ padding: '12px', background: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)', borderTop: '2px solid #0EA5E9', boxShadow: '0 -2px 10px rgba(14, 165, 233, 0.15)' }}>
-                    <div style={{ fontWeight: 'bold', color: '#0369A1', marginBottom: '4px' }}>
-                        Ação Pendente (Simulação)
-                    </div>
-                    <div style={{ fontSize: '13px', color: '#0C4A6E', marginBottom: '8px' }}>
-                        {pendingResult.message}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                            onClick={handleConfirmAction}
-                            style={{
-                                flex: 1,
-                                background: '#0EA5E9',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                padding: '6px',
-                                cursor: 'pointer',
-                                fontWeight: 'bold'
-                            }}
-                        >
-                            Confirmar
-                        </button>
-                        <button
-                            onClick={handleCancelAction}
-                            style={{
-                                flex: 1,
-                                background: 'white',
-                                color: '#64748B',
-                                border: '1px solid #E2E8F0',
-                                borderRadius: '4px',
-                                padding: '6px',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
-            )}
+            {/* Pending actions panel removed - Actions are now direct or conversational */}
 
-            {/* v9.2: Batch Simulation Panel */}
-            {pendingBatchResult && pendingBatchResult.success && (
-                <BatchSimulationPanel
-                    batchResult={pendingBatchResult}
-                    onConfirmAll={handleConfirmBatch}
-                    onConfirmSelected={handleConfirmBatchSelected}
-                    onCancelAll={handleCancelBatch}
-                    isCommitting={isCommittingBatch}
-                />
-            )}
+            {/* v9.3: BatchSimulationPanel removed - Agent uses existing Workbook UI */}
 
             {/* Share S-140 Modal */}
             {shareModalOpen && (

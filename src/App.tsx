@@ -145,16 +145,24 @@ function App() {
   }, [])
 
   // Load workbook parts when ChatAgent opens OR Agent tab is active
+  // Extract refresh function for Agent to use
+  const refreshWorkbookParts = async () => {
+    console.log('[App] Refreshing workbook parts explicitly...');
+    try {
+      const parts = await workbookService.getAll();
+      setWorkbookParts(parts);
+      console.log(`[App] Refreshed ${parts.length} parts`);
+    } catch (err) {
+      console.warn('[App] Error refreshing parts:', err);
+    }
+  };
+
+  // Load workbook parts when ChatAgent opens OR Agent tab is active
   useEffect(() => {
     const needsParts = isChatAgentOpen || activeTab === 'agent';
     if (needsParts && workbookParts.length === 0) {
       console.log('[Agent] Loading workbook parts for AI...');
-      workbookService.getAll().then((parts: WorkbookPart[]) => {
-        console.log(`[Agent] Loaded ${parts.length} parts for AI`);
-        setWorkbookParts(parts);
-      }).catch((err: unknown) => {
-        console.warn('[Agent] Error loading parts:', err);
-      });
+      refreshWorkbookParts();
     }
   }, [isChatAgentOpen, activeTab, workbookParts.length]);
 
@@ -369,6 +377,7 @@ function App() {
                 parts={workbookParts}
                 weekParts={weekParts}
                 weekOrder={weekOrder}
+                onDataChange={refreshWorkbookParts}
               />
             );
           })()}

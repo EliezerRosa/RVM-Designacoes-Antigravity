@@ -36,6 +36,7 @@ export interface PartDesignation {
     designado: string;
     status: string;
     horaInicio: string;
+    id: string; // ID da parte para ações do agente
 }
 
 // NOVO: Designações de uma semana
@@ -233,6 +234,7 @@ export function buildAgentContext(
         }
 
         weekMap.get(weekId)!.parts.push({
+            id: part.id,
             tipoParte: part.tipoParte,
             tituloParte: part.tituloParte,
             funcao: part.funcao,
@@ -429,7 +431,7 @@ export function formatContextForPrompt(context: AgentContext): string {
 
             for (const part of sortedParts) {
                 const funcaoLabel = part.funcao === 'Ajudante' ? ' (Ajudante)' : '';
-                lines.push(`  • ${part.tituloParte}${funcaoLabel}: ${part.designado}`);
+                lines.push(`  • ${part.tituloParte}${funcaoLabel}: ${part.designado} [ID: ${part.id}]`);
             }
             lines.push('');
         }
