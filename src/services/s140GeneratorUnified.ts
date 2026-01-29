@@ -683,9 +683,17 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
     const html = generateMultiWeekS140UnifiedHTML(weeksData);
 
     const container = document.createElement('div');
-    container.innerHTML = html;
+    // TRUQUE CRÍTICO: Isolar o estilo e o conteúdo
+    // O navegador stripa <head> e <body> ao usar innerHTML num div
+    // Vamos garantir que o style esteja dentro do div, não no head
+    container.innerHTML = html.replace('<html>', '').replace('</html>', '').replace('<body>', '').replace('</body>', '').replace('<head>', '').replace('</head>', '').replace('<!DOCTYPE html>', '');
+
+    // Forçar visibilidade para o renderizador
     container.style.position = 'absolute';
     container.style.left = '-9999px';
+    container.style.width = '210mm'; // Tamanho A4
+    container.style.background = 'white'; // Garantir fundo branco
+
     document.body.appendChild(container);
 
     try {
@@ -694,17 +702,23 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
             : weeksData[0]?.weekId || 'unknown';
 
         const opt = {
-            margin: 3,
+            margin: 0, // Margem gerenciada pelo CSS do container
             filename: `S-140-Unified_${weekRange}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                windowWidth: 800 // Largura fixa para renderização consistente
+            },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
         await html2pdf().set(opt).from(container).save();
     } finally {
-        document.body.removeChild(container);
+        if (document.body.contains(container)) {
+            document.body.removeChild(container);
+        }
     }
 }
 
