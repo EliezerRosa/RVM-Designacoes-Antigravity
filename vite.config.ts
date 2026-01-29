@@ -16,10 +16,9 @@ export default defineConfig(({ command, mode }) => {
   const isVercel = process.env.VERCEL === '1';
 
   return {
-    // Forçar a definição das variáveis de ambiente para garantir que não se percam
     define: {
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY),
     },
     plugins: [react()],
     // Local (dev) ou Vercel = raiz ('/')
