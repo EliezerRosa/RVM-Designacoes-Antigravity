@@ -197,7 +197,7 @@ export function buildAgentContext(
     const recentParticipations = validParts
         // Ordenar decrescente para pegar os mais recentes
         .sort((a, b) => b.date.localeCompare(a.date))
-        .slice(0, 300) // v9.4: Limite de segurança para payload (300 participações)
+        .slice(0, 150) // v9.5: Reduzido para 150 para evitar 429 Too Many Requests (Token Quota)
         .map(summarizeParticipation);
 
     // Partes pendentes
