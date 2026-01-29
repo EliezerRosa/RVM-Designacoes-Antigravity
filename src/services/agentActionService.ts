@@ -2,7 +2,6 @@ import type { WorkbookPart, Publisher } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
 
 import { generationService } from './generationService';
-import { workbookService } from './workbookService';
 import { undoService } from './undoService';
 
 export type AgentActionType =
@@ -148,22 +147,36 @@ export const agentActionService = {
                         }
                     }
 
-                    // Salvar diretamente
+                    // UNDO Capture (Temporário aqui, ideal mover para UnifiedActionService)
                     if (resolvedName) {
-                        // Se tem nome, status -> PROPOSTA (ou mantém APPROVED se já estava)
-                        const newStatus = (targetPart.status === 'APROVADA' || targetPart.status === 'CONCLUIDA')
-                            ? targetPart.status
-                            : 'PROPOSTA';
-
-                        // UNDO Capture
                         undoService.captureSingle(targetPart, `Agente: Designar ${resolvedName}`);
+                    }
 
-                        await workbookService.updatePart(targetPart.id, {
-                            resolvedPublisherName: resolvedName,
-                            status: newStatus
-                        });
+                    // DELEGAR para UnifiedActionService
+                    const { unifiedActionService } = await import('./unifiedActionService');
 
-                        // Marcar seleção manual
+                    let actionResult;
+                    if (resolvedName) {
+                        actionResult = await unifiedActionService.executeDesignation(
+                            targetPart.id,
+                            resolvedName,
+                            'AGENT',
+                            'Solicitado via Chat'
+                        );
+                    } else {
+                        actionResult = await unifiedActionService.revertDesignation(
+                            targetPart.id,
+                            'AGENT',
+                            'Solicitado via Chat (Remover)'
+                        );
+                    }
+
+                    if (!actionResult.success) {
+                        return { success: false, message: actionResult.error || 'Erro na designação' };
+                    }
+
+                    // Marcar seleção manual (Tracker)
+                    if (resolvedName) {
                         try {
                             await markManualSelection(
                                 resolvedName,
@@ -174,13 +187,6 @@ export const agentActionService = {
                         } catch (e) {
                             console.warn('[AgentAction] Erro ao marcar seleção manual:', e);
                         }
-
-                    } else {
-                        // Remoção
-                        await workbookService.updatePart(targetPart.id, {
-                            resolvedPublisherName: '',
-                            status: 'PENDENTE'
-                        });
                     }
 
                     return {

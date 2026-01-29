@@ -6,7 +6,8 @@
 
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getEligibilityStats } from './eligibilityService';
-import { HISTORY_LOOKBACK_MONTHS, AGENT_CONTEXT_WEEKS, AGENT_HISTORY_LOOKBACK_WEEKS } from '../constants/config';
+import { calculateScore, ROTATION_CONFIG } from './unifiedRotationService';
+import { AGENT_CONTEXT_WEEKS, AGENT_HISTORY_LOOKBACK_WEEKS, AGENT_LIST_LOOKBACK_WEEKS } from '../constants/config';
 
 export const RULES_TEXT_VERSION = '2024-01-27.01'; // v8.3 - Elegibilidade no contexto
 
@@ -115,6 +116,9 @@ export interface AgentContext {
     // NOVO: Analytics
     participationAnalytics: ParticipationAnalytics;
 
+    // NOVO: Sugestões de Prioridade (Pré-calculadas)
+    priorityCandidates: string[];
+
     // Data atual
     currentDate: string;
 }
@@ -183,21 +187,18 @@ export function buildAgentContext(
 
 
 
-    // Participações completas (Ciclo de Vida - 12 meses atrás até infinito)
-    const lookbackDate = new Date();
-    lookbackDate.setMonth(lookbackDate.getMonth() - HISTORY_LOOKBACK_MONTHS); // v8.2: 12 meses
+    // Participações recentes (Lista para o Agente)
+    // v9.6: Usar janela de tempo fixa (AGENT_LIST_LOOKBACK_WEEKS) para economizar tokens
+    // O "Score Unificado" já carrega o peso histórico de 12 meses, então o Agente só precisa ver o recente.
+    const listLookbackDate = new Date();
+    listLookbackDate.setDate(listLookbackDate.getDate() - (AGENT_LIST_LOOKBACK_WEEKS * 7));
 
-    // Filtrar partes válidas
-    const validParts = parts.filter(p => {
-        if (!p.resolvedPublisherName) return false;
-        const partDate = new Date(p.date);
-        return partDate >= lookbackDate; // De 6 meses atrás em diante
-    });
-
-    const recentParticipations = validParts
-        // Ordenar decrescente para pegar os mais recentes
+    const recentParticipations = parts
+        .filter(p => {
+            const pDate = new Date(p.date);
+            return pDate >= listLookbackDate && p.resolvedPublisherName;
+        })
         .sort((a, b) => b.date.localeCompare(a.date))
-        .slice(0, 150) // v9.5: Reduzido para 150 para evitar 429 Too Many Requests (Token Quota)
         .map(summarizeParticipation);
 
     // Partes pendentes
@@ -285,6 +286,32 @@ export function buildAgentContext(
     // Analytics de participação (usa lista completa 'parts')
     const participationAnalytics = buildParticipationAnalytics(parts, publishers);
 
+    // GERAR LISTA DE PRIORIDADE (GENÉRICA)
+    // Calcula score considerando uma parte "padrão" (sem bônus de irmã/função específica)
+    // Isso dá ao agente uma visão clara de quem está "na fila" há mais tempo
+    const historyRecords = _history.length > 0 ? _history : parts.map(p => ({
+        ...p,
+        duracao: parseInt(p.duracao) || 0,
+        rawPublisherName: p.rawPublisherName || '',
+        resolvedPublisherName: p.resolvedPublisherName || '',
+        status: p.status as any,
+        importSource: 'Context',
+        importBatchId: 'generated',
+        createdAt: new Date().toISOString()
+    } as unknown as HistoryRecord)); // Fallback simples se history não vier
+
+    const priorityList = activePublishers.map(p => {
+        const scoreData = calculateScore(p, 'Generic', historyRecords);
+        return {
+            name: p.name,
+            score: scoreData.score,
+            explanation: scoreData.explanation
+        };
+    })
+        .sort((a, b) => b.score - a.score) // Maior score primeiro
+        .slice(0, 20) // Top 20
+        .map(res => `${res.name} (Score ${res.score}): ${res.explanation}`);
+
     return {
         totalPublishers: publishers.length,
         activePublishers: activePublishers.length,
@@ -298,6 +325,7 @@ export function buildAgentContext(
         specialEvents: specialEventsSummary,
         localNeedsQueue,
         participationAnalytics,
+        priorityCandidates: priorityList,
         currentDate: new Date().toISOString().split('T')[0],
     };
 }
@@ -461,11 +489,17 @@ export function formatContextForPrompt(context: AgentContext): string {
         }
     }
 
-    // Analytics
     if (context.participationAnalytics) {
         lines.push(`\n=== ESTATÍSTICAS (Média: ${context.participationAnalytics.avgPerPublisher}) ===`);
         lines.push(`Mais ativos: ${context.participationAnalytics.mostActive.map(p => `${p.name}(${p.count})`).join(', ')}`);
         lines.push(`Menos ativos: ${context.participationAnalytics.leastActive.map(p => `${p.name}(${p.lastDate || 'Nunca'})`).join(', ')}`);
+    }
+
+    // Prioridade (Sugestões do Sistema)
+    if (context.priorityCandidates && context.priorityCandidates.length > 0) {
+        lines.push(`\n=== SUGESTÃO DE PRIORIDADE (ALTA ROTAÇÃO) ===`);
+        lines.push(`Use esta lista como base para sugerir designações justas:`);
+        context.priorityCandidates.forEach(cand => lines.push(`⭐ ${cand}`));
     }
 
     return lines.join('\n');
@@ -527,10 +561,11 @@ REGRAS DE ELEGIBILIDADE DO SISTEMA:
    - Somente irmãos
    - Requer privilégio canReadCBS
 
-SISTEMA DE ROTAÇÃO:
-- Cooldown: 3 semanas entre partes do mesmo tipo
-- Publicador sem parte há 8+ semanas recebe MEGA BÔNUS de prioridade
-- Fórmula: Score = (SemanasDesdeÚltima × 50) - (PesoAcumulado × 5)
+SISTEMA DE ROTAÇÃO (Unificado v9.0):
+- Cooldown: 3 meses para repetição frequente (Frequency Penalty)
+- Prioridade Baseada em Tempo (EXPONENCIAL): Tempo de espera gera urgência crescente (Weeks^1.5).
+- Fórmula Real: Score = ${ROTATION_CONFIG.BASE_SCORE} + (SemanasSemParte ^ ${ROTATION_CONFIG.TIME_POWER} * ${ROTATION_CONFIG.TIME_FACTOR}) - (PartesEm3Meses * ${ROTATION_CONFIG.RECENT_PARTICIPATION_PENALTY})
+- Bônus: +${ROTATION_CONFIG.SISTER_DEMO_PRIORITY} pts para Irmãs em demonstrações.
 
 BLOQUEIOS AUTOMÁTICOS:
 - isServing = false → Não designar

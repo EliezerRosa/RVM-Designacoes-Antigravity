@@ -39,6 +39,7 @@ import { getGroupMembers } from '../services/groupService';
 
 interface Props {
     publishers: Publisher[];
+    isActive?: boolean;
 }
 
 // Colunas esperadas no Excel da apostila (deve corresponder ao extract_detailed_parts.py)
@@ -95,7 +96,7 @@ const isPartInPastWeek = (partDate: string): boolean => {
     return dateObj < mondayOfCurrentWeek;
 };
 
-export function WorkbookManager({ publishers }: Props) {
+export function WorkbookManager({ publishers, isActive }: Props) {
     // ========================================================================
     // Estado
     // ========================================================================
@@ -195,7 +196,18 @@ export function WorkbookManager({ publishers }: Props) {
         }
     };
 
-    // Carregar dados inicialmente (sem filtros para ter o total)
+
+    // ========================================================================
+    // Auto-Refresh when Tab becomes Active (Sync with Agent/Other Tabs)
+    // ========================================================================
+    useEffect(() => {
+        if (isActive) {
+            console.log('[WorkbookManager] 🔄 Tab activated, refreshing data...');
+            loadPartsWithFilters();
+        }
+    }, [isActive]);
+
+    // Carregar dados inicialmente
     useEffect(() => {
         loadPartsWithFilters();
         // Carregar histórico completo para cooldown (12 meses) de forma independente dos filtros
@@ -1444,13 +1456,30 @@ export function WorkbookManager({ publishers }: Props) {
                 }
             }
 
-            // Chamada ao Backend
-            if (!isDesignada) {
-                await workbookService.proposePublisher(partId, newName);
+            // Chamada ao Backend via Unified Action Service (The Hand)
+            // Import dinâmico para evitar ciclo (embora WorkbookManager seja componente)
+            const { unifiedActionService } = await import('../services/unifiedActionService');
+
+            let result;
+            if (newName) {
+                // Designar
+                result = await unifiedActionService.executeDesignation(
+                    partId,
+                    newName,
+                    'MANUAL',
+                    'Seleção via Dropdown'
+                );
             } else {
-                await workbookService.updatePart(partId, {
-                    resolvedPublisherName: newName
-                });
+                // Reverter/Limpar
+                result = await unifiedActionService.revertDesignation(
+                    partId,
+                    'MANUAL',
+                    'Limpeza via Dropdown'
+                );
+            }
+
+            if (!result.success) {
+                throw new Error(result.error);
             }
         } catch (e) {
             console.error('Erro ao atualizar publicador:', e);
