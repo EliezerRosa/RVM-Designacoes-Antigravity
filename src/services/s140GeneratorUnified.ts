@@ -586,19 +586,29 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
 // ============================================================================
 
 export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Promise<void> {
-    const html = generateS140UnifiedHTML(weekData);
+    // Construção Segura do DOM (Padronizada com Multi-Week)
+    const wrapper = document.createElement('div');
 
-    // Legacy method for single week - kept for minimal regression risk
-    // But updated to be safer with styles
-    const container = document.createElement('div');
-    container.innerHTML = html.replace('<!DOCTYPE html>', '').replace('<html>', '').replace('</html>', '').replace('<body>', '').replace('</body>', '').replace('<head>', '').replace('</head>', '');
+    // 1. Injetar Estilos
+    const style = document.createElement('style');
+    style.innerHTML = S140_CSS;
+    wrapper.appendChild(style);
 
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.width = '210mm';
-    container.style.background = 'white';
+    // 2. Construir Página
+    const bodyContent = generateS140BodyContent(weekData);
+    const pageDiv = document.createElement('div');
+    pageDiv.className = 'container';
+    pageDiv.innerHTML = bodyContent;
+    wrapper.appendChild(pageDiv);
 
-    document.body.appendChild(container);
+    // 3. Configurar Wrapper para Renderização
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '-9999px';
+    wrapper.style.width = '210mm';
+    wrapper.style.background = 'white';
+    wrapper.style.top = '0';
+
+    document.body.appendChild(wrapper);
 
     try {
         const opt = {
@@ -609,10 +619,10 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
         };
 
-        await html2pdf().set(opt).from(container).save();
+        await html2pdf().set(opt).from(wrapper).save();
     } finally {
-        if (document.body.contains(container)) {
-            document.body.removeChild(container);
+        if (document.body.contains(wrapper)) {
+            document.body.removeChild(wrapper);
         }
     }
 }
