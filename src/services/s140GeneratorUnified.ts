@@ -736,17 +736,26 @@ export async function downloadS140UnifiedMultiWeek(
 }
 
 export function renderS140ToElement(weekData: S140WeekDataUnified): HTMLElement {
-    const html = generateS140UnifiedHTML(weekData);
+    // Construção Segura do DOM (Padronizada)
+    const wrapper = document.createElement('div');
+
+    // 1. Injetar Estilos
+    const style = document.createElement('style');
+    style.innerHTML = S140_CSS;
+    wrapper.appendChild(style);
+
+    // 2. Construir Conteúdo
+    const bodyContent = generateS140BodyContent(weekData);
     const container = document.createElement('div');
-    container.innerHTML = html;
+    container.className = 'container';
+    container.innerHTML = bodyContent;
 
-    // Extra adjustment for image capture: ensure explicit white background and sizing
-    const content = container.querySelector('.container') as HTMLElement;
-    if (content) {
-        content.style.backgroundColor = '#ffffff';
-        content.style.width = '800px'; // Fixed width for consistent image
-        content.style.padding = '20px';
-    }
+    // Ajustes específicos para o Preview/Agent
+    container.style.backgroundColor = '#ffffff';
+    container.style.width = '800px';
+    container.style.padding = '20px';
 
-    return container;
+    wrapper.appendChild(container);
+
+    return wrapper;
 }
