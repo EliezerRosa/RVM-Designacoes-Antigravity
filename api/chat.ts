@@ -236,7 +236,7 @@ export default async function handler(request: Request) {
 
         return new Response(JSON.stringify({
             error: {
-                message: "⚠️ Ocorreu um erro técnico na comunicação com a IA. Um alerta detalhado foi enviado para o painel administrativo."
+                message: `⚠️ Ocorreu um erro técnico na comunicação com a IA. Detalhes: ${errorTrace.join(' | ')}`
             }
         }), {
             status: lastStatus || 500,
