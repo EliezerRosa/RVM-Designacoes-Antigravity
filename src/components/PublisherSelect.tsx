@@ -207,35 +207,47 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Determinar o valor efetivo - tentar encontrar ID pelo nome se não temos ID
     // Agora usa busca fonética/fuzzy para melhor match (ex: "eryc" encontra "Erik")
     const { effectiveValue, foundPublisher, eligibilityInfo } = useMemo(() => {
-        const modalidade = getModalidade(part);
-        const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
-        const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
-
-        // Para Ajudantes: Encontrar o gênero do Titular correspondente
-        let titularGender: 'brother' | 'sister' | undefined = undefined;
-        if (funcao === EnumFuncao.AJUDANTE && weekParts) {
-            const titularPart = weekParts.find(wp =>
-                wp.weekId === part.weekId &&
-                wp.seq === part.seq &&
-                wp.funcao === 'Titular'
-            );
-            if (titularPart?.resolvedPublisherName) {
-                const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
-                if (titularPub) {
-                    titularGender = titularPub.gender;
-                }
-            }
-        }
-
         if (value) {
+            // OTIMIZAÇÃO: Tentar encontrar nos options já calculados (evita rodar checkEligibility de novo)
+            const preCalculated = sortedOptions.find(o => o.publisher.id === value);
+            if (preCalculated) {
+                return {
+                    effectiveValue: value,
+                    foundPublisher: preCalculated.publisher,
+                    eligibilityInfo: { eligible: preCalculated.eligible, reason: preCalculated.reason }
+                };
+            }
+
+            // Fallback: Se não estiver na lista (ex: lista filtrada externamente?), buscar no raw array
             const pub = publishers.find(p => p.id === value);
             if (pub) {
+                const modalidade = getModalidade(part);
+                const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
+                const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+                // Re-obter contexto necessário (titularGender já calculado no escopo acima?)
+                // Nota: titularGender está dentro do useMemo do sortedOptions. Precisamos recalculá-lo ou movê-lo para escopo superior.
+                // Para manter simples e seguro, se não achou no sortedOptions, recalculamos tudo.
+
+                // Recalcular titularGender localmente
+                let tGender: 'brother' | 'sister' | undefined = undefined;
+                if (funcao === EnumFuncao.AJUDANTE && weekParts) {
+                    const titularPart = weekParts.find(wp =>
+                        wp.weekId === part.weekId &&
+                        wp.seq === part.seq &&
+                        wp.funcao === 'Titular'
+                    );
+                    if (titularPart?.resolvedPublisherName) {
+                        const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
+                        if (titularPub) tGender = titularPub.gender;
+                    }
+                }
+
                 const isPast = isPastWeekDate(part.date);
                 const result = checkEligibility(
                     pub,
                     modalidade as Parameters<typeof checkEligibility>[1],
                     funcao,
-                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
+                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender: tGender }
                 );
                 return {
                     effectiveValue: value,
@@ -244,6 +256,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 };
             }
         }
+
         if (displayName) {
             // Tentar match exato primeiro
             let found = publishers.find(p => p.name === displayName);
@@ -268,12 +281,39 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             }
 
             if (found) {
+                // Tentar reutilizar sortedOptions para o encontrado via nome
+                const preCalculated = sortedOptions.find(o => o.publisher.id === found!.id);
+                if (preCalculated) {
+                    return {
+                        effectiveValue: found.id,
+                        foundPublisher: found,
+                        eligibilityInfo: { eligible: preCalculated.eligible, reason: preCalculated.reason }
+                    };
+                }
+
+                // Recalculo manual (fallback)
+                const modalidade = getModalidade(part);
+                const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
+                const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+                let tGender: 'brother' | 'sister' | undefined = undefined;
+                if (funcao === EnumFuncao.AJUDANTE && weekParts) {
+                    const titularPart = weekParts.find(wp =>
+                        wp.weekId === part.weekId &&
+                        wp.seq === part.seq &&
+                        wp.funcao === 'Titular'
+                    );
+                    if (titularPart?.resolvedPublisherName) {
+                        const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
+                        if (titularPub) tGender = titularPub.gender;
+                    }
+                }
+
                 const isPast = isPastWeekDate(part.date);
                 const result = checkEligibility(
                     found,
                     modalidade as Parameters<typeof checkEligibility>[1],
                     funcao,
-                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
+                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender: tGender }
                 );
                 return {
                     effectiveValue: found.id,
@@ -283,7 +323,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             }
         }
         return { effectiveValue: '', foundPublisher: undefined, eligibilityInfo: undefined };
-    }, [value, displayName, publishers, part, weekParts]);
+    }, [value, displayName, publishers, part, weekParts, sortedOptions]);
 
     // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
     const showUnmatchedName = displayName && !foundPublisher;

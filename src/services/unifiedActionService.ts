@@ -15,6 +15,11 @@
 
 import { workbookService } from './workbookService';
 import type { WorkbookPart } from '../types';
+import { api } from './api';
+import { checkEligibility } from './eligibilityService';
+import { getModalidadeFromTipo } from '../constants/mappings';
+import { EnumFuncao } from '../types';
+import { supabase } from '../lib/supabase';
 
 export type ActionSource = 'MANUAL' | 'AGENT' | 'BATCH' | 'AUTO_FILL';
 
@@ -38,13 +43,15 @@ export const unifiedActionService = {
         console.log(`[UnifiedAction] 📝 Solicitação de Designação:`, { partId, publisherName, source, reason });
 
         try {
-            // 1. Validações futuras podem entrar aqui (ex: checar se está bloqueado por outro user)
+            // 1. Validação "Hard Compliance" para Agente (e outros se necessário)
+            if (source === 'AGENT') {
+                await this.validateEligibility(partId, publisherName);
+            }
 
             // 2. Executar via WorkbookService (Camada de Dados)
             const updatedPart = await workbookService.proposePublisher(partId, publisherName);
 
-            // 3. Log de Auditoria (Pode ser expandido para tabela 'action_logs' no futuro)
-            // Por enquanto, log de console rico para debug
+            // 3. Log de Auditoria
             console.log(`[UnifiedAction] ✅ Sucesso: ${publisherName} designado para ${updatedPart.tituloParte} (${source})`);
 
             return { success: true, part: updatedPart };
@@ -78,5 +85,74 @@ export const unifiedActionService = {
                 error: error instanceof Error ? error.message : 'Erro desconhecido na reversão'
             };
         }
+    },
+
+    // ========================================================================
+    // HELPERS DE VALIDAÇÃO
+    // ========================================================================
+
+    async validateEligibility(partId: string, publisherName: string): Promise<void> {
+        // 1. Buscar a parte (Raw DB fetch para performance e evitar dependências circulares complexas)
+        const { data: partData, error } = await supabase
+            .from('workbook_parts')
+            .select('week_id, seq, tipo_parte, modalidade, date, section, funcao')
+            .eq('id', partId)
+            .single();
+
+        if (error || !partData) {
+            throw new Error(`Parte não encontrada: ${partId}`);
+        }
+
+        // 2. Buscar Publicador
+        const allPublishers = await api.loadPublishers();
+        const publisher = allPublishers.find(p => p.name === publisherName);
+
+        if (!publisher) {
+            throw new Error(`Publicador não encontrado: "${publisherName}"`);
+        }
+
+        // 3. Preparar Contexto de Elegibilidade
+        const tipoParte = partData.tipo_parte || '';
+        const modalidade = partData.modalidade || getModalidadeFromTipo(tipoParte);
+        const funcao = partData.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+        const isOracaoInicial = tipoParte.toLowerCase().includes('inicial');
+        const isPast = false; // Agente geralmente opera no presente/futuro
+
+        // Lógica de Gênero do Titular (se for ajudante)
+        let titularGender: 'brother' | 'sister' | undefined = undefined;
+        if (funcao === EnumFuncao.AJUDANTE) {
+            // Buscar o titular da mesma parte (mesmo week_id e seq)
+            const { data: titularData } = await supabase
+                .from('workbook_parts')
+                .select('resolved_publisher_name')
+                .eq('week_id', partData.week_id)
+                .eq('seq', partData.seq)
+                .eq('funcao', 'Titular')
+                .maybeSingle();
+
+            if (titularData?.resolved_publisher_name) {
+                const titular = allPublishers.find(p => p.name === titularData.resolved_publisher_name);
+                if (titular) titularGender = titular.gender;
+            }
+        }
+
+        // 4. Checar Regras da EligibilityService
+        const result = checkEligibility(
+            publisher,
+            modalidade as any, // Cast seguro, validado pelo service
+            funcao,
+            {
+                date: partData.date,
+                isOracaoInicial,
+                secao: partData.section,
+                isPastWeek: isPast,
+                titularGender
+            }
+        );
+
+        if (!result.eligible) {
+            throw new Error(`[Safety Block] Publicador Inelegível: ${result.reason}`);
+        }
     }
 };
+
