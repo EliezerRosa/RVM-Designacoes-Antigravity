@@ -20,8 +20,22 @@ import {
 
 // A API key deve ser configurada em .env.local como VITE_GEMINI_API_KEY
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-// Usando a versão experimental (2.0) ou estável mais recente (1.5-flash-002)
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent';
+
+// LISTA DE ELITE: Prioridade de modelos para tentar
+const MODEL_CANDIDATES = [
+    'gemini-1.5-flash',         // Alias estável (geralmente aponta para a mais recente)
+    'gemini-1.5-flash-002',     // Versão específica confiável
+    'gemini-2.0-flash-exp',     // Versão experimental mais rápida
+    'gemini-1.5-flash-8b',      // Fallback leve
+    'gemini-1.5-flash-001'      // Versão legada
+];
+
+// Cache do último modelo que funcionou para agilizar próximas chamadas
+let lastWorkingModel: string | null = null;
+
+function getGeminiUrl(model: string): string {
+    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
 
 // SEGURANÇA: Modelos permitidos no Free Tier
 // Se tentar usar um modelo fora desta lista, o sistema bloqueará para evitar cobranças acidentais.
@@ -30,7 +44,9 @@ const FREE_TIER_SAFE_MODELS = [
     'gemini-1.5-flash',
     'gemini-1.5-flash-001',
     'gemini-1.5-flash-002',
-    'gemini-1.5-flash-8b'
+    'gemini-1.5-flash-8b',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash'
 ];
 
 // ===== Tipos =====
@@ -218,132 +234,153 @@ export async function askAgent(
         };
     }
 
-    try {
-        // Construir contexto (agora com eventos e necessidades locais)
-        const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds);
-        const contextText = formatContextForPrompt(context);
-        const rulesText = getEligibilityRulesText();
+    // 1. Preparar lista de modelos para tentar
+    // Se já temos um que funcionou antes, ele vai pro topo da lista
+    let attemptList = [...MODEL_CANDIDATES];
+    if (lastWorkingModel && attemptList.includes(lastWorkingModel)) {
+        attemptList = [lastWorkingModel, ...attemptList.filter(m => m !== lastWorkingModel)];
+    }
 
-        // NOVO: Montar system prompt baseado no nível de acesso
-        let systemPrompt = SYSTEM_PROMPT_BASE;
-        let sensitiveContextText = '';
+    let lastError: any = null;
+    let successResponse: AgentResponse | null = null;
 
-        if (accessLevel === 'elder') {
-            systemPrompt += SYSTEM_PROMPT_ELDER_ADDON;
-            // Adicionar contexto sensível para anciãos
-            const sensitiveInfo = buildSensitiveContext(publishers);
-            sensitiveContextText = formatSensitiveContext(sensitiveInfo);
-        } else {
-            systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
-        }
+    // 2. Loop de Tentativas (Smart Fallback)
+    for (const model of attemptList) {
+        try {
+            console.log(`[Agent] Tentando modelo: ${model}...`);
 
-        // Montar histórico de chat (últimas 5 mensagens)
-        const recentChat = chatHistory.slice(-5).map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }],
-        }));
+            // Construir contexto
+            const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds);
+            const contextText = formatContextForPrompt(context);
+            const rulesText = getEligibilityRulesText();
 
-        // Montar request
-        const requestBody = {
-            contents: [
-                // System instruction como primeira mensagem
-                {
-                    role: 'user',
-                    parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }],
-                },
-                {
-                    role: 'model',
-                    parts: [{ text: `Entendido! Sou o Assistente RVM com acesso de ${accessLevel === 'elder' ? 'Ancião' : 'Publicador'}. Como posso ajudar?` }],
-                },
-                // Histórico de chat
-                ...recentChat,
-                // Pergunta atual
-                {
-                    role: 'user',
-                    parts: [{ text: question }],
-                },
-            ],
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 8192,  // Máximo para respostas completas
-                topP: 0.95,
-            },
-        };
+            // Montar system prompt
+            let systemPrompt = SYSTEM_PROMPT_BASE;
+            let sensitiveContextText = '';
 
-        // Decidir se usa Proxy (Vercel) ou Direto (Local)
-        let response: Response;
-
-        const hasLocalKey = !!GEMINI_API_KEY && GEMINI_API_KEY.length > 10;
-
-        if (hasLocalKey) {
-            // MODO LOCAL: Chama direto com a chave do .env.local
-
-            // 🔒 Safety Check
-            checkSafetyMode(GEMINI_API_URL);
-
-            response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-            });
-        } else {
-            // MODO PRODUÇÃO/VERCEL: Chama o proxy (sem chave na URL)
-            response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-            });
-        }
-
-        // Check for Fallback Header (Only works in Proxy mode, but safe to check always)
-        const isFallback = response.headers.get('X-RVM-Model-Fallback') === 'true';
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-
-            // Tratamento especial para erro de chave vazada
-            const errorMessage = errorData.error?.message || `Erro HTTP ${response.status}`;
-            if (errorMessage.includes('API key not valid') || errorMessage.includes('key was reported as leaked')) {
-                throw new Error('A API Key foi invalidada. Por favor, verifique a configuração na Vercel.');
+            if (accessLevel === 'elder') {
+                systemPrompt += SYSTEM_PROMPT_ELDER_ADDON;
+                const sensitiveInfo = buildSensitiveContext(publishers);
+                sensitiveContextText = formatSensitiveContext(sensitiveInfo);
+            } else {
+                systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
             }
 
-            throw new Error(errorMessage);
+            // Histórico
+            const recentChat = chatHistory.slice(-5).map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }],
+            }));
 
+            // Request Body
+            const requestBody = {
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }],
+                    },
+                    {
+                        role: 'model',
+                        parts: [{ text: `Entendido! Sou o Assistente RVM (${model}) com acesso de ${accessLevel === 'elder' ? 'Ancião' : 'Publicador'}.` }],
+                    },
+                    ...recentChat,
+                    {
+                        role: 'user',
+                        parts: [{ text: question }],
+                    },
+                ],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 8192,
+                    topP: 0.95,
+                },
+            };
+
+            // Chamada API
+            let response: Response;
+            const hasLocalKey = !!GEMINI_API_KEY && GEMINI_API_KEY.length > 10;
+            const targetUrl = getGeminiUrl(model);
+
+            if (hasLocalKey) {
+                checkSafetyMode(targetUrl);
+                response = await fetch(`${targetUrl}?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+            } else {
+                // No modo Proxy (Vercel), podemos futuramente passar o modelo via header.
+                // Por enquanto mantemos compatibilidade simples.
+                response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+            }
+
+            const isFallback = response.headers.get('X-RVM-Model-Fallback') === 'true';
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.error?.message || `Erro HTTP ${response.status}`;
+
+                // Se for erro de chave invalida, aborta imediatamente
+                if (errorMessage.includes('API key not valid') || errorMessage.includes('key was reported as leaked')) {
+                    throw new Error('A API Key foi invalidada. Por favor, verifique a configuração na Vercel.');
+                }
+
+                // Se for outro erro (ex: 404 Model Not Found), lança para cair no catch e tentar o próximo loop
+                throw new Error(`Falha no modelo ${model}: ${errorMessage}`);
+            }
+
+            const data = await response.json();
+            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!content) {
+                throw new Error('Resposta vazia do Gemini');
+            }
+
+            const detectedAction = agentActionService.detectAction(content);
+
+            // SUCESSO!
+            console.log(`[Agent] SUCESSO com modelo: ${model}`);
+            lastWorkingModel = model; // Memorizar
+
+            successResponse = {
+                success: true,
+                message: content,
+                action: detectedAction || undefined,
+                isFallback: isFallback,
+                modelUsed: model
+            };
+
+            // Sair do loop
+            break;
+
+        } catch (error) {
+            console.warn(`[Agent] Erro ao tentar modelo ${model}:`, error);
+            lastError = error;
+            // Continua para o próximo modelo...
         }
-
-        const data = await response.json();
-
-        // Extrair resposta
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!content) {
-            throw new Error('Resposta vazia do Gemini');
-        }
-
-        const detectedAction = agentActionService.detectAction(content);
-
-        return {
-            success: true,
-            message: content,
-            action: detectedAction || undefined,
-            isFallback: isFallback
-        };
-
-    } catch (error) {
-        console.error('[Agent] Error:', error);
-
-        let userMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-
-        if (userMessage.includes('Failed to fetch')) {
-            userMessage = 'Erro de conexão com a IA (Failed to fetch). Verifique sua internet ou se a API Key está configurada corretamente no ambiente de produção. Se o contexto for muito grande, o envio pode falhar.';
-        }
-
-        return {
-            success: false,
-            message: '',
-            error: userMessage,
-        };
     }
+
+    // Retorna o sucesso se tiver
+    if (successResponse) {
+        return successResponse;
+    }
+
+    // Se chegou aqui, todos falharam
+    let finalErrorMessage = lastError instanceof Error ? lastError.message : 'Erro desconhecido';
+
+    if (finalErrorMessage.includes('Failed to fetch')) {
+        finalErrorMessage = 'Erro de conexão com a IA (Failed to fetch). Verifique sua internet.';
+    }
+
+    return {
+        success: false,
+        message: '',
+        error: `Todas as tentativas falharam. Último erro: ${finalErrorMessage} (Tentados: ${attemptList.join(', ')})`,
+    };
 }
 
 /**
