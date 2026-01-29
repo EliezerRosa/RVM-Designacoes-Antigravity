@@ -293,9 +293,13 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
 
             // Detect rate limit error and extract wait time
-            const rateLimitMatch = errorMessage.match(/Please retry in ([\d.]+)s/);
-            if (rateLimitMatch) {
-                const waitSeconds = Math.ceil(parseFloat(rateLimitMatch[1]));
+            // Detect rate limit error and extract wait time (Find MAX wait time if multiple)
+            const rateLimitMatches = [...errorMessage.matchAll(/Please retry in ([\d.]+)s/g)];
+            if (rateLimitMatches.length > 0) {
+                // Encontrar o maior tempo de espera sugerido entre todos os erros
+                const waitTimes = rateLimitMatches.map(m => parseFloat(m[1]));
+                const maxWait = Math.max(...waitTimes);
+                const waitSeconds = Math.ceil(maxWait);
                 setRateLimitCountdown(waitSeconds);
 
                 // SYNC: If API says we are limited, consume all local credits immediately
