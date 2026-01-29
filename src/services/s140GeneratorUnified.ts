@@ -254,23 +254,25 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
 // GERAÇÃO DE HTML (baseado no BA4 com ajustes para eventos)
 // ============================================================================
 
-export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
+// ============================================================================
+// GERAÇÃO DE HTML (baseado no BA4 com ajustes para eventos)
+// ============================================================================
+
+/**
+ * Gera apenas o CONTEÚDO interno do S-140 (tabelas, header, eventos)
+ * Sem as tags <html>, <head>, <body> envolvendo
+ */
+export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
     const year = new Date().getFullYear();
 
-    // Se semana cancelada, mostrar aviso
+    // Se semana cancelada, mostrar aviso simplificado
     if (weekData.isWeekCancelled) {
         return `
-            <!DOCTYPE html>
-            <html>
-            <head><meta charset="UTF-8"></head>
-            <body style="font-family: Calibri, sans-serif; padding: 20mm;">
-                <div style="text-align: center; padding: 40px; background: ${COLORS.CANCELLED_BG}; border-radius: 8px;">
-                    <h1 style="color: ${COLORS.VIDA_CRISTA_BG};">SEMANA CANCELADA</h1>
-                    <p style="font-size: 16pt;">${weekData.weekDisplay}</p>
-                    <p style="font-size: 14pt; color: #666;">${weekData.cancelReason || 'Sem motivo especificado'}</p>
-                </div>
-            </body>
-            </html>
+            <div style="text-align: center; padding: 40px; background: ${COLORS.CANCELLED_BG}; border-radius: 8px;">
+                <h1 style="color: ${COLORS.VIDA_CRISTA_BG};">SEMANA CANCELADA</h1>
+                <p style="font-size: 16pt;">${weekData.weekDisplay}</p>
+                <p style="font-size: 14pt; color: #666;">${weekData.cancelReason || 'Sem motivo especificado'}</p>
+            </div>
         `;
     }
 
@@ -467,6 +469,33 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
     });
 
     return `
+        <div class="header-row">
+            <span class="congregation">${CONGREGATION_NAME}</span>
+            <span class="title-year">Programação da reunião do meio de semana — <strong>${year}</strong></span>
+        </div>
+
+        ${eventBanner}
+
+        <div class="week-info">
+            <span class="week-date">${weekData.weekDisplay.toUpperCase()}</span>
+            <span class="president-info">Presidente: ${weekData.president}</span>
+            ${weekData.counselorRoomB ? `<span class="counselor-info">Conselheiro da sala B: ${weekData.counselorRoomB}</span>` : ''}
+        </div>
+
+        <table>
+            <tbody>
+                ${initialHTML}
+                ${sectionsHTML}
+                ${finalHTML}
+            </tbody>
+        </table>
+    `;
+}
+
+export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
+    const bodyContent = generateS140BodyContent(weekData);
+
+    return `
         <!DOCTYPE html>
         <html>
         <head>
@@ -477,6 +506,8 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
                     font-family: Calibri, 'Segoe UI', sans-serif; 
                     font-size: 13pt;
                     line-height: 1.4;
+                    padding: 0;
+                    margin: 0;
                 }
                 .container {
                     width: 100%;
@@ -536,26 +567,7 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
         </head>
         <body>
             <div class="container">
-                <div class="header-row">
-                    <span class="congregation">${CONGREGATION_NAME}</span>
-                    <span class="title-year">Programação da reunião do meio de semana — <strong>${year}</strong></span>
-                </div>
-
-                ${eventBanner}
-
-                <div class="week-info">
-                    <span class="week-date">${weekData.weekDisplay.toUpperCase()}</span>
-                    <span class="president-info">Presidente: ${weekData.president}</span>
-                    ${weekData.counselorRoomB ? `<span class="counselor-info">Conselheiro da sala B: ${weekData.counselorRoomB}</span>` : ''}
-                </div>
-
-                <table>
-                    <tbody>
-                        ${initialHTML}
-                        ${sectionsHTML}
-                        ${finalHTML}
-                    </tbody>
-                </table>
+                ${bodyContent}
             </div>
         </body>
         </html>
@@ -599,13 +611,10 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 
 export function generateMultiWeekS140UnifiedHTML(weeksData: S140WeekDataUnified[]): string {
     const pages = weeksData.map((weekData, index) => {
-        const weekHtml = generateS140UnifiedHTML(weekData);
-        // Extrair apenas o conteúdo do container
-        const match = weekHtml.match(/<div class="container">([\s\S]*?)<\/div>\s*<\/body>/);
-        const content = match ? match[1] : '';
-
+        // REUTILIZAÇÃO DIRETA DA LÓGICA DE CONTEÚDO (Sem Regex frágil)
+        const bodyContent = generateS140BodyContent(weekData);
         const pageBreak = index < weeksData.length - 1 ? 'page-break' : '';
-        return `<div class="container ${pageBreak}">${content}</div>`;
+        return `<div class="container ${pageBreak}">${bodyContent}</div>`;
     });
 
 
