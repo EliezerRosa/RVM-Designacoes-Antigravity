@@ -492,6 +492,74 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
     `;
 }
 
+const S140_CSS = `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+        font-family: Calibri, 'Segoe UI', sans-serif; 
+        font-size: 13pt;
+        line-height: 1.4;
+        padding: 0;
+        margin: 0;
+    }
+    .container {
+        width: 100%;
+        max-width: 200mm;
+        margin: 0 auto;
+        padding: 3mm;
+        background: white; /* Ensure background is white for PDF */
+    }
+    .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid ${COLORS.SEPARATOR};
+        padding-bottom: 8px;
+        margin-bottom: 10px;
+    }
+    .congregation {
+        font-family: Calibri, sans-serif;
+        font-size: 14pt;
+        font-weight: bold;
+        color: ${COLORS.HEADER_TEXT};
+    }
+    .title-year {
+        font-family: Calibri, sans-serif;
+        font-size: 13pt;
+        color: ${COLORS.HEADER_TEXT};
+    }
+    .week-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        padding: 6px 0;
+    }
+    .week-date {
+        font-family: Calibri, sans-serif;
+        font-size: 13pt;
+        font-weight: bold;
+        color: #333;
+    }
+    .president-info, .counselor-info {
+        font-family: Calibri, sans-serif;
+        font-size: 10pt;
+        font-weight: bold;
+        color: ${COLORS.LABEL_TEXT};
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+    tr {
+        border-bottom: 1px solid #E0E0E0;
+    }
+    .page-break {
+        page-break-after: always;
+        display: block; /* Ensure it takes space if needed */
+        min-height: 1px; /* Avoid 0-height collapse issues */
+    }
+`;
+
 export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
     const bodyContent = generateS140BodyContent(weekData);
 
@@ -501,68 +569,7 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
         <head>
             <meta charset="UTF-8">
             <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { 
-                    font-family: Calibri, 'Segoe UI', sans-serif; 
-                    font-size: 13pt;
-                    line-height: 1.4;
-                    padding: 0;
-                    margin: 0;
-                }
-                .container {
-                    width: 100%;
-                    max-width: 200mm;
-                    margin: 0 auto;
-                    padding: 3mm;
-                }
-                .header-row {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    border-bottom: 2px solid ${COLORS.SEPARATOR};
-                    padding-bottom: 8px;
-                    margin-bottom: 10px;
-                }
-                .congregation {
-                    font-family: Calibri, sans-serif;
-                    font-size: 14pt;
-                    font-weight: bold;
-                    color: ${COLORS.HEADER_TEXT};
-                }
-                .title-year {
-                    font-family: Calibri, sans-serif;
-                    font-size: 13pt;
-                    color: ${COLORS.HEADER_TEXT};
-                }
-                .week-info {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 8px;
-                    padding: 6px 0;
-                }
-                .week-date {
-                    font-family: Calibri, sans-serif;
-                    font-size: 13pt;
-                    font-weight: bold;
-                    color: #333;
-                }
-                .president-info, .counselor-info {
-                    font-family: Calibri, sans-serif;
-                    font-size: 10pt;
-                    font-weight: bold;
-                    color: ${COLORS.LABEL_TEXT};
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    table-layout: fixed;
-                }
-                tr {
-                    border-bottom: 1px solid #E0E0E0;
-                }
-                .page-break {
-                    page-break-after: always;
-                }
+                ${S140_CSS}
             </style>
         </head>
         <body>
@@ -581,27 +588,32 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
 export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Promise<void> {
     const html = generateS140UnifiedHTML(weekData);
 
+    // Legacy method for single week - kept for minimal regression risk
+    // But updated to be safer with styles
     const container = document.createElement('div');
-    container.innerHTML = html;
+    container.innerHTML = html.replace('<!DOCTYPE html>', '').replace('<html>', '').replace('</html>', '').replace('<body>', '').replace('</body>', '').replace('<head>', '').replace('</head>', '');
+
     container.style.position = 'absolute';
     container.style.left = '-9999px';
+    container.style.width = '210mm';
+    container.style.background = 'white';
+
     document.body.appendChild(container);
 
     try {
         const opt = {
-            margin: 3,
+            margin: 0,
             filename: `S-140-Unified_${weekData.weekId}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
+            html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
         };
 
-        const content = container.querySelector('.container');
-        if (content) {
-            await html2pdf().set(opt).from(content).save();
-        }
+        await html2pdf().set(opt).from(container).save();
     } finally {
-        document.body.removeChild(container);
+        if (document.body.contains(container)) {
+            document.body.removeChild(container);
+        }
     }
 }
 
@@ -609,92 +621,45 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 // GERAÇÃO MULTI-SEMANAS (do s140Generator base)
 // ============================================================================
 
-export function generateMultiWeekS140UnifiedHTML(weeksData: S140WeekDataUnified[]): string {
-    const pages = weeksData.map((weekData, index) => {
-        // REUTILIZAÇÃO DIRETA DA LÓGICA DE CONTEÚDO (Sem Regex frágil)
-        const bodyContent = generateS140BodyContent(weekData);
-        const pageBreak = index < weeksData.length - 1 ? 'page-break' : '';
-        return `<div class="container ${pageBreak}">${bodyContent}</div>`;
-    });
 
 
-
-    return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { 
-                    font-family: Calibri, 'Segoe UI', sans-serif; 
-                    font-size: 13pt;
-                    line-height: 1.4;
-                }
-                .container {
-                    width: 100%;
-                    max-width: 200mm;
-                    margin: 0 auto;
-                    padding: 3mm;
-                }
-                .header-row {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    border-bottom: 2px solid ${COLORS.SEPARATOR};
-                    padding-bottom: 8px;
-                    margin-bottom: 10px;
-                }
-                .congregation {
-                    font-size: 14pt;
-                    font-weight: bold;
-                }
-                .week-info {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 8px;
-                    padding: 6px 0;
-                }
-                .week-date {
-                    font-size: 13pt;
-                    font-weight: bold;
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    table-layout: fixed;
-                }
-                tr {
-                    border-bottom: 1px solid #E0E0E0;
-                }
-                .page-break {
-                    page-break-after: always;
-                }
-            </style>
-        </head>
-        <body>
-            ${pages.join('\n')}
-        </body>
-        </html>
-    `;
-}
 
 export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUnified[]): Promise<void> {
-    const html = generateMultiWeekS140UnifiedHTML(weeksData);
+    // Construção Segura do DOM
+    const wrapper = document.createElement('div');
 
-    const container = document.createElement('div');
-    // TRUQUE CRÍTICO: Isolar o estilo e o conteúdo
-    // O navegador stripa <head> e <body> ao usar innerHTML num div
-    // Vamos garantir que o style esteja dentro do div, não no head
-    container.innerHTML = html.replace('<html>', '').replace('</html>', '').replace('<body>', '').replace('</body>', '').replace('<head>', '').replace('</head>', '').replace('<!DOCTYPE html>', '');
+    // 1. Injetar Estilos
+    const style = document.createElement('style');
+    style.innerHTML = S140_CSS;
+    wrapper.appendChild(style);
 
-    // Forçar visibilidade para o renderizador
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.width = '210mm'; // Tamanho A4
-    container.style.background = 'white'; // Garantir fundo branco
+    // 2. Construir Páginas
+    weeksData.forEach((weekData, index) => {
+        // Obter conteúdo interno
+        const bodyContent = generateS140BodyContent(weekData);
 
-    document.body.appendChild(container);
+        // Criar container da página
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'container';
+
+        // Adicionar quebra de página se não for a última
+        if (index < weeksData.length - 1) {
+            pageDiv.classList.add('page-break');
+        }
+
+        // Injetar HTML do corpo (tabelas, etc - seguro pois veio de generateS140BodyContent)
+        pageDiv.innerHTML = bodyContent;
+        wrapper.appendChild(pageDiv);
+    });
+
+    // 3. Configurar Wrapper para Renderização
+    wrapper.style.position = 'absolute';
+    wrapper.style.left = '-9999px';
+    wrapper.style.width = '210mm';
+    wrapper.style.background = 'white';
+    wrapper.style.top = '0'; // Prioridade de layout
+
+    document.body.appendChild(wrapper);
 
     try {
         const weekRange = weeksData.length > 1
@@ -702,22 +667,22 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
             : weeksData[0]?.weekId || 'unknown';
 
         const opt = {
-            margin: 0, // Margem gerenciada pelo CSS do container
+            margin: 0,
             filename: `S-140-Unified_${weekRange}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                windowWidth: 800 // Largura fixa para renderização consistente
+                windowWidth: 800
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        await html2pdf().set(opt).from(container).save();
+        await html2pdf().set(opt).from(wrapper).save();
     } finally {
-        if (document.body.contains(container)) {
-            document.body.removeChild(container);
+        if (document.body.contains(wrapper)) {
+            document.body.removeChild(wrapper);
         }
     }
 }
