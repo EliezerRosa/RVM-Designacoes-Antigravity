@@ -23,11 +23,11 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 // LISTA DE ELITE: Prioridade de modelos para tentar
 const MODEL_CANDIDATES = [
-    'gemini-1.5-flash',         // Alias estável (geralmente aponta para a mais recente)
-    'gemini-1.5-flash-002',     // Versão específica confiável
-    'gemini-2.0-flash-exp',     // Versão experimental mais rápida
-    'gemini-1.5-flash-8b',      // Fallback leve
-    'gemini-1.5-flash-001'      // Versão legada
+    'gemini-2.5-flash',         // Modelo mais recente (fevereiro 2026)
+    'gemini-2.0-flash',         // Versão estável 2.0
+    'gemini-flash-latest',      // Alias para o mais atual
+    'gemini-2.0-flash-lite',    // Versão leve
+    'gemini-1.5-flash'          // Fallback legado (caso volte)
 ];
 
 // Cache do último modelo que funcionou para agilizar próximas chamadas
@@ -40,13 +40,15 @@ function getGeminiUrl(model: string): string {
 // SEGURANÇA: Modelos permitidos no Free Tier
 // Se tentar usar um modelo fora desta lista, o sistema bloqueará para evitar cobranças acidentais.
 const FREE_TIER_SAFE_MODELS = [
-    'gemini-2.0-flash-exp',
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-001',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-flash-8b',
     'gemini-2.5-flash',
-    'gemini-2.0-flash'
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-001',
+    'gemini-2.0-flash-lite',
+    'gemini-flash-latest',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
+    'gemini-1.5-flash-001',
+    'gemini-1.5-flash-002'
 ];
 
 // ===== Tipos =====
