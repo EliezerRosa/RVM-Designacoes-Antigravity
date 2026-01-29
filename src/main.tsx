@@ -20,6 +20,8 @@ try {
 const BUILD_TIMESTAMP = new Date().toISOString();
 console.log(`[App] Build Version: ${BUILD_TIMESTAMP}`);
 
+console.log('[App] Initializing... Build Time: ' + new Date().toISOString());
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
