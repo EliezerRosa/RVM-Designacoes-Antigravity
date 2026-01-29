@@ -306,6 +306,7 @@ export async function askAgent(
             }
 
             throw new Error(errorMessage);
+
         }
 
         const data = await response.json();
@@ -328,10 +329,17 @@ export async function askAgent(
 
     } catch (error) {
         console.error('[Agent] Error:', error);
+
+        let userMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+
+        if (userMessage.includes('Failed to fetch')) {
+            userMessage = 'Erro de conexão com a IA (Failed to fetch). Verifique sua internet ou se a API Key está configurada corretamente no ambiente de produção. Se o contexto for muito grande, o envio pode falhar.';
+        }
+
         return {
             success: false,
             message: '',
-            error: error instanceof Error ? error.message : 'Erro desconhecido',
+            error: userMessage,
         };
     }
 }
