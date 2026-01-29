@@ -20,14 +20,16 @@ import {
 
 // A API key deve ser configurada em .env.local como VITE_GEMINI_API_KEY
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+// Usando a versão experimental (2.0) ou estável mais recente (1.5-flash-002)
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent';
 
 // SEGURANÇA: Modelos permitidos no Free Tier
 // Se tentar usar um modelo fora desta lista, o sistema bloqueará para evitar cobranças acidentais.
 const FREE_TIER_SAFE_MODELS = [
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
+    'gemini-2.0-flash-exp',
     'gemini-1.5-flash',
+    'gemini-1.5-flash-001',
+    'gemini-1.5-flash-002',
     'gemini-1.5-flash-8b'
 ];
 
