@@ -306,7 +306,7 @@ function App() {
       <main className="main-content">
         {/* Workbook */}
         <div style={{ display: activeTab === 'workbook' ? 'block' : 'none' }}>
-          <WorkbookManager publishers={publishers} />
+          <WorkbookManager publishers={publishers} isActive={activeTab === 'workbook'} />
         </div>
 
         {/* Approvals */}

@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord, HistoryStatus } from '../types';
 import { checkEligibility, isPastWeekDate, isElderOrMS } from '../services/eligibilityService';
-import { calculateTimeOnlyPriority, getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
+import { getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
+import { calculateScore } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
@@ -126,9 +127,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 result = { eligible: false, reason: 'Já tem designação nesta semana' };
             }
 
-            // Calcular prioridade usando o serviço centralizado
-            // Isso garante consistência com o motor automático (fórmula Tempo - Quantidade)
-            const priority = calculateTimeOnlyPriority(p.name, historyRecords, today);
+            // Calcular prioridade usando o NOVO serviço centralizado (Restored Unified Service)
+            const scoreData = calculateScore(p, part.tipoParte, historyRecords, today);
+            // Compatibilidade com código legado que espera apenas um número
+            const priority = scoreData.score;
 
             // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
             // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
@@ -145,6 +147,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 eligible: result.eligible,
                 reason: result.reason,
                 priority,
+                scoreData, // Expor dados completos para tooltip
                 hasDesignationInSameWeek,
                 cooldownInfo,
                 isSisterForDemo
@@ -409,6 +412,19 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             <br />
                             <span style={{ color: '#9ca3af' }}>(Recomendado aguardar {selectedCooldownInfo.cooldownRemaining} semanas)</span>
                         </div>
+                    </div>
+                )}
+
+                {/* Score Unificado (Debug/Info) */}
+                {foundPublisher && (
+                    <div style={{
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                        fontSize: '0.8em',
+                        color: '#9ca3af'
+                    }}>
+                        📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords, today).explanation}
                     </div>
                 )}
 
