@@ -589,7 +589,7 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
 // ============================================================================
 
 export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Promise<void> {
-    console.log('[S140] Gerando PDF Único (Visible Strategy)...', weekData.weekId);
+    console.log('[S140] Gerando PDF Único (Container Pattern)...', weekData.weekId);
 
     // Construção Segura do DOM
     const wrapper = document.createElement('div');
@@ -597,7 +597,17 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 
     // 1. Injetar Estilos
     const style = document.createElement('style');
-    style.innerHTML = S140_CSS;
+    // Forçar cor preta no cabeçalho para garantir visibilidade
+    const cssWithForcedColor = S140_CSS + `
+        .s140-wrapper .congregation, 
+        .s140-wrapper .title-year,
+        .s140-wrapper .week-date {
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    `;
+    style.innerHTML = cssWithForcedColor;
     wrapper.appendChild(style);
 
     // 2. Construir Página
@@ -610,17 +620,37 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
     wrapper.appendChild(pageDiv);
 
     // 3. Configurar Wrapper para Renderização "Visível"
-    // Mudança Crítica: Renderizar NO TOPO de tudo para garantir que o html2canvas "veja"
     wrapper.style.position = 'fixed';
     wrapper.style.left = '0';
     wrapper.style.top = '0';
-    wrapper.style.zIndex = '99999'; // Acima de modais e tudo
+    wrapper.style.zIndex = '99999';
+    wrapper.style.width = '100vw';
+    wrapper.style.height = '100vh';
+    wrapper.style.overflow = 'auto';
     wrapper.style.background = 'white';
 
-    // Forçar layout
+    // Centralizar conteúdo
+    wrapper.style.display = 'flex';
+    wrapper.style.justifyContent = 'center';
+    wrapper.style.alignItems = 'flex-start'; // Top alignment
+
+    // Container interno para o PDF (A4) - CRÍTICO PARA FUNCIONAR
+    const contentContainer = document.createElement('div');
+    contentContainer.style.width = '210mm';
+    contentContainer.style.minHeight = '297mm';
+    contentContainer.style.background = 'white';
+    contentContainer.style.padding = '0'; // Reset padding
+    contentContainer.style.boxSizing = 'border-box';
+
+    // Mover os filhos (estilo + página) para o contentContainer
+    while (wrapper.firstChild) {
+        contentContainer.appendChild(wrapper.firstChild);
+    }
+    wrapper.appendChild(contentContainer);
+
     document.body.appendChild(wrapper);
 
-    // Pequeno delay para garantir reflow e renderização de fontes
+    // Delay de estabilização
     await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
@@ -631,13 +661,14 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                scrollY: 0, // Reset scroll
-                scrollX: 0
+                scrollY: 0,
+                scrollX: 0,
+                windowWidth: 800 // Reintroduzir windowWidth para sanidade
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
         };
 
-        await html2pdf().set(opt).from(wrapper).save();
+        await html2pdf().set(opt).from(contentContainer).save();
     } finally {
         if (document.body.contains(wrapper)) {
             document.body.removeChild(wrapper);
@@ -653,7 +684,7 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 
 
 export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUnified[]): Promise<void> {
-    console.log('[S140] Gerando PDF Multi-Semanas (Visible Strategy)...', weeksData.length);
+    console.log('[S140] Gerando PDF Multi-Semanas (Container Pattern)...', weeksData.length);
 
     // Construção Segura do DOM
     const wrapper = document.createElement('div');
@@ -661,7 +692,17 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
 
     // 1. Injetar Estilos
     const style = document.createElement('style');
-    style.innerHTML = S140_CSS;
+    // Forçar cor preta no cabeçalho
+    const cssWithForcedColor = S140_CSS + `
+        .s140-wrapper .congregation, 
+        .s140-wrapper .title-year,
+        .s140-wrapper .week-date {
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    `;
+    style.innerHTML = cssWithForcedColor;
     wrapper.appendChild(style);
 
     // 2. Construir Páginas
