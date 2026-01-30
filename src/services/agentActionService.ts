@@ -1,8 +1,10 @@
-import type { WorkbookPart, Publisher } from '../types';
+import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
 
 import { generationService } from './generationService';
 import { undoService } from './undoService';
+import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
+import { checkEligibility } from './eligibilityService';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -10,6 +12,7 @@ export type AgentActionType =
     | 'UNDO_LAST'
     | 'NAVIGATE_WEEK'
     | 'SHARE_S140_WHATSAPP'
+    | 'CHECK_SCORE' // Nova Tool
     // Legacy support for transition (optional)
     | 'SIMULATE_ASSIGNMENT';
 
@@ -33,7 +36,7 @@ export const agentActionService = {
     detectAction(responseContent: string): AgentAction | null {
         // Try to find JSON block
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT)"[\s\S]*}/);
+            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE)"[\s\S]*}/);
 
         if (jsonMatch) {
             try {
@@ -55,11 +58,42 @@ export const agentActionService = {
     },
 
     // Execute the action directly (Authorized User Mode)
-    async executeAction(action: AgentAction, parts: WorkbookPart[], publishers: Publisher[]): Promise<ActionResult> {
+    async executeAction(
+        action: AgentAction,
+        parts: WorkbookPart[],
+        publishers: Publisher[],
+        history: HistoryRecord[] = [] // Agora recebe histórico completo
+    ): Promise<ActionResult> {
         console.log('[AgentAction] Executing:', action);
 
         try {
             switch (action.type) {
+                case 'CHECK_SCORE': {
+                    const { partType, date } = action.params;
+
+                    // 1. Filtrar elegíveis
+                    const eligible = publishers.filter(p => checkEligibility(p, partType));
+
+                    if (eligible.length === 0) {
+                        return { success: false, message: `Nenhum publicador elegível encontrado para ${partType}.` };
+                    }
+
+                    // 2. Calcular Ranking (Full History)
+                    const ranked = getRankedCandidates(eligible, partType, history);
+
+                    // 3. Formatar Top 10
+                    const topList = ranked.slice(0, 10).map((cand, i) =>
+                        `${i + 1}. ${explainScoreForAgent(cand)}`
+                    ).join('\n');
+
+                    return {
+                        success: true,
+                        message: `📊 **Análise do Cérebro (Top 10):**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}`,
+                        data: ranked,
+                        actionType: 'CHECK_SCORE'
+                    };
+                }
+
                 case 'GENERATE_WEEK': {
                     const { weekId } = action.params;
                     if (!weekId) return { success: false, message: 'Semana não especificada.' };

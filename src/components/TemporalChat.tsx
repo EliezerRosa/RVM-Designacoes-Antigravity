@@ -4,6 +4,7 @@ import { askAgent, isAgentConfigured } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
 import type { Publisher, WorkbookPart } from '../types';
 import { agentActionService } from '../services/agentActionService';
+import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import type { ActionResult } from '../services/agentActionService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
@@ -253,7 +254,9 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 }
 
                 // EXECUTE ACTION DIRECTLY
-                const result = await agentActionService.executeAction(response.action, parts, publishers);
+                // Convert parts to history for deep analysis
+                const history = parts.map(p => workbookPartToHistoryRecord(p));
+                const result = await agentActionService.executeAction(response.action, parts, publishers, history);
 
                 if (result.success) {
                     // Notify parent to update view
@@ -262,7 +265,9 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     // Add system feedback message
                     const systemMsg: ChatMessage = {
                         role: 'assistant',
-                        content: `✅ ${result.message}`,
+                        content: result.actionType === 'CHECK_SCORE'
+                            ? result.message // Use the formatted report directly 
+                            : `✅ ${result.message}`,
                         timestamp: new Date(),
                     };
                     await chatHistoryService.addMessage(sessionId, systemMsg);
@@ -275,6 +280,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     if (result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId && onNavigateToWeek) {
                         onNavigateToWeek(result.data.weekId);
                     }
+                    // For CHECK_SCORE, we might want to optionally navigate to the reference date if provided, but typically it's just info.
 
                 } else {
                     // Error in execution

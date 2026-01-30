@@ -57,3 +57,20 @@ Implementado em **Jan/2026**, o Agente RVM agora é uma "Aba Poderosa" integrada
 - Validar simulação em produção após configuração da chave.
 - Implementar "Confirmar" ação (efetivar no banco).
 - Testar geração de PDF.
+
+### Fase 6: Ferramentas do Agente & Inspetor UI (Jan/2026)
+Implementado sistema de transparência total ("X-Ray") e capacidades analíticas para o Agente.
+
+#### 1. Ferramentas do Agente (`CHECK_SCORE`)
+O Agente agora possui uma "Tool" real conexa ao cérebro do sistema:
+- **Fluxo:** Usuário pergunta "Quem é o melhor para Leitor?" -> Agente invoca `CHECK_SCORE` -> Sistema roda `getRankedCandidates` com histórico completo -> Agente recebe relatório detalhado e responde.
+- **Diferencial:** O Agente não "alucina" mais baseando-se apenas no contexto curto; ele consulta o motor matemático.
+
+#### 2. Inspetor UI ("Raio-X")
+Na aba "Agente Poderoso", ao clicar em uma parte, o painel de controle agora exibe:
+- **Pontuação Científica:** Mostra os componentes exatos do cálculo (Base, Bônus de Tempo Exponencial, Penalidade de Frequência).
+- **Feedback Visual:** Explica POR QUE um irmão tem aquela pontuação, eliminando a "caixa preta" do algoritmo.
+
+#### 3. Unificação
+- Removidos serviços legados (`linearRotationService`, `fairRotationService`).
+- O sistema agora usa exclusivamente `generationService` e `unifiedRotationService`.

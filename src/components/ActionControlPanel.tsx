@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import type { Publisher, WorkbookPart } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
 import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
-import { loadPublisherParticipations } from '../services/historyAdapter';
+import { calculateScore, type RotationScore } from '../services/unifiedRotationService';
+import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 
 /**
  * ActionControlPanel – Exibe detalhes da parte selecionada
@@ -35,6 +36,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
     const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
     const [cooldown, setCooldown] = useState<CooldownInfo | null>(null);
     const [stats, setStats] = useState<PublisherStats | null>(null);
+    const [scoreData, setScoreData] = useState<RotationScore | null>(null); // NEW: Score X-Ray
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -45,15 +47,16 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                 setEligibility(null);
                 setCooldown(null);
                 setStats(null);
+                setScoreData(null);
                 return;
             }
 
             setLoading(true);
             try {
-                // 1. Verificar Elegibilidade (Rápido, Síncrono)
+                // 1. Verificar Elegibilidade
                 const elig = checkEligibility(
                     assignedPublisher,
-                    selectedPart.modalidade as any, // Cast simples, idealmente tipar melhor no WorkbookPart
+                    selectedPart.modalidade as any,
                     selectedPart.funcao as any,
                     {
                         date: selectedPart.date,
@@ -62,34 +65,46 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                     }
                 );
 
-                if (isMounted) setEligibility(elig);
+                // 2. Preparar Histórico (Local)
+                // Usamos 'parts' que já contém tudo, evitando request extra
+                const history = parts.map(workbookPartToHistoryRecord);
 
-                // 2. Buscar Histórico (Assíncrono)
-                const history = await loadPublisherParticipations(assignedPublisher.name);
-
-                if (!isMounted) return;
-
-                // 3. Calcular Cooldown
+                // 3. Calcular Cooldown e Score
                 const cdInfo = getCooldownInfo(
                     assignedPublisher.name,
                     selectedPart.tipoParte,
                     history,
                     new Date() // Hoje
                 );
-                setCooldown(cdInfo);
+
+                // Calcular Score Científico (X-Ray)
+                const score = calculateScore(
+                    assignedPublisher,
+                    selectedPart.tipoParte,
+                    history,
+                    new Date() // Hoje
+                );
 
                 // 4. Calcular Estatísticas Simples
-                // Filtrar apenas partes do mesmo tipo para "Última vez"
-                const sameTypeHistory = history.filter(h => h.tipoParte === selectedPart.tipoParte);
+                const sameTypeHistory = history.filter(h =>
+                    h.resolvedPublisherName === assignedPublisher.name &&
+                    h.tipoParte === selectedPart.tipoParte
+                ).sort((a, b) => b.date.localeCompare(a.date));
+
                 const lastDate = sameTypeHistory.length > 0 ? sameTypeHistory[0].date : null;
 
-                setStats({
-                    lastDate,
-                    totalAssignments: history.length
-                });
+                if (isMounted) {
+                    setEligibility(elig);
+                    setCooldown(cdInfo);
+                    setScoreData(score);
+                    setStats({
+                        lastDate,
+                        totalAssignments: sameTypeHistory.length // Mostra total DAQUELE tipo
+                    });
+                }
 
             } catch (error) {
-                console.error("Erro ao buscar dados do publicador:", error);
+                console.error("Erro ao processar dados do publicador:", error);
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -98,7 +113,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
         fetchData();
 
         return () => { isMounted = false; };
-    }, [selectedPart, assignedPublisher]);
+    }, [selectedPart, assignedPublisher, parts]); // Added parts dependency
 
 
     // Estilo para badges de status
@@ -272,12 +287,39 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Total de Designações</span>
+                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Total (Tipo)</span>
                                                 <span style={{ fontSize: '11px', fontWeight: '500' }}>
                                                     {stats.totalAssignments}
                                                 </span>
                                             </div>
                                         </>
+                                    )}
+
+                                    {/* X-RAY SCORE (Novo) */}
+                                    {scoreData && (
+                                        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #E5E7EB' }}>
+                                            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '4px' }}>
+                                                🧪 Raio-X da Pontuação
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px', fontSize: '10px' }}>
+                                                <span style={{ color: '#4B5563' }}>Base:</span>
+                                                <span>{scoreData.details.base}</span>
+
+                                                <span style={{ color: '#059669' }}>Tempo (+):</span>
+                                                <span>{scoreData.details.timeBonus}</span>
+
+                                                <span style={{ color: '#DC2626' }}>Frequência (-):</span>
+                                                <span>{scoreData.details.frequencyPenalty}</span>
+
+                                                <span style={{ color: '#7C3AED' }}>Bônus Função:</span>
+                                                <span>{scoreData.details.roleBonus}</span>
+
+                                                <div style={{ gridColumn: '1/-1', borderTop: '1px solid #E5E7EB', marginTop: '2px', paddingTop: '2px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                                                    <span>Score Final:</span>
+                                                    <span style={{ color: '#4F46E5' }}>{scoreData.score}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             )}
