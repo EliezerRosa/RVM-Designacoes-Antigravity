@@ -68,8 +68,9 @@ O Agente agora possui uma "Tool" real conexa ao cérebro do sistema:
 
 #### 2. Inspetor UI ("Raio-X")
 Na aba "Agente Poderoso", ao clicar em uma parte, o painel de controle agora exibe:
-- **Pontuação Científica:** Mostra os componentes exatos do cálculo (Base, Bônus de Tempo Exponencial, Penalidade de Frequência).
-- **Feedback Visual:** Explica POR QUE um irmão tem aquela pontuação, eliminando a "caixa preta" do algoritmo.
+- **Análise Verbal:** Explicação em linguagem natural ("Faz muito tempo que não participa...").
+- **Última Designação Real:** Mostra a data exata e qual foi a função da última participação absoluta.
+- **Comparativo:** Se o designado atual não for o "Melhor Candidato", mostra uma caixa verde sugerindo a alternativa.
 
 #### 3. Unificação
 - Removidos serviços legados (`linearRotationService`, `fairRotationService`).
