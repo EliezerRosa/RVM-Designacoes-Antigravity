@@ -181,5 +181,48 @@ export function explainScoreForAgent(candidate: RankedCandidate): string {
     return `${publisher.name}: Score ${scoreData.score}. Razão: ${scoreData.explanation}.`;
 }
 
+/**
+ * Gera uma explicação em linguagem natural para a UI
+ */
+export function generateNaturalLanguageExplanation(
+    candidate: RankedCandidate,
+    history: HistoryRecord[]
+): string {
+    const { publisher, scoreData } = candidate;
+    const { details, weeksSinceLast } = scoreData;
+
+    // 1. Encontrar a ÚLTIMA participação absoluta (independente do tipo)
+    const allHistory = history
+        .filter(h => h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name)
+        .sort((a, b) => b.date.localeCompare(a.date));
+
+    const absoluteLast = allHistory[0];
+    let lastPartText = "Nunca participou recentemente.";
+    if (absoluteLast) {
+        lastPartText = `Última designação: ${new Date(absoluteLast.date).toLocaleDateString('pt-BR')} como ${absoluteLast.tipoParte} (${absoluteLast.funcao}).`;
+    }
+
+    // 2. Construir narrativa do Score
+    let narrative = "";
+
+    if (details.frequencyPenalty > 50) {
+        narrative = "⚠️ Pontuação reduzida devido a muitas participações recentes.";
+    } else if (details.frequencyPenalty > 0) {
+        narrative = "Possui participações recentes, o que reduz levemente a prioridade.";
+    } else {
+        narrative = "Está com a agenda livre recentemente, aumentando a prioridade.";
+    }
+
+    if (weeksSinceLast > 20) {
+        narrative += " Faz muito tempo que não realiza essa parte específica, por isso a urgência é alta.";
+    } else if (weeksSinceLast > 10) {
+        narrative += " Já faz um tempo considerável desde a última vez nessa parte.";
+    } else if (weeksSinceLast < 4 && weeksSinceLast > 0) {
+        narrative += " Fez essa parte recentemente.";
+    }
+
+    return `${narrative}\n\n📅 ${lastPartText}`;
+}
+
 // Exportar configuração para uso em UI se necessário
 export const ROTATION_CONFIG = SCORING_CONFIG;

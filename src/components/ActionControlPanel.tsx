@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Publisher, WorkbookPart } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
 import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
-import { calculateScore, type RotationScore } from '../services/unifiedRotationService';
+import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 
 /**
@@ -24,7 +24,6 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
     const selectedPart = parts.find(p => p.id === selectedPartId);
 
     // Buscar o publicador designado para esta parte
-    // Buscar o publicador designado para esta parte (Prioridade: Resolved > Raw)
     const effectiveName = selectedPart?.resolvedPublisherName || selectedPart?.rawPublisherName;
     const assignedPublisher = effectiveName
         ? publishers.find(pub =>
@@ -36,7 +35,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
     const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
     const [cooldown, setCooldown] = useState<CooldownInfo | null>(null);
     const [stats, setStats] = useState<PublisherStats | null>(null);
-    const [scoreData, setScoreData] = useState<RotationScore | null>(null); // NEW: Score X-Ray
+    const [scoreData, setScoreData] = useState<RotationScore | null>(null);
+    const [explanation, setExplanation] = useState<string | null>(null);
+    const [bestCandidate, setBestCandidate] = useState<{ name: string; explanation: string; score: number } | null>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -48,59 +49,88 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                 setCooldown(null);
                 setStats(null);
                 setScoreData(null);
+                setExplanation(null);
+                setBestCandidate(null);
                 return;
             }
 
             setLoading(true);
             try {
-                // 1. Verificar Elegibilidade
-                const elig = checkEligibility(
-                    assignedPublisher,
-                    selectedPart.modalidade as any,
-                    selectedPart.funcao as any,
-                    {
+                // Preparar Histórico (Local) para TODOS (para ranking)
+                const allHistory = parts.map(workbookPartToHistoryRecord);
+
+                // 1. Calcular o MELHOR CANDIDATO (Top Recommendation)
+                const eligibleCandidates = publishers.filter(p =>
+                    checkEligibility(p, selectedPart.modalidade as any, selectedPart.funcao as any, {
                         date: selectedPart.date,
                         partTitle: selectedPart.tituloParte,
                         secao: selectedPart.section
-                    }
+                    }).eligible
                 );
 
-                // 2. Preparar Histórico (Local)
-                // Usamos 'parts' que já contém tudo, evitando request extra
-                const history = parts.map(workbookPartToHistoryRecord);
+                const ranked = getRankedCandidates(eligibleCandidates, selectedPart.tipoParte, allHistory);
+                const best = ranked.length > 0 ? ranked[0] : null;
 
-                // 3. Calcular Cooldown e Score
-                const cdInfo = getCooldownInfo(
-                    assignedPublisher.name,
-                    selectedPart.tipoParte,
-                    history,
-                    new Date() // Hoje
-                );
-
-                // Calcular Score Científico (X-Ray)
-                const score = calculateScore(
-                    assignedPublisher,
-                    selectedPart.tipoParte,
-                    history,
-                    new Date() // Hoje
-                );
-
-                // 4. Calcular Estatísticas Simples
-                const sameTypeHistory = history.filter(h =>
-                    h.resolvedPublisherName === assignedPublisher.name &&
-                    h.tipoParte === selectedPart.tipoParte
-                ).sort((a, b) => b.date.localeCompare(a.date));
-
-                const lastDate = sameTypeHistory.length > 0 ? sameTypeHistory[0].date : null;
-
-                if (isMounted) {
-                    setEligibility(elig);
-                    setCooldown(cdInfo);
-                    setScoreData(score);
-                    setStats({
-                        lastDate,
-                        totalAssignments: sameTypeHistory.length // Mostra total DAQUELE tipo
+                if (best && isMounted) {
+                    const bestExpl = generateNaturalLanguageExplanation(best, allHistory);
+                    setBestCandidate({
+                        name: best.publisher.name,
+                        explanation: bestExpl,
+                        score: best.scoreData.score
                     });
+                } else if (isMounted) {
+                    setBestCandidate(null);
+                }
+
+                // 2. Analisar o DESIGNADO (Se houver)
+                if (assignedPublisher) {
+                    const elig = checkEligibility(
+                        assignedPublisher,
+                        selectedPart.modalidade as any,
+                        selectedPart.funcao as any,
+                        {
+                            date: selectedPart.date,
+                            partTitle: selectedPart.tituloParte,
+                            secao: selectedPart.section
+                        }
+                    );
+
+                    const cdInfo = getCooldownInfo(
+                        assignedPublisher.name,
+                        selectedPart.tipoParte,
+                        allHistory, // Use full history
+                        new Date()
+                    );
+
+                    const score = calculateScore(
+                        assignedPublisher,
+                        selectedPart.tipoParte,
+                        allHistory,
+                        new Date()
+                    );
+
+                    const currentCandidateObj: RankedCandidate = { publisher: assignedPublisher, scoreData: score };
+                    const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory);
+
+                    const sameTypeHistory = allHistory.filter(h =>
+                        h.resolvedPublisherName === assignedPublisher.name &&
+                        h.tipoParte === selectedPart.tipoParte
+                    ).sort((a, b) => b.date.localeCompare(a.date));
+                    const lastDate = sameTypeHistory.length > 0 ? sameTypeHistory[0].date : null;
+
+                    if (isMounted) {
+                        setEligibility(elig);
+                        setCooldown(cdInfo);
+                        setScoreData(score);
+                        setStats({ lastDate, totalAssignments: sameTypeHistory.length });
+                        setExplanation(natExpl);
+                    }
+                } else if (isMounted) {
+                    setEligibility(null);
+                    setCooldown(null);
+                    setScoreData(null);
+                    setStats(null);
+                    setExplanation(null);
                 }
 
             } catch (error) {
@@ -113,7 +143,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
         fetchData();
 
         return () => { isMounted = false; };
-    }, [selectedPart, assignedPublisher, parts]); // Added parts dependency
+    }, [selectedPart, assignedPublisher, parts, publishers]);
 
 
     // Estilo para badges de status
@@ -295,30 +325,50 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                                         </>
                                     )}
 
-                                    {/* X-RAY SCORE (Novo) */}
-                                    {scoreData && (
-                                        <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #E5E7EB' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '4px' }}>
-                                                🧪 Raio-X da Pontuação
+                                    {/* X-RAY NATURAL (Novo) */}
+                                    {scoreData && explanation && (
+                                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
+                                            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '8px' }}>
+                                                🧠 Análise do Agente
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px', fontSize: '10px' }}>
-                                                <span style={{ color: '#4B5563' }}>Base:</span>
-                                                <span>{scoreData.details.base}</span>
 
-                                                <span style={{ color: '#059669' }}>Tempo (+):</span>
-                                                <span>{scoreData.details.timeBonus}</span>
-
-                                                <span style={{ color: '#DC2626' }}>Frequência (-):</span>
-                                                <span>{scoreData.details.frequencyPenalty}</span>
-
-                                                <span style={{ color: '#7C3AED' }}>Bônus Função:</span>
-                                                <span>{scoreData.details.roleBonus}</span>
-
-                                                <div style={{ gridColumn: '1/-1', borderTop: '1px solid #E5E7EB', marginTop: '2px', paddingTop: '2px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                                                    <span>Score Final:</span>
-                                                    <span style={{ color: '#4F46E5' }}>{scoreData.score}</span>
+                                            {/* Explicação do Atual */}
+                                            <div style={{
+                                                background: '#F3F4F6',
+                                                padding: '10px',
+                                                borderRadius: '8px',
+                                                fontSize: '11px',
+                                                color: '#374151',
+                                                marginBottom: '8px',
+                                                borderLeft: '3px solid #6366F1'
+                                            }}>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Sobre {assignedPublisher.name}:</div>
+                                                <div style={{ whiteSpace: 'pre-wrap' }}>{explanation}</div>
+                                                <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
+                                                    Score: {scoreData.score}
                                                 </div>
                                             </div>
+
+                                            {/* Comparação com o Melhor (Se for diferente e melhor) */}
+                                            {bestCandidate && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > scoreData.score && (
+                                                <div style={{
+                                                    background: '#ECFDF5',
+                                                    padding: '10px',
+                                                    borderRadius: '8px',
+                                                    fontSize: '11px',
+                                                    color: '#065F46',
+                                                    marginTop: '8px',
+                                                    borderLeft: '3px solid #10B981'
+                                                }}>
+                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                                                        💡 Sugestão do Sistema: {bestCandidate.name}
+                                                    </div>
+                                                    <div style={{ whiteSpace: 'pre-wrap' }}>{bestCandidate.explanation}</div>
+                                                    <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
+                                                        Score: {bestCandidate.score} (Maior prioridade)
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
