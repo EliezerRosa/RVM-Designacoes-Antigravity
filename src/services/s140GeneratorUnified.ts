@@ -483,6 +483,13 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
         </div>
 
         <table>
+            <colgroup>
+                <col style="width: 15%;"> <!-- Hora -->
+                <col style="width: 38%;"> <!-- Parte/Tema -->
+                <col style="width: 2%;">  <!-- Espaçador -->
+                <col style="width: 20%;"> <!-- Sala B -->
+                <col style="width: 25%;"> <!-- Salão Principal -->
+            </colgroup>
             <tbody>
                 ${initialHTML}
                 ${sectionsHTML}
@@ -634,18 +641,23 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
     wrapper.style.justifyContent = 'center';
     wrapper.style.alignItems = 'flex-start'; // Top alignment
 
-    // Container interno para o PDF (A4) - CRÍTICO PARA FUNCIONAR
+    // Container interno para o PDF (A4)
     const contentContainer = document.createElement('div');
+    contentContainer.className = 's140-wrapper'; // CRÍTICO: Restaurar a classe para o CSS funcionar
     contentContainer.style.width = '210mm';
-    contentContainer.style.minHeight = '297mm';
+    // contentContainer.style.minHeight = '297mm'; // Removido para evitar página extra em branco
     contentContainer.style.background = 'white';
-    contentContainer.style.padding = '0'; // Reset padding
+    contentContainer.style.padding = '0';
     contentContainer.style.boxSizing = 'border-box';
 
-    // Mover os filhos (estilo + página) para o contentContainer
+    // Configurar .container interno para ocupar altura total se necessário, sem forçar overflow
+    // Pega o estilo e o pageDiv filhos do wrapper antigo
     while (wrapper.firstChild) {
         contentContainer.appendChild(wrapper.firstChild);
     }
+
+    // Limpar o wrapper original (agora é só um holder pro posicionamento)
+    wrapper.innerHTML = '';
     wrapper.appendChild(contentContainer);
 
     document.body.appendChild(wrapper);
@@ -738,14 +750,16 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
 
     // Container interno para o PDF em si (A4)
     const contentContainer = document.createElement('div');
+    contentContainer.className = 's140-wrapper'; // CRÍTICO: Restaurar a classe
     contentContainer.style.width = '210mm';
     contentContainer.style.background = 'white';
-    // Mover os filhos do wrapper para o contentContainer correta
-    // Hack: Mover os childNodes já inseridos (style + pages)
-    // Melhor: reestruturar levemente acima, mas appendChild move nós automaticamente
+
+    // Mover os filhos do wrapper para o contentContainer
     while (wrapper.firstChild) {
         contentContainer.appendChild(wrapper.firstChild);
     }
+
+    wrapper.innerHTML = '';
     wrapper.appendChild(contentContainer);
 
     document.body.appendChild(wrapper);
