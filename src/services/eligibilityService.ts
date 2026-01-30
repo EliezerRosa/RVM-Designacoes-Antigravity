@@ -35,6 +35,48 @@ export interface EligibilityContext {
     titularGender?: 'brother' | 'sister'; // Gênero do titular (para validar ajudante)
 }
 
+// Imports necessários para o helper (se ainda não importados)
+import type { WorkbookPart } from '../types';
+
+/**
+ * Helper v8.4: Constrói o contexto de elegibilidade automaticamente a partir da parte.
+ * Centraliza a lógica que antes ficava repetida no frontend (PublisherSelect).
+ */
+export function buildEligibilityContext(
+    part: WorkbookPart,
+    weekParts: WorkbookPart[] = [],
+    publishers: import('../types').Publisher[] // Usar namespace importado ou tipo direto
+): EligibilityContext {
+    const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
+    const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+    const isPast = isPastWeekDate(part.date);
+
+    // Lógica de Gênero do Titular (se for ajudante)
+    let titularGender: 'brother' | 'sister' | undefined = undefined;
+    if (funcao === EnumFuncao.AJUDANTE && weekParts.length > 0) {
+        // Encontrar o titular com mesmo seq e weekId
+        const titularPart = weekParts.find(wp =>
+            wp.weekId === part.weekId &&
+            wp.seq === part.seq &&
+            wp.funcao === 'Titular'
+        );
+        if (titularPart?.resolvedPublisherName) {
+            const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
+            if (titularPub) {
+                titularGender = titularPub.gender;
+            }
+        }
+    }
+
+    return {
+        date: part.date,
+        isOracaoInicial,
+        secao: part.section,
+        isPastWeek: isPast,
+        titularGender
+    };
+}
+
 export interface EligibilityResult {
     eligible: boolean;
     reason?: string;

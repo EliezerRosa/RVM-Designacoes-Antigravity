@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord, HistoryStatus } from '../types';
-import { checkEligibility, isPastWeekDate, isElderOrMS } from '../services/eligibilityService';
+import { checkEligibility, isElderOrMS, buildEligibilityContext } from '../services/eligibilityService';
 import { getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { calculateScore } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
@@ -70,31 +70,11 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Memoizar a lista sorted para evitar recálculo excessivo
     const sortedOptions = useMemo(() => {
         const modalidade = getModalidade(part);
-        const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
         const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
-        const isPast = isPastWeekDate(part.date);
-
-        // =====================================================================
-        // Para Ajudantes: Encontrar o gênero do Titular correspondente
-        // =====================================================================
-        let titularGender: 'brother' | 'sister' | undefined = undefined;
-        if (funcao === EnumFuncao.AJUDANTE && weekParts) {
-            // Encontrar o titular com mesmo seq e weekId
-            const titularPart = weekParts.find(wp =>
-                wp.weekId === part.weekId &&
-                wp.seq === part.seq &&
-                wp.funcao === 'Titular'
-            );
-            if (titularPart?.resolvedPublisherName) {
-                const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
-                if (titularPub) {
-                    titularGender = titularPub.gender;
-                }
-            }
-        }
+        // v8.4: Usar helper centralizado para contexto
+        const eligibilityContext = buildEligibilityContext(part, weekParts, publishers);
 
         // historyRecords e today vêm do escopo externo agora
-
         // Coletar publicadores já designados nesta semana (excluindo a parte atual)
         const publishersInSameWeek = new Set<string>();
         if (weekParts) {
@@ -119,7 +99,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 p,
                 modalidade as Parameters<typeof checkEligibility>[1],
                 funcao,
-                { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender }
+                eligibilityContext
             );
 
             // Se já tem designação na semana, marcar como inelegível
@@ -222,32 +202,16 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             const pub = publishers.find(p => p.id === value);
             if (pub) {
                 const modalidade = getModalidade(part);
-                const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
                 const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
-                // Re-obter contexto necessário (titularGender já calculado no escopo acima?)
-                // Nota: titularGender está dentro do useMemo do sortedOptions. Precisamos recalculá-lo ou movê-lo para escopo superior.
-                // Para manter simples e seguro, se não achou no sortedOptions, recalculamos tudo.
 
-                // Recalcular titularGender localmente
-                let tGender: 'brother' | 'sister' | undefined = undefined;
-                if (funcao === EnumFuncao.AJUDANTE && weekParts) {
-                    const titularPart = weekParts.find(wp =>
-                        wp.weekId === part.weekId &&
-                        wp.seq === part.seq &&
-                        wp.funcao === 'Titular'
-                    );
-                    if (titularPart?.resolvedPublisherName) {
-                        const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
-                        if (titularPub) tGender = titularPub.gender;
-                    }
-                }
+                // v8.4: Usar helper centralizado
+                const eligibilityContext = buildEligibilityContext(part, weekParts, publishers);
 
-                const isPast = isPastWeekDate(part.date);
                 const result = checkEligibility(
                     pub,
                     modalidade as Parameters<typeof checkEligibility>[1],
                     funcao,
-                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender: tGender }
+                    eligibilityContext
                 );
                 return {
                     effectiveValue: value,
@@ -293,27 +257,16 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
                 // Recalculo manual (fallback)
                 const modalidade = getModalidade(part);
-                const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
                 const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
-                let tGender: 'brother' | 'sister' | undefined = undefined;
-                if (funcao === EnumFuncao.AJUDANTE && weekParts) {
-                    const titularPart = weekParts.find(wp =>
-                        wp.weekId === part.weekId &&
-                        wp.seq === part.seq &&
-                        wp.funcao === 'Titular'
-                    );
-                    if (titularPart?.resolvedPublisherName) {
-                        const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
-                        if (titularPub) tGender = titularPub.gender;
-                    }
-                }
 
-                const isPast = isPastWeekDate(part.date);
+                // v8.4: Usar helper centralizado
+                const eligibilityContext = buildEligibilityContext(part, weekParts, publishers);
+
                 const result = checkEligibility(
                     found,
                     modalidade as Parameters<typeof checkEligibility>[1],
                     funcao,
-                    { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender: tGender }
+                    eligibilityContext
                 );
                 return {
                     effectiveValue: found.id,
