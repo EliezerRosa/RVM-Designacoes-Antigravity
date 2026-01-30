@@ -17,7 +17,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import type { WorkbookPart, Publisher } from '../types';
-import { validatePartsBeforeGeneration, type ValidationWarning } from '../services/linearRotationService';
+import { validatePartsBeforeGeneration, type ValidationWarning } from '../services/generationService';
 import { S140PreviewCarousel } from './S140PreviewCarousel';
 
 // ===== Tipos =====
