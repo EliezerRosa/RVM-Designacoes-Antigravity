@@ -7,7 +7,7 @@ import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } fr
 import { getRankedCandidates } from './unifiedRotationService';
 
 import { getModalidadeFromTipo } from '../constants/mappings';
-import { validatePartsBeforeGeneration } from './linearRotationService';
+
 import { isBlocked } from './cooldownService';
 
 export interface GenerationConfig {
@@ -505,3 +505,73 @@ export const generationService = {
         }
     }
 };
+
+// ============================================================================
+// VALIDAÇÃO (Migrado de linearRotationService)
+// ============================================================================
+
+export interface ValidationWarning {
+    type: 'MISSING_DURATION' | 'MISSING_TITULAR';
+    partId: string;
+    weekDisplay: string;
+    partTitle: string;
+    message: string;
+}
+
+/**
+ * Lista de tipos de partes que NÃO precisam de duração definida.
+ */
+export const PARTS_WITHOUT_DURATION: string[] = [
+    // Cânticos
+    'Cântico Inicial', 'Cântico do Meio', 'Cântico Final',
+    'Cantico Inicial', 'Cantico do Meio', 'Cantico Final',
+    // Orações
+    'Oração Inicial', 'Oração Final',
+    'Oracao Inicial', 'Oracao Final',
+    // Presidente
+    'Comentários Iniciais', 'Comentários Finais',
+    'Comentarios Iniciais', 'Comentarios Finais',
+    'Elogios e Conselhos',
+    'Presidente', 'Presidente da Reunião',
+];
+
+export function isPartWithoutDuration(tituloParte: string): boolean {
+    const tituloLower = tituloParte.toLowerCase();
+    return PARTS_WITHOUT_DURATION.some(type =>
+        tituloLower.includes(type.toLowerCase())
+    );
+}
+
+export function validatePartsBeforeGeneration(
+    parts: Array<{
+        id: string;
+        funcao: string;
+        duracao?: number | string;
+        weekDisplay: string;
+        tituloParte: string;
+        resolvedPublisherName?: string;
+    }>
+): ValidationWarning[] {
+    const warnings: ValidationWarning[] = [];
+
+    parts.forEach(part => {
+        if (part.funcao === 'Titular') {
+            if (isPartWithoutDuration(part.tituloParte)) {
+                return;
+            }
+            const duracao = typeof part.duracao === 'string' ? parseInt(part.duracao) : part.duracao;
+            if (!duracao || duracao <= 0) {
+                warnings.push({
+                    type: 'MISSING_DURATION',
+                    partId: part.id,
+                    weekDisplay: part.weekDisplay,
+                    partTitle: part.tituloParte,
+                    message: '\u26A0\uFE0F Parte ' + part.tituloParte + ' (' + part.weekDisplay + ') não tem duração definida'
+                });
+            }
+        }
+    });
+
+    return warnings;
+}
+
