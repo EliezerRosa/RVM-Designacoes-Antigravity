@@ -4,7 +4,7 @@ import { workbookService } from './workbookService';
 import { localNeedsService } from './localNeedsService';
 import { loadCompletedParticipations } from './historyAdapter';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } from './eligibilityService';
-import { getNextInRotation } from './fairRotationService';
+import { getRankedCandidates } from './unifiedRotationService';
 
 import { getModalidadeFromTipo } from '../constants/mappings';
 import { validatePartsBeforeGeneration } from './linearRotationService';
@@ -135,27 +135,30 @@ export const generationService = {
 
             for (const part of presidenteParts) {
                 const thursdayDate = getThursdayFromDate(part.date);
-                const availabilityFilter = (p: Publisher): boolean => {
+
+                // Filtro de Elegibilidade + Disponibilidade
+                const eligibleCandidates = publishers.filter(p => {
                     const eligResult = checkEligibility(p, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR, { date: part.date });
                     if (!eligResult.eligible) return false;
 
                     const avail = p.availability;
                     if (avail.mode === 'always') return !avail.exceptionDates.includes(thursdayDate);
                     return avail.availableDates.includes(thursdayDate);
-                };
+                });
 
-                const { publisher: candidate } = await getNextInRotation(
-                    publishers,
-                    'presidentes',
-                    new Set<string>(),
-                    availabilityFilter,
-                    historyRecords,
-                    true // Skip manual exclusion for batch generation
-                );
+                // Seleção via Scientific Score
+                const ranked = getRankedCandidates(eligibleCandidates, 'Presidente', historyRecords);
+
+                // Pegar o primeiro
+                const candidate = ranked.length > 0 ? ranked[0].publisher : null;
 
                 if (candidate) {
                     selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
                     totalWithPublisher++;
+                    // Não precisa adicionar a namesExcludedInWeek pois presidentes presidem a reunião toda, 
+                    // mas se presidentes puderem ter partes, deveriam ser adicionados? 
+                    // Na lógica original não adicionava para exclusão geral, mas vamos manter o padrão original.
+                    // (Na lógica original, getNextInRotation usa new Set(), então não checava colisão consigo mesmo aqui)
                 }
             }
 
@@ -185,7 +188,7 @@ export const generationService = {
                         const thursdayDate = getThursdayFromDate(ensinoPart.date);
                         const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino);
 
-                        const ensinoFilter = (p: Publisher): boolean => {
+                        const checkPubFilters = (p: Publisher) => {
                             const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, { date: ensinoPart.date });
                             if (!eligResult.eligible) return false;
 
@@ -197,21 +200,34 @@ export const generationService = {
                         let candidate: Publisher | null = null;
                         const isLeitorEBC = (tipoEnsino === 'Leitor EBC' || tipoEnsino === EnumTipoParte.LEITOR_EBC);
 
+                        // Helper para selecionar o primeiro DISPONÍVEL da lista ranqueada
+                        const pickTopRanked = (pubs: Publisher[]) => {
+                            const ranked = getRankedCandidates(pubs, tipoEnsino, historyRecords);
+                            // Encontrar o primeiro que NÃO está excluído nesta semana
+                            return ranked.find(r => !namesExcludedInWeek.has(r.publisher.name))?.publisher || null;
+                        };
+
                         if (isLeitorEBC) {
                             // Varão > SM > Ancião
-                            const commonBrotherResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => !isElderOrMS(p) && ensinoFilter(p), historyRecords, true);
-                            if (commonBrotherResult.publisher) candidate = commonBrotherResult.publisher;
-                            else {
-                                const msResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => p.condition === 'Servo Ministerial' && ensinoFilter(p), historyRecords, true);
-                                if (msResult.publisher) candidate = msResult.publisher;
-                                else {
-                                    const elderResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && ensinoFilter(p), historyRecords, true);
-                                    if (elderResult.publisher) candidate = elderResult.publisher;
-                                }
+                            // Grupo 1: Varões Comuns
+                            const brothers = publishers.filter(p => !isElderOrMS(p) && checkPubFilters(p));
+                            candidate = pickTopRanked(brothers);
+
+                            if (!candidate) {
+                                // Grupo 2: SM
+                                const servants = publishers.filter(p => p.condition === 'Servo Ministerial' && checkPubFilters(p));
+                                candidate = pickTopRanked(servants);
+                            }
+
+                            if (!candidate) {
+                                // Grupo 3: Anciãos
+                                const elders = publishers.filter(p => (p.condition === 'Ancião' || p.condition === 'Anciao') && checkPubFilters(p));
+                                candidate = pickTopRanked(elders);
                             }
                         } else {
-                            const standardResult = await getNextInRotation(publishers, 'ensino', namesExcludedInWeek, ensinoFilter, historyRecords, true);
-                            candidate = standardResult.publisher;
+                            // Standard: Todos elegíveis juntos
+                            const eligible = publishers.filter(p => checkPubFilters(p));
+                            candidate = pickTopRanked(eligible);
                         }
 
                         if (candidate) {
@@ -234,7 +250,7 @@ export const generationService = {
                     const thursdayDate = getThursdayFromDate(estudantePart.date);
                     const modalidadeCorreta = getModalidadeFromTipo(estudantePart.tipoParte);
 
-                    const estudanteFilter = (p: Publisher): boolean => {
+                    const checkPubFilters = (p: Publisher) => {
                         const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, { date: estudantePart.date });
                         if (!eligResult.eligible) return false;
                         const avail = p.availability;
@@ -245,25 +261,39 @@ export const generationService = {
                     const isDemonstracao = modalidadeCorreta === EnumModalidade.DEMONSTRACAO;
                     let candidate: Publisher | null = null;
 
+                    // Helper para selecionar o primeiro DISPONÍVEL da lista ranqueada
+                    const pickTopRanked = (pubs: Publisher[]) => {
+                        const ranked = getRankedCandidates(pubs, estudantePart.tipoParte, historyRecords);
+                        return ranked.find(r => !namesExcludedInWeek.has(r.publisher.name))?.publisher || null;
+                    };
+
                     if (isDemonstracao) {
                         // Irmãs > Varões > SMs > Anciãos
-                        const sisterResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.gender === 'sister' && estudanteFilter(p), historyRecords, true);
-                        if (sisterResult.publisher) candidate = sisterResult.publisher;
-                        else {
-                            const brotherResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.gender === 'brother' && !isElderOrMS(p) && estudanteFilter(p), historyRecords, true);
-                            if (brotherResult.publisher) candidate = brotherResult.publisher;
-                            else {
-                                const msResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => p.condition === 'Servo Ministerial' && estudanteFilter(p), historyRecords, true);
-                                if (msResult.publisher) candidate = msResult.publisher;
-                                else {
-                                    const elderResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, (p) => (p.condition === 'Ancião' || p.condition === 'Anciao') && estudanteFilter(p), historyRecords, true);
-                                    if (elderResult.publisher) candidate = elderResult.publisher;
-                                }
-                            }
+                        // Grupo 1: Irmãs
+                        const sisters = publishers.filter(p => p.gender === 'sister' && checkPubFilters(p));
+                        candidate = pickTopRanked(sisters);
+
+                        if (!candidate) {
+                            // Grupo 2: Varões Comuns
+                            const brothers = publishers.filter(p => p.gender === 'brother' && !isElderOrMS(p) && checkPubFilters(p));
+                            candidate = pickTopRanked(brothers);
+                        }
+
+                        if (!candidate) {
+                            // Grupo 3: SMs
+                            const servants = publishers.filter(p => p.condition === 'Servo Ministerial' && checkPubFilters(p));
+                            candidate = pickTopRanked(servants);
+                        }
+
+                        if (!candidate) {
+                            // Grupo 4: Anciãos
+                            const elders = publishers.filter(p => (p.condition === 'Ancião' || p.condition === 'Anciao') && checkPubFilters(p));
+                            candidate = pickTopRanked(elders);
                         }
                     } else {
-                        const standardResult = await getNextInRotation(publishers, 'estudante', namesExcludedInWeek, estudanteFilter, historyRecords, true);
-                        candidate = standardResult.publisher;
+                        // Standard
+                        const eligible = publishers.filter(p => checkPubFilters(p));
+                        candidate = pickTopRanked(eligible);
                     }
 
                     if (candidate) {
@@ -335,17 +365,26 @@ export const generationService = {
                         };
 
                         let selectedPublisher: Publisher | null = null;
+
+                        // Helper
+                        const pickTopRanked = (pubs: Publisher[], type: string) => {
+                            const ranked = getRankedCandidates(pubs, type, historyRecords);
+                            // Ajudantes podem repetir na semana? Geralmente sim se for necessário, mas idealmente não.
+                            // Original usava `new Set()` -> permitia repetição.
+                            return ranked.length > 0 ? ranked[0].publisher : null;
+                        };
+
                         if (titularGender) {
-                            const group = titularGender === 'brother' ? 'ajudante_m' : 'ajudante_f';
-                            const res = await getNextInRotation(publishers, group, new Set(), createAjudanteFilter(titularGender));
-                            selectedPublisher = res.publisher;
+                            const filtered = publishers.filter(createAjudanteFilter(titularGender));
+                            selectedPublisher = pickTopRanked(filtered, 'Ajudante');
                         } else {
                             // Fallback: Irmã depois Irmão
-                            const r1 = await getNextInRotation(publishers, 'ajudante_f', new Set(), createAjudanteFilter('sister'));
-                            if (r1.publisher) selectedPublisher = r1.publisher;
-                            else {
-                                const r2 = await getNextInRotation(publishers, 'ajudante_m', new Set(), createAjudanteFilter('brother'));
-                                selectedPublisher = r2.publisher;
+                            const sisters = publishers.filter(createAjudanteFilter('sister'));
+                            selectedPublisher = pickTopRanked(sisters, 'Ajudante');
+
+                            if (!selectedPublisher) {
+                                const brothers = publishers.filter(createAjudanteFilter('brother'));
+                                selectedPublisher = pickTopRanked(brothers, 'Ajudante');
                             }
                         }
 
@@ -366,7 +405,18 @@ export const generationService = {
                                 if (avail.mode === 'always') return !avail.exceptionDates.includes(thursdayDate);
                                 return avail.availableDates.includes(thursdayDate);
                             };
-                            const { publisher: orante } = await getNextInRotation(publishers, 'oracao_final', new Set(), oracaoFilter);
+
+                            const eligible = publishers.filter(p => oracaoFilter(p));
+                            const ranked = getRankedCandidates(eligible, 'Oração Final', historyRecords);
+
+                            // Oração final não tem exclusão de nome? Originalmente tinha 'new Set()'.
+                            // Se alguém fez parte e faz oração, deveria poder?
+                            // Vamos manter sem checar namesExcludedInWeek para ser fiel ao original,
+                            // MAS se quisermos coerência, a pessoa não deveria fazer 2 coisas.
+                            // Original: new Set() -> passava vazio -> podia repetir.
+                            // MANTEREI assim.
+                            const orante = ranked.length > 0 ? ranked[0].publisher : null;
+
                             if (orante) {
                                 selectedPublisherByPart.set(part.id, { id: orante.id, name: orante.name });
                                 totalWithPublisher++;
