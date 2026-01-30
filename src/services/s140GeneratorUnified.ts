@@ -589,7 +589,7 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
 // ============================================================================
 
 export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Promise<void> {
-    console.log('[S140] Gerando PDF Único (Absolute Check)...', weekData.weekId);
+    console.log('[S140] Gerando PDF Único (Visible Strategy)...', weekData.weekId);
 
     // Construção Segura do DOM
     const wrapper = document.createElement('div');
@@ -609,17 +609,19 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
     pageDiv.innerHTML = bodyContent;
     wrapper.appendChild(pageDiv);
 
-    // 3. Configurar Wrapper para Renderização
-    // Usar absolute em vez de fixed para evitar bugs de 0-height do html2canvas
-    wrapper.style.position = 'absolute';
+    // 3. Configurar Wrapper para Renderização "Visível"
+    // Mudança Crítica: Renderizar NO TOPO de tudo para garantir que o html2canvas "veja"
+    wrapper.style.position = 'fixed';
     wrapper.style.left = '0';
     wrapper.style.top = '0';
-    wrapper.style.zIndex = '-9999';
-    wrapper.style.width = '210mm';
-    wrapper.style.minHeight = '297mm'; // Forçar altura mínima
+    wrapper.style.zIndex = '99999'; // Acima de modais e tudo
     wrapper.style.background = 'white';
 
+    // Forçar layout
     document.body.appendChild(wrapper);
+
+    // Pequeno delay para garantir reflow e renderização de fontes
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
         const opt = {
@@ -629,7 +631,8 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                // windowWidth removido para deixar o container ditar a largura
+                scrollY: 0, // Reset scroll
+                scrollX: 0
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
         };
@@ -650,7 +653,7 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 
 
 export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUnified[]): Promise<void> {
-    console.log('[S140] Gerando PDF Multi-Semanas (Absolute Check)...', weeksData.length);
+    console.log('[S140] Gerando PDF Multi-Semanas (Visible Strategy)...', weeksData.length);
 
     // Construção Segura do DOM
     const wrapper = document.createElement('div');
@@ -663,35 +666,51 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
 
     // 2. Construir Páginas
     weeksData.forEach((weekData, index) => {
-        // Obter conteúdo interno
         const bodyContent = generateS140BodyContent(weekData);
         if (!bodyContent) console.error('[S140] Body Content vazio na semana', weekData.weekId);
 
-        // Criar container da página
         const pageDiv = document.createElement('div');
         pageDiv.className = 'container';
 
-        // Adicionar quebra de página se não for a última
         if (index < weeksData.length - 1) {
             pageDiv.classList.add('page-break');
         }
 
-        // Injetar HTML do corpo (tabelas, etc - seguro pois veio de generateS140BodyContent)
         pageDiv.innerHTML = bodyContent;
         wrapper.appendChild(pageDiv);
     });
 
-    // 3. Configurar Wrapper para Renderização
-    // Usar absolute em vez de fixed
-    wrapper.style.position = 'absolute';
+    // 3. Configurar Wrapper para Renderização (Visível)
+    wrapper.style.position = 'fixed'; // Garantir que está na viewport
     wrapper.style.left = '0';
     wrapper.style.top = '0';
-    wrapper.style.zIndex = '-9999';
-    wrapper.style.width = '210mm';
-    wrapper.style.minHeight = '297mm';
+    wrapper.style.zIndex = '99999'; // Topo absoluto
+    wrapper.style.width = '100vw'; // Ocupar viewport momentaneamente
+    wrapper.style.height = '100vh';
+    wrapper.style.overflow = 'auto'; // Permitir scroll interno se necessário
     wrapper.style.background = 'white';
 
+    // Centralizar conteúdo para melhor visualização durante o flash (opcional, mas bom UX)
+    wrapper.style.display = 'flex';
+    wrapper.style.justifyContent = 'center';
+    wrapper.style.alignItems = 'flex-start';
+
+    // Container interno para o PDF em si (A4)
+    const contentContainer = document.createElement('div');
+    contentContainer.style.width = '210mm';
+    contentContainer.style.background = 'white';
+    // Mover os filhos do wrapper para o contentContainer correta
+    // Hack: Mover os childNodes já inseridos (style + pages)
+    // Melhor: reestruturar levemente acima, mas appendChild move nós automaticamente
+    while (wrapper.firstChild) {
+        contentContainer.appendChild(wrapper.firstChild);
+    }
+    wrapper.appendChild(contentContainer);
+
     document.body.appendChild(wrapper);
+
+    // Delay de estabilização
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
         const weekRange = weeksData.length > 1
@@ -705,13 +724,15 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                // windowWidth removido
+                scrollY: 0,
+                scrollX: 0
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        await html2pdf().set(opt).from(wrapper).save();
+        // Renderizar o contentContainer, não o wrapper full-screen
+        await html2pdf().set(opt).from(contentContainer).save();
     } finally {
         if (document.body.contains(wrapper)) {
             document.body.removeChild(wrapper);
