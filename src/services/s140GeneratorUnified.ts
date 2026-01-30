@@ -589,9 +589,9 @@ export function generateS140UnifiedHTML(weekData: S140WeekDataUnified): string {
 // ============================================================================
 
 export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Promise<void> {
-    console.log('[S140] Gerando PDF Único...', weekData.weekId);
+    console.log('[S140] Gerando PDF Único (Absolute Check)...', weekData.weekId);
 
-    // Construção Segura do DOM (Padronizada com Multi-Week)
+    // Construção Segura do DOM
     const wrapper = document.createElement('div');
     wrapper.className = 's140-wrapper';
 
@@ -610,11 +610,13 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
     wrapper.appendChild(pageDiv);
 
     // 3. Configurar Wrapper para Renderização
-    wrapper.style.position = 'fixed';
+    // Usar absolute em vez de fixed para evitar bugs de 0-height do html2canvas
+    wrapper.style.position = 'absolute';
     wrapper.style.left = '0';
     wrapper.style.top = '0';
     wrapper.style.zIndex = '-9999';
     wrapper.style.width = '210mm';
+    wrapper.style.minHeight = '297mm'; // Forçar altura mínima
     wrapper.style.background = 'white';
 
     document.body.appendChild(wrapper);
@@ -624,7 +626,11 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
             margin: 0,
             filename: `S-140-Unified_${weekData.weekId}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                // windowWidth removido para deixar o container ditar a largura
+            },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
         };
 
@@ -644,7 +650,7 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 
 
 export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUnified[]): Promise<void> {
-    console.log('[S140] Gerando PDF Multi-Semanas...', weeksData.length);
+    console.log('[S140] Gerando PDF Multi-Semanas (Absolute Check)...', weeksData.length);
 
     // Construção Segura do DOM
     const wrapper = document.createElement('div');
@@ -676,11 +682,13 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
     });
 
     // 3. Configurar Wrapper para Renderização
-    wrapper.style.position = 'fixed';
+    // Usar absolute em vez de fixed
+    wrapper.style.position = 'absolute';
     wrapper.style.left = '0';
     wrapper.style.top = '0';
     wrapper.style.zIndex = '-9999';
     wrapper.style.width = '210mm';
+    wrapper.style.minHeight = '297mm';
     wrapper.style.background = 'white';
 
     document.body.appendChild(wrapper);
@@ -697,7 +705,7 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                windowWidth: 800
+                // windowWidth removido
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
             pagebreak: { mode: ['css', 'legacy'] }
