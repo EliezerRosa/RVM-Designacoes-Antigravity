@@ -13,8 +13,8 @@ export const HISTORY_LOOKBACK_MONTHS = 12;
 // v9.2.2: Janela de contexto para o Agente IA (semanas futuras)
 // Limita o volume de dados enviados ao Gemini para evitar timeouts HTTP 504
 export const AGENT_CONTEXT_WEEKS = 12; // Próximas 12 semanas (~3 meses)
-export const AGENT_HISTORY_LOOKBACK_WEEKS = 4; // Últimas 4 semanas para referência visual (Grade)
-export const AGENT_LIST_LOOKBACK_WEEKS = 8; // Últimas 8 semanas para lista de participações (Lista)
+export const AGENT_HISTORY_LOOKBACK_WEEKS = 12; // Últimas 12 semanas para referência visual (Grid)
+export const AGENT_LIST_LOOKBACK_WEEKS = 16; // Últimas 16 semanas para lista de participações (Lista)
 
 // Versão das Regras (Sincronizada manualmente)
 // Usado para auditoria Code x Agent
