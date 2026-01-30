@@ -169,18 +169,39 @@ function summarizePublisher(p: Publisher): PublisherSummary & {
 /**
  * Constrói o contexto completo para o agente
  */
+export interface ContextOptions {
+    includePublishers?: boolean;
+    includeRules?: boolean;
+    includeSchedule?: boolean;
+    includeHistory?: boolean;
+    includeSpecialEvents?: boolean;
+}
+
+/**
+ * Constrói o contexto completo para o agente (Modular)
+ */
 export function buildAgentContext(
     publishers: Publisher[],
     parts: WorkbookPart[],
     _history: HistoryRecord[] = [],
     specialEvents: SpecialEventInput[] = [],
-    localNeeds: LocalNeedsInput[] = []
+    localNeeds: LocalNeedsInput[] = [],
+    options: ContextOptions = {
+        includePublishers: true, // Default safe
+        includeRules: true,
+        includeSchedule: true,
+        includeHistory: false,
+        includeSpecialEvents: true
+    }
 ): AgentContext {
     // Filtrar publicadores ativos
     const activePublishers = publishers.filter(p => p.isServing);
 
-    // Sumarizar publicadores (TODOS, sem exceção)
-    const publisherSummaries = publishers.map(summarizePublisher);
+    // Sumarizar publicadores (Se solicitado)
+    let publisherSummaries: any[] = [];
+    if (options.includePublishers) {
+        publisherSummaries = publishers.map(summarizePublisher);
+    }
 
     // Estatísticas de elegibilidade
     const eligibilityStats = getEligibilityStats(publishers);
@@ -189,17 +210,20 @@ export function buildAgentContext(
 
     // Participações recentes (Lista para o Agente)
     // v9.6: Usar janela de tempo fixa (AGENT_LIST_LOOKBACK_WEEKS) para economizar tokens
-    // O "Score Unificado" já carrega o peso histórico de 12 meses, então o Agente só precisa ver o recente.
-    const listLookbackDate = new Date();
-    listLookbackDate.setDate(listLookbackDate.getDate() - (AGENT_LIST_LOOKBACK_WEEKS * 7));
+    let recentParticipations: ParticipationSummary[] = [];
 
-    const recentParticipations = parts
-        .filter(p => {
-            const pDate = new Date(p.date);
-            return pDate >= listLookbackDate && p.resolvedPublisherName;
-        })
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .map(summarizeParticipation);
+    if (options.includeHistory) {
+        const listLookbackDate = new Date();
+        listLookbackDate.setDate(listLookbackDate.getDate() - (AGENT_LIST_LOOKBACK_WEEKS * 7));
+
+        recentParticipations = parts
+            .filter(p => {
+                const pDate = new Date(p.date);
+                return pDate >= listLookbackDate && p.resolvedPublisherName;
+            })
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map(summarizeParticipation);
+    }
 
     // Partes pendentes
     const pendingParts = parts.filter(p =>
@@ -255,10 +279,20 @@ export function buildAgentContext(
     futureLimitDate.setDate(futureLimitDate.getDate() + (AGENT_CONTEXT_WEEKS * 7));
 
     const allWeeks = Array.from(weekMap.values());
-    const weekDesignations = allWeeks.filter(w => {
-        const weekDate = new Date(w.date);
-        return weekDate >= historyLimitDate && weekDate <= futureLimitDate;
-    });
+    let weekDesignations: WeekDesignation[] = [];
+
+    if (options.includeSchedule) {
+        const historyLimitDate = new Date();
+        historyLimitDate.setDate(historyLimitDate.getDate() - (AGENT_HISTORY_LOOKBACK_WEEKS * 7));
+        const futureLimitDate = new Date();
+        // Limita futuro se só quiser verificar regras, mas mantém contexto
+        futureLimitDate.setDate(futureLimitDate.getDate() + (AGENT_CONTEXT_WEEKS * 7));
+
+        weekDesignations = allWeeks.filter(w => {
+            const weekDate = new Date(w.date);
+            return weekDate >= historyLimitDate && weekDate <= futureLimitDate;
+        });
+    }
 
     // Determinar semana atual
     const currentWeekData = allWeeks.find(w => w.date >= today);
@@ -421,32 +455,40 @@ export function formatContextForPrompt(context: AgentContext): string {
     lines.push(`- Anciãos/SM: ${context.eligibilityStats.eldersAndMS}`);
     lines.push(`- Irmãos/Irmãs: ${context.eligibilityStats.brothers}/${context.eligibilityStats.sisters}\n`);
 
-    // LISTA COMPLETA DE PUBLICADORES (SEM LIMITES)
-    // Agrupando para facilitar leitura
-    const elders = context.publishers.filter((p: any) => p.condition.includes('Anci'));
-    const servants = context.publishers.filter((p: any) => p.condition.includes('Servo'));
-    const regular = context.publishers.filter((p: any) => !p.condition.includes('Anci') && !p.condition.includes('Servo'));
+    // LISTA DE PUBLICADORES (CONDICIONAL)
+    if (context.publishers && context.publishers.length > 0) {
+        const elders = context.publishers.filter((p: any) => p.condition.includes('Anci'));
+        const servants = context.publishers.filter((p: any) => p.condition.includes('Servo'));
+        // Publicadores regulares: Limitar para economizar tokens se muitos
+        const regular = context.publishers.filter((p: any) => !p.condition.includes('Anci') && !p.condition.includes('Servo'));
 
-    const formatPub = (p: any) => {
-        const info = [`${p.condition}`];
-        if (p.ageGroup && p.ageGroup !== 'Adulto') info.push(p.ageGroup);
-        if (p.hasParents) info.push('Filho(a)');
-        if (p.privileges.length > 0) info.push(`Priv: [${p.privileges.join(', ')}]`);
-        if (p.restrictions.length > 0) info.push(`🛑 RESTRIÇÃO: ${p.restrictions.join(', ')}`);
+        const formatPub = (p: any) => {
+            // Compact Format: Nome (M/F) | Cond | Privs...
+            const info = [];
+            if (p.ageGroup && p.ageGroup !== 'Adulto') info.push(p.ageGroup);
+            if (p.hasParents) info.push('Filho');
+            if (p.privileges && p.privileges.length > 0) info.push(`[${p.privileges.join(',')}]`); // Compact logic
+            if (p.restrictions && p.restrictions.length > 0) info.push(`🛑${p.restrictions.join(',')}`);
 
-        return `- ${p.name} (${p.gender === 'brother' ? 'M' : 'F'}) | ${info.join(' | ')}`;
-    };
+            return `- ${p.name} (${p.gender === 'brother' ? 'Ir' : 'Ira'}) | ${info.join('|')}`;
+        };
 
-    lines.push(`=== LISTA DE PUBLICADORES ===`);
-    lines.push(`\n-- ANCIÃOS (${elders.length}) --`);
-    elders.forEach(p => lines.push(formatPub(p)));
+        lines.push(`=== LISTA DE PUBLICADORES ===`);
+        lines.push(`\n-- ANCIÃOS (${elders.length}) --`);
+        elders.forEach(p => lines.push(formatPub(p)));
 
-    lines.push(`\n-- SERVOS MINISTERIAIS (${servants.length}) --`);
-    servants.forEach(p => lines.push(formatPub(p)));
+        lines.push(`\n-- SERVOS (${servants.length}) --`);
+        servants.forEach(p => lines.push(formatPub(p)));
 
-    lines.push(`\n-- PUBLICADORES (${regular.length}) --`);
-    // REMOVIDO: .slice(0, 20) - Agora enviamos a lista completa
-    regular.forEach(p => lines.push(formatPub(p)));
+        if (regular.length > 0) {
+            lines.push(`\n-- PUBLICADORES (${regular.length}) --`);
+            // Otimização: Se > 50 pubs, listar apenas nomes ou compactar drasticamente?
+            // Por enquanto, formato compacto.
+            regular.forEach(p => lines.push(formatPub(p)));
+        }
+    } else {
+        lines.push(`(Lista de publicadores omitida para economizar tokens. Se precisar, solicite especificamente.)`);
+    }
 
     // Designações por semana
     if (context.weekDesignations.length > 0) {
