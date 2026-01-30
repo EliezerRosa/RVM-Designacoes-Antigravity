@@ -14,6 +14,7 @@ import {
     formatSensitiveContext,
     type SpecialEventInput,
     type LocalNeedsInput,
+    type ContextOptions, // Importado
 } from './contextBuilder';
 
 // ===== Configuração =====
@@ -216,6 +217,68 @@ function checkSafetyMode(url: string): void {
 }
 
 /**
+ * HEURÍSTICA: Detecta o que o usuário precisa para economizar tokens
+ */
+function detectContextNeeds(question: string): ContextOptions {
+    const q = question.toLowerCase();
+
+    // Default: Minimal safe context
+    const options: ContextOptions = {
+        includePublishers: false,
+        includeRules: false,
+        includeSchedule: true, // Schedule is almost always needed
+        includeHistory: false,
+        includeSpecialEvents: true
+    };
+
+    // 1. Precisa de Publicadores?
+    if (
+        q.includes('quem') ||
+        q.includes('publicador') ||
+        q.includes('irmão') ||
+        q.includes('irmã') ||
+        q.includes('ancião') ||
+        q.includes('servo') ||
+        q.includes('pode') || // pode fazer tal coisa?
+        q.includes('sugira') ||
+        q.includes('indique') ||
+        q.includes('qualificado')
+    ) {
+        options.includePublishers = true;
+    }
+
+    // 2. Precisa de Regras?
+    if (
+        q.includes('regra') ||
+        q.includes('pode') ||
+        q.includes('requisito') ||
+        q.includes('qualificado') ||
+        q.includes('como funciona') ||
+        q.includes('por que')
+    ) {
+        options.includeRules = true;
+    }
+
+    // 3. Precisa de Histórico?
+    if (
+        q.includes('histórico') ||
+        q.includes('vezes') ||
+        q.includes('frequência') ||
+        q.includes('última vez') ||
+        q.includes('participou')
+    ) {
+        options.includeHistory = true;
+    }
+
+    // Fallback para perguntas muito curtas (pode ser qualquer coisa)
+    if (q.length < 10) {
+        options.includePublishers = true;
+    }
+
+    return options;
+}
+
+/**
  * Processa uma pergunta do usuário
  */
 export async function askAgent(
@@ -251,10 +314,15 @@ export async function askAgent(
         try {
             console.log(`[Agent] Tentando modelo: ${model}...`);
 
-            // Construir contexto
-            const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds);
+            // Construir contexto (OTIMIZADO)
+            const contextOptions = detectContextNeeds(question);
+            console.log(`[Agent] Context Strategy:`, contextOptions);
+
+            const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds, contextOptions);
             const contextText = formatContextForPrompt(context);
-            const rulesText = getEligibilityRulesText();
+
+            // Regras também são opcionais agora
+            const rulesText = contextOptions.includeRules ? getEligibilityRulesText() : '';
 
             // Montar system prompt
             let systemPrompt = SYSTEM_PROMPT_BASE;
