@@ -145,6 +145,13 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
     if (p.isHelperOnly) restrictions.push('ApenasAjudante');
     if (!p.canPairWithNonParent && p.parentIds.length > 0) restrictions.push('ApenasComPais');
 
+    // Section Privileges (Lockouts)
+    if (p.privilegesBySection) {
+        if (!p.privilegesBySection.canParticipateInTreasures) restrictions.push('BloqTesouros');
+        if (!p.privilegesBySection.canParticipateInMinistry) restrictions.push('BloqMinisterio');
+        if (!p.privilegesBySection.canParticipateInLife) restrictions.push('BloqVida');
+    }
+
     // Resolve Pais
     const parentNames = p.parentIds && parentLookup
         ? p.parentIds.map(id => parentLookup.get(id)).filter(Boolean)
@@ -156,14 +163,16 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
         condition: p.condition,
         isServing: p.isServing,
         isBaptized: p.isBaptized,
-        phone: p.phone, // NEW
-        aliases: p.aliases, // NEW
+        phone: p.phone,
+        aliases: p.aliases,
         privileges,
         ageGroup: p.ageGroup,
         hasParents: parentNames.length > 0,
-        parentNames: parentNames, // NEW
+        parentNames: parentNames,
         availability: p.availability.mode === 'always'
-            ? `Sempre (${p.availability.exceptionDates.length} exceções)`
+            ? p.availability.exceptionDates.length > 0
+                ? `Sempre (Exceto: [${p.availability.exceptionDates.join(', ')}])`
+                : 'Sempre'
             : p.availability.mode === 'never'
                 ? 'Nunca'
                 : `Apenas: [${p.availability.availableDates.join(', ')}]`,
