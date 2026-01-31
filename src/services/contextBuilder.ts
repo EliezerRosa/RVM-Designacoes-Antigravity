@@ -561,6 +561,22 @@ export function formatContextForPrompt(context: AgentContext): string {
         lines.push(`Menos ativos: ${context.participationAnalytics.leastActive.map(p => `${p.name}(${p.lastDate || 'Nunca'})`).join(', ')}`);
     }
 
+    // LISTA DE PARTICIPAÇÕES RECENTES (LOG)
+    if (context.recentParticipations && context.recentParticipations.length > 0) {
+        lines.push(`\n=== HISTÓRICO DE DESIGNAÇÕES (LOG DETALHADO) ===`);
+        // Limitar a ~100 itens se for muito grande para evitar estouro
+        const historyLimit = context.recentParticipations.length > 150 ? 150 : context.recentParticipations.length;
+
+        for (let i = 0; i < historyLimit; i++) {
+            const p = context.recentParticipations[i];
+            const title = p.title ? `[${p.title}] ` : '';
+            lines.push(`${p.date} | ${p.partType} | ${title}-> ${p.publisherName}`);
+        }
+        if (context.recentParticipations.length > historyLimit) {
+            lines.push(`(... e mais ${context.recentParticipations.length - historyLimit} registros antigos omitidos)`);
+        }
+    }
+
     // Prioridade (Sugestões do Sistema)
     if (context.priorityCandidates && context.priorityCandidates.length > 0) {
         lines.push(`\n=== SUGESTÃO DE PRIORIDADE (ALTA ROTAÇÃO) ===`);
