@@ -153,12 +153,21 @@ export default async function handler(request: Request) {
                             // Não precisamos esperar o insert (Edge function tem tempo curto, mas fire-and-forget ajuda)
                             // Nota: Edge functions as vezes matam promessas pendentes. O ideal é ctx.waitUntil, 
                             // mas handler padrão web não tem isso fácil. Vamos tentar await rápido ou ignorar erro.
+                            // Extract Usage Metadata (if available)
+                            const usage = data.usageMetadata || {};
+                            const inputTokens = usage.promptTokenCount || 0;
+                            const outputTokens = usage.candidatesTokenCount || 0;
+                            const totalTokens = usage.totalTokenCount || 0;
+
                             await supabase.from('ai_intent_cache').upsert({
                                 prompt_hash: promptHash,
                                 prompt_preview: promptText.substring(0, 200),
                                 thinking_level: thinkingLevel,
                                 model_used: model,
                                 response: data,
+                                input_tokens: inputTokens,
+                                output_tokens: outputTokens,
+                                total_tokens: totalTokens,
                                 created_at: new Date().toISOString()
                             });
                         } catch (saveErr) {
