@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { WorkbookPart, Publisher } from '../types';
 import { sendS89ViaWhatsApp, copyS89ToClipboard } from '../services/s89Generator';
+import { prepareS140RoomBA4Data, generateS140RoomBA4HTML } from '../services/s140GeneratorRoomBA4';
+import html2canvas from 'html2canvas';
 
 interface S89SelectionModalProps {
     isOpen: boolean;
@@ -12,6 +14,8 @@ interface S89SelectionModalProps {
 
 export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishers }: S89SelectionModalProps) {
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+    const [isSharingS140, setIsSharingS140] = useState(false);
+    const s140Ref = useRef<HTMLDivElement>(null);
 
     if (!isOpen) return null;
 
@@ -76,8 +80,59 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     };
 
+    // --- S-140 SHARE LOGIC ---
+    const handleShareS140 = async () => {
+        if (!s140Ref.current) return;
+        setIsSharingS140(true);
+        try {
+            // Force block visibility for capture (although it's visually hidden via position)
+            const element = s140Ref.current;
+
+            const canvas = await html2canvas(element, {
+                scale: 2, // High DPI
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                logging: false,
+            });
+
+            const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+
+            if (!blob) throw new Error('Falha ao gerar Blob da imagem S-140');
+
+            if (navigator.clipboard && navigator.clipboard.write) {
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        [blob.type]: blob
+                    })
+                ]);
+
+                // Open WhatsApp Web
+                window.open('https://web.whatsapp.com/', '_blank');
+            } else {
+                alert('Seu navegador não suporta cópia direta. Imagem gerada, mas não copiada.');
+            }
+
+        } catch (error) {
+            console.error('Erro ao compartilhar S-140:', error);
+            alert('Erro ao gerar imagem S-140.');
+        } finally {
+            setIsSharingS140(false);
+        }
+    };
+
     // Filter relevant parts (have publisher assigned)
     const validParts = weekParts.filter(p => p.resolvedPublisherName || p.rawPublisherName);
+
+    // Prepare S-140 HTML for hidden rendering
+    let s140HTML = '';
+    try {
+        if (weekParts.length > 0) {
+            const weekData = prepareS140RoomBA4Data(weekParts);
+            s140HTML = generateS140RoomBA4HTML(weekData);
+        }
+    } catch (e) {
+        console.error('Erro ao preparar S-140 hidden:', e);
+    }
 
     return (
         <div style={{
@@ -92,12 +147,61 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
                 {/* Header */}
                 <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1em', color: '#111827' }}>📤 Enviar Cartões S-89 (Semana {weekId})</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.1em', color: '#111827' }}>📤 Enviar Cartões (Semana {weekId})</h3>
+                    </div>
                     <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#6B7280' }}>&times;</button>
                 </div>
 
+                {/* S-140 Hidden Render Container */}
+                <div
+                    ref={s140Ref}
+                    style={{
+                        position: 'absolute',
+                        top: '-9999px',
+                        left: '-9999px',
+                        width: '800px', // Fixed width for A4 consistency or similar
+                        background: 'white',
+                        padding: '20px'
+                    }}
+                    dangerouslySetInnerHTML={{ __html: s140HTML }}
+                />
+
                 {/* List */}
                 <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                    {/* S-140 Action Row */}
+                    <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '12px', borderRadius: '8px', border: '1px solid #d1fae5', background: '#ecfdf5',
+                        marginBottom: '8px'
+                    }}>
+                        <div>
+                            <div style={{ fontWeight: '600', color: '#065f46', fontSize: '0.9em' }}>📜 Quadro de Anúncios (S-140)</div>
+                            <div style={{ fontSize: '0.85em', color: '#047857' }}>
+                                Programação completa da semana
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleShareS140}
+                            disabled={isSharingS140}
+                            style={{
+                                background: '#059669', color: 'white', border: 'none',
+                                padding: '8px 12px', borderRadius: '6px', cursor: isSharingS140 ? 'wait' : 'pointer',
+                                fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                opacity: isSharingS140 ? 0.7 : 1
+                            }}
+                            title="Copia a imagem do S-140 e abre o WhatsApp Web"
+                        >
+                            {isSharingS140 ? '⏳...' : 'ZapWeb 🌐'}
+                        </button>
+                    </div>
+
+                    <div style={{ height: '1px', background: '#E5E7EB', margin: '4px 0 8px 0' }} />
+                    <div style={{ fontSize: '0.85em', color: '#6B7280', textTransform: 'uppercase', fontWeight: '600', marginBottom: '8px' }}>
+                        Cartões Individuais (S-89)
+                    </div>
+
                     {validParts.length === 0 ? (
                         <div style={{ color: '#6B7280', textAlign: 'center', padding: '20px' }}>Nenhuma designação com publicador nesta semana.</div>
                     ) : (
