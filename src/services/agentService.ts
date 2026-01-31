@@ -241,8 +241,18 @@ function detectContextNeeds(question: string): ContextOptions {
         q.includes('servo') ||
         q.includes('pode') || // pode fazer tal coisa?
         q.includes('sugira') ||
-        q.includes('indique') ||
-        q.includes('qualificado')
+        q.includes('qualificado') ||
+        // Action verbs (assignment)
+        q.includes('designe') ||
+        q.includes('coloque') ||
+        q.includes('mude') ||
+        q.includes('troque') ||
+        q.includes('ponha') ||
+        q.includes('defina') ||
+        q.includes('atribua') ||
+        // Availability
+        q.includes('disponível') ||
+        q.includes('disponibilidade')
     ) {
         options.includePublishers = true;
     }
