@@ -210,7 +210,6 @@ export default async function handler(request: Request) {
                     // Erro fatal (ex: payload inválido), retorna erro para o cliente
                     return new Response(JSON.stringify(errorData), {
                         status: lastStatus,
-                        status: lastStatus,
                         headers: { 'Content-Type': 'application/json', ...corsHeaders },
                     });
                 }
@@ -257,14 +256,12 @@ export default async function handler(request: Request) {
             }
         }), {
             status: lastStatus || 500,
-            status: lastStatus || 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
 
     } catch (error) {
         console.error('Error in chat proxy:', error);
         return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-            status: 500,
             status: 500,
             headers: { 'Content-Type': 'application/json' }, // Fallback sem cors se crashar antes
         });
