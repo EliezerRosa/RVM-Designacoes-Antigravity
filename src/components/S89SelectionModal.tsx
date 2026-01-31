@@ -106,8 +106,31 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     })
                 ]);
 
-                // Open WhatsApp Web
-                window.open('https://web.whatsapp.com/', '_blank');
+                // 1. Calcular Saudação (Dia/Tarde/Noite)
+                const hour = new Date().getHours();
+                const greeting = hour < 12 ? 'dia' : hour < 18 ? 'tarde' : 'noite';
+
+                // 2. Calcular Data da Quinta-feira da semana
+                // weekId assume formato YYYY-MM-DD (Segunda-feira)
+                const [y, m, d] = weekId.split('-').map(Number);
+                const weekDate = new Date(y, m - 1, d);
+                // Adicionar 3 dias para chegar na Quinta-feira
+                const thursdayDate = new Date(weekDate);
+                thursdayDate.setDate(weekDate.getDate() + 3);
+
+                // Formatar Data: DD de MMMMM de YYYYY
+                const day = thursdayDate.getDate();
+                const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+                const month = months[thursdayDate.getMonth()];
+                const year = thursdayDate.getFullYear();
+                const formattedDate = `${day} de ${month} de ${year}`;
+
+                // 3. Montar Mensagem
+                const message = `Olá irmãos! Bom ${greeting}!\n\nSegue programação da reunião de meio de semana, para a semana de ${formattedDate}.\n\n(Salmo 90:17)`;
+
+                // 4. Abrir WhatsApp Web com texto preenchido
+                const encodedMessage = encodeURIComponent(message);
+                window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
             } else {
                 alert('Seu navegador não suporta cópia direta. Imagem gerada, mas não copiada.');
             }
