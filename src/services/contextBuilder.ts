@@ -27,6 +27,7 @@ export interface ParticipationSummary {
     date: string;
     partType: string;
     funcao: string;
+    title: string; // NEW
 }
 
 // NOVO: Designação detalhada de uma parte
@@ -573,12 +574,13 @@ export function formatContextForPrompt(context: AgentContext): string {
 /**
  * Converte participação para resumo
  */
-function summarizeParticipation(record: HistoryRecord | WorkbookPart): ParticipationSummary {
+function summarizeParticipation(record: HistoryRecord | WorkbookPart): ParticipationSummary & { title: string } {
     return {
         publisherName: record.resolvedPublisherName || record.rawPublisherName || 'N/A',
         date: record.date,
         partType: record.tipoParte,
         funcao: record.funcao,
+        title: record.tituloParte || '', // NEW
     };
 }
 
