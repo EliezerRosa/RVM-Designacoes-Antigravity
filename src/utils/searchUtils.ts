@@ -67,8 +67,10 @@ export function phoneticMatch(query: string, target: string): boolean {
     // Match exato de soundex
     if (queryCode === targetCode) return true;
 
-    // Também verifica se os primeiros 3 caracteres são iguais (mais tolerante)
-    return queryCode.substring(0, 3) === targetCode.substring(0, 3);
+    // REMOVIDO: A verificação dos 3 primeiros caracteres era muito agressiva
+    // causando falsos positivos (ex: Marcos vs Marcela).
+    // Agora confiamos no match exato ou na similaridade de Levenshtein (calculada depois).
+    return false;
 }
 
 /**
