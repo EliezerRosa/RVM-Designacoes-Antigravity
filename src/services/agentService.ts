@@ -264,7 +264,15 @@ function detectContextNeeds(question: string): ContextOptions {
         q.includes('requisito') ||
         q.includes('qualificado') ||
         q.includes('como funciona') ||
-        q.includes('por que')
+        q.includes('qualificado') ||
+        q.includes('como funciona') ||
+        q.includes('por que') ||
+        // Generator needs rules to know who is eligible
+        q.includes('gere') ||
+        q.includes('gerar') ||
+        q.includes('preencha') ||
+        q.includes('complete') ||
+        q.includes('sugira') // Suggestions need rules + roster
     ) {
         options.includeRules = true;
     }
@@ -275,7 +283,13 @@ function detectContextNeeds(question: string): ContextOptions {
         q.includes('vezes') ||
         q.includes('frequência') ||
         q.includes('última vez') ||
-        q.includes('participou')
+        q.includes('participou') ||
+        // Load analysis
+        q.includes('sobrecarregado') ||
+        q.includes('frequência') ||
+        q.includes('muito usado') ||
+        q.includes('trabalhando muito') ||
+        q.includes('descanso')
     ) {
         options.includeHistory = true;
     }
