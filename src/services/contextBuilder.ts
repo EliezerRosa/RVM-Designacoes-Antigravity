@@ -617,8 +617,8 @@ export function formatContextForPrompt(context: AgentContext): string {
     // LISTA DE PARTICIPAÇÕES RECENTES (LOG)
     if (context.recentParticipations && context.recentParticipations.length > 0) {
         lines.push(`\n=== HISTÓRICO DE DESIGNAÇÕES (LOG DETALHADO) ===`);
-        // Limitar a ~100 itens se for muito grande para evitar estouro
-        const historyLimit = context.recentParticipations.length > 150 ? 150 : context.recentParticipations.length;
+        // Limitar a ~800 itens (Aprox 1 ano em cong. médias) para evitar estouro
+        const historyLimit = context.recentParticipations.length > 800 ? 800 : context.recentParticipations.length;
 
         for (let i = 0; i < historyLimit; i++) {
             const p = context.recentParticipations[i];
