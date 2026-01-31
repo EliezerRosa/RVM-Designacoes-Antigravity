@@ -159,7 +159,9 @@ function summarizePublisher(p: Publisher): PublisherSummary & {
         hasParents: (p.parentIds && p.parentIds.length > 0) || false,
         availability: p.availability.mode === 'always'
             ? `Sempre (${p.availability.exceptionDates.length} exceções)`
-            : 'Nunca',
+            : p.availability.mode === 'never'
+                ? 'Nunca'
+                : `Apenas: [${p.availability.availableDates.join(', ')}]`,
         restrictions
     };
 }
@@ -463,11 +465,12 @@ export function formatContextForPrompt(context: AgentContext): string {
         const regular = context.publishers.filter((p: any) => !p.condition.includes('Anci') && !p.condition.includes('Servo'));
 
         const formatPub = (p: any) => {
-            // Compact Format: Nome (M/F) | Cond | Privs...
+            // Compact Format: Nome (M/F) | Cond | Privs... | Avail
             const info = [];
             if (p.ageGroup && p.ageGroup !== 'Adulto') info.push(p.ageGroup);
             if (p.hasParents) info.push('Filho');
             if (p.privileges && p.privileges.length > 0) info.push(`[${p.privileges.join(',')}]`); // Compact logic
+            if (p.availability && p.availability !== 'Sempre (0 exceções)') info.push(`📅${p.availability}`); // Show availability if not default
             if (p.restrictions && p.restrictions.length > 0) info.push(`🛑${p.restrictions.join(',')}`);
 
             return `- ${p.name} (${p.gender === 'brother' ? 'Ir' : 'Ira'}) | ${info.join('|')}`;
