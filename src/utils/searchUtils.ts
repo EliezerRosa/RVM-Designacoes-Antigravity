@@ -245,10 +245,10 @@ export function matchesSearch(query: string, target: string): boolean {
         return true;
     }
 
-    // Match fonético
-    if (phoneticMatch(query, target)) {
-        return true;
-    }
+    // REMOVIDO: Match fonético isolado causa muitas colisões (ex: Marcos = Maria José = M622)
+    // if (phoneticMatch(query, target)) {
+    //    return true;
+    // }
 
     // Similaridade alta
     if (similarity(query, target) >= 0.7) {
