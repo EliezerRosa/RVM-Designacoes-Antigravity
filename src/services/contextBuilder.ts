@@ -128,12 +128,7 @@ export interface AgentContext {
 /**
  * Converte Publisher para resumo compacto e completo
  */
-function summarizePublisher(p: Publisher): PublisherSummary & {
-    ageGroup: string;
-    hasParents: boolean;
-    availability: string;
-    restrictions: string[];
-} {
+function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): any {
     const privileges: string[] = [];
     if (p.privileges.canPreside) privileges.push('Presidir');
     if (p.privileges.canPray) privileges.push('Orar');
@@ -147,6 +142,13 @@ function summarizePublisher(p: Publisher): PublisherSummary & {
     if (p.isNotQualified) restrictions.push(`ÑQualificado(${p.notQualifiedReason || ''})`);
     if (p.requestedNoParticipation) restrictions.push(`PediuSair(${p.noParticipationReason || ''})`);
     if (p.availability.mode === 'never') restrictions.push('Indisponível(Geral)');
+    if (p.isHelperOnly) restrictions.push('ApenasAjudante');
+    if (!p.canPairWithNonParent && p.parentIds.length > 0) restrictions.push('ApenasComPais');
+
+    // Resolve Pais
+    const parentNames = p.parentIds && parentLookup
+        ? p.parentIds.map(id => parentLookup.get(id)).filter(Boolean)
+        : [];
 
     return {
         name: p.name,
@@ -154,9 +156,12 @@ function summarizePublisher(p: Publisher): PublisherSummary & {
         condition: p.condition,
         isServing: p.isServing,
         isBaptized: p.isBaptized,
+        phone: p.phone, // NEW
+        aliases: p.aliases, // NEW
         privileges,
         ageGroup: p.ageGroup,
-        hasParents: (p.parentIds && p.parentIds.length > 0) || false,
+        hasParents: parentNames.length > 0,
+        parentNames: parentNames, // NEW
         availability: p.availability.mode === 'always'
             ? `Sempre (${p.availability.exceptionDates.length} exceções)`
             : p.availability.mode === 'never'
@@ -202,7 +207,11 @@ export function buildAgentContext(
     // Sumarizar publicadores (Se solicitado)
     let publisherSummaries: any[] = [];
     if (options.includePublishers) {
-        publisherSummaries = publishers.map(summarizePublisher);
+        // Criar mapa de lookup para nomes de pais
+        const pubMap = new Map<string, string>();
+        publishers.forEach(p => pubMap.set(p.id, p.name));
+
+        publisherSummaries = publishers.map(p => summarizePublisher(p, pubMap));
     }
 
     // Estatísticas de elegibilidade
@@ -465,10 +474,12 @@ export function formatContextForPrompt(context: AgentContext): string {
         const regular = context.publishers.filter((p: any) => !p.condition.includes('Anci') && !p.condition.includes('Servo'));
 
         const formatPub = (p: any) => {
-            // Compact Format: Nome (M/F) | Cond | Privs... | Avail
+            // Compact Format: Nome (M/F) | Cond | Privs... | Avail | Meta
             const info = [];
+            if (p.phone) info.push(`📞${p.phone}`);
             if (p.ageGroup && p.ageGroup !== 'Adulto') info.push(p.ageGroup);
-            if (p.hasParents) info.push('Filho');
+            if (p.hasParents) info.push(`FilhoDe[${p.parentNames?.join(',')}]`);
+            if (p.aliases && p.aliases.length > 0) info.push(`Apelidos[${p.aliases.join(',')}]`);
             if (p.privileges && p.privileges.length > 0) info.push(`[${p.privileges.join(',')}]`); // Compact logic
             if (p.availability && p.availability !== 'Sempre (0 exceções)') info.push(`📅${p.availability}`); // Show availability if not default
             if (p.restrictions && p.restrictions.length > 0) info.push(`🛑${p.restrictions.join(',')}`);
