@@ -87,6 +87,10 @@ export interface ParticipationAnalytics {
     avgPerPublisher: number;
     mostActive: Array<{ name: string; count: number }>;
     leastActive: Array<{ name: string; lastDate: string | null }>;
+    recent?: {
+        periodLabel: string;
+        topActive: string;
+    };
 }
 
 export interface AgentContext {
@@ -467,6 +471,40 @@ function buildParticipationAnalytics(
         avgPerPublisher: Math.round(avgPerPublisher * 10) / 10,
         mostActive: sortedByCount,
         leastActive: leastActive.slice(0, 5),
+        // NEW: Analytics Recente (Últimos 2 meses / 8 semanas)
+        recent: buildRecentStats(parts, 8)
+    };
+}
+
+/**
+ * Helper para estatísticas recentes (8 semanas)
+ */
+function buildRecentStats(allParts: WorkbookPart[], weeks: number) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - (weeks * 7));
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+    // Filtrar partes recentes
+    const recentParts = allParts.filter(p => p.date >= cutoffStr);
+
+    // Contar
+    const counts = new Map<string, number>();
+    recentParts.forEach(p => {
+        const name = p.resolvedPublisherName || p.rawPublisherName;
+        if (name && name !== 'N/A') {
+            counts.set(name, (counts.get(name) || 0) + 1);
+        }
+    });
+
+    // Top 5 Recentes
+    const topRecent = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10) // Top 10 para dar mais visão
+        .map(([name, count]) => `${name}(${count})`);
+
+    return {
+        periodLabel: `Últimos ${weeks} semanas (desde ${cutoffDate.toLocaleDateString('pt-BR')})`,
+        topActive: topRecent.join(', ') || 'Nenhuma atividade recente registrada.'
     };
 }
 
@@ -569,7 +607,10 @@ export function formatContextForPrompt(context: AgentContext): string {
 
     if (context.participationAnalytics) {
         lines.push(`\n=== ESTATÍSTICAS (Média: ${context.participationAnalytics.avgPerPublisher}) ===`);
-        lines.push(`Mais ativos: ${context.participationAnalytics.mostActive.map(p => `${p.name}(${p.count})`).join(', ')}`);
+        lines.push(`Mais ativos (Total): ${context.participationAnalytics.mostActive.map(p => `${p.name}(${p.count})`).join(', ')}`);
+        if (context.participationAnalytics.recent) {
+            lines.push(`Recentes (${context.participationAnalytics.recent.periodLabel}): ${context.participationAnalytics.recent.topActive}`);
+        }
         lines.push(`Menos ativos: ${context.participationAnalytics.leastActive.map(p => `${p.name}(${p.lastDate || 'Nunca'})`).join(', ')}`);
     }
 
