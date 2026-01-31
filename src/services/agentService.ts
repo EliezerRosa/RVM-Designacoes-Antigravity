@@ -284,6 +284,10 @@ function detectContextNeeds(question: string): ContextOptions {
         q.includes('frequência') ||
         q.includes('última vez') ||
         q.includes('participou') ||
+        q.includes('participações') || // PLURAL
+        q.includes('top') ||
+        q.includes('rank') ||
+        q.includes('quais') || // Genérico, mas em contexto de lista ajuda
         // Load analysis
         q.includes('sobrecarregado') ||
         q.includes('frequência') ||
