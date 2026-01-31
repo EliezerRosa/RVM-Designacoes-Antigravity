@@ -113,7 +113,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                     const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory);
 
                     const sameTypeHistory = allHistory.filter(h =>
-                        h.resolvedPublisherName === assignedPublisher.name &&
+                        h.resolvedPublisherName?.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase() ===
+                        assignedPublisher.name.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase() &&
                         h.tipoParte === selectedPart.tipoParte
                     ).sort((a, b) => b.date.localeCompare(a.date));
                     const lastDate = sameTypeHistory.length > 0 ? sameTypeHistory[0].date : null;
