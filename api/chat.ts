@@ -35,10 +35,25 @@ type ThinkingLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 export default async function handler(request: Request) {
+    // CORS Headers
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*', // Ou defina o domínio específico do GH Pages
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, X-RVM-App-Version',
+    };
+
+    // Handle OPTIONS (Pre-flight)
+    if (request.method === 'OPTIONS') {
+        return new Response(null, {
+            status: 204,
+            headers: corsHeaders,
+        });
+    }
+
     if (request.method !== 'POST') {
         return new Response(JSON.stringify({ error: 'Method not allowed' }), {
             status: 405,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
     }
 
@@ -56,7 +71,7 @@ export default async function handler(request: Request) {
         if (!apiKey) {
             return new Response(JSON.stringify({ error: 'Server misconfiguration: API Key not found' }), {
                 status: 500,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...corsHeaders },
             });
         }
 
@@ -96,7 +111,8 @@ export default async function handler(request: Request) {
                         headers: {
                             'Content-Type': 'application/json',
                             'X-RVM-Cache-Hit': 'true',
-                            'X-RVM-Model-Used': cached.model_used || 'cached'
+                            'X-RVM-Model-Used': cached.model_used || 'cached',
+                            ...corsHeaders
                         },
                     });
                 }
@@ -160,7 +176,7 @@ export default async function handler(request: Request) {
 
                     return new Response(JSON.stringify(data), {
                         status: 200,
-                        headers: headers,
+                        headers: { ...headers, ...corsHeaders },
                     });
                 }
 
@@ -194,7 +210,8 @@ export default async function handler(request: Request) {
                     // Erro fatal (ex: payload inválido), retorna erro para o cliente
                     return new Response(JSON.stringify(errorData), {
                         status: lastStatus,
-                        headers: { 'Content-Type': 'application/json' },
+                        status: lastStatus,
+                        headers: { 'Content-Type': 'application/json', ...corsHeaders },
                     });
                 }
 
@@ -240,14 +257,16 @@ export default async function handler(request: Request) {
             }
         }), {
             status: lastStatus || 500,
-            headers: { 'Content-Type': 'application/json' },
+            status: lastStatus || 500,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
 
     } catch (error) {
         console.error('Error in chat proxy:', error);
         return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json' },
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }, // Fallback sem cors se crashar antes
         });
     }
 }
