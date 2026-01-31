@@ -126,7 +126,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 const formattedDate = `${day} de ${month} de ${year}`;
 
                 // 3. Montar Mensagem
-                const message = `Olá irmãos! Bom ${greeting}!\n\nSegue programação da reunião de meio de semana, para a semana de ${formattedDate}.\n\n(Salmo 90:17)`;
+                const message = `Olá irmãos! Bom ${greeting}!\n\nSegue programação da reunião de meio de semana, para quinta-feira, dia ${formattedDate}.\n\n(Salmo 90:17)`;
 
                 // 4. Abrir WhatsApp Web com texto preenchido
                 const encodedMessage = encodeURIComponent(message);
