@@ -67,6 +67,9 @@ export interface SpecialEventSummary {
     theme?: string;
     assignee?: string;
     isApplied: boolean;
+    observations?: string; // NEW
+    guidelines?: string;   // NEW
+    details?: any;         // NEW
 }
 
 // NOVO: Resumo de fila de necessidades locais
@@ -327,6 +330,9 @@ export function buildAgentContext(
         theme: e.theme,
         assignee: e.responsible,
         isApplied: e.isApplied || false,
+        observations: e.observations,
+        guidelines: e.guidelines,
+        details: e.configuration // Exposing configuration as 'details'
     }));
 
     // Processar fila de necessidades locais
@@ -394,6 +400,9 @@ export interface SpecialEventInput {
     theme?: string;
     responsible?: string;
     isApplied?: boolean;
+    observations?: string;
+    guidelines?: string;
+    configuration?: any;
 }
 
 export interface LocalNeedsInput {
@@ -544,6 +553,9 @@ export function formatContextForPrompt(context: AgentContext): string {
         lines.push(`\n=== EVENTOS ESPECIAIS ===`);
         for (const event of context.specialEvents) {
             lines.push(`${event.isApplied ? '✅' : '⏳'} ${event.week}: ${event.templateName} (${event.theme || 'Sem tema'})`);
+            if (event.assignee) lines.push(`   - Responsável: ${event.assignee}`);
+            if (event.observations) lines.push(`   - Obs: ${event.observations}`);
+            if (event.guidelines) lines.push(`   - Diretrizes: ${event.guidelines}`);
         }
     }
 
