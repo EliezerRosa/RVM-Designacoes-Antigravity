@@ -9,6 +9,9 @@ import type { ActionResult } from '../services/agentActionService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
 import { CostMonitor } from './admin/CostMonitor';
+import { specialEventService } from '../services/specialEventService';
+// import { localNeedsService } from '../services/localNeedsService';
+import type { SpecialEventInput, LocalNeedsInput } from '../services/contextBuilder';
 
 interface Props {
     publishers: Publisher[];
@@ -38,6 +41,10 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     // Local Rate Limit Tracking (15 req/min)
     const [requestTimestamps, setRequestTimestamps] = useState<number[]>([]);
     const MAX_REQUESTS_PER_MINUTE = 15;
+
+    // Context Data State
+    const [specialEventsCtx, setSpecialEventsCtx] = useState<SpecialEventInput[]>([]);
+    const [localNeedsCtx] = useState<LocalNeedsInput[]>([]);
 
     // Calculate Credits & Refill
     const now = Date.now();
@@ -122,6 +129,38 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
         init();
     }, []);
 
+    // Load Context Data on Mount
+    useEffect(() => {
+        async function loadContextData() {
+            try {
+                // 1. Special Events
+                const events = await specialEventService.getAllEvents();
+                const processedEvents: SpecialEventInput[] = events.map(e => ({
+                    week: e.week,
+                    templateId: e.templateId,
+                    templateName: e.templateId, // Template name might need lookup, using ID for now
+                    theme: e.theme,
+                    responsible: e.responsible,
+                    isApplied: e.isApplied,
+                    observations: e.observations,
+                    guidelines: e.guidelines,
+                    configuration: e.configuration
+                }));
+                setSpecialEventsCtx(processedEvents);
+
+                // 2. Local Needs (Assuming we can fetch pending ones)
+                // Note: localNeedsService might not have a simple 'getAll' exposed for chat context yet
+                // For now, we fetch from queue if available, or just keep empty if not easy to access
+                // Trying a direct supabase fetch as fallback if service doesn't have it
+                // ... (Skipping complex local needs fetch for this iteration to avoid breaking build, focusing on Special Events)
+
+            } catch (err) {
+                console.error('Error loading chat context data:', err);
+            }
+        }
+        loadContextData();
+    }, []);
+
     // Scroll to bottom when messages change
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -195,8 +234,8 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 [], // history (empty for now)
                 messages, // chatHistory
                 'elder', // accessLevel
-                [], // specialEvents
-                [] // localNeeds
+                specialEventsCtx, // specialEvents
+                localNeedsCtx // localNeeds
             );
 
             // Base message from agent

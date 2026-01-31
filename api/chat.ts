@@ -22,11 +22,11 @@ const MODEL_STRATEGY = {
         'gemini-2.5-flash',       // Next-Gen Speed
         'gemini-2.0-flash-001'    // Fallback
     ],
-    // HIGH: Arquitetura (High Intellect)
+    // HIGH: Arquitetura & Raciocínio (High Intellect, Low Cost)
     HIGH: [
-        'gemini-2.5-pro',         // Next-Gen Intellect
-        'gemini-2.0-flash-exp',   // Experimental SOTA
-        'gemini-2.5-pro-preview-tts' // Fallback
+        'gemini-2.0-flash-thinking-exp-01-21', // Reasoning Model (Deep Think) - Free/Low Cost
+        'gemini-2.0-flash-thinking-exp',       // Alias
+        'gemini-2.0-flash'                     // Fallback to standard 2.0
     ]
 };
 
