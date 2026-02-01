@@ -206,6 +206,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         onAction={handleAgentAction}
                         onNavigateToWeek={handleCarouselNavigation}
                         onModelChange={setActiveModel}
+                        currentWeekId={currentWeekId || undefined}
                     />
                 </div>
 

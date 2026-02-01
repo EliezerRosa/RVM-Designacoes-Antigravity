@@ -346,7 +346,8 @@ export async function askAgent(
     chatHistory: ChatMessage[] = [],
     accessLevel: AccessLevel = 'publisher',
     specialEvents: SpecialEventInput[] = [],
-    localNeeds: LocalNeedsInput[] = []
+    localNeeds: LocalNeedsInput[] = [],
+    focusWeekId?: string // New Param
 ): Promise<AgentResponse> {
     if (!isAgentConfigured()) {
         return {
@@ -375,7 +376,15 @@ export async function askAgent(
             const contextOptions = detectContextNeeds(question);
             console.log(`[Agent] Context Strategy: `, contextOptions);
 
-            const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds, contextOptions);
+            const context = buildAgentContext(
+                publishers,
+                parts,
+                history,
+                specialEvents,
+                localNeeds,
+                contextOptions,
+                focusWeekId // Pass new param
+            );
             const contextText = formatContextForPrompt(context);
 
             // Regras também são opcionais agora
