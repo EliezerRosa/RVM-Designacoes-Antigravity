@@ -153,11 +153,21 @@ PROTOCOLO RÍGIDO DE IDs:
     "partId": "123-abc", // COPIADO EXATAMENTE da lista [ID: ...]
     "partName": "Presidente", // Obrigatório (backup)
     "weekId": "2024-03-01",   // Obrigatório (backup)
-    "publisherName": "Nome do Publicador"
+    "publisherName": "Nome do Publicador" // Para REMOVER: envie string vazia ""
   },
   "description": "Atribuindo parte..."
 }
 \`\`\`
+
+== PROTOCOLO DE REMOÇÃO / LIMPEZA ==
+Para REMOVER um designado, envie 'publisherName: ""' (string vazia).
+
+== PROTOCOLO DE TROCA (SWAP) ==
+Para trocar A por B (A sai, B entra na parte de A):
+1. Apenas designe B para a parte de A. O sistema substituirá automaticamente.
+
+Para trocar A com B (A vai pra parte de B, B vai pra parte de A):
+Envie dois blocos JSON separados (um após o outro ou array se possível, mas preferencialmente sequencial).
 
 3. NAVEGAR PARA SEMANA:
 Use quando usuário pedir: "vá para semana X", "mostre a semana Y".
