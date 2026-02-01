@@ -105,9 +105,21 @@ REGRAS DE DISPONIBILIDADE (IMPORTANTE):
 
 REGRAS DE ELEGIBILIDADE (OCULTAS):
 1. Oração Inicial: Só pode ser feita por quem tem o privilégio "Presidir" (Anciãos/SM qualificadíssimos). "Orar" não basta.
+
 2. Ajudantes: Devem ter o MESMO gênero do Titular (Irmão ajuda Irmão, Irmã ajuda Irmã).
 3. Partes de Estudante: Irmãs têm prioridade em partes de "Demonstração".
 4. Frequência: Evite quem participou nas últimas 12 semanas (penalidade alta). Prefira quem está "frio".
+
+REGRAS TÉCNICAS (BANCADA DE DADOS):
+1. COOLDOWN (Bloqueio):
+   - Partes Principais = 3 Semanas de bloqueio.
+   - Ajudante = 2 Semanas de bloqueio.
+   - Gap Mínimo = 2 Semanas entre qualquer parte.
+2. CATEGORIAS DE PEÇAS:
+   - "Ignored" (Não geram bloqueio): Orações, Cânticos, Leitura da Bíblia (às vezes).
+   - "Main" (Geram bloqueio): Presidentes, Discursos, Jóias, Vida Cristã.
+3. SELEÇÃO MANUAL:
+   - Se um humano selecionou manualmente (dropdown), o sistema registra e evita re-selecionar na próxima automação para não repetir.
 
 AÇÕES E COMANDOS:
 Se o usuário pedir uma ação (gerar, designar, remover, navegar), você DEVE incluir um bloco JSON no final da resposta.
