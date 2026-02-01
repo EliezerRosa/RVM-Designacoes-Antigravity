@@ -218,7 +218,8 @@ export function buildAgentContext(
         includeSchedule: true,
         includeHistory: false,
         includeSpecialEvents: true
-    }
+    },
+    focusWeekId?: string // New Param
 ): AgentContext {
     // Filtrar publicadores ativos
     const activePublishers = publishers.filter(p => p.isServing);
@@ -324,9 +325,25 @@ export function buildAgentContext(
         });
     }
 
-    // Determinar semana atual
-    const currentWeekData = allWeeks.find(w => w.date >= today);
-    const currentWeek = currentWeekData?.weekDisplay || 'N/A';
+    // Determinar semana atual (ou Focada)
+    // Se focusWeekId for fornecido (via navegação UI), ele tem prioridade sobre o 'hoje'
+    let currentWeek = 'N/A';
+
+    if (focusWeekId) {
+        // Tentar encontrar a semana específica
+        const focused = allWeeks.find(w => w.weekId === focusWeekId);
+        if (focused) {
+            currentWeek = focused.weekDisplay;
+        } else {
+            // Se não achou (ex: weekId '2026-02-23' mas não tem partes ainda), 
+            // formatamos o ID como display provisório se for data válida
+            currentWeek = focusWeekId; // Fallback
+        }
+    } else {
+        // Fallback p/ comportamento original: Data >= Hoje
+        const currentWeekData = allWeeks.find(w => w.date >= today);
+        currentWeek = currentWeekData?.weekDisplay || 'N/A';
+    }
 
     // Processar eventos especiais
     const specialEventsSummary: SpecialEventSummary[] = specialEvents.map(e => ({
@@ -516,7 +533,8 @@ function buildRecentStats(allParts: WorkbookPart[], weeks: number) {
 export function formatContextForPrompt(context: AgentContext): string {
     const lines: string[] = [];
 
-    lines.push(`=== DADOS DO AMBIENTE (Data: ${context.currentDate} | Semana: ${context.currentWeek}) ===\n`);
+    lines.push(`=== DADOS DO AMBIENTE (Data: ${context.currentDate} | SEMANA EM FOCO: ${context.currentWeek}) ===\n`);
+    lines.push(`NOTA: O usuário está olhando para a semana '${context.currentWeek}'. Responda considerando esta como a semana atual de trabalho.\n`);
 
     // Estatísticas gerais
     lines.push(`RESUMO DA CONGREGAÇÃO:`);

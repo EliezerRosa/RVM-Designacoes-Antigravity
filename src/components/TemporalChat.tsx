@@ -19,9 +19,10 @@ interface Props {
     onAction?: (result: ActionResult) => void;
     onNavigateToWeek?: (weekId: string) => void;
     onModelChange?: (model: string) => void;
+    currentWeekId?: string; // New Prop
 }
 
-export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange }: Props) {
+export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange, currentWeekId }: Props) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -235,7 +236,8 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 messages, // chatHistory
                 'elder', // accessLevel
                 specialEventsCtx, // specialEvents
-                localNeedsCtx // localNeeds
+                localNeedsCtx, // localNeeds
+                currentWeekId // FOCUS WEEK ID provided by Parent (WorkbookManager)
             );
 
             // Base message from agent
