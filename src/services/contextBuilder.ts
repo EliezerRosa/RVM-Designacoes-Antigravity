@@ -38,6 +38,8 @@ export interface PartDesignation {
     designado: string;
     status: string;
     horaInicio: string;
+    duracao?: string; // NEW
+    descricao?: string; // NEW
     id: string; // ID da parte para ações do agente
 }
 
@@ -594,7 +596,11 @@ export function formatContextForPrompt(context: AgentContext): string {
 
             for (const part of sortedParts) {
                 const funcaoLabel = part.funcao === 'Ajudante' ? ' (Ajudante)' : '';
-                lines.push(`  • ${part.tituloParte}${funcaoLabel}: ${part.designado} [ID: ${part.id}]`);
+                const timeInfo = part.horaInicio ? `[${part.horaInicio}]` : '';
+                const durationInfo = part.duracao ? `(${part.duracao} min)` : '';
+                const details = part.descricao ? ` - "${part.descricao}"` : '';
+
+                lines.push(`  • ${timeInfo} ${part.tituloParte}${details}${durationInfo}${funcaoLabel}: ${part.designado} [ID: ${part.id}]`);
             }
             lines.push('');
         }
