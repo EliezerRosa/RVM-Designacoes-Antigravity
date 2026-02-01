@@ -53,7 +53,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
     const [showContextAlert, setShowContextAlert] = useState(false);
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-    const [activeModel, setActiveModel] = useState<string>('gemini-1.5-flash'); // Default model active
+    const [, setActiveModel] = useState<string>('gemini-1.5-flash'); // Default model active
 
     // Sync week navigation with TemporalChat (placeholder implementation)
     useEffect(() => {
