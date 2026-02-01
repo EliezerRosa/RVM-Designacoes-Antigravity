@@ -8,7 +8,7 @@ import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import type { ActionResult } from '../services/agentActionService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
-import { CostMonitor } from './admin/CostMonitor';
+
 import { specialEventService } from '../services/specialEventService';
 // import { localNeedsService } from '../services/localNeedsService';
 import type { SpecialEventInput, LocalNeedsInput } from '../services/contextBuilder';
@@ -383,9 +383,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '10px 10px 0 10px' }}>
-                <CostMonitor />
-            </div>
+
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
                 {messages.length === 0 && (
                     <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '20px' }}>
