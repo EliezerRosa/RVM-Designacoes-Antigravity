@@ -780,6 +780,7 @@ export const workbookService = {
             .eq('id', partId)
             // Aceita rejeitar de qualquer status avançado
             .in('status', [
+                WorkbookStatus.PENDENTE, // Permitir limpar nome de partes PENDENTE
                 WorkbookStatus.PROPOSTA,
                 WorkbookStatus.APROVADA,
                 WorkbookStatus.DESIGNADA,

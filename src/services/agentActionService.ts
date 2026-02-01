@@ -121,12 +121,10 @@ export const agentActionService = {
                 }
 
                 case 'UNDO_LAST': {
-                    const success = await undoService.undo();
-                    const desc = undoService.getLastDescription();
-
+                    const result = await undoService.undo();
                     return {
-                        success,
-                        message: success ? `Ação desfeita: ${desc || 'Desconhecida'}` : 'Não há ações para desfazer.',
+                        success: result.success,
+                        message: result.success ? `Ação desfeita: ${result.description || 'Desconhecida'}` : 'Não há ações para desfazer.',
                         actionType: 'UNDO_LAST'
                     };
                 }
