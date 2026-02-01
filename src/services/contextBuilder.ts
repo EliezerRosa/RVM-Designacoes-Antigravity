@@ -277,9 +277,9 @@ export function buildAgentContext(
     const sortedParts = [...parts].sort((a, b) => a.date.localeCompare(b.date));
 
     for (const part of sortedParts) {
-        // Considerar apenas partes designadas ou com nome
-        const designado = part.resolvedPublisherName || part.rawPublisherName;
-        if (!designado) continue;
+        // Considerar TODAS as partes, mesmo sem designação (v9.5: Fix Blindness)
+        const designado = part.resolvedPublisherName || part.rawPublisherName || '[LIVRE]';
+        // if (!designado) continue; // REMOVIDO: Agente precisa ver buracos na agenda
 
         const weekId = part.weekId;
         if (!weekMap.has(weekId)) {
