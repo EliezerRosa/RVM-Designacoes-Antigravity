@@ -160,23 +160,18 @@ Use quando pedir: "desfaça", "volte atrás".
 \`\`\`
 
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown (\`\`\`json ... \`\`\`).
+`;
 
-PAGINAÇÃO DE RESPOSTAS LONGAS:
-- Limite cada resposta a no máximo 600 palavras
-- Se a resposta completa precisar de mais que isso, PARE e termine com exatamente: "[CONTINUA...]"
-- Quando o usuário enviar "continue" ou "mais", continue de onde parou
-- Lembre-se do contexto anterior para dar continuidade
-- Sempre indique qual parte está mostrando (ex: "Parte 2 de 3")
-- NUNCA corte uma frase no meio - sempre termine em um ponto lógico`;
+
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
 
 ACESSO ESPECIAL - ANCIÃOS:
 Você tem acesso a informações confidenciais sobre publicadores:
 - Quem pediu para não participar e por quê
-- Quem não está qualificado e por quê
-- Quem está inativo
-- Razões detalhadas de bloqueios
+    - Quem não está qualificado e por quê
+        - Quem está inativo
+            - Razões detalhadas de bloqueios
 
 Quando perguntarem sobre por que alguém não foi designado, você pode explicar os motivos reais.`;
 
@@ -186,8 +181,8 @@ RESTRIÇÕES DE ACESSO - PUBLICADOR:
 Você NÃO tem acesso a informações confidenciais sobre publicadores.
 Se perguntarem por que alguém não foi designado, responda de forma genérica:
 - "Não posso informar detalhes pessoais sobre outros publicadores."
-- "Essa informação é confidencial e restrita aos anciãos."
-- "O sistema considera vários fatores, mas não posso detalhar para publicadores específicos."
+    - "Essa informação é confidencial e restrita aos anciãos."
+    - "O sistema considera vários fatores, mas não posso detalhar para publicadores específicos."
 
 Você pode apenas informar quem ESTÁ designado, não por que alguém NÃO está.`;
 
@@ -344,7 +339,7 @@ export async function askAgent(
 
             // Construir contexto (OTIMIZADO)
             const contextOptions = detectContextNeeds(question);
-            console.log(`[Agent] Context Strategy:`, contextOptions);
+            console.log(`[Agent] Context Strategy: `, contextOptions);
 
             const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds, contextOptions);
             const contextText = formatContextForPrompt(context);
@@ -375,11 +370,11 @@ export async function askAgent(
                 contents: [
                     {
                         role: 'user',
-                        parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }],
+                        parts: [{ text: `${systemPrompt} \n\n${rulesText} \n\n${contextText}${sensitiveContextText} ` }],
                     },
                     {
                         role: 'model',
-                        parts: [{ text: `Entendido! Sou o Assistente RVM (${model}) com acesso de ${accessLevel === 'elder' ? 'Ancião' : 'Publicador'}.` }],
+                        parts: [{ text: `Entendido! Sou o Assistente RVM(${model}) com acesso de ${accessLevel === 'elder' ? 'Ancião' : 'Publicador'}.` }],
                     },
                     ...recentChat,
                     {
@@ -401,7 +396,7 @@ export async function askAgent(
 
             if (hasLocalKey) {
                 checkSafetyMode(targetUrl);
-                response = await fetch(`${targetUrl}?key=${GEMINI_API_KEY}`, {
+                response = await fetch(`${targetUrl}?key = ${GEMINI_API_KEY} `, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody),
@@ -420,7 +415,7 @@ export async function askAgent(
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                const errorMessage = errorData.error?.message || `Erro HTTP ${response.status}`;
+                const errorMessage = errorData.error?.message || `Erro HTTP ${response.status} `;
 
                 // Se for erro de chave invalida, aborta imediatamente
                 if (errorMessage.includes('API key not valid') || errorMessage.includes('key was reported as leaked')) {
@@ -428,7 +423,7 @@ export async function askAgent(
                 }
 
                 // Se for outro erro (ex: 404 Model Not Found), lança para cair no catch e tentar o próximo loop
-                throw new Error(`Falha no modelo ${model}: ${errorMessage}`);
+                throw new Error(`Falha no modelo ${model}: ${errorMessage} `);
             }
 
             const data = await response.json();
@@ -441,7 +436,7 @@ export async function askAgent(
             const detectedAction = agentActionService.detectAction(content);
 
             // SUCESSO!
-            console.log(`[Agent] SUCESSO com modelo: ${model}`);
+            console.log(`[Agent] SUCESSO com modelo: ${model} `);
             lastWorkingModel = model; // Memorizar
 
             successResponse = {
@@ -456,7 +451,7 @@ export async function askAgent(
             break;
 
         } catch (error) {
-            console.warn(`[Agent] Erro ao tentar modelo ${model}:`, error);
+            console.warn(`[Agent] Erro ao tentar modelo ${model}: `, error);
             lastError = error;
             // Continua para o próximo modelo...
         }
@@ -477,7 +472,7 @@ export async function askAgent(
     return {
         success: false,
         message: '',
-        error: `Todas as tentativas falharam. Último erro: ${finalErrorMessage} (Tentados: ${attemptList.join(', ')})`,
+        error: `Todas as tentativas falharam.Último erro: ${finalErrorMessage} (Tentados: ${attemptList.join(', ')})`,
     };
 }
 
