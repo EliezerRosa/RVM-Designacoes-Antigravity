@@ -46,11 +46,11 @@ class UndoService {
      * Undo the last action.
      * Restores the parts to their state stored in the stack.
      */
-    public async undo(): Promise<boolean> {
-        if (this.stack.length === 0) return false;
+    public async undo(): Promise<{ success: boolean; description?: string }> {
+        if (this.stack.length === 0) return { success: false };
 
         const item = this.stack.pop();
-        if (!item) return false;
+        if (!item) return { success: false };
 
         console.log(`[UndoService] Reverting: ${item.description}`);
 
@@ -74,13 +74,13 @@ class UndoService {
             }
 
             this.notify();
-            return true;
+            return { success: true, description: item.description };
         } catch (error) {
             console.error('[UndoService] Failed to undo:', error);
             // If failed, we might want to push it back? Or just lost it.
             // For now, let's assume it's gone.
             this.notify();
-            return false;
+            return { success: false, description: item.description };
         }
     }
 

@@ -793,9 +793,9 @@ export function WorkbookManager({ publishers, isActive }: Props) {
                                             if (!canUndo) return;
                                             try {
                                                 setLoading(true);
-                                                const success = await undoService.undo();
-                                                if (success) {
-                                                    setSuccessMessage(`↩️ Desfeito: ${undoDescription}`);
+                                                const result = await undoService.undo();
+                                                if (result.success) {
+                                                    setSuccessMessage(`↩️ Desfeito: ${result.description || undoDescription}`);
                                                     await loadPartsWithFilters();
                                                 }
                                             } catch (err) {
