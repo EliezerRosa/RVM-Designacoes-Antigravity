@@ -182,7 +182,9 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
                 ? `Sempre (Exceto: [${p.availability.exceptionDates.join(', ')}])`
                 : 'Sempre'
             : p.availability.mode === 'never'
-                ? 'Nunca'
+                ? p.availability.availableDates.length > 0
+                    ? `Apenas: [${p.availability.availableDates.join(', ')}]`
+                    : 'Nunca'
                 : `Apenas: [${p.availability.availableDates.join(', ')}]`,
         restrictions
     };
