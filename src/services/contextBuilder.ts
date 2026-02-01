@@ -473,8 +473,8 @@ function buildParticipationAnalytics(
         avgPerPublisher: Math.round(avgPerPublisher * 10) / 10,
         mostActive: sortedByCount,
         leastActive: leastActive.slice(0, 5),
-        // NEW: Analytics Recente (Últimos 2 meses / 8 semanas)
-        recent: buildRecentStats(parts, 8)
+        // NEW: Analytics Recente (Últimos 3 meses / 12 semanas) - Alinhado com a Regra de Frequência
+        recent: buildRecentStats(parts, 12)
     };
 }
 
