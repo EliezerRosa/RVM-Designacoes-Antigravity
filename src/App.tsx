@@ -160,11 +160,11 @@ function App() {
   // Load workbook parts when ChatAgent opens OR Agent tab is active
   useEffect(() => {
     const needsParts = isChatAgentOpen || activeTab === 'agent';
-    if (needsParts && workbookParts.length === 0) {
+    if (needsParts) {
       console.log('[Agent] Loading workbook parts for AI...');
       refreshWorkbookParts();
     }
-  }, [isChatAgentOpen, activeTab, workbookParts.length]);
+  }, [isChatAgentOpen, activeTab]);
 
   const savePublisher = async (publisher: Publisher) => {
     setIsSaving(true)
