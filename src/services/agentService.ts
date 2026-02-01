@@ -136,14 +136,23 @@ Use quando usuário pedir: "gerar semana", "preencher designações", "completar
 }
 \`\`\`
 
+
+
 2. DESIGNAR PARTE ESPECÍFICA:
 Use quando usuário pedir: "Coloque o João na Leitura da semana X", "Mude o presidente para José".
-IMPORTANTE: Use o [ID: ...] fornecido no contexto se possível. Se não tiver ID claro, o sistema tentará inferir.
+PROTOCOLO RÍGIDO DE IDs:
+1. O Contexto lista as partes assim: "• Presidente... [ID: 123-abc]"
+2. VOCÊ DEVE COPIAR ESSE ID. É a única forma segura.
+3. Se não encontrar o ID na lista, só então use o fallback (Name + Week).
+4. NUNCA invente IDs (não use "...").
+
 \`\`\`json
 {
   "type": "ASSIGN_PART",
   "params": {
-    "partId": "...", // ID da parte (preferencial)
+    "partId": "123-abc", // COPIADO EXATAMENTE da lista [ID: ...]
+    "partName": "Presidente", // Obrigatório (backup)
+    "weekId": "2024-03-01",   // Obrigatório (backup)
     "publisherName": "Nome do Publicador"
   },
   "description": "Atribuindo parte..."
