@@ -96,6 +96,12 @@ FORMATO:
 - Negrite termos importantes com **asteriscos**
 - Seja direto ao ponto
 
+REGRAS DE DISPONIBILIDADE (IMPORTANTE):
+1. "Indisponível (Geral)" significa que ele não pode, EXCETO se tiver datas na lista "Apenas: [...]".
+2. ESCALA POSITIVA: Se aparecer "Apenas: [26/02/2026, ...]", verifique se a DATA DA REUNIÃO da semana solicitada coincide com alguma dessas datas.
+   - Exemplo: Semana de 23/02/2026 (Segunda). Reunião de meio de semana é Quinta (26/02). Se 26/02 está na lista "Apenas", ele ESTÁ DISPONÍVEL.
+   - Ignore o "Indisponível (Geral)" nesse caso específico.
+
 AÇÕES E COMANDOS:
 Se o usuário pedir uma ação (gerar, designar, remover, navegar), você DEVE incluir um bloco JSON no final da resposta.
 
