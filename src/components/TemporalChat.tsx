@@ -416,20 +416,42 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
 
             {/* Share S-140 Modal */}
             {shareModalOpen && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.8)',
-                    zIndex: 10000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}>
-                    <div style={{ background: 'white', padding: '20px', borderRadius: '12px', maxWidth: '500px', width: '90%' }}>
-                        <h3 style={{ margin: '0 0 10px 0', color: '#065F46' }}>📱 Compartilhar com Anciãos</h3>
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.8)',
+                        zIndex: 10000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}
+                    onClick={() => setShareModalOpen(false)} // Close on overlay click
+                >
+                    <div
+                        style={{
+                            background: 'white',
+                            padding: '20px',
+                            borderRadius: '12px',
+                            maxWidth: '500px',
+                            width: '90%',
+                            position: 'relative'
+                        }}
+                        onClick={e => e.stopPropagation()} // Prevent closing when clicking content
+                    >
+                        {/* Header with Close Button */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                            <h3 style={{ margin: 0, color: '#065F46' }}>📱 Compartilhar com Anciãos</h3>
+                            <button
+                                onClick={() => setShareModalOpen(false)}
+                                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#9CA3AF' }}
+                            >
+                                &times;
+                            </button>
+                        </div>
 
                         {isGeneratingImage ? (
                             <div style={{ padding: '20px', textAlign: 'center' }}>🔄 Gerando imagem...</div>
@@ -449,29 +471,29 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                                                 alert('Erro ao copiar imagem. Tente baixar ou tirar print.');
                                             }
                                         }}
-                                        style={{ padding: '10px', background: '#F3F4F6', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                                        style={{ padding: '12px', background: '#F3F4F6', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                                     >
-                                        📋 1. Copiar Imagem
+                                        📋 Copiar Imagem
                                     </button>
                                     <a
                                         href={`https://wa.me/?text=Segue%20designações%20da%20semana%20${shareWeekId}%20(Cole%20a%20imagem)`}
                                         target="_blank"
                                         rel="noreferrer"
-                                        style={{ display: 'block', textAlign: 'center', padding: '10px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}
                                     >
-                                        💬 2. Abrir WhatsApp
+                                        💬 Abrir WhatsApp
                                     </a>
                                 </div>
                             </div>
                         ) : (
-                            <div style={{ color: 'red' }}>Erro ao criar imagem.</div>
+                            <div style={{ color: 'red', textAlign: 'center', padding: '10px' }}>Erro ao criar imagem. Tente novamente.</div>
                         )}
 
                         <button
                             onClick={() => setShareModalOpen(false)}
-                            style={{ width: '100%', marginTop: '10px', padding: '8px', border: 'none', background: 'transparent', color: '#666', cursor: 'pointer' }}
+                            style={{ width: '100%', marginTop: '15px', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '6px', background: 'white', color: '#374151', cursor: 'pointer', fontWeight: '500' }}
                         >
-                            Fechar
+                            Voltar / Fechar
                         </button>
                     </div>
                 </div>
