@@ -35,6 +35,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     const [shareImageData, setShareImageData] = useState<string | null>(null);
     const [isGeneratingImage, setIsGeneratingImage] = useState(false);
     const [shareWeekId, setShareWeekId] = useState<string>('');
+    const [isViewMode, setIsViewMode] = useState(false); // NEW: Distinguish View vs Share
 
     // Rate Limit Countdown State (from API error)
     const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
@@ -65,10 +66,11 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     // v9.3: Batch handlers removed - Agent delegates to generationService
 
     // Handle Share S-140 Action
-    const handleShareS140 = async (weekId: string) => {
+    const handleShareS140 = async (weekId: string, viewOnly: boolean = false) => {
         try {
             setIsGeneratingImage(true);
             setShareWeekId(weekId);
+            setIsViewMode(viewOnly);
             setShareModalOpen(true);
             setShareImageData(null);
 
@@ -276,18 +278,21 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
 
                 // v9.3: SIMULATE_BATCH removed - Agent delegates to generationService
 
-                // SPECIAL HANDLER FOR WHATSAPP SHARE
-                if (response.action.type === 'SHARE_S140_WHATSAPP') {
+                // SPECIAL HANDLER FOR S-140 (VIEW or SHARE)
+                if (response.action.type === 'SHARE_S140_WHATSAPP' || response.action.type === 'VIEW_S140') {
                     // Start generation flow immediately
                     const weekId = response.action.params.weekId;
+                    const isViewOnly = response.action.type === 'VIEW_S140';
+
                     if (weekId) {
-                        handleShareS140(weekId);
+                        handleShareS140(weekId, isViewOnly);
                     }
 
                     // Add system message about it
+                    const actionLabel = isViewOnly ? 'Visualizando' : 'Abrindo painel de compartilhamento';
                     const systemMsg: ChatMessage = {
                         role: 'assistant',
-                        content: `📱 Abrindo painel de compartilhamento para semana ${weekId}...`,
+                        content: `📱 ${actionLabel} para semana ${weekId}...`,
                         timestamp: new Date(),
                     };
                     await chatHistoryService.addMessage(sessionId, systemMsg);
@@ -444,7 +449,9 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     >
                         {/* Header with Close Button */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                            <h3 style={{ margin: 0, color: '#065F46' }}>📱 Compartilhar com Anciãos</h3>
+                            <h3 style={{ margin: 0, color: '#065F46' }}>
+                                {isViewMode ? '👁️ Visualização S-140' : '📱 Compartilhar com Anciãos'}
+                            </h3>
                             <button
                                 onClick={() => setShareModalOpen(false)}
                                 style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#9CA3AF' }}
