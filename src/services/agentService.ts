@@ -191,7 +191,20 @@ Use quando pedir: "desfaça", "volte atrás".
 }
 \`\`\`
 
-5. WHATSAPP / COMPARTILHAR:
+5. VISUALIZAR S-140 (APENAS VER):
+Use quando usuário pedir: "mostre o S-140", "visualizar quadro", "ver como ficou".
+\`\`\`json
+{
+  "type": "VIEW_S140",
+  "params": { 
+    "weekId": "2024-03-18"
+  },
+  "description": "Visualizando S-140..."
+}
+\`\`\`
+
+6. WHATSAPP / COMPARTILHAR (ENVIAR):
+Use quando usuário pedir: "mande pro zap", "compartilhar", "enviar para grupo".
 \`\`\`json
 {
   "type": "SHARE_S140_WHATSAPP",
@@ -199,7 +212,7 @@ Use quando pedir: "desfaça", "volte atrás".
     "weekId": "2024-03-18",
     "targetGroup": "elders"
   },
-  "description": "Gerando imagem S-140..."
+  "description": "Preparando envio WhatsApp..."
 }
 \`\`\`
 
