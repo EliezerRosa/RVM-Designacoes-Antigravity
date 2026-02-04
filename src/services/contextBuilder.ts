@@ -249,13 +249,24 @@ export function buildAgentContext(
         const listLookbackDate = new Date();
         listLookbackDate.setDate(listLookbackDate.getDate() - (AGENT_LIST_LOOKBACK_WEEKS * 7));
 
-        recentParticipations = parts
+        // v9.7: Usar _history (completo/paginado) preferencialmente sobre parts (limitado à UI)
+        // Isso garante que o Agente veja participações antigas ou futuras (2026) fora da view atual
+        const sourceData = (_history && _history.length > 0) ? _history : parts;
+
+        recentParticipations = sourceData
             .filter(p => {
-                const pDate = new Date(p.date);
-                return pDate >= listLookbackDate && p.resolvedPublisherName;
+                const pDate = new Date(p.date); // Funciona para HistoryRecord e WorkbookPart
+                // Validar data e garantir que tem publicador
+                return !isNaN(pDate.getTime()) && pDate >= listLookbackDate && p.resolvedPublisherName;
             })
             .sort((a, b) => b.date.localeCompare(a.date))
-            .map(summarizeParticipation);
+            .map(p => ({
+                publisherName: p.resolvedPublisherName || '',
+                date: p.date,
+                partType: p.tipoParte,
+                funcao: p.funcao,
+                title: p.tituloParte
+            }));
     }
 
     // Partes pendentes
@@ -670,18 +681,7 @@ export function formatContextForPrompt(context: AgentContext): string {
     return lines.join('\n');
 }
 
-/**
- * Converte participação para resumo
- */
-function summarizeParticipation(record: HistoryRecord | WorkbookPart): ParticipationSummary & { title: string } {
-    return {
-        publisherName: record.resolvedPublisherName || record.rawPublisherName || 'N/A',
-        date: record.date,
-        partType: record.tipoParte,
-        funcao: record.funcao,
-        title: record.tituloParte || '', // NEW
-    };
-}
+
 
 /**
  * Gera regras de elegibilidade como texto
