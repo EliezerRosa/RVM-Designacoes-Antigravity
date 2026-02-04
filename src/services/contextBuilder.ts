@@ -588,7 +588,9 @@ export function formatContextForPrompt(context: AgentContext): string {
         lines.push(`\n=== DESIGNAÇÕES (HISTÓRICO E FUTURO) ===\n`);
         for (const week of context.weekDesignations) {
             const isCurrentWeek = week.weekDisplay === context.currentWeek;
-            lines.push(`📅 ${week.weekDisplay} (${week.date})${isCurrentWeek ? ' ← SEMANA ATUAL' : ''}`);
+            const yearFromDate = week.date ? week.date.split('-')[0] : '';
+            const displayWithYear = week.weekDisplay.includes(yearFromDate) ? week.weekDisplay : `${week.weekDisplay} ${yearFromDate}`;
+            lines.push(`📅 ${displayWithYear} (${week.date})${isCurrentWeek ? ' ← SEMANA ATUAL' : ''}`);
 
             const sortedParts = [...week.parts].sort((a, b) =>
                 a.horaInicio.localeCompare(b.horaInicio)
@@ -649,7 +651,9 @@ export function formatContextForPrompt(context: AgentContext): string {
         for (let i = 0; i < historyLimit; i++) {
             const p = context.recentParticipations[i];
             const title = p.title ? `[${p.title}] ` : '';
-            lines.push(`${p.date} | ${p.partType} | ${title}-> ${p.publisherName}`);
+            // Formatar data com ano explícito para clareza
+            const formattedDate = p.date; // Já está YYYY-MM-DD, que é claro
+            lines.push(`${formattedDate} | ${p.partType} | ${title}-> ${p.publisherName}`);
         }
         if (context.recentParticipations.length > historyLimit) {
             lines.push(`(... e mais ${context.recentParticipations.length - historyLimit} registros antigos omitidos)`);

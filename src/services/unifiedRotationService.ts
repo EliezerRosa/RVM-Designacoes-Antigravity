@@ -199,7 +199,14 @@ export function generateNaturalLanguageExplanation(
     const absoluteLast = allHistory[0];
     let lastPartText = "Nunca participou recentemente.";
     if (absoluteLast) {
-        lastPartText = `Última designação: ${new Date(absoluteLast.date).toLocaleDateString('pt-BR')} como ${absoluteLast.tipoParte} (${absoluteLast.funcao}).`;
+        // Incluir ano explicitamente para evitar confusão
+        const dateObj = new Date(absoluteLast.date);
+        const formattedDate = dateObj.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        });
+        lastPartText = `Última designação: ${formattedDate} como ${absoluteLast.tipoParte} (${absoluteLast.funcao}).`;
     }
 
     // 2. Construir narrativa do Score
