@@ -432,76 +432,150 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                         zIndex: 10000,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        padding: '20px', // Safe margin from edges
+                        boxSizing: 'border-box'
                     }}
                     onClick={() => setShareModalOpen(false)} // Close on overlay click
                 >
                     <div
                         style={{
                             background: 'white',
-                            padding: '20px',
                             borderRadius: '12px',
                             maxWidth: '500px',
-                            width: '90%',
-                            position: 'relative'
+                            width: '100%',
+                            maxHeight: 'calc(100vh - 40px)', // Leave room for safe area
+                            display: 'flex',
+                            flexDirection: 'column',
+                            position: 'relative',
+                            overflow: 'hidden'
                         }}
                         onClick={e => e.stopPropagation()} // Prevent closing when clicking content
                     >
-                        {/* Header with Close Button */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                            <h3 style={{ margin: 0, color: '#065F46' }}>
-                                {isViewMode ? '👁️ Visualização S-140' : '📱 Compartilhar com Anciãos'}
+                        {/* Fixed Header with Back and Close buttons */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '16px 20px',
+                            borderBottom: '1px solid #E5E7EB',
+                            background: '#F9FAFB',
+                            flexShrink: 0
+                        }}>
+                            <button
+                                onClick={() => setShareModalOpen(false)}
+                                style={{
+                                    background: '#E5E7EB',
+                                    border: 'none',
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    color: '#374151',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                ← Voltar
+                            </button>
+                            <h3 style={{ margin: 0, color: '#065F46', fontSize: '16px', flex: 1, textAlign: 'center' }}>
+                                {isViewMode ? '👁️ S-140' : '📱 Compartilhar'}
                             </h3>
                             <button
                                 onClick={() => setShareModalOpen(false)}
-                                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#9CA3AF' }}
+                                style={{
+                                    background: '#FEE2E2',
+                                    border: 'none',
+                                    width: '36px',
+                                    height: '36px',
+                                    borderRadius: '50%',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    color: '#DC2626',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
                             >
-                                &times;
+                                ×
                             </button>
                         </div>
 
-                        {isGeneratingImage ? (
-                            <div style={{ padding: '20px', textAlign: 'center' }}>🔄 Gerando imagem...</div>
-                        ) : shareImageData ? (
-                            <div>
-                                <img src={shareImageData} alt="S-140 Preview" style={{ width: '100%', borderRadius: '8px', border: '1px solid #eee', marginBottom: '10px' }} />
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <button
-                                        onClick={async () => {
-                                            try {
-                                                const blob = await (await fetch(shareImageData)).blob();
-                                                await navigator.clipboard.write([
-                                                    new ClipboardItem({ 'image/png': blob })
-                                                ]);
-                                                alert('Imagem copiada! Agora cole no WhatsApp.');
-                                            } catch (e) {
-                                                alert('Erro ao copiar imagem. Tente baixar ou tirar print.');
-                                            }
-                                        }}
-                                        style={{ padding: '12px', background: '#F3F4F6', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                    >
-                                        📋 Copiar Imagem
-                                    </button>
-                                    <a
-                                        href={`https://wa.me/?text=Segue%20designações%20da%20semana%20${shareWeekId}%20(Cole%20a%20imagem)`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}
-                                    >
-                                        💬 Abrir WhatsApp
-                                    </a>
+                        {/* Scrollable Content */}
+                        <div style={{
+                            padding: '20px',
+                            overflowY: 'auto',
+                            flex: 1
+                        }}>
+                            {isGeneratingImage ? (
+                                <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔄</div>
+                                    <div style={{ color: '#6B7280' }}>Gerando imagem...</div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div style={{ color: 'red', textAlign: 'center', padding: '10px' }}>Erro ao criar imagem. Tente novamente.</div>
-                        )}
+                            ) : shareImageData ? (
+                                <div>
+                                    <img src={shareImageData} alt="S-140 Preview" style={{ width: '100%', borderRadius: '8px', border: '1px solid #eee', marginBottom: '15px' }} />
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    const blob = await (await fetch(shareImageData)).blob();
+                                                    await navigator.clipboard.write([
+                                                        new ClipboardItem({ 'image/png': blob })
+                                                    ]);
+                                                    alert('Imagem copiada! Agora cole no WhatsApp.');
+                                                } catch (e) {
+                                                    alert('Erro ao copiar imagem. Tente baixar ou tirar print.');
+                                                }
+                                            }}
+                                            style={{ padding: '14px', background: '#F3F4F6', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                        >
+                                            📋 Copiar Imagem
+                                        </button>
+                                        <a
+                                            href={`https://wa.me/?text=Segue%20designações%20da%20semana%20${shareWeekId}%20(Cole%20a%20imagem)`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px' }}
+                                        >
+                                            💬 Abrir WhatsApp
+                                        </a>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ color: '#DC2626', textAlign: 'center', padding: '40px 20px', background: '#FEF2F2', borderRadius: '8px' }}>
+                                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
+                                    <div>Erro ao criar imagem. Tente novamente.</div>
+                                </div>
+                            )}
+                        </div>
 
-                        <button
-                            onClick={() => setShareModalOpen(false)}
-                            style={{ width: '100%', marginTop: '15px', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '6px', background: 'white', color: '#374151', cursor: 'pointer', fontWeight: '500' }}
-                        >
-                            Voltar / Fechar
-                        </button>
+                        {/* Fixed Footer with prominent Back button */}
+                        <div style={{
+                            padding: '16px 20px',
+                            borderTop: '1px solid #E5E7EB',
+                            background: '#F9FAFB',
+                            flexShrink: 0
+                        }}>
+                            <button
+                                onClick={() => setShareModalOpen(false)}
+                                style={{
+                                    width: '100%',
+                                    padding: '14px',
+                                    border: '2px solid #4F46E5',
+                                    borderRadius: '8px',
+                                    background: 'white',
+                                    color: '#4F46E5',
+                                    cursor: 'pointer',
+                                    fontWeight: '600',
+                                    fontSize: '15px'
+                                }}
+                            >
+                                ← Voltar ao Chat
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
