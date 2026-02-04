@@ -14,6 +14,8 @@ import PowerfulAgentTab from './components/PowerfulAgentTab'
 
 import { workbookService } from './services/workbookService'
 import { AdminDashboard } from './pages/AdminDashboard'
+import { loadCompletedParticipations } from './services/historyAdapter'
+import type { HistoryRecord } from './types'
 
 type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'backup' | 'agent' | 'admin'
 
@@ -23,6 +25,7 @@ function App() {
   // Data State
   const [publishers, setPublishers] = useState<Publisher[]>([])
   const [workbookParts, setWorkbookParts] = useState<WorkbookPart[]>([])
+  const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([])
 
   // UI State
   const [showPublisherForm, setShowPublisherForm] = useState(false)
@@ -54,14 +57,18 @@ function App() {
         console.log("Loading data from Supabase...")
 
         // 1. Fetch data and seeding flag in parallel
-        const [pubs, savedTab, isSeeded] = await Promise.all([
+        // 1. Fetch data and seeding flag in parallel
+        const [pubs, savedTab, isSeeded, history] = await Promise.all([
           api.loadPublishers().catch(err => {
             console.warn("Failed to load publishers", err)
             return [] as Publisher[];
           }),
           api.getSetting<ActiveTab>('activeTab', 'workbook').catch(() => 'workbook' as ActiveTab),
-          api.getSetting<boolean>('isSeeded', false).catch(() => false)
+          api.getSetting<boolean>('isSeeded', false).catch(() => false),
+          loadCompletedParticipations().catch(() => [] as HistoryRecord[])
         ])
+
+        setHistoryRecords(history);
 
         console.log(`[DEBUG] isSeeded flag from DB: ${isSeeded}`)
         console.log(`[DEBUG] Publishers count from DB: ${pubs.length}`)
@@ -377,6 +384,7 @@ function App() {
                 parts={workbookParts}
                 weekParts={weekParts}
                 weekOrder={weekOrder}
+                historyRecords={historyRecords}
                 onDataChange={refreshWorkbookParts}
               />
             );
@@ -415,6 +423,7 @@ function App() {
         onClose={() => setIsChatAgentOpen(false)}
         publishers={publishers}
         parts={workbookParts}
+        history={historyRecords} // Passando histórico completo
       />
 
       {/* Floating Chat Button (Hidden in Agent Tab) */}

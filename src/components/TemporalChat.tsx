@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { chatHistoryService } from '../services/chatHistoryService';
 import { askAgent, isAgentConfigured } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
-import type { Publisher, WorkbookPart } from '../types';
+import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { agentActionService } from '../services/agentActionService';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import type { ActionResult } from '../services/agentActionService';
@@ -20,9 +20,10 @@ interface Props {
     onNavigateToWeek?: (weekId: string) => void;
     onModelChange?: (model: string) => void;
     currentWeekId?: string; // New Prop
+    historyRecords?: HistoryRecord[]; // NEW: Histórico completo
 }
 
-export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange, currentWeekId }: Props) {
+export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange, currentWeekId, historyRecords = [] }: Props) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -234,7 +235,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                 userMsg.content,
                 publishers,
                 parts,
-                [], // history (empty for now)
+                historyRecords, // Passar histórico completo injetado
                 messages, // chatHistory
                 'elder', // accessLevel
                 specialEventsCtx, // specialEvents
