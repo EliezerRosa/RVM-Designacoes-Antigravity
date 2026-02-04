@@ -48,6 +48,7 @@ export function workbookPartToHistoryRecord(part: WorkbookPart): HistoryRecord {
  * Isso garante que o motor considere designações recentes (PROPOSTA, APROVADA, etc.)
  * para calcular prioridade corretamente.
  */
+import { fetchAllRows } from './supabasePagination';
 import { HISTORY_LOOKBACK_MONTHS } from '../constants/config';
 
 // ... (imports anteriores mantidos)
@@ -55,6 +56,7 @@ import { HISTORY_LOOKBACK_MONTHS } from '../constants/config';
 /**
  * Carrega histórico de participações da tabela workbook_parts
  * ATUALIZADO: Respeita janela de histórico definida em config.ts (12 meses)
+ * v9.3: Usa Paginação para garantir carga total (>1000 rows)
  */
 export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
     console.log(`[historyAdapter] Carregando participações (últimos ${HISTORY_LOOKBACK_MONTHS} meses)...`);
@@ -64,21 +66,17 @@ export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
     limitDate.setMonth(limitDate.getMonth() - HISTORY_LOOKBACK_MONTHS);
     const dateStr = limitDate.toISOString().split('T')[0];
 
-    const { data, error } = await supabase
-        .from('workbook_parts')
-        .select('*')
-        // NÃO FILTRAR POR STATUS - carregar todas que têm publicador atribuído
-        .not('resolved_publisher_name', 'is', null)
-        .gte('date', dateStr) // v8.2: Limitar histórico
-        .order('date', { ascending: false });
+    const data = await fetchAllRows<Record<string, unknown>>(
+        'workbook_parts',
+        (query) => query
+            // NÃO FILTRAR POR STATUS - carregar todas que têm publicador atribuído
+            .not('resolved_publisher_name', 'is', null)
+            .gte('date', dateStr)
+            .order('date', { ascending: false })
+    );
 
-    if (error) {
-        console.error('[historyAdapter] Erro ao carregar participações:', error);
-        return [];
-    }
-
-    const records = (data || []).map(row => workbookPartToHistoryRecord(mapDbToWorkbookPart(row)));
-    console.log(`[historyAdapter] ${records.length} participações carregadas`);
+    const records = data.map(row => workbookPartToHistoryRecord(mapDbToWorkbookPart(row)));
+    console.log(`[historyAdapter] ${records.length} participações carregadas (Total)`);
 
     return records;
 }
