@@ -54,12 +54,29 @@ export function buildEligibilityContext(
     // Lógica de Gênero do Titular (se for ajudante)
     let titularGender: 'brother' | 'sister' | undefined = undefined;
     if (funcao === EnumFuncao.AJUDANTE && weekParts.length > 0) {
-        // Encontrar o titular com mesmo seq e weekId
-        const titularPart = weekParts.find(wp =>
+        // Tentar encontrar titular por SEQ (caso padrão)
+        let titularPart = weekParts.find(wp =>
             wp.weekId === part.weekId &&
             wp.seq === part.seq &&
             wp.funcao === 'Titular'
         );
+
+        // Se não achou por SEQ, tentar por Título Similar (Heurística para linhas separadas)
+        if (!titularPart) {
+            // Remove sufixos comuns de ajudante para pegar o "núcleo" do título
+            // Ex: "4. Iniciando conversas - Ajudante (Ajudante)" -> "4. Iniciando conversas"
+            const baseTitle = part.tituloParte
+                .replace(/\s*-\s*Ajudante.*/i, '')
+                .replace(/\(Ajudante\)/i, '')
+                .trim();
+
+            titularPart = weekParts.find(wp =>
+                wp.weekId === part.weekId &&
+                wp.funcao === 'Titular' &&
+                wp.tituloParte.includes(baseTitle)
+            );
+        }
+
         if (titularPart?.resolvedPublisherName) {
             const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
             if (titularPub) {
