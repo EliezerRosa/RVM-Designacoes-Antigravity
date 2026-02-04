@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import type { Publisher, WorkbookPart } from '../types';
+import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import S140PreviewCarousel from './S140PreviewCarousel';
 import TemporalChat from './TemporalChat';
 import ActionControlPanel from './ActionControlPanel';
@@ -22,10 +22,11 @@ interface Props {
     parts: WorkbookPart[];
     weekParts: Record<string, WorkbookPart[]>;
     weekOrder: string[];
+    historyRecords: HistoryRecord[]; // NEW: Histórico completo para o Agente
     onDataChange?: () => void; // Trigger reload of parts
 }
 
-export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder, onDataChange }: Props) {
+export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder, historyRecords, onDataChange }: Props) {
     // Estado de Navegação Híbrida
     // Inicializar do localStorage se disponível
     const [currentWeekId, setCurrentWeekId] = useState<string | null>(() => {
@@ -203,6 +204,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     <TemporalChat
                         publishers={publishers}
                         parts={parts}
+                        historyRecords={historyRecords} // Passar histórico completo
                         onAction={handleAgentAction}
                         onNavigateToWeek={handleCarouselNavigation}
                         onModelChange={setActiveModel}
