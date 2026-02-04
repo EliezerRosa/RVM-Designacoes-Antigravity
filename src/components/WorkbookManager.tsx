@@ -758,7 +758,7 @@ export function WorkbookManager({ publishers, isActive }: Props) {
 
                                 {/* Paginação Central */}
                                 {(() => {
-                                    const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort();
+                                    const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort().reverse(); // Mais recentes primeiro
                                     const totalPages = currentFilteredWeeks.length || 1;
                                     const safePage = Math.min(Math.max(currentPage, 1), totalPages);
 
@@ -991,7 +991,7 @@ export function WorkbookManager({ publishers, isActive }: Props) {
                                     {(() => {
                                         // Lógica de Paginação por Semana
                                         // 1. Identificar semanas presentes nos dados filtrados
-                                        const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort();
+                                        const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort().reverse(); // Mais recentes primeiro
                                         const totalPages = currentFilteredWeeks.length || 1;
                                         const safePage = Math.min(Math.max(currentPage, 1), totalPages);
 
