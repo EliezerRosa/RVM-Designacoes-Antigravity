@@ -11,6 +11,7 @@ export type AgentActionType =
     | 'ASSIGN_PART'
     | 'UNDO_LAST'
     | 'NAVIGATE_WEEK'
+    | 'VIEW_S140'
     | 'SHARE_S140_WHATSAPP'
     | 'CHECK_SCORE' // Nova Tool
     // Legacy support for transition (optional)
@@ -36,7 +37,7 @@ export const agentActionService = {
     detectAction(responseContent: string): AgentAction | null {
         // Try to find JSON block
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE)"[\s\S]*}/);
+            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE)"[\s\S]*}/);
 
         if (jsonMatch) {
             try {
@@ -241,13 +242,16 @@ export const agentActionService = {
                     };
                 }
 
+                case 'VIEW_S140':
                 case 'SHARE_S140_WHATSAPP': {
                     const { weekId } = action.params;
                     return {
                         success: true,
-                        message: `Compartilhando S-140 da semana ${weekId}`,
+                        message: action.type === 'VIEW_S140'
+                            ? `Visualizando S-140 da semana ${weekId}`
+                            : `Compartilhando S-140 da semana ${weekId}`,
                         data: { weekId },
-                        actionType: 'SHARE_S140_WHATSAPP'
+                        actionType: action.type
                     };
                 }
 
