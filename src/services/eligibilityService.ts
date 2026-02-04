@@ -65,16 +65,33 @@ export function buildEligibilityContext(
         if (!titularPart) {
             // Remove sufixos comuns de ajudante para pegar o "núcleo" do título
             // Ex: "4. Iniciando conversas - Ajudante (Ajudante)" -> "4. Iniciando conversas"
-            const baseTitle = part.tituloParte
+            const currentTitle = part.tituloParte;
+            const baseTitle = currentTitle
                 .replace(/\s*-\s*Ajudante.*/i, '')
                 .replace(/\(Ajudante\)/i, '')
-                .trim();
+                .trim()
+                .toLowerCase(); // Case insensitive
 
-            titularPart = weekParts.find(wp =>
-                wp.weekId === part.weekId &&
-                wp.funcao === 'Titular' &&
-                wp.tituloParte.includes(baseTitle)
-            );
+            console.log(`[Eligibility] Buscando titular para "${currentTitle}" (Base: "${baseTitle}")`);
+
+            titularPart = weekParts.find(wp => {
+                const isSem = wp.weekId === part.weekId;
+                const isTit = wp.funcao === 'Titular';
+                // Checa se o título do candidato contém o título base (case insensitive)
+                const candidateTitle = wp.tituloParte.toLowerCase();
+                const match = candidateTitle.includes(baseTitle);
+
+                // Debug específico
+                if (isSem && isTit && match) {
+                    console.log(`[Eligibility] Match encontrado! "${wp.tituloParte}" contém "${baseTitle}"`);
+                }
+
+                return isSem && isTit && match;
+            });
+
+            if (!titularPart) {
+                console.warn(`[Eligibility] Titular NÃO encontrado para "${currentTitle}" na semana ${part.weekId}`);
+            }
         }
 
         if (titularPart?.resolvedPublisherName) {
