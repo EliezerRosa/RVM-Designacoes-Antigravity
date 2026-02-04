@@ -95,9 +95,18 @@ export function buildEligibilityContext(
         }
 
         if (titularPart?.resolvedPublisherName) {
-            const titularPub = publishers.find(p => p.name === titularPart.resolvedPublisherName);
+            const resolvedName = titularPart.resolvedPublisherName.trim();
+            const titularPub = publishers.find(p => p.name.trim() === resolvedName);
+
+            // Log detalhado para diagnóstico de falha no vínculo
+            console.log(`[Eligibility] Titular na parte pai: "${resolvedName}". Busca Pub: ${titularPub ? 'SUCESSO' : 'FALHA'}. Gênero: ${titularPub?.gender}`);
+
             if (titularPub) {
                 titularGender = titularPub.gender;
+            }
+        } else {
+            if (titularPart) {
+                console.warn(`[Eligibility] Parte Titular ENCONTRADA ("${titularPart.tituloParte}"), mas resolvedPublisherName está VAZIO/NULL.`);
             }
         }
     }
