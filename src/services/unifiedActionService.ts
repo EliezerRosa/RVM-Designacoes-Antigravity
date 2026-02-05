@@ -95,7 +95,7 @@ export const unifiedActionService = {
         // 1. Buscar a parte (Raw DB fetch para performance e evitar dependências circulares complexas)
         const { data: partData, error } = await supabase
             .from('workbook_parts')
-            .select('week_id, seq, tipo_parte, modalidade, date, section, funcao')
+            .select('week_id, seq, tipo_parte, modalidade, date, section, funcao, titulo_parte')
             .eq('id', partId)
             .single();
 
@@ -120,19 +120,43 @@ export const unifiedActionService = {
 
         // Lógica de Gênero do Titular (se for ajudante)
         let titularGender: 'brother' | 'sister' | undefined = undefined;
-        if (funcao === EnumFuncao.AJUDANTE) {
-            // Buscar o titular da mesma parte (mesmo week_id e seq)
-            const { data: titularData } = await supabase
-                .from('workbook_parts')
-                .select('resolved_publisher_name')
-                .eq('week_id', partData.week_id)
-                .eq('seq', partData.seq)
-                .eq('funcao', 'Titular')
-                .maybeSingle();
 
-            if (titularData?.resolved_publisher_name) {
-                const titular = allPublishers.find(p => p.name === titularData.resolved_publisher_name);
-                if (titular) titularGender = titular.gender;
+        if (funcao === EnumFuncao.AJUDANTE) {
+            // FIX v9.0: Buscar titular usando fuzzy match no título (não confiar no SEQ)
+            // 1. Buscar todas as partes titulares da semana
+            const { data: weekTitulares } = await supabase
+                .from('workbook_parts')
+                .select('titulo_parte, resolved_publisher_name')
+                .eq('week_id', partData.week_id)
+                .eq('funcao', 'Titular');
+
+            if (weekTitulares && weekTitulares.length > 0) {
+                // 2. Normalizar título da parte Ajudante atual 
+                // (Nota: partData pode não ter titulo_parte se não selecionamos acima, vamos garantir select)
+
+                // Heurística de match
+                // Precisamos do título da parte atual. Vamos garantir que o select inicial traga 'titulo_parte'
+                const currentTitle = partData.titulo_parte || '';
+
+                const baseTitle = currentTitle
+                    .replace(/\s*-\s*Ajudante.*/i, '')
+                    .replace(/\(Ajudante\)/i, '')
+                    .trim()
+                    .toLowerCase();
+
+                // 3. Encontrar Titular correspondente (case insensitive contains)
+                const titularMatch = weekTitulares.find(t =>
+                    (t.titulo_parte || '').toLowerCase().includes(baseTitle)
+                );
+
+                if (titularMatch?.resolved_publisher_name) {
+                    const titular = allPublishers.find(p => p.name.trim() === titularMatch.resolved_publisher_name.trim());
+                    if (titular) titularGender = titular.gender;
+
+                    console.log(`[UnifiedAction] Titular encontrado via fuzzy match: ${titularMatch.resolved_publisher_name} (${titularGender})`);
+                } else {
+                    console.warn(`[UnifiedAction] Titular NÃO encontrado para Ajudante: ${currentTitle} (Base: ${baseTitle})`);
+                }
             }
         }
 
