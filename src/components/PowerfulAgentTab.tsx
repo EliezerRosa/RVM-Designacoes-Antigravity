@@ -263,6 +263,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         selectedPartId={selectedPartId}
                         parts={parts}
                         publishers={publishers}
+                        historyRecords={historyRecords} // Passando histórico completo para análise correta
                     />
                     {showContextAlert && (
                         <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, margin: '0 20px', padding: '8px', background: '#FFF3CD', color: '#856404', borderRadius: '4px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
