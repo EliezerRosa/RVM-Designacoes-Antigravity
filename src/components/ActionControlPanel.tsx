@@ -76,7 +76,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 const best = ranked.length > 0 ? ranked[0] : null;
 
                 if (best && isMounted) {
-                    const bestExpl = generateNaturalLanguageExplanation(best, allHistory);
+                    // Pass reference date so explanation makes sense in context
+                    const bestExpl = generateNaturalLanguageExplanation(best, allHistory, new Date(selectedPart.date));
                     setBestCandidate({
                         name: best.publisher.name,
                         explanation: bestExpl,
@@ -114,7 +115,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     );
 
                     const currentCandidateObj: RankedCandidate = { publisher: assignedPublisher, scoreData: score };
-                    const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory);
+
+                    // NEW: Passamos a data da parte como referência temporal para que "Última designação"
+                    // seja relativa à semana que estamos vendo, não a hoje (evita que a própria semana apareça como passado)
+                    const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory, new Date(selectedPart.date));
 
                     const targetName = assignedPublisher.name.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
                     const currentPartDate = selectedPart.date;

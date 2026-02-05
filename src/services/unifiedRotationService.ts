@@ -186,32 +186,49 @@ export function explainScoreForAgent(candidate: RankedCandidate): string {
  */
 export function generateNaturalLanguageExplanation(
     candidate: RankedCandidate,
-    history: HistoryRecord[]
+    history: HistoryRecord[],
+    referenceDate: Date = new Date() // Default to NOW if not provided
 ): string {
     const { publisher, scoreData } = candidate;
     const { details, weeksSinceLast } = scoreData;
 
-    // 1. Encontrar a ÚLTIMA participação absoluta (independente do tipo)
+    // 1. Encontrar a ÚLTIMA PARTICIPAÇÃO REAL (Passado)
+    // Filtramos para garantir que seja estritamente ANTERIOR à data de referência (ou hoje)
+    const refDateStr = referenceDate.toISOString().split('T')[0];
+
     const allHistory = history
-        .filter(h => h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name)
+        .filter(h =>
+            (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
+            h.date < refDateStr // STRICTLY PASSED
+        )
         .sort((a, b) => b.date.localeCompare(a.date));
 
-    const absoluteLast = allHistory[0];
-    let lastPartText = "Nunca participou recentemente.";
-    if (absoluteLast) {
-        // Incluir ano explicitamente para evitar confusão
-        const dateObj = new Date(absoluteLast.date);
-        const formattedDate = dateObj.toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric'
-        });
-        lastPartText = `Última designação: ${formattedDate} como ${absoluteLast.tipoParte} (${absoluteLast.funcao}).`;
-    }
 
     // 2. Construir narrativa do Score
     let narrative = "";
 
+    const pastCount12Months = allHistory.filter(h => {
+        const d = new Date(h.date);
+        const twelveMonthsAgo = new Date(referenceDate);
+        twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+        return d >= twelveMonthsAgo;
+    }).length;
+
+    // Listar as últimas 3 datas para dar contexto visual
+    // allHistory já está filtrado (Passado) e ordenado (Recente primeiro)
+    const recentDates = allHistory.slice(0, 3).map(h => {
+        const safeDate = new Date(h.date + 'T12:00:00');
+        const dateStr = safeDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        return `${dateStr} (${h.funcao})`;
+    });
+
+    const datesText = recentDates.length > 0
+        ? `Últimas: ${recentDates.join(', ')}.`
+        : "Nenhuma participação recente.";
+
+    const countText = pastCount12Months > 0 ? `Total: ${pastCount12Months}x (12 meses).` : "";
+
+    // Penalidades
     if (details.frequencyPenalty > 50) {
         narrative = "⚠️ Pontuação reduzida devido a muitas participações recentes.";
     } else if (details.frequencyPenalty > 0) {
@@ -221,14 +238,15 @@ export function generateNaturalLanguageExplanation(
     }
 
     if (weeksSinceLast > 20) {
-        narrative += " Faz muito tempo que não realiza essa parte específica, por isso a urgência é alta.";
+        narrative += " Faz muito tempo que não realiza essa parte específica.";
     } else if (weeksSinceLast > 10) {
-        narrative += " Já faz um tempo considerável desde a última vez nessa parte.";
+        narrative += " Já faz um tempo desde a última designação.";
     } else if (weeksSinceLast < 4 && weeksSinceLast > 0) {
-        narrative += " Fez essa parte recentemente.";
+        narrative += " Designado recentemente.";
     }
 
-    return `${narrative}\n\n📅 ${lastPartText}`;
+    // Montar string final
+    return `${narrative}\n\n📅 ${datesText}\n📊 ${countText}`;
 }
 
 // Exportar configuração para uso em UI se necessário
