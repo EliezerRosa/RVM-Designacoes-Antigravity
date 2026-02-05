@@ -98,7 +98,7 @@ export const unifiedActionService = {
         // 1. Buscar a parte (Raw DB fetch para performance e evitar dependências circulares complexas)
         const { data: partData, error } = await supabase
             .from('workbook_parts')
-            .select('week_id, seq, tipo_parte, modalidade, date, section, funcao, titulo_parte')
+            .select('week_id, seq, tipo_parte, modalidade, date, section, funcao, part_title')
             .eq('id', cleanPartId)
             .single();
 
@@ -130,7 +130,7 @@ export const unifiedActionService = {
             // 1. Buscar todas as partes titulares da semana
             const { data: weekTitulares } = await supabase
                 .from('workbook_parts')
-                .select('titulo_parte, resolved_publisher_name')
+                .select('part_title, resolved_publisher_name')
                 .eq('week_id', partData.week_id)
                 .eq('funcao', 'Titular');
 
@@ -140,7 +140,7 @@ export const unifiedActionService = {
 
                 // Heurística de match
                 // Precisamos do título da parte atual. Vamos garantir que o select inicial traga 'titulo_parte'
-                const currentTitle = partData.titulo_parte || '';
+                const currentTitle = partData.part_title || '';
 
                 const baseTitle = currentTitle
                     .replace(/\s*-\s*Ajudante.*/i, '')
@@ -150,7 +150,7 @@ export const unifiedActionService = {
 
                 // 3. Encontrar Titular correspondente (case insensitive contains)
                 const titularMatch = weekTitulares.find(t =>
-                    (t.titulo_parte || '').toLowerCase().includes(baseTitle)
+                    (t.part_title || '').toLowerCase().includes(baseTitle)
                 );
 
                 if (titularMatch?.resolved_publisher_name) {
