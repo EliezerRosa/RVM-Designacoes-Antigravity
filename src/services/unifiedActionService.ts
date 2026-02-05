@@ -92,15 +92,19 @@ export const unifiedActionService = {
     // ========================================================================
 
     async validateEligibility(partId: string, publisherName: string): Promise<void> {
+        // 0. Sanitize ID
+        const cleanPartId = partId.trim();
+
         // 1. Buscar a parte (Raw DB fetch para performance e evitar dependências circulares complexas)
         const { data: partData, error } = await supabase
             .from('workbook_parts')
             .select('week_id, seq, tipo_parte, modalidade, date, section, funcao, titulo_parte')
-            .eq('id', partId)
+            .eq('id', cleanPartId)
             .single();
 
         if (error || !partData) {
-            throw new Error(`Parte não encontrada: ${partId}`);
+            console.error(`[UnifiedAction] Erro buscando parte ${cleanPartId}:`, error);
+            throw new Error(`Parte não encontrada: "${cleanPartId}". Detalhe: ${error?.message || 'Registro inexistente'}`);
         }
 
         // 2. Buscar Publicador
