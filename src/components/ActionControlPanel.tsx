@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Publisher, WorkbookPart } from '../types';
+import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
 import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
@@ -13,14 +13,16 @@ interface Props {
     selectedPartId: string | null;
     parts: WorkbookPart[];
     publishers: Publisher[];
+    historyRecords: HistoryRecord[]; // NEW: Receber histórico completo
 }
 
 interface PublisherStats {
     lastDate: string | null;
+    nextDate?: string | null; // NEW
     totalAssignments: number;
 }
 
-export default function ActionControlPanel({ selectedPartId, parts, publishers }: Props) {
+export default function ActionControlPanel({ selectedPartId, parts, publishers, historyRecords }: Props) {
     const selectedPart = parts.find(p => p.id === selectedPartId);
 
     // Buscar o publicador designado para esta parte
@@ -56,8 +58,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
 
             setLoading(true);
             try {
-                // Preparar Histórico (Local) para TODOS (para ranking)
-                const allHistory = parts.map(workbookPartToHistoryRecord);
+                // Usar o histórico completo fornecido via props
+                const allHistory = historyRecords && historyRecords.length > 0
+                    ? historyRecords
+                    : parts.map(workbookPartToHistoryRecord);
 
                 // 1. Calcular o MELHOR CANDIDATO (Top Recommendation)
                 const eligibleCandidates = publishers.filter(p =>
@@ -112,18 +116,49 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                     const currentCandidateObj: RankedCandidate = { publisher: assignedPublisher, scoreData: score };
                     const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory);
 
-                    const sameTypeHistory = allHistory.filter(h =>
-                        h.resolvedPublisherName?.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase() ===
-                        assignedPublisher.name.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase() &&
-                        h.tipoParte === selectedPart.tipoParte
-                    ).sort((a, b) => b.date.localeCompare(a.date));
-                    const lastDate = sameTypeHistory.length > 0 ? sameTypeHistory[0].date : null;
+                    const targetName = assignedPublisher.name.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                    const currentPartDate = selectedPart.date;
+
+                    // Filtrar histórico do mesmo tipo (ex: Leitor), excluindo a própria parte atual (pelo ID ou data exata + seção)
+                    const sameTypeHistory = allHistory.filter(h => {
+                        const hName = (h.resolvedPublisherName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                        if (hName !== targetName || h.tipoParte !== selectedPart.tipoParte) return false;
+
+                        // Excluir a parte atual da estatística de histórico
+                        // Se tivermos ID no histórico, ótimo. Se não, usamos data + titulo
+                        // Aqui assumimos que se a data for IGUAL e o titulo IGUAL, é a mesma parte.
+                        // Mas cuidado com partes repetidas na mesma data.
+                        // Melhor usar uma tolerância ou simplesmente ignorar se for a MESMA DATA da selecionada.
+
+                        return h.date !== currentPartDate;
+                    }).sort((a, b) => b.date.localeCompare(a.date));
+
+                    // Separar Passado e Futuro
+                    // Passado: Data < currentPartDate
+                    // Futuro: Data > currentPartDate
+                    const pastAssignments = sameTypeHistory.filter(h => h.date < currentPartDate);
+                    const futureAssignments = sameTypeHistory.filter(h => h.date > currentPartDate);
+
+                    // Última REALIZADA (a mais recente do passado) - index 0 pois está sorted desc
+                    const lastPastDate = pastAssignments.length > 0 ? pastAssignments[0].date : null;
+
+                    // Próxima AGENDADA (a mais próxima do futuro) - precisamos inverter sort ou pegar último do desc
+                    // Como está sorted DESC (2026... 2024), os futuros estão no começo. 
+                    // O "mais próximo" futuro é o MENOR valor que seja maior que current.
+                    // sorted DESC: [FuturoDistante, FuturoProximo, PassadoRecente, PassadoDistante]
+                    // futureAssignments estará: [FuturoDistante, FuturoProximo]
+                    // O mais próximo é o ultimo do array futureAssignments
+                    const nextFutureDate = futureAssignments.length > 0 ? futureAssignments[futureAssignments.length - 1].date : null;
 
                     if (isMounted) {
                         setEligibility(elig);
                         setCooldown(cdInfo);
                         setScoreData(score);
-                        setStats({ lastDate, totalAssignments: sameTypeHistory.length });
+                        setStats({
+                            lastDate: lastPastDate, // Mantendo compatibilidade, mas agora é REALMENTE passado
+                            nextDate: nextFutureDate, // Novo campo
+                            totalAssignments: sameTypeHistory.length + 1 // +1 contando com a atual
+                        });
                         setExplanation(natExpl);
                     }
                 } else if (isMounted) {
@@ -311,16 +346,26 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers }
                                     {/* Estatísticas */}
                                     {stats && (
                                         <>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Última vez nesta parte</span>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}> // Changed margin
+                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Última realizada</span>
                                                 <span style={{ fontSize: '11px', fontWeight: '500' }}>
-                                                    {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nunca'}
+                                                    {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma'}
                                                 </span>
                                             </div>
+
+                                            {stats.nextDate && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#D97706' }}>
+                                                    <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Próxima agendada</span>
+                                                    <span style={{ fontSize: '11px', fontWeight: 'bold' }}>
+                                                        {new Date(stats.nextDate).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            )}
+
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Total (Tipo)</span>
+                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Histórico Total</span>
                                                 <span style={{ fontSize: '11px', fontWeight: '500' }}>
-                                                    {stats.totalAssignments}
+                                                    {stats.totalAssignments}x
                                                 </span>
                                             </div>
                                         </>
