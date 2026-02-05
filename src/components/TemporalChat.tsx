@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ChatMessageBubble } from './ui/ChatMessageBubble';
 import { chatHistoryService } from '../services/chatHistoryService';
 import { askAgent, isAgentConfigured } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
@@ -400,32 +401,16 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     </div>
                 )}
                 {messages.map((msg, idx) => (
-                    <div key={idx} style={{ marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '2px' }}>
-                            <span style={{ fontWeight: 'bold', color: msg.role === 'assistant' ? '#4F46E5' : '#111' }}>
-                                {msg.role === 'assistant' ? '🤖' : '👤'}:
-                            </span>
-                            <span style={{
-                                fontSize: '11px',
-                                color: '#9CA3AF',
-                                fontWeight: '400'
-                            }}>
-                                {msg.timestamp ? new Date(msg.timestamp).toLocaleString('pt-BR', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                }) : ''}
-                            </span>
-                        </div>
-                        <div style={{
-                            wordBreak: 'break-word',
-                            color: '#111',
-                            paddingLeft: '24px'
-                        }}>
-                            {msg.content ? msg.content : <em>(sem conteúdo)</em>}
-                        </div>
-                    </div>
+                    <ChatMessageBubble
+                        key={idx}
+                        role={msg.role === 'assistant' ? 'assistant' : 'user'}
+                        content={msg.content || '(sem conteúdo)'}
+                        timestamp={msg.timestamp ? new Date(msg.timestamp) : undefined}
+                        onShowMore={() => {
+                            setInput('continue');
+                            setTimeout(() => sendMessage(), 100);
+                        }}
+                    />
                 ))}
                 {isLoading && (
                     <div style={{ marginBottom: '8px', color: '#9CA3AF' }}>
