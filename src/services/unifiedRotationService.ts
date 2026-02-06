@@ -26,6 +26,24 @@ const SCORING_CONFIG = {
     MAX_LOOKBACK_WEEKS: 52, // Olhar no máximo 1 ano para trás
 };
 
+// Partes que não contam para estatísticas ou histórico do publicador
+const EXCLUDED_STATS_PARTS = [
+    "Cântico",
+    "Oração",
+    "Comentários iniciais", // Lowercase normalized check usually better, but let's match user input then normalize in check
+    "Elogios e conselhos",
+    "Comentários finais",
+    "Presidente" // User didn't ask for this but usually goes with Comentarios. Adhering strictly to user list first.
+];
+
+// Helper to check exclusion
+const isStatPart = (title: string) => {
+    if (!title) return false;
+    const lower = title.toLowerCase();
+    // Use the constant for single source of truth
+    return !EXCLUDED_STATS_PARTS.some(k => lower.includes(k.toLowerCase()));
+};
+
 export interface RotationScore {
     score: number;
     details: {
@@ -38,6 +56,25 @@ export interface RotationScore {
     explanation: string;
     lastDate?: string;
     weeksSinceLast: number;
+}
+
+export interface RankedCandidate {
+    publisher: Publisher;
+    scoreData: RotationScore;
+}
+
+// ============================================================================
+// CORE LOGIC
+// ============================================================================
+
+export function calculateRotationScore(
+    candidate: Publisher,
+    _partDate: string, // Unused
+    history: HistoryRecord[],
+    partType: string
+): RotationScore {
+    // Legacy wrapper - redirects to main logic
+    return calculateScore(candidate, partType, history);
 }
 
 export interface RankedCandidate {
@@ -72,16 +109,11 @@ export function calculateScore(
     };
 
     // 1. Encontrar última participação
-    // Filtrar apenas participações relevantes (ex: se for parte de estudante, olhar histórico de estudante)
-    // Por simplicidade na v1 (restauração), olhamos qualquer participação principal como "reset" de tempo
-    // Idealmente, poderíamos ter categorias (Mechanical vs Teaching), mas vamos manter simples e coeso.
-
+    // Filtrar apenas participações relevantes (ex: excluir Cântico, Oração, etc)
     const publisherHistory = history
         .filter(h =>
             (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
-            h.funcao === 'Titular' // Ajudante conta menos ou não zera "tempo sem parte principal"
-            // TODO: Refinar se Ajudante deve contar como participação full. 
-            // Na "Solução Elegante" original, ajudante contava menos. Vamos manter simples agora.
+            isStatPart(h.tipoParte || h.funcao) // NEW: Filter out non-stat parts
         )
         .sort((a, b) => b.date.localeCompare(a.date)); // Mais recente primeiro
 
@@ -199,7 +231,8 @@ export function generateNaturalLanguageExplanation(
     const allHistory = history
         .filter(h =>
             (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
-            h.date < refDateStr // STRICTLY PASSED
+            h.date < refDateStr && // STRICTLY PASSED
+            isStatPart(h.tipoParte || h.funcao) // NEW: Filter out non-stat parts
         )
         .sort((a, b) => b.date.localeCompare(a.date));
 
@@ -230,19 +263,21 @@ export function generateNaturalLanguageExplanation(
 
     // Penalidades
     if (details.frequencyPenalty > 50) {
-        narrative = "⚠️ Pontuação reduzida devido a muitas participações recentes.";
+        narrative = "⚠️ Pontuação reduzida pois está muito sobrecarregado (Muitas partes gerais recentemente).";
     } else if (details.frequencyPenalty > 0) {
-        narrative = "Possui participações recentes, o que reduz levemente a prioridade.";
+        narrative = "Prioridade levemente reduzida devido a outras designações recentes (Geral).";
     } else {
-        narrative = "Está com a agenda livre recentemente, aumentando a prioridade.";
+        narrative = "Está com a agenda geral livre, o que aumenta a prioridade.";
     }
 
     if (weeksSinceLast > 20) {
-        narrative += " Faz muito tempo que não realiza essa parte específica.";
+        narrative += " E faz muito tempo que não realiza ESTA parte específica.";
     } else if (weeksSinceLast > 10) {
-        narrative += " Já faz um tempo desde a última designação.";
+        narrative += " E já faz um tempo desde a última vez NESTA parte.";
     } else if (weeksSinceLast < 4 && weeksSinceLast > 0) {
-        narrative += " Designado recentemente.";
+        narrative += " Porém, fez ESTA parte recentemente.";
+    } else {
+        narrative += " (Disponível para esta função).";
     }
 
     // Montar string final

@@ -335,14 +335,14 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
                                     {/* Cooldown */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '11px', color: '#4B5563' }}>Intervalo (Cooldown)</span>
+                                        <span style={{ fontSize: '11px', color: '#4B5563' }}>Status de Intervalo</span>
                                         {cooldown?.isInCooldown ? (
                                             <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 'bold' }}>
-                                                ⏳ Aguarde {cooldown.cooldownRemaining} sem.
+                                                ⚠️ Em intervalo (Falta {cooldown.cooldownRemaining} sem.)
                                             </span>
                                         ) : (
                                             <span style={{ fontSize: '11px', color: '#059669' }}>
-                                                ✓ Liberado
+                                                ✓ Descansado
                                             </span>
                                         )}
                                     </div>
@@ -350,10 +350,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                     {/* Estatísticas */}
                                     {stats && (
                                         <>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}> // Changed margin
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                                                 <span style={{ fontSize: '11px', color: '#4B5563' }}>Última realizada</span>
                                                 <span style={{ fontSize: '11px', fontWeight: '500' }}>
-                                                    {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma'}
+                                                    {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma (Passado)'}
                                                 </span>
                                             </div>
 
@@ -367,9 +367,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             )}
 
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Histórico Total</span>
+                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Total (Histórico)</span>
                                                 <span style={{ fontSize: '11px', fontWeight: '500' }}>
-                                                    {stats.totalAssignments}x
+                                                    {stats.totalAssignments}x {stats.totalAssignments === 1 && !stats.lastDate ? '(Esta vez)' : ''}
                                                 </span>
                                             </div>
                                         </>
