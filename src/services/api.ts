@@ -139,6 +139,8 @@ export const api = {
                             console.log('[REALTIME] Publishers changed, reloading...');
                             const publishers = await this.loadPublishers();
                             onUpdate(publishers);
+                        } catch (err) {
+                            console.warn('[REALTIME] Failed to reload publishers:', err);
                         } finally {
                             isProcessing = false;
                         }
