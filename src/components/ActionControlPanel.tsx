@@ -368,8 +368,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <span style={{ fontSize: '11px', color: '#4B5563' }}>Total (Histórico)</span>
-                                                <span style={{ fontSize: '11px', fontWeight: '500' }}>
-                                                    {stats.totalAssignments !== undefined ? `${stats.totalAssignments}x` : '0x'} {(stats.totalAssignments === 1 && !stats.lastDate) ? '(Esta vez)' : ''}
+                                                <span style={{ fontSize: '11px', fontWeight: '500', color: stats.totalAssignments ? 'inherit' : '#9CA3AF' }}>
+                                                    {typeof stats.totalAssignments === 'number' ? `${stats.totalAssignments}x` : '0x'} {(stats.totalAssignments === 1 && !stats.lastDate) ? '(Esta vez)' : ''}
                                                 </span>
                                             </div>
                                         </>

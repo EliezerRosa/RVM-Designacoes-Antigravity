@@ -308,15 +308,17 @@ export function buildAgentContext(
             });
         }
 
-        weekMap.get(weekId)!.parts.push({
-            id: part.id,
-            tipoParte: part.tipoParte,
-            tituloParte: part.tituloParte,
-            funcao: part.funcao,
-            designado,
-            status: part.status,
-            horaInicio: part.horaInicio,
-        });
+        if (isStatPart(part.tipoParte || part.funcao || '')) {
+            weekMap.get(weekId)!.parts.push({
+                id: part.id,
+                tipoParte: part.tipoParte,
+                tituloParte: part.tituloParte,
+                funcao: part.funcao,
+                designado,
+                status: part.status,
+                horaInicio: part.horaInicio,
+            });
+        }
     }
 
     // v9.2.2: Limitar semanas ao contexto do agente para evitar timeout da API
