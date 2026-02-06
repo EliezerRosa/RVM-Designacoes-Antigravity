@@ -27,7 +27,7 @@ const SCORING_CONFIG = {
 };
 
 // Partes que não contam para estatísticas ou histórico do publicador
-const EXCLUDED_STATS_PARTS = [
+export const EXCLUDED_STATS_PARTS = [
     "Cântico",
     "Oração",
     "Comentários iniciais", // Lowercase normalized check usually better, but let's match user input then normalize in check
@@ -37,7 +37,7 @@ const EXCLUDED_STATS_PARTS = [
 ];
 
 // Helper to check exclusion
-const isStatPart = (title: string) => {
+export const isStatPart = (title: string) => {
     if (!title) return false;
     const lower = title.toLowerCase();
     // Use the constant for single source of truth

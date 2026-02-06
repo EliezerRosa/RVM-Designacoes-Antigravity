@@ -6,7 +6,7 @@
 
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getEligibilityStats } from './eligibilityService';
-import { calculateScore, ROTATION_CONFIG } from './unifiedRotationService';
+import { calculateScore, ROTATION_CONFIG, isStatPart } from './unifiedRotationService';
 import { AGENT_CONTEXT_WEEKS, AGENT_HISTORY_LOOKBACK_WEEKS, AGENT_LIST_LOOKBACK_WEEKS } from '../constants/config';
 
 export const RULES_TEXT_VERSION = '2024-01-27.01'; // v8.3 - Elegibilidade no contexto
@@ -250,14 +250,18 @@ export function buildAgentContext(
         listLookbackDate.setDate(listLookbackDate.getDate() - (AGENT_LIST_LOOKBACK_WEEKS * 7));
 
         // v9.7: Usar _history (completo/paginado) preferencialmente sobre parts (limitado à UI)
-        // Isso garante que o Agente veja participações antigas ou futuras (2026) fora da view atual
+        // Isso garante que o Agente veja participações antigas ou futuros (2026) fora da view atual
         const sourceData = (_history && _history.length > 0) ? _history : parts;
 
         recentParticipations = sourceData
             .filter(p => {
                 const pDate = new Date(p.date); // Funciona para HistoryRecord e WorkbookPart
                 // Validar data e garantir que tem publicador
-                return !isNaN(pDate.getTime()) && pDate >= listLookbackDate && p.resolvedPublisherName;
+                // E FILTRAR PARTES EXCLUÍDAS (Cântico, Oração, etc)
+                return !isNaN(pDate.getTime()) &&
+                    pDate >= listLookbackDate &&
+                    p.resolvedPublisherName &&
+                    isStatPart(p.tipoParte || p.funcao || '');
             })
             .sort((a, b) => b.date.localeCompare(a.date))
             .map(p => ({
