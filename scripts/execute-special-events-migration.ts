@@ -4,10 +4,19 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import path from 'path';
 
-// Credentials from existing scripts
-const supabaseUrl = 'https://pevstuyzlewvjidjkmea.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBldnN0dXl6bGV3dmppZGprbWVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc3NzM1NiwiZXhwIjoyMDgxMzUzMzU2fQ.N-vb7L0PVsMoLh1pu495g3XkTY8AqNhgyWuK6U4Awn4';
+// Load environment variables from root .env
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+const supabaseUrl = process.env.SUPABASE_URL || 'https://pevstuyzlewvjidjkmea.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseKey) {
+    console.error('❌ Error: SUPABASE_SERVICE_ROLE_KEY not found in .env');
+    process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

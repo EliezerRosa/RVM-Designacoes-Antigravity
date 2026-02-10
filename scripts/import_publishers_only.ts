@@ -15,7 +15,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 async function main() {
     console.log('📥 Lendo backup JSON...');
 
-    const backupPath = 'c:/Antigravity - RVM Designações/backup_rvm_2026-01-04.json';
+    const backupPath = 'c:/Antigravity - RVM Designações/dados_sensiveis/backup_rvm_2026-01-04.json';
     const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf-8'));
 
     const publishers = backupData.tables.publishers.data;

@@ -1,9 +1,18 @@
 
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import path from 'path';
 
-// Credentials from migrate_fix_year.ts
-const SUPABASE_URL = 'https://pevstuyzlewvjidjkmea.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBldnN0dXl6bGV3dmppZGprbWVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc3NzM1NiwiZXhwIjoyMDgxMzUzMzU2fQ.N-vb7L0PVsMoLh1pu495g3XkTY8AqNhgyWuK6U4Awn4';
+// Load environment variables from root .env
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://pevstuyzlewvjidjkmea.supabase.co';
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SERVICE_ROLE_KEY) {
+    console.error('❌ Error: SUPABASE_SERVICE_ROLE_KEY not found in .env');
+    process.exit(1);
+}
 
 const SQL = `
 -- Add missing columns for Workbook features

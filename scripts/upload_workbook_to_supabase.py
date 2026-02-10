@@ -9,9 +9,22 @@ from pathlib import Path
 from datetime import datetime
 import uuid
 
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from root .env
+# Adjust path to find the .env file in the project root
+root_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(root_path)
+
 # Supabase credentials (mesmas do migrate_publishers_to_supabase.py)
-SUPABASE_URL = "https://nrmfuhkvnpfaqzgbbmnm.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ybWZ1aGt2bnBmYXF6Z2JibW5tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNDc5ODMsImV4cCI6MjA0OTYyMzk4M30.oMZxfFnHlvqqLEeJpJG6hT9n8vwGKhmp5WFMtb1B5Uw"
+SUPABASE_URL = os.getenv("SUPABASE_URL_DATA")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY_DATA")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("❌ Erro: Credenciais do Supabase não encontradas no arquivo .env")
+    print(f"   Procurando em: {root_path}")
+    exit(1)
 
 def read_excel_parts(excel_path: str) -> list[dict]:
     """Lê partes do Excel gerado pelo extract_detailed_parts.py."""
@@ -110,7 +123,7 @@ def upsert_to_supabase(parts: list[dict]) -> tuple[int, int]:
 
 def main():
     # Caminho do Excel gerado pelo script offline (na pasta pai do projeto)
-    excel_path = Path(__file__).parent.parent.parent / "ANTIGRAVITY Apostilas" / "partes_v14.xlsx"
+    excel_path = Path(__file__).parent.parent.parent / "dados_sensiveis" / "ANTIGRAVITY Apostilas" / "partes_v14.xlsx"
     
     if not excel_path.exists():
         print(f"❌ Arquivo não encontrado: {excel_path}")

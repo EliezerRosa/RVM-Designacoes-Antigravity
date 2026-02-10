@@ -25,7 +25,7 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-EXCEL_PATH = r"c:\Antigravity - RVM Designações\ANTIGRAVITY Designações Antigas\RVM_Consolidado_2024_2026.xlsx"
+EXCEL_PATH = r"c:\Antigravity - RVM Designações\dados_sensiveis\ANTIGRAVITY Designações Antigas\RVM_Consolidado_2024_2026.xlsx"
 
 # ==============================================================================
 # Funções

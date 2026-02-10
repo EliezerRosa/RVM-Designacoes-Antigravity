@@ -19,8 +19,18 @@ from datetime import datetime
 # Configuração do Supabase
 # ==============================================================================
 
-SUPABASE_URL = "https://pevstuyzlewvjidjkmea.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBldnN0dXl6bGV3dmppZGprbWVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NzczNTYsImV4cCI6MjA4MTM1MzM1Nn0.myYaq8rshNyB2aGTas2f1IzsQVv_rihOGL2v8EPl-x0"
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+    print("❌ Erro: Credenciais do Supabase não encontradas no arquivo .env")
+    exit(1)
 
 HEADERS = {
     "apikey": SUPABASE_ANON_KEY,

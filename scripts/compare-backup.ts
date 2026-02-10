@@ -19,7 +19,7 @@ interface Publisher {
 }
 
 async function main() {
-    const backupPath = path.resolve(process.argv[2] || 'c:/Antigravity - RVM Designações/backup_rvm_2026-01-14.xlsx');
+    const backupPath = path.resolve(process.argv[2] || 'c:/Antigravity - RVM Designações/dados_sensiveis/backup_rvm_2026-01-14.xlsx');
 
     console.log('\n📊 COMPARAÇÃO: BACKUP vs SUPABASE');
     console.log('='.repeat(60));
