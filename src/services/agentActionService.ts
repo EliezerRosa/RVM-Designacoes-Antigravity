@@ -137,23 +137,43 @@ export const agentActionService = {
                     let targetPart = parts.find(p => p.id === partId);
 
                     // Fallback: Tentar encontrar por Nome + Semana se ID não fornecido
-                    // Fallback: Tentar encontrar por Nome + Semana se ID não fornecido
                     if (!targetPart && weekId && partName) {
                         const candidates = parts.filter(p => p.weekId === weekId);
-                        const qName = partName.toLowerCase();
+                        const qName = partName.toLowerCase().trim();
+
+                        // Normalizar aliases comuns
+                        const PART_ALIASES: Record<string, string[]> = {
+                            'presidente da reunião': ['presidente', 'chairman', 'chairperson'],
+                            'oração final': ['oração', 'oracao final', 'oracao'],
+                            'comentários iniciais': ['comentarios iniciais'],
+                            'comentários finais': ['comentarios finais'],
+                        };
+
+                        // Expandir qName: se é um alias, tentar o nome canônico
+                        let expandedNames = [qName];
+                        for (const [canonical, aliases] of Object.entries(PART_ALIASES)) {
+                            if (aliases.includes(qName) || qName === canonical) {
+                                expandedNames = [canonical, ...aliases, qName];
+                                break;
+                            }
+                        }
 
                         targetPart = candidates.find(p => {
                             const pTitle = (p.tituloParte || '').toLowerCase();
                             const pType = (p.tipoParte || '').toLowerCase();
 
-                            // 1. Query inside DB (standard)
-                            if (pTitle && pTitle.includes(qName)) return true;
-                            if (pType && pType.includes(qName)) return true;
+                            for (const query of expandedNames) {
+                                // 1. Query inside DB title/type (standard)
+                                if (pTitle && pTitle.includes(query)) return true;
+                                if (pType && pType.includes(query)) return true;
 
-                            // 2. DB inside Query (handles "1. Term..." vs "Term")
-                            // Must correspond to significant length to avoid false positives with short words
-                            if (pTitle && pTitle.length > 5 && qName.includes(pTitle)) return true;
-                            if (pType && pType.length > 5 && qName.includes(pType)) return true;
+                                // 2. Exact match on tipoParte
+                                if (pType && pType === query) return true;
+
+                                // 3. DB inside Query (handles "1. Term..." vs "Term")
+                                if (pTitle && pTitle.length > 3 && query.includes(pTitle)) return true;
+                                if (pType && pType.length > 3 && query.includes(pType)) return true;
+                            }
 
                             return false;
                         });
