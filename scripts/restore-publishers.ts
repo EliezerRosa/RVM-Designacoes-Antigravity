@@ -24,7 +24,7 @@ interface PublisherRow {
 }
 
 async function main() {
-    const backupPath = 'c:/Antigravity - RVM Designações/backup_rvm_2026-01-14.xlsx';
+    const backupPath = 'c:/Antigravity - RVM Designações/dados_sensiveis/backup_rvm_2026-01-14.xlsx';
 
     console.log('\n🔧 RESTAURAÇÃO DE PUBLICADORES');
     console.log('='.repeat(60));
