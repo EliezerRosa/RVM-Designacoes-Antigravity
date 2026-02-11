@@ -94,6 +94,9 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 if (part && part.weekId !== currentWeekId) {
                     handleCarouselNavigation(part.weekId);
                 }
+            } else if (result.actionType === 'CLEAR_WEEK') {
+                // CLEAR_WEEK: navegar para a semana limpada (weekId extraído do params)
+                // Não precisa de navegação extra, a semana já está visível
             } else if (result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId) {
                 handleCarouselNavigation(result.data.weekId);
             }
