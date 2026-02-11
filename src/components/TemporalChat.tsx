@@ -31,6 +31,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     // Share S-140 State
     const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -380,6 +381,8 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             }
         } finally {
             setIsLoading(false);
+            // Auto-focus input after response
+            setTimeout(() => inputRef.current?.focus(), 50);
         }
     };
 
@@ -619,6 +622,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             )}
             <div style={{ borderTop: '1px solid #E5E7EB', padding: '8px', display: 'flex', gap: '8px' }}>
                 <input
+                    ref={inputRef}
                     type="text"
                     placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : "Digite sua mensagem..."}
                     value={input}
