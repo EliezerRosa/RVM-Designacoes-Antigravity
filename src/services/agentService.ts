@@ -216,6 +216,19 @@ Use quando usuário pedir: "mande pro zap", "compartilhar", "enviar para grupo".
 }
 \`\`\`
 
+7. LIMPAR SEMANA (CLEAR_WEEK):
+Use quando usuário pedir: "limpe a semana", "remova todas as designações da semana X", "zere a semana".
+Esta ação remove TODAS as designações de uma semana de uma vez (muito mais eficiente que remover parte por parte).
+\`\`\`json
+{
+  "type": "CLEAR_WEEK",
+  "params": {
+    "weekId": "2024-03-01"
+  },
+  "description": "Limpando todas as designações da semana..."
+}
+\`\`\`
+
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown (\`\`\`json ... \`\`\`).
 `;
 

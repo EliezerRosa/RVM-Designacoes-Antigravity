@@ -179,7 +179,7 @@ function App() {
             } finally {
               isPartsProcessing = false;
             }
-          }, 1500); // 1.5s debounce (parts change in batch)
+          }, 3000); // 3s debounce (batch multiple part changes)
         }
       )
       .subscribe();
@@ -201,7 +201,7 @@ function App() {
       } catch (e) {
         console.warn('[POLLING] Error checking parts:', e);
       }
-    }, 15000); // 15 seconds
+    }, 60000); // 60 seconds (parts change infrequently)
 
     return () => {
       console.log('[REALTIME] Cleaning up parts sync...');
