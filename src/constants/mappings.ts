@@ -17,10 +17,23 @@ export const TIPO_TO_MODALIDADE: Record<string, string> = {
     'Presidente': EnumModalidade.PRESIDENCIA,
     'Comentários Iniciais': EnumModalidade.PRESIDENCIA,
     'Comentários Finais': EnumModalidade.PRESIDENCIA,
+    'Comentarios Iniciais': EnumModalidade.PRESIDENCIA,
+    'Comentarios Finais': EnumModalidade.PRESIDENCIA,
+
+    // Cânticos (NÃO designáveis — elegibilidade retorna false)
+    'Cântico Inicial': EnumModalidade.CANTICO,
+    'Cântico do Meio': EnumModalidade.CANTICO,
+    'Cântico Final': EnumModalidade.CANTICO,
+    'Cantico Inicial': EnumModalidade.CANTICO,
+    'Cantico do Meio': EnumModalidade.CANTICO,
+    'Cantico Final': EnumModalidade.CANTICO,
 
     // Oração
     'Oração Inicial': EnumModalidade.ORACAO,
     'Oração Final': EnumModalidade.ORACAO,
+
+    // Elogios e Conselhos (NÃO designável — é do Presidente)
+    'Elogios e Conselhos': EnumModalidade.ACONSELHAMENTO,
 
     // Tesouros da Palavra de Deus
     'Discurso Tesouros': EnumModalidade.DISCURSO_ENSINO,
@@ -54,7 +67,18 @@ export function getModalidadeFromTipo(tipoParte: string): string {
         if (key.toLowerCase() === normalized) return value;
     }
 
-    // 2. Procura por palavras-chave em partes de estudante (Demonstrações)
+    // 2. Partes NÃO designáveis (devem retornar modalidade que bloqueia)
+    if (normalized.includes('cântico') || normalized.includes('cantico')) {
+        return EnumModalidade.CANTICO;
+    }
+    if (normalized.includes('elogio') || normalized.includes('conselho')) {
+        return EnumModalidade.ACONSELHAMENTO;
+    }
+    if (normalized.includes('comentário') || normalized.includes('comentarios') || normalized.includes('comentários')) {
+        return EnumModalidade.PRESIDENCIA;
+    }
+
+    // 3. Procura por palavras-chave em partes de estudante (Demonstrações)
     if (normalized.includes('conversas') ||
         normalized.includes('interesse') ||
         normalized.includes('discípulos') ||
@@ -63,11 +87,30 @@ export function getModalidadeFromTipo(tipoParte: string): string {
         return EnumModalidade.DEMONSTRACAO;
     }
 
-    // 3. Casos especiais
+    // 4. Outros casos conhecidos
     if (normalized.includes('leitura')) return EnumModalidade.LEITURA_ESTUDANTE;
     if (normalized.includes('discurso de estudante')) return EnumModalidade.DISCURSO_ESTUDANTE;
-    if (normalized.includes('oração')) return EnumModalidade.ORACAO;
-    if (normalized.includes('presidente') || normalized.includes('comentários')) return EnumModalidade.PRESIDENCIA;
+    if (normalized.includes('oração') || normalized.includes('oracao')) return EnumModalidade.ORACAO;
+    if (normalized.includes('presidente')) return EnumModalidade.PRESIDENCIA;
+    if (normalized.includes('necessidades locais')) return EnumModalidade.NECESSIDADES_LOCAIS;
 
-    return EnumModalidade.DEMONSTRACAO; // Fallback seguro para estudantes
+    console.warn(`[Mappings] tipoParte desconhecido: "${tipoParte}" — fallback para DEMONSTRACAO`);
+    return EnumModalidade.DEMONSTRACAO; // Fallback para estudantes
+}
+
+/**
+ * Determina se uma parte NÃO deve receber designação automática.
+ * Cânticos, Comentários Iniciais/Finais, e Elogios e Conselhos são do Presidente
+ * ou partes coletivas — nunca recebem designação separada.
+ */
+export function isNonDesignatablePart(tipoParte: string): boolean {
+    if (!tipoParte) return false;
+    const n = tipoParte.toLowerCase().trim();
+    return (
+        n.includes('cântico') || n.includes('cantico') ||
+        n.includes('comentários iniciais') || n.includes('comentarios iniciais') ||
+        n.includes('comentários finais') || n.includes('comentarios finais') ||
+        n.includes('elogios') ||
+        n.includes('elogio')
+    );
 }
