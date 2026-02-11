@@ -842,7 +842,7 @@ export const workbookService = {
             .select('id')
             .lt('date', today)
             .in('status', [WorkbookStatus.DESIGNADA, WorkbookStatus.APROVADA])
-            .not('resolved_publisher_id', 'is', null); // Só marcar partes com publicador atribuído
+            .not('resolved_publisher_name', 'is', null); // Só marcar partes com publicador atribuído
 
         if (fetchError) {
             throw new Error(`Erro ao buscar partes passadas: ${fetchError.message}`);
@@ -868,7 +868,7 @@ export const workbookService = {
             .from('workbook_parts')
             .select('*')
             .in('status', [WorkbookStatus.CONCLUIDA, WorkbookStatus.DESIGNADA])
-            .not('resolved_publisher_id', 'is', null)
+            .not('resolved_publisher_name', 'is', null)
             .order('date', { ascending: false })
             .range(0, 9999);
 
