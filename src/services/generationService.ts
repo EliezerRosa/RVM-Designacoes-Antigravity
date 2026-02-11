@@ -6,7 +6,7 @@ import { loadCompletedParticipations } from './historyAdapter';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } from './eligibilityService';
 import { getRankedCandidates } from './unifiedRotationService';
 
-import { getModalidadeFromTipo } from '../constants/mappings';
+import { getModalidadeFromTipo, isNonDesignatablePart } from '../constants/mappings';
 
 import { isBlocked } from './cooldownService';
 
@@ -56,6 +56,8 @@ export const generationService = {
             const d = parseDate(p.date);
             if (d < today) return false; // Sempre excluir passadas
             if (p.funcao !== 'Titular' && p.funcao !== 'Ajudante') return false;
+            // Cânticos, Comentários Iniciais/Finais, Elogios e Conselhos NUNCA recebem designação
+            if (isNonDesignatablePart(p.tipoParte)) return false;
             // Se já foi concluída ou cancelada, nunca reagendar automaticamente
             if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA') return false;
 
