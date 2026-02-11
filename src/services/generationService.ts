@@ -369,9 +369,9 @@ export const generationService = {
                         // Helper
                         const pickTopRanked = (pubs: Publisher[], type: string) => {
                             const ranked = getRankedCandidates(pubs, type, historyRecords);
-                            // Ajudantes podem repetir na semana? Geralmente sim se for necessÃ¡rio, mas idealmente nÃ£o.
-                            // Original usava `new Set()` -> permitia repetiÃ§Ã£o.
-                            return ranked.length > 0 ? ranked[0].publisher : null;
+                            // Evitar repetiÃ§Ã£o: ajudantes nÃ£o devem repetir na mesma semana
+                            // (corrigido: antes usava ranked[0] sem checar exclusÃ£o)
+                            return ranked.find(r => !namesExcludedInWeek.has(r.publisher.name))?.publisher || null;
                         };
 
                         if (titularGender) {
@@ -391,6 +391,7 @@ export const generationService = {
                         if (selectedPublisher) {
                             selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
                             totalWithPublisher++;
+                            namesExcludedInWeek.add(selectedPublisher.name);
                         }
                     }
                     // Outras partes
@@ -507,7 +508,7 @@ export const generationService = {
 };
 
 // ============================================================================
-// VALIDAÇÃO (Migrado de linearRotationService)
+// VALIDAï¿½ï¿½O (Migrado de linearRotationService)
 // ============================================================================
 
 export interface ValidationWarning {
@@ -519,20 +520,20 @@ export interface ValidationWarning {
 }
 
 /**
- * Lista de tipos de partes que NÃO precisam de duração definida.
+ * Lista de tipos de partes que Nï¿½O precisam de duraï¿½ï¿½o definida.
  */
 export const PARTS_WITHOUT_DURATION: string[] = [
-    // Cânticos
-    'Cântico Inicial', 'Cântico do Meio', 'Cântico Final',
+    // Cï¿½nticos
+    'Cï¿½ntico Inicial', 'Cï¿½ntico do Meio', 'Cï¿½ntico Final',
     'Cantico Inicial', 'Cantico do Meio', 'Cantico Final',
-    // Orações
-    'Oração Inicial', 'Oração Final',
+    // Oraï¿½ï¿½es
+    'Oraï¿½ï¿½o Inicial', 'Oraï¿½ï¿½o Final',
     'Oracao Inicial', 'Oracao Final',
     // Presidente
-    'Comentários Iniciais', 'Comentários Finais',
+    'Comentï¿½rios Iniciais', 'Comentï¿½rios Finais',
     'Comentarios Iniciais', 'Comentarios Finais',
     'Elogios e Conselhos',
-    'Presidente', 'Presidente da Reunião',
+    'Presidente', 'Presidente da Reuniï¿½o',
 ];
 
 export function isPartWithoutDuration(tituloParte: string): boolean {
@@ -566,7 +567,7 @@ export function validatePartsBeforeGeneration(
                     partId: part.id,
                     weekDisplay: part.weekDisplay,
                     partTitle: part.tituloParte,
-                    message: '\u26A0\uFE0F Parte ' + part.tituloParte + ' (' + part.weekDisplay + ') não tem duração definida'
+                    message: '\u26A0\uFE0F Parte ' + part.tituloParte + ' (' + part.weekDisplay + ') nï¿½o tem duraï¿½ï¿½o definida'
                 });
             }
         }
