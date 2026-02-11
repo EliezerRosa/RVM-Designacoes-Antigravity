@@ -154,7 +154,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
     const presidentPart = activeParts.find(p =>
         p.tipoParte === 'Presidente' || p.tipoParte === 'Presidente da Reunião'
     );
-    const presidentName = presidentPart?.resolvedPublisherName || presidentPart?.rawPublisherName || '';
+    const presidentName = presidentPart?.resolvedPublisherName || '';
 
     const counselorPart = activeParts.find(p =>
         p.tipoParte?.includes('Conselheiro') || p.tipoParte?.includes('Dirigente Sala B')
@@ -178,7 +178,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
     // Mapa de ajudantes por número de sequência
     const ajudanteBySeq = new Map<string, string>();
     ajudanteParts.forEach(a => {
-        const name = a.resolvedPublisherName || a.rawPublisherName || '';
+        const name = a.resolvedPublisherName || '';
         const titulo = a.tituloParte || a.tipoParte;
         const seqNum = extractSeqNumber(titulo);
         if (name && seqNum) {
@@ -200,7 +200,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
             // Verificar se deve mostrar nome - usa HIDDEN_ASSIGNEE_PARTS
             const shouldHideName = HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte?.includes(h));
             if (!shouldHideName) {
-                mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
+                mainHallAssignee = p.resolvedPublisherName || '';
             }
 
             const titulo = p.tituloParte || p.tipoParte;
@@ -239,10 +239,10 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
         weekDisplay: sortedParts[0].weekDisplay,
         bibleReading: leituraPart?.descricaoParte || '',
         president: presidentName,
-        counselorRoomB: counselorPart?.resolvedPublisherName || counselorPart?.rawPublisherName || '',
+        counselorRoomB: counselorPart?.resolvedPublisherName || '',
         parts: preparedParts,
-        openingPrayer: openingPrayerPart?.resolvedPublisherName || openingPrayerPart?.rawPublisherName || '',
-        closingPrayer: closingPrayerPart?.resolvedPublisherName || closingPrayerPart?.rawPublisherName || '',
+        openingPrayer: openingPrayerPart?.resolvedPublisherName || '',
+        closingPrayer: closingPrayerPart?.resolvedPublisherName || '',
         events,
         hasEvents: events.length > 0,
         isWeekCancelled,
