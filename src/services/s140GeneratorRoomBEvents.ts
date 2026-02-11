@@ -166,7 +166,7 @@ export async function prepareS140RoomBDataEV(parts: WorkbookPart[]): Promise<S14
     // Mapa de ajudantes
     const ajudanteByTipo = new Map<string, string>();
     ajudanteParts.forEach(a => {
-        const name = a.resolvedPublisherName || a.rawPublisherName || '';
+        const name = a.resolvedPublisherName || '';
         const normalizedTipo = normalizeTipoParte(a.tipoParte);
         if (name && normalizedTipo) {
             ajudanteByTipo.set(normalizedTipo, name);
@@ -185,7 +185,7 @@ export async function prepareS140RoomBDataEV(parts: WorkbookPart[]): Promise<S14
 
             let mainHallAssignee = '';
             if (!HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte?.includes(h))) {
-                mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
+                mainHallAssignee = p.resolvedPublisherName || '';
             }
 
             const normalizedTipo = normalizeTipoParte(p.tipoParte);
@@ -220,11 +220,11 @@ export async function prepareS140RoomBDataEV(parts: WorkbookPart[]): Promise<S14
         weekId,
         weekDisplay: sortedParts[0].weekDisplay,
         bibleReading: leituraPart?.descricaoParte || '',
-        president: presidentPart?.resolvedPublisherName || presidentPart?.rawPublisherName || '',
-        counselorRoomB: counselorPart?.resolvedPublisherName || counselorPart?.rawPublisherName || '',
+        president: presidentPart?.resolvedPublisherName || '',
+        counselorRoomB: counselorPart?.resolvedPublisherName || '',
         parts: preparedParts,
-        openingPrayer: openingPrayerPart?.resolvedPublisherName || openingPrayerPart?.rawPublisherName || '',
-        closingPrayer: closingPrayerPart?.resolvedPublisherName || closingPrayerPart?.rawPublisherName || '',
+        openingPrayer: openingPrayerPart?.resolvedPublisherName || '',
+        closingPrayer: closingPrayerPart?.resolvedPublisherName || '',
         events,
         hasEvents: events.length > 0,
         isWeekCancelled,

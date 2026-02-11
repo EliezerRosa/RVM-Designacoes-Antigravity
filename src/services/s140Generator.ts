@@ -114,7 +114,7 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
     // Mapa de ajudantes por tipoParte normalizado
     const ajudanteByTipo = new Map<string, string>();
     ajudanteParts.forEach(a => {
-        const name = a.resolvedPublisherName || a.rawPublisherName || '';
+        const name = a.resolvedPublisherName || '';
         const normalizedTipo = normalizeTipoParte(a.tipoParte);
         if (name && normalizedTipo) {
             ajudanteByTipo.set(normalizedTipo, name);
@@ -152,7 +152,7 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
             p.tipoParte.includes(pa) || (p.tituloParte && p.tituloParte.includes(pa))
         );
         if (showsAssignee) {
-            assignee = p.resolvedPublisherName || p.rawPublisherName || '';
+            assignee = p.resolvedPublisherName || '';
         }
 
         // Buscar ajudante pelo tipoParte normalizado
@@ -188,9 +188,9 @@ export function prepareS140Data(parts: WorkbookPart[]): S140WeekData {
         weekId: sortedParts[0].weekId,
         weekDisplay: sortedParts[0].weekDisplay,
         bibleReading: extractBibleReading(sortedParts),
-        president: presidentPart?.resolvedPublisherName || presidentPart?.rawPublisherName || '',
-        prayerOpening: prayerOpeningPart?.resolvedPublisherName || prayerOpeningPart?.rawPublisherName || '',
-        prayerClosing: prayerClosingPart?.resolvedPublisherName || prayerClosingPart?.rawPublisherName || '',
+        president: presidentPart?.resolvedPublisherName || '',
+        prayerOpening: prayerOpeningPart?.resolvedPublisherName || '',
+        prayerClosing: prayerClosingPart?.resolvedPublisherName || '',
         parts: preparedParts,
     };
 }

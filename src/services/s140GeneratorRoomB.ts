@@ -136,7 +136,7 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
     const presidentPart = sortedParts.find(p =>
         p.tipoParte === 'Presidente' || p.tipoParte === 'Presidente da Reunião'
     );
-    const presidentName = presidentPart?.resolvedPublisherName || presidentPart?.rawPublisherName || '';
+    const presidentName = presidentPart?.resolvedPublisherName || '';
 
     const counselorPart = sortedParts.find(p =>
         p.tipoParte?.includes('Conselheiro') || p.tipoParte?.includes('Dirigente Sala B')
@@ -163,7 +163,7 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
     // Mapa de ajudantes por número de sequência
     const ajudanteBySeq = new Map<string, string>();
     ajudanteParts.forEach(a => {
-        const name = a.resolvedPublisherName || a.rawPublisherName || '';
+        const name = a.resolvedPublisherName || '';
         const titulo = a.tituloParte || a.tipoParte;
         const seqNum = extractSeqNumber(titulo);
         if (name && seqNum) {
@@ -183,7 +183,7 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
 
             let mainHallAssignee = '';
             if (!HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte?.includes(h))) {
-                mainHallAssignee = p.resolvedPublisherName || p.rawPublisherName || '';
+                mainHallAssignee = p.resolvedPublisherName || '';
 
                 // Ocultar nome do Presidente em partes implícitas (Cântico, Oração)
                 // O usuário pediu: "Exceto na parte 'Presidente da Reunião' as demais partes neutras ou que caberiam à ele não precisa exibir o nome"
@@ -227,11 +227,11 @@ export function prepareS140RoomBData(parts: WorkbookPart[]): S140WeekData {
         weekId: sortedParts[0].weekId,
         weekDisplay: sortedParts[0].weekDisplay,
         bibleReading: leituraPart?.descricaoParte || '',
-        president: presidentPart?.resolvedPublisherName || presidentPart?.rawPublisherName || '',
-        counselorRoomB: counselorPart?.resolvedPublisherName || counselorPart?.rawPublisherName || '',
+        president: presidentPart?.resolvedPublisherName || '',
+        counselorRoomB: counselorPart?.resolvedPublisherName || '',
         parts: preparedParts,
-        openingPrayer: openingPrayerPart?.resolvedPublisherName || openingPrayerPart?.rawPublisherName || '',
-        closingPrayer: closingPrayerPart?.resolvedPublisherName || closingPrayerPart?.rawPublisherName || '',
+        openingPrayer: openingPrayerPart?.resolvedPublisherName || '',
+        closingPrayer: closingPrayerPart?.resolvedPublisherName || '',
     };
 }
 
