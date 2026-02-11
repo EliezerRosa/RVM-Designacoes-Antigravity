@@ -2,6 +2,7 @@ import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
 
 import { generationService } from './generationService';
+import { workbookService } from './workbookService';
 import { undoService } from './undoService';
 import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
 import { checkEligibility } from './eligibilityService';
@@ -14,6 +15,7 @@ export type AgentActionType =
     | 'VIEW_S140'
     | 'SHARE_S140_WHATSAPP'
     | 'CHECK_SCORE' // Nova Tool
+    | 'CLEAR_WEEK'
     // Legacy support for transition (optional)
     | 'SIMULATE_ASSIGNMENT';
 
@@ -37,7 +39,7 @@ export const agentActionService = {
     detectAction(responseContent: string): AgentAction | null {
         // Try to find JSON block
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE)"[\s\S]*}/);
+            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK)"[\s\S]*}/);
 
         if (jsonMatch) {
             try {
@@ -99,19 +101,14 @@ export const agentActionService = {
                     const { weekId } = action.params;
                     if (!weekId) return { success: false, message: 'Semana não especificada.' };
 
+                    // Capturar snapshot ANTES da geração (para undo correto)
+                    const partsInWeek = parts.filter(p => p.weekId === weekId);
+                    undoService.captureBatch(partsInWeek, `Agente: Gerar Semana ${weekId}`);
+
                     const result = await generationService.generateDesignations(parts, publishers, {
                         generationWeeks: [weekId],
                         isDryRun: false
                     });
-
-                    // Capture Undo State for Generation is handled inside generationService? 
-                    // No, usually handled in UI. But here we run headless.
-                    // We should capture BEFORE generation.
-                    // BUT generationService filters parts internally.
-                    // Ideally generationService should use undoService if running in "write" mode.
-                    // For now, let's filter parts manually here to capture snapshot
-                    const partsInWeek = parts.filter(p => p.weekId === weekId);
-                    undoService.captureBatch(partsInWeek, `Agente: Gerar Semana ${weekId}`);
 
                     return {
                         success: result.success,
@@ -127,6 +124,38 @@ export const agentActionService = {
                         success: result.success,
                         message: result.success ? `Ação desfeita: ${result.description || 'Desconhecida'}` : 'Não há ações para desfazer.',
                         actionType: 'UNDO_LAST'
+                    };
+                }
+
+
+                case 'CLEAR_WEEK': {
+                    const { weekId: clearWeekId } = action.params;
+                    if (!clearWeekId) return { success: false, message: 'Semana não especificada.' };
+
+                    // Capturar snapshot antes de limpar
+                    const weekPartsToClean = parts.filter(p => p.weekId === clearWeekId);
+                    if (weekPartsToClean.length === 0) {
+                        return { success: false, message: 'Nenhuma parte encontrada para esta semana.' };
+                    }
+
+                    undoService.captureBatch(weekPartsToClean, `Agente: Limpar Semana ${clearWeekId}`);
+
+                    // Limpar todas as designações da semana direto no banco
+                    let clearedCount = 0;
+                    for (const p of weekPartsToClean) {
+                        if (p.resolvedPublisherName) {
+                            await workbookService.updatePart(p.id, {
+                                resolvedPublisherName: '',
+                                status: 'PENDENTE'
+                            });
+                            clearedCount++;
+                        }
+                    }
+
+                    return {
+                        success: true,
+                        message: `${clearedCount} designações removidas da semana ${clearWeekId}.`,
+                        actionType: 'CLEAR_WEEK'
                     };
                 }
 

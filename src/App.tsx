@@ -16,6 +16,7 @@ import { workbookService } from './services/workbookService'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { loadCompletedParticipations } from './services/historyAdapter'
 import type { HistoryRecord } from './types'
+import { supabase } from './lib/supabase'
 
 type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'backup' | 'agent' | 'admin'
 
@@ -150,6 +151,65 @@ function App() {
       if (pollingInterval) clearInterval(pollingInterval);
     }
   }, [])
+
+  // Realtime + Polling for workbook_parts (keeps parts in sync across tabs)
+  useEffect(() => {
+    console.log('[REALTIME] Setting up workbook_parts sync...');
+    let partsPollingInterval: ReturnType<typeof setInterval> | null = null;
+    let partsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let isPartsProcessing = false;
+
+    // Realtime subscription for workbook_parts
+    const partsChannel = supabase
+      .channel('parts-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'workbook_parts' },
+        async () => {
+          if (isPartsProcessing) return;
+          if (partsDebounceTimer) clearTimeout(partsDebounceTimer);
+          partsDebounceTimer = setTimeout(async () => {
+            try {
+              isPartsProcessing = true;
+              console.log('[REALTIME] workbook_parts changed, reloading...');
+              const freshParts = await workbookService.getAll();
+              setWorkbookParts(freshParts);
+            } catch (err) {
+              console.warn('[REALTIME] Failed to reload parts:', err);
+            } finally {
+              isPartsProcessing = false;
+            }
+          }, 1500); // 1.5s debounce (parts change in batch)
+        }
+      )
+      .subscribe();
+
+    // Polling fallback for parts (15 seconds)
+    let lastPartsHash = "";
+    const computePartsHash = (ps: WorkbookPart[]) =>
+      ps.length + ":" + ps.slice(0, 50).map(p => `${p.id}:${p.resolvedPublisherName || ""}:${p.status}`).join("|");
+
+    partsPollingInterval = setInterval(async () => {
+      try {
+        const freshParts = await workbookService.getAll();
+        const newHash = computePartsHash(freshParts);
+        if (newHash !== lastPartsHash) {
+          console.log('[POLLING] Parts change detected, refreshing...');
+          lastPartsHash = newHash;
+          setWorkbookParts(freshParts);
+        }
+      } catch (e) {
+        console.warn('[POLLING] Error checking parts:', e);
+      }
+    }, 15000); // 15 seconds
+
+    return () => {
+      console.log('[REALTIME] Cleaning up parts sync...');
+      if (partsDebounceTimer) clearTimeout(partsDebounceTimer);
+      if (partsPollingInterval) clearInterval(partsPollingInterval);
+      supabase.removeChannel(partsChannel);
+    };
+  }, []);
 
   // Load workbook parts when ChatAgent opens OR Agent tab is active
   // Extract refresh function for Agent to use
