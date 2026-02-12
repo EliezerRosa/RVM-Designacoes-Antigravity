@@ -263,7 +263,7 @@ export function generateNaturalLanguageExplanation(
 
     // Penalidades
     if (details.frequencyPenalty > 50) {
-        narrative = "⚠️ Pontuação reduzida pois está muito sobrecarregado (Muitas partes gerais recentemente).";
+        narrative = "⚠️ Pontuação reduzida pois tem muitas designações recentes (Geral).";
     } else if (details.frequencyPenalty > 0) {
         narrative = "Prioridade levemente reduzida devido a outras designações recentes (Geral).";
     } else {
