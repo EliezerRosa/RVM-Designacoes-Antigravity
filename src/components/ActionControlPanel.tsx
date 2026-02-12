@@ -305,8 +305,19 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                 <div>
                                     <div style={valueStyle}>{selectedPart.resolvedPublisherName || selectedPart.rawPublisherName}</div>
                                     {assignedPublisher && (
-                                        <div style={{ fontSize: '10px', color: '#6B7280' }}>
-                                            {assignedPublisher.gender === 'brother' ? '👨' : '👩'} {assignedPublisher.condition}
+                                        <div style={{ fontSize: '11px', color: '#4B5563', marginTop: '2px', lineHeight: '1.4' }}>
+                                            <div style={{ fontWeight: '500', color: '#1F2937' }}>
+                                                {assignedPublisher.gender === 'brother' ? '👨' : '👩'} {assignedPublisher.condition} • {assignedPublisher.isBaptized ? 'Batizado' : 'Não Batizado'} • {assignedPublisher.ageGroup}
+                                            </div>
+                                            <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '2px' }}>
+                                                <strong>Privilégios:</strong> {[
+                                                    assignedPublisher.privileges.canPreside && 'Presidente',
+                                                    assignedPublisher.privileges.canGiveTalks && 'Orador',
+                                                    assignedPublisher.privileges.canPray && 'Oração',
+                                                    assignedPublisher.privileges.canReadCBS && 'Leitor',
+                                                    assignedPublisher.isHelperOnly && 'Apenas Ajudante'
+                                                ].filter(Boolean).join(', ') || 'Nenhum específico'}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -356,7 +367,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             )}
                                             {cooldown?.isInCooldown && (
                                                 <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
-                                                    <strong>⚠️ Em Intervalo:</strong> Falta {cooldown.cooldownRemaining} semana(s).
+                                                    <strong>⚠️ Em Intervalo:</strong> O publicador realizou designações recentes. Recomendamos descanso de mais {cooldown.cooldownRemaining} semana(s).
                                                 </div>
                                             )}
                                         </div>

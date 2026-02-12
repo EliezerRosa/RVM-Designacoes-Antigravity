@@ -239,7 +239,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
                     )}
                     <div
                         dangerouslySetInnerHTML={{ __html: s140HTML }}
-                        style={{ transform: 'scale(0.5)', transformOrigin: 'top left', width: '200%' }}
+                        style={{ transform: 'scale(0.4)', transformOrigin: 'top left', width: '250%' }}
                     />
                 </div>
 
