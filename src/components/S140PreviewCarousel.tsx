@@ -10,7 +10,6 @@
 
 import { useState, useEffect } from 'react';
 import type { WorkbookPart } from '../types';
-import { prepareS140RoomBA4Data, generateS140RoomBA4HTML } from '../services/s140GeneratorRoomBA4';
 
 interface Props {
     weekParts: Record<string, WorkbookPart[]>;  // weekId -> parts
@@ -25,6 +24,9 @@ interface Props {
 
 export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWeekChange, onPartClick, selectedPartId, onRequestS89 }: Props) {
     const [currentIndex, setCurrentIndex] = useState(0);
+    // State for Async HTML Generation
+    const [s140HTML, setS140HTML] = useState<string>('<div style="padding: 20px; color: #666;">Carregando visualização...</div>');
+    const [isGenerating, setIsGenerating] = useState(false);
 
     // Sync with external control
     useEffect(() => {
@@ -36,6 +38,45 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
         }
     }, [currentWeekId, weekOrder]);
 
+    const activeWeekId = weekOrder[currentIndex] || '';
+    const currentParts = weekParts[activeWeekId] || [];
+
+    // Effect to Generate HTML (Async)
+    useEffect(() => {
+        let isMounted = true;
+
+        const generateHTML = async () => {
+            if (!activeWeekId || currentParts.length === 0) {
+                if (isMounted) setS140HTML('<div style="padding: 20px; color: #666;">Sem partes para esta semana</div>');
+                return;
+            }
+
+            setIsGenerating(true);
+            try {
+                // Import Dynamically
+                const { prepareS140UnifiedData, renderS140ToElement } = await import('../services/s140GeneratorUnified');
+
+                const weekData = await prepareS140UnifiedData(currentParts);
+                const element = renderS140ToElement(weekData);
+
+                if (isMounted) {
+                    setS140HTML(element.outerHTML);
+                }
+            } catch (err) {
+                console.error("Error generating S-140 preview:", err);
+                if (isMounted) {
+                    setS140HTML(`<div style="padding: 20px; color: #B91C1C;">Erro ao gerar preview: ${err}</div>`);
+                }
+            } finally {
+                if (isMounted) setIsGenerating(false);
+            }
+        };
+
+        generateHTML();
+
+        return () => { isMounted = false; };
+    }, [activeWeekId, currentParts]); // Re-run when week or parts change
+
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     if (weekOrder.length === 0) {
@@ -44,20 +85,6 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
                 Nenhuma semana para preview
             </div>
         );
-    }
-
-    const activeWeekId = weekOrder[currentIndex];
-    const currentParts = weekParts[activeWeekId] || [];
-
-    // Gerar HTML do S-140
-    let s140HTML = '<div style="padding: 20px; color: #666;">Sem partes para esta semana</div>';
-    try {
-        if (currentParts.length > 0) {
-            const weekData = prepareS140RoomBA4Data(currentParts);
-            s140HTML = generateS140RoomBA4HTML(weekData);
-        }
-    } catch (e) {
-        s140HTML = `<div style="padding: 20px; color: #B91C1C;">Erro ao gerar preview: ${e}</div>`;
     }
 
     const handleNavigate = (newIndex: number) => {
@@ -116,6 +143,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
         overflow: 'auto',
         background: 'white',
         padding: '10px',
+        position: 'relative', // Para o loading overlay
     };
 
     const fullscreenOverlay: React.CSSProperties = {
@@ -196,6 +224,19 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
 
                 {/* Preview */}
                 <div style={previewStyle}>
+                    {isGenerating && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'rgba(255,255,255,0.7)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 10
+                        }}>
+                            <span style={{ color: '#4F46E5', fontWeight: '500' }}>Gerando visualização...</span>
+                        </div>
+                    )}
                     <div
                         dangerouslySetInnerHTML={{ __html: s140HTML }}
                         style={{ transform: 'scale(0.5)', transformOrigin: 'top left', width: '200%' }}

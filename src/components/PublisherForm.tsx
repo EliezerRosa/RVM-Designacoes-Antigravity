@@ -64,6 +64,36 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
         const { name, value, type } = e.target
         const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined
 
+        // Lógica específica para mudança de Gênero
+        if (name === 'gender' && value === 'sister') {
+            setFormData(prev => ({
+                ...prev,
+                gender: 'sister',
+                // Desativar seções restritas a irmãos
+                privilegesBySection: {
+                    canParticipateInTreasures: false,
+                    canParticipateInMinistry: true, // Ativar Ministério (Demonstrações)
+                    canParticipateInLife: false,
+                },
+                // Desativar privilégios restritos a irmãos
+                privileges: {
+                    ...prev.privileges,
+                    canGiveTalks: false,
+                    canPray: false,
+                    canPreside: false,
+                    canConductCBS: false,
+                    canReadCBS: false,
+                    // Manter canGiveStudentTalks como estava (ou false? Geralmente irmãs não fazem discurso de estudante, fazem demonstração. O privilege chama-se "Dar Discurso de Estudante". Se for irmã, é melhor false? O user não pediu explicitamente, mas coerência sugere false).
+                    // Mas Demonstração é "Parte de Estudante".
+                    // O privilégio 'canGiveStudentTalks' controla "Discurso de Estudante" (nº 3 ou 4 da escola). Irmãs fazem nº 2 (Demonstração).
+                    // Vamos manter o que estava ou setar false para evitar confusão.
+                    // O código original diz: "Rule 16: Discurso de Estudante: Só irmãos".
+                    canGiveStudentTalks: false,
+                }
+            }))
+            return
+        }
+
         if (name.startsWith('privileges.')) {
             const key = name.split('.')[1] as keyof PublisherPrivileges
             setFormData(prev => ({
@@ -585,12 +615,14 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                         </h4>
                         <div className="form-group">
                             <div className="checkbox-group">
-                                <label className="checkbox-item">
+                                <label className="checkbox-item" style={{ opacity: formData.gender === 'sister' ? 0.5 : 1 }}>
                                     <input
                                         type="checkbox"
                                         name="section.canParticipateInTreasures"
                                         checked={formData.privilegesBySection.canParticipateInTreasures}
                                         onChange={handleChange}
+                                        disabled={formData.gender === 'sister'}
+                                        title={formData.gender === 'sister' ? "Restrito a irmãos" : ""}
                                     />
                                     Tesouros
                                 </label>
@@ -603,12 +635,14 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                     />
                                     Ministério
                                 </label>
-                                <label className="checkbox-item">
+                                <label className="checkbox-item" style={{ opacity: formData.gender === 'sister' ? 0.5 : 1 }}>
                                     <input
                                         type="checkbox"
                                         name="section.canParticipateInLife"
                                         checked={formData.privilegesBySection.canParticipateInLife}
                                         onChange={handleChange}
+                                        disabled={formData.gender === 'sister'}
+                                        title={formData.gender === 'sister' ? "Restrito a irmãos" : ""}
                                     />
                                     Nossa Vida
                                 </label>
