@@ -29,7 +29,7 @@ import { getModalidadeFromTipo } from '../constants/mappings';
 
 const getModalidade = (part: WorkbookPart): string => {
     if (part.modalidade) return part.modalidade;
-    return getModalidadeFromTipo(part.tipoParte);
+    return getModalidadeFromTipo(part.tipoParte, part.section);
 };
 
 // Mapper simples local para evitar dependência circular

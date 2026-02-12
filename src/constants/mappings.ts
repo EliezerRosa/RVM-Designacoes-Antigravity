@@ -56,8 +56,9 @@ export const TIPO_TO_MODALIDADE: Record<string, string> = {
 /**
  * Obtém a modalidade para um tipo de parte.
  * v8.3: Busca case-insensitive e flexível para lidar com variações da apostila.
+ * v8.5: Fallback baseado na seção — partes Vida Cristã → DISCURSO_ENSINO (só irmãos).
  */
-export function getModalidadeFromTipo(tipoParte: string): string {
+export function getModalidadeFromTipo(tipoParte: string, section?: string): string {
     if (!tipoParte) return EnumModalidade.DEMONSTRACAO;
 
     const normalized = tipoParte.toLowerCase().trim();
@@ -94,8 +95,19 @@ export function getModalidadeFromTipo(tipoParte: string): string {
     if (normalized.includes('presidente')) return EnumModalidade.PRESIDENCIA;
     if (normalized.includes('necessidades locais')) return EnumModalidade.NECESSIDADES_LOCAIS;
 
-    console.warn(`[Mappings] tipoParte desconhecido: "${tipoParte}" — fallback para DEMONSTRACAO`);
-    return EnumModalidade.DEMONSTRACAO; // Fallback para estudantes
+    // 5. Fallback baseado na SEÇÃO da parte
+    // Partes da Vida Cristã e Tesouros são discursos de ensino (só irmãos Anciãos/SMs).
+    // Partes do Ministério são demonstrações (aberto a todos).
+    if (section) {
+        const sec = section.toLowerCase();
+        if (sec.includes('vida cristã') || sec.includes('vida crista') || sec.includes('tesouros')) {
+            console.warn(`[Mappings] tipoParte desconhecido: "${tipoParte}" — seção "${section}" → DISCURSO_ENSINO`);
+            return EnumModalidade.DISCURSO_ENSINO;
+        }
+    }
+
+    console.warn(`[Mappings] tipoParte desconhecido: "${tipoParte}" seção: "${section || 'N/A'}" — fallback para DEMONSTRACAO`);
+    return EnumModalidade.DEMONSTRACAO; // Fallback para estudantes (seção Ministério ou desconhecida)
 }
 
 /**

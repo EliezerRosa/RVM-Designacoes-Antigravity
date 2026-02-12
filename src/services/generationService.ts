@@ -99,7 +99,7 @@ export const generationService = {
             // Modalidade helper
             const getModalidade = (part: WorkbookPart): string => {
                 if (part.modalidade) return part.modalidade;
-                return getModalidadeFromTipo(part.tipoParte);
+                return getModalidadeFromTipo(part.tipoParte, part.section);
             };
 
             // Agrupar por semana
@@ -188,7 +188,8 @@ export const generationService = {
 
                     for (const ensinoPart of ensinoParts) {
                         const thursdayDate = getThursdayFromDate(ensinoPart.date);
-                        const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino);
+                        // v8.5: Passar seção para garantir fallback correto (Vida Cristã vs Tesouros)
+                        const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino, ensinoPart.section);
 
                         const checkPubFilters = (p: Publisher) => {
                             const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, { date: ensinoPart.date });
