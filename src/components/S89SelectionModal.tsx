@@ -1,7 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { WorkbookPart, Publisher } from '../types';
 import { sendS89ViaWhatsApp, copyS89ToClipboard } from '../services/s89Generator';
-import { prepareS140RoomBA4Data, generateS140RoomBA4HTML } from '../services/s140GeneratorRoomBA4';
 import html2canvas from 'html2canvas';
 
 interface S89SelectionModalProps {
@@ -146,16 +145,33 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     // Filter relevant parts (have publisher assigned)
     const validParts = weekParts.filter(p => p.resolvedPublisherName || p.rawPublisherName);
 
-    // Prepare S-140 HTML for hidden rendering
-    let s140HTML = '';
-    try {
-        if (weekParts.length > 0) {
-            const weekData = prepareS140RoomBA4Data(weekParts);
-            s140HTML = generateS140RoomBA4HTML(weekData);
-        }
-    } catch (e) {
-        console.error('Erro ao preparar S-140 hidden:', e);
-    }
+    // State for S-140 HTML (Async)
+    const [s140HTML, setS140HTML] = useState<string>('');
+
+    // Async Generation of S-140 HTML for Sharing
+    useEffect(() => {
+        let isMounted = true;
+        const generateHiddenS140 = async () => {
+            if (weekParts.length === 0) return;
+            try {
+                // Dynamic import to match S140PreviewCarousel pattern
+                const { prepareS140UnifiedData, renderS140ToElement } = await import('../services/s140GeneratorUnified');
+
+                const weekData = await prepareS140UnifiedData(weekParts);
+                const element = renderS140ToElement(weekData);
+
+                if (isMounted) {
+                    setS140HTML(element.outerHTML);
+                }
+            } catch (error) {
+                console.error('Erro ao preparar S-140 hidden:', error);
+            }
+        };
+
+        generateHiddenS140();
+
+        return () => { isMounted = false; };
+    }, [weekParts]);
 
     return (
         <div style={{
