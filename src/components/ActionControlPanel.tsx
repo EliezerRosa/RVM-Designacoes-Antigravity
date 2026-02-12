@@ -382,6 +382,18 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     ✓ Descansado
                                                 </span>
                                             )}
+                                            {/* Exibir Disponibilidade */}
+                                            {assignedPublisher.availability && (
+                                                <span style={{
+                                                    fontSize: '11px',
+                                                    color: assignedPublisher.availability.mode === 'always' ? '#059669' : '#B45309',
+                                                    background: assignedPublisher.availability.mode === 'always' ? '#ECFDF5' : '#FFFBEB',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px'
+                                                }}>
+                                                    {assignedPublisher.availability.mode === 'always' ? '📅 Disponível (Padrão)' : '📅 Disponibilidade Limitada'}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
 
