@@ -71,7 +71,29 @@ export const generationService = {
             }
 
             // Senão → só PENDENTE ou sem publicador
-            return p.status === 'PENDENTE' || !p.resolvedPublisherName;
+            // OU se tiver publicador, mas for INVÁLIDO (Sanity Check v9.2)
+            if (p.status === 'PENDENTE' || !p.resolvedPublisherName) return true;
+
+            // Check if existing assignment is valid
+            // Only check if we are forced to re-evaluate or if status is not finalized
+            // Mas o usuário quer corrigir "resíduos". Então vamos checar PROPOSTA/DESIGNADA também se estiver no range.
+            if (p.status === 'PROPOSTA' || p.status === 'DESIGNADA') {
+                const pubName = p.resolvedPublisherName;
+                const publisher = publishers.find(pub => pub.name === pubName);
+                if (publisher) {
+                    // Copied helper logic or use direct import
+                    const mod = p.modalidade || getModalidadeFromTipo(p.tipoParte, p.section);
+
+                    // Simple check: Gender/Modality mismatch is the main issue
+                    const eligibility = checkEligibility(publisher, mod as any, p.funcao, { date: p.date, secao: p.section });
+                    if (!eligibility.eligible) {
+                        console.log(`[SanityCheck] Found invalid assignment: ${pubName} for ${p.tipoParte} (${eligibility.reason}). Marking for re-generation.`);
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         });
 
         if (partsNeedingAssignment.length === 0) {
@@ -138,6 +160,26 @@ export const generationService = {
             for (const part of partsToClean) {
                 // Marca com string vazia para o Commit Phase saber que é limpeza
                 selectedPublisherByPart.set(part.id, { id: 'CLEANUP', name: '' });
+            }
+
+            // ===================================
+            // FASE 0.5: SANITY CHECK (Invalid Assignments)
+            // ===================================
+            // Remove designações inválidas (ex: Irmãs em Discurso) para permitir que o motor tente preencher corretamente
+            for (const part of partsNeedingAssignment) {
+                if (part.resolvedPublisherName) {
+                    const pubName = part.resolvedPublisherName;
+                    const publisher = publishers.find(pub => pub.name === pubName);
+                    if (publisher) {
+                        const mod = part.modalidade || getModalidadeFromTipo(part.tipoParte, part.section);
+                        const eligibility = checkEligibility(publisher, mod as any, part.funcao, { date: part.date, secao: part.section });
+
+                        if (!eligibility.eligible) {
+                            // MARCA PARA LIMPEZA. Se o motor encontrar alguém, sobrescreve. Se não, fica limpo.
+                            selectedPublisherByPart.set(part.id, { id: 'CLEANUP', name: '' });
+                        }
+                    }
+                }
             }
 
             // ===================================

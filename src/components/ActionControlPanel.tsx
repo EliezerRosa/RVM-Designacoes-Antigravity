@@ -327,6 +327,17 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             </div>
                                         </div>
                                     )}
+                                    <div style={{ marginTop: '8px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                        {assignedPublisher?.privilegesBySection?.canParticipateInTreasures && (
+                                            <span style={{ fontSize: '10px', background: '#F3F4F6', color: '#374151', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E5E7EB' }}>📖 Tesouros</span>
+                                        )}
+                                        {assignedPublisher?.privilegesBySection?.canParticipateInMinistry && (
+                                            <span style={{ fontSize: '10px', background: '#FFFBEB', color: '#92400E', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>🌾 Ministério</span>
+                                        )}
+                                        {assignedPublisher?.privilegesBySection?.canParticipateInLife && (
+                                            <span style={{ fontSize: '10px', background: '#FEF2F2', color: '#991B1B', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FECACA' }}>❤️ Vida Cristã</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ) : (
