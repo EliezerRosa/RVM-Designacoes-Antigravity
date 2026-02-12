@@ -488,13 +488,15 @@ export const generationService = {
                     if (part) {
                         if (pubInfo.id === 'CLEANUP' && pubInfo.name === '') {
                             // SPECIAL CASE: Limpeza de parte não designável
+                            // Agora usamos NULL explicitamente para limpar o campo no banco
+                            // USAMOS CAST 'AS ANY' PARA FORÇAR NULL (Typescript não permite null em WorkbookPart, mas Supabase precisa)
                             await workbookService.updatePart(partId, {
-                                resolvedPublisherName: undefined, // Type: string | undefined
-                                rawPublisherName: '',             // Type: string
-                                status: 'CONCLUIDA'               // Type: WorkbookStatus
-                            });
+                                resolvedPublisherName: null,      // LIMPA O CAMPO (requires types update)
+                                rawPublisherName: '',             // Limpa o raw name
+                                status: 'CONCLUIDA'               // Marca como concluída para não reprocessar
+                            } as any);
                             // Log discreto
-                            // warnings.push(`Limpeza realizada em parte não designável: ${part.tipoParte}`);
+                            console.log(`[GenerationService] Limpeza realizada em parte não designável: ${part?.tipoParte}`);
                         } else if (part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
                             await workbookService.proposePublisher(partId, pubInfo.name);
                         } else {
