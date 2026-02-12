@@ -3,7 +3,7 @@ import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
 import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
-import { isNonDesignatablePart } from '../constants/mappings';
+import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 
 /**
@@ -348,8 +348,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                 alignItems: 'center'
                             }}>
                                 <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#374151' }}>
-                                    {selectedPart && isNonDesignatablePart(selectedPart.tipoParte) ? (
+                                    {selectedPart && isCleanablePart(selectedPart.tipoParte) ? (
                                         <span>🚫 Não Requer Designação</span>
+                                    ) : selectedPart && isAutoAssignedToChairman(selectedPart.tipoParte) ? (
+                                        <span>🤖 Auto-Designação</span>
                                     ) : (
                                         <span>📊 Análise & Status</span>
                                     )}
@@ -362,7 +364,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                             </div>
 
                             {/* Conteúdo da Análise - Bloqueado para partes não designáveis */}
-                            {selectedPart && isNonDesignatablePart(selectedPart.tipoParte) ? (
+                            {selectedPart && isCleanablePart(selectedPart.tipoParte) ? (
                                 <div style={{
                                     padding: '16px',
                                     textAlign: 'center',
@@ -372,9 +374,23 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                     borderRadius: '6px',
                                     fontStyle: 'italic'
                                 }}>
-                                    Esta parte (Cântico, Oração, etc.) não requer designação manual.
+                                    Esta parte (Cântico, etc.) não requer designação manual.
                                     <br />
                                     O sistema limpará qualquer nome atribuído automaticamente.
+                                </div>
+                            ) : selectedPart && isAutoAssignedToChairman(selectedPart.tipoParte) ? (
+                                <div style={{
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    color: '#4F46E5', // Indigo
+                                    fontSize: '12px',
+                                    background: '#EEF2FF',
+                                    borderRadius: '6px',
+                                    border: '1px solid #C7D2FE'
+                                }}>
+                                    <strong>🤖 Auto-Designação</strong>
+                                    <br />
+                                    Esta parte é atribuída automaticamente ao Presidente da Reunião.
                                 </div>
                             ) : loading ? (
                                 <div style={{ fontSize: '11px', color: '#6B7280', fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
