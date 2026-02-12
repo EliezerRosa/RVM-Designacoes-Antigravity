@@ -6,7 +6,7 @@ import { loadCompletedParticipations } from './historyAdapter';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } from './eligibilityService';
 import { getRankedCandidates } from './unifiedRotationService';
 
-import { getModalidadeFromTipo, isNonDesignatablePart } from '../constants/mappings';
+import { getModalidadeFromTipo, isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 
 import { isBlocked } from './cooldownService';
 
@@ -131,10 +131,10 @@ export const generationService = {
             const usedPreassignmentIds = new Set<string>();
 
             // ===================================
-            // FASE 0: LIMPEZA (Cleanup)
+            // FASE 0: LIMPEZA (Cleanup) - Apenas Cânticos
             // ===================================
-            // Identificar partes que não deveriam ter designação mas têm, e marcar para limpeza
-            const partsToClean = partsNeedingAssignment.filter(p => isNonDesignatablePart(p.tipoParte));
+            // Identificar partes que devem ser LIMPAS (Cânticos)
+            const partsToClean = partsNeedingAssignment.filter(p => isCleanablePart(p.tipoParte));
             for (const part of partsToClean) {
                 // Marca com string vazia para o Commit Phase saber que é limpeza
                 selectedPublisherByPart.set(part.id, { id: 'CLEANUP', name: '' });
@@ -175,6 +175,38 @@ export const generationService = {
                     // mas se presidentes puderem ter partes, deveriam ser adicionados? 
                     // Na lógica original não adicionava para exclusão geral, mas vamos manter o padrão original.
                     // (Na lógica original, getNextInRotation usa new Set(), então não checava colisão consigo mesmo aqui)
+                }
+            }
+
+            // ===================================
+            // FASE 1.5: AUTO-DESIGNAÇÃO (Presidente)
+            // ===================================
+            // Atribui Oração Inicial, Comentários, etc. ao Presidente da Semana
+            for (const weekId of Object.keys(byWeek)) {
+                const weekParts = byWeek[weekId];
+
+                // Encontrar o Presidente desta semana (já processado na Fase 1 ou existente no array)
+                let chairmanName = 'Presidente da Reunião'; // Fallback
+
+                // 1. Tenta achar nos selecionados agora (Fase 1)
+                const chairmanPart = weekParts.find(p => p.tipoParte.toLowerCase().includes('presidente'));
+                if (chairmanPart && selectedPublisherByPart.has(chairmanPart.id)) {
+                    chairmanName = selectedPublisherByPart.get(chairmanPart.id)?.name || chairmanName;
+                } else if (chairmanPart?.resolvedPublisherName) {
+                    // 2. Tenta achar se já estava salvo antes
+                    chairmanName = chairmanPart.resolvedPublisherName;
+                }
+
+                // Auto-atribuir partes do presidente
+                const autoAssignParts = weekParts.filter(p => isAutoAssignedToChairman(p.tipoParte));
+                for (const part of autoAssignParts) {
+                    // Se já estiver correto no banco, ignora (para não gastar update)
+                    if (part.resolvedPublisherName === chairmanName) continue;
+
+                    selectedPublisherByPart.set(part.id, {
+                        id: 'AUTO_CHAIRMAN',
+                        name: chairmanName
+                    });
                 }
             }
 

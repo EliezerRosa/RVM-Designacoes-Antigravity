@@ -111,18 +111,36 @@ export function getModalidadeFromTipo(tipoParte: string, section?: string): stri
 }
 
 /**
- * Determina se uma parte NÃO deve receber designação automática.
- * Cânticos, Comentários Iniciais/Finais, e Elogios e Conselhos são do Presidente
- * ou partes coletivas — nunca recebem designação separada.
+ * Determina se uma parte deve ter seu publicador LIMPO (Null/Blank).
+ * Ex: Cânticos.
  */
-export function isNonDesignatablePart(tipoParte: string): boolean {
+export function isCleanablePart(tipoParte: string): boolean {
     if (!tipoParte) return false;
     const n = tipoParte.toLowerCase().trim();
     return (
-        n.includes('cântico') || n.includes('cantico') ||
+        n.includes('cântico') || n.includes('cantico')
+    );
+}
+
+/**
+ * Determina se uma parte é atribuída automaticamente ao Presidente da Reunião.
+ * Ex: Oração Inicial, Comentários, Elogios.
+ */
+export function isAutoAssignedToChairman(tipoParte: string): boolean {
+    if (!tipoParte) return false;
+    const n = tipoParte.toLowerCase().trim();
+    return (
         n.includes('comentários iniciais') || n.includes('comentarios iniciais') ||
         n.includes('comentários finais') || n.includes('comentarios finais') ||
-        n.includes('elogios') ||
-        n.includes('elogio')
+        n.includes('elogios') || n.includes('elogio') ||
+        n.includes('oração inicial') || n.includes('oracao inicial')
     );
+}
+
+/**
+ * Determina se uma parte NÃO deve receber designação MANUAL via algoritmo de rotação.
+ * Combina partes limpáveis (Cânticos) e auto-atribuídas (Presidente).
+ */
+export function isNonDesignatablePart(tipoParte: string): boolean {
+    return isCleanablePart(tipoParte) || isAutoAssignedToChairman(tipoParte);
 }
