@@ -57,7 +57,11 @@ export const generationService = {
             if (d < today) return false; // Sempre excluir passadas
             if (p.funcao !== 'Titular' && p.funcao !== 'Ajudante') return false;
             // Cânticos, Comentários Iniciais/Finais, Elogios e Conselhos NUNCA recebem designação
-            if (isNonDesignatablePart(p.tipoParte)) return false;
+            if (isNonDesignatablePart(p.tipoParte)) {
+                // v9.1: Se tiver lixo (nome preenchido), incluir para limpar!
+                if (p.resolvedPublisherName || p.rawPublisherName) return true;
+                return false;
+            }
             // Se já foi concluída ou cancelada, nunca reagendar automaticamente
             if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA') return false;
 
@@ -125,6 +129,16 @@ export const generationService = {
                 console.warn('[GenerationService] Failed to load Local Needs queue:', e);
             }
             const usedPreassignmentIds = new Set<string>();
+
+            // ===================================
+            // FASE 0: LIMPEZA (Cleanup)
+            // ===================================
+            // Identificar partes que não deveriam ter designação mas têm, e marcar para limpeza
+            const partsToClean = partsNeedingAssignment.filter(p => isNonDesignatablePart(p.tipoParte));
+            for (const part of partsToClean) {
+                // Marca com string vazia para o Commit Phase saber que é limpeza
+                selectedPublisherByPart.set(part.id, { id: 'CLEANUP', name: '' });
+            }
 
             // ===================================
             // FASE 1: PRESIDENTES (Rotação Linear)
@@ -472,8 +486,16 @@ export const generationService = {
                     }
 
                     if (part) {
-                        // Propose or Update
-                        if (part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
+                        if (pubInfo.id === 'CLEANUP' && pubInfo.name === '') {
+                            // SPECIAL CASE: Limpeza de parte não designável
+                            await workbookService.updatePart(partId, {
+                                resolvedPublisherName: undefined, // Type: string | undefined
+                                rawPublisherName: '',             // Type: string
+                                status: 'CONCLUIDA'               // Type: WorkbookStatus
+                            });
+                            // Log discreto
+                            // warnings.push(`Limpeza realizada em parte não designável: ${part.tipoParte}`);
+                        } else if (part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
                             await workbookService.proposePublisher(partId, pubInfo.name);
                         } else {
                             await workbookService.updatePart(partId, { resolvedPublisherName: pubInfo.name });
