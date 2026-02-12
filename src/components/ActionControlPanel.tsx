@@ -286,7 +286,13 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     {/* Publicador Designado */}
                     <div style={sectionStyle}>
                         <div style={labelStyle}>Publicador Designado</div>
-                        {(selectedPart.resolvedPublisherName || selectedPart.rawPublisherName) ? (
+
+                        {/* Verificação de Parte Não Designável (Ex: Cântico) */}
+                        {eligibility?.reason === 'Cânticos não são designados' ? (
+                            <div style={{ fontSize: '12px', color: '#9CA3AF', fontStyle: 'italic', padding: '8px 0' }}>
+                                (Não se aplica a esta parte)
+                            </div>
+                        ) : (selectedPart.resolvedPublisherName || selectedPart.rawPublisherName) ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                                 <div style={{
                                     width: '32px',
