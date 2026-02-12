@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
 import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
-import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
+import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 
 /**
@@ -18,6 +18,7 @@ interface Props {
 
 interface PublisherStats {
     lastDate: string | null;
+    lastGeneralDate?: string | null; // NEW: Última participação em QUALQUER parte (excluindo orações/leitura bíblia se não contar)
     nextDate?: string | null; // NEW
     totalAssignments: number;
 }
@@ -146,6 +147,15 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     // Última REALIZADA (a mais recente do passado) - index 0 pois está sorted desc
                     const lastPastDate = pastAssignments.length > 0 ? pastAssignments[0].date : null;
 
+                    // NEW: Calcular Última GERAL (Qualquer parte válida) antes desta data
+                    const generalHistory = allHistory.filter(h => {
+                        const hName = (h.resolvedPublisherName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                        // Mesmo publicador, data anterior à atual, e é uma parte válida (conta estatística)
+                        return hName === targetName && h.date < currentPartDate && isStatPart(h.tipoParte || h.funcao);
+                    }).sort((a, b) => b.date.localeCompare(a.date));
+
+                    const lastGeneralDate = generalHistory.length > 0 ? generalHistory[0].date : null;
+
                     // Próxima AGENDADA (a mais próxima do futuro) - precisamos inverter sort ou pegar último do desc
                     // Como está sorted DESC (2026... 2024), os futuros estão no começo. 
                     // O "mais próximo" futuro é o MENOR valor que seja maior que current.
@@ -160,6 +170,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         setScoreData(score);
                         setStats({
                             lastDate: lastPastDate, // Mantendo compatibilidade, mas agora é REALMENTE passado
+                            lastGeneralDate: lastGeneralDate,
                             nextDate: nextFutureDate, // Novo campo
                             totalAssignments: sameTypeHistory.length + 1 // +1 contando com a atual
                         });
@@ -351,7 +362,14 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                     {stats && (
                                         <>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Última realizada</span>
+                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Última (Geral)</span>
+                                                <span style={{ fontSize: '11px', fontWeight: '500' }}>
+                                                    {stats.lastGeneralDate ? new Date(stats.lastGeneralDate).toLocaleDateString() : '-'}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Última (Função)</span>
                                                 <span style={{ fontSize: '11px', fontWeight: '500' }}>
                                                     {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma (Passado)'}
                                                 </span>
