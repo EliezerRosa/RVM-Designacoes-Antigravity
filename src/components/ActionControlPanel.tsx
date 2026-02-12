@@ -318,127 +318,124 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         )}
                     </div>
 
-                    {/* Painel de Análise (Substitui Placeholder) */}
+                    {/* Painel de Análise Unificado */}
                     {assignedPublisher && (
                         <div style={{ ...sectionStyle, background: '#FFFFFF', borderColor: '#D1D5DB' }}>
-                            <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '12px', color: '#374151' }}>
-                                📊 Análise do Designado
+                            <div style={{
+                                marginBottom: '12px',
+                                borderBottom: '1px solid #E5E7EB',
+                                paddingBottom: '8px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#374151' }}>
+                                    📊 Análise & Status
+                                </span>
+                                {scoreData && (
+                                    <span style={{ fontSize: '10px', color: '#6B7280', background: '#F3F4F6', padding: '2px 6px', borderRadius: '4px' }}>
+                                        Score: {scoreData.score}
+                                    </span>
+                                )}
                             </div>
 
                             {loading ? (
-                                <div style={{ fontSize: '11px', color: '#6B7280', fontStyle: 'italic' }}>
-                                    Carregando histórico...
+                                <div style={{ fontSize: '11px', color: '#6B7280', fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
+                                    Carregando análise...
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
-                                    {/* Elegibilidade */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '11px', color: '#4B5563' }}>Elegibilidade</span>
-                                        {eligibility?.eligible ? (
-                                            <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold' }}>✓ Apto com Louvor</span>
-                                        ) : (
-                                            <span style={{ fontSize: '11px', color: '#DC2626', fontWeight: 'bold' }}>
-                                                ⚠️ {eligibility?.reason || 'Restrição Encontrada'}
+                                    {/* 1. Alertas de Bloqueio/Aviso (Prioridade Máxima) */}
+                                    {(!eligibility?.eligible || cooldown?.isInCooldown) ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            {!eligibility?.eligible && (
+                                                <div style={{ fontSize: '11px', color: '#DC2626', background: '#FEF2F2', padding: '6px', borderRadius: '4px', border: '1px solid #FECACA' }}>
+                                                    <strong>🚫 Inelegível:</strong> {eligibility?.reason}
+                                                </div>
+                                            )}
+                                            {cooldown?.isInCooldown && (
+                                                <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
+                                                    <strong>⚠️ Em Intervalo:</strong> Falta {cooldown.cooldownRemaining} semana(s).
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        // Se tudo ok, mostra indicador discreto
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px' }}>
+                                                ✓ Elegível
                                             </span>
-                                        )}
-                                    </div>
-
-                                    {/* Cooldown */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '11px', color: '#4B5563' }}>Status de Intervalo</span>
-                                        {cooldown?.isInCooldown ? (
-                                            <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 'bold' }}>
-                                                ⚠️ Em intervalo (Falta {cooldown.cooldownRemaining} sem.)
-                                            </span>
-                                        ) : (
-                                            <span style={{ fontSize: '11px', color: '#059669' }}>
-                                                ✓ Descansado
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {/* Estatísticas */}
-                                    {stats && (
-                                        <>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Última (Geral)</span>
-                                                <span style={{ fontSize: '11px', fontWeight: '500' }}>
-                                                    {stats.lastGeneralDate ? new Date(stats.lastGeneralDate).toLocaleDateString() : '-'}
+                                            {!cooldown?.isInCooldown && (
+                                                <span style={{ fontSize: '11px', color: '#059669', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px' }}>
+                                                    ✓ Descansado
                                                 </span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* 2. Explicação em Linguagem Natural (O Coração da Análise) */}
+                                    {explanation && (
+                                        <div style={{
+                                            background: '#F8FAFC',
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            color: '#334155',
+                                            borderLeft: '3px solid #6366F1',
+                                            lineHeight: '1.4'
+                                        }}>
+                                            <div style={{ fontWeight: '600', marginBottom: '4px', color: '#475569' }}>
+                                                Análise do Sistema:
                                             </div>
+                                            <div style={{ whiteSpace: 'pre-wrap' }}>{explanation}</div>
+                                        </div>
+                                    )}
 
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Última (Função)</span>
-                                                <span style={{ fontSize: '11px', fontWeight: '500' }}>
-                                                    {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma (Passado)'}
-                                                </span>
+                                    {/* 3. Dados Específicos de Apoio (Contexto Fino) */}
+                                    {stats && (
+                                        <div style={{
+                                            marginTop: '4px',
+                                            paddingTop: '8px',
+                                            borderTop: '1px solid #F3F4F6',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            fontSize: '10px',
+                                            color: '#6B7280'
+                                        }}>
+                                            <div>
+                                                <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '1px' }}>Última vez neste tipo de parte:</span>
+                                                {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma (Histórico)'}
                                             </div>
 
                                             {stats.nextDate && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#D97706' }}>
-                                                    <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Próxima agendada</span>
-                                                    <span style={{ fontSize: '11px', fontWeight: 'bold' }}>
-                                                        {new Date(stats.nextDate).toLocaleDateString()}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span style={{ fontSize: '11px', color: '#4B5563' }}>Total (Histórico)</span>
-                                                <span style={{ fontSize: '11px', fontWeight: '500', color: stats.totalAssignments ? 'inherit' : '#9CA3AF' }}>
-                                                    {typeof stats.totalAssignments === 'number' ? `${stats.totalAssignments}x` : '0x'} {(stats.totalAssignments === 1 && !stats.lastDate) ? '(Esta vez)' : ''}
-                                                </span>
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {/* X-RAY NATURAL (Novo) */}
-                                    {scoreData && explanation && (
-                                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #E5E7EB' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '8px' }}>
-                                                🧠 Análise do Agente
-                                            </div>
-
-                                            {/* Explicação do Atual */}
-                                            <div style={{
-                                                background: '#F3F4F6',
-                                                padding: '10px',
-                                                borderRadius: '8px',
-                                                fontSize: '11px',
-                                                color: '#374151',
-                                                marginBottom: '8px',
-                                                borderLeft: '3px solid #6366F1'
-                                            }}>
-                                                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Sobre {assignedPublisher.name}:</div>
-                                                <div style={{ whiteSpace: 'pre-wrap' }}>{explanation}</div>
-                                                <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
-                                                    Score: {scoreData.score}
-                                                </div>
-                                            </div>
-
-                                            {/* Comparação com o Melhor (Se for diferente e melhor) */}
-                                            {bestCandidate && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > scoreData.score && (
-                                                <div style={{
-                                                    background: '#ECFDF5',
-                                                    padding: '10px',
-                                                    borderRadius: '8px',
-                                                    fontSize: '11px',
-                                                    color: '#065F46',
-                                                    marginTop: '8px',
-                                                    borderLeft: '3px solid #10B981'
-                                                }}>
-                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-                                                        💡 Sugestão do Sistema: {bestCandidate.name}
-                                                    </div>
-                                                    <div style={{ whiteSpace: 'pre-wrap' }}>{bestCandidate.explanation}</div>
-                                                    <div style={{ marginTop: '6px', fontSize: '10px', opacity: 0.8 }}>
-                                                        Score: {bestCandidate.score} (Maior prioridade)
-                                                    </div>
+                                                <div style={{ textAlign: 'right', color: '#D97706' }}>
+                                                    <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '1px' }}>Próxima Agendada:</span>
+                                                    {new Date(stats.nextDate).toLocaleDateString()}
                                                 </div>
                                             )}
                                         </div>
                                     )}
+
+                                    {/* 4. Sugestão de Melhor Candidato (Se existir e for melhor) */}
+                                    {bestCandidate && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > (scoreData?.score || 0) && (
+                                        <div style={{
+                                            marginTop: '8px',
+                                            background: '#ECFDF5',
+                                            padding: '8px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            border: '1px solid #A7F3D0'
+                                        }}>
+                                            <div style={{ color: '#047857', fontWeight: 'bold', marginBottom: '2px' }}>
+                                                💡 Sugestão: {bestCandidate.name} (Score {bestCandidate.score})
+                                            </div>
+                                            <div style={{ color: '#065F46', fontSize: '10px' }}>
+                                                {bestCandidate.explanation.split('\n')[0]} {/* Só a primeira linha da explicação */}
+                                            </div>
+                                        </div>
+                                    )}
+
                                 </div>
                             )}
                         </div>
