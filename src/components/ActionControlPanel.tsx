@@ -3,6 +3,7 @@ import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
 import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
+import { isNonDesignatablePart } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 
 /**
@@ -347,16 +348,35 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                 alignItems: 'center'
                             }}>
                                 <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#374151' }}>
-                                    📊 Análise & Status
+                                    {selectedPart && isNonDesignatablePart(selectedPart.tipoParte) ? (
+                                        <span>🚫 Não Requer Designação</span>
+                                    ) : (
+                                        <span>📊 Análise & Status</span>
+                                    )}
                                 </span>
-                                {scoreData && (
+                                {scoreData && !isNonDesignatablePart(selectedPart?.tipoParte || '') && (
                                     <span style={{ fontSize: '10px', color: '#6B7280', background: '#F3F4F6', padding: '2px 6px', borderRadius: '4px' }}>
                                         Score: {scoreData.score}
                                     </span>
                                 )}
                             </div>
 
-                            {loading ? (
+                            {/* Conteúdo da Análise - Bloqueado para partes não designáveis */}
+                            {selectedPart && isNonDesignatablePart(selectedPart.tipoParte) ? (
+                                <div style={{
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    color: '#6B7280',
+                                    fontSize: '12px',
+                                    background: '#F9FAFB',
+                                    borderRadius: '6px',
+                                    fontStyle: 'italic'
+                                }}>
+                                    Esta parte (Cântico, Oração, etc.) não requer designação manual.
+                                    <br />
+                                    O sistema limpará qualquer nome atribuído automaticamente.
+                                </div>
+                            ) : loading ? (
                                 <div style={{ fontSize: '11px', color: '#6B7280', fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
                                     Carregando análise...
                                 </div>
