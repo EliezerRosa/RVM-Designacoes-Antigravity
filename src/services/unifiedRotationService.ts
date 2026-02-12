@@ -108,16 +108,32 @@ export function calculateScore(
         specificAdjustments: [] as string[]
     };
 
-    // 1. Encontrar última participação
-    // Filtrar apenas participações relevantes (ex: excluir Cântico, Oração, etc)
-    const publisherHistory = history
+    // 1. Separar Histórico: GERAL (Penalty) vs ESPECÍFICO (Time Bonus)
+    // Histórico Geral: Qualquer participação relevante (Stat Part)
+    const generalHistory = history
         .filter(h =>
             (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
-            isStatPart(h.tipoParte || h.funcao) // NEW: Filter out non-stat parts
+            isStatPart(h.tipoParte || h.funcao)
         )
-        .sort((a, b) => b.date.localeCompare(a.date)); // Mais recente primeiro
+        .sort((a, b) => b.date.localeCompare(a.date));
 
-    const lastParticipation = publisherHistory[0];
+    // Histórico Específico: Apenas desta modalidade/tipo
+    // Se partType for "Ajudante", aceitamos qualquer ajudante? Ou ajudante da mesma seção?
+    // Por simplicidade, usamos match de string no tipoParte.
+    const specificHistory = generalHistory.filter(h => {
+        if (!partType) return true; // Se não especificado, usa geral
+        // Normalize strings for comparison
+        const pType = partType.toLowerCase();
+        const hType = (h.tipoParte || '').toLowerCase();
+
+        // Se for "Ajudante", é genérico
+        if (pType === 'ajudante' && (h.funcao === 'Ajudante' || (h.funcao as any) === 'ajudante')) return true;
+
+        // Match exato ou parcial suficiente
+        return hType === pType || hType.includes(pType);
+    });
+
+    const lastParticipation = specificHistory[0]; // Agora é ESPECÍFICO
     let weeksSinceLast = SCORING_CONFIG.MAX_LOOKBACK_WEEKS; // Default para "nunca participou recentemente"
 
     if (lastParticipation) {
@@ -132,7 +148,7 @@ export function calculateScore(
         weeksSinceLast = SCORING_CONFIG.MAX_LOOKBACK_WEEKS;
     }
 
-    // 2. CÁLCULO CIENTÍFICO: Tempo (Exponencial)
+    // 2. CÁLCULO CIENTÍFICO: Tempo (Exponencial) - Baseado no ESPECÍFICO
     // Fórmula: (Semanas ^ 1.5) * Fator
     // Ex: 4 semanas = 8 * 10 = 80 pts
     // Ex: 8 semanas = 22.6 * 10 = 226 pts (A urgência quase triplica, não apenas dobra!)
@@ -146,7 +162,7 @@ export function calculateScore(
     recentCutoff.setDate(recentCutoff.getDate() - (12 * 7)); // 3 meses
     const recentDateStr = recentCutoff.toISOString().split('T')[0];
 
-    const recentCount = publisherHistory.filter(h => h.date >= recentDateStr).length;
+    const recentCount = generalHistory.filter(h => h.date >= recentDateStr).length;
     details.frequencyPenalty = recentCount * SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
 
     // 4. Bônus de Função / Regras Específicas
