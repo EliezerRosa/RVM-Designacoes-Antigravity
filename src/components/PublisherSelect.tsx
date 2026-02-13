@@ -107,8 +107,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 result = { eligible: false, reason: 'Já tem designação nesta semana' };
             }
 
+            // v9.4: Identificar Presidente da semana para penalidade em Oração Final
+            const currentPresidentPart = weekParts?.find(wp => wp.tipoParte.toLowerCase().includes('presidente') && wp.resolvedPublisherName);
+            const currentPresident = currentPresidentPart?.resolvedPublisherName;
+
             // Calcular prioridade usando o NOVO serviço centralizado (Restored Unified Service)
-            const scoreData = calculateScore(p, part.tipoParte, historyRecords, today);
+            const scoreData = calculateScore(p, part.tipoParte, historyRecords, today, currentPresident);
             // Compatibilidade com código legado que espera apenas um número
             const priority = scoreData.score;
 
@@ -363,6 +367,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             }
         }
 
+        // v9.4: Identificar Presidente da semana para avaliacao de score no tooltip
+        const currentPresidentPart = weekParts?.find(wp => wp.tipoParte.toLowerCase().includes('presidente') && wp.resolvedPublisherName);
+        const currentPresident = currentPresidentPart?.resolvedPublisherName;
+
         return (
             <div>
                 <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '6px', marginBottom: '6px' }}>
@@ -417,7 +425,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         fontSize: '0.8em',
                         color: '#9ca3af'
                     }}>
-                        📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords, today).explanation}
+                        📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords, today, currentPresident).explanation}
                     </div>
                 )}
 

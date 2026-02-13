@@ -52,6 +52,7 @@ export interface RotationScore {
         frequencyPenalty: number;
         roleBonus: number;
         specificAdjustments: string[];
+        scoreAdjustment?: number; // v9.4: Penalidades ou bônus manuais
     };
     explanation: string;
     lastDate?: string;
@@ -98,14 +99,16 @@ export function calculateScore(
     publisher: Publisher,
     partType: string,
     history: HistoryRecord[],
-    referenceDate: Date = new Date()
+    referenceDate: Date = new Date(),
+    currentPresident?: string // Novo argumento opcional
 ): RotationScore {
     const details = {
         base: SCORING_CONFIG.BASE_SCORE,
         timeBonus: 0,
         frequencyPenalty: 0,
         roleBonus: 0,
-        specificAdjustments: [] as string[]
+        specificAdjustments: [] as string[],
+        scoreAdjustment: 0 // v9.4: Init
     };
 
     // 1. Separar Histórico: GERAL (Penalty) vs ESPECÍFICO (Time Bonus)
@@ -173,8 +176,14 @@ export function calculateScore(
         details.specificAdjustments.push('Prioridade Irmã (Demo)');
     }
 
+    // Regra v9.4: Penalidade para Presidente na Oração Final
+    if (currentPresident && publisher.name === currentPresident && partType.toLowerCase().includes('oração final')) {
+        details.scoreAdjustment = -200; // Penalidade massiva para jogar para o final da fila
+        details.specificAdjustments.push('Penalidade Presidente (Último Recurso)');
+    }
+
     // 5. Score Final
-    let score = details.base + details.timeBonus - details.frequencyPenalty + details.roleBonus;
+    let score = details.base + details.timeBonus - details.frequencyPenalty + details.roleBonus + (details as any).scoreAdjustment || 0;
 
     // Gerar explicação legível (Científica)
     const explanationParts = [
@@ -183,6 +192,7 @@ export function calculateScore(
         `Freq: -${details.frequencyPenalty}`,
     ];
     if (details.roleBonus !== 0) explanationParts.push(`Bônus: +${details.roleBonus}`);
+    if ((details as any).scoreAdjustment) explanationParts.push(`Ajuste: ${(details as any).scoreAdjustment}`);
 
     const explanation = `Score ${score} [${explanationParts.join(', ')}]`;
 
@@ -201,10 +211,11 @@ export function calculateScore(
 export function getRankedCandidates(
     candidates: Publisher[], // Já devem vir filtrados por elegibilidade básica
     partType: string,
-    history: HistoryRecord[]
+    history: HistoryRecord[],
+    currentPresident?: string
 ): RankedCandidate[] {
     const ranked = candidates.map(pub => {
-        const scoreData = calculateScore(pub, partType, history);
+        const scoreData = calculateScore(pub, partType, history, undefined, currentPresident);
         return {
             publisher: pub,
             scoreData
