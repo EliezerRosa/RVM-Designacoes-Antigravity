@@ -14,9 +14,43 @@ interface S89SelectionModalProps {
 export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishers }: S89SelectionModalProps) {
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [isSharingS140, setIsSharingS140] = useState(false);
+    const [s140HTML, setS140HTML] = useState<string>('');
     const s140Ref = useRef<HTMLDivElement>(null);
 
-    if (!isOpen) return null;
+    // Helpers need to be defined before we might use them or return, 
+    // BUT since they are just functions, they can stay here or move.
+    // However, the Effect uses weekParts, so let's define the Effect and State first.
+
+    // Filter relevant parts (have publisher assigned)
+    const validParts = weekParts.filter(p => p.resolvedPublisherName || p.rawPublisherName);
+
+    // Async Generation of S-140 HTML for Sharing
+    // IMPORTANT: Dependencies must be consistent.
+    useEffect(() => {
+        if (!isOpen) return; // Don't generate if closed
+        if (weekParts.length === 0) return;
+
+        let isMounted = true;
+        const generateHiddenS140 = async () => {
+            try {
+                const { prepareS140UnifiedData, renderS140ToElement } = await import('../services/s140GeneratorUnified');
+
+                // Just in case weekParts changed
+                const weekData = await prepareS140UnifiedData(weekParts);
+                const element = renderS140ToElement(weekData);
+
+                if (isMounted) {
+                    setS140HTML(element.outerHTML);
+                }
+            } catch (error) {
+                console.error('Erro ao preparar S-140 hidden:', error);
+            }
+        };
+
+        generateHiddenS140();
+
+        return () => { isMounted = false; };
+    }, [weekParts, isOpen]);
 
     // Helper to find publisher phone
     const getPublisher = (name?: string) => publishers.find(p => p.name === name);
@@ -142,36 +176,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     };
 
-    // Filter relevant parts (have publisher assigned)
-    const validParts = weekParts.filter(p => p.resolvedPublisherName || p.rawPublisherName);
-
-    // State for S-140 HTML (Async)
-    const [s140HTML, setS140HTML] = useState<string>('');
-
-    // Async Generation of S-140 HTML for Sharing
-    useEffect(() => {
-        let isMounted = true;
-        const generateHiddenS140 = async () => {
-            if (weekParts.length === 0) return;
-            try {
-                // Dynamic import to match S140PreviewCarousel pattern
-                const { prepareS140UnifiedData, renderS140ToElement } = await import('../services/s140GeneratorUnified');
-
-                const weekData = await prepareS140UnifiedData(weekParts);
-                const element = renderS140ToElement(weekData);
-
-                if (isMounted) {
-                    setS140HTML(element.outerHTML);
-                }
-            } catch (error) {
-                console.error('Erro ao preparar S-140 hidden:', error);
-            }
-        };
-
-        generateHiddenS140();
-
-        return () => { isMounted = false; };
-    }, [weekParts]);
+    if (!isOpen) return null;
 
     return (
         <div style={{

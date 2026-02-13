@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { workbookService } from '../services/workbookService';
 import { type WorkbookPart, WorkbookStatus, type Publisher, EnumModalidade, EnumFuncao } from '../types';
 import { PublisherSelect } from './PublisherSelect';
@@ -272,7 +272,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     };
 
     // Group by week
-    const groupedByWeek = assignments.reduce((acc, a) => {
+    const groupedByWeek = useMemo(() => assignments.reduce((acc, a) => {
         // OCULTAR Partes implícitas do presidente (Comentários Iniciais/Finais)
         // OCULTAR Partes implícitas do presidente
         const HIDDEN_TYPES = [
@@ -290,7 +290,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         if (!acc[a.weekDisplay]) acc[a.weekDisplay] = [];
         acc[a.weekDisplay].push(a);
         return acc;
-    }, {} as Record<string, WorkbookPart[]>);
+    }, {} as Record<string, WorkbookPart[]>), [assignments]);
 
     return (
         <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -398,7 +398,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                    {Object.entries(groupedByWeek).map(([weekDisplay, weekParts]) => (
+                    {Object.entries(groupedByWeek).map(([weekDisplay, weekParts]: [string, WorkbookPart[]]) => (
                         <div key={weekDisplay} style={{ background: '#1f2937', borderRadius: '12px', padding: '20px' }}>
                             <div style={{
                                 display: 'flex',
@@ -694,7 +694,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
                                                                         if (isAjudante) {
                                                                             // MENSAGEM PARA AJUDANTE: Buscar o titular da mesma parte
-                                                                            const titular = weekParts.find(p => {
+                                                                            const titular = weekParts.find((p: WorkbookPart) => {
                                                                                 const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
                                                                                 return pNum === currentPartNumber && p.funcao === 'Titular' && p.id !== part.id;
                                                                             });
@@ -702,7 +702,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                                             handleSendS89ViaWhatsApp(part, undefined, phone, true, titularName);
                                                                         } else {
                                                                             // MENSAGEM PARA TITULAR: Buscar o ajudante
-                                                                            const assistant = weekParts.find(p => {
+                                                                            const assistant = weekParts.find((p: WorkbookPart) => {
                                                                                 const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
                                                                                 return pNum === currentPartNumber && p.funcao === 'Ajudante' && p.id !== part.id;
                                                                             });
