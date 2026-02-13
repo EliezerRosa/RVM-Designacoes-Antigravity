@@ -349,9 +349,31 @@ export function checkMultipleAssignments(
         return 0;
     };
 
+    // Helper para identificar partes que não geram conflito "real"
+    const isNonConflictingPart = (p: { tipoParte: string; tituloParte: string }) => {
+        const type = (p.tipoParte || '').toLowerCase();
+        // 1. Oração Final é explicitamente permitida como segunda parte
+        if (type.includes('oração final') || type.includes('oracao final')) return true;
+
+        // 2. Partes do Presidente (se flag ativa)
+        if (excludePresidency) {
+            if (type.includes('presidente')) return true;
+            // Usa check mais robusto de partes auto-atribuídas (importado ou inline se não disponível)
+            // Lógica inline para evitar dependência circular se mappings.ts importar cooldownService
+            if (type.includes('comentários') || type.includes('comentarios') ||
+                type.includes('elogios') || type.includes('oração inicial') || type.includes('oracao inicial')) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     const currentWeekNum = parseWeekNumber(currentWeekId);
 
     for (const part of publisherParts) {
+        // Ignorar partes que não geram conflito (Ex: Oração Final, ou partes do Presidente)
+        if (isNonConflictingPart(part)) continue;
+
         const partWeekNum = parseWeekNumber(part.weekId);
 
         // Mesma semana
