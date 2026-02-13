@@ -499,19 +499,48 @@ export const generationService = {
                             };
 
                             const eligible = publishers.filter(p => oracaoFilter(p));
-                            const ranked = getRankedCandidates(eligible, 'Oração Final', historyRecords);
 
-                            // Oração final não tem exclusão de nome? Originalmente tinha 'new Set()'.
-                            // Se alguém fez parte e faz oração, deveria poder?
-                            // Vamos manter sem checar namesExcludedInWeek para ser fiel ao original,
-                            // MAS se quisermos coerência, a pessoa não deveria fazer 2 coisas.
-                            // Original: new Set() -> passava vazio -> podia repetir.
-                            // MANTEREI assim.
-                            const orante = ranked.length > 0 ? ranked[0].publisher : null;
+                            // v9.3: Lógica de Prioridade para Oração Final
+                            // 1. Não-Presidentes SEM outra designação (Ideal)
+                            // 2. Não-Presidentes COM outra designação (Aceitável)
+                            // 3. Presidente (Último caso)
 
-                            if (orante) {
-                                selectedPublisherByPart.set(part.id, { id: orante.id, name: orante.name });
+                            let candidate: Publisher | null = null;
+
+                            // Grupo 1: Livres e não-presidente
+                            const group1 = eligible.filter(p =>
+                                !namesExcludedInWeek.has(p.name) &&
+                                p.name !== presidenteDaSemana
+                            );
+                            if (group1.length > 0) {
+                                const ranked = getRankedCandidates(group1, 'Oração Final', historyRecords);
+                                candidate = ranked[0]?.publisher || null;
+                            }
+
+                            // Grupo 2: Ocupados (2ª parte) e não-presidente
+                            if (!candidate) {
+                                const group2 = eligible.filter(p =>
+                                    namesExcludedInWeek.has(p.name) &&
+                                    p.name !== presidenteDaSemana
+                                );
+                                if (group2.length > 0) {
+                                    const ranked = getRankedCandidates(group2, 'Oração Final', historyRecords);
+                                    candidate = ranked[0]?.publisher || null;
+                                }
+                            }
+
+                            // Grupo 3: Presidente (Fallback)
+                            if (!candidate && presidenteDaSemana) {
+                                const group3 = eligible.filter(p => p.name === presidenteDaSemana);
+                                if (group3.length > 0) {
+                                    candidate = group3[0];
+                                }
+                            }
+
+                            if (candidate) {
+                                selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
                                 totalWithPublisher++;
+                                // Não adicionamos a namesExcludedInWeek pq pode ser segunda parte
                             }
                         } else {
                             // Genérico
