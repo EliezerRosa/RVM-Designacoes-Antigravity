@@ -22,27 +22,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     // BUT since they are just functions, they can stay here or move.
     // However, the Effect uses weekParts, so let's define the Effect and State first.
 
-    // Filter relevant parts (have publisher assigned AND ARE STUDENT PARTS)
-    const validParts = weekParts.filter((p) => {
-        const hasPublisher = p.resolvedPublisherName || p.rawPublisherName;
-        if (!hasPublisher) return false;
-
-        // Determine modality (handle raw strings if enum not used directly in data)
-        const modalidade = p.modalidade;
-
-        // Allowed modalities for S-89
-        const allowed = [
-            EnumModalidade.LEITURA_ESTUDANTE,
-            EnumModalidade.DEMONSTRACAO,
-            EnumModalidade.DISCURSO_ESTUDANTE,
-            // Fallback for raw strings if needed (though Enum matches string values)
-            'Leitura de Estudante',
-            'Demonstração',
-            'Discurso de Estudante'
-        ];
-
-        return allowed.includes(modalidade as any);
-    });
+    // Filter relevant parts (have publisher assigned)
+    const validParts = weekParts.filter((p) => p.resolvedPublisherName || p.rawPublisherName);
 
     // Async Generation of S-140 HTML for Sharing
     // IMPORTANT: Dependencies must be consistent.
