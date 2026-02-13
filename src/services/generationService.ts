@@ -266,7 +266,16 @@ export const generationService = {
                 if (presidenteDaSemana) namesExcludedInWeek.add(presidenteDaSemana);
 
                 // --- FASE 2: ENSINO ---
-                const tiposEnsino = ['Discurso Tesouros', 'Joias Espirituais', 'Dirigente EBC', 'Leitor EBC'];
+                // v9.5: Add missing Teaching types to ensure they use Ranked Selection (not strict blocking)
+                const tiposEnsino = [
+                    'Discurso Tesouros',
+                    'Joias Espirituais',
+                    'Dirigente EBC',
+                    'Leitor EBC',
+                    'Discurso de Ensino',
+                    'Parte Vida Cristã',
+                    'Parte Vida Crista'
+                ];
                 for (const tipoEnsino of tiposEnsino) {
                     const ensinoParts = weekParts.filter(p =>
                         p.tipoParte === tipoEnsino &&
