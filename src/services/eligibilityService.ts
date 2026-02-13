@@ -72,7 +72,7 @@ export function buildEligibilityContext(
                 .trim()
                 .toLowerCase(); // Case insensitive
 
-            console.log(`[Eligibility] Buscando titular para "${currentTitle}" (Base: "${baseTitle}")`);
+            // console.log(`[Eligibility] Buscando titular para "${currentTitle}" (Base: "${baseTitle}")`);
 
             titularPart = weekParts.find(wp => {
                 const isSem = wp.weekId === part.weekId;
@@ -83,7 +83,7 @@ export function buildEligibilityContext(
 
                 // Debug específico
                 if (isSem && isTit && match) {
-                    console.log(`[Eligibility] Match encontrado! "${wp.tituloParte}" contém "${baseTitle}"`);
+                    // console.log(`[Eligibility] Match encontrado! "${wp.tituloParte}" contém "${baseTitle}"`);
                 }
 
                 return isSem && isTit && match;
@@ -99,7 +99,7 @@ export function buildEligibilityContext(
             const titularPub = publishers.find(p => p.name.trim() === resolvedName);
 
             // Log detalhado para diagnóstico de falha no vínculo
-            console.log(`[Eligibility] Titular na parte pai: "${resolvedName}". Busca Pub: ${titularPub ? 'SUCESSO' : 'FALHA'}. Gênero: ${titularPub?.gender}`);
+            // console.log(`[Eligibility] Titular na parte pai: "${resolvedName}". Busca Pub: ${titularPub ? 'SUCESSO' : 'FALHA'}. Gênero: ${titularPub?.gender}`);
 
             if (titularPub) {
                 titularGender = titularPub.gender;
