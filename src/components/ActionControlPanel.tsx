@@ -49,18 +49,21 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
         async function fetchData() {
             if (!selectedPart || !assignedPublisher) {
-                setEligibility(null);
-                setCooldown(null);
-                setStats(null);
-                setScoreData(null);
-                setExplanation(null);
-                setBestCandidate(null);
+                if (isMounted) { // Ensure safe state update
+                    setEligibility(null);
+                    setCooldown(null);
+                    setStats(null);
+                    setScoreData(null);
+                    setExplanation(null);
+                    setBestCandidate(null);
+                }
                 return;
             }
 
             setLoading(true);
             try {
                 // Usar o histórico completo fornecido via props
+                // Memoize or assume stable inside effect
                 const allHistory = historyRecords && historyRecords.length > 0
                     ? historyRecords
                     : parts.map(workbookPartToHistoryRecord);
@@ -93,7 +96,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 if (assignedPublisher) {
                     const elig = checkEligibility(
                         assignedPublisher,
-                        selectedPart.modalidade as any,
+                        selectedPart.modalidade as any, // Cast to any to accept string
                         selectedPart.funcao as any,
                         {
                             date: selectedPart.date,
@@ -129,40 +132,19 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     const sameTypeHistory = allHistory.filter(h => {
                         const hName = (h.resolvedPublisherName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
                         if (hName !== targetName || h.tipoParte !== selectedPart.tipoParte) return false;
-
-                        // Excluir a parte atual da estatística de histórico
-                        // Se tivermos ID no histórico, ótimo. Se não, usamos data + titulo
-                        // Aqui assumimos que se a data for IGUAL e o titulo IGUAL, é a mesma parte.
-                        // Mas cuidado com partes repetidas na mesma data.
-                        // Melhor usar uma tolerância ou simplesmente ignorar se for a MESMA DATA da selecionada.
-
                         return h.date !== currentPartDate;
                     }).sort((a, b) => b.date.localeCompare(a.date));
 
-                    // Separar Passado e Futuro
-                    // Passado: Data < currentPartDate
-                    // Futuro: Data > currentPartDate
                     const pastAssignments = sameTypeHistory.filter(h => h.date < currentPartDate);
                     const futureAssignments = sameTypeHistory.filter(h => h.date > currentPartDate);
-
-                    // Última REALIZADA (a mais recente do passado) - index 0 pois está sorted desc
                     const lastPastDate = pastAssignments.length > 0 ? pastAssignments[0].date : null;
 
-                    // NEW: Calcular Última GERAL (Qualquer parte válida) antes desta data
                     const generalHistory = allHistory.filter(h => {
                         const hName = (h.resolvedPublisherName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-                        // Mesmo publicador, data anterior à atual, e é uma parte válida (conta estatística)
                         return hName === targetName && h.date < currentPartDate && isStatPart(h.tipoParte || h.funcao);
                     }).sort((a, b) => b.date.localeCompare(a.date));
 
                     const lastGeneralDate = generalHistory.length > 0 ? generalHistory[0].date : null;
-
-                    // Próxima AGENDADA (a mais próxima do futuro) - precisamos inverter sort ou pegar último do desc
-                    // Como está sorted DESC (2026... 2024), os futuros estão no começo. 
-                    // O "mais próximo" futuro é o MENOR valor que seja maior que current.
-                    // sorted DESC: [FuturoDistante, FuturoProximo, PassadoRecente, PassadoDistante]
-                    // futureAssignments estará: [FuturoDistante, FuturoProximo]
-                    // O mais próximo é o ultimo do array futureAssignments
                     const nextFutureDate = futureAssignments.length > 0 ? futureAssignments[futureAssignments.length - 1].date : null;
 
                     if (isMounted) {
@@ -170,10 +152,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         setCooldown(cdInfo);
                         setScoreData(score);
                         setStats({
-                            lastDate: lastPastDate, // Mantendo compatibilidade, mas agora é REALMENTE passado
+                            lastDate: lastPastDate,
                             lastGeneralDate: lastGeneralDate,
-                            nextDate: nextFutureDate, // Novo campo
-                            totalAssignments: sameTypeHistory.length + 1 // +1 contando com a atual
+                            nextDate: nextFutureDate,
+                            totalAssignments: sameTypeHistory.length + 1
                         });
                         setExplanation(natExpl);
                     }
@@ -195,7 +177,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
         fetchData();
 
         return () => { isMounted = false; };
-    }, [selectedPart, assignedPublisher, parts, publishers]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedPart?.id, selectedPart?.resolvedPublisherName, selectedPart?.rawPublisherName, assignedPublisher?.name, parts.length, publishers.length]); // Stabilize deps
 
 
     // Estilo para badges de status
