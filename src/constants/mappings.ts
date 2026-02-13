@@ -100,6 +100,11 @@ export function getModalidadeFromTipo(tipoParte: string, section?: string): stri
     if (normalized.includes('presidente')) return EnumModalidade.PRESIDENCIA;
     if (normalized.includes('necessidades locais')) return EnumModalidade.NECESSIDADES_LOCAIS;
 
+    // FIX: Stronger check for Teaching Talks / Life and Ministry parts
+    if (normalized.includes('vida cristã') || normalized.includes('vida crista') || normalized.includes('discurso de ensino')) {
+        return EnumModalidade.DISCURSO_ENSINO;
+    }
+
     // 5. Fallback baseado na SEÇÃO da parte
     // Partes da Vida Cristã e Tesouros são discursos de ensino (só irmãos Anciãos/SMs).
     // Partes do Ministério são demonstrações (aberto a todos).
