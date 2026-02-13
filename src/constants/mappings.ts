@@ -51,6 +51,11 @@ export const TIPO_TO_MODALIDADE: Record<string, string> = {
     'Necessidades Locais': EnumModalidade.NECESSIDADES_LOCAIS,
     'Dirigente EBC': EnumModalidade.DIRIGENTE_EBC,
     'Leitor EBC': EnumModalidade.LEITOR_EBC,
+
+    // Fix: Ensure Teaching Talks are strict (Brother Only)
+    'Discurso de Ensino': EnumModalidade.DISCURSO_ENSINO,
+    'Parte Vida Cristã': EnumModalidade.DISCURSO_ENSINO,
+    'Parte Vida Crista': EnumModalidade.DISCURSO_ENSINO,
 };
 
 /**
