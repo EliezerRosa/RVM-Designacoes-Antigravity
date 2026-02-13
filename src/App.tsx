@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import './App.css'
 import type { Publisher, WorkbookPart } from './types'
 import PublisherList from './components/PublisherList'
@@ -428,27 +428,12 @@ function App() {
 
         {/* Agent Tab */}
         <div style={{ display: activeTab === 'agent' ? 'block' : 'none' }}>
-          {activeTab === 'agent' && (() => {
-            // Compute derived state for Agent Tab
-            // TODO: Optimization - move to useMemo if re-renders become an issue
-            const weekParts = workbookParts.reduce((acc, part) => {
-              if (!acc[part.weekId]) acc[part.weekId] = [];
-              acc[part.weekId].push(part);
-              return acc;
-            }, {} as Record<string, WorkbookPart[]>);
-            const weekOrder = Object.keys(weekParts).sort(); // YYYY-MM-DD sorting works
-
-            return (
-              <PowerfulAgentTab
-                publishers={publishers}
-                parts={workbookParts}
-                weekParts={weekParts}
-                weekOrder={weekOrder}
-                historyRecords={historyRecords}
-                onDataChange={refreshWorkbookParts}
-              />
-            );
-          })()}
+          {activeTab === 'agent' && <AgentTabContent
+            publishers={publishers}
+            workbookParts={workbookParts}
+            historyRecords={historyRecords}
+            refreshWorkbookParts={refreshWorkbookParts}
+          />}
         </div>
 
         {/* Backup */}
@@ -524,6 +509,34 @@ function App() {
       )}
     </div>
   )
+}
+
+function AgentTabContent({ publishers, workbookParts, historyRecords, refreshWorkbookParts }: {
+  publishers: Publisher[];
+  workbookParts: WorkbookPart[];
+  historyRecords: HistoryRecord[];
+  refreshWorkbookParts: () => void;
+}) {
+  const weekParts = useMemo(() => {
+    return workbookParts.reduce((acc, part) => {
+      if (!acc[part.weekId]) acc[part.weekId] = [];
+      acc[part.weekId].push(part);
+      return acc;
+    }, {} as Record<string, WorkbookPart[]>);
+  }, [workbookParts]);
+
+  const weekOrder = useMemo(() => Object.keys(weekParts).sort(), [weekParts]);
+
+  return (
+    <PowerfulAgentTab
+      publishers={publishers}
+      parts={workbookParts}
+      weekParts={weekParts}
+      weekOrder={weekOrder}
+      historyRecords={historyRecords}
+      onDataChange={refreshWorkbookParts}
+    />
+  );
 }
 
 export default App
