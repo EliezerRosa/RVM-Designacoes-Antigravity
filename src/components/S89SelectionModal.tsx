@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { WorkbookPart, Publisher } from '../types';
-import { EnumModalidade } from '../types';
+
 import { sendS89ViaWhatsApp, copyS89ToClipboard } from '../services/s89Generator';
 import html2canvas from 'html2canvas';
 
