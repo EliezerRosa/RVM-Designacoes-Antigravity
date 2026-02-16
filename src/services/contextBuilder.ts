@@ -308,7 +308,7 @@ export function buildAgentContext(
             });
         }
 
-        if (isStatPart(part.tipoParte || part.funcao || '')) {
+        if (isStatPart(part.tipoParte || part.funcao || '') || (part.tipoParte && part.tipoParte.toLowerCase().includes('presidente'))) {
             weekMap.get(weekId)!.parts.push({
                 id: part.id,
                 tipoParte: part.tipoParte,
