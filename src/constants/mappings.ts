@@ -175,5 +175,4 @@ export const HIDDEN_VIEW_TYPES = [
     'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
     'Oração Inicial', 'Oracao Inicial',
     'Elogios e Conselhos', 'Elogios e conselhos',
-    'Parte', 'Parte Ministério', 'Parte Vida Cristã', 'Parte Vida Crista'
 ];
