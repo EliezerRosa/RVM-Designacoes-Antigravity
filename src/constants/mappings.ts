@@ -154,3 +154,26 @@ export function isAutoAssignedToChairman(tipoParte: string): boolean {
 export function isNonDesignatablePart(tipoParte: string): boolean {
     return isCleanablePart(tipoParte) || isAutoAssignedToChairman(tipoParte);
 }
+
+// Ordem lógica de uma reunião (para ordenar dropdown e relatórios)
+export const TIPO_ORDER = [
+    'Presidente',
+    'Tesouros da Palavra de Deus', 'Discurso Tesouros', 'Joias Espirituais',
+    'Leitura da Bíblia', 'Leitura da Biblia',
+    'Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças',
+    'Discurso de Estudante', // Genérico ou legado
+    'Necessidades Locais', 'Necessidades da Congregação',
+    'Dirigente EBC', 'Leitor EBC', 'Estudo Bíblico de Congregação',
+    'Oração Final', 'Oracao Final'
+];
+
+// Tipos que geralmente são "ocultos" da visão principal ou estatísticas
+// Usado para filtros de UI "Mostrar Ocultos"
+export const HIDDEN_VIEW_TYPES = [
+    'Comentários Iniciais', 'Comentarios Iniciais',
+    'Comentários Finais', 'Comentarios Finais',
+    'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
+    'Oração Inicial', 'Oracao Inicial',
+    'Elogios e Conselhos', 'Elogios e conselhos',
+    'Parte', 'Parte Ministério', 'Parte Vida Cristã', 'Parte Vida Crista'
+];

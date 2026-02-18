@@ -18,6 +18,7 @@ import { SpecialEventsManager } from './SpecialEventsManager';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { undoService } from '../services/undoService';
 import { getStatusConfig } from '../constants/status';
+import { TIPO_ORDER, HIDDEN_VIEW_TYPES } from '../constants/mappings';
 import { downloadS140Unified, downloadS140UnifiedMultiWeek } from '../services/s140GeneratorUnified';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
@@ -422,31 +423,11 @@ export function WorkbookManager({ publishers, isActive }: Props) {
     }, [parts]);
     const uniqueSections = useMemo(() => [...new Set(parts.map(p => p.section))], [parts]);
 
-    // HIDDEN_TYPES - partes gerenciadas automaticamente pelo Presidente + tipos genéricos indesejados
-    const HIDDEN_TYPES = [
-        'Comentários Iniciais', 'Comentarios Iniciais',
-        'Comentários Finais', 'Comentarios Finais',
-        'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
-        'Oração Inicial', 'Oracao Inicial',
-        'Elogios e Conselhos', 'Elogios e conselhos',
-        // Tipos genéricos que não deveriam aparecer
-        'Parte', 'Parte Ministério', 'Parte Vida Cristã', 'Parte Vida Crista'
-    ];
-
-    // Ordem lógica de uma reunião (para ordenar dropdown)
-    const TIPO_ORDER = [
-        'Presidente',
-        'Tesouros da Palavra de Deus', 'Discurso Tesouros', 'Joias Espirituais',
-        'Leitura da Bíblia', 'Leitura da Biblia',
-        'Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças',
-        'Discurso de Estudante',
-        'Necessidades Locais', 'Necessidades da Congregação',
-        'Dirigente EBC', 'Leitor EBC', 'Estudo Bíblico de Congregação',
-        'Oração Final', 'Oracao Final'
-    ];
+    // HIDDEN_VIEW_TYPES - partes gerenciadas automaticamente pelo Presidente + tipos genéricos indesejados
+    // Importado de @/constants/mappings
 
     const uniqueTipos = useMemo(() => {
-        const tiposSet = [...new Set(parts.map(p => p.tipoParte))].filter(t => !HIDDEN_TYPES.includes(t));
+        const tiposSet = [...new Set(parts.map(p => p.tipoParte))].filter(t => !HIDDEN_VIEW_TYPES.includes(t));
         // Ordenar por sequência lógica da reunião
         return tiposSet.sort((a, b) => {
             const indexA = TIPO_ORDER.indexOf(a);
@@ -462,15 +443,7 @@ export function WorkbookManager({ publishers, isActive }: Props) {
     const filteredParts = useMemo(() => {
         return parts.filter(p => {
             // OCULTAR partes secundárias (a menos que showHiddenParts esteja ativo)
-            const HIDDEN_TYPES = [
-                'Comentários Iniciais', 'Comentarios Iniciais',
-                'Comentários Finais', 'Comentarios Finais',
-                'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
-                'Oração Inicial', 'Oracao Inicial',
-                'Elogios e Conselhos', 'Elogios e conselhos'
-            ];
-
-            if (!showHiddenParts && HIDDEN_TYPES.includes(p.tipoParte)) {
+            if (!showHiddenParts && HIDDEN_VIEW_TYPES.includes(p.tipoParte)) {
                 return false;
             }
 
