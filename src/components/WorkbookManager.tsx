@@ -13,20 +13,20 @@ import { generationService } from '../services/generationService';
 
 import { loadCompletedParticipations } from '../services/historyAdapter';
 import { localNeedsService } from '../services/localNeedsService';
-import { PublisherSelect } from './PublisherSelect';
+
 import { SpecialEventsManager } from './SpecialEventsManager';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
-import { undoService } from '../services/undoService';
-import { getStatusConfig } from '../constants/status';
+
 import { TIPO_ORDER, HIDDEN_VIEW_TYPES } from '../constants/mappings';
 import { S140MultiModal } from './S140MultiModal';
 import { WorkbookToolbar } from './WorkbookToolbar';
+import { WorkbookTable } from './WorkbookTable';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
 
 
-import { Tooltip } from './Tooltip';
+
 import { ReportsTab } from './ReportsTab';
 import { ParticipationAnalytics } from './ParticipationAnalytics';
 import { generateSessionReport, type AnalyticsSummary } from '../services/analyticsService';
@@ -52,45 +52,7 @@ const EXPECTED_COLUMNS = [
 // Funções de Temporalidade - "Semana Atual" = contém a segunda-feira
 // ========================================================================
 
-/**
- * Retorna a segunda-feira da semana atual (meia-noite).
- */
-const getMondayOfCurrentWeek = (): Date => {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=Dom, 1=Seg, 2=Ter, ...
-    // Se hoje é domingo (0), volta 6 dias; senão, volta (dayOfWeek - 1) dias
-    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - daysToSubtract);
-    monday.setHours(0, 0, 0, 0);
-    return monday;
-};
 
-/**
- * Verifica se uma parte pertence a uma semana passada.
- * Usa o campo `date` da parte (ex: "2024-01-04" ou "04/01/2024").
- */
-const isPartInPastWeek = (partDate: string): boolean => {
-    if (!partDate) return false;
-
-    // Parse da data (suporta YYYY-MM-DD ou DD/MM/YYYY)
-    let dateObj: Date;
-    if (partDate.match(/^\d{4}-\d{2}-\d{2}/)) {
-        dateObj = new Date(partDate + 'T12:00:00');
-    } else {
-        const dmy = partDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-        if (dmy) {
-            dateObj = new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
-        } else {
-            dateObj = new Date(partDate);
-        }
-    }
-
-    if (isNaN(dateObj.getTime())) return false;
-
-    const mondayOfCurrentWeek = getMondayOfCurrentWeek();
-    return dateObj < mondayOfCurrentWeek;
-};
 
 export function WorkbookManager({ publishers, isActive }: Props) {
     // ========================================================================
@@ -465,13 +427,7 @@ export function WorkbookManager({ publishers, isActive }: Props) {
     // ========================================================================
     // Estilos inline
     // ========================================================================
-    const sectionColors: Record<string, string> = {
-        'Início da Reunião': '#E0E7FF',
-        'Tesouros da Palavra de Deus': '#D1FAE5',
-        'Faça Seu Melhor no Ministério': '#FEF3C7',
-        'Nossa Vida Cristã': '#FEE2E2',
-        'Final da Reunião': '#E0E7FF',
-    };
+
 
 
 
@@ -724,223 +680,14 @@ export function WorkbookManager({ publishers, isActive }: Props) {
                         />
 
                         {/* Tabela */}
-                        {/* Tabela com Scroll e Sticky Header */}
-                        <div style={{ overflowX: 'auto', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
-                            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px' }}>
-                                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                                    <tr style={{ background: '#4F46E5', color: 'white' }}>
-                                        <th style={{ padding: '6px', minWidth: '80px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Semana</th>
-                                        <th style={{ padding: '6px', minWidth: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Seção</th>
-                                        <th style={{ padding: '6px', minWidth: '80px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>TipoParte</th>
-                                        <th style={{ padding: '6px', width: '80px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Modalidade</th>
-                                        <th style={{ padding: '6px', minWidth: '150px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>TituloParte</th>
-                                        <th style={{ padding: '6px', width: '40px', textAlign: 'center', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }} title="Descrição da Parte">📝</th>
-                                        <th style={{ padding: '6px', width: '40px', textAlign: 'center', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }} title="Detalhes da Parte">ℹ️</th>
-                                        <th style={{ padding: '6px', minWidth: '100px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Horário</th>
-                                        <th style={{ padding: '6px', width: '60px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Função</th>
-                                        <th style={{ padding: '6px', width: '15%', minWidth: '140px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Publicador</th>
-                                        <th style={{ padding: '6px', width: '80px', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#4F46E5', zIndex: 10 }}>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(() => {
-                                        // Lógica de Paginação por Semana
-                                        // 1. Identificar semanas presentes nos dados filtrados
-                                        const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort().reverse(); // Mais recentes primeiro
-                                        const totalPages = currentFilteredWeeks.length || 1;
-                                        const safePage = Math.min(Math.max(currentPage, 1), totalPages);
-
-                                        // Se a página mudou devido a filtros, atualizar estado (efeito colateral controlado)
-                                        if (currentPage !== safePage && currentPage > 1) {
-                                            // Nota: Idealmente isso seria um useEffect, mas para renderização direta funciona se gerenciarmos o display
-                                            // Vamos apenas usar o safePage para renderizar
-                                        }
-
-                                        const targetWeekId = currentFilteredWeeks[safePage - 1];
-                                        const partsToRender = targetWeekId ? filteredParts.filter(p => p.weekId === targetWeekId) : [];
-
-                                        return partsToRender.map(part => {
-                                            // SIMPLIFICADO: Usar apenas resolved_publisher_name
-                                            const displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
-
-                                            // Tentar encontrar ID pelo nome
-                                            let currentPubId = '';
-                                            if (displayRaw) {
-                                                const found = publishers.find(p => p.name === displayRaw);
-                                                if (found) currentPubId = found.id;
-                                            }
-
-                                            // Determinar se é semana passada (restringe ações)
-                                            const isPast = isPartInPastWeek(part.date);
-
-                                            return (
-                                                <tr
-                                                    key={part.id}
-                                                    data-part-id={part.id}
-                                                    style={{
-                                                        background: sectionColors[part.section] || 'white',
-                                                        color: '#1f2937',
-                                                        borderLeft: isPast ? '3px solid #9CA3AF' : 'none'
-                                                    }}
-                                                    title={isPast ? '📅 Semana passada' : ''}
-                                                >
-                                                    <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>
-                                                        <div style={{ fontSize: '10px', color: '#6B7280', marginBottom: '2px' }}>{part.year}</div>
-                                                        <div>{part.weekDisplay}</div>
-                                                    </td>
-                                                    <td style={{ padding: '4px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
-                                                    <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>{part.tipoParte}</td>
-                                                    <td style={{ padding: '4px', fontSize: '11px', color: '#6B7280' }}>
-                                                        {part.modalidade}
-                                                    </td>
-                                                    <td style={{ padding: '4px' }}>
-                                                        <div style={{ fontWeight: '500', color: '#1f2937', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={part.tituloParte}>{part.tituloParte}</div>
-                                                    </td>
-                                                    <td style={{ padding: '4px', textAlign: 'center' }}>
-                                                        {part.descricaoParte && (
-                                                            <Tooltip content={part.descricaoParte}>
-                                                                <span style={{ cursor: 'help', fontSize: '14px' }}>📝</span>
-                                                            </Tooltip>
-                                                        )}
-                                                    </td>
-                                                    <td style={{ padding: '4px', textAlign: 'center' }}>
-                                                        {part.detalhesParte && (
-                                                            <Tooltip content={part.detalhesParte}>
-                                                                <span style={{ cursor: 'help', fontSize: '14px' }}>ℹ️</span>
-                                                            </Tooltip>
-                                                        )}
-                                                    </td>
-                                                    <td style={{ padding: '4px', textAlign: 'center', fontSize: '11px', color: '#6B7280' }}>
-                                                        <div>{part.horaInicio} - {part.horaFim}</div>
-                                                        <div style={{ fontSize: '10px', color: '#9CA3AF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
-                                                            ({part.duracao || '?'})
-                                                            {(!part.duracao || parseInt(String(part.duracao)) <= 0) && part.funcao === 'Titular' && (
-                                                                <Tooltip content="⚠️ Duração não definida para esta parte de Titular">
-                                                                    <span style={{ cursor: 'help', color: '#F59E0B', fontSize: '12px' }}>⚠️</span>
-                                                                </Tooltip>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
-                                                    <td style={{ padding: '8px' }}>
-                                                        {/* Dropdown Inteligente */}
-                                                        <PublisherSelect
-                                                            part={part}
-                                                            publishers={publishers}
-                                                            value={currentPubId}
-                                                            displayName={displayRaw}
-                                                            onChange={(newId, newName) => handlePublisherSelect(part.id, newId, newName)}
-                                                            weekParts={partsToRender}
-                                                            allParts={filteredParts}
-                                                            history={historyRecords} // v8.2: Histórico completo (correção cooldown)
-                                                            style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
-                                                        />
-                                                    </td>
-                                                    <td style={{ padding: '4px', textAlign: 'center' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                                                            {(() => {
-                                                                const config = getStatusConfig(part.status);
-                                                                const isCancelled = part.status === 'CANCELADA';
-                                                                const hasEventImpact = !!part.affectedByEventId;
-                                                                const hasPendingEvent = !!part.pendingEventId;
-                                                                const isCreatedByEvent = !!part.createdByEventId;
-
-                                                                // Determinar estilo de animação
-                                                                let animationStyle = {};
-                                                                let eventIcon = '';
-                                                                let eventTitle = '';
-
-                                                                if (hasEventImpact || isCancelled) {
-                                                                    // 🔴 Evento aplicado - pisca vermelho
-                                                                    animationStyle = {
-                                                                        animation: 'blink-red 1.5s ease-in-out infinite'
-                                                                    };
-                                                                    eventIcon = '⚡';
-                                                                    eventTitle = 'Afetado por Evento Especial (Aplicado)';
-                                                                } else if (hasPendingEvent) {
-                                                                    // 🟡 Evento pendente - pisca amarelo
-                                                                    animationStyle = {
-                                                                        animation: 'blink-yellow 1.2s ease-in-out infinite'
-                                                                    };
-                                                                    eventIcon = '⏳';
-                                                                    eventTitle = 'Evento Pendente - Será afetado quando aplicado';
-                                                                } else if (isCreatedByEvent) {
-                                                                    // 🔵 Parte criada por evento - pisca azul
-                                                                    animationStyle = {
-                                                                        animation: 'blink-blue 1.5s ease-in-out infinite'
-                                                                    };
-                                                                    eventIcon = '✨';
-                                                                    eventTitle = 'Parte criada por Evento Especial';
-                                                                }
-
-                                                                const badge = (
-                                                                    <span style={{
-                                                                        padding: '2px 8px',
-                                                                        borderRadius: '12px',
-                                                                        fontSize: '11px',
-                                                                        background: config.bg,
-                                                                        color: config.text,
-                                                                        border: `1px solid ${config.border}`,
-                                                                        display: 'inline-flex',
-                                                                        alignItems: 'center',
-                                                                        gap: '4px',
-                                                                        fontWeight: '600',
-                                                                        cursor: isCancelled && part.cancelReason ? 'help' : 'default',
-                                                                        ...animationStyle,
-                                                                    }}>
-                                                                        {eventIcon && <span title={eventTitle}>{eventIcon}</span>}
-                                                                        {config.icon} {config.label}
-                                                                    </span>
-                                                                );
-
-                                                                // Wrap with tooltip only if cancelled with reason
-                                                                if (isCancelled && part.cancelReason) {
-                                                                    return (
-                                                                        <Tooltip
-                                                                            content={
-                                                                                <div style={{ padding: '4px' }}>
-                                                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>🚫 Parte Cancelada</div>
-                                                                                    <div style={{ fontSize: '12px' }}>Motivo: {part.cancelReason}</div>
-                                                                                </div>
-                                                                            }
-                                                                        >
-                                                                            {badge}
-                                                                        </Tooltip>
-                                                                    );
-                                                                }
-                                                                if (hasPendingEvent) {
-                                                                    return (
-                                                                        <Tooltip
-                                                                            content={
-                                                                                <div style={{ padding: '4px' }}>
-                                                                                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>⏳ Evento Pendente</div>
-                                                                                    <div style={{ fontSize: '12px' }}>Esta parte será afetada quando o evento for aplicado</div>
-                                                                                </div>
-                                                                            }
-                                                                        >
-                                                                            {badge}
-                                                                        </Tooltip>
-                                                                    );
-                                                                }
-                                                                return badge;
-                                                            })()}
-                                                            <button
-                                                                onClick={() => handleEditPart(part)}
-                                                                className="text-gray-400 hover:text-blue-600 transition-colors"
-                                                                title="Editar Parte"
-                                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
-                                                            >
-                                                                ✏️
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        });
-                                    })()}
-                                </tbody>
-                            </table>
-                        </div>
+                        <WorkbookTable
+                            filteredParts={filteredParts}
+                            publishers={publishers}
+                            historyRecords={historyRecords}
+                            currentPage={currentPage}
+                            onPublisherSelect={handlePublisherSelect}
+                            onEditPart={handleEditPart}
+                        />
 
                         <PartEditModal
                             isOpen={isEditModalOpen}
