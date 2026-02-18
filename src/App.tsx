@@ -3,7 +3,7 @@ import './App.css'
 import type { Publisher, WorkbookPart } from './types'
 import PublisherList from './components/PublisherList'
 import PublisherForm from './components/PublisherForm'
-import { initialPublishers } from './data/initialPublishers'
+
 import { api } from './services/api'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import WorkbookManager from './components/WorkbookManager'
@@ -57,42 +57,19 @@ function App() {
       try {
         console.log("Loading data from Supabase...")
 
-        // 1. Fetch data and seeding flag in parallel
-        // 1. Fetch data and seeding flag in parallel
-        const [pubs, savedTab, isSeeded, history] = await Promise.all([
+        // Fetch data in parallel
+        const [pubs, savedTab, history] = await Promise.all([
           api.loadPublishers().catch(err => {
             console.warn("Failed to load publishers", err)
             return [] as Publisher[];
           }),
           api.getSetting<ActiveTab>('activeTab', 'workbook').catch(() => 'workbook' as ActiveTab),
-          api.getSetting<boolean>('isSeeded', false).catch(() => false),
           loadCompletedParticipations().catch(() => [] as HistoryRecord[])
         ])
 
         setHistoryRecords(history);
-
-        console.log(`[DEBUG] isSeeded flag from DB: ${isSeeded}`)
-        console.log(`[DEBUG] Publishers count from DB: ${pubs.length}`)
-        console.log(`[DEBUG] Should seed? ${!isSeeded && pubs.length === 0}`)
-
-        // 2. First-time seeding: ONLY if DB is empty AND not yet seeded
-        if (!isSeeded && pubs.length === 0) {
-          console.log("[DEBUG] SEEDING: First run detected, seeding database...")
-          const seedPubs = (initialPublishers as Publisher[]).map(p => ({
-            ...p,
-            source: 'initial' as const,
-            createdAt: new Date().toISOString()
-          }));
-          await api.savePublishers(seedPubs);
-          await api.setSetting('isSeeded', true);
-          console.log("[DEBUG] SEEDING: isSeeded flag set to true")
-          setPublishers(seedPubs);
-          setStatusMessage("✅ Base de dados inicializada com " + seedPubs.length + " publicadores");
-        } else {
-          // DB is source of truth - use Supabase data as-is
-          console.log(`[DEBUG] NOT SEEDING: Loading ${pubs.length} publishers from DB`)
-          setPublishers(pubs);
-        }
+        setPublishers(pubs);
+        console.log(`[App] Loaded ${pubs.length} publishers from DB`)
 
         // Validate saved tab
         const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'backup', 'agent', 'admin']
