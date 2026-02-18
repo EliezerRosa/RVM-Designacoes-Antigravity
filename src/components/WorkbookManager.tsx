@@ -19,8 +19,8 @@ import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { undoService } from '../services/undoService';
 import { getStatusConfig } from '../constants/status';
 import { TIPO_ORDER, HIDDEN_VIEW_TYPES } from '../constants/mappings';
-import { downloadS140Unified } from '../services/s140GeneratorUnified';
 import { S140MultiModal } from './S140MultiModal';
+import { WorkbookToolbar } from './WorkbookToolbar';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
@@ -687,258 +687,41 @@ export function WorkbookManager({ publishers, isActive }: Props) {
                         )}
 
                         {/* Header Unificado: Ações e Filtros */}
-                        <div style={{
-                            marginBottom: '2px',
-                            background: '#fff',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid #E5E7EB',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '2px',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                        }}>
-                            {/* Linha Superior: Upload e Ações Principais */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                                {/* Upload Button Disfarçado */}
-                                <div>
-                                    <input
-                                        type="file"
-                                        accept=".xlsx,.xls"
-                                        onChange={handleFileUpload}
-                                        style={{ display: 'none' }}
-                                        id="workbook-excel-upload"
-                                    />
-                                    <label
-                                        htmlFor="workbook-excel-upload"
-                                        style={{
-                                            cursor: 'pointer',
-                                            color: '#4F46E5',
-                                            fontWeight: '600',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            fontSize: '12px',
-                                            padding: '4px 8px',
-                                            background: '#EEF2FF',
-                                            borderRadius: '4px'
-                                        }}
-                                    >
-                                        📊 Carregar Excel
-                                    </label>
-                                </div>
-
-                                {/* Paginação Central */}
-                                {(() => {
-                                    const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort().reverse(); // Mais recentes primeiro
-                                    const totalPages = currentFilteredWeeks.length || 1;
-                                    const safePage = Math.min(Math.max(currentPage, 1), totalPages);
-
-                                    return (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#F3F4F6', padding: '2px 8px', borderRadius: '4px' }}>
-                                            <button
-                                                onClick={() => setCurrentPage(Math.max(1, safePage - 1))}
-                                                disabled={safePage === 1}
-                                                style={{ border: 'none', background: 'none', cursor: safePage === 1 ? 'not-allowed' : 'pointer', opacity: safePage === 1 ? 0.3 : 1, fontSize: '14px' }}
-                                            >
-                                                ⬅️
-                                            </button>
-                                            <span style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
-                                                Semana {safePage} de {totalPages}
-                                            </span>
-                                            <button
-                                                onClick={() => setCurrentPage(Math.min(totalPages, safePage + 1))}
-                                                disabled={safePage === totalPages}
-                                                style={{ border: 'none', background: 'none', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', opacity: safePage === totalPages ? 0.3 : 1, fontSize: '14px' }}
-                                            >
-                                                ➡️
-                                            </button>
-                                        </div>
-                                    );
-                                })()}
-
-                                {/* Botões de Ação */}
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                    {/* Botão UNDO */}
-                                    <button
-                                        onClick={async () => {
-                                            if (!canUndo) return;
-                                            try {
-                                                setLoading(true);
-                                                const result = await undoService.undo();
-                                                if (result.success) {
-                                                    setSuccessMessage(`↩️ Desfeito: ${result.description || undoDescription}`);
-                                                    await loadPartsWithFilters();
-                                                }
-                                            } catch (err) {
-                                                alert('Erro ao desfazer');
-                                            } finally {
-                                                setLoading(false);
-                                            }
-                                        }}
-                                        disabled={loading || !canUndo}
-                                        title={undoDescription ? `Desfazer: ${undoDescription}` : 'Nada para desfazer'}
-                                        style={{
-                                            padding: '4px 10px',
-                                            cursor: canUndo ? 'pointer' : 'not-allowed',
-                                            background: canUndo ? '#EF4444' : '#E5E7EB', // Red if active
-                                            color: canUndo ? 'white' : '#9CA3AF',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            fontSize: '11px',
-                                            fontWeight: '600',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        ↩️ Desfazer
-                                    </button>
-
-                                    <button onClick={() => loadPartsWithFilters()} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                                        🔄 Atualizar
-                                    </button>
-                                    <button onClick={() => setIsGenerationModalOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                                        🎯 Gerar
-                                    </button>
-                                    <button onClick={() => setIsLocalNeedsQueueOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#0891B2', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                                        📋 Fila NL
-                                    </button>
-                                    <button onClick={() => setIsEventsModalOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#DC2626', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                                        📅 Eventos
-                                    </button>
-                                    <button onClick={() => setIsBulkResetModalOpen(true)} disabled={loading} style={{ padding: '4px 10px', cursor: 'pointer', background: '#F59E0B', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                                        🔄 Reset Período
-                                    </button>
-                                    {/* Botões S-140 - Sempre visíveis, usam semana da página em foco */}
-                                    {(() => {
-                                        // Calcular semana da página atual
-                                        const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort();
-                                        const safePage = Math.min(Math.max(currentPage, 1), currentFilteredWeeks.length || 1);
-                                        const currentWeekId = currentFilteredWeeks[safePage - 1];
-                                        const hasWeek = !!currentWeekId;
-
-                                        return (
-                                            <>
-                                                <button
-                                                    onClick={() => {
-                                                        if (currentWeekId) {
-                                                            const weekParts = parts.filter(p => p.weekId === currentWeekId);
-                                                            downloadS140Unified(weekParts);
-                                                        }
-                                                    }}
-                                                    disabled={loading || !hasWeek}
-                                                    style={{ padding: '4px 10px', cursor: hasWeek ? 'pointer' : 'not-allowed', background: '#059669', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500', opacity: hasWeek ? 1 : 0.5 }}>
-                                                    📄 S-140
-                                                </button>
-                                                <button
-                                                    onClick={() => setIsS140MultiModalOpen(true)}
-                                                    disabled={loading}
-                                                    style={{ padding: '4px 10px', cursor: 'pointer', background: '#0F766E', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                                                    📦 Pacote
-                                                </button>
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-
-                            {/* Linha Inferior: Filtros e Busca */}
-                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                <input
-                                    type="text"
-                                    placeholder="🔍 Buscar..."
-                                    value={searchText}
-                                    onChange={e => setSearchText(e.target.value)}
-                                    style={{ padding: '6px 10px', width: '180px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}
-                                />
-                                {/* Navegação de Semanas com setas */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <button
-                                        onClick={() => {
-                                            const idx = uniqueWeeks.findIndex(w => w.weekId === filterWeek);
-                                            if (idx > 0) setFilterWeek(uniqueWeeks[idx - 1].weekId);
-                                            else if (idx === -1 && uniqueWeeks.length > 0) setFilterWeek(uniqueWeeks[uniqueWeeks.length - 1].weekId);
-                                        }}
-                                        disabled={uniqueWeeks.length === 0}
-                                        style={{ padding: '4px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', background: '#F9FAFB', cursor: 'pointer', fontSize: '14px' }}
-                                        title="Semana anterior"
-                                    >
-                                        ⬅️
-                                    </button>
-                                    <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ padding: '6px', minWidth: '180px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
-                                        <option value="">Todas as semanas</option>
-                                        {uniqueWeeks.map(w => {
-                                            const cleanDisplay = w.weekDisplay.replace(/\bde\s+/gi, '').replace(/\s+/g, ' ').trim();
-                                            return (
-                                                <option key={w.weekId} value={w.weekId}>
-                                                    {w.year} | {cleanDisplay}
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
-                                    <button
-                                        onClick={() => {
-                                            const idx = uniqueWeeks.findIndex(w => w.weekId === filterWeek);
-                                            if (idx >= 0 && idx < uniqueWeeks.length - 1) setFilterWeek(uniqueWeeks[idx + 1].weekId);
-                                            else if (idx === -1 && uniqueWeeks.length > 0) setFilterWeek(uniqueWeeks[0].weekId);
-                                        }}
-                                        disabled={uniqueWeeks.length === 0}
-                                        style={{ padding: '4px 8px', border: '1px solid #D1D5DB', borderRadius: '4px', background: '#F9FAFB', cursor: 'pointer', fontSize: '14px' }}
-                                        title="Próxima semana"
-                                    >
-                                        ➡️
-                                    </button>
-                                </div>
-                                <select value={filterSection} onChange={e => setFilterSection(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
-                                    <option value="">Seção: Todas</option>
-                                    {uniqueSections.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                                <select value={filterFuncao} onChange={e => setFilterFuncao(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
-                                    <option value="">Função: Todas</option>
-                                    <option value="Titular">Titular</option>
-                                    <option value="Ajudante">Ajudante</option>
-                                </select>
-                                <select value={filterTipo} onChange={e => setFilterTipo(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
-                                    <option value="">Tipo: Todos</option>
-                                    {uniqueTipos.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #D1D5DB', fontSize: '12px' }}>
-                                    <option value="">Status: Todos</option>
-                                    <option value="PENDENTE">Pendente</option>
-                                    <option value="PROPOSTA">Proposta</option>
-                                    <option value="APROVADA">Aprovada</option>
-                                    <option value="DESIGNADA">Designada</option>
-                                    <option value="REJEITADA">Rejeitada</option>
-                                    <option value="CONCLUIDA">Concluída</option>
-                                </select>
-                                {/* Toggle para exibir partes ocultas */}
-                                <label
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        fontSize: '11px',
-                                        color: '#6B7280',
-                                        cursor: 'pointer',
-                                        padding: '4px 8px',
-                                        background: showHiddenParts ? '#FEF3C7' : '#F3F4F6',
-                                        borderRadius: '4px',
-                                        border: showHiddenParts ? '1px solid #F59E0B' : '1px solid #D1D5DB'
-                                    }}
-                                    title="Exibir Cânticos, Comentários Iniciais/Finais, Oração Inicial e Elogios"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={showHiddenParts}
-                                        onChange={e => setShowHiddenParts(e.target.checked)}
-                                        style={{ cursor: 'pointer' }}
-                                    />
-                                    👁️ Ocultas
-                                </label>
-                            </div>
-                        </div>
+                        <WorkbookToolbar
+                            loading={loading}
+                            canUndo={canUndo}
+                            undoDescription={undoDescription}
+                            showHiddenParts={showHiddenParts}
+                            searchText={searchText}
+                            filterWeek={filterWeek}
+                            filterSection={filterSection}
+                            filterFuncao={filterFuncao}
+                            filterTipo={filterTipo}
+                            filterStatus={filterStatus}
+                            filteredParts={filteredParts}
+                            parts={parts}
+                            currentPage={currentPage}
+                            uniqueWeeks={uniqueWeeks}
+                            uniqueSections={uniqueSections}
+                            uniqueTipos={uniqueTipos}
+                            onSearchTextChange={setSearchText}
+                            onFilterWeekChange={setFilterWeek}
+                            onFilterSectionChange={setFilterSection}
+                            onFilterFuncaoChange={setFilterFuncao}
+                            onFilterTipoChange={setFilterTipo}
+                            onFilterStatusChange={setFilterStatus}
+                            onShowHiddenPartsChange={setShowHiddenParts}
+                            onCurrentPageChange={setCurrentPage}
+                            onFileUpload={handleFileUpload}
+                            onRefresh={() => loadPartsWithFilters()}
+                            onOpenGeneration={() => setIsGenerationModalOpen(true)}
+                            onOpenLocalNeeds={() => setIsLocalNeedsQueueOpen(true)}
+                            onOpenEvents={() => setIsEventsModalOpen(true)}
+                            onOpenBulkReset={() => setIsBulkResetModalOpen(true)}
+                            onOpenS140Multi={() => setIsS140MultiModalOpen(true)}
+                            setLoading={setLoading}
+                            setSuccessMessage={setSuccessMessage}
+                        />
 
                         {/* Tabela */}
                         {/* Tabela com Scroll e Sticky Header */}
