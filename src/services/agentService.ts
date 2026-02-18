@@ -485,7 +485,7 @@ export async function askAgent(
 
             if (hasLocalKey) {
                 checkSafetyMode(targetUrl);
-                response = await fetch(`${targetUrl}?key = ${GEMINI_API_KEY} `, {
+                response = await fetch(`${targetUrl}?key=${GEMINI_API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody),
