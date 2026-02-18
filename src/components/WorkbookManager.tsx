@@ -19,7 +19,8 @@ import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { undoService } from '../services/undoService';
 import { getStatusConfig } from '../constants/status';
 import { TIPO_ORDER, HIDDEN_VIEW_TYPES } from '../constants/mappings';
-import { downloadS140Unified, downloadS140UnifiedMultiWeek } from '../services/s140GeneratorUnified';
+import { downloadS140Unified } from '../services/s140GeneratorUnified';
+import { S140MultiModal } from './S140MultiModal';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
@@ -122,8 +123,6 @@ export function WorkbookManager({ publishers, isActive }: Props) {
 
     // Estado do Modal de S-140 Multi-Semanas
     const [isS140MultiModalOpen, setIsS140MultiModalOpen] = useState(false);
-    const [s140StartWeek, setS140StartWeek] = useState('');
-    const [s140EndWeek, setS140EndWeek] = useState('');
 
     // Undo State
     const [canUndo, setCanUndo] = useState(false);
@@ -1341,96 +1340,11 @@ export function WorkbookManager({ publishers, isActive }: Props) {
                                 </div>
                             )}
                             {/* Modal de S-140 Multi-Semanas */}
-                            {isS140MultiModalOpen && (
-                                <div style={{
-                                    position: 'fixed',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    background: 'rgba(0,0,0,0.5)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    zIndex: 9000
-                                }}>
-                                    <div style={{
-                                        background: 'white',
-                                        borderRadius: '12px',
-                                        padding: '24px',
-                                        maxWidth: '400px',
-                                        width: '100%',
-                                        boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                            <h3 style={{ margin: 0, color: '#1F2937' }}>📦 Gerar Pacote S-140</h3>
-                                            <button onClick={() => setIsS140MultiModalOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '20px' }}>✕</button>
-                                        </div>
-
-                                        <div style={{ marginBottom: '16px' }}>
-                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Semana Inicial</label>
-                                            <select value={s140StartWeek} onChange={e => setS140StartWeek(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '14px' }}>
-                                                <option value="">Selecione...</option>
-                                                {[...new Set(parts.map(p => p.weekId))].sort().map(weekId => {
-                                                    const part = parts.find(p => p.weekId === weekId);
-                                                    const year = part ? new Date(part.date).getFullYear() : '';
-                                                    const display = part?.weekDisplay ? `${part.weekDisplay} ${year}` : weekId;
-                                                    return (
-                                                        <option key={weekId} value={weekId}>{display}</option>
-                                                    );
-                                                })}
-                                            </select>
-                                        </div>
-
-                                        <div style={{ marginBottom: '20px' }}>
-                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>Semana Final</label>
-                                            <select value={s140EndWeek} onChange={e => setS140EndWeek(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '14px' }}>
-                                                <option value="">Selecione...</option>
-                                                {[...new Set(parts.map(p => p.weekId))].sort().map(weekId => {
-                                                    const part = parts.find(p => p.weekId === weekId);
-                                                    const year = part ? new Date(part.date).getFullYear() : '';
-                                                    const display = part?.weekDisplay ? `${part.weekDisplay} ${year}` : weekId;
-                                                    return (
-                                                        <option key={weekId} value={weekId}>{display}</option>
-                                                    );
-                                                })}
-                                            </select>
-                                        </div>
-
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            <button onClick={() => setIsS140MultiModalOpen(false)} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>Cancelar</button>
-                                            <button
-                                                onClick={async () => {
-                                                    if (!s140StartWeek || !s140EndWeek) { alert('Selecione semana inicial e final'); return; }
-                                                    const allWeeks = [...new Set(parts.map(p => p.weekId))].sort();
-                                                    const startIdx = allWeeks.indexOf(s140StartWeek);
-                                                    const endIdx = allWeeks.indexOf(s140EndWeek);
-                                                    if (startIdx > endIdx) { alert('Semana inicial deve ser anterior ou igual à final'); return; }
-                                                    const selectedWeeks = allWeeks.slice(startIdx, endIdx + 1);
-                                                    try {
-                                                        setLoading(true);
-                                                        await downloadS140UnifiedMultiWeek(parts, selectedWeeks);
-                                                        setIsS140MultiModalOpen(false);
-                                                        setS140StartWeek('');
-                                                        setS140EndWeek('');
-                                                    } catch (err) {
-                                                        alert('Erro ao gerar pacote: ' + (err instanceof Error ? err.message : 'Erro'));
-                                                    } finally {
-                                                        setLoading(false);
-                                                    }
-                                                }}
-                                                disabled={loading || !s140StartWeek || !s140EndWeek}
-                                                style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', background: '#0F766E', color: 'white', cursor: 'pointer', fontWeight: '500' }}
-                                            >
-                                                {loading ? 'Gerando...' : '📄 Gerar PDF'}
-                                            </button>
-                                        </div>
-                                        <div style={{ marginTop: '16px', padding: '12px', background: '#F0F9FF', borderRadius: '6px', fontSize: '12px', color: '#0369A1' }}>
-                                            💡 O PDF terá uma página por semana, no formato paisagem A4.
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <S140MultiModal
+                                isOpen={isS140MultiModalOpen}
+                                parts={parts}
+                                onClose={() => setIsS140MultiModalOpen(false)}
+                            />
                         </div>
                     )}
             </div>
