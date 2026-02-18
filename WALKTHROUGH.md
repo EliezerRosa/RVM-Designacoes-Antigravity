@@ -1,77 +1,47 @@
-# Walkthrough - RVM Designações Unificado
+# Walkthrough — RVM Designações Unificado
 
-## Status Atual: Arquitetura Limpa (v2.0)
-Após uma refatoração profunda em **30/12/2025**, o sistema foi simplificado radicalmente. Funcionalidades legadas, códigos duplicados e interfaces não utilizadas foram removidos.
+## Arquitetura Atual (Fev/2026)
 
-### O que foi removido?
-- **Dashboard Legado:** Removido (foco na gestão direta).
-- **Relatórios:** Removidos (dados descentralizados).
-- **Abas de Designação/S-89:** Removidas.
-- **Sistema de Participações (Legacy):** Interface `Participation`, tabela `participations` (no código) e serviços CRUD relacionados foram extirpados.
-- **Duplicidade de Dados:** O sistema agora opera EXCLUSIVAMENTE sobre `WorkbookPart` como fonte da verdade.
+### Fonte da Verdade
+- **Dados**: Supabase (PostgreSQL) — tabela `workbook_parts` como entidade central.
+- **Publicadores**: Tabela `publishers` no Supabase.
+- **Histórico**: Derivado de partes concluídas via `historyAdapter.ts` (sem tabela separada).
 
-### Arquitetura Atual
-O aplicativo foca em TRÊS pilares principais:
+### Abas do Sistema
 
-1.  **Apostila (`WorkbookManager`):**
-    *   Importação de Excel/PDF.
-    *   Visualização e edição de partes.
-    *   Processo de designação usando o Motor.
-    *   **Fonte da Verdade:** Tabela `workbook_parts` no Supabase.
-
-2.  **Aprovações (`ApprovalPanel`):**
-    *   Anciãos revisam propostas feitas pelo motor ou outros usuários.
-
-3.  **Publicadores (`PublisherList`):**
-    *   Gestão de cadastro e privilégios.
+| Aba | Componente | Função |
+|---|---|---|
+| 📖 Apostila | `WorkbookManager.tsx` | Importação, visualização, edição e geração |
+| ✅ Aprovações | `ApprovalPanel.tsx` | Fluxo de revisão por anciãos |
+| 👥 Publicadores | `PublisherList.tsx` | Cadastro e gestão |
+| 💾 Backup | `BackupRestore.tsx` | Exportação/importação completa |
+| 📊 Admin | `AdminDashboard.tsx` | Monitoramento de custos e saúde |
+| 🤖 Agente | `PowerfulAgentTab.tsx` | Chat IA + S-140 + Painel de Controle |
 
 ### Fluxo de Dados
-1.  **Importação:** Arquivo Excel -> `WorkbookPart` (status: PENDENTE).
-2.  **Designação:** Usuário/Motor -> `resolvedPublisherName` (status: PROPOSTA).
-3.  **Aprovação:** Ancião confirma -> (status: APROVADA/DESIGNADA).
-4.  **Histórico:** O histórico é derivado DIRETAMENTE das partes concluídas/designadas (`workbook_parts`). Não existe mais tabela separada de histórico.
+1. **Importação**: Excel → `WorkbookPart` (status: `PENDENTE`).
+2. **Geração**: Motor (`generationService.ts`) → `resolvedPublisherName` (status: `PROPOSTA`).
+3. **Aprovação**: Ancião confirma → status: `APROVADA`/`DESIGNADA`.
+4. **Histórico**: Derivado de `workbook_parts` concluídas via `historyAdapter.ts`.
 
-### Componentes Chave
-- `App.tsx`: Gerenciador de estado simplificado.
-- `api.ts`: Camada fina para `publishers` e settings.
-- `workbookService.ts`: Lógica pesada de designação.
-- `cooldownService.ts`: Lógica de rodízio baseada em `HistoryRecord` (adaptado de `WorkbookPart`).
+### Componentes-Chave
 
-### Agente Poderoso (Agente RVM)
-Implementado em **Jan/2026**, o Agente RVM agora é uma "Aba Poderosa" integrada:
-- **Chat Temporal:** Mantém histórico de 14 dias persistente no navegador.
-- **Contexto Rico:** O agente "vê" quem são os publicadores, regras e estatísticas.
-- **Segurança (Vercel):** As chamadas API agora passam por uma *Serverless Function* (`api/chat.ts`), protegendo a chave do Gemini em produção.
-- **Ações Ativas:** O agente pode **SIMULAR** designações. Ao pedir "Simule que o irmão X fará a parte Y", o sistema:
-    1.  Detecta a intenção.
-    2.  Executa a lógica em memória em `agentActionService.ts`.
-    3.  Atualiza o carrossel de visualização com um badge "Simulação Ativa".
-    4.  Navega automaticamente para a semana relevante.
+| Módulo | Responsabilidade |
+|---|---|
+| `App.tsx` | Estado global, realtime sync, roteamento de abas |
+| `workbookService.ts` | CRUD de partes + paginação Supabase |
+| `generationService.ts` | Motor de designação (rodízio + elegibilidade) |
+| `mappings.ts` | Constantes centralizadas (tipos, modalidades, filtros) |
+| `s140GeneratorUnified.ts` | Geração de S-140 Room B A4 |
+| `cooldownService.ts` | Lógica de rodízio baseada em histórico |
 
-### Correções Recentes
-1.  **Tela Branca Local:** Corrigido `vite.config.ts` para detectar modo de desenvolvimento (`npm run dev`) e servir na raiz, evitando conflito de base path.
-2.  **Erro de Tipos:** Corrigido erro de importação em `agentActionService.ts` (`import type` para interfaces), resolvendo crash do navegador.
-3.  **Deploy Vercel:** Configurado para funcionar na raiz, mas **Requer Configuração de Variável de Ambiente** (`GEMINI_API_KEY`) no painel da Vercel para funcionar (erro 500 atual).
+### Agente RVM (PowerfulAgentTab)
+Layout de 3 colunas:
+1. **S-140 Preview** (`S140PreviewCarousel.tsx`) — Navegação visual por semana.
+2. **Chat Temporal** (`TemporalChat.tsx`) — IA com contexto de publicadores, partes e histórico.
+3. **Painel de Controle** (`ActionControlPanel.tsx`) — Scores, explicações e ações.
 
-### Próximos Passos
-- Validar simulação em produção após configuração da chave.
-- Implementar "Confirmar" ação (efetivar no banco).
-- Testar geração de PDF.
-
-### Fase 6: Ferramentas do Agente & Inspetor UI (Jan/2026)
-Implementado sistema de transparência total ("X-Ray") e capacidades analíticas para o Agente.
-
-#### 1. Ferramentas do Agente (`CHECK_SCORE`)
-O Agente agora possui uma "Tool" real conexa ao cérebro do sistema:
-- **Fluxo:** Usuário pergunta "Quem é o melhor para Leitor?" -> Agente invoca `CHECK_SCORE` -> Sistema roda `getRankedCandidates` com histórico completo -> Agente recebe relatório detalhado e responde.
-- **Diferencial:** O Agente não "alucina" mais baseando-se apenas no contexto curto; ele consulta o motor matemático.
-
-#### 2. Inspetor UI ("Raio-X")
-Na aba "Agente Poderoso", ao clicar em uma parte, o painel de controle agora exibe:
-- **Análise Verbal:** Explicação em linguagem natural ("Faz muito tempo que não participa...").
-- **Última Designação Real:** Mostra a data exata e qual foi a função da última participação absoluta.
-- **Comparativo:** Se o designado atual não for o "Melhor Candidato", mostra uma caixa verde sugerindo a alternativa.
-
-#### 3. Unificação
-- Removidos serviços legados (`linearRotationService`, `fairRotationService`).
-- O sistema agora usa exclusivamente `generationService` e `unifiedRotationService`.
+### Deploy
+- **Hospedagem**: GitHub Pages.
+- **CI/CD**: GitHub Actions (`deploy.yml`) — build + deploy automático no push para `main`.
+- **API IA**: Serverless Function protegendo a chave Gemini.

@@ -3,29 +3,51 @@
 **Sistema Unificado de Gestão de Designações para Reuniões Cristãs**
 
 ## 📋 Sinopse
-O projeto **RVM Designações (Antigravity)** visa unificar e modernizar a gestão de designações, consolidando funcionalidades de múltiplos sistemas legados em uma plataforma web única, robusta e ergonômica. Construído com tecnologias modernas (React + TypeScript), o sistema oferece uma experiência fluida para coordenadores e secretários.
+Plataforma web para coordenadores e secretários gerenciarem de forma automatizada as designações semanais de reuniões, com geração inteligente baseada em rodízio justo e elegibilidade.
 
-## ✨ Funcionalidades Principais
+## ✨ Funcionalidades
 
-### 1. Gestão de Publicadores
-- Cadastro completo com controle de privilégios e disponibilidade.
-- Interface de busca rápida e filtragem.
+### 📖 Apostila (WorkbookManager)
+- Importação de apostilas via Excel/PDF.
+- Visualização e edição de partes por semana.
+- Geração automática de designações com motor de rodízio unificado.
+- Geração de formulários S-140 (Room B A4) e S-89.
 
-### 2. Importação Inteligente de Histórico
-- **Extração de Dados:** Leitura de pautas antigas em PDF/Excel.
-- **Reconciliação de Nomes:**
-    - **Match Exato:** Detecção automática de nomes idênticos em tempo real.
-    - **Fuzzy Logic:** Sugestões inteligentes para nomes similares (erros de digitação, abreviações).
-    - **Resolução de Conflitos:** Interface "Card de Decisão Dupla" para vincular e/ou renomear publicadores com um clique.
+### 🤖 Agente RVM
+- Chat com IA (Gemini) contextualizado com dados reais.
+- Preview S-140 integrado com navegação por semana.
+- Painel de controle com análise de scores e explicações.
+- Ações ativas: designar, simular, limpar, navegar.
 
-### 3. Gerador de Designações (Em Desenvolvimento)
-- Geração automática baseada em regras de elegibilidade.
-- Suporte a formulários S-89.
+### ✅ Aprovações
+- Fluxo de revisão para anciãos confirmarem propostas.
 
-### 4. Arquitetura Moderna
-- **Frontend:** React, TypeScript, Vite.
-- **Persistência:** LocalStorage (com preparação para Backend futuro).
-- **Design:** Interface responsiva e otimizada para Desktop.
+### 👥 Publicadores
+- Cadastro com privilégios, gênero, grupo e disponibilidade.
+- Verificador de duplicatas.
+
+### 💾 Backup
+- Exportação/importação completa (JSON/Excel) de todas as tabelas.
+
+### 📊 Admin Dashboard
+- Monitoramento de custos da API Gemini.
+- Métricas de resiliência e saúde do sistema.
+
+## 🏗️ Arquitetura
+
+| Camada | Tecnologia |
+|---|---|
+| Frontend | React 19, TypeScript, Vite 7 |
+| Backend (API) | Supabase (PostgreSQL + Realtime) |
+| IA | Gemini 1.5 Flash via Serverless Function |
+| Deploy | GitHub Pages (CI/CD via GitHub Actions) |
+
+## 🚀 Desenvolvimento Local
+
+```bash
+npm install
+npm run dev
+```
 
 ---
-*Desenvolvido para o usuário EliezerRosa como parte do projeto Antigravity.*
+*Desenvolvido para EliezerRosa como parte do projeto Antigravity.*
