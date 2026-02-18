@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { type Publisher, type WorkbookPart, type HistoryRecord, HistoryStatus } from '../types';
+import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 import { checkEligibility, isElderOrMS, buildEligibilityContext } from '../services/eligibilityService';
 import { getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { calculateScore } from '../services/unifiedRotationService';
@@ -26,43 +26,19 @@ interface PublisherSelectProps {
 
 // Importar mapeamento centralizado (substitui definição local)
 import { getModalidadeFromTipo } from '../constants/mappings';
+import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 
 const getModalidade = (part: WorkbookPart): string => {
     if (part.modalidade) return part.modalidade;
     return getModalidadeFromTipo(part.tipoParte, part.section);
 };
 
-// Mapper simples local para evitar dependência circular
-const mapToHistoryRecord = (wp: WorkbookPart): HistoryRecord => ({
-    id: wp.id,
-    weekId: wp.weekId,
-    weekDisplay: wp.weekDisplay,
-    date: wp.date,
-    section: wp.section,
-    tipoParte: wp.tipoParte,
-    modalidade: wp.modalidade,
-    tituloParte: wp.tituloParte,
-    descricaoParte: wp.descricaoParte,
-    detalhesParte: wp.detalhesParte,
-    seq: wp.seq,
-    funcao: wp.funcao,
-    duracao: parseInt(wp.duracao) || 0,
-    horaInicio: wp.horaInicio,
-    horaFim: wp.horaFim,
-    rawPublisherName: wp.rawPublisherName,
-    resolvedPublisherName: wp.resolvedPublisherName,
-    status: HistoryStatus.APPROVED, // Assumir aprovado para fins de cálculo
-    importSource: 'Manual',
-    importBatchId: '',
-    createdAt: new Date().toISOString()
-});
-
 export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts, history }: PublisherSelectProps) => {
 
     // Converter allParts para HistoryRecord[] (Memoizado para uso geral)
     // Se history já for fornecido (preferencial), usa ele.
     const historyRecords = useMemo(() =>
-        history || (allParts || weekParts || []).map(mapToHistoryRecord),
+        history || (allParts || weekParts || []).map(workbookPartToHistoryRecord),
         [history, allParts, weekParts]);
 
     const today = useMemo(() => new Date(), []);
