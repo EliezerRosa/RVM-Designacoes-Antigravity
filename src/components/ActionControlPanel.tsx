@@ -402,8 +402,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             )}
                                             <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
                                                 <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
-                                                    ? `Realizou ${cooldown.lastPartType} em ${new Date(cooldown.lastDate || '').toLocaleDateString('pt-BR')}.`
-                                                    : `Designado para ${cooldown.lastPartType} ${cooldown.weekDisplay ? `na ${cooldown.weekDisplay}` : `para o dia ${new Date(cooldown.lastDate || '').toLocaleDateString('pt-BR')}`}.`
+                                                    ? <><strong>Participações Passadas:</strong> Realizou {cooldown.lastPartType} em {new Date(cooldown.lastDate || '').toLocaleDateString('pt-BR')}.</>
+                                                    : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} {cooldown.weekDisplay ? `na ${cooldown.weekDisplay}` : `para o dia ${new Date(cooldown.lastDate || '').toLocaleDateString('pt-BR')}`}.</>
                                                 } Recomendamos descanso de mais {cooldown.cooldownRemaining} semana(s).
                                             </div>
                                         </div>
