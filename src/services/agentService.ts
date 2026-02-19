@@ -100,6 +100,7 @@ REGRAS DE RESPOSTA:
 3. Cite nomes de publicadores quando relevante
 4. Se não souber algo, diga claramente
 5. Se a pergunta for sobre dados que não estão no contexto, explique o que você pode responder
+6. **DATAS:** Ao citar designações passadas ou futuras, SEMPRE mencione a data exata (DD/MM) e não apenas "semana passada" ou "daqui a 2 semanas".
 
 FORMATO:
 - Use listas quando apropriado
