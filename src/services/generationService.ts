@@ -208,7 +208,8 @@ export const generationService = {
                 const ranked = getRankedCandidates(eligibleCandidates, 'Presidente', historyRecords);
 
                 // v10: Pegar o primeiro NÃO bloqueado
-                const candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, today))?.publisher
+                // CORRECTION O: Use target date (thursdayDate)
+                const candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, thursdayDate))?.publisher
                     || (ranked.length > 0 ? ranked[0].publisher : null); // Fallback se todos bloqueados
 
                 if (candidate) {
@@ -305,9 +306,10 @@ export const generationService = {
                         const pickTopRanked = (pubs: Publisher[]) => {
                             const ranked = getRankedCandidates(pubs, tipoEnsino, historyRecords);
                             // v10: Encontrar o primeiro que NÃO está excluído NEM bloqueado
+                            // CORRECTION O: Use target date (thursdayDate) instead of today for cooldown check
                             return ranked.find(r =>
                                 !namesExcludedInWeek.has(r.publisher.name) &&
-                                !isBlocked(r.publisher.name, historyRecords, today)
+                                !isBlocked(r.publisher.name, historyRecords, thursdayDate)
                             )?.publisher || null;
                         };
 
@@ -369,9 +371,10 @@ export const generationService = {
                     const pickTopRanked = (pubs: Publisher[]) => {
                         const ranked = getRankedCandidates(pubs, estudantePart.tipoParte, historyRecords);
                         // v10: NÃO excluído NEM bloqueado
+                        // CORRECTION O: Use target date (thursdayDate) instead of today for cooldown check
                         return ranked.find(r =>
                             !namesExcludedInWeek.has(r.publisher.name) &&
-                            !isBlocked(r.publisher.name, historyRecords, today)
+                            !isBlocked(r.publisher.name, historyRecords, thursdayDate)
                         )?.publisher || null;
                     };
 
@@ -477,9 +480,12 @@ export const generationService = {
                         const pickTopRanked = (pubs: Publisher[], type: string) => {
                             const ranked = getRankedCandidates(pubs, type, historyRecords);
                             // v10: Evitar repetição + cooldown
+                            // CORRECTION O: Use target date (thursdayDate) instead of today
+                            // Note: Helper doesn't have access to thursdayDate unless passed or captured from scope.
+                            // pickTopRanked IS defined inside the loop scope where thursdayDate exists!
                             return ranked.find(r =>
                                 !namesExcludedInWeek.has(r.publisher.name) &&
-                                !isBlocked(r.publisher.name, historyRecords, today)
+                                !isBlocked(r.publisher.name, historyRecords, thursdayDate)
                             )?.publisher || null;
                         };
 
@@ -533,7 +539,8 @@ export const generationService = {
                             if (group1.length > 0) {
                                 const ranked = getRankedCandidates(group1, 'Oração Final', historyRecords);
                                 // v10: Preferir não-bloqueados, fallback para bloqueados
-                                candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, today))?.publisher
+                                // CORRECTION O: Use target date (thursdayDate)
+                                candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, thursdayDate))?.publisher
                                     || ranked[0]?.publisher || null;
                             }
 
@@ -545,7 +552,8 @@ export const generationService = {
                                 );
                                 if (group2.length > 0) {
                                     const ranked = getRankedCandidates(group2, 'Oração Final', historyRecords);
-                                    candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, today))?.publisher
+                                    // CORRECTION O: Use target date (thursdayDate)
+                                    candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, thursdayDate))?.publisher
                                         || ranked[0]?.publisher || null;
                                 }
                             }
@@ -572,8 +580,9 @@ export const generationService = {
                             });
                             if (eligiblePublishers.length > 0) {
                                 // v10: Usar ranking + cooldown (antes usava [0] sem ranking!)
+                                // CORRECTION O: Use target date (thursdayDate)
                                 const ranked = getRankedCandidates(eligiblePublishers, part.tipoParte, historyRecords);
-                                const p = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, today))?.publisher
+                                const p = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, thursdayDate))?.publisher
                                     || ranked[0]?.publisher;
                                 if (p) {
                                     selectedPublisherByPart.set(part.id, { id: p.id, name: p.name });
