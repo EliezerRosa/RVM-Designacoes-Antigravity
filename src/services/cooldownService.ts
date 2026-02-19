@@ -115,7 +115,12 @@ export function getBlockInfo(
     }).sort((a, b) => {
         const dateA = new Date(a.date || '');
         const dateB = new Date(b.date || '');
-        return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
+        const timeDiff = dateB.getTime() - dateA.getTime(); // Mais recente primeiro
+
+        if (timeDiff !== 0) return timeDiff;
+
+        // v9.7: Desempate por Prioridade (Ex: Presidente > Comentários)
+        return getPartPriority(b) - getPartPriority(a);
     });
 
     if (relevantHistory.length === 0) {
@@ -394,4 +399,24 @@ export function checkMultipleAssignments(
     }
 
     return warnings;
+}
+
+/**
+ * Define prioridade de exibição para Label de Cooldown
+ * Maior número = Maior prioridade
+ */
+function getPartPriority(h: HistoryRecord): number {
+    const type = (h.tipoParte || '').toLowerCase();
+    const role = (h.funcao || '').toLowerCase();
+
+    if (type.includes('presidente')) return 100;
+    if (type.includes('discurso')) return 90;
+    if (type.includes('jóias') || type.includes('joias') || type.includes('tesouros')) return 50;
+    if (type.includes('vida cristã') || type.includes('vida crista')) return 50;
+    if (type.includes('leitura')) return 60;
+    if (type.includes('oração')) return 40;
+    if (role === 'ajudante') return 10;
+    if (type.includes('comentários') || type.includes('comentarios')) return 20;
+
+    return 30; // Default
 }

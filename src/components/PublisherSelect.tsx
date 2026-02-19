@@ -95,7 +95,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
             // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
             // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
-            const cooldownInfo = getBlockInfo(p.name, historyRecords, today);
+            // v9.5: Filtrar histórico para excluir a semana ATUAL do cálculo de cooldown
+            // (Evita que a designação desta semana, se já salva, acione o aviso "Designado para...")
+            const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
+            const cooldownInfo = getBlockInfo(p.name, historyForCooldown, today);
 
             // v8.1: Prioridade para irmãs em demonstrações
             const isSisterForDemo =
@@ -291,7 +294,9 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Cooldown Info do publicador SELECIONADO (para tooltip)
     const selectedCooldownInfo = useMemo(() => {
         if (!foundPublisher) return null;
-        return getBlockInfo(foundPublisher.name, historyRecords, today);
+        // v9.5: Filtrar histórico para excluir semana atual
+        const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
+        return getBlockInfo(foundPublisher.name, historyForCooldown, today);
     }, [foundPublisher, part.tipoParte, historyRecords, today]);
 
     // Renderizar conteúdo do tooltip (JSX)

@@ -106,16 +106,20 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         }
                     );
 
+                    // v9.5: Filtrar histórico para excluir a semana ATUAL
+                    // Evita que a designação atual afete o cooldown/score (loop)
+                    const historyForCooldown = allHistory.filter(h => h.weekId !== selectedPart.weekId);
+
                     const cdInfo = getBlockInfo(
                         assignedPublisher.name,
-                        allHistory, // Use full history
+                        historyForCooldown, // Use filtered history
                         new Date()
                     );
 
                     const score = calculateScore(
                         assignedPublisher,
                         selectedPart.tipoParte,
-                        allHistory,
+                        historyForCooldown, // Use filtered history
                         new Date()
                     );
 
