@@ -5,6 +5,7 @@ import { getCooldownInfo, getBlockInfo, type CooldownInfo } from '../services/co
 import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
+import { formatWeekFromDate } from '../utils/dateUtils';
 
 /**
  * ActionControlPanel – Exibe detalhes da parte selecionada
@@ -402,8 +403,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             )}
                                             <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
                                                 <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
-                                                    ? <><strong>Participações Passadas:</strong> Realizou {cooldown.lastPartType} em {new Date(cooldown.lastDate || '').toLocaleDateString('pt-BR')}.</>
-                                                    : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} {cooldown.weekDisplay ? `na ${cooldown.weekDisplay}` : `para o dia ${new Date(cooldown.lastDate || '').toLocaleDateString('pt-BR')}`}.</>
+                                                    ? <><strong>Participações Passadas:</strong> Realizou {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
+                                                    : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
                                                 } Recomendamos descanso de mais {cooldown.cooldownRemaining} semana(s).
                                             </div>
                                         </div>

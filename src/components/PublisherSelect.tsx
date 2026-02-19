@@ -27,6 +27,7 @@ interface PublisherSelectProps {
 // Importar mapeamento centralizado (substitui definição local)
 import { getModalidadeFromTipo } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
+import { formatWeekFromDate } from '../utils/dateUtils';
 
 const getModalidade = (part: WorkbookPart): string => {
     if (part.modalidade) return part.modalidade;
@@ -386,8 +387,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         </div>
                         <div style={{ fontSize: '0.85em', color: '#fff' }}>
                             {selectedCooldownInfo.weeksSinceLast >= 0
-                                ? <><strong>Participações Passadas:</strong> Fez <strong>{selectedCooldownInfo.lastPartType}</strong> em {new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}.</>
-                                : <><strong>Designações Futuras:</strong> Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> {selectedCooldownInfo.weekDisplay ? `na ${selectedCooldownInfo.weekDisplay}` : `para o dia ${new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`}.</>
+                                ? <><strong>Participações Passadas:</strong> Fez <strong>{selectedCooldownInfo.lastPartType}</strong> na {selectedCooldownInfo.weekDisplay || formatWeekFromDate(selectedCooldownInfo.lastDate || '')}.</>
+                                : <><strong>Designações Futuras:</strong> Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> na {selectedCooldownInfo.weekDisplay || formatWeekFromDate(selectedCooldownInfo.lastDate || '')}.</>
                             }
                             <br />
                             <span style={{ color: '#9ca3af' }}>(Recomendado aguardar {Math.abs(selectedCooldownInfo.cooldownRemaining)} semana(s))</span>
@@ -485,8 +486,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             title={eligible
                                 ? (cooldownInfo?.isInCooldown
                                     ? (cooldownInfo.weeksSinceLast >= 0
-                                        ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} em ${new Date(cooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`
-                                        : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} ${cooldownInfo.weekDisplay ? `na ${cooldownInfo.weekDisplay}` : `para o dia ${new Date(cooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`}`)
+                                        ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')}`
+                                        : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')}`)
                                     : '✅ Elegível')
                                 : `❌ ${reason}`}
                         >
