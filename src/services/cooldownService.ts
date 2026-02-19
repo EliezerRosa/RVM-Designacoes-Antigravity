@@ -45,6 +45,26 @@ export function getParticipationCategory(tipoParte: string, funcao: string = 'Ti
     return 'MAIN';
 }
 
+/**
+ * Define prioridade de exibição para Label de Cooldown
+ * Maior número = Maior prioridade
+ */
+function getPartPriority(h: HistoryRecord): number {
+    const type = (h.tipoParte || '').toLowerCase();
+    const role = (h.funcao || '').toLowerCase();
+
+    if (type.includes('presidente')) return 100;
+    if (type.includes('discurso')) return 90;
+    if (type.includes('jóias') || type.includes('joias') || type.includes('tesouros')) return 50;
+    if (type.includes('vida cristã') || type.includes('vida crista')) return 50;
+    if (type.includes('leitura')) return 60;
+    if (type.includes('oração')) return 40;
+    if (role === 'ajudante') return 10;
+    if (type.includes('comentários') || type.includes('comentarios')) return 20;
+
+    return 30; // Default
+}
+
 // ===== Interfaces =====
 
 export interface CooldownInfo {
@@ -399,24 +419,4 @@ export function checkMultipleAssignments(
     }
 
     return warnings;
-}
-
-/**
- * Define prioridade de exibição para Label de Cooldown
- * Maior número = Maior prioridade
- */
-function getPartPriority(h: HistoryRecord): number {
-    const type = (h.tipoParte || '').toLowerCase();
-    const role = (h.funcao || '').toLowerCase();
-
-    if (type.includes('presidente')) return 100;
-    if (type.includes('discurso')) return 90;
-    if (type.includes('jóias') || type.includes('joias') || type.includes('tesouros')) return 50;
-    if (type.includes('vida cristã') || type.includes('vida crista')) return 50;
-    if (type.includes('leitura')) return 60;
-    if (type.includes('oração')) return 40;
-    if (role === 'ajudante') return 10;
-    if (type.includes('comentários') || type.includes('comentarios')) return 20;
-
-    return 30; // Default
 }

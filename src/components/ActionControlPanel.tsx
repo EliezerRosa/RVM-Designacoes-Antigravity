@@ -409,7 +409,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
                                                     ? <><strong>Participações Passadas:</strong> Realizou {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
                                                     : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
-                                                    : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
+
                                                 }
                                                 <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 'normal', color: '#92400E' }}>
                                                     (Convenção: Aguardar 3 semanas após partes principais. Pode ser ignorada manualmente.)
