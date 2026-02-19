@@ -116,16 +116,12 @@ export function calculateScore(
         scoreAdjustment: 0 // v9.4: Init
     };
 
-    // v10: Referência temporal para filtrar designações futuras
-    const refDateStr = referenceDate.toISOString().split('T')[0];
-
     // 1. Separar Histórico: GERAL (Penalty) vs ESPECÍFICO (Time Bonus)
     // Histórico Geral: Qualquer participação relevante (Stat Part)
     const generalHistory = history
         .filter(h =>
             (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
-            isStatPart(h.tipoParte || h.funcao) &&
-            h.date <= refDateStr // v10: Ignorar designações futuras
+            isStatPart(h.tipoParte || h.funcao)
         )
         .sort((a, b) => b.date.localeCompare(a.date));
 
