@@ -397,7 +397,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             }
                             <br />
                             <br />
-                            <span style={{ color: '#9ca3af' }}>(Período de Bloqueio: aguardar mais {selectedCooldownInfo.cooldownRemaining} semana(s))</span>
+                            <br />
+                            <span style={{ color: '#9ca3af', fontSize: '0.8em', fontStyle: 'italic' }}>
+                                (Convenção: Aguardar 3 semanas após partes principais. Pode ser ignorada manualmente.)
+                            </span>
                         </div>
                     </div>
                 )}
