@@ -387,7 +387,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         <div style={{ fontSize: '0.85em', color: '#fff' }}>
                             {selectedCooldownInfo.weeksSinceLast >= 0
                                 ? <>Fez <strong>{selectedCooldownInfo.lastPartType}</strong> em {new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}.</>
-                                : <>Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> para o dia {new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}.</>
+                                : <>Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> {selectedCooldownInfo.weekDisplay ? `na ${selectedCooldownInfo.weekDisplay}` : `para o dia ${new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`}.</>
                             }
                             <br />
                             <span style={{ color: '#9ca3af' }}>(Recomendado aguardar {Math.abs(selectedCooldownInfo.cooldownRemaining)} semana(s))</span>
@@ -486,7 +486,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                                 ? (cooldownInfo?.isInCooldown
                                     ? (cooldownInfo.weeksSinceLast >= 0
                                         ? `⏳ Cooldown: Fez ${cooldownInfo.lastPartType} em ${new Date(cooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`
-                                        : `⏳ Cooldown: Designado para ${cooldownInfo.lastPartType} para o dia ${new Date(cooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`)
+                                        : `⏳ Cooldown: Designado para ${cooldownInfo.lastPartType} ${cooldownInfo.weekDisplay ? `na ${cooldownInfo.weekDisplay}` : `para o dia ${new Date(cooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`}`)
                                     : '✅ Elegível')
                                 : `❌ ${reason}`}
                         >
