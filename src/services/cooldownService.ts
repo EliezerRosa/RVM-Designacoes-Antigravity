@@ -115,9 +115,13 @@ export function getBlockInfo(
     today: Date = new Date()
 ): CooldownInfo | null {
     // Filtrar histórico do publicador - apenas partes MAIN
+    const todayStr = today.toISOString().split('T')[0];
     const relevantHistory = history.filter(h => {
         const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
         if (!isThisPublisher) return false;
+
+        // v10: Ignorar designações futuras
+        if (h.date > todayStr) return false;
 
         const category = getParticipationCategory(h.tipoParte || '', h.funcao || '');
         return category === 'MAIN';
@@ -156,10 +160,12 @@ export function getCooldownInfo(
     today: Date = new Date()
 ): CooldownInfo | null {
     // Filtrar histórico do publicador para o tipo de parte específico
+    const todayStr = today.toISOString().split('T')[0];
     const relevantHistory = history
         .filter(h =>
             (h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName) &&
-            (h.tipoParte === partType || h.tituloParte === partType) // Check robusto
+            (h.tipoParte === partType || h.tituloParte === partType) &&
+            h.date <= todayStr // v10: Ignorar designações futuras
         )
         .sort((a, b) => {
             const dateA = new Date(a.date || '');
