@@ -396,7 +396,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                                 : <><strong>Designações Futuras:</strong> Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> na {selectedCooldownInfo.weekDisplay || formatWeekFromDate(selectedCooldownInfo.lastDate || '')}.</>
                             }
                             <br />
-                            <span style={{ color: '#9ca3af' }}>(Recomendado aguardar {Math.abs(selectedCooldownInfo.cooldownRemaining)} semana(s))</span>
+                            <br />
+                            <span style={{ color: '#9ca3af' }}>(Período de Bloqueio: aguardar mais {selectedCooldownInfo.cooldownRemaining} semana(s))</span>
                         </div>
                     </div>
                 )}

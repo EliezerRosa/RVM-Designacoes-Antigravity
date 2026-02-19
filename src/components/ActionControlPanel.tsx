@@ -409,7 +409,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
                                                     ? <><strong>Participações Passadas:</strong> Realizou {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
                                                     : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
-                                                } Recomendamos descanso de mais {cooldown.cooldownRemaining} semana(s).
+                                                } (Período de Bloqueio: aguardar mais {cooldown.cooldownRemaining} semana(s)).
                                             </div>
                                         </div>
                                     ) : (
