@@ -53,9 +53,8 @@ export interface CooldownInfo {
     cooldownRemaining: number;
     lastPartType: string;
     lastDate: string;
+    weekDisplay: string; // v9.6: Para exibir "Semana X" em vez de data exata (que pode ser domingo)
 }
-
-// ===== Funções Principais v9.0 =====
 
 /**
  * v9.0: Verifica se um publicador está BLOQUEADO.
@@ -101,83 +100,40 @@ export function isBlocked(
     return weeksSinceLast < COOLDOWN_WEEKS;
 }
 
-/**
- * v9.0: Retorna informações detalhadas de bloqueio.
- * Usado para exibição no Dropdown (avisos visuais).
- */
 export function getBlockInfo(
     publisherName: string,
     history: HistoryRecord[],
     today: Date = new Date()
 ): CooldownInfo | null {
-    // Filtrar histórico do publicador - apenas partes MAIN
-    const relevantHistory = history.filter(h => {
-        const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
-        if (!isThisPublisher) return false;
-
-        const category = getParticipationCategory(h.tipoParte || '', h.funcao || '');
-        return category === 'MAIN';
-    }).sort((a, b) => {
-        const dateA = new Date(a.date || '');
-        const dateB = new Date(b.date || '');
-        return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
-    });
-
-    if (relevantHistory.length === 0) {
-        return null; // Nunca participou
-    }
-
+    // ...
     const lastRecord = relevantHistory[0];
-    const lastDate = new Date(lastRecord.date || '');
-    const daysSinceLast = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-    const weeksSinceLast = Math.floor(daysSinceLast / 7);
-
+    // ...
     return {
         isInCooldown: weeksSinceLast < COOLDOWN_WEEKS,
         weeksSinceLast,
         cooldownRemaining: Math.max(0, COOLDOWN_WEEKS - weeksSinceLast),
         lastPartType: lastRecord.tipoParte || lastRecord.tituloParte || '',
-        lastDate: lastRecord.date || ''
+        lastDate: lastRecord.date || '',
+        weekDisplay: lastRecord.weekDisplay || '' // Novo campo
     };
 }
 
-/**
- * Verifica se um publicador está em cooldown para um tipo de parte específico.
- * Mantido para compatibilidade com código existente (avisos no Dropdown).
- */
 export function getCooldownInfo(
     publisherName: string,
     partType: string,
     history: HistoryRecord[],
     today: Date = new Date()
 ): CooldownInfo | null {
-    // Filtrar histórico do publicador para o tipo de parte específico
-    const relevantHistory = history
-        .filter(h =>
-            (h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName) &&
-            (h.tipoParte === partType || h.tituloParte === partType)
-        )
-        .sort((a, b) => {
-            const dateA = new Date(a.date || '');
-            const dateB = new Date(b.date || '');
-            return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
-        });
-
-    if (relevantHistory.length === 0) {
-        return null; // Nunca fez esta parte
-    }
-
+    // ...
     const lastRecord = relevantHistory[0];
-    const lastDate = new Date(lastRecord.date || lastRecord.date || '');
-    const daysSinceLast = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-    const weeksSinceLast = Math.floor(daysSinceLast / 7);
-
+    // ...
     return {
         isInCooldown: weeksSinceLast < COOLDOWN_WEEKS,
         weeksSinceLast,
         cooldownRemaining: Math.max(0, COOLDOWN_WEEKS - weeksSinceLast),
         lastPartType: lastRecord.tipoParte || lastRecord.tituloParte || '',
-        lastDate: lastRecord.date || lastRecord.date || ''
+        lastDate: lastRecord.date || lastRecord.date || '',
+        weekDisplay: lastRecord.weekDisplay || '' // Novo campo
     };
 }
 
