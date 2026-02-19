@@ -42,7 +42,13 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         history || (allParts || weekParts || []).map(workbookPartToHistoryRecord),
         [history, allParts, weekParts]);
 
-    const today = useMemo(() => new Date(), []);
+    // CORRECTION O: Use target date for cooldown reference instead of today
+    const referenceDate = useMemo(() => {
+        if (!part.date) return new Date();
+        // Ensure consistent date parsing (mid-day to avoid timezone shifts)
+        if (part.date.includes('T')) return new Date(part.date);
+        return new Date(part.date + 'T12:00:00');
+    }, [part.date]);
 
     // Memoizar a lista sorted para evitar recálculo excessivo
     const sortedOptions = useMemo(() => {
@@ -89,7 +95,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             const currentPresident = currentPresidentPart?.resolvedPublisherName;
 
             // Calcular prioridade usando o NOVO serviço centralizado (Restored Unified Service)
-            const scoreData = calculateScore(p, part.tipoParte, historyRecords, today, currentPresident);
+            const scoreData = calculateScore(p, part.tipoParte, historyRecords, referenceDate, currentPresident);
             // Compatibilidade com código legado que espera apenas um número
             const priority = scoreData.score;
 
@@ -98,7 +104,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             // v9.5: Filtrar histórico para excluir a semana ATUAL do cálculo de cooldown
             // (Evita que a designação desta semana, se já salva, acione o aviso "Designado para...")
             const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
-            const cooldownInfo = getBlockInfo(p.name, historyForCooldown, today);
+            const cooldownInfo = getBlockInfo(p.name, historyForCooldown, referenceDate);
 
             // v8.1: Prioridade para irmãs em demonstrações
             const isSisterForDemo =
@@ -296,8 +302,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         if (!foundPublisher) return null;
         // v9.5: Filtrar histórico para excluir semana atual
         const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
-        return getBlockInfo(foundPublisher.name, historyForCooldown, today);
-    }, [foundPublisher, part.tipoParte, historyRecords, today]);
+        return getBlockInfo(foundPublisher.name, historyForCooldown, referenceDate);
+    }, [foundPublisher, part.tipoParte, historyRecords, referenceDate]);
 
     // Renderizar conteúdo do tooltip (JSX)
     const renderTooltipContent = () => {
@@ -414,7 +420,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         fontSize: '0.8em',
                         color: '#9ca3af'
                     }}>
-                        📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords, today, currentPresident).explanation}
+                        📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords, referenceDate, currentPresident).explanation}
                     </div>
                 )}
 
