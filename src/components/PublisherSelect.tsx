@@ -385,9 +385,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             ⏳ COOLDOWN ATIVO
                         </div>
                         <div style={{ fontSize: '0.85em', color: '#fff' }}>
-                            Fez <strong>{selectedCooldownInfo.lastPartType}</strong> há {selectedCooldownInfo.weeksSinceLast} semanas.
+                            {selectedCooldownInfo.weeksSinceLast >= 0
+                                ? <>Fez <strong>{selectedCooldownInfo.lastPartType}</strong> há {selectedCooldownInfo.weeksSinceLast} semana(s).</>
+                                : <>Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> em {Math.abs(selectedCooldownInfo.weeksSinceLast)} semana(s).</>
+                            }
                             <br />
-                            <span style={{ color: '#9ca3af' }}>(Recomendado aguardar {selectedCooldownInfo.cooldownRemaining} semanas)</span>
+                            <span style={{ color: '#9ca3af' }}>(Cooldown restante: {Math.abs(selectedCooldownInfo.cooldownRemaining)} semana(s))</span>
                         </div>
                     </div>
                 )}
@@ -481,7 +484,9 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             }}
                             title={eligible
                                 ? (cooldownInfo?.isInCooldown
-                                    ? `⏳ Em cooldown: Fez ${cooldownInfo.lastPartType} há ${cooldownInfo.weeksSinceLast} semanas`
+                                    ? (cooldownInfo.weeksSinceLast >= 0
+                                        ? `⏳ Cooldown: Fez ${cooldownInfo.lastPartType} há ${cooldownInfo.weeksSinceLast} semana(s)`
+                                        : `⏳ Cooldown: Designado para ${cooldownInfo.lastPartType} em ${Math.abs(cooldownInfo.weeksSinceLast)} semana(s)`)
                                     : '✅ Elegível')
                                 : `❌ ${reason}`}
                         >
