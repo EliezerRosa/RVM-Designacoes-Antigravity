@@ -18,6 +18,7 @@ import { SpecialEventsManager } from './SpecialEventsManager';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
 
 import { TIPO_ORDER, HIDDEN_VIEW_TYPES } from '../constants/mappings';
+import { Tooltip } from './Tooltip';
 import { S140MultiModal } from './S140MultiModal';
 import { WorkbookToolbar } from './WorkbookToolbar';
 import { WorkbookTable } from './WorkbookTable';
