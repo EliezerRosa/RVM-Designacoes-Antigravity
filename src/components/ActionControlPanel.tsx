@@ -401,11 +401,12 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     <strong>🚫 Inelegível:</strong> {eligibility?.reason}
                                                 </div>
                                             )}
-                                            {cooldown?.isInCooldown && (
-                                                <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
-                                                    <strong>⚠️ Em Intervalo:</strong> O publicador realizou designações recentes. Recomendamos descanso de mais {cooldown.cooldownRemaining} semana(s).
-                                                </div>
-                                            )}
+                                            <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
+                                                <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
+                                                    ? `Realizou ${cooldown.lastPartType} em ${new Date(cooldown.lastDate || '').toLocaleDateString()}.`
+                                                    : `Designado para ${cooldown.lastPartType} para o dia ${new Date(cooldown.lastDate || '').toLocaleDateString()}.`
+                                                } Recomendamos descanso de mais {cooldown.cooldownRemaining} semana(s).
+                                            </div>
                                         </div>
                                     ) : (
                                         // Se tudo ok, mostra indicador discreto
