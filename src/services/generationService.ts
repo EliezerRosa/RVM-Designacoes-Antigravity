@@ -207,8 +207,9 @@ export const generationService = {
                 // Seleção via Scientific Score
                 const ranked = getRankedCandidates(eligibleCandidates, 'Presidente', historyRecords);
 
-                // Pegar o primeiro
-                const candidate = ranked.length > 0 ? ranked[0].publisher : null;
+                // v10: Pegar o primeiro NÃO bloqueado
+                const candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, today))?.publisher
+                    || (ranked.length > 0 ? ranked[0].publisher : null); // Fallback se todos bloqueados
 
                 if (candidate) {
                     selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
@@ -303,8 +304,11 @@ export const generationService = {
                         // Helper para selecionar o primeiro DISPONÍVEL da lista ranqueada
                         const pickTopRanked = (pubs: Publisher[]) => {
                             const ranked = getRankedCandidates(pubs, tipoEnsino, historyRecords);
-                            // Encontrar o primeiro que NÃO está excluído nesta semana
-                            return ranked.find(r => !namesExcludedInWeek.has(r.publisher.name))?.publisher || null;
+                            // v10: Encontrar o primeiro que NÃO está excluído NEM bloqueado
+                            return ranked.find(r =>
+                                !namesExcludedInWeek.has(r.publisher.name) &&
+                                !isBlocked(r.publisher.name, historyRecords, today)
+                            )?.publisher || null;
                         };
 
                         if (isLeitorEBC) {
@@ -364,7 +368,11 @@ export const generationService = {
                     // Helper para selecionar o primeiro DISPONÍVEL da lista ranqueada
                     const pickTopRanked = (pubs: Publisher[]) => {
                         const ranked = getRankedCandidates(pubs, estudantePart.tipoParte, historyRecords);
-                        return ranked.find(r => !namesExcludedInWeek.has(r.publisher.name))?.publisher || null;
+                        // v10: NÃO excluído NEM bloqueado
+                        return ranked.find(r =>
+                            !namesExcludedInWeek.has(r.publisher.name) &&
+                            !isBlocked(r.publisher.name, historyRecords, today)
+                        )?.publisher || null;
                     };
 
                     if (isDemonstracao) {
@@ -466,12 +474,13 @@ export const generationService = {
 
                         let selectedPublisher: Publisher | null = null;
 
-                        // Helper
                         const pickTopRanked = (pubs: Publisher[], type: string) => {
                             const ranked = getRankedCandidates(pubs, type, historyRecords);
-                            // Evitar repetição: ajudantes não devem repetir na mesma semana
-                            // (corrigido: antes usava ranked[0] sem checar exclusão)
-                            return ranked.find(r => !namesExcludedInWeek.has(r.publisher.name))?.publisher || null;
+                            // v10: Evitar repetição + cooldown
+                            return ranked.find(r =>
+                                !namesExcludedInWeek.has(r.publisher.name) &&
+                                !isBlocked(r.publisher.name, historyRecords, today)
+                            )?.publisher || null;
                         };
 
                         if (titularGender) {
@@ -523,7 +532,9 @@ export const generationService = {
                             );
                             if (group1.length > 0) {
                                 const ranked = getRankedCandidates(group1, 'Oração Final', historyRecords);
-                                candidate = ranked[0]?.publisher || null;
+                                // v10: Preferir não-bloqueados, fallback para bloqueados
+                                candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, today))?.publisher
+                                    || ranked[0]?.publisher || null;
                             }
 
                             // Grupo 2: Ocupados (2ª parte) e não-presidente
@@ -534,7 +545,8 @@ export const generationService = {
                                 );
                                 if (group2.length > 0) {
                                     const ranked = getRankedCandidates(group2, 'Oração Final', historyRecords);
-                                    candidate = ranked[0]?.publisher || null;
+                                    candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, today))?.publisher
+                                        || ranked[0]?.publisher || null;
                                 }
                             }
 
@@ -555,15 +567,19 @@ export const generationService = {
                             // Genérico
                             const eligiblePublishers = publishers.filter(p => {
                                 if (namesExcludedInWeek.has(p.name)) return false;
-                                if (isBlocked(p.name, historyRecords, today)) return false;
                                 const r = checkEligibility(p, modalidade as any, funcao, { date: part.date, isPastWeek: isPast });
                                 return r.eligible;
                             });
                             if (eligiblePublishers.length > 0) {
-                                const p = eligiblePublishers[0];
-                                selectedPublisherByPart.set(part.id, { id: p.id, name: p.name });
-                                namesExcludedInWeek.add(p.name);
-                                totalWithPublisher++;
+                                // v10: Usar ranking + cooldown (antes usava [0] sem ranking!)
+                                const ranked = getRankedCandidates(eligiblePublishers, part.tipoParte, historyRecords);
+                                const p = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, today))?.publisher
+                                    || ranked[0]?.publisher;
+                                if (p) {
+                                    selectedPublisherByPart.set(part.id, { id: p.id, name: p.name });
+                                    namesExcludedInWeek.add(p.name);
+                                    totalWithPublisher++;
+                                }
                             }
                         }
                     }
