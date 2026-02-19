@@ -105,9 +105,28 @@ export function getBlockInfo(
     history: HistoryRecord[],
     today: Date = new Date()
 ): CooldownInfo | null {
-    // ...
+    // Filtrar histórico do publicador - apenas partes MAIN
+    const relevantHistory = history.filter(h => {
+        const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
+        if (!isThisPublisher) return false;
+
+        const category = getParticipationCategory(h.tipoParte || '', h.funcao || '');
+        return category === 'MAIN';
+    }).sort((a, b) => {
+        const dateA = new Date(a.date || '');
+        const dateB = new Date(b.date || '');
+        return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
+    });
+
+    if (relevantHistory.length === 0) {
+        return null; // Nunca participou
+    }
+
     const lastRecord = relevantHistory[0];
-    // ...
+    const lastDate = new Date(lastRecord.date || '');
+    const daysSinceLast = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+    const weeksSinceLast = Math.floor(daysSinceLast / 7);
+
     return {
         isInCooldown: weeksSinceLast < COOLDOWN_WEEKS,
         weeksSinceLast,
@@ -124,9 +143,27 @@ export function getCooldownInfo(
     history: HistoryRecord[],
     today: Date = new Date()
 ): CooldownInfo | null {
-    // ...
+    // Filtrar histórico do publicador para o tipo de parte específico
+    const relevantHistory = history
+        .filter(h =>
+            (h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName) &&
+            (h.tipoParte === partType || h.tituloParte === partType)
+        )
+        .sort((a, b) => {
+            const dateA = new Date(a.date || '');
+            const dateB = new Date(b.date || '');
+            return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
+        });
+
+    if (relevantHistory.length === 0) {
+        return null; // Nunca fez esta parte
+    }
+
     const lastRecord = relevantHistory[0];
-    // ...
+    const lastDate = new Date(lastRecord.date || lastRecord.date || '');
+    const daysSinceLast = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+    const weeksSinceLast = Math.floor(daysSinceLast / 7);
+
     return {
         isInCooldown: weeksSinceLast < COOLDOWN_WEEKS,
         weeksSinceLast,
