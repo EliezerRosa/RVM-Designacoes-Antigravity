@@ -9,6 +9,7 @@ import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
 import { generationService } from '../services/generationService';
+import { undoService } from '../services/undoService';
 
 
 import { loadCompletedParticipations } from '../services/historyAdapter';
