@@ -74,9 +74,13 @@ export function isBlocked(
     today: Date = new Date()
 ): boolean {
     // Filtrar histórico do publicador - apenas partes MAIN (não orações, não ajudante)
+    const todayStr = today.toISOString().split('T')[0];
     const relevantHistory = history.filter(h => {
         const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
         if (!isThisPublisher) return false;
+
+        // v10: Ignorar designações futuras (ainda não realizadas)
+        if (h.date > todayStr) return false;
 
         // Só contar partes MAIN para bloqueio
         const category = getParticipationCategory(h.tipoParte || '', h.funcao || '');

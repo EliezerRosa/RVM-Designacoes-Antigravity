@@ -1,0 +1,75 @@
+=== Estrutura de parte (semana 2026-03-23) ===
+
+  affected_by_event_id: null
+  approved_at: null
+  approved_by_id: null
+  batch_id: "8bf0fec5-1a12-47a2-a6bb-d1553b024640"
+  cancel_reason: null
+  completed_at: null
+  created_at: "2025-12-25T21:57:46.246587+00:00"
+  date: "2026-03-23"
+  descricao: ""
+  detalhes_parte: ""
+  duracao: "1"
+  funcao: "Titular"
+  hora_fim: "19:36"
+  hora_inicio: "19:35"
+  id: "2f6fd1eb-d948-48eb-9e73-a8a4a1fba8ca"
+  local_needs_theme: null
+  match_confidence: null
+  modalidade: "Presidência"
+  original_duration: null
+  part_title: "Comentários iniciais"
+  pending_event_id: null
+  raw_publisher_name: ""
+  rejected_reason: null
+  resolved_publisher_id: null
+  resolved_publisher_name: null
+  section: "Início da Reunião"
+  seq: 3
+  status: "PENDENTE"
+  tipo_parte: "Comentários Iniciais"
+  updated_at: "2026-01-27T02:20:19.915+00:00"
+  week_display: "23-29 de Março"
+  week_id: "2026-03-23"
+  year: 2026
+
+=== Timestamps de TODAS as partes 2026-03-23 ===
+
+  Comentários Iniciais           updated: 2026-01-27T02:20:19.915+00:00  created: 2025-12-25T21:57:46.246587+00:00
+  Discurso Tesouros              updated: 2026-01-27T02:20:20.223+00:00  created: 2025-12-25T21:57:46.246587+00:00
+  Parte Vida Cristã              updated: 2026-01-27T02:20:24.641+00:00  created: 2025-12-25T21:57:46.246587+00:00
+
+=== Todas as 23 partes (2026-03-23) ===
+
+  Comentários Iniciais                (vazio)              updated: 2026-01-27T02:20:19.915+00:00  status: PENDENTE
+  Discurso Tesouros                   (vazio)              updated: 2026-01-27T02:20:20.223+00:00  status: PENDENTE
+  Parte Vida Cristã                   (vazio)              updated: 2026-01-27T02:20:24.641+00:00  status: PENDENTE
+  Presidente                          (vazio)              updated: 2026-01-27T02:20:19.278+00:00  status: PENDENTE
+  Elogios e Conselhos                 (vazio)              updated: 2026-01-27T02:20:21.176+00:00  status: PENDENTE
+  Elogios e Conselhos                 (vazio)              updated: 2026-01-27T02:20:22.127+00:00  status: PENDENTE
+  Cântico                             (vazio)              updated: 2026-01-27T02:20:24.324+00:00  status: PENDENTE
+  Cultivando o Interesse              (vazio)              updated: 2026-01-27T02:20:22.451+00:00  status: PENDENTE
+  Cultivando o Interesse              (vazio)              updated: 2026-01-27T02:20:23.386+00:00  status: PENDENTE
+  Elogios e Conselhos                 (vazio)              updated: 2026-01-27T02:20:24.009+00:00  status: PENDENTE
+  Elogios e Conselhos                 (vazio)              updated: 2026-01-27T02:20:23.079+00:00  status: PENDENTE
+  Dirigente EBC                       (vazio)              updated: 2026-01-27T02:20:24.962+00:00  status: PENDENTE
+  Leitura da Bíblia                   (vazio)              updated: 2026-01-27T02:20:20.848+00:00  status: PENDENTE
+  Iniciando Conversas (Ajudante)      (vazio)              updated: 2026-01-27T02:20:21.808+00:00  status: PENDENTE
+  Cântico Final                       (vazio)              updated: 2026-01-27T02:20:25.901+00:00  status: PENDENTE
+  Cântico                             (vazio)              updated: 2026-01-27T02:20:19.592+00:00  status: PENDENTE
+  Iniciando Conversas                 (vazio)              updated: 2026-01-27T02:20:21.484+00:00  status: PENDENTE
+  Leitor EBC                          (vazio)              updated: 2026-01-27T02:20:25.269+00:00  status: PENDENTE
+  Cultivando o Interesse (Ajudante)   (vazio)              updated: 2026-01-27T02:20:22.757+00:00  status: PENDENTE
+  Cultivando o Interesse (Ajudante)   (vazio)              updated: 2026-01-27T02:20:23.7+00:00  status: PENDENTE
+  Oração Final                        (vazio)              updated: 2026-01-27T02:20:26.215+00:00  status: PENDENTE
+  Joias Espirituais                   (vazio)              updated: 2026-01-27T02:20:20.542+00:00  status: PENDENTE
+  Comentários Finais                  (vazio)              updated: 2026-01-27T02:20:25.578+00:00  status: PENDENTE
+
+=== Comparação: 5 partes de 2026-03-16 (funcional) ===
+
+  Fazendo Discípulos                  Gabriel Henrique     updated: 2026-02-18T18:29:07.829+00:00  status: PROPOSTA
+  Cântico Final                       Marcos Rogério       updated: 2026-02-18T18:29:10.276+00:00  status: PROPOSTA
+  Parte Vida Cristã                   Edmilson Monteiro    updated: 2026-02-18T18:29:08.946+00:00  status: PROPOSTA
+  Presidente                          Marcos Rogério       updated: 2026-02-18T18:29:04.278+00:00  status: PROPOSTA
+  Cultivando o Interesse              Márcia Bragança      updated: 2026-02-18T18:29:07.012+00:00  status: PROPOSTA

@@ -7,6 +7,7 @@
  */
 
 import type { Publisher, HistoryRecord } from '../types';
+import { isBlocked } from './cooldownService';
 
 // ===== CONFIGURAÇÃO DE PESOS =====
 const SCORING_CONFIG = {
@@ -17,6 +18,7 @@ const SCORING_CONFIG = {
     TIME_FACTOR: 8,
 
     RECENT_PARTICIPATION_PENALTY: 20, // -20 pontos por participação nos últimos 3 meses
+    COOLDOWN_PENALTY: 1500, // Penalidade massiva para bloqueados (garante que caiam abaixo de livres)
 
     // Bônus específicos
     ELDER_BONUS: 5, // Pequeno bônus para manter anciãos visíveis se necessário
@@ -50,6 +52,7 @@ export interface RotationScore {
         base: number;
         timeBonus: number;
         frequencyPenalty: number;
+        cooldownPenalty: number; // v10: Penalidade de cooldown
         roleBonus: number;
         specificAdjustments: string[];
         scoreAdjustment?: number; // v9.4: Penalidades ou bônus manuais
@@ -57,6 +60,7 @@ export interface RotationScore {
     explanation: string;
     lastDate?: string;
     weeksSinceLast: number;
+    isInCooldown: boolean; // v10: Flag de cooldown
 }
 
 export interface RankedCandidate {
@@ -106,17 +110,22 @@ export function calculateScore(
         base: SCORING_CONFIG.BASE_SCORE,
         timeBonus: 0,
         frequencyPenalty: 0,
+        cooldownPenalty: 0, // v10
         roleBonus: 0,
         specificAdjustments: [] as string[],
         scoreAdjustment: 0 // v9.4: Init
     };
+
+    // v10: Referência temporal para filtrar designações futuras
+    const refDateStr = referenceDate.toISOString().split('T')[0];
 
     // 1. Separar Histórico: GERAL (Penalty) vs ESPECÍFICO (Time Bonus)
     // Histórico Geral: Qualquer participação relevante (Stat Part)
     const generalHistory = history
         .filter(h =>
             (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
-            isStatPart(h.tipoParte || h.funcao)
+            isStatPart(h.tipoParte || h.funcao) &&
+            h.date <= refDateStr // v10: Ignorar designações futuras
         )
         .sort((a, b) => b.date.localeCompare(a.date));
 
@@ -182,8 +191,16 @@ export function calculateScore(
         details.specificAdjustments.push('Penalidade Presidente (Último Recurso)');
     }
 
-    // 5. Score Final
-    let score = details.base + details.timeBonus - details.frequencyPenalty + details.roleBonus + (details as any).scoreAdjustment || 0;
+    // 5. v10: Penalidade de Cooldown (BLOQUEIO SUAVE)
+    const blocked = isBlocked(publisher.name, history, referenceDate);
+    if (blocked) {
+        details.cooldownPenalty = SCORING_CONFIG.COOLDOWN_PENALTY;
+        details.specificAdjustments.push('Cooldown Ativo');
+    }
+
+    // 6. Score Final
+    const score = details.base + details.timeBonus - details.frequencyPenalty
+        + details.roleBonus + (details.scoreAdjustment || 0) - details.cooldownPenalty;
 
     // Gerar explicação legível (Científica)
     const explanationParts = [
@@ -191,8 +208,9 @@ export function calculateScore(
         `Tempo Exp: +${details.timeBonus} (${weeksSinceLast}^${SCORING_CONFIG.TIME_POWER})`,
         `Freq: -${details.frequencyPenalty}`,
     ];
+    if (details.cooldownPenalty > 0) explanationParts.push(`Cooldown: -${details.cooldownPenalty}`);
     if (details.roleBonus !== 0) explanationParts.push(`Bônus: +${details.roleBonus}`);
-    if ((details as any).scoreAdjustment) explanationParts.push(`Ajuste: ${(details as any).scoreAdjustment}`);
+    if (details.scoreAdjustment) explanationParts.push(`Ajuste: ${details.scoreAdjustment}`);
 
     const explanation = `Score ${score} [${explanationParts.join(', ')}]`;
 
@@ -201,7 +219,8 @@ export function calculateScore(
         details,
         explanation,
         lastDate: lastParticipation?.date,
-        weeksSinceLast
+        weeksSinceLast,
+        isInCooldown: blocked // v10
     };
 }
 
