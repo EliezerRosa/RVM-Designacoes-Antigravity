@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
-import { getCooldownInfo, type CooldownInfo } from '../services/cooldownService';
+import { getCooldownInfo, getBlockInfo, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
@@ -105,9 +105,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         }
                     );
 
-                    const cdInfo = getCooldownInfo(
+                    const cdInfo = getBlockInfo(
                         assignedPublisher.name,
-                        selectedPart.tipoParte,
                         allHistory, // Use full history
                         new Date()
                     );
@@ -403,8 +402,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             )}
                                             <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
                                                 <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
-                                                    ? `Realizou ${cooldown.lastPartType} em ${new Date(cooldown.lastDate || '').toLocaleDateString()}.`
-                                                    : `Designado para ${cooldown.lastPartType} para o dia ${new Date(cooldown.lastDate || '').toLocaleDateString()}.`
+                                                    ? `Realizou ${cooldown.lastPartType} em ${new Date(cooldown.lastDate || '').toLocaleDateString('pt-BR')}.`
+                                                    : `Designado para ${cooldown.lastPartType} para o dia ${new Date(cooldown.lastDate || '').toLocaleDateString('pt-BR')}.`
                                                 } Recomendamos descanso de mais {cooldown.cooldownRemaining} semana(s).
                                             </div>
                                         </div>

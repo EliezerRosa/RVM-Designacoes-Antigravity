@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 import { checkEligibility, isElderOrMS, buildEligibilityContext } from '../services/eligibilityService';
-import { getCooldownInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
+import { getCooldownInfo, getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { calculateScore } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
 import { EnumModalidade, EnumFuncao } from '../types';
@@ -94,7 +94,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
             // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
             // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
-            const cooldownInfo = getCooldownInfo(p.name, part.tipoParte, historyRecords, today);
+            const cooldownInfo = getBlockInfo(p.name, historyRecords, today);
 
             // v8.1: Prioridade para irmãs em demonstrações
             const isSisterForDemo =
@@ -290,7 +290,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Cooldown Info do publicador SELECIONADO (para tooltip)
     const selectedCooldownInfo = useMemo(() => {
         if (!foundPublisher) return null;
-        return getCooldownInfo(foundPublisher.name, part.tipoParte, historyRecords, today);
+        return getBlockInfo(foundPublisher.name, historyRecords, today);
     }, [foundPublisher, part.tipoParte, historyRecords, today]);
 
     // Renderizar conteúdo do tooltip (JSX)
@@ -386,8 +386,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         </div>
                         <div style={{ fontSize: '0.85em', color: '#fff' }}>
                             {selectedCooldownInfo.weeksSinceLast >= 0
-                                ? <>Fez <strong>{selectedCooldownInfo.lastPartType}</strong> em {new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString()}.</>
-                                : <>Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> para o dia {new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString()}.</>
+                                ? <>Fez <strong>{selectedCooldownInfo.lastPartType}</strong> em {new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}.</>
+                                : <>Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> para o dia {new Date(selectedCooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}.</>
                             }
                             <br />
                             <span style={{ color: '#9ca3af' }}>(Recomendado aguardar {Math.abs(selectedCooldownInfo.cooldownRemaining)} semana(s))</span>
@@ -485,8 +485,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             title={eligible
                                 ? (cooldownInfo?.isInCooldown
                                     ? (cooldownInfo.weeksSinceLast >= 0
-                                        ? `⏳ Cooldown: Fez ${cooldownInfo.lastPartType} em ${new Date(cooldownInfo.lastDate || '').toLocaleDateString()}`
-                                        : `⏳ Cooldown: Designado para ${cooldownInfo.lastPartType} para o dia ${new Date(cooldownInfo.lastDate || '').toLocaleDateString()}`)
+                                        ? `⏳ Cooldown: Fez ${cooldownInfo.lastPartType} em ${new Date(cooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`
+                                        : `⏳ Cooldown: Designado para ${cooldownInfo.lastPartType} para o dia ${new Date(cooldownInfo.lastDate || '').toLocaleDateString('pt-BR')}`)
                                     : '✅ Elegível')
                                 : `❌ ${reason}`}
                         >
