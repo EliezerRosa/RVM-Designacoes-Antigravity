@@ -672,7 +672,7 @@ export const generationService = {
 };
 
 // ============================================================================
-// VALIDA��O (Migrado de linearRotationService)
+// VALIDAÇÃO (Migrado de linearRotationService)
 // ============================================================================
 
 export interface ValidationWarning {
@@ -684,20 +684,11 @@ export interface ValidationWarning {
 }
 
 /**
- * Lista de tipos de partes que N�O precisam de dura��o definida.
+ * Lista de tipos de partes que NÃO precisam de duração definida.
  */
 export const PARTS_WITHOUT_DURATION: string[] = [
-    // C�nticos
-    'C�ntico Inicial', 'C�ntico do Meio', 'C�ntico Final',
-    'Cantico Inicial', 'Cantico do Meio', 'Cantico Final',
-    // Ora��es
-    'Ora��o Inicial', 'Ora��o Final',
-    'Oracao Inicial', 'Oracao Final',
-    // Presidente
-    'Coment�rios Iniciais', 'Coment�rios Finais',
-    'Comentarios Iniciais', 'Comentarios Finais',
-    'Elogios e Conselhos',
-    'Presidente', 'Presidente da Reuni�o',
+    // Leitura EBC (concomitante)
+    'Leitor',
 ];
 
 export function isPartWithoutDuration(tituloParte: string): boolean {
@@ -705,6 +696,43 @@ export function isPartWithoutDuration(tituloParte: string): boolean {
     return PARTS_WITHOUT_DURATION.some(type =>
         tituloLower.includes(type.toLowerCase())
     );
+}
+
+// v11: Default Durations Fallback
+function applyDefaultDurations(parts: any[]): void {
+    const defaults: Record<string, number> = {
+        'comentários iniciais': 1,
+        'comentarios iniciais': 1,
+        'comentários finais': 3, // Baseado na observação visual (21:06-21:09)
+        'comentarios finais': 3,
+        'oração inicial': 5,
+        'oracao inicial': 5,
+        'oração final': 5,
+        'oracao final': 5,
+        'cântico': 5,
+        'cantico': 5,
+        'elogios': 1,
+        'conselhos': 1
+    };
+
+    parts.forEach(p => {
+        // Se já tem duração, não toca
+        const dur = typeof p.duracao === 'string' ? parseInt(p.duracao) : p.duracao;
+        if (dur && dur > 0) return;
+
+        // Tenta achar default
+        const tipo = p.tipoParte.toLowerCase();
+
+        // Match exato ou parcial
+        for (const [key, val] of Object.entries(defaults)) {
+            if (tipo.includes(key)) {
+                // Modifica em memória para passar na validação e cálculo
+                // NOTA: Isso não salva no banco, apenas permite a geração prosseguir
+                p.duracao = val;
+                // Se for string, mantém consistência? O sistema aceita number.
+            }
+        }
+    });
 }
 
 export function validatePartsBeforeGeneration(
@@ -715,9 +743,13 @@ export function validatePartsBeforeGeneration(
         weekDisplay: string;
         tituloParte: string;
         resolvedPublisherName?: string;
+        tipoParte: string; // Ensure type is present
     }>
 ): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
+
+    // Aplicar defaults em memória antes de validar
+    applyDefaultDurations(parts);
 
     parts.forEach(part => {
         if (part.funcao === 'Titular') {
@@ -731,7 +763,7 @@ export function validatePartsBeforeGeneration(
                     partId: part.id,
                     weekDisplay: part.weekDisplay,
                     partTitle: part.tituloParte,
-                    message: '\u26A0\uFE0F Parte ' + part.tituloParte + ' (' + part.weekDisplay + ') n�o tem dura��o definida'
+                    message: '\u26A0\uFE0F Parte ' + part.tituloParte + ' (' + part.weekDisplay + ') não tem duração definida'
                 });
             }
         }
@@ -739,4 +771,3 @@ export function validatePartsBeforeGeneration(
 
     return warnings;
 }
-
