@@ -11,6 +11,7 @@ import ApprovalPanel from './components/ApprovalPanel'
 import BackupRestore from './components/BackupRestore'
 import { ChatAgent } from './components/ChatAgent'
 import PowerfulAgentTab from './components/PowerfulAgentTab'
+import TerritoryManager from './components/TerritoryManager'
 
 import { workbookService } from './services/workbookService'
 import { AdminDashboard } from './pages/AdminDashboard'
@@ -18,7 +19,7 @@ import { loadCompletedParticipations } from './services/historyAdapter'
 import type { HistoryRecord } from './types'
 import { supabase } from './lib/supabase'
 
-type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'backup' | 'agent' | 'admin'
+type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('workbook')
@@ -72,7 +73,7 @@ function App() {
         console.log(`[App] Loaded ${pubs.length} publishers from DB`)
 
         // Validate saved tab
-        const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'backup', 'agent', 'admin']
+        const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'territories', 'backup', 'agent', 'admin']
         setActiveTab(validTabs.includes(savedTab) ? savedTab : 'workbook')
       } catch (error) {
         console.error("Critical error loading data", error)
@@ -322,6 +323,13 @@ function App() {
             👥 Publicadores
           </button>
           <button
+            className={`nav-btn ${activeTab === 'territories' ? 'active' : ''}`}
+            onClick={() => handleTabChange('territories')}
+            title="Gerenciar de Territórios"
+          >
+            🌍 Territórios
+          </button>
+          <button
             className={`nav-btn ${activeTab === 'backup' ? 'active' : ''}`}
             onClick={() => handleTabChange('backup')}
             title="Backup e Restauração"
@@ -401,6 +409,11 @@ function App() {
         <div style={{ display: activeTab === 'publishers' ? 'block' : 'none' }}>
           {/* ... kept hidden to save space in prompt ... */}
           {/* (Assuming user context handles surrounding lines match) */}
+        </div>
+
+        {/* Territories */}
+        <div style={{ display: activeTab === 'territories' ? 'block' : 'none' }}>
+          <TerritoryManager />
         </div>
 
         {/* Agent Tab */}
