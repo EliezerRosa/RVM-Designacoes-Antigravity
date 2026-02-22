@@ -22,13 +22,11 @@ import {
 // A API key deve ser configurada em .env.local como VITE_GEMINI_API_KEY
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
-// LISTA DE ELITE: Prioridade de modelos para tentar
 const MODEL_CANDIDATES = [
-    'gemini-2.5-flash',         // Modelo mais recente (fevereiro 2026)
     'gemini-2.0-flash',         // Versão estável 2.0
-    'gemini-flash-latest',      // Alias para o mais atual
     'gemini-2.0-flash-lite',    // Versão leve
-    'gemini-1.5-flash'          // Fallback legado (caso volte)
+    'gemini-1.5-flash-latest',  // Fallback seguro 1.5
+    'gemini-1.5-pro'            // Caso necessite de mais contexto
 ];
 
 // Cache do último modelo que funcionou para agilizar próximas chamadas
@@ -41,12 +39,10 @@ function getGeminiUrl(model: string): string {
 // SEGURANÇA: Modelos permitidos no Free Tier
 // Se tentar usar um modelo fora desta lista, o sistema bloqueará para evitar cobranças acidentais.
 const FREE_TIER_SAFE_MODELS = [
-    'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.0-flash-001',
     'gemini-2.0-flash-lite',
-    'gemini-flash-latest',
-    'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-pro',
     'gemini-1.5-flash-8b',
     'gemini-1.5-flash-001',
     'gemini-1.5-flash-002'
@@ -240,6 +236,82 @@ Esta ação remove TODAS as designações de uma semana de uma vez (muito mais e
 }
 \`\`\`
 
+8. ATUALIZAR PUBLICADOR (UPDATE_PUBLISHER):
+Use quando usuário pedir para atualizar atributos de um publicador: "mude a condição de X para Ancião", "adicione permissão de orar para Y", "o irmão Z não pode fazer parte na sexta", "defina X como inativo provisoriamente".
+É permitido atualizar N atributos de uma vez enviando todos na propriedade 'updates'.
+Os principais atributos são: 'condition' (Ancião, Servo Ministerial, Publicador Batista, Publicador Não-Batizado), 'isServing' (true/false), 'isNotQualified' (true/false) e 'notQualifiedReason', 'requestedNoParticipation' (true/false) e 'noParticipationReason'.
+Para privilégios ou disponibilidades complexas, apenas escreva o que será atualizado no 'description', mas não envie no 'updates'.
+\`\`\`json
+{
+  "type": "UPDATE_PUBLISHER",
+  "params": {
+    "publisherName": "Nome do Publicador",
+    "updates": {
+      "condition": "Ancião",
+      "isServing": true
+    }
+  },
+  "description": "Atualizando dados cadastrais do publicador..."
+}
+\`\`\`
+
+9. AJUSTAR AGENDA DE DISPONIBILIDADE (UPDATE_AVAILABILITY):
+Use quando usuário pedir o bloqueio de uma agenda para viagens, férias, etc. Ex: "o irmão Z viaja do dia X ao dia Y".
+Converta esses dias explicitamente para arrays da lista EXCLUSIVAMENTE N0 FORMATO ISO-8601 'YYYY-MM-DD'. Quando você mandar a lista \`unavailableDates\` o sistema assume que todas essas datas NÃO DEVEM RECEBER DESIGNAÇÃO. Cuidado, mande sempre os dias certos calculados. Se a o período englobar mais datas de sexta, quinta ou outros dias da reunião calcule TODAS as datas desse intervalo na Array, mas sempre com o ano primeiro.
+\`\`\`json
+{
+  "type": "UPDATE_AVAILABILITY",
+  "params": {
+    "publisherName": "Nome do Publicador",
+    "unavailableDates": ["2026-03-15", "2026-03-22"]
+  },
+  "description": "Bloqueando agenda do publicador..."
+}
+\`\`\`
+
+10. AJUSTAR REGRAS DO MOTOR (UPDATE_ENGINE_RULES):
+Use quando o Superintendente quiser mudar os pesos e critérios de designação.
+Parâmetros disponíveis no objeto 'settings':
+- BASE_SCORE (padrão: 100)
+- TIME_POWER (padrão: 1.5 - Curva de crescimento da urgência)
+- TIME_FACTOR (padrão: 8 - Força multiplicativa do tempo)
+- RECENT_PARTICIPATION_PENALTY (padrão: 20 - Penalidade por participar recente)
+- COOLDOWN_PENALTY (padrão: 1500 - Penalidade para quem fez parte na semana anterior)
+- SISTER_DEMO_PRIORITY (padrão: 50 - Bônus para irmãs nas demonstrações)
+
+\`\`\`json
+{
+  "type": "UPDATE_ENGINE_RULES",
+  "params": {
+    "settings": {
+      "TIME_FACTOR": 10,
+      "RECENT_PARTICIPATION_PENALTY": 30
+    }
+  },
+  "description": "Ajustando sensibilidade do motor de designações..."
+}
+\`\`\`
+
+11. GERENCIAR EVENTOS ESPECIAIS (MANAGE_SPECIAL_EVENT):
+Use para congressos, assembleias, visitas de SC ou boletins.
+Templates disponíveis: 'visita-sc', 'assembleia-circuito', 'congresso', 'boletim-cg', 'evento-especial'.
+Sub-ações: 'CREATE_AND_APPLY' (Cria e afeta a apostila), 'DELETE' (Remove e reverte impacto).
+
+```json
+{
+    "type": "MANAGE_SPECIAL_EVENT",
+        "params": {
+        "action": "CREATE_AND_APPLY",
+            "eventData": {
+            "week": "2026-05-18",
+                "templateId": "visita-sc",
+                    "theme": "Visita do SC - Nome do Irmão"
+        }
+    },
+    "description": "Configurando semana de visita do Superintendente..."
+}
+```
+
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown (\`\`\`json ... \`\`\`).
 `;
 
@@ -326,9 +398,12 @@ function detectContextNeeds(question: string): ContextOptions {
         q.includes('ponha') ||
         q.includes('defina') ||
         q.includes('atribua') ||
-        // Availability
+        // Availability / Update
         q.includes('disponível') ||
-        q.includes('disponibilidade')
+        q.includes('disponibilidade') ||
+        q.includes('viajar') ||
+        q.includes('férias') ||
+        q.includes('agenda')
     ) {
         options.includePublishers = true;
     }
@@ -348,7 +423,28 @@ function detectContextNeeds(question: string): ContextOptions {
         q.includes('gerar') ||
         q.includes('preencha') ||
         q.includes('complete') ||
-        q.includes('sugira') // Suggestions need rules + roster
+        q.includes('sugira') || // Suggestions need rules + roster
+        // Engine Rules
+        q.includes('regra') ||
+        q.includes('motor') ||
+        q.includes('peso') ||
+        q.includes('penalidade') ||
+        q.includes('ajuste') ||
+        // Special Events
+        q.includes('evento') ||
+        q.includes('especial') ||
+        q.includes('visita') ||
+        q.includes('sc') ||
+        q.includes('assembleia') ||
+        q.includes('congresso') ||
+        // Communication
+        q.includes('envie') ||
+        q.includes('mande') ||
+        q.includes('avise') ||
+        q.includes('notifique') ||
+        q.includes('zap') ||
+        q.includes('whatsapp') ||
+        q.includes('comunicação')
     ) {
         options.includeRules = true;
     }

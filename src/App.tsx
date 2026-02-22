@@ -12,14 +12,16 @@ import BackupRestore from './components/BackupRestore'
 import { ChatAgent } from './components/ChatAgent'
 import PowerfulAgentTab from './components/PowerfulAgentTab'
 import TerritoryManager from './components/TerritoryManager'
+import { CommunicationTab } from './components/CommunicationTab'
 
 import { workbookService } from './services/workbookService'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { loadCompletedParticipations } from './services/historyAdapter'
 import type { HistoryRecord } from './types'
 import { supabase } from './lib/supabase'
+import { updateRotationConfig } from './services/unifiedRotationService'
 
-type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin'
+type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin' | 'communication'
 
 function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('workbook')
@@ -59,14 +61,20 @@ function App() {
         console.log("Loading data from Supabase...")
 
         // Fetch data in parallel
-        const [pubs, savedTab, history] = await Promise.all([
+        const [pubs, savedTab, history, engineConfig] = await Promise.all([
           api.loadPublishers().catch(err => {
             console.warn("Failed to load publishers", err)
             return [] as Publisher[];
           }),
           api.getSetting<ActiveTab>('activeTab', 'workbook').catch(() => 'workbook' as ActiveTab),
-          loadCompletedParticipations().catch(() => [] as HistoryRecord[])
+          loadCompletedParticipations().catch(() => [] as HistoryRecord[]),
+          api.getSetting<any>('engine_config', null).catch(() => null)
         ])
+
+        if (engineConfig) {
+          console.log('[App] Applying custom engine config from DB:', engineConfig);
+          updateRotationConfig(engineConfig);
+        }
 
         setHistoryRecords(history);
         setPublishers(pubs);
@@ -199,6 +207,21 @@ function App() {
       console.log(`[App] Refreshed ${parts.length} parts`);
     } catch (err) {
       console.warn('[App] Error refreshing parts:', err);
+    }
+  };
+
+  const refreshAllData = async () => {
+    console.log('[App] Refreshing all data explicitly...');
+    try {
+      const [parts, pubs] = await Promise.all([
+        workbookService.getAll(),
+        api.loadPublishers()
+      ]);
+      setWorkbookParts(parts);
+      setPublishers(pubs);
+      console.log(`[App] Refreshed ${parts.length} parts and ${pubs.length} publishers`);
+    } catch (err) {
+      console.warn('[App] Error refreshing all data:', err);
     }
   };
 
@@ -337,6 +360,14 @@ function App() {
             💾 Backup
           </button>
           <button
+            className={`nav-btn ${activeTab === 'communication' ? 'active' : ''}`}
+            onClick={() => handleTabChange('communication')}
+            title="Hub de Comunicação"
+            style={{ position: 'relative' }}
+          >
+            💬 Comunicação
+          </button>
+          <button
             className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => handleTabChange('admin')}
             title="Admin Dashboard (Resilience)"
@@ -416,13 +447,18 @@ function App() {
           <TerritoryManager />
         </div>
 
+        {/* Communication */}
+        <div style={{ display: activeTab === 'communication' ? 'block' : 'none' }}>
+          <CommunicationTab />
+        </div>
+
         {/* Agent Tab */}
         <div style={{ display: activeTab === 'agent' ? 'block' : 'none' }}>
           {activeTab === 'agent' && <AgentTabContent
             publishers={publishers}
             workbookParts={workbookParts}
             historyRecords={historyRecords}
-            refreshWorkbookParts={refreshWorkbookParts}
+            refreshWorkbookParts={refreshAllData}
           />}
         </div>
 
