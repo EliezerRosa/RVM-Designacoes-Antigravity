@@ -304,6 +304,34 @@ export const agentActionService = {
 
                         let count = 0;
                         for (const part of weekParts) {
+                            const pType = (part.tipoParte || '').toLowerCase();
+                            const pSection = (part.section || '').toLowerCase();
+
+                            // 1. Filtros Inteligentes (User Request 2.2)
+                            // Ignorar Presidente, Cânticos e Comentários
+                            // MAS Incluir Oração Final
+                            const isAdminPart = pType.includes('presidente') ||
+                                pType.includes('cântico') ||
+                                pType.includes('cantico') ||
+                                pType.includes('comentários') ||
+                                pType.includes('comentarios');
+
+                            const isFinalPrayer = pType.includes('oração final') || pType.includes('oracao final');
+
+                            if (isAdminPart && !isFinalPrayer) {
+                                console.log(`[AgentAction] Pulando parte administrativa: ${part.tipoParte}`);
+                                continue;
+                            }
+
+                            // 2. Identificar se é Estudante (Para S-89 Image Capture - User Request 2.1)
+                            // Geralmente na seção "Faça seu melhor no ministério" ou tipos específicos
+                            const isStudent = pSection.includes('ministério') ||
+                                pSection.includes('ministerio') ||
+                                pType.includes('leitura') ||
+                                pType.includes('conversa') ||
+                                pType.includes('revisita') ||
+                                pType.includes('estudo');
+
                             const { content, phone } = communicationService.prepareS89Message(part, publishers);
 
                             await communicationService.logNotification({
@@ -313,7 +341,11 @@ export const agentActionService = {
                                 title: `S-89: ${part.tipoParte}`,
                                 content: content,
                                 status: 'PREPARED',
-                                metadata: { weekId, partId: part.id },
+                                metadata: {
+                                    weekId,
+                                    partId: part.id,
+                                    isStudent: isStudent // Flag crucial para o Hub
+                                },
                                 action_url: phone ? communicationService.generateWhatsAppUrl(phone, content) : undefined
                             });
                             count++;

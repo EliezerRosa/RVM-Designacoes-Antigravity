@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { communicationService, type NotificationRecord } from '../services/communicationService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
+import { copyS89ToClipboard } from '../services/s89Generator';
 import { supabase } from '../lib/supabase';
 
 export function CommunicationTab() {
@@ -54,6 +55,11 @@ export function CommunicationTab() {
             // 1. Se for S140, capturar imagem
             if (item.type === 'S140' && item.metadata?.weekId) {
                 await captureAndCopyS140(item.metadata.weekId);
+            }
+
+            // 1.1 Se for S89 de estudante, capturar imagem (User Request 2.1)
+            if (item.type === 'S89' && item.metadata?.isStudent && item.metadata?.partId) {
+                await captureAndCopyS89(item.metadata.partId);
             }
 
             // 2. Atualizar status no banco
@@ -142,6 +148,36 @@ export function CommunicationTab() {
         } catch (err) {
             console.error('Falha na captura automática:', err);
             // Non-blocking error, user can still send text
+        }
+    };
+
+    const captureAndCopyS89 = async (partId: string) => {
+        try {
+            // Buscar dados da parte para garantir que temos o objeto WorkbookPart completo
+            const { data: part } = await supabase
+                .from('workbook_parts')
+                .select('*')
+                .eq('id', partId)
+                .single();
+
+            if (!part) throw new Error('Part not found');
+
+            // Mapear de snake_case para camelCase (exigido pelo copyS89ToClipboard)
+            const mappedPart = {
+                id: part.id,
+                weekId: part.week_id,
+                date: part.date,
+                tipoParte: part.tipo_parte,
+                tituloParte: part.part_title,
+                modalidade: part.modalidade,
+                resolvedPublisherName: part.resolved_publisher_name,
+                rawPublisherName: part.raw_publisher_name
+            };
+
+            await copyS89ToClipboard(mappedPart as any);
+            console.log('S-89 capturado e copiado para o clipboard');
+        } catch (err) {
+            console.error('Falha na captura S-89:', err);
         }
     };
 
