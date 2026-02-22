@@ -99,28 +99,35 @@ export const communicationService = {
      * Prepara a mensagem S-89 individual
      */
     prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = []): { content: string, phone?: string } {
-        const publisherName = part.resolvedPublisherName || part.rawPublisherName;
-        const pub = publishers.find(p => p.name === publisherName);
+        const publisherName = (part.resolvedPublisherName || part.rawPublisherName || '').trim();
+        const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
 
         // Lógica de Parceiro (Titular/Ajudante)
         const isAjudante = part.funcao === 'Ajudante';
-        const pType = (part.tipoParte || '').toLowerCase();
 
         // Identificar número da parte ou contexto para achar o parceiro
         let partner: WorkbookPart | undefined;
         if (allWeekParts.length > 0) {
             // Regex simples para extrair número da parte (ex: "1. Leitura")
-            const partNumMatch = (part.tituloParte || part.tipoParte).match(/^(\d+)/);
+            const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
             const partNum = partNumMatch ? partNumMatch[1] : null;
 
             partner = allWeekParts.find(p => {
                 if (p.id === part.id) return false;
-                const otherNumMatch = (p.tituloParte || p.tipoParte).match(/^(\d+)/);
+
+                // Só considera parceiro se tiver um publicador escalado
+                if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
+
+                const otherNumMatch = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/);
                 const otherNum = otherNumMatch ? otherNumMatch[1] : null;
 
-                // Se tem número, bate pelo número. Se não, tenta pelo tipo exato (ex: Joias)
-                if (partNum && otherNum) return partNum === otherNum;
+                // Se tem número, bate pelo número E garante função oposta
+                if (partNum && otherNum && partNum === otherNum) {
+                    return p.funcao !== part.funcao;
+                }
+
+                // Fallback: mesmo tipo de parte, função necessária oposta
                 return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
             });
         }
@@ -128,7 +135,7 @@ export const communicationService = {
         const partnerName = partner ? (partner.resolvedPublisherName || partner.rawPublisherName) : undefined;
         let partnerPhone: string | undefined;
         if (partnerName) {
-            const partnerPub = publishers.find(p => p.name === partnerName);
+            const partnerPub = publishers.find(p => p.name.trim() === partnerName.trim());
             partnerPhone = partnerPub?.phone;
         }
 

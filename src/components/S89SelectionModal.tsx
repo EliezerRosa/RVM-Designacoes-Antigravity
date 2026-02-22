@@ -25,12 +25,14 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     // Filter relevant parts (have publisher assigned AND not administrative)
     const validParts = weekParts.filter((p) => {
         const pType = (p.tipoParte || '').toLowerCase();
-        const hasPublisher = p.resolvedPublisherName || p.rawPublisherName;
+        const hasPublisher = !!(p.resolvedPublisherName || p.rawPublisherName);
 
         // Regras de Filtro Inteligente (User Request 3.1)
         const isPresident = pType.includes('presidente');
+        // Elogios/Conselhos não geram card S-89 individual, são apenas feedback
         const isCounsel = pType.includes('elogios') || pType.includes('conselhos');
 
+        // Filtrar partes administrativas (Cânticos, Comentários), mas manter Oração Final
         const isAdminPart = (pType.includes('cântico') ||
             pType.includes('cantico') ||
             pType.includes('comentários') ||
@@ -43,6 +45,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
         return hasPublisher && (!isAdminPart || isFinalPrayer);
     });
+    const extractPartNumber = (titulo: string): string => {
+        const match = titulo?.match(/^(\d+)/);
+        return match ? match[1] : '';
+    };
 
     // Carregar histórico de mensagens ao abrir o modal
     useEffect(() => {
@@ -104,12 +110,6 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
     // Helper to find publisher phone
     const getPublisher = (name?: string) => publishers.find(p => p.name === name);
-
-    // Helpers for S-89 Logic (reused from ApprovalPanel logic)
-    const extractPartNumber = (titulo: string): string => {
-        const match = titulo?.match(/^(\d+)\./);
-        return match ? match[1] : '';
-    };
 
     const handleSend = async (part: WorkbookPart) => {
         setProcessingIds(prev => new Set(prev).add(part.id));
