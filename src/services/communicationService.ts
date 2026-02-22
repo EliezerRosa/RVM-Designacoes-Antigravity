@@ -38,6 +38,25 @@ export const communicationService = {
     },
 
     /**
+     * Atualiza um registro existente
+     */
+    async updateNotification(id: string, updates: Partial<NotificationRecord>): Promise<NotificationRecord> {
+        const { data, error } = await supabase
+            .from('notifications')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('[communicationService] Erro ao atualizar notificação:', error);
+            throw error;
+        }
+
+        return data;
+    },
+
+    /**
      * Lista o histórico de notificações
      */
     async getHistory(limit = 50): Promise<NotificationRecord[]> {
