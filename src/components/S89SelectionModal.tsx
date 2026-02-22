@@ -19,7 +19,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [isSharingS140, setIsSharingS140] = useState(false);
     const [s140HTML, setS140HTML] = useState<string>('');
     const [editingMessages, setEditingMessages] = useState<Record<string, string>>({});
-    const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
+    const [lastMessages, setLastMessages] = useState<Record<string, any>>({});
     const s140Ref = useRef<HTMLDivElement>(null);
 
     // Filter relevant parts (have publisher assigned AND not administrative)
@@ -27,14 +27,19 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         const pType = (p.tipoParte || '').toLowerCase();
         const hasPublisher = p.resolvedPublisherName || p.rawPublisherName;
 
-        // Regras de Filtro Inteligente (User Request 2.2)
-        const isAdminPart = pType.includes('presidente') ||
-            pType.includes('cântico') ||
+        // Regras de Filtro Inteligente (User Request 3.1)
+        const isPresident = pType.includes('presidente');
+        const isCounsel = pType.includes('elogios') || pType.includes('conselhos');
+
+        const isAdminPart = (pType.includes('cântico') ||
             pType.includes('cantico') ||
             pType.includes('comentários') ||
-            pType.includes('comentarios');
+            pType.includes('comentarios')) && !pType.includes('oração');
 
         const isFinalPrayer = pType.includes('oração final') || pType.includes('oracao final');
+
+        if (isPresident) return hasPublisher;
+        if (isCounsel) return false;
 
         return hasPublisher && (!isAdminPart || isFinalPrayer);
     });
@@ -49,10 +54,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const loadHistory = async () => {
         try {
             const history = await communicationService.getHistory(100);
-            const mapping: Record<string, string> = {};
+            const mapping: Record<string, any> = {};
             history.forEach(h => {
                 if (h.metadata?.partId) {
-                    mapping[h.metadata.partId] = h.content;
+                    mapping[h.metadata.partId] = h;
                 }
             });
             setLastMessages(mapping);
@@ -60,8 +65,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             // Inicializar mensagens de edição com o padrão se não houver no histórico
             const initialEdits: Record<string, string> = {};
             validParts.forEach(p => {
-                const { content } = communicationService.prepareS89Message(p, publishers);
-                initialEdits[p.id] = mapping[p.id] || content;
+                const { content } = communicationService.prepareS89Message(p, publishers, weekParts);
+                initialEdits[p.id] = mapping[p.id]?.content || content;
             });
             setEditingMessages(initialEdits);
         } catch (err) {
@@ -174,8 +179,11 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const url = communicationService.generateWhatsAppUrl(phone || '', message);
             window.open(url, '_blank');
 
-            // Atualizar histórico local para o tooltip
-            setLastMessages(prev => ({ ...prev, [part.id]: message }));
+            // Atualizar histórico local para o UI
+            setLastMessages(prev => ({
+                ...prev,
+                [part.id]: { content: message, created_at: new Date().toISOString() }
+            }));
 
         } catch (error) {
             console.error('Erro ao enviar S-89:', error);
@@ -339,10 +347,15 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                 {part.modalidade} {part.tituloParte ? `- ${part.tituloParte}` : ''}
                                                 {lastSent && (
                                                     <span
-                                                        title={`Última msg: ${lastSent}`}
+                                                        title={`Última msg: ${lastSent.content}`}
                                                         style={{ cursor: 'help', fontSize: '14px' }}
                                                     >
                                                         ℹ️
+                                                    </span>
+                                                )}
+                                                {lastSent?.created_at && (
+                                                    <span style={{ fontSize: '10px', color: '#10B981', background: '#ECFDF5', padding: '1px 4px', borderRadius: '4px' }}>
+                                                        Enviado em {new Date(lastSent.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 )}
                                             </div>
