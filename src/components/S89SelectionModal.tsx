@@ -4,6 +4,8 @@ import type { WorkbookPart, Publisher } from '../types';
 import { sendS89ViaWhatsApp, copyS89ToClipboard } from '../services/s89Generator';
 import html2canvas from 'html2canvas';
 
+import { communicationService } from '../services/communicationService';
+
 interface S89SelectionModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -16,14 +18,56 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [isSharingS140, setIsSharingS140] = useState(false);
     const [s140HTML, setS140HTML] = useState<string>('');
+    const [editingMessages, setEditingMessages] = useState<Record<string, string>>({});
+    const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
     const s140Ref = useRef<HTMLDivElement>(null);
 
-    // Helpers need to be defined before we might use them or return, 
-    // BUT since they are just functions, they can stay here or move.
-    // However, the Effect uses weekParts, so let's define the Effect and State first.
+    // Filter relevant parts (have publisher assigned AND not administrative)
+    const validParts = weekParts.filter((p) => {
+        const pType = (p.tipoParte || '').toLowerCase();
+        const hasPublisher = p.resolvedPublisherName || p.rawPublisherName;
 
-    // Filter relevant parts (have publisher assigned)
-    const validParts = weekParts.filter((p) => p.resolvedPublisherName || p.rawPublisherName);
+        // Regras de Filtro Inteligente (User Request 2.2)
+        const isAdminPart = pType.includes('presidente') ||
+            pType.includes('cântico') ||
+            pType.includes('cantico') ||
+            pType.includes('comentários') ||
+            pType.includes('comentarios');
+
+        const isFinalPrayer = pType.includes('oração final') || pType.includes('oracao final');
+
+        return hasPublisher && (!isAdminPart || isFinalPrayer);
+    });
+
+    // Carregar histórico de mensagens ao abrir o modal
+    useEffect(() => {
+        if (isOpen) {
+            loadHistory();
+        }
+    }, [isOpen, weekId]);
+
+    const loadHistory = async () => {
+        try {
+            const history = await communicationService.getHistory(100);
+            const mapping: Record<string, string> = {};
+            history.forEach(h => {
+                if (h.metadata?.partId) {
+                    mapping[h.metadata.partId] = h.content;
+                }
+            });
+            setLastMessages(mapping);
+
+            // Inicializar mensagens de edição com o padrão se não houver no histórico
+            const initialEdits: Record<string, string> = {};
+            validParts.forEach(p => {
+                const { content } = communicationService.prepareS89Message(p, publishers);
+                initialEdits[p.id] = mapping[p.id] || content;
+            });
+            setEditingMessages(initialEdits);
+        } catch (err) {
+            console.error('Erro ao carregar histórico no modal:', err);
+        }
+    };
 
     // Async Generation of S-140 HTML for Sharing
     // IMPORTANT: Dependencies must be consistent.
@@ -91,16 +135,47 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
             }
 
-            // Copy to clipboard first (High Fidelity Image)
-            // Note: For Assistant parts, this uses the assistant as the 'Student Name' on the card, consistent with current service behavior.
-            const success = await copyS89ToClipboard(part, assistantName);
-            if (!success) {
-                alert('Erro ao gerar imagem do cartão S-89.');
-                return;
+            const message = editingMessages[part.id];
+
+            // 1. Identificar se é Estudante (Para Image Capture)
+            const pType = (part.tipoParte || '').toLowerCase();
+            const pSection = (part.section || '').toLowerCase();
+            const isStudent = pSection.includes('ministério') ||
+                pSection.includes('ministerio') ||
+                pType.includes('leitura') ||
+                pType.includes('conversa') ||
+                pType.includes('revisita') ||
+                pType.includes('estudo');
+
+            // 2. Capturar imagem se for estudante
+            if (isStudent) {
+                const success = await copyS89ToClipboard(part, assistantName);
+                if (!success) {
+                    console.warn('Falha ao gerar imagem do cartão S-89. Continuando apenas com texto.');
+                }
             }
 
-            // Send WhatsApp
-            sendS89ViaWhatsApp(part, assistantName, phone, isAjudante, titularName);
+            // 3. Registrar no histórico de notificações
+            await communicationService.logNotification({
+                type: 'S89',
+                recipient_name: publisherName,
+                recipient_phone: phone,
+                title: `S-89: ${part.tipoParte}`,
+                content: message,
+                status: 'SENT',
+                metadata: {
+                    weekId,
+                    partId: part.id,
+                    isStudent: isStudent
+                }
+            });
+
+            // 4. Abrir WhatsApp
+            const url = communicationService.generateWhatsAppUrl(phone || '', message);
+            window.open(url, '_blank');
+
+            // Atualizar histórico local para o tooltip
+            setLastMessages(prev => ({ ...prev, [part.id]: message }));
 
         } catch (error) {
             console.error('Erro ao enviar S-89:', error);
@@ -248,34 +323,63 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     </div>
 
                     {validParts.length === 0 ? (
-                        <div style={{ color: '#6B7280', textAlign: 'center', padding: '20px' }}>Nenhuma designação com publicador nesta semana.</div>
+                        <div style={{ color: '#6B7280', textAlign: 'center', padding: '20px' }}>Nenhuma designação relevante nesta semana.</div>
                     ) : (
                         validParts.map(part => {
                             const isProcessing = processingIds.has(part.id);
+                            const lastSent = lastMessages[part.id];
                             return (
                                 <div key={part.id} style={{
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                    display: 'flex', flexDirection: 'column', gap: '8px',
                                     padding: '12px', borderRadius: '8px', border: '1px solid #E5E7EB', background: '#fff'
                                 }}>
-                                    <div>
-                                        <div style={{ fontWeight: '600', color: '#374151', fontSize: '0.9em' }}>{part.modalidade} {part.tituloParte ? `- ${part.tituloParte}` : ''}</div>
-                                        <div style={{ fontSize: '0.85em', color: '#6B7280' }}>
-                                            👤 {part.resolvedPublisherName || part.rawPublisherName}
-                                            {part.funcao === 'Ajudante' && <span style={{ marginLeft: '4px', background: '#E0E7FF', color: '#3730A3', padding: '1px 4px', borderRadius: '4px', fontSize: '0.9em' }}>Ajudante</span>}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <div style={{ fontWeight: '600', color: '#374151', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                {part.modalidade} {part.tituloParte ? `- ${part.tituloParte}` : ''}
+                                                {lastSent && (
+                                                    <span
+                                                        title={`Última msg: ${lastSent}`}
+                                                        style={{ cursor: 'help', fontSize: '14px' }}
+                                                    >
+                                                        ℹ️
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div style={{ fontSize: '0.85em', color: '#6B7280' }}>
+                                                👤 {part.resolvedPublisherName || part.rawPublisherName}
+                                                {part.funcao === 'Ajudante' && <span style={{ marginLeft: '4px', background: '#E0E7FF', color: '#3730A3', padding: '1px 4px', borderRadius: '4px', fontSize: '0.9em' }}>Ajudante</span>}
+                                            </div>
                                         </div>
+                                        <button
+                                            onClick={() => handleSend(part)}
+                                            disabled={isProcessing}
+                                            style={{
+                                                background: '#25D366', color: 'white', border: 'none',
+                                                padding: '8px 12px', borderRadius: '6px', cursor: isProcessing ? 'wait' : 'pointer',
+                                                fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                                opacity: isProcessing ? 0.7 : 1
+                                            }}
+                                        >
+                                            {isProcessing ? '⏳...' : 'Zap 📤'}
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => handleSend(part)}
-                                        disabled={isProcessing}
+                                    <textarea
+                                        value={editingMessages[part.id] || ''}
+                                        onChange={(e) => setEditingMessages(prev => ({ ...prev, [part.id]: e.target.value }))}
                                         style={{
-                                            background: '#25D366', color: 'white', border: 'none',
-                                            padding: '8px 12px', borderRadius: '6px', cursor: isProcessing ? 'wait' : 'pointer',
-                                            fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
-                                            opacity: isProcessing ? 0.7 : 1
+                                            width: '100%',
+                                            fontSize: '11px',
+                                            border: '1px solid #E5E7EB',
+                                            borderRadius: '4px',
+                                            padding: '8px',
+                                            fontFamily: 'inherit',
+                                            resize: 'vertical',
+                                            minHeight: '60px',
+                                            background: '#F9FAFB'
                                         }}
-                                    >
-                                        {isProcessing ? '⏳...' : 'Zap 📤'}
-                                    </button>
+                                        placeholder="Carregando mensagem..."
+                                    />
                                 </div>
                             );
                         })
