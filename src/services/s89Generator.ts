@@ -129,17 +129,20 @@ export function downloadS89(bytes: Uint8Array, filename: string) {
 /**
  * Gera mensagem para WhatsApp
  * @param part A parte da reunião
- * @param assistantName Nome do ajudante (quando a parte é de titular)
- * @param isForAssistant Se true, a mensagem é para o ajudante (não para o titular)
- * @param titularName Nome do titular (quando a mensagem é para o ajudante)
+ * @param recipientGender Gênero do destinatário ('brother' | 'sister')
+ * @param partnerName Nome do parceiro (ajudante se titular, titular se ajudante)
+ * @param partnerPhone Telefone do parceiro
+ * @param isForAssistant Se true, a mensagem é para o ajudante
  */
 export function generateWhatsAppMessage(
     part: WorkbookPart,
-    assistantName?: string,
-    isForAssistant: boolean = false,
-    titularName?: string
+    recipientGender: 'brother' | 'sister' = 'brother',
+    partnerName?: string,
+    partnerPhone?: string,
+    isForAssistant: boolean = false
 ): string {
     const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
+    const salutation = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
 
     // Calcular quinta-feira da semana (igual ao S-89)
     let displayDate = part.date;
@@ -160,24 +163,34 @@ export function generateWhatsAppMessage(
     }
 
     let emoji = '📅';
-    if (part.tipoParte.toLowerCase().includes('leitura')) emoji = '📖';
-    if (part.tipoParte.toLowerCase().includes('iniciando')) emoji = '🗣️';
-    if (part.tipoParte.toLowerCase().includes('cultivando')) emoji = '🌱';
-    if (part.tipoParte.toLowerCase().includes('fazendo')) emoji = '📚';
+    const pType = part.tipoParte.toLowerCase();
+    if (pType.includes('leitura')) emoji = '📖';
+    if (pType.includes('iniciando') || pType.includes('conversa')) emoji = '🗣️';
+    if (pType.includes('cultivando') || pType.includes('revisita')) emoji = '🌱';
+    if (pType.includes('fazendo') || pType.includes('estudo')) emoji = '📚';
+    if (pType.includes('presidente')) emoji = '👔';
+    if (pType.includes('oração')) emoji = '🙏';
 
-    let msg: string;
+    let msg = `Olá *${salutation} ${studentName}*! 👋\n\n`;
 
-    if (isForAssistant && titularName) {
+    if (isForAssistant && partnerName) {
         // Mensagem para o AJUDANTE
-        msg = `Olá *${studentName}*! 👋\n\nVocê foi designado(a) como *ajudante* para a reunião de *${displayDate}*:\n\n${emoji} *Parte:* ${part.tipoParte}`;
+        msg += `Você foi designado(a) como *ajudante* para a reunião de *${displayDate}*:\n\n${emoji} *Parte:* ${part.tipoParte}`;
         if (part.tituloParte) msg += `\n📝 *Tema:* ${part.tituloParte}`;
-        msg += `\n👤 *Titular:* ${titularName}`;
+        msg += `\n👤 *Titular:* ${partnerName}`;
+        if (partnerPhone) msg += `\n📱 *Telefone do Titular:* ${partnerPhone}`;
         msg += `\n\nPor favor, entre em contato com o titular para ensaiar.`;
     } else {
         // Mensagem para o TITULAR
-        msg = `Olá *${studentName}*! 👋\n\nSegue sua designação para a reunião de *${displayDate}*:\n\n${emoji} *Parte:* ${part.tipoParte}`;
+        msg += `Segue sua designação para a reunião de *${displayDate}*:\n\n${emoji} *Parte:* ${part.tipoParte}`;
         if (part.tituloParte) msg += `\n📝 *Tema:* ${part.tituloParte}`;
-        if (assistantName) msg += `\n👥 *Ajudante:* ${assistantName}`;
+
+        if (partnerName) {
+            msg += `\n👥 *Ajudante:* ${partnerName}`;
+            if (partnerPhone) msg += `\n📱 *Telefone do Ajudante:* ${partnerPhone}`;
+            msg += `\n\nPor favor, entre em contato com o ajudante para ensaiar.`;
+        }
+
         msg += `\n\nPor favor, confirme o recebimento.\nBom preparo!`;
     }
 
@@ -199,12 +212,13 @@ function formatPhoneForWhatsApp(phone: string): string {
 
 export function openWhatsApp(
     part: WorkbookPart,
-    assistantName?: string,
+    recipientGender: 'brother' | 'sister' = 'brother',
+    partnerName?: string,
+    partnerPhone?: string,
     phone?: string,
-    isForAssistant: boolean = false,
-    titularName?: string
+    isForAssistant: boolean = false
 ) {
-    const message = generateWhatsAppMessage(part, assistantName, isForAssistant, titularName);
+    const message = generateWhatsAppMessage(part, recipientGender, partnerName, partnerPhone, isForAssistant);
     const encoded = encodeURIComponent(message);
 
     // Se tiver telefone, abre direto para o número
@@ -223,14 +237,15 @@ export function openWhatsApp(
  */
 export async function sendS89ViaWhatsApp(
     part: WorkbookPart,
-    assistantName?: string,
+    recipientGender: 'brother' | 'sister' = 'brother',
+    partnerName?: string,
+    partnerPhone?: string,
     phone?: string,
-    isForAssistant: boolean = false,
-    titularName?: string
+    isForAssistant: boolean = false
 ): Promise<void> {
     try {
         // 1. Gerar e baixar o S-89
-        const pdfBytes = await generateS89(part, assistantName);
+        const pdfBytes = await generateS89(part, (isForAssistant ? undefined : partnerName)); // Note: Assistant on card is assistantName
         const fileName = `S-89_${part.date}_${part.resolvedPublisherName || part.rawPublisherName}.pdf`;
         downloadS89(pdfBytes, fileName);
 
@@ -238,7 +253,7 @@ export async function sendS89ViaWhatsApp(
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // 3. Abrir WhatsApp com mensagem pronta
-        openWhatsApp(part, assistantName, phone, isForAssistant, titularName);
+        openWhatsApp(part, recipientGender, partnerName, partnerPhone, phone, isForAssistant);
     } catch (error) {
         console.error('Erro ao enviar S-89 via WhatsApp:', error);
         throw error;

@@ -333,7 +333,7 @@ export const agentActionService = {
                                 pType.includes('revisita') ||
                                 pType.includes('estudo');
 
-                            const { content, phone } = communicationService.prepareS89Message(part, publishers);
+                            const { content, phone } = communicationService.prepareS89Message(part, publishers, weekParts);
 
                             await communicationService.logNotification({
                                 type: 'S89',
