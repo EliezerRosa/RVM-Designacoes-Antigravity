@@ -286,7 +286,8 @@ export const agentActionService = {
 
                         return {
                             success: true,
-                            message: `**Programação Preparada:** A mensagem para o grupo de Anciãos (Semana ${weekId}) foi gerada e está disponível no Hub de Comunicação.`,
+                            message: `**Programação da Semana ${weekId}**: Abrindo ferramenta de envio...`,
+                            data: { weekId, openModal: true },
                             actionType: 'SEND_S140'
                         };
                     } catch (e) {
@@ -353,7 +354,8 @@ export const agentActionService = {
 
                         return {
                             success: true,
-                            message: `**Cartões S-89 Preparados:** Foram geradas ${count} notificações para os designados da semana ${weekId}. Acesse o Hub de Comunicação para disparar os envios.`,
+                            message: `**Designações da Semana ${weekId}**: Abrindo ferramenta de cartões...`,
+                            data: { weekId, openModal: true },
                             actionType: 'SEND_S89'
                         };
                     } catch (e) {
