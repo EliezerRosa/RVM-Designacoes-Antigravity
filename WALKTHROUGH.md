@@ -16,13 +16,15 @@
 | 👥 Publicadores | `PublisherList.tsx` | Cadastro e gestão |
 | 💾 Backup | `BackupRestore.tsx` | Exportação/importação completa |
 | 📊 Admin | `AdminDashboard.tsx` | Monitoramento de custos e saúde |
-| 🤖 Agente | `PowerfulAgentTab.tsx` | Chat IA + S-140 + Painel de Controle |
+| 🤖 Agente | `PowerfulAgentTab.tsx` | Chat IA + Painel de Controle + Scores |
+| 💬 Comunicação | `CommunicationTab.tsx` | Hub de histórico e envio de mensagens |
 
 ### Fluxo de Dados
 1. **Importação**: Excel → `WorkbookPart` (status: `PENDENTE`).
 2. **Geração**: Motor (`generationService.ts`) → `resolvedPublisherName` (status: `PROPOSTA`).
 3. **Aprovação**: Ancião confirma → status: `APROVADA`/`DESIGNADA`.
-4. **Histórico**: Derivado de `workbook_parts` concluídas via `historyAdapter.ts`.
+4. **Comunicação**: Agente ou Humano → `SEND_S140`/`S89` → `notifications` (Supabase).
+5. **Histórico**: Derivado de `workbook_parts` concluídas via `historyAdapter.ts`.
 
 ### Componentes-Chave
 
@@ -30,18 +32,37 @@
 |---|---|
 | `App.tsx` | Estado global, realtime sync, roteamento de abas |
 | `workbookService.ts` | CRUD de partes + paginação Supabase |
+| `communicationService.ts` | Registro e preparação de mensagens (Zap) |
 | `generationService.ts` | Motor de designação (rodízio + elegibilidade) |
-| `mappings.ts` | Constantes centralizadas (tipos, modalidades, filtros) |
-| `s140GeneratorUnified.ts` | Geração de S-140 Room B A4 |
-| `cooldownService.ts` | Lógica de rodízio baseada em histórico |
+| `agentActionService.ts` | Tradução de intenções do Agente em comandos (v10) |
 
-### Agente RVM (PowerfulAgentTab)
-Layout de 3 colunas:
-1. **S-140 Preview** (`S140PreviewCarousel.tsx`) — Navegação visual por semana.
-2. **Chat Temporal** (`TemporalChat.tsx`) — IA com contexto de publicadores, partes e histórico.
-3. **Painel de Controle** (`ActionControlPanel.tsx`) — Scores, explicações e ações.
+### Agente RVM (Fase 3 - Habilidades Comunicativas)
+O Agente agora possui "braços" para agir fora do banco de dados:
+- **`SEND_S140`**: Prepara a mensagem do grupo da semana e registra no Hub.
+- **`SEND_S89`**: Prepara cartões individuais e gera links diretos para o WhatsApp.
+- **`UPDATE_AVAILABILITY`**: Registra datas de viagem e bloqueia o motor automaticamente.
+
+### Infraestrutura Necessária (SQL)
+Caso a tabela de notificações não exista, execute este SQL no editor do Supabase:
+```sql
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    type TEXT NOT NULL,
+    recipient_name TEXT NOT NULL,
+    recipient_phone TEXT,
+    title TEXT,
+    content TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'PREPARED',
+    metadata JSONB DEFAULT '{}'::jsonb,
+    action_url TEXT
+);
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Permitir leitura para autenticados" ON public.notifications FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Permitir inserção para autenticados" ON public.notifications FOR INSERT TO authenticated WITH CHECK (true);
+```
 
 ### Deploy
-- **Hospedagem**: GitHub Pages.
-- **CI/CD**: GitHub Actions (`deploy.yml`) — build + deploy automático no push para `main`.
-- **API IA**: Serverless Function protegendo a chave Gemini.
+- **Hospedagem**: Vercel.
+- **CI/CD**: GitHub Actions — build + deploy automático no push para `main`.
+- **Dica de Build**: Se o build falhar com "Unexpected character" ou "Stream error", limpe o cache (`rm -rf node_modules/.vite`) e verifique se os arquivos de serviço estão salvos como UTF-8 sem BOM.

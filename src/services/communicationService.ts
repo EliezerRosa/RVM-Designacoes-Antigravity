@@ -58,7 +58,7 @@ export const communicationService = {
     /**
      * Prepara a mensagem de S-140 para o Agente
      */
-    prepareS140Message(weekId: string, parts: WorkbookPart[]): string {
+    prepareS140Message(weekId: string, _parts: WorkbookPart[]): string {
         // Encontrar a data da reunião (Quinta-feira)
         const dateParts = weekId.split('-');
         let displayDate = weekId;
@@ -83,8 +83,6 @@ export const communicationService = {
         const publisherName = part.resolvedPublisherName || part.rawPublisherName;
         const pub = publishers.find(p => p.name === publisherName);
 
-        // Ajudante logic
-        // (Simplificado para o Agente por enquanto)
         const content = generateWhatsAppMessage(part);
 
         return {
@@ -98,10 +96,10 @@ export const communicationService = {
      */
     generateWhatsAppUrl(phone: string, message: string): string {
         const encoded = encodeURIComponent(message);
-        let cleanedPhone = phone.replace(/[^0-9]/g, '');
-        if (cleanedPhone.length <= 11 && !cleanedPhone.startsWith('55')) {
+        let cleanedPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+        if (cleanedPhone && cleanedPhone.length <= 11 && !cleanedPhone.startsWith('55')) {
             cleanedPhone = '55' + cleanedPhone;
         }
-        return `https://web.whatsapp.com/send?phone=${cleanedPhone}&text=${encoded}`;
+        return `https://web.whatsapp.com/send?${cleanedPhone ? 'phone=' + cleanedPhone + '&' : ''}text=${encoded}`;
     }
 };
