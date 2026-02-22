@@ -85,14 +85,38 @@ export function CommunicationTab() {
         // Lógica portada do TemporalChat
         try {
             // Buscar as partes da semana (precisamos delas para renderizar)
-            const { data: parts } = await supabase
+            // Nota: O banco usa week_id (snake_case)
+            const { data: rawParts } = await supabase
                 .from('workbook_parts')
                 .select('*')
-                .eq('weekId', weekId);
+                .eq('week_id', weekId);
 
-            if (!parts || parts.length === 0) throw new Error('Week parts not found');
+            if (!rawParts || rawParts.length === 0) throw new Error('Week parts not found');
 
-            const weekData = await prepareS140UnifiedData(parts);
+            // Mapear de snake_case (DB) para camelCase (Frontend types)
+            const parts = rawParts.map(p => ({
+                id: p.id,
+                batchId: p.batch_id,
+                seq: p.seq,
+                weekId: p.week_id,
+                weekDisplay: p.week_display,
+                date: p.date,
+                section: p.section,
+                tipoParte: p.tipo_parte,
+                partTitle: p.part_title,
+                descricao: p.descricao,
+                detalhesParte: p.detalhes_parte,
+                funcao: p.funcao,
+                duracao: p.duracao,
+                horaInicio: p.hora_inicio,
+                horaFim: p.hora_fim,
+                status: p.status,
+                rawPublisherName: p.raw_publisher_name,
+                resolvedPublisherName: p.resolved_publisher_name,
+                resolvedPublisherId: p.resolved_publisher_id
+            }));
+
+            const weekData = await prepareS140UnifiedData(parts as any);
             const element = renderS140ToElement(weekData);
 
             element.style.position = 'absolute';
