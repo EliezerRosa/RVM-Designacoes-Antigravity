@@ -9,8 +9,8 @@
 import type { Publisher, HistoryRecord } from '../types';
 import { isBlocked } from './cooldownService';
 
-// ===== CONFIGURAÇÃO DE PESOS =====
-const SCORING_CONFIG = {
+// ===== CONFIGURAÇÃO DE PESOS (DINÂMICA) =====
+let CURRENT_SCORING_CONFIG = {
     BASE_SCORE: 100,
     // FÓRMULA EXPONENCIAL: Score = Base + (Weeks^POWER * FACTOR)
     // Isso cria uma "Gravidade" que aumenta drasticamente quanto mais tempo se espera.
@@ -27,6 +27,18 @@ const SCORING_CONFIG = {
     // Limites
     MAX_LOOKBACK_WEEKS: 52, // Olhar no máximo 1 ano para trás
 };
+
+/**
+ * Atualiza a configuração do motor em tempo real
+ */
+export function updateRotationConfig(newConfig: Partial<typeof CURRENT_SCORING_CONFIG>) {
+    console.log('[Rotation] Updating config:', newConfig);
+    CURRENT_SCORING_CONFIG = { ...CURRENT_SCORING_CONFIG, ...newConfig };
+}
+
+export function getRotationConfig() {
+    return { ...CURRENT_SCORING_CONFIG };
+}
 
 // Partes que não contam para estatísticas ou histórico do publicador
 export const EXCLUDED_STATS_PARTS = [
@@ -107,7 +119,7 @@ export function calculateScore(
     currentPresident?: string // Novo argumento opcional
 ): RotationScore {
     const details = {
-        base: SCORING_CONFIG.BASE_SCORE,
+        base: CURRENT_SCORING_CONFIG.BASE_SCORE,
         timeBonus: 0,
         frequencyPenalty: 0,
         cooldownPenalty: 0, // v10
@@ -142,7 +154,7 @@ export function calculateScore(
     });
 
     const lastParticipation = specificHistory[0]; // Agora é ESPECÍFICO
-    let weeksSinceLast = SCORING_CONFIG.MAX_LOOKBACK_WEEKS; // Default para "nunca participou recentemente"
+    let weeksSinceLast = CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS; // Default para "nunca participou recentemente"
 
     if (lastParticipation) {
         const lastDate = new Date(lastParticipation.date);
@@ -152,8 +164,8 @@ export function calculateScore(
     }
 
     // Cap no lookback para não inflar infinitamente
-    if (weeksSinceLast > SCORING_CONFIG.MAX_LOOKBACK_WEEKS) {
-        weeksSinceLast = SCORING_CONFIG.MAX_LOOKBACK_WEEKS;
+    if (weeksSinceLast > CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS) {
+        weeksSinceLast = CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS;
     }
 
     // 2. CÁLCULO CIENTÍFICO: Tempo (Exponencial) - Baseado no ESPECÍFICO
@@ -161,7 +173,7 @@ export function calculateScore(
     // Ex: 4 semanas = 8 * 10 = 80 pts
     // Ex: 8 semanas = 22.6 * 10 = 226 pts (A urgência quase triplica, não apenas dobra!)
     // Usamos Math.pow para a curva
-    details.timeBonus = Math.round(Math.pow(weeksSinceLast, SCORING_CONFIG.TIME_POWER) * SCORING_CONFIG.TIME_FACTOR);
+    details.timeBonus = Math.round(Math.pow(weeksSinceLast, CURRENT_SCORING_CONFIG.TIME_POWER) * CURRENT_SCORING_CONFIG.TIME_FACTOR);
 
     // 3. Calcular Penalidade de Frequência (Participações recentes - 12 semanas)
     // Penaliza quem fez MUITAS partes recentemente, mesmo que a última tenha sido há algumas semanas.
@@ -171,13 +183,13 @@ export function calculateScore(
     const recentDateStr = recentCutoff.toISOString().split('T')[0];
 
     const recentCount = generalHistory.filter(h => h.date >= recentDateStr).length;
-    details.frequencyPenalty = recentCount * SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
+    details.frequencyPenalty = recentCount * CURRENT_SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
 
     // 4. Bônus de Função / Regras Específicas
     // Exemplo: Irmãs em demonstrações (Regra v8.3)
     const isDemonstration = partType.toLowerCase().includes('demonstra') || partType.toLowerCase().includes('estudante');
     if (isDemonstration && publisher.gender === 'sister') {
-        details.roleBonus += SCORING_CONFIG.SISTER_DEMO_PRIORITY;
+        details.roleBonus += CURRENT_SCORING_CONFIG.SISTER_DEMO_PRIORITY;
         details.specificAdjustments.push('Prioridade Irmã (Demo)');
     }
 
@@ -190,7 +202,7 @@ export function calculateScore(
     // 5. v10: Penalidade de Cooldown (BLOQUEIO SUAVE)
     const blocked = isBlocked(publisher.name, history, referenceDate);
     if (blocked) {
-        details.cooldownPenalty = SCORING_CONFIG.COOLDOWN_PENALTY;
+        details.cooldownPenalty = CURRENT_SCORING_CONFIG.COOLDOWN_PENALTY;
         details.specificAdjustments.push('Cooldown Ativo');
     }
 
@@ -201,7 +213,7 @@ export function calculateScore(
     // Gerar explicação legível (Científica)
     const explanationParts = [
         `Base: ${details.base}`,
-        `Tempo Exp: +${details.timeBonus} (${weeksSinceLast}^${SCORING_CONFIG.TIME_POWER})`,
+        `Tempo Exp: +${details.timeBonus} (${weeksSinceLast}^${CURRENT_SCORING_CONFIG.TIME_POWER})`,
         `Freq: -${details.frequencyPenalty}`,
     ];
     if (details.cooldownPenalty > 0) explanationParts.push(`Cooldown: -${details.cooldownPenalty}`);
@@ -327,4 +339,4 @@ export function generateNaturalLanguageExplanation(
 }
 
 // Exportar configuração para uso em UI se necessário
-export const ROTATION_CONFIG = SCORING_CONFIG;
+export const ROTATION_CONFIG = CURRENT_SCORING_CONFIG;

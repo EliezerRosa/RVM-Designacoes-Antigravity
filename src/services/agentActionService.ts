@@ -16,6 +16,12 @@ export type AgentActionType =
     | 'SHARE_S140_WHATSAPP'
     | 'CHECK_SCORE' // Nova Tool
     | 'CLEAR_WEEK'
+    | 'UPDATE_PUBLISHER' // Nova Tool
+    | 'UPDATE_AVAILABILITY' // Nova Tool
+    | 'UPDATE_ENGINE_RULES' // Nova Tool
+    | 'MANAGE_SPECIAL_EVENT' // Nova Tool
+    | 'SEND_S140' // Nova Tool - Fase 3
+    | 'SEND_S89' // Nova Tool - Fase 3
     // Legacy support for transition (optional)
     | 'SIMULATE_ASSIGNMENT';
 
@@ -39,7 +45,7 @@ export const agentActionService = {
     detectAction(responseContent: string): AgentAction | null {
         // Try to find JSON block
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK)"[\s\S]*}/);
+            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK|UPDATE_PUBLISHER|UPDATE_AVAILABILITY|UPDATE_ENGINE_RULES|MANAGE_SPECIAL_EVENT|SEND_S140|SEND_S89)"[\s\S]*}/);
 
         if (jsonMatch) {
             try {
@@ -157,6 +163,234 @@ export const agentActionService = {
                         message: `${clearedCount} designações removidas da semana ${clearWeekId}.`,
                         actionType: 'CLEAR_WEEK'
                     };
+                }
+
+                case 'UPDATE_PUBLISHER': {
+                    const { publisherName, updates } = action.params;
+                    if (!publisherName || !updates) {
+                        return { success: false, message: 'Faltam parâmetros: publisherName ou updates.' };
+                    }
+
+                    const pub = publishers.find(p => p.name.toLowerCase().includes(publisherName.toLowerCase().trim()));
+                    if (!pub) {
+                        return { success: false, message: `Publicador "${publisherName}" não encontrado na base de dados.` };
+                    }
+
+                    try {
+                        const { api } = await import('./api');
+                        const updatedPub = { ...pub, ...updates };
+
+                        await api.updatePublisher(updatedPub);
+
+                        return {
+                            success: true,
+                            message: `**Atualização Concluída:** Dados de **${pub.name}** foram alterados com sucesso!`,
+                            data: updatedPub,
+                            actionType: 'UPDATE_PUBLISHER'
+                        };
+                    } catch (e) {
+                        console.error('[AgentAction] Fail to update publisher', e);
+                        return { success: false, message: `Erro ao atualizar publicador: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
+                }
+
+                case 'UPDATE_AVAILABILITY': {
+                    const { publisherName, unavailableDates } = action.params;
+                    if (!publisherName || !unavailableDates || !Array.isArray(unavailableDates)) {
+                        return { success: false, message: 'Faltam parâmetros: publisherName ou unavailableDates (Array de strings).' };
+                    }
+
+                    const pub = publishers.find(p => p.name.toLowerCase().includes(publisherName.toLowerCase().trim()));
+                    if (!pub) {
+                        return { success: false, message: `Publicador "${publisherName}" não encontrado para bloquar as datas.` };
+                    }
+
+                    try {
+                        const { api } = await import('./api');
+
+                        // Atualizando mantendo modo `always` implícito (Padrão para quem está bloqueando datas específicas)
+                        const updatedPub = {
+                            ...pub,
+                            availability: {
+                                ...pub.availability,
+                                exceptionDates: unavailableDates // Substituído ou mesclado dependendo da lógica do JSON do modelo, ideal é que o prompt peça o status completo.
+                            }
+                        };
+
+                        await api.updatePublisher(updatedPub);
+
+                        return {
+                            success: true,
+                            message: `**Agenda Atualizada:** As seguintes datas **(${unavailableDates.join(', ')})** foram marcadas como indisponíveis para **${pub.name}**!`,
+                            data: updatedPub,
+                            actionType: 'UPDATE_AVAILABILITY'
+                        };
+
+                    } catch (e) {
+                        console.error('[AgentAction] Fail to update availability', e);
+                        return { success: false, message: `Erro ao ajustar agenda: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
+                }
+
+                case 'UPDATE_ENGINE_RULES': {
+                    const { settings } = action.params;
+                    if (!settings || typeof settings !== 'object') {
+                        return { success: false, message: 'Faltam os parâmetros de configuração (objeto settings).' };
+                    }
+
+                    try {
+                        const { api } = await import('./api');
+                        const { updateRotationConfig, getRotationConfig } = await import('./unifiedRotationService');
+
+                        // 1. Persistir no banco
+                        const currentGlobalConfig = getRotationConfig();
+                        const mergedConfig = { ...currentGlobalConfig, ...settings };
+
+                        await api.setSetting('engine_config', mergedConfig);
+
+                        // 2. Aplicar em memória imediatamente
+                        updateRotationConfig(settings);
+
+                        return {
+                            success: true,
+                            message: `**Configuração do Motor Atualizada:** As novas regras foram aplicadas com sucesso e persistidas no banco.`,
+                            data: settings,
+                            actionType: 'UPDATE_ENGINE_RULES'
+                        };
+                    } catch (e) {
+                        console.error('[AgentAction] Fail to update engine rules', e);
+                        return { success: false, message: `Erro ao atualizar regras do motor: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
+                }
+
+                case 'SEND_S140': {
+                    const { weekId } = action.params;
+                    const { communicationService } = await import('./communicationService');
+
+                    if (!weekId) return { success: false, message: 'Semana não especificada.' };
+
+                    try {
+                        const weekParts = parts.filter(p => p.weekId === weekId);
+                        const message = communicationService.prepareS140Message(weekId, weekParts);
+
+                        await communicationService.logNotification({
+                            type: 'S140',
+                            recipient_name: 'Grupo de Anciãos e Servos',
+                            title: `Programação da Semana ${weekId}`,
+                            content: message,
+                            status: 'PREPARED',
+                            metadata: { weekId },
+                            action_url: communicationService.generateWhatsAppUrl('', message)
+                        });
+
+                        return {
+                            success: true,
+                            message: `**Programação Preparada:** A mensagem para o grupo de Anciãos (Semana ${weekId}) foi gerada e está disponível no Hub de Comunicação.`,
+                            actionType: 'SEND_S140'
+                        };
+                    } catch (e) {
+                        return { success: false, message: `Erro ao preparar S-140: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
+                }
+
+                case 'SEND_S89': {
+                    const { weekId } = action.params;
+                    const { communicationService } = await import('./communicationService');
+
+                    if (!weekId) return { success: false, message: 'Semana não especificada.' };
+
+                    try {
+                        const weekParts = parts.filter(p => p.weekId === weekId && (p.resolvedPublisherName || p.rawPublisherName));
+
+                        let count = 0;
+                        for (const part of weekParts) {
+                            const { content, phone } = communicationService.prepareS89Message(part, publishers);
+
+                            await communicationService.logNotification({
+                                type: 'S89',
+                                recipient_name: part.resolvedPublisherName || part.rawPublisherName,
+                                recipient_phone: phone,
+                                title: `S-89: ${part.tipoParte}`,
+                                content: content,
+                                status: 'PREPARED',
+                                metadata: { weekId, partId: part.id },
+                                action_url: phone ? communicationService.generateWhatsAppUrl(phone, content) : undefined
+                            });
+                            count++;
+                        }
+
+                        return {
+                            success: true,
+                            message: `**Cartões S-89 Preparados:** Foram geradas ${count} notificações para os designados da semana ${weekId}. Acesse o Hub de Comunicação para disparar os envios.`,
+                            actionType: 'SEND_S89'
+                        };
+                    } catch (e) {
+                        return { success: false, message: `Erro ao preparar S-89: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
+                }
+
+                case 'MANAGE_SPECIAL_EVENT': {
+                    const { action: subAction, eventData, eventId } = action.params;
+                    const { specialEventService } = await import('./specialEventService');
+                    const { workbookService } = await import('./workbookService');
+
+                    try {
+                        if (subAction === 'CREATE_AND_APPLY') {
+                            if (!eventData || !eventData.week || !eventData.templateId) {
+                                return { success: false, message: 'Faltam dados do evento (week, templateId).' };
+                            }
+
+                            // 1. Criar o evento
+                            const newEvent = await specialEventService.createEvent(eventData);
+
+                            // 2. Buscar partes da semana para aplicar impacto
+                            const weekParts = await workbookService.getAll({ weekId: eventData.week });
+                            const partIds = weekParts.map(p => p.id);
+
+                            if (partIds.length > 0) {
+                                // 3. Aplicar impacto
+                                const { affected } = await specialEventService.applyEventImpact(newEvent, partIds);
+                                return {
+                                    success: true,
+                                    message: `**Evento Criado e Aplicado:** "${newEvent.theme || newEvent.templateId}" na semana ${eventData.week}. ${affected} partes foram impactadas.`,
+                                    data: { event: newEvent, affected },
+                                    actionType: 'MANAGE_SPECIAL_EVENT'
+                                };
+                            }
+
+                            return {
+                                success: true,
+                                message: `**Evento Criado:** "${newEvent.theme || newEvent.templateId}" para a semana ${eventData.week}. Nota: Nenhuma parte da apostila encontrada para esta semana para aplicar o impacto imediato.`,
+                                data: { event: newEvent, affected: 0 },
+                                actionType: 'MANAGE_SPECIAL_EVENT'
+                            };
+                        }
+
+                        if (subAction === 'DELETE') {
+                            if (!eventId) return { success: false, message: 'Falta o ID do evento para deletar.' };
+
+                            // 1. Buscar evento para poder reverter impacto
+                            const allEvents = await specialEventService.getAllEvents();
+                            const eventToDel = allEvents.find(e => e.id === eventId);
+
+                            if (eventToDel && eventToDel.isApplied) {
+                                await specialEventService.revertEventImpact(eventToDel);
+                            }
+
+                            await specialEventService.deleteEvent(eventId);
+                            return {
+                                success: true,
+                                message: `**Evento Removido:** O evento foi deletado e seus impactos na apostila foram revertidos.`,
+                                actionType: 'MANAGE_SPECIAL_EVENT'
+                            };
+                        }
+
+                        return { success: false, message: `Sub-ação "${subAction}" não implementada para MANAGE_SPECIAL_EVENT.` };
+
+                    } catch (e) {
+                        console.error('[AgentAction] Fail to manage special event', e);
+                        return { success: false, message: `Erro ao gerenciar evento especial: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
                 }
 
                 case 'ASSIGN_PART':
