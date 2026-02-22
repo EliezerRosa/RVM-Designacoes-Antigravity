@@ -36,11 +36,13 @@
 | `generationService.ts` | Motor de designação (rodízio + elegibilidade) |
 | `agentActionService.ts` | Tradução de intenções do Agente em comandos (v10) |
 
-### Agente RVM (Fase 3 - Habilidades Comunicativas)
-O Agente agora possui "braços" para agir fora do banco de dados:
-- **`SEND_S140`**: Prepara a mensagem do grupo da semana e registra no Hub.
-- **`SEND_S89`**: Prepara cartões individuais e gera links diretos para o WhatsApp.
-- **`UPDATE_AVAILABILITY`**: Registra datas de viagem e bloqueia o motor automaticamente.
+### Agente RVM (Fase 3 — Comunicação Contextual 3.1)
+O fluxo de comunicação foi refatorado para ser totalmente contextual no Modal "Zap":
+- **`SEND_S140` / `SEND_S89`**: Agora abrem um modal de edição por linha diretamente no Agente.
+- **Filtragem Inteligente**: Inclui a parte do **Presidente** e **Oração Final**, mas oculta **Elogios e Conselhos** e cânticos.
+- **Saudações Personalizadas**: As mensagens aplicam automaticamente "Prezado irmão" ou "Prezada irmã" com base no gênero do publicador.
+- **Integração de Parceiros**: Mensagens para Titular informam o telefone do Ajudante (e vice-versa) com incentivo ao contato.
+- **Rastreio de Status**: O modal exibe "Enviado em [Data/Hora]" para evitar envios duplicados, além de tooltip com o histórico da mensagem.
 
 ### Infraestrutura Necessária (SQL)
 Caso a tabela de notificações não exista, execute este SQL no editor do Supabase:
