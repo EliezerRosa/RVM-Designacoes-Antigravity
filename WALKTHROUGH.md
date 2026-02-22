@@ -57,9 +57,21 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     metadata JSONB DEFAULT '{}'::jsonb,
     action_url TEXT
 );
+
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Permitir leitura para autenticados" ON public.notifications FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Permitir inserção para autenticados" ON public.notifications FOR INSERT TO authenticated WITH CHECK (true);
+
+-- Políticas para anon e authenticated (Frontend usa anon_key)
+CREATE POLICY "Permitir leitura para todos" 
+ON public.notifications FOR SELECT 
+TO anon, authenticated 
+USING (true);
+
+CREATE POLICY "Permitir inserção para todos" 
+ON public.notifications FOR INSERT 
+TO anon, authenticated 
+WITH CHECK (true);
+
+GRANT ALL ON public.notifications TO anon, authenticated;
 ```
 
 ### Deploy
