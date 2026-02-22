@@ -6,6 +6,8 @@ import { workbookService } from './workbookService';
 import { undoService } from './undoService';
 import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
 import { checkEligibility } from './eligibilityService';
+import { communicationService } from './communicationService';
+import { specialEventService } from './specialEventService';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -265,7 +267,6 @@ export const agentActionService = {
 
                 case 'SEND_S140': {
                     const { weekId } = action.params;
-                    const { communicationService } = await import('./communicationService');
 
                     if (!weekId) return { success: false, message: 'Semana não especificada.' };
 
@@ -295,7 +296,6 @@ export const agentActionService = {
 
                 case 'SEND_S89': {
                     const { weekId } = action.params;
-                    const { communicationService } = await import('./communicationService');
 
                     if (!weekId) return { success: false, message: 'Semana não especificada.' };
 
@@ -331,8 +331,6 @@ export const agentActionService = {
 
                 case 'MANAGE_SPECIAL_EVENT': {
                     const { action: subAction, eventData, eventId } = action.params;
-                    const { specialEventService } = await import('./specialEventService');
-                    const { workbookService } = await import('./workbookService');
 
                     try {
                         if (subAction === 'CREATE_AND_APPLY') {
@@ -512,8 +510,6 @@ export const agentActionService = {
                         actionType: 'ASSIGN_PART'
                     };
                 }
-
-
 
                 case 'NAVIGATE_WEEK': {
                     const { weekId } = action.params;

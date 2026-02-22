@@ -14,7 +14,7 @@ import {
     formatSensitiveContext,
     type SpecialEventInput,
     type LocalNeedsInput,
-    type ContextOptions, // Importado
+    type ContextOptions,
 } from './contextBuilder';
 
 // ===== Configuração =====
@@ -37,7 +37,6 @@ function getGeminiUrl(model: string): string {
 }
 
 // SEGURANÇA: Modelos permitidos no Free Tier
-// Se tentar usar um modelo fora desta lista, o sistema bloqueará para evitar cobranças acidentais.
 const FREE_TIER_SAFE_MODELS = [
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
@@ -65,7 +64,6 @@ export interface AgentResponse {
     modelUsed?: string;
 }
 
-// NOVO: Nível de acesso do usuário
 export type AccessLevel = 'publisher' | 'elder';
 
 // ===== System Prompt =====
@@ -87,8 +85,6 @@ SEMPRE verifique no contexto se a designação realmente mudou.
 - Se o contexto mostra que uma parte ainda tem um nome designado, ela NÃO foi removida.
 - Se o chat anterior diz "removido" mas o contexto mostra um nome, o chat ESTÁ ERRADO.
 - Em caso de conflito entre chat e contexto, o CONTEXTO é a fonte de verdade.
-Exemplo: Se o usuário pede "limpe a semana X" e o contexto mostra partes com nomes nessa semana,
-você DEVE emitir o comando CLEAR_WEEK, mesmo que o chat anterior diga que já foi feito.
 
 REGRAS DE RESPOSTA:
 1. Seja conciso e objetivo
@@ -103,384 +99,134 @@ FORMATO:
 - Negrite termos importantes com **asteriscos**
 - Seja direto ao ponto
 
-
-REGRAS DE DISPONIBILIDADE (IMPORTANTE):
+REGRAS DE DISPONIBILIDADE:
 1. "Indisponível (Geral)" significa que ele não pode, EXCETO se tiver datas na lista "Apenas: [...]".
-2. ESCALA POSITIVA: Se aparecer "Apenas: [26/02/2026, ...]", verifique se a DATA DA REUNIÃO da semana solicitada coincide com alguma dessas datas.
-   - Exemplo: Semana de 23/02/2026 (Segunda). Reunião de meio de semana é Quinta (26/02). Se 26/02 está na lista "Apenas", ele ESTÁ DISPONÍVEL.
-   - Ignore o "Indisponível (Geral)" nesse caso específico.
+2. ESCALA POSITIVA: Se aparecer "Apenas: [26/02/2026, ...]", verifique se a DATA DA REUNIÃO coincide com alguma dessas datas.
 
-REGRAS DE ELEGIBILIDADE (OCULTAS):
-1. Oração Inicial: Só pode ser feita por quem tem o privilégio "Presidir" (Anciãos/SM qualificadíssimos). "Orar" não basta.
-
-2. Ajudantes: Devem ter o MESMO gênero do Titular (Irmão ajuda Irmão, Irmã ajuda Irmã).
+REGRAS DE ELEGIBILIDADE:
+1. Oração Inicial: Só pode ser feita por quem tem o privilégio "Presidir".
+2. Ajudantes: Devem ter o MESMO gênero do Titular.
 3. Partes de Estudante: Irmãs têm prioridade em partes de "Demonstração".
-4. Frequência: Evite quem participou nas últimas 12 semanas (penalidade alta). Prefira quem está "frio".
+4. Frequência: Evite quem participou nas últimas 12 semanas.
 
-REGRAS TÉCNICAS (BANCADA DE DADOS):
+REGRAS TÉCNICAS:
 1. COOLDOWN (Bloqueio):
-   - Partes Principais = 3 Semanas de bloqueio.
-   - Ajudante = 2 Semanas de bloqueio.
+   - Partes Principais = 3 Semanas.
+   - Ajudante = 2 Semanas.
    - Gap Mínimo = 2 Semanas entre qualquer parte.
-2. CATEGORIAS DE PEÇAS:
-   - "Ignored" (Não geram bloqueio): Orações, Cânticos, Leitura da Bíblia (às vezes).
-   - "Main" (Geram bloqueio): Presidentes, Discursos, Jóias, Vida Cristã.
-3. SELEÇÃO MANUAL:
-   - Se um humano selecionou manualmente (dropdown), o sistema registra e evita re-selecionar na próxima automação para não repetir.
 
 AÇÕES E COMANDOS:
-Se o usuário pedir uma ação (gerar, designar, remover, navegar), você DEVE incluir um bloco JSON no final da resposta.
+Se o usuário pedir uma ação, você DEVE incluir um bloco JSON no final da resposta.
 
-1. GERAR DESIGNAÇÕES (Gera/Preenche a semana toda):
-Use quando usuário pedir: "gerar semana", "preencher designações", "completar semana X".
+1. GERAR DESIGNAÇÕES:
 \`\`\`json
 {
   "type": "GENERATE_WEEK",
-  "params": {
-    "weekId": "2024-03-01" // Data da segunda-feira da semana (YYYY-MM-DD)
-  },
-  "description": "Gerando designações para a semana..."
+  "params": { "weekId": "YYYY-MM-DD" },
+  "description": "Gerando designações..."
 }
 \`\`\`
 
-
-
 2. DESIGNAR PARTE ESPECÍFICA:
-Use quando usuário pedir: "Coloque o João na Leitura da semana X", "Mude o presidente para José".
-PROTOCOLO RÍGIDO DE IDs:
-1. O Contexto lista as partes assim: "• Presidente... [ID: 123-abc]"
-2. VOCÊ DEVE COPIAR ESSE ID. É a única forma segura.
-3. Se não encontrar o ID na lista, só então use o fallback (Name + Week).
-4. NUNCA invente IDs (não use "...").
-
 \`\`\`json
 {
   "type": "ASSIGN_PART",
   "params": {
-    "partId": "123-abc", // COPIADO EXATAMENTE da lista [ID: ...]
-    "partName": "Presidente", // Obrigatório (backup)
-    "weekId": "2024-03-01",   // Obrigatório (backup)
-    "publisherName": "Nome do Publicador" // Para REMOVER: envie string vazia ""
+    "partId": "ID-DA-PARTE",
+    "partName": "Nome da Parte",
+    "weekId": "YYYY-MM-DD",
+    "publisherName": "Nome do Publicador" 
   },
   "description": "Atribuindo parte..."
 }
 \`\`\`
 
-== PROTOCOLO DE REMOÇÃO / LIMPEZA ==
-Para REMOVER um designado, envie 'publisherName: ""' (string vazia).
-
-== PROTOCOLO DE TROCA (SWAP) ==
-Para trocar A por B (A sai, B entra na parte de A):
-1. Apenas designe B para a parte de A. O sistema substituirá automaticamente.
-
-Para trocar A com B (A vai pra parte de B, B vai pra parte de A):
-Envie dois blocos JSON separados (um após o outro ou array se possível, mas preferencialmente sequencial).
-
 3. NAVEGAR PARA SEMANA:
-Use quando usuário pedir: "vá para semana X", "mostre a semana Y".
 \`\`\`json
 {
   "type": "NAVIGATE_WEEK",
-  "params": {
-    "weekId": "2024-03-01"
-  },
+  "params": { "weekId": "YYYY-MM-DD" },
   "description": "Navegando..."
 }
 \`\`\`
 
 4. DESFAZER (UNDO):
-Use quando pedir: "desfaça", "volte atrás".
 \`\`\`json
 {
   "type": "UNDO_LAST",
   "params": {},
-  "description": "Desfazendo última ação..."
+  "description": "Desfazendo..."
 }
 \`\`\`
 
-5. VISUALIZAR S-140 (APENAS VER):
-Use quando usuário pedir: "mostre o S-140", "visualizar quadro", "ver como ficou".
+5. COMUNICAÇÃO - S-140 (GRUPO):
+Use quando pedir: "enviar programação", "preparar S-140", "avisar grupo".
 \`\`\`json
 {
-  "type": "VIEW_S140",
-  "params": { 
-    "weekId": "2024-03-18"
-  },
-  "description": "Visualizando S-140..."
+  "type": "SEND_S140",
+  "params": { "weekId": "YYYY-MM-DD" },
+  "description": "Preparando mensagem para o grupo..."
 }
 \`\`\`
 
-6. WHATSAPP / COMPARTILHAR (ENVIAR):
-Use quando usuário pedir: "mande pro zap", "compartilhar", "enviar para grupo".
+6. COMUNICAÇÃO - S-89 (INDIVIDUAL):
+Use quando pedir: "enviar cartões", "avisar os designados", "preparar S-89".
 \`\`\`json
 {
-  "type": "SHARE_S140_WHATSAPP",
-  "params": { 
-    "weekId": "2024-03-18",
-    "targetGroup": "elders"
-  },
-  "description": "Preparando envio WhatsApp..."
+  "type": "SEND_S89",
+  "params": { "weekId": "YYYY-MM-DD" },
+  "description": "Gerando notificações individuais..."
 }
 \`\`\`
 
-7. LIMPAR SEMANA (CLEAR_WEEK):
-Use quando usuário pedir: "limpe a semana", "remova todas as designações da semana X", "zere a semana".
-Esta ação remove TODAS as designações de uma semana de uma vez (muito mais eficiente que remover parte por parte).
-\`\`\`json
-{
-  "type": "CLEAR_WEEK",
-  "params": {
-    "weekId": "2024-03-01"
-  },
-  "description": "Limpando todas as designações da semana..."
-}
-\`\`\`
-
-8. ATUALIZAR PUBLICADOR (UPDATE_PUBLISHER):
-Use quando usuário pedir para atualizar atributos de um publicador: "mude a condição de X para Ancião", "adicione permissão de orar para Y", "o irmão Z não pode fazer parte na sexta", "defina X como inativo provisoriamente".
-É permitido atualizar N atributos de uma vez enviando todos na propriedade 'updates'.
-Os principais atributos são: 'condition' (Ancião, Servo Ministerial, Publicador Batista, Publicador Não-Batizado), 'isServing' (true/false), 'isNotQualified' (true/false) e 'notQualifiedReason', 'requestedNoParticipation' (true/false) e 'noParticipationReason'.
-Para privilégios ou disponibilidades complexas, apenas escreva o que será atualizado no 'description', mas não envie no 'updates'.
-\`\`\`json
-{
-  "type": "UPDATE_PUBLISHER",
-  "params": {
-    "publisherName": "Nome do Publicador",
-    "updates": {
-      "condition": "Ancião",
-      "isServing": true
-    }
-  },
-  "description": "Atualizando dados cadastrais do publicador..."
-}
-\`\`\`
-
-9. AJUSTAR AGENDA DE DISPONIBILIDADE (UPDATE_AVAILABILITY):
-Use quando usuário pedir o bloqueio de uma agenda para viagens, férias, etc. Ex: "o irmão Z viaja do dia X ao dia Y".
-Converta esses dias explicitamente para arrays da lista EXCLUSIVAMENTE N0 FORMATO ISO-8601 'YYYY-MM-DD'. Quando você mandar a lista \`unavailableDates\` o sistema assume que todas essas datas NÃO DEVEM RECEBER DESIGNAÇÃO. Cuidado, mande sempre os dias certos calculados. Se a o período englobar mais datas de sexta, quinta ou outros dias da reunião calcule TODAS as datas desse intervalo na Array, mas sempre com o ano primeiro.
-\`\`\`json
-{
-  "type": "UPDATE_AVAILABILITY",
-  "params": {
-    "publisherName": "Nome do Publicador",
-    "unavailableDates": ["2026-03-15", "2026-03-22"]
-  },
-  "description": "Bloqueando agenda do publicador..."
-}
-\`\`\`
-
-10. AJUSTAR REGRAS DO MOTOR (UPDATE_ENGINE_RULES):
-Use quando o Superintendente quiser mudar os pesos e critérios de designação.
-Parâmetros disponíveis no objeto 'settings':
-- BASE_SCORE (padrão: 100)
-- TIME_POWER (padrão: 1.5 - Curva de crescimento da urgência)
-- TIME_FACTOR (padrão: 8 - Força multiplicativa do tempo)
-- RECENT_PARTICIPATION_PENALTY (padrão: 20 - Penalidade por participar recente)
-- COOLDOWN_PENALTY (padrão: 1500 - Penalidade para quem fez parte na semana anterior)
-- SISTER_DEMO_PRIORITY (padrão: 50 - Bônus para irmãs nas demonstrações)
-
-\`\`\`json
-{
-  "type": "UPDATE_ENGINE_RULES",
-  "params": {
-    "settings": {
-      "TIME_FACTOR": 10,
-      "RECENT_PARTICIPATION_PENALTY": 30
-    }
-  },
-  "description": "Ajustando sensibilidade do motor de designações..."
-}
-\`\`\`
-
-11. GERENCIAR EVENTOS ESPECIAIS (MANAGE_SPECIAL_EVENT):
-Use para congressos, assembleias, visitas de SC ou boletins.
-Templates disponíveis: 'visita-sc', 'assembleia-circuito', 'congresso', 'boletim-cg', 'evento-especial'.
-Sub-ações: 'CREATE_AND_APPLY' (Cria e afeta a apostila), 'DELETE' (Remove e reverte impacto).
-
-```json
-{
-    "type": "MANAGE_SPECIAL_EVENT",
-        "params": {
-        "action": "CREATE_AND_APPLY",
-            "eventData": {
-            "week": "2026-05-18",
-                "templateId": "visita-sc",
-                    "theme": "Visita do SC - Nome do Irmão"
-        }
-    },
-    "description": "Configurando semana de visita do Superintendente..."
-}
-```
-
-IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown (\`\`\`json ... \`\`\`).
+IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
 `;
 
-
-
 const SYSTEM_PROMPT_ELDER_ADDON = `
-
 ACESSO ESPECIAL - ANCIÃOS:
-Você tem acesso a informações confidenciais sobre publicadores:
-- Quem pediu para não participar e por quê
-    - Quem não está qualificado e por quê
-        - Quem está inativo
-            - Razões detalhadas de bloqueios
-
-Quando perguntarem sobre por que alguém não foi designado, você pode explicar os motivos reais.`;
+Você tem acesso a informações confidenciais sobre bloqueios e inatividade. Explique os motivos reais se solicitado.`;
 
 const SYSTEM_PROMPT_PUBLISHER_ADDON = `
-
 RESTRIÇÕES DE ACESSO - PUBLICADOR:
-Você NÃO tem acesso a informações confidenciais sobre publicadores.
-Se perguntarem por que alguém não foi designado, responda de forma genérica:
-- "Não posso informar detalhes pessoais sobre outros publicadores."
-    - "Essa informação é confidencial e restrita aos anciãos."
-    - "O sistema considera vários fatores, mas não posso detalhar para publicadores específicos."
+Você NÃO tem acesso a informações confidenciais. Seja genérico sobre motivos de não-elegibilidade.`;
 
-Você pode apenas informar quem ESTÁ designado, não por que alguém NÃO está.`;
-
-// ===== Funções =====
-
-/**
- * Verifica se a API está configurada
- */
 export function isAgentConfigured(): boolean {
-    // Se tiver chave local configurada, ótimo
     if (!!GEMINI_API_KEY && GEMINI_API_KEY.length > 10) return true;
-
-    // Se não tiver chave, assumimos que pode funcionar via proxy (/api/chat) na Vercel
-    // Em localhost sem chave, a chamada ao proxy vai falhar (404 ou 500), mas deixamos tentar
     return true;
 }
 
-/**
- * SEGURANÇA: Verifica se o modelo configurado é seguro (Free Tier)
- */
 function checkSafetyMode(url: string): void {
     const isSafe = FREE_TIER_SAFE_MODELS.some(model => url.includes(model));
     if (!isSafe) {
-        console.warn('🚨 ALERTA DE COBRANÇA: O sistema tentou usar um modelo fora da lista segura (Free Tier).');
-        throw new Error('Bloqueio de Segurança: Tentativa de uso de modelo não-verificado (potencialmente pago). Use apenas modelos Flash.');
+        throw new Error('Bloqueio de Segurança: Modelo não-verificado.');
     }
 }
 
-/**
- * HEURÍSTICA: Detecta o que o usuário precisa para economizar tokens
- */
 function detectContextNeeds(question: string): ContextOptions {
     const q = question.toLowerCase();
-
-    // Default: Minimal safe context
     const options: ContextOptions = {
         includePublishers: false,
         includeRules: false,
-        includeSchedule: true, // Schedule is almost always needed
+        includeSchedule: true,
         includeHistory: false,
         includeSpecialEvents: true
     };
 
-    // 1. Precisa de Publicadores?
-    if (
-        q.includes('quem') ||
-        q.includes('publicador') ||
-        q.includes('irmão') ||
-        q.includes('irmã') ||
-        q.includes('ancião') ||
-        q.includes('servo') ||
-        q.includes('pode') || // pode fazer tal coisa?
-        q.includes('sugira') ||
-        q.includes('qualificado') ||
-        // Action verbs (assignment)
-        q.includes('designe') ||
-        q.includes('coloque') ||
-        q.includes('mude') ||
-        q.includes('troque') ||
-        q.includes('ponha') ||
-        q.includes('defina') ||
-        q.includes('atribua') ||
-        // Availability / Update
-        q.includes('disponível') ||
-        q.includes('disponibilidade') ||
-        q.includes('viajar') ||
-        q.includes('férias') ||
-        q.includes('agenda')
-    ) {
+    if (q.includes('quem') || q.includes('publicador') || q.includes('pode') || q.includes('sugira') || q.includes('designe') || q.includes('ajuste') || q.includes('agenda')) {
         options.includePublishers = true;
     }
 
-    // 2. Precisa de Regras?
-    if (
-        q.includes('regra') ||
-        q.includes('pode') ||
-        q.includes('requisito') ||
-        q.includes('qualificado') ||
-        q.includes('como funciona') ||
-        q.includes('qualificado') ||
-        q.includes('como funciona') ||
-        q.includes('por que') ||
-        // Generator needs rules to know who is eligible
-        q.includes('gere') ||
-        q.includes('gerar') ||
-        q.includes('preencha') ||
-        q.includes('complete') ||
-        q.includes('sugira') || // Suggestions need rules + roster
-        // Engine Rules
-        q.includes('regra') ||
-        q.includes('motor') ||
-        q.includes('peso') ||
-        q.includes('penalidade') ||
-        q.includes('ajuste') ||
-        // Special Events
-        q.includes('evento') ||
-        q.includes('especial') ||
-        q.includes('visita') ||
-        q.includes('sc') ||
-        q.includes('assembleia') ||
-        q.includes('congresso') ||
-        // Communication
-        q.includes('envie') ||
-        q.includes('mande') ||
-        q.includes('avise') ||
-        q.includes('notifique') ||
-        q.includes('zap') ||
-        q.includes('whatsapp') ||
-        q.includes('comunicação')
-    ) {
+    if (q.includes('regras') || q.includes('requisito') || q.includes('por que') || q.includes('gerar') || q.includes('motor') || q.includes('envie') || q.includes('zap') || q.includes('notifique')) {
         options.includeRules = true;
     }
 
-    // 3. Precisa de Histórico?
-    if (
-        q.includes('histórico') ||
-        q.includes('vezes') ||
-        q.includes('frequência') ||
-        q.includes('última vez') ||
-        q.includes('participou') ||
-        q.includes('participações') || // PLURAL
-        q.includes('top') ||
-        q.includes('rank') ||
-        q.includes('quais') || // Genérico, mas em contexto de lista ajuda
-        // Load analysis
-        q.includes('sobrecarregado') ||
-        q.includes('frequência') ||
-        q.includes('muito usado') ||
-        q.includes('trabalhando muito') ||
-        q.includes('descanso')
-    ) {
+    if (q.includes('histórico') || q.includes('última vez') || q.includes('participou') || q.includes('vezes') || q.includes('frequência')) {
         options.includeHistory = true;
-    }
-
-    // Fallback para perguntas muito curtas (pode ser qualquer coisa)
-    if (q.length < 10) {
-        options.includePublishers = true;
     }
 
     return options;
 }
 
-/**
- * Processa uma pergunta do usuário
- */
 export async function askAgent(
     question: string,
     publishers: Publisher[],
@@ -490,18 +236,12 @@ export async function askAgent(
     accessLevel: AccessLevel = 'publisher',
     specialEvents: SpecialEventInput[] = [],
     localNeeds: LocalNeedsInput[] = [],
-    focusWeekId?: string // New Param
+    focusWeekId?: string
 ): Promise<AgentResponse> {
     if (!isAgentConfigured()) {
-        return {
-            success: false,
-            message: '',
-            error: 'API Key do Gemini não configurada. Configure VITE_GEMINI_API_KEY no arquivo .env.local',
-        };
+        return { success: false, message: '', error: 'API Key não configurada.' };
     }
 
-    // 1. Preparar lista de modelos para tentar
-    // Se já temos um que funcionou antes, ele vai pro topo da lista
     let attemptList = [...MODEL_CANDIDATES];
     if (lastWorkingModel && attemptList.includes(lastWorkingModel)) {
         attemptList = [lastWorkingModel, ...attemptList.filter(m => m !== lastWorkingModel)];
@@ -510,30 +250,13 @@ export async function askAgent(
     let lastError: any = null;
     let successResponse: AgentResponse | null = null;
 
-    // 2. Loop de Tentativas (Smart Fallback)
     for (const model of attemptList) {
         try {
-            console.log(`[Agent] Tentando modelo: ${model}...`);
-
-            // Construir contexto (OTIMIZADO)
             const contextOptions = detectContextNeeds(question);
-            console.log(`[Agent] Context Strategy: `, contextOptions);
-
-            const context = buildAgentContext(
-                publishers,
-                parts,
-                history,
-                specialEvents,
-                localNeeds,
-                contextOptions,
-                focusWeekId // Pass new param
-            );
+            const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds, contextOptions, focusWeekId);
             const contextText = formatContextForPrompt(context);
-
-            // Regras também são opcionais agora
             const rulesText = contextOptions.includeRules ? getEligibilityRulesText() : '';
 
-            // Montar system prompt
             let systemPrompt = SYSTEM_PROMPT_BASE;
             let sensitiveContextText = '';
 
@@ -545,37 +268,21 @@ export async function askAgent(
                 systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
             }
 
-            // Histórico
             const recentChat = chatHistory.slice(-5).map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.content }],
             }));
 
-            // Request Body
             const requestBody = {
                 contents: [
-                    {
-                        role: 'user',
-                        parts: [{ text: `${systemPrompt} \n\n${rulesText} \n\n${contextText}${sensitiveContextText} ` }],
-                    },
-                    {
-                        role: 'model',
-                        parts: [{ text: `Entendido! Sou o Assistente RVM(${model}) com acesso de ${accessLevel === 'elder' ? 'Ancião' : 'Publicador'}.` }],
-                    },
+                    { role: 'user', parts: [{ text: `${systemPrompt} \n\n${rulesText} \n\n${contextText}${sensitiveContextText} ` }] },
+                    { role: 'model', parts: [{ text: `Entendido! Assistente RVM disponível.` }] },
                     ...recentChat,
-                    {
-                        role: 'user',
-                        parts: [{ text: question }],
-                    },
+                    { role: 'user', parts: [{ text: question }] },
                 ],
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 8192,
-                    topP: 0.95,
-                },
+                generationConfig: { temperature: 0.7, maxOutputTokens: 8192, topP: 0.95 }
             };
 
-            // Chamada API
             let response: Response;
             const hasLocalKey = !!GEMINI_API_KEY && GEMINI_API_KEY.length > 10;
             const targetUrl = getGeminiUrl(model);
@@ -588,8 +295,6 @@ export async function askAgent(
                     body: JSON.stringify(requestBody),
                 });
             } else {
-                // No modo Proxy (Vercel), podemos futuramente passar o modelo via header.
-                // Por enquanto mantemos compatibilidade simples.
                 response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -597,83 +302,43 @@ export async function askAgent(
                 });
             }
 
-            const isFallback = response.headers.get('X-RVM-Model-Fallback') === 'true';
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMessage = errorData.error?.message || `Erro HTTP ${response.status} `;
-
-                // Se for erro de chave invalida, aborta imediatamente
-                if (errorMessage.includes('API key not valid') || errorMessage.includes('key was reported as leaked')) {
-                    throw new Error('A API Key foi invalidada. Por favor, verifique a configuração na Vercel.');
-                }
-
-                // Se for outro erro (ex: 404 Model Not Found), lança para cair no catch e tentar o próximo loop
-                throw new Error(`Falha no modelo ${model}: ${errorMessage} `);
-            }
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const data = await response.json();
             const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-            if (!content) {
-                throw new Error('Resposta vazia do Gemini');
-            }
+            if (!content) throw new Error('Falha na resposta.');
 
             const detectedAction = agentActionService.detectAction(content);
-
-            // SUCESSO!
-            console.log(`[Agent] SUCESSO com modelo: ${model} `);
-            lastWorkingModel = model; // Memorizar
+            lastWorkingModel = model;
 
             successResponse = {
                 success: true,
                 message: content,
                 action: detectedAction || undefined,
-                isFallback: isFallback,
                 modelUsed: model
             };
-
-            // Sair do loop
             break;
 
         } catch (error) {
-            console.warn(`[Agent] Erro ao tentar modelo ${model}: `, error);
             lastError = error;
-            // Continua para o próximo modelo...
         }
     }
 
-    // Retorna o sucesso se tiver
-    if (successResponse) {
-        return successResponse;
-    }
-
-    // Se chegou aqui, todos falharam
-    let finalErrorMessage = lastError instanceof Error ? lastError.message : 'Erro desconhecido';
-
-    if (finalErrorMessage.includes('Failed to fetch')) {
-        finalErrorMessage = 'Erro de conexão com a IA (Failed to fetch). Verifique sua internet.';
-    }
+    if (successResponse) return successResponse;
 
     return {
         success: false,
         message: '',
-        error: `Todas as tentativas falharam.Último erro: ${finalErrorMessage} (Tentados: ${attemptList.join(', ')})`,
+        error: `Falha total. Último erro: ${lastError instanceof Error ? lastError.message : 'Desconhecido'}`,
     };
 }
 
-/**
- * Perguntas sugeridas para o usuário
- */
 export function getSuggestedQuestions(): string[] {
     return [
         'Quem são os Anciãos?',
         'Quem pode fazer Leitura da Bíblia?',
-        'Por que irmãs não podem fazer oração?',
-        'Quantos publicadores estão ativos?',
-        'Quem está em cooldown?',
-        'Sugira alguém para a próxima Demonstração',
-        'Quais são as regras de elegibilidade?',
-        'Quem participou mais vezes este mês?',
+        'Quem está designado esta semana?',
+        'Sugira alguém para a Demonstração',
+        'Envie a programação para o grupo'
     ];
 }

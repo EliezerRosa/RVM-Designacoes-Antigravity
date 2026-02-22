@@ -359,6 +359,7 @@ function App() {
           >
             💾 Backup
           </button>
+
           <button
             className={`nav-btn ${activeTab === 'communication' ? 'active' : ''}`}
             onClick={() => handleTabChange('communication')}
@@ -367,6 +368,7 @@ function App() {
           >
             💬 Comunicação
           </button>
+
           <button
             className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => handleTabChange('admin')}

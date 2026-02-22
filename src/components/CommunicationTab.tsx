@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { communicationService, NotificationRecord } from '../services/communicationService';
+import { communicationService, type NotificationRecord } from '../services/communicationService';
 
 export function CommunicationTab() {
     const [history, setHistory] = useState<NotificationRecord[]>([]);
