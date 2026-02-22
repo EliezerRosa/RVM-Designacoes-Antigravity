@@ -1,16 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { communicationService, type NotificationRecord } from '../services/communicationService';
+import html2canvas from 'html2canvas';
+import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
+import { supabase } from '../lib/supabase';
 
 export function CommunicationTab() {
     const [history, setHistory] = useState<NotificationRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [processingId, setProcessingId] = useState<string | null>(null);
 
     useEffect(() => {
         loadHistory();
+
+        // Escutar mudanças em tempo real para o Hub
+        const channel = supabase
+            .channel('hub-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+                loadHistory();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const loadHistory = async () => {
-        setLoading(true);
         try {
             const data = await communicationService.getHistory();
             setHistory(data);
@@ -21,10 +36,95 @@ export function CommunicationTab() {
         }
     };
 
+    const handleContentChange = async (id: string, newContent: string) => {
+        // Atualizar localmente para feedback instantâneo
+        setHistory(prev => prev.map(item => item.id === id ? { ...item, content: newContent } : item));
+
+        // Debounce ou salvar ao sair seria melhor, mas para simplificar salvamos aqui
+        try {
+            await communicationService.updateNotification(id, { content: newContent });
+        } catch (error) {
+            console.error('Erro ao salvar edição:', error);
+        }
+    };
+
+    const handleSend = async (item: NotificationRecord) => {
+        setProcessingId(item.id || null);
+        try {
+            // 1. Se for S140, capturar imagem
+            if (item.type === 'S140' && item.metadata?.weekId) {
+                await captureAndCopyS140(item.metadata.weekId);
+            }
+
+            // 2. Atualizar status no banco
+            if (item.id) {
+                await communicationService.updateNotification(item.id, {
+                    status: 'SENT',
+                    action_url: item.action_url // Garantir que a URL original (ou atualizada) seja mantida
+                });
+            }
+
+            // 3. Abrir WhatsApp (A URL já contém o texto e possivelmente o telefone)
+            // Se o conteúdo foi editado, precisamos injetar o novo conteúdo na URL
+            const finalUrl = communicationService.generateWhatsAppUrl(
+                item.recipient_phone || '',
+                item.content
+            );
+
+            window.open(finalUrl, '_blank');
+
+        } catch (error) {
+            console.error('Erro ao processar envio:', error);
+            alert('Erro ao preparar envio. Verifique o console.');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const captureAndCopyS140 = async (weekId: string) => {
+        // Lógica portada do TemporalChat
+        try {
+            // Buscar as partes da semana (precisamos delas para renderizar)
+            const { data: parts } = await supabase
+                .from('workbook_parts')
+                .select('*')
+                .eq('weekId', weekId);
+
+            if (!parts || parts.length === 0) throw new Error('Week parts not found');
+
+            const weekData = await prepareS140UnifiedData(parts);
+            const element = renderS140ToElement(weekData);
+
+            element.style.position = 'absolute';
+            element.style.left = '-9999px';
+            element.style.top = '0';
+            document.body.appendChild(element);
+
+            const canvas = await html2canvas(element.querySelector('.container') as HTMLElement, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            });
+
+            document.body.removeChild(element);
+
+            const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+            if (blob) {
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+                console.log('S-140 capturado e copiado para o clipboard');
+            }
+        } catch (err) {
+            console.error('Falha na captura automática:', err);
+            // Non-blocking error, user can still send text
+        }
+    };
+
     const getStatusStyle = (status: string) => {
         switch (status) {
-            case 'PREPARED': return { background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' };
-            case 'SENT': return { background: '#D1FAE5', color: '#065F46', border: '1px solid #6EE7B7' };
+            case 'PREPARED': return { background: 'rgba(254, 243, 199, 0.2)', color: '#F59E0B', border: '1px solid rgba(245, 158, 11, 0.3)' };
+            case 'SENT': return { background: 'rgba(209, 250, 229, 0.2)', color: '#10B981', border: '1px solid rgba(16, 185, 129, 0.3)' };
             default: return { background: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB' };
         }
     };
@@ -40,83 +140,123 @@ export function CommunicationTab() {
     };
 
     return (
-        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ margin: 0, color: '#111827' }}>💬 Hub de Comunicação</h2>
+        <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', height: '100%', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div>
+                    <h2 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        💬 Hub de Comunicação
+                    </h2>
+                    <p style={{ margin: '4px 0 0 0', color: '#9CA3AF', fontSize: '0.9em' }}>
+                        Gerencie e envie as designações geradas pelo Agente.
+                    </p>
+                </div>
                 <button
-                    onClick={loadHistory}
+                    onClick={() => { setLoading(true); loadHistory(); }}
                     style={{
-                        padding: '8px 16px', borderRadius: '8px', border: '1px solid #D1D5DB',
-                        background: 'white', cursor: 'pointer', fontSize: '0.9em'
+                        padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontSize: '0.9em',
+                        transition: 'all 0.2s'
                     }}
                 >
                     🔄 Atualizar
                 </button>
             </div>
 
-            {loading && <div style={{ textAlign: 'center', padding: '40px' }}>Carregando histórico...</div>}
+            {loading && <div style={{ textAlign: 'center', padding: '100px', color: '#9CA3AF' }}>Carregando histórico...</div>}
 
             {!loading && history.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '80px', background: '#F9FAFB', borderRadius: '12px', color: '#6B7280' }}>
-                    <div style={{ fontSize: '3em', marginBottom: '10px' }}>📩</div>
-                    <p>Nenhuma comunicação foi gerada ainda.</p>
-                    <p style={{ fontSize: '0.85em' }}>Peça ao Agente para enviar o S-140 ou avisar os estudantes.</p>
+                <div style={{
+                    textAlign: 'center', padding: '80px', background: 'rgba(255,255,255,0.02)',
+                    borderRadius: '16px', color: '#6B7280', border: '1px solid rgba(255,255,255,0.05)'
+                }}>
+                    <div style={{ fontSize: '4em', marginBottom: '16px', opacity: 0.5 }}>📩</div>
+                    <p style={{ color: '#E5E7EB', fontWeight: '500' }}>Nenhuma comunicação pendente</p>
+                    <p style={{ fontSize: '0.9em' }}>Peça ao Agente para enviar a programação ou avisar os estudantes.</p>
                 </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', paddingBottom: '40px' }}>
                 {history.map((item) => (
                     <div
                         key={item.id}
                         style={{
-                            background: 'white', borderRadius: '12px', border: '1px solid #E5E7EB',
-                            padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                            display: 'flex', flexDirection: 'column', gap: '8px'
+                            background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)',
+                            padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                            display: 'flex', flexDirection: 'column', gap: '12px',
+                            backdropFilter: 'blur(10px)'
                         }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '1.2em' }}>{getTypeEmoji(item.type)}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4em'
+                                }}>
+                                    {getTypeEmoji(item.type)}
+                                </div>
                                 <div>
-                                    <div style={{ fontWeight: '600', color: '#111827' }}>{item.recipient_name}</div>
-                                    <div style={{ fontSize: '0.8em', color: '#6B7280' }}>{item.title}</div>
+                                    <div style={{ fontWeight: '600', color: 'white', fontSize: '1.1em' }}>{item.recipient_name}</div>
+                                    <div style={{ fontSize: '0.85em', color: '#9CA3AF' }}>{item.title}</div>
                                 </div>
                             </div>
                             <span style={{
-                                padding: '2px 8px', borderRadius: '999px', fontSize: '0.75em', fontWeight: '600',
+                                padding: '4px 12px', borderRadius: '10px', fontSize: '0.75em', fontWeight: '700',
+                                textTransform: 'uppercase', letterSpacing: '0.05em',
                                 ...getStatusStyle(item.status || 'PREPARED')
                             }}>
-                                {item.status === 'PREPARED' ? 'PENDENTE' : item.status}
+                                {item.status === 'PREPARED' ? 'PENDENTE' : item.status === 'SENT' ? 'ENVIADO' : item.status}
                             </span>
                         </div>
 
-                        <div style={{
-                            background: '#F9FAFB', padding: '12px', borderRadius: '8px',
-                            fontSize: '0.9em', color: '#374151', whiteSpace: 'pre-wrap',
-                            border: '1px dashed #D1D5DB'
-                        }}>
-                            {item.content}
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                            <span style={{ fontSize: '0.75em', color: '#9CA3AF' }}>
-                                {item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : 'Agora'}
-                            </span>
-
-                            {item.action_url && (
-                                <a
-                                    href={item.action_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                        padding: '8px 16px', background: '#25D366', color: 'white',
-                                        borderRadius: '8px', textDecoration: 'none', fontWeight: '600',
-                                        fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '6px'
-                                    }}
-                                >
-                                    Enviar via WhatsApp ↗
-                                </a>
+                        <div style={{ position: 'relative' }}>
+                            <textarea
+                                value={item.content}
+                                onChange={(e) => handleContentChange(item.id!, e.target.value)}
+                                style={{
+                                    width: '100%', minHeight: '120px',
+                                    background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '10px',
+                                    fontSize: '0.95em', color: '#D1D5DB', whiteSpace: 'pre-wrap',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5',
+                                    outline: 'none', transition: 'border-color 0.2s'
+                                }}
+                                placeholder="Edite a mensagem aqui..."
+                                onFocus={(e) => e.target.style.borderColor = '#4F46E5'}
+                                onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                            />
+                            {item.type === 'S140' && (
+                                <div style={{
+                                    position: 'absolute', right: '10px', bottom: '10px',
+                                    fontSize: '0.7em', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px'
+                                }}>
+                                    📷 A imagem será copiada automaticamente no envio
+                                </div>
                             )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                            <span style={{ fontSize: '0.8em', color: '#6B7280' }}>
+                                Gerado em: {item.created_at ? new Date(item.created_at).toLocaleString('pt-BR') : 'Agora'}
+                            </span>
+
+                            <button
+                                onClick={() => handleSend(item)}
+                                disabled={processingId === item.id}
+                                style={{
+                                    padding: '10px 24px', background: processingId === item.id ? '#1e3a24' : '#10B981',
+                                    color: 'white', borderRadius: '10px', border: 'none', fontWeight: '700',
+                                    fontSize: '0.95em', display: 'flex', alignItems: 'center', gap: '8px',
+                                    cursor: processingId === item.id ? 'not-allowed' : 'pointer',
+                                    boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                    transition: 'transform 0.1s, opacity 0.2s'
+                                }}
+                            >
+                                {processingId === item.id ? (
+                                    <>⏳ Processando...</>
+                                ) : (
+                                    <>Enviar via WhatsApp <span style={{ fontSize: '1.1em' }}>↗</span></>
+                                )}
+                            </button>
                         </div>
                     </div>
                 ))}
