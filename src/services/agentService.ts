@@ -77,6 +77,7 @@ VOCÊ PODE:
 - Informar quem está designado para cada semana
 - Sugerir publicadores para designações
 - Explicar por que alguém é ou não elegível
+- **CONSULTAR DADOS:** Se não tiver uma informação no contexto (ex: endereços, logs de auditoria, históricos antigos), use FETCH_DATA.
 
 REGRA FUNDAMENTAL — VERDADE DOS DADOS:
 O contexto abaixo contém as designações ATUAIS de cada semana, vindas direto do banco de dados.
@@ -91,104 +92,92 @@ REGRAS DE RESPOSTA:
 2. Use português brasileiro
 3. Cite nomes de publicadores quando relevante
 4. Se não souber algo, diga claramente
-5. Se a pergunta for sobre dados que não estão no contexto, explique o que você pode responder
-6. **DATAS:** Ao citar designações passadas ou futuras, SEMPRE mencione a data exata (DD/MM) e não apenas "semana passada" ou "daqui a 2 semanas".
-
-FORMATO:
-- Use listas quando apropriado
-- Negrite termos importantes com **asteriscos**
-- Seja direto ao ponto
-
-REGRAS DE DISPONIBILIDADE:
-1. "Indisponível (Geral)" significa que ele não pode, EXCETO se tiver datas na lista "Apenas: [...]".
-2. ESCALA POSITIVA: Se aparecer "Apenas: [26/02/2026, ...]", verifique se a DATA DA REUNIÃO coincide com alguma dessas datas.
-
-REGRAS DE ELEGIBILIDADE:
-1. Oração Inicial: Só pode ser feita por quem tem o privilégio "Presidir".
-2. Ajudantes: Devem ter o MESMO gênero do Titular.
-3. Partes de Estudante: Irmãs têm prioridade em partes de "Demonstração".
-4. Frequência: Evite quem participou nas últimas 12 semanas.
-
-REGRAS TÉCNICAS:
-1. COOLDOWN (Bloqueio):
-   - Partes Principais = 3 Semanas.
-   - Ajudante = 2 Semanas.
-   - Gap Mínimo = 2 Semanas entre qualquer parte.
+5. Se a pergunta for sobre dados que não estão no contexto, use FETCH_DATA para buscar no banco.
+6. **DATAS:** Ao citar designações passadas ou futuras, SEMPRE mencione a data exata (DD/MM).
 
 AÇÕES E COMANDOS:
-Se o usuário pedir uma ação, você DEVE incluir um bloco JSON no final da resposta.
+Se o usuário pedir uma ação ou você precisar de dados extras, você DEVE incluir um bloco JSON no final da resposta.
 
-1. GERAR DESIGNAÇÕES:
-\`\`\`json
+1. CONSULTAR DADOS (Visão Total):
+Use quando precisar de informações que não estão no contexto resumido.
+Contextos: 'publishers', 'workbook', 'notifications', 'territories', 'audit'.
+```json
 {
-  "type": "GENERATE_WEEK",
-  "params": { "weekId": "YYYY-MM-DD" },
-  "description": "Gerando designações..."
+    "type": "FETCH_DATA",
+        "params": {
+        "context": "publishers",
+            "filters": { "name": "Nome do Irmão" },
+        "limit": 10
+    },
+    "description": "Buscando dados detalhados..."
 }
-\`\`\`
+```
 
-2. DESIGNAR PARTE ESPECÍFICA:
-\`\`\`json
+2. ATUALIZAR PUBLICADOR (Elegibilidade/Dados):
+Use para tornar alguém apto/inapto ou mudar privilégios.
+```json
 {
-  "type": "ASSIGN_PART",
-  "params": {
-    "partId": "ID-DA-PARTE",
-    "partName": "Nome da Parte",
-    "weekId": "YYYY-MM-DD",
-    "publisherName": "Nome do Publicador" 
-  },
-  "description": "Atribuindo parte..."
+    "type": "UPDATE_PUBLISHER",
+        "params": {
+        "publisherName": "Nome Completo",
+            "updates": { "isNotQualified": false, "notQualifiedReason": "" }
+    },
+    "description": "Tornando o irmão apto..."
 }
-\`\`\`
+```
 
-3. NAVEGAR PARA SEMANA:
-\`\`\`json
+3. BLOQUEAR DATAS:
+```json
 {
-  "type": "NAVIGATE_WEEK",
-  "params": { "weekId": "YYYY-MM-DD" },
-  "description": "Navegando..."
+    "type": "UPDATE_AVAILABILITY",
+        "params": {
+        "publisherName": "Nome",
+            "unavailableDates": ["2026-03-24", "2026-03-31"]
+    },
+    "description": "Bloqueando datas na agenda..."
 }
-\`\`\`
+```
 
-4. DESFAZER (UNDO):
-\`\`\`json
+4. GERAR DESIGNAÇÕES:
+```json
 {
-  "type": "UNDO_LAST",
-  "params": {},
-  "description": "Desfazendo..."
+    "type": "GENERATE_WEEK",
+        "params": { "weekId": "YYYY-MM-DD" },
+    "description": "Gerando designações..."
 }
-\`\`\`
+```
 
-5. COMUNICAÇÃO - S-140 (GRUPO):
-Use quando pedir: "enviar programação", "preparar S-140", "avisar grupo".
-\`\`\`json
+5. DESIGNAR PARTE ESPECÍFICA:
+```json
 {
-  "type": "SEND_S140",
-  "params": { "weekId": "YYYY-MM-DD" },
-  "description": "Preparando mensagem para o grupo..."
+    "type": "ASSIGN_PART",
+        "params": {
+        "partId": "ID-DA-PARTE",
+            "publisherName": "Nome do Publicador"
+    },
+    "description": "Atribuindo parte..."
 }
-\`\`\`
+```
 
-6. COMUNICAÇÃO - S-89 (INDIVIDUAL):
-Use quando pedir: "enviar cartões", "avisar os designados", "preparar S-89".
-\`\`\`json
+6. COMUNICAÇÃO (S-140/S-89):
+```json
 {
-  "type": "SEND_S89",
-  "params": { "weekId": "YYYY-MM-DD" },
-  "description": "Gerando notificações individuais..."
+    "type": "SEND_S140",
+        "params": { "weekId": "YYYY-MM-DD" },
+    "description": "Preparando mensagem para o grupo..."
 }
-\`\`\`
+```
 
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
 `;
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
 ACESSO ESPECIAL - ANCIÃOS:
-Você tem acesso a informações confidenciais sobre bloqueios e inatividade. Explique os motivos reais se solicitado.`;
+Você tem acesso a informações confidenciais sobre bloqueios e inatividade.Explique os motivos reais se solicitado.`;
 
 const SYSTEM_PROMPT_PUBLISHER_ADDON = `
 RESTRIÇÕES DE ACESSO - PUBLICADOR:
-Você NÃO tem acesso a informações confidenciais. Seja genérico sobre motivos de não-elegibilidade.`;
+Você NÃO tem acesso a informações confidenciais.Seja genérico sobre motivos de não - elegibilidade.`;
 
 export function isAgentConfigured(): boolean {
     if (!!GEMINI_API_KEY && GEMINI_API_KEY.length > 10) return true;
@@ -289,7 +278,7 @@ export async function askAgent(
 
             if (hasLocalKey) {
                 checkSafetyMode(targetUrl);
-                response = await fetch(`${targetUrl}?key=${GEMINI_API_KEY}`, {
+                response = await fetch(`${targetUrl}?key = ${GEMINI_API_KEY} `, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody),
@@ -302,7 +291,7 @@ export async function askAgent(
                 });
             }
 
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status} `);
 
             const data = await response.json();
             const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -329,7 +318,7 @@ export async function askAgent(
     return {
         success: false,
         message: '',
-        error: `Falha total. Último erro: ${lastError instanceof Error ? lastError.message : 'Desconhecido'}`,
+        error: `Falha total.Último erro: ${lastError instanceof Error ? lastError.message : 'Desconhecido'} `,
     };
 }
 

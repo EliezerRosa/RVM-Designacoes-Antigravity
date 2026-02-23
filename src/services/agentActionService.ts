@@ -171,9 +171,22 @@ export const agentActionService = {
                 }
 
                 case 'UPDATE_PUBLISHER': {
-                    const { publisherName, updates } = action.params;
+                    let { publisherName, updates, ...directUpdates } = action.params;
+
+                    // Robustez: Se o agente mandou parâmetros flat (ex: {publisherName, isQualified}),
+                    // nós os movemos para o objeto 'updates'.
+                    if (!updates && Object.keys(directUpdates).length > 0) {
+                        updates = directUpdates;
+                    }
+
                     if (!publisherName || !updates) {
                         return { success: false, message: 'Faltam parâmetros: publisherName ou updates.' };
+                    }
+
+                    // Correção: Mapear 'isQualified: true' para 'isNotQualified: false' se necessário
+                    if ('isQualified' in updates) {
+                        updates.isNotQualified = !updates.isQualified;
+                        delete updates.isQualified;
                     }
 
                     const pub = publishers.find(p => p.name.toLowerCase().includes(publisherName.toLowerCase().trim()));
