@@ -18,16 +18,15 @@ export type AgentActionType =
     | 'NAVIGATE_WEEK'
     | 'VIEW_S140'
     | 'SHARE_S140_WHATSAPP'
-    | 'CHECK_SCORE' // Nova Tool
+    | 'CHECK_SCORE'
     | 'CLEAR_WEEK'
-    | 'UPDATE_PUBLISHER' // Nova Tool
-    | 'UPDATE_AVAILABILITY' // Nova Tool
-    | 'UPDATE_ENGINE_RULES' // Nova Tool
-    | 'MANAGE_SPECIAL_EVENT' // Nova Tool
-    | 'SEND_S140' // Nova Tool - Fase 3
-    | 'SEND_S89' // Nova Tool - Fase 3
-    | 'FETCH_DATA' // Nova Tool - Fase 4 (Visão Total)
-    // Legacy support for transition (optional)
+    | 'UPDATE_PUBLISHER'
+    | 'UPDATE_AVAILABILITY'
+    | 'UPDATE_ENGINE_RULES'
+    | 'MANAGE_SPECIAL_EVENT'
+    | 'SEND_S140'
+    | 'SEND_S89'
+    | 'FETCH_DATA'
     | 'SIMULATE_ASSIGNMENT';
 
 export interface AgentAction {
@@ -50,7 +49,7 @@ export const agentActionService = {
     detectAction(responseContent: string): AgentAction | null {
         // Try to find JSON block
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK|UPDATE_PUBLISHER|UPDATE_AVAILABILITY|UPDATE_ENGINE_RULES|MANAGE_SPECIAL_EVENT|SEND_S140|SEND_S89|FETCH_DATA)"[\s\S]*}/);
+            responseContent.match(/{\s*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK|UPDATE_PUBLISHER|UPDATE_AVAILABILITY|UPDATE_ENGINE_RULES|MANAGE_SPECIAL_EVENT|SEND_S140|SEND_S89|FETCH_DATA)"[\s\S]*}/);
 
         if (jsonMatch) {
             try {
@@ -76,7 +75,7 @@ export const agentActionService = {
         action: AgentAction,
         parts: WorkbookPart[],
         publishers: Publisher[],
-        history: HistoryRecord[] = [] // Agora recebe histórico completo
+        history: HistoryRecord[] = []
     ): Promise<ActionResult> {
         console.log('[AgentAction] Executing:', action);
 
@@ -84,18 +83,13 @@ export const agentActionService = {
             switch (action.type) {
                 case 'CHECK_SCORE': {
                     const { partType, date } = action.params;
-
-                    // 1. Filtrar elegíveis
                     const eligible = publishers.filter(p => checkEligibility(p, partType));
 
                     if (eligible.length === 0) {
                         return { success: false, message: `Nenhum publicador elegível encontrado para ${partType}.` };
                     }
 
-                    // 2. Calcular Ranking (Full History)
                     const ranked = getRankedCandidates(eligible, partType, history);
-
-                    // 3. Formatar Top 10
                     const topList = ranked.slice(0, 10).map((cand, i) =>
                         `${i + 1}. ${explainScoreForAgent(cand)}`
                     ).join('\n');
@@ -112,7 +106,6 @@ export const agentActionService = {
                     const { weekId } = action.params;
                     if (!weekId) return { success: false, message: 'Semana não especificada.' };
 
-                    // Capturar snapshot ANTES da geração (para undo correto)
                     const partsInWeek = parts.filter(p => p.weekId === weekId);
                     undoService.captureBatch(partsInWeek, `Agente: Gerar Semana ${weekId}`);
 
@@ -138,12 +131,10 @@ export const agentActionService = {
                     };
                 }
 
-
                 case 'CLEAR_WEEK': {
                     const { weekId: clearWeekId } = action.params;
                     if (!clearWeekId) return { success: false, message: 'Semana não especificada.' };
 
-                    // Capturar snapshot antes de limpar
                     const weekPartsToClean = parts.filter(p => p.weekId === clearWeekId);
                     if (weekPartsToClean.length === 0) {
                         return { success: false, message: 'Nenhuma parte encontrada para esta semana.' };
@@ -151,7 +142,6 @@ export const agentActionService = {
 
                     undoService.captureBatch(weekPartsToClean, `Agente: Limpar Semana ${clearWeekId}`);
 
-                    // Limpar todas as designações da semana direto no banco
                     let clearedCount = 0;
                     for (const p of weekPartsToClean) {
                         if (p.resolvedPublisherName) {
@@ -173,8 +163,6 @@ export const agentActionService = {
                 case 'UPDATE_PUBLISHER': {
                     let { publisherName, updates, ...directUpdates } = action.params;
 
-                    // Robustez: Se o agente mandou parâmetros flat (ex: {publisherName, isQualified}),
-                    // nós os movemos para o objeto 'updates'.
                     if (!updates && Object.keys(directUpdates).length > 0) {
                         updates = directUpdates;
                     }
@@ -183,7 +171,6 @@ export const agentActionService = {
                         return { success: false, message: 'Faltam parâmetros: publisherName ou updates.' };
                     }
 
-                    // Correção: Mapear 'isQualified: true' para 'isNotQualified: false' se necessário
                     if ('isQualified' in updates) {
                         updates.isNotQualified = !updates.isQualified;
                         delete updates.isQualified;
@@ -200,7 +187,6 @@ export const agentActionService = {
 
                         await api.updatePublisher(updatedPub);
 
-                        // Auditoria Nível 2
                         await auditService.logAction({
                             table_name: 'publishers',
                             operation: 'AGENT_INTENT',
@@ -229,24 +215,21 @@ export const agentActionService = {
 
                     const pub = publishers.find(p => p.name.toLowerCase().includes(publisherName.toLowerCase().trim()));
                     if (!pub) {
-                        return { success: false, message: `Publicador "${publisherName}" não encontrado para bloquar as datas.` };
+                        return { success: false, message: `Publicador "${publisherName}" não encontrado para bloquear as datas.` };
                     }
 
                     try {
                         const { api } = await import('./api');
-
-                        // Atualizando mantendo modo `always` implícito (Padrão para quem está bloqueando datas específicas)
                         const updatedPub = {
                             ...pub,
                             availability: {
                                 ...pub.availability,
-                                exceptionDates: unavailableDates // Substituído ou mesclado dependendo da lógica do JSON do modelo, ideal é que o prompt peça o status completo.
+                                exceptionDates: unavailableDates
                             }
                         };
 
                         await api.updatePublisher(updatedPub);
 
-                        // Auditoria Nível 2
                         await auditService.logAction({
                             table_name: 'publishers',
                             operation: 'AGENT_INTENT',
@@ -261,7 +244,6 @@ export const agentActionService = {
                             data: updatedPub,
                             actionType: 'UPDATE_AVAILABILITY'
                         };
-
                     } catch (e) {
                         console.error('[AgentAction] Fail to update availability', e);
                         return { success: false, message: `Erro ao ajustar agenda: ${e instanceof Error ? e.message : 'Desconhecido'}` };
@@ -278,13 +260,11 @@ export const agentActionService = {
                         const { api } = await import('./api');
                         const { updateRotationConfig, getRotationConfig } = await import('./unifiedRotationService');
 
-                        // 1. Persistir no banco
                         const currentGlobalConfig = getRotationConfig();
                         const mergedConfig = { ...currentGlobalConfig, ...settings };
 
                         await api.setSetting('engine_config', mergedConfig);
 
-                        // Auditoria Nível 3
                         await auditService.logAction({
                             table_name: 'settings',
                             operation: 'AGENT_INTENT',
@@ -293,12 +273,11 @@ export const agentActionService = {
                             description: `Agente alterou regras do motor: ${action.description}`
                         });
 
-                        // 2. Aplicar em memória imediatamente
                         updateRotationConfig(settings);
 
                         return {
                             success: true,
-                            message: `**Configuração do Motor Atualizada:** As novas regras foram aplicadas com sucesso e persistidas no banco.`,
+                            message: `**Configurações do Motor Atualizadas:** As novas regras foram aplicadas com sucesso e persistidas no banco.`,
                             data: settings,
                             actionType: 'UPDATE_ENGINE_RULES'
                         };
@@ -310,7 +289,6 @@ export const agentActionService = {
 
                 case 'SEND_S140': {
                     const { weekId } = action.params;
-
                     if (!weekId) return { success: false, message: 'Semana não especificada.' };
 
                     try {
@@ -340,7 +318,6 @@ export const agentActionService = {
 
                 case 'SEND_S89': {
                     const { weekId } = action.params;
-
                     if (!weekId) return { success: false, message: 'Semana não especificada.' };
 
                     try {
@@ -351,9 +328,6 @@ export const agentActionService = {
                             const pType = (part.tipoParte || '').toLowerCase();
                             const pSection = (part.section || '').toLowerCase();
 
-                            // 1. Filtros Inteligentes (User Request 2.2)
-                            // Ignorar Presidente, Cânticos e Comentários
-                            // MAS Incluir Oração Final
                             const isAdminPart = pType.includes('presidente') ||
                                 pType.includes('cântico') ||
                                 pType.includes('cantico') ||
@@ -362,13 +336,8 @@ export const agentActionService = {
 
                             const isFinalPrayer = pType.includes('oração final') || pType.includes('oracao final');
 
-                            if (isAdminPart && !isFinalPrayer) {
-                                console.log(`[AgentAction] Pulando parte administrativa: ${part.tipoParte}`);
-                                continue;
-                            }
+                            if (isAdminPart && !isFinalPrayer) continue;
 
-                            // 2. Identificar se é Estudante (Para S-89 Image Capture - User Request 2.1)
-                            // Geralmente na seção "Faça seu melhor no ministério" ou tipos específicos
                             const isStudent = pSection.includes('ministério') ||
                                 pSection.includes('ministerio') ||
                                 pType.includes('leitura') ||
@@ -388,7 +357,7 @@ export const agentActionService = {
                                 metadata: {
                                     weekId,
                                     partId: part.id,
-                                    isStudent: isStudent // Flag crucial para o Hub
+                                    isStudent: isStudent
                                 },
                                 action_url: phone ? communicationService.generateWhatsAppUrl(phone, content) : undefined
                             });
@@ -451,15 +420,11 @@ export const agentActionService = {
                                 return { success: false, message: 'Faltam dados do evento (week, templateId).' };
                             }
 
-                            // 1. Criar o evento
                             const newEvent = await specialEventService.createEvent(eventData);
-
-                            // 2. Buscar partes da semana para aplicar impacto
                             const weekParts = await workbookService.getAll({ weekId: eventData.week });
                             const partIds = weekParts.map(p => p.id);
 
                             if (partIds.length > 0) {
-                                // 3. Aplicar impacto
                                 const { affected } = await specialEventService.applyEventImpact(newEvent, partIds);
                                 return {
                                     success: true,
@@ -480,7 +445,6 @@ export const agentActionService = {
                         if (subAction === 'DELETE') {
                             if (!eventId) return { success: false, message: 'Falta o ID do evento para deletar.' };
 
-                            // 1. Buscar evento para poder reverter impacto
                             const allEvents = await specialEventService.getAllEvents();
                             const eventToDel = allEvents.find(e => e.id === eventId);
 
@@ -507,15 +471,12 @@ export const agentActionService = {
                 case 'ASSIGN_PART':
                 case 'SIMULATE_ASSIGNMENT': {
                     const { partId, publisherId, publisherName, weekId, partName } = action.params;
-
                     let targetPart = parts.find(p => p.id === partId);
 
-                    // Fallback: Tentar encontrar por Nome + Semana se ID não fornecido
                     if (!targetPart && weekId && partName) {
                         const candidates = parts.filter(p => p.weekId === weekId);
                         const qName = partName.toLowerCase().trim();
 
-                        // Normalizar aliases comuns
                         const PART_ALIASES: Record<string, string[]> = {
                             'presidente da reunião': ['presidente', 'chairman', 'chairperson'],
                             'oração final': ['oração', 'oracao final', 'oracao'],
@@ -523,7 +484,6 @@ export const agentActionService = {
                             'comentários finais': ['comentarios finais'],
                         };
 
-                        // Expandir qName: se é um alias, tentar o nome canônico
                         let expandedNames = [qName];
                         for (const [canonical, aliases] of Object.entries(PART_ALIASES)) {
                             if (aliases.includes(qName) || qName === canonical) {
@@ -537,18 +497,12 @@ export const agentActionService = {
                             const pType = (p.tipoParte || '').toLowerCase();
 
                             for (const query of expandedNames) {
-                                // 1. Query inside DB title/type (standard)
                                 if (pTitle && pTitle.includes(query)) return true;
                                 if (pType && pType.includes(query)) return true;
-
-                                // 2. Exact match on tipoParte
                                 if (pType && pType === query) return true;
-
-                                // 3. DB inside Query (handles "1. Term..." vs "Term")
                                 if (pTitle && pTitle.length > 3 && query.includes(pTitle)) return true;
                                 if (pType && pType.length > 3 && query.includes(pType)) return true;
                             }
-
                             return false;
                         });
                     }
@@ -557,15 +511,12 @@ export const agentActionService = {
                         return { success: false, message: `Parte não encontrada (ID: ${partId} | Nome: ${partName})` };
                     }
 
-                    // Resolve Publisher
                     let resolvedName = publisherName;
-
                     if (!publisherId && publisherName) {
                         const pub = publishers.find(p => p.name.toLowerCase().includes(publisherName.toLowerCase().trim()));
                         if (pub) {
                             resolvedName = pub.name;
                         } else {
-                            // Se não achou exato, verifica se é remoção
                             if (publisherName.toLowerCase() === 'remover' || publisherName === '') {
                                 resolvedName = '';
                             } else {
@@ -574,14 +525,11 @@ export const agentActionService = {
                         }
                     }
 
-                    // UNDO Capture (Temporário aqui, ideal mover para UnifiedActionService)
                     if (resolvedName) {
                         undoService.captureSingle(targetPart, `Agente: Designar ${resolvedName}`);
                     }
 
-                    // DELEGAR para UnifiedActionService
                     const { unifiedActionService } = await import('./unifiedActionService');
-
                     let actionResult;
                     if (resolvedName) {
                         actionResult = await unifiedActionService.executeDesignation(
@@ -602,7 +550,6 @@ export const agentActionService = {
                         return { success: false, message: actionResult.error || 'Erro na designação' };
                     }
 
-                    // Marcar seleção manual (Tracker)
                     if (resolvedName) {
                         try {
                             await markManualSelection(
