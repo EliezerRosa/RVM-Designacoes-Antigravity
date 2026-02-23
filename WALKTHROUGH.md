@@ -80,3 +80,22 @@ GRANT ALL ON public.notifications TO anon, authenticated;
 - **Hospedagem**: Vercel.
 - **CI/CD**: GitHub Actions — build + deploy automático no push para `main`.
 - **Dica de Build**: Se o build falhar com "Unexpected character" ou "Stream error", limpe o cache (`rm -rf node_modules/.vite`) e verifique se os arquivos de serviço estão salvos como UTF-8 sem BOM.
+
+---
+
+## Versão 4.0 - Expansão de Visão e Ação (DBA Power)
+
+Nesta versão, o Agente recebeu autonomia estruturada para gerenciar dados em nível de engenharia, garantindo transparência total via auditoria.
+
+### 1. Visão Total via `FETCH_DATA`
+O Agente agora possui uma ferramenta de consulta genérica que permite explorar qualquer sub-contexto do banco Supabase que não esteja no resumo inicial do app.
+- **Contextos mapeados**: Pessoas, Programação, Comunicação, Territórios e Auditoria.
+- **Uso**: Consultas dinâmicas via `dataDiscoveryService.ts`.
+
+### 2. Infraestrutura de Auditoria de Agente
+Implementamos um rastro de auditoria padronizado para todas as ações do Agente.
+- **`audit_log`**: Nova tabela no Supabase que registra `AGENT_INTENT`.
+- **Rastreabilidade**: Toda alteração de privilégios, disponibilidades ou regras do motor feita pelo Agente é documentada com a descrição da intenção.
+
+### 3. Nível 3: Scripts Empoderados
+Estabelecemos o uso de scripts TypeScript (`scripts/*.ts`) que rodam com privilégios de `Service Role` para operações de manutenção pesada, como limpezas de logs e configurações de gatilhos SQL.
