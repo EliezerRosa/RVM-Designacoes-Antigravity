@@ -78,9 +78,12 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             setShareImageData(null);
 
             // Filter parts for the week
+            console.log(`[TemporalChat] Gerando preview para ${weekId}. Total partes no contexto: ${parts.length}`);
             const weekParts = parts.filter(p => p.weekId === weekId);
+
             if (weekParts.length === 0) {
-                alert('Nenhuma designação encontrada para esta semana.');
+                console.warn(`[TemporalChat] Nenhuma parte encontrada para a semana ${weekId}`);
+                alert('Nenhuma designação encontrada para esta semana no contexto atual. Use "atualizar dados" se as designações forem recentes.');
                 setShareModalOpen(false);
                 return;
             }
@@ -295,7 +298,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                     const actionLabel = isViewOnly ? 'Visualizando' : 'Abrindo painel de compartilhamento';
                     const systemMsg: ChatMessage = {
                         role: 'assistant',
-                        content: `📱 ${actionLabel} para semana ${weekId}...`,
+                        content: `[S-140] ${actionLabel} para semana ${weekId}...`,
                         timestamp: new Date(),
                     };
                     await chatHistoryService.addMessage(sessionId, systemMsg);
@@ -488,7 +491,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
                                 ← Voltar
                             </button>
                             <h3 style={{ margin: 0, color: '#065F46', fontSize: '16px', flex: 1, textAlign: 'center' }}>
-                                {isViewMode ? '👁️ S-140' : '📱 Compartilhar'}
+                                {isViewMode ? '[S-140]' : '[COMPARTILHAR]'}
                             </h3>
                             <button
                                 onClick={() => setShareModalOpen(false)}

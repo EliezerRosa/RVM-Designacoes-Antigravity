@@ -263,7 +263,9 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
  * Sem as tags <html>, <head>, <body> envolvendo
  */
 export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
-    const year = new Date().getFullYear();
+    // Tentar extrair ano do weekId (formato YYYY-MM-DD)
+    const yearMatch = weekData.weekId.match(/^(\d{4})/);
+    const year = yearMatch ? yearMatch[1] : new Date().getFullYear();
 
     // Se semana cancelada, mostrar aviso simplificado
     if (weekData.isWeekCancelled) {
