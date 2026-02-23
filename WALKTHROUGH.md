@@ -99,3 +99,14 @@ Implementamos um rastro de auditoria padronizado para todas as ações do Agente
 
 ### 3. Nível 3: Scripts Empoderados
 Estabelecemos o uso de scripts TypeScript (`scripts/*.ts`) que rodam com privilégios de `Service Role` para operações de manutenção pesada, como limpezas de logs e configurações de gatilhos SQL.
+
+---
+
+## Versão 4.1 - Sincronização e Robustez do Agente (Fix de Produção)
+
+Esta atualização corrige os erros de build e as falhas de comando do Agente In-App identificadas após a expansão da v4.0.
+
+-   **Sincronização de Prompt**: O Agente agora conhece e usa corretamente os comandos `FETCH_DATA` e `UPDATE_PUBLISHER` através de um System Prompt recalibrado.
+-   **Robustez de Parâmetros**: O motor de ações (`agentActionService.ts`) agora aceita parâmetros simplificados, tratando falhas onde o Agente enviava dados sem a estrutura de objeto aninhada.
+-   **Estabilidade de Build**: Reescrita técnica dos serviços de Agente para eliminar erros de stream/caracteres corrompidos que impediam o deploy no Windows e CI/CD.
+-   **Deploy OK**: Build de produção gerado e publicado via GitHub Pages e Vercel com sucesso.
