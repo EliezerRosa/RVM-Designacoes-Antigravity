@@ -96,7 +96,7 @@ export const agentActionService = {
 
                     return {
                         success: true,
-                        message: `📊 **Análise do Cérebro (Top 10):**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}`,
+                        message: `**Análise do Cérebro (Top 10):**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}`,
                         data: ranked,
                         actionType: 'CHECK_SCORE'
                     };
@@ -197,7 +197,7 @@ export const agentActionService = {
 
                         return {
                             success: true,
-                            message: `**Atualização Concluída:** Dados de **${pub.name}** foram alterados com sucesso!`,
+                            message: `**Atualização Concluída:** Os dados de **${pub.name}** foram alterados. Status: ${updates.isNotQualified ? '[INAPTO]' : '[APTO]'}. Motivo: ${updates.notQualifiedReason || 'N/A'}.`,
                             data: updatedPub,
                             actionType: 'UPDATE_PUBLISHER'
                         };
@@ -240,7 +240,7 @@ export const agentActionService = {
 
                         return {
                             success: true,
-                            message: `**Agenda Atualizada:** As seguintes datas **(${unavailableDates.join(', ')})** foram marcadas como indisponíveis para **${pub.name}**!`,
+                            message: `**Agenda Atualizada:** As seguintes datas **(${unavailableDates.join(', ')})** foram marcadas como indisponíveis para **${pub.name}**. O agente agora considera este publicador bloqueado nessas datas.`,
                             data: updatedPub,
                             actionType: 'UPDATE_AVAILABILITY'
                         };
