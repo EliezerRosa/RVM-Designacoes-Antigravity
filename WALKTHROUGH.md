@@ -110,3 +110,14 @@ Esta atualização corrige os erros de build e as falhas de comando do Agente In
 -   **Robustez de Parâmetros**: O motor de ações (`agentActionService.ts`) agora aceita parâmetros simplificados, tratando falhas onde o Agente enviava dados sem a estrutura de objeto aninhada.
 -   **Estabilidade de Build**: Reescrita técnica dos serviços de Agente para eliminar erros de stream/caracteres corrompidos que impediam o deploy no Windows e CI/CD.
 -   **Deploy OK**: Build de produção gerado e publicado via GitHub Pages e Vercel com sucesso.
+
+---
+
+## Versão 4.2 - Tuning Cognitivo (Visibilidade e Resiliência)
+
+Esta atualização foca na experiência de chat e na consistência das respostas do Agente.
+
+-   **Visibilidade Forçada**: O Agente agora está proibido de recusar listar dados. Ele usará tabelas Markdown para listar publicadores e resultados de busca, paginando se necessário.
+-   **Precedência de Ação**: Resolvido o conflito onde o Agente duvidava de suas próprias ações devido ao cache do sistema. Ele agora prioriza o sucesso imediato da ferramenta sobre o contexto textual.
+-   **Mensagens Descritivas**: O motor de ações retorna detalhes mais claros (ex: "[APTO]" ou "[INAPTO]"), ajudando o Agente a manter a coerência no turno seguinte.
+-   **Sanitização de Código**: Removidos caracteres não-ASCII que causavam instabilidade no `esbuild` em ambientes Windows.

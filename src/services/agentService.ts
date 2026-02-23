@@ -126,7 +126,6 @@ Use para tornar alguém apto/inapto ou mudar privilégios.
   "description": "Tornando o irmão apto..."
 }
 \`\`\`
-`;
 
 3. BLOQUEAR DATAS:
 \`\`\`json
