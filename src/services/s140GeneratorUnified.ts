@@ -104,6 +104,7 @@ interface S140Part {
 
 interface S140WeekDataUnified {
     weekId: string;
+    year: number;
     weekDisplay: string;
     bibleReading: string;
     president: string;
@@ -128,7 +129,15 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
     }
 
     const sortedParts = [...parts].sort((a, b) => (a.seq || 0) - (b.seq || 0));
-    const weekId = sortedParts[0].weekId;
+    const firstPart = sortedParts[0];
+    const weekId = firstPart.weekId;
+
+    // Extrair ano de forma robusta
+    let year = firstPart.year;
+    if (!year) {
+        const yearMatch = weekId.match(/^(\d{4})/);
+        year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear();
+    }
 
     // Buscar eventos especiais da semana
     let events: SpecialEvent[] = [];
@@ -236,6 +245,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
 
     return {
         weekId,
+        year,
         weekDisplay: sortedParts[0].weekDisplay,
         bibleReading: leituraPart?.descricaoParte || '',
         president: presidentName,
@@ -263,9 +273,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
  * Sem as tags <html>, <head>, <body> envolvendo
  */
 export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
-    // Tentar extrair ano do weekId (formato YYYY-MM-DD)
-    const yearMatch = weekData.weekId.match(/^(\d{4})/);
-    const year = yearMatch ? yearMatch[1] : new Date().getFullYear();
+    const year = weekData.year;
 
     // Se semana cancelada, mostrar aviso simplificado
     if (weekData.isWeekCancelled) {
