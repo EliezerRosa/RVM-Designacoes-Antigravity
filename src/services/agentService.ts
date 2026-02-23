@@ -101,83 +101,83 @@ Se o usuário pedir uma ação ou você precisar de dados extras, você DEVE inc
 1. CONSULTAR DADOS (Visão Total):
 Use quando precisar de informações que não estão no contexto resumido.
 Contextos: 'publishers', 'workbook', 'notifications', 'territories', 'audit'.
-```json
+\`\`\`json
 {
-    "type": "FETCH_DATA",
-        "params": {
-        "context": "publishers",
-            "filters": { "name": "Nome do Irmão" },
-        "limit": 10
-    },
-    "description": "Buscando dados detalhados..."
+  "type": "FETCH_DATA",
+  "params": { 
+    "context": "publishers",
+    "filters": { "name": "Nome do Irmão" },
+    "limit": 10
+  },
+  "description": "Buscando dados detalhados..."
 }
-```
+\`\`\`
 
 2. ATUALIZAR PUBLICADOR (Elegibilidade/Dados):
 Use para tornar alguém apto/inapto ou mudar privilégios.
-```json
+\`\`\`json
 {
-    "type": "UPDATE_PUBLISHER",
-        "params": {
-        "publisherName": "Nome Completo",
-            "updates": { "isNotQualified": false, "notQualifiedReason": "" }
-    },
-    "description": "Tornando o irmão apto..."
+  "type": "UPDATE_PUBLISHER",
+  "params": {
+    "publisherName": "Nome Completo",
+    "updates": { "isNotQualified": false, "notQualifiedReason": "" }
+  },
+  "description": "Tornando o irmão apto..."
 }
-```
+\`\`\`
 
 3. BLOQUEAR DATAS:
-```json
+\`\`\`json
 {
-    "type": "UPDATE_AVAILABILITY",
-        "params": {
-        "publisherName": "Nome",
-            "unavailableDates": ["2026-03-24", "2026-03-31"]
-    },
-    "description": "Bloqueando datas na agenda..."
+  "type": "UPDATE_AVAILABILITY",
+  "params": {
+    "publisherName": "Nome",
+    "unavailableDates": ["2026-03-24", "2026-03-31"]
+  },
+  "description": "Bloqueando datas na agenda..."
 }
-```
+\`\`\`
 
 4. GERAR DESIGNAÇÕES:
-```json
+\`\`\`json
 {
-    "type": "GENERATE_WEEK",
-        "params": { "weekId": "YYYY-MM-DD" },
-    "description": "Gerando designações..."
+  "type": "GENERATE_WEEK",
+  "params": { "weekId": "YYYY-MM-DD" },
+  "description": "Gerando designações..."
 }
-```
+\`\`\`
 
 5. DESIGNAR PARTE ESPECÍFICA:
-```json
+\`\`\`json
 {
-    "type": "ASSIGN_PART",
-        "params": {
-        "partId": "ID-DA-PARTE",
-            "publisherName": "Nome do Publicador"
-    },
-    "description": "Atribuindo parte..."
+  "type": "ASSIGN_PART",
+  "params": {
+    "partId": "ID-DA-PARTE",
+    "publisherName": "Nome do Publicador" 
+  },
+  "description": "Atribuindo parte..."
 }
-```
+\`\`\`
 
 6. COMUNICAÇÃO (S-140/S-89):
-```json
+\`\`\`json
 {
-    "type": "SEND_S140",
-        "params": { "weekId": "YYYY-MM-DD" },
-    "description": "Preparando mensagem para o grupo..."
+  "type": "SEND_S140",
+  "params": { "weekId": "YYYY-MM-DD" },
+  "description": "Preparando mensagem para o grupo..."
 }
-```
+\`\`\`
 
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
 `;
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
 ACESSO ESPECIAL - ANCIÃOS:
-Você tem acesso a informações confidenciais sobre bloqueios e inatividade.Explique os motivos reais se solicitado.`;
+Você tem acesso a informações confidenciais sobre bloqueios e inatividade. Explique os motivos reais se solicitado.`;
 
 const SYSTEM_PROMPT_PUBLISHER_ADDON = `
 RESTRIÇÕES DE ACESSO - PUBLICADOR:
-Você NÃO tem acesso a informações confidenciais.Seja genérico sobre motivos de não - elegibilidade.`;
+Você NÃO tem acesso a informações confidenciais. Seja genérico sobre motivos de não-elegibilidade.`;
 
 export function isAgentConfigured(): boolean {
     if (!!GEMINI_API_KEY && GEMINI_API_KEY.length > 10) return true;
@@ -264,7 +264,7 @@ export async function askAgent(
 
             const requestBody = {
                 contents: [
-                    { role: 'user', parts: [{ text: `${systemPrompt} \n\n${rulesText} \n\n${contextText}${sensitiveContextText} ` }] },
+                    { role: 'user', parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }] },
                     { role: 'model', parts: [{ text: `Entendido! Assistente RVM disponível.` }] },
                     ...recentChat,
                     { role: 'user', parts: [{ text: question }] },
@@ -278,7 +278,7 @@ export async function askAgent(
 
             if (hasLocalKey) {
                 checkSafetyMode(targetUrl);
-                response = await fetch(`${targetUrl}?key = ${GEMINI_API_KEY} `, {
+                response = await fetch(`${targetUrl}?key=${GEMINI_API_KEY}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody),
@@ -291,7 +291,7 @@ export async function askAgent(
                 });
             }
 
-            if (!response.ok) throw new Error(`HTTP ${response.status} `);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const data = await response.json();
             const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -318,7 +318,7 @@ export async function askAgent(
     return {
         success: false,
         message: '',
-        error: `Falha total.Último erro: ${lastError instanceof Error ? lastError.message : 'Desconhecido'} `,
+        error: `Falha total. Último erro: ${lastError instanceof Error ? lastError.message : 'Desconhecido'}`,
     };
 }
 
