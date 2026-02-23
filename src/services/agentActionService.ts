@@ -8,6 +8,8 @@ import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationServ
 import { checkEligibility } from './eligibilityService';
 import { communicationService } from './communicationService';
 import { specialEventService } from './specialEventService';
+import { dataDiscoveryService } from './dataDiscoveryService';
+import { auditService } from './auditService';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -24,6 +26,7 @@ export type AgentActionType =
     | 'MANAGE_SPECIAL_EVENT' // Nova Tool
     | 'SEND_S140' // Nova Tool - Fase 3
     | 'SEND_S89' // Nova Tool - Fase 3
+    | 'FETCH_DATA' // Nova Tool - Fase 4 (Visão Total)
     // Legacy support for transition (optional)
     | 'SIMULATE_ASSIGNMENT';
 
@@ -47,7 +50,7 @@ export const agentActionService = {
     detectAction(responseContent: string): AgentAction | null {
         // Try to find JSON block
         const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK|UPDATE_PUBLISHER|UPDATE_AVAILABILITY|UPDATE_ENGINE_RULES|MANAGE_SPECIAL_EVENT|SEND_S140|SEND_S89)"[\s\S]*}/);
+            responseContent.match(/{\s*[\s\S]*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK|UPDATE_PUBLISHER|UPDATE_AVAILABILITY|UPDATE_ENGINE_RULES|MANAGE_SPECIAL_EVENT|SEND_S140|SEND_S89|FETCH_DATA)"[\s\S]*}/);
 
         if (jsonMatch) {
             try {
@@ -184,6 +187,15 @@ export const agentActionService = {
 
                         await api.updatePublisher(updatedPub);
 
+                        // Auditoria Nível 2
+                        await auditService.logAction({
+                            table_name: 'publishers',
+                            operation: 'AGENT_INTENT',
+                            record_id: updatedPub.id,
+                            new_data: updatedPub,
+                            description: `Agente atualizou publicador: ${action.description}`
+                        });
+
                         return {
                             success: true,
                             message: `**Atualização Concluída:** Dados de **${pub.name}** foram alterados com sucesso!`,
@@ -221,6 +233,15 @@ export const agentActionService = {
 
                         await api.updatePublisher(updatedPub);
 
+                        // Auditoria Nível 2
+                        await auditService.logAction({
+                            table_name: 'publishers',
+                            operation: 'AGENT_INTENT',
+                            record_id: updatedPub.id,
+                            new_data: updatedPub,
+                            description: `Agente bloqueou datas de disponibilidade: ${action.description}`
+                        });
+
                         return {
                             success: true,
                             message: `**Agenda Atualizada:** As seguintes datas **(${unavailableDates.join(', ')})** foram marcadas como indisponíveis para **${pub.name}**!`,
@@ -249,6 +270,15 @@ export const agentActionService = {
                         const mergedConfig = { ...currentGlobalConfig, ...settings };
 
                         await api.setSetting('engine_config', mergedConfig);
+
+                        // Auditoria Nível 3
+                        await auditService.logAction({
+                            table_name: 'settings',
+                            operation: 'AGENT_INTENT',
+                            record_id: 'engine_config',
+                            new_data: mergedConfig,
+                            description: `Agente alterou regras do motor: ${action.description}`
+                        });
 
                         // 2. Aplicar em memória imediatamente
                         updateRotationConfig(settings);
@@ -360,6 +390,42 @@ export const agentActionService = {
                         };
                     } catch (e) {
                         return { success: false, message: `Erro ao preparar S-89: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
+                }
+
+                case 'FETCH_DATA': {
+                    const { table, select, filters, limit, order, context } = action.params;
+
+                    try {
+                        let tablesToQuery = [table];
+                        if (context) {
+                            tablesToQuery = dataDiscoveryService.getTableFromContext(context);
+                        }
+
+                        if (!tablesToQuery[0] && !table) {
+                            return { success: false, message: 'Tabela ou Contexto não especificado para FETCH_DATA.' };
+                        }
+
+                        const results: Record<string, any[]> = {};
+                        for (const t of tablesToQuery) {
+                            results[t] = await dataDiscoveryService.fetchData({
+                                table: t,
+                                select,
+                                filters,
+                                limit: limit || 50,
+                                order
+                            });
+                        }
+
+                        return {
+                            success: true,
+                            message: `**Consulta Realizada**: Dados obtidos dos contextos: ${Object.keys(results).join(', ')}.`,
+                            data: results,
+                            actionType: 'FETCH_DATA'
+                        };
+                    } catch (e) {
+                        console.error('[AgentAction] Fail to fetch data', e);
+                        return { success: false, message: `Erro ao buscar dados: ${e instanceof Error ? e.message : 'Desconhecido'}` };
                     }
                 }
 
