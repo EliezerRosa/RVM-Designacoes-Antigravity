@@ -62,7 +62,8 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         horaInicio: (row.hora_inicio as string) || '',
         horaFim: (row.hora_fim as string) || '',
         rawPublisherName: (row.raw_publisher_name as string) || '',
-        // Publicador designado (ÚNICO campo)
+        // Publicador designado (ID é a fonte da verdade, Nome é cache)
+        resolvedPublisherId: (row.resolved_publisher_id as string) || undefined,
         resolvedPublisherName: (row.resolved_publisher_name as string) || undefined,
         // Status e metadados
         status: row.status as WorkbookStatus,
@@ -486,6 +487,7 @@ export const workbookService = {
         if (updates.horaFim !== undefined) dbUpdates.hora_fim = updates.horaFim;
         if (updates.rawPublisherName !== undefined) dbUpdates.raw_publisher_name = updates.rawPublisherName;
         // SIMPLIFICADO: Apenas resolved_publisher_name
+        if (updates.resolvedPublisherId !== undefined) dbUpdates.resolved_publisher_id = updates.resolvedPublisherId;
         if (updates.resolvedPublisherName !== undefined) dbUpdates.resolved_publisher_name = updates.resolvedPublisherName;
         if (updates.status !== undefined) dbUpdates.status = updates.status;
 
@@ -695,14 +697,15 @@ export const workbookService = {
      * Propõe um publicador para uma parte (atualiza status e publicador)
      * Usa apenas resolved_publisher_name (resolved_publisher_id é UUID e publishers usam IDs numéricos)
      */
-    async proposePublisher(partId: string, publisherName: string): Promise<WorkbookPart> {
+    async proposePublisher(partId: string, publisherName: string, publisherId?: string): Promise<WorkbookPart> {
         // Se remover o publicador, status volta para PENDENTE
-        const status = publisherName ? WorkbookStatus.PROPOSTA : WorkbookStatus.PENDENTE;
+        const status = (publisherName || publisherId) ? WorkbookStatus.PROPOSTA : WorkbookStatus.PENDENTE;
 
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
                 status: status,
+                resolved_publisher_id: publisherId || null,
                 resolved_publisher_name: publisherName || null,
                 updated_at: new Date().toISOString(),
             })
@@ -770,6 +773,7 @@ export const workbookService = {
                 status: WorkbookStatus.PENDENTE,
                 rejected_reason: enhancedReason,
                 // Limpar a designação ao rejeitar
+                resolved_publisher_id: null,
                 resolved_publisher_name: null,
                 updated_at: new Date().toISOString(),
                 // Limpar metadados de aprovação/conclusão para resetar ciclo

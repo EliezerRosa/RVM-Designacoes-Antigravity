@@ -10,8 +10,18 @@
  */
 
 import html2pdf from 'html2pdf.js';
-import type { WorkbookPart, SpecialEvent } from '../types';
+import type { WorkbookPart, SpecialEvent, Publisher } from '../types';
 import { specialEventService, EVENT_TEMPLATES } from './specialEventService';
+
+// Helper para resolver nome do publicador (ID -> Nome Atualizado -> Nome Cache -> Nome Bruto)
+function resolveName(part: WorkbookPart | undefined, publishers?: Publisher[]): string {
+    if (!part) return '';
+    if (part.resolvedPublisherId && publishers) {
+        const pub = publishers.find(p => p.id === part.resolvedPublisherId);
+        if (pub) return pub.name;
+    }
+    return part.resolvedPublisherName || part.rawPublisherName || '';
+}
 
 // ============================================================================
 // CONSTANTES DO TEMPLATE (copiadas do BA4)
@@ -123,7 +133,7 @@ interface S140WeekDataUnified {
 // PREPARAÇÃO DE DADOS (com suporte a eventos)
 // ============================================================================
 
-export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S140WeekDataUnified> {
+export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?: Publisher[]): Promise<S140WeekDataUnified> {
     if (parts.length === 0) {
         throw new Error('Nenhuma parte fornecida para o S-140');
     }
@@ -163,7 +173,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
     const presidentPart = activeParts.find(p =>
         p.tipoParte === 'Presidente' || p.tipoParte === 'Presidente da Reunião'
     );
-    const presidentName = presidentPart?.resolvedPublisherName || '';
+    const presidentName = resolveName(presidentPart, publishers);
 
     const counselorPart = activeParts.find(p =>
         p.tipoParte?.includes('Conselheiro') || p.tipoParte?.includes('Dirigente Sala B')
@@ -187,7 +197,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
     // Mapa de ajudantes por número de sequência
     const ajudanteBySeq = new Map<string, string>();
     ajudanteParts.forEach(a => {
-        const name = a.resolvedPublisherName || '';
+        const name = resolveName(a, publishers);
         const titulo = a.tituloParte || a.tipoParte;
         const seqNum = extractSeqNumber(titulo);
         if (name && seqNum) {
@@ -209,7 +219,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[]): Promise<S14
             // Verificar se deve mostrar nome - usa HIDDEN_ASSIGNEE_PARTS
             const shouldHideName = HIDDEN_ASSIGNEE_PARTS.some(h => p.tipoParte?.includes(h));
             if (!shouldHideName) {
-                mainHallAssignee = p.resolvedPublisherName || '';
+                mainHallAssignee = resolveName(p, publishers);
             }
 
             const titulo = p.tituloParte || p.tipoParte;

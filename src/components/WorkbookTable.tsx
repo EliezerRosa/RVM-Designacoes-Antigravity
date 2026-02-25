@@ -85,11 +85,22 @@ export function WorkbookTable({
                 </thead>
                 <tbody>
                     {partsToRender.map(part => {
-                        const displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
-                        let currentPubId = '';
-                        if (displayRaw) {
-                            const found = publishers.find(p => p.name === displayRaw);
-                            if (found) currentPubId = found.id;
+                        let displayRaw = part.resolvedPublisherName || part.rawPublisherName || '';
+                        let currentPubId = part.resolvedPublisherId || '';
+
+                        // Prioridade 1: Se temos ID, buscamos o nome atualizado na lista oficial
+                        if (currentPubId) {
+                            const found = publishers.find(p => p.id === currentPubId);
+                            if (found) {
+                                displayRaw = found.name;
+                            }
+                        }
+                        // Prioridade 2: Se não temos ID mas temos nome, tentamos o ID via nome (retrocompatibilidade)
+                        else if (displayRaw) {
+                            const found = publishers.find(p => p.name.trim().toLowerCase() === displayRaw.trim().toLowerCase());
+                            if (found) {
+                                currentPubId = found.id;
+                            }
                         }
                         const isPast = isPartInPastWeek(part.date);
 

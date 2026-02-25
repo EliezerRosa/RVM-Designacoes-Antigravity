@@ -38,18 +38,28 @@ export const unifiedActionService = {
         partId: string,
         publisherName: string,
         source: ActionSource,
-        reason?: string
+        reason?: string,
+        publisherId?: string
     ): Promise<ActionResult> {
         console.log(`[UnifiedAction] 📝 Solicitação de Designação:`, { partId, publisherName, source, reason });
 
         try {
-            // 1. Validação "Hard Compliance" para Agente (e outros se necessário)
+            // 1. Resolver ID e Validação
+            let resolvedId = publisherId;
+            if (!resolvedId && publisherName) {
+                const allPublishers = await api.loadPublishers();
+                const pub = allPublishers.find(p => p.name.trim().toLowerCase() === publisherName.trim().toLowerCase());
+                if (pub) {
+                    resolvedId = pub.id;
+                }
+            }
+
             if (source === 'AGENT') {
                 await this.validateEligibility(partId, publisherName);
             }
 
             // 2. Executar via WorkbookService (Camada de Dados)
-            const updatedPart = await workbookService.proposePublisher(partId, publisherName);
+            const updatedPart = await workbookService.proposePublisher(partId, publisherName, resolvedId);
 
             // 3. Log de Auditoria
             console.log(`[UnifiedAction] ✅ Sucesso: ${publisherName} designado para ${updatedPart.tituloParte} (${source})`);

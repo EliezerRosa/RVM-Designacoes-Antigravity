@@ -9,11 +9,12 @@
  */
 
 import { useState, useEffect } from 'react';
-import type { WorkbookPart } from '../types';
+import type { WorkbookPart, Publisher } from '../types';
 
 interface Props {
     weekParts: Record<string, WorkbookPart[]>;  // weekId -> parts
     weekOrder: string[];  // Ordem das semanas
+    publishers?: Publisher[]; // NEW: Lista de publicadores para resolver IDs
     // NEW: External control props
     currentWeekId?: string | null;
     onWeekChange?: (weekId: string) => void;
@@ -22,7 +23,7 @@ interface Props {
     onRequestS89?: () => void;
 }
 
-export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWeekChange, onPartClick, selectedPartId, onRequestS89 }: Props) {
+export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentWeekId, onWeekChange, onPartClick, selectedPartId, onRequestS89 }: Props) {
     const [currentIndex, setCurrentIndex] = useState(0);
     // State for Async HTML Generation
     const [s140HTML, setS140HTML] = useState<string>('<div style="padding: 20px; color: #666;">Carregando visualização...</div>');
@@ -56,7 +57,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, currentWeekId, onWee
                 // Import Dynamically
                 const { prepareS140UnifiedData, renderS140ToElement } = await import('../services/s140GeneratorUnified');
 
-                const weekData = await prepareS140UnifiedData(currentParts);
+                const weekData = await prepareS140UnifiedData(currentParts, publishers);
                 const element = renderS140ToElement(weekData);
 
                 if (isMounted) {
