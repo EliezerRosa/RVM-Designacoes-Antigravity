@@ -536,7 +536,8 @@ export const agentActionService = {
                             targetPart.id,
                             resolvedName,
                             'AGENT',
-                            'Solicitado via Chat'
+                            'Solicitado via Chat',
+                            publisherId // Passa o ID se disponível
                         );
                     } else {
                         actionResult = await unifiedActionService.revertDesignation(

@@ -229,7 +229,8 @@ export interface WorkbookPart {
     horaFim: string;
     rawPublisherName: string;
 
-    // Publicador designado
+    // Publicador designado (ID é a fonte da verdade, Nome é cache)
+    resolvedPublisherId?: string;
     resolvedPublisherName?: string;
 
     // Status e metadados

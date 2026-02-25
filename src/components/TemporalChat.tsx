@@ -89,7 +89,7 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             }
 
             // Prepare Data and HTML
-            const weekData = await prepareS140UnifiedData(weekParts);
+            const weekData = await prepareS140UnifiedData(weekParts, publishers);
             const element = renderS140ToElement(weekData);
 
             // Append to body effectively invisible but rendered

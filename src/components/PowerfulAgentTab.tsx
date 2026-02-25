@@ -155,6 +155,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     <S140PreviewCarousel
                         weekParts={weekParts} // Use real parts
                         weekOrder={weekOrder}
+                        publishers={publishers}
                         currentWeekId={currentWeekId}
                         onWeekChange={handleCarouselNavigation}
                         onPartClick={(partId) => setSelectedPartId(partId)}
