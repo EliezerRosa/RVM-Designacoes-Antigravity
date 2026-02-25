@@ -23,17 +23,20 @@ import {
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 const MODEL_CANDIDATES = [
-    'gemini-2.0-flash',         // Versão estável 2.0
-    'gemini-2.0-flash-lite',    // Versão leve
-    'gemini-1.5-flash-latest',  // Fallback seguro 1.5
-    'gemini-1.5-pro'            // Caso necessite de mais contexto
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-2.0-flash',
+    'gemini-1.5-pro',
+    'gemini-1.5-pro-latest'
 ];
 
 // Cache do último modelo que funcionou para agilizar próximas chamadas
 let lastWorkingModel: string | null = null;
 
 function getGeminiUrl(model: string): string {
-    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    // Usar v1 para modelos estáveis se v1beta falhar ou for desnecessário
+    const apiVersion = model.includes('2.0') ? 'v1beta' : 'v1';
+    return `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent`;
 }
 
 // SEGURANÇA: Modelos permitidos no Free Tier
