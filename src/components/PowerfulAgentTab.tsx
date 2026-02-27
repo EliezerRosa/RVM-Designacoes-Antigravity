@@ -223,6 +223,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         onModelChange={setActiveModel}
                         currentWeekId={currentWeekId || undefined}
                         initialCommand={initialCommand}
+                        isWorkbookLoading={isWorkbookLoading}
                     />
                 </div>
 
