@@ -335,7 +335,8 @@ function App() {
         setInitialAgentWeekId(part.weekId);
       }
 
-      setInitialAgentCommand(`Substituir publicador da parte ${partId}`);
+      // v9.4: Use explicit [ID: UUID] format for 100% agent accuracy
+      setInitialAgentCommand(`Sugerir substitutos recomendados para a parte [ID: ${partId}]`);
       setActiveTab('agent');
     }
   }, [workbookParts.length > 0]); // Dependency array simplified to run once data is ready

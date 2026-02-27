@@ -46,6 +46,7 @@ export default function TemporalChat({
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const lastCommandRef = useRef<string | null>(null);
 
     // Share S-140 State
     const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -413,29 +414,32 @@ export default function TemporalChat({
         }
     };
 
-    // Auto-trigger initial command
+    // Unified Auto-trigger for initial command (Replacement Flow)
     useEffect(() => {
-        if (initialCommand && sessionId && messages.length > 0 && !isLoading) {
-            // Only trigger if the last message isn't already the command or from assistant answering it
-            const lastMsg = messages[messages.length - 1];
-            if (lastMsg.role === 'assistant' && messages.length === 1) {
-                // This is the "Naveguei para a semana" message
-                sendMessage(initialCommand);
-            } else if (messages.length === 0) {
-                sendMessage(initialCommand);
+        const canSend = !isLoading && !isWorkbookLoading && parts.length > 0 && sessionId;
+
+        if (initialCommand && canSend) {
+            // Check if we already processed this specific command string
+            if (lastCommandRef.current === initialCommand) return;
+
+            // Check if there are messages. If so, check if the last user message matches the command
+            const alreadySent = messages.some(m => m.role === 'user' && m.content === initialCommand);
+            if (alreadySent) {
+                lastCommandRef.current = initialCommand;
+                return;
             }
-        }
-    }, [initialCommand, sessionId, messages.length === 0]);
 
-    // Handle initial command on session load
-    useEffect(() => {
-        const canSend = !isLoading && !isWorkbookLoading && parts.length > 0;
+            console.log('[TemporalChat] Auto-triggering initial command:', initialCommand);
+            lastCommandRef.current = initialCommand;
 
-        if (initialCommand && sessionId && messages.length === 0 && canSend) {
-            console.log('[TemporalChat] Auto-triggering initial command after data load:', initialCommand);
-            sendMessage(initialCommand);
+            // Short delay to ensure session and messages are stable
+            const timer = setTimeout(() => {
+                sendMessage(initialCommand);
+            }, 500);
+
+            return () => clearTimeout(timer);
         }
-    }, [sessionId, initialCommand, isLoading, isWorkbookLoading, parts.length]);
+    }, [sessionId, initialCommand, isLoading, isWorkbookLoading, parts.length, messages.length === 0]);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
