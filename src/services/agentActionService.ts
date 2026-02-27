@@ -75,7 +75,8 @@ export const agentActionService = {
         action: AgentAction,
         parts: WorkbookPart[],
         publishers: Publisher[],
-        history: HistoryRecord[] = []
+        history: HistoryRecord[] = [],
+        contextWeekId?: string
     ): Promise<ActionResult> {
         console.log('[AgentAction] Executing:', action);
 
@@ -470,8 +471,17 @@ export const agentActionService = {
 
                 case 'ASSIGN_PART':
                 case 'SIMULATE_ASSIGNMENT': {
-                    const { partId, publisherId, publisherName, weekId, partName } = action.params;
+                    let { partId, publisherId, publisherName, weekId, partName } = action.params;
                     let targetPart = parts.find(p => p.id === partId);
+
+                    // Se não encontrou por ID, mas partId parece um nome/título, tratar como tal
+                    if (!targetPart && partId && !partName) {
+                        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(partId);
+                        if (!isUUID) {
+                            partName = partId;
+                            if (!weekId) weekId = contextWeekId;
+                        }
+                    }
 
                     if (!targetPart && weekId && partName) {
                         const candidates = parts.filter(p => p.weekId === weekId);

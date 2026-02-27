@@ -326,7 +326,7 @@ export default function TemporalChat({
                 // EXECUTE ACTION DIRECTLY
                 // Convert parts to history for deep analysis
                 const history = parts.map(p => workbookPartToHistoryRecord(p));
-                const result = await agentActionService.executeAction(response.action, parts, publishers, history);
+                const result = await agentActionService.executeAction(response.action, parts, publishers, history, currentWeekId);
 
                 if (result.success) {
                     // Notify parent to update view
