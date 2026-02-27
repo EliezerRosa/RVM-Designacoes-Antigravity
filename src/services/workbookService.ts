@@ -758,13 +758,30 @@ export const workbookService = {
         // Primeiro, buscar a parte para saber quem estava designado (para log)
         const { data: currentPart } = await supabase
             .from('workbook_parts')
-            .select('resolved_publisher_name')
+            .select('*')
             .eq('id', partId)
             .single();
 
+        // 2. Registrar no log de recusas (tabela específica para histórico persistente)
+        if (currentPart) {
+            const { error: logError } = await supabase
+                .from('refusal_logs')
+                .insert({
+                    part_id: partId,
+                    publisher_name: currentPart.resolved_publisher_name || currentPart.raw_publisher_name,
+                    reason: reason,
+                    week_id: currentPart.week_id,
+                    tipo_parte: currentPart.tipo_parte
+                });
+
+            if (logError) {
+                console.error('[workbookService] Erro ao gravar recusa no log:', logError);
+            }
+        }
+
         let enhancedReason = reason;
         if (currentPart?.resolved_publisher_name) {
-            enhancedReason = `[${new Date().toLocaleDateString()}] Removido ${currentPart.resolved_publisher_name}: ${reason}`;
+            enhancedReason = `[${new Date().toLocaleDateString()}] Recusado por ${currentPart.resolved_publisher_name}: ${reason}`;
         }
 
         const { data, error } = await supabase
@@ -784,7 +801,7 @@ export const workbookService = {
             .eq('id', partId)
             // Aceita rejeitar de qualquer status avançado
             .in('status', [
-                WorkbookStatus.PENDENTE, // Permitir limpar nome de partes PENDENTE
+                WorkbookStatus.PENDENTE,
                 WorkbookStatus.PROPOSTA,
                 WorkbookStatus.APROVADA,
                 WorkbookStatus.DESIGNADA,

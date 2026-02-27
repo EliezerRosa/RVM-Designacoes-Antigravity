@@ -139,7 +139,9 @@ export function generateWhatsAppMessage(
     recipientGender: 'brother' | 'sister' = 'brother',
     partnerName?: string,
     partnerPhone?: string,
-    isForAssistant: boolean = false
+    isForAssistant: boolean = false,
+    srvmName?: string,
+    srvmPhone?: string
 ): string {
     const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
     const salutation = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
@@ -206,7 +208,22 @@ export function generateWhatsAppMessage(
     }
 
     msg += `\n─────────────\n`;
-    msg += `\n*Por favor, confirme o recebimento desta mensagem.* 🙏`;
+
+    // Link de confirmação (Portal Público)
+    const baseUrl = window.location.origin;
+    const confirmUrl = `${baseUrl}/?portal=confirm&id=${part.id}`;
+    msg += `\n👉 *Confirme sua participação aqui:* ${confirmUrl}\n`;
+
+    msg += `\n*Por favor, confirme o recebimento desta mensagem.* 🙏\n`;
+
+    if (srvmName && srvmPhone) {
+        msg += `\n─────────────\n`;
+        msg += `👤 *Responsável RVM:* ${srvmName} (${srvmPhone})\n`;
+        // Formatar link wa.me
+        let cleaned = srvmPhone.replace(/[^0-9]/g, '');
+        if (cleaned && cleaned.length <= 11 && !cleaned.startsWith('55')) cleaned = '55' + cleaned;
+        msg += `📱 *Falar com ele (Zap):* https://wa.me/${cleaned}`;
+    }
 
     return msg;
 }
