@@ -519,7 +519,7 @@ function App() {
             historyRecords={historyRecords}
             refreshWorkbookParts={refreshAllData}
             isWorkbookLoading={isWorkbookLoading}
-            initialCommand={initialCommand || undefined}
+            initialCommand={initialAgentCommand || undefined}
             initialWeekId={initialAgentWeekId || undefined}
           />}
         </div>
