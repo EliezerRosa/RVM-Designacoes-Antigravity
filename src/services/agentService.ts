@@ -154,14 +154,17 @@ Use para tornar alguém apto/inapto ou mudar privilégios.
 5. DESIGNAR PARTE ESPECÍFICA:
 Use para atribuir alguém a uma parte.
 - **Sempre utilize o UUID** que aparece entre colchetes como \`[ID: UUID-AQUI]\` nas designações no contexto para o parâmetro \`partId\`.
-- **FALLBACK:** Se o UUID não estiver disponível ou for difícil de extrair, use o **título exato da parte** (ex: "4. Iniciando conversas (3 min)") no parâmetro \`partId\`. O sistema tentará encontrar a parte pelo nome.
+- **FALLBACK (NOME DA PARTE):** Se o UUID não estiver disponível ou for difícil de extrair, use o **título exato da parte** (ex: "4. Iniciando conversas (3 min)") no parâmetro \`partId\`. O sistema resolverá automaticamente.
+- **OBRIGATÓRIO:** Sempre forneça o parâmetro \`weekId\` (formato YYYY-MM-DD) na ação \`ASSIGN_PART\` para garantir precisão.
+- **SEM HESITAÇÃO:** Nunca peça o UUID ao usuário. Se você sabe qual é a parte pelo nome, execute a ação imediatamente usando o nome no campo \`partId\`.
 - Se o usuário não especificar o publicador, sugira os melhores candidatos com base no Score.
 \`\`\`json
 {
   "type": "ASSIGN_PART",
   "params": {
-    "partId": "UUID-PRECISO-DO-CONTEXTO",
-    "publisherName": "Nome do Publicador" 
+    "partId": "UUID-OU-NOME-DA-PARTE",
+    "publisherName": "Nome do Publicador",
+    "weekId": "2026-04-06"
   },
   "description": "Atribuindo parte..."
 }
