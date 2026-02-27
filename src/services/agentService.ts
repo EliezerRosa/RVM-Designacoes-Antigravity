@@ -170,12 +170,37 @@ Use para atribuir alguém a uma parte.
 }
 \`\`\`
 
-6. COMUNICAÇÃO (S-140/S-89):
+6. COMUNICAÇÃO E NOTIFICAÇÕES:
+
+- **S-140 (Programação Geral):**
 \`\`\`json
 {
   "type": "SEND_S140",
   "params": { "weekId": "YYYY-MM-DD" },
-  "description": "Preparando mensagem para o grupo..."
+  "description": "Preparando S-140..."
+}
+\`\`\`
+
+- **S-89 (Cartões de Designação):**
+\`\`\`json
+{
+  "type": "SEND_S89",
+  "params": { "weekId": "YYYY-MM-DD" },
+  "description": "Preparando cartões S-89..."
+}
+\`\`\`
+
+- **Notificar Recusa (Alerta SRVM):**
+Use quando um publicador recusa uma parte e você precisa notificar o superintendente (Edmardo) com o link de substituição.
+\`\`\`json
+{
+  "type": "NOTIFY_REFUSAL",
+  "params": {
+    "partId": "UUID-OU-NOME-DA-PARTE",
+    "weekId": "YYYY-MM-DD",
+    "reason": "Motivo da recusa"
+  },
+  "description": "Notificando superintendente da recusa..."
 }
 \`\`\`
 
