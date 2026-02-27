@@ -159,11 +159,11 @@ export function generateWhatsAppMessage(
         const day = thursdayDate.getDate();
         const month = MESES[thursdayDate.getMonth()];
         const year = thursdayDate.getFullYear();
-        displayDate = `Quinta-feira, ${day}/${month}/${year}`;
+        displayDate = `${day} de ${month} de ${year}`;
     }
 
     let emoji = '📅';
-    const pType = part.tipoParte.toLowerCase();
+    const pType = (part.tipoParte || '').toLowerCase();
     if (pType.includes('leitura')) emoji = '📖';
     if (pType.includes('iniciando') || pType.includes('conversa')) emoji = '🗣️';
     if (pType.includes('cultivando') || pType.includes('revisita')) emoji = '🌱';
@@ -171,28 +171,42 @@ export function generateWhatsAppMessage(
     if (pType.includes('presidente')) emoji = '👔';
     if (pType.includes('oração')) emoji = '🙏';
 
+    // Determinar Sala
+    const room = part.modalidade?.toLowerCase().includes('b') ? 'SALA B 🏛️' : 'SALÃO PRINCIPAL 🏟️';
+    const time = part.horaInicio ? ` às *${part.horaInicio}*` : '';
+
     let msg = `Olá *${salutation} ${studentName}*! 👋\n\n`;
+    msg += `Aqui está sua designação para a reunião de *${displayDate}*:\n\n`;
+    msg += `─────────────\n`;
 
     if (isForAssistant && partnerName) {
         // Mensagem para o AJUDANTE
-        msg += `Você foi designado(a) como *ajudante* para a reunião de *${displayDate}*:\n\n${emoji} *Parte:* ${part.tipoParte}`;
-        if (part.tituloParte) msg += `\n📝 *Tema:* ${part.tituloParte}`;
-        msg += `\n👤 *Titular:* ${partnerName}`;
-        if (partnerPhone) msg += `\n📱 *Telefone do Titular:* ${partnerPhone}`;
-        msg += `\n\nPor favor, entre em contato com o titular para ensaiar.`;
+        msg += `${emoji} *Sua função:* Ajudante\n`;
+        msg += `📝 *Tipo de Parte:* ${part.tipoParte}\n`;
+        if (part.tituloParte) msg += `🎯 *Tema:* ${part.tituloParte}\n`;
+        msg += `📍 *Local:* ${room}\n`;
+        msg += `⏰ *Início:*${time}\n\n`;
+        msg += `👤 *Titular:* ${partnerName}\n`;
+        if (partnerPhone) msg += `📱 *WhatsApp do Titular:* ${partnerPhone}\n\n`;
+        msg += `Por favor, entre em contato com o titular para combinarem o ensaio. 🤝`;
     } else {
         // Mensagem para o TITULAR
-        msg += `Segue sua designação para a reunião de *${displayDate}*:\n\n${emoji} *Parte:* ${part.tipoParte}`;
-        if (part.tituloParte) msg += `\n📝 *Tema:* ${part.tituloParte}`;
+        msg += `${emoji} *Parte:* ${part.tipoParte}\n`;
+        if (part.tituloParte) msg += `🎯 *Tema:* ${part.tituloParte}\n`;
+        msg += `📍 *Local:* ${room}\n`;
+        msg += `⏰ *Início:*${time}\n\n`;
 
         if (partnerName) {
-            msg += `\n👥 *Ajudante:* ${partnerName}`;
-            if (partnerPhone) msg += `\n📱 *Telefone do Ajudante:* ${partnerPhone}`;
-            msg += `\n\nPor favor, entre em contato com o ajudante para ensaiar.`;
+            msg += `👥 *Ajudante:* ${partnerName}\n`;
+            if (partnerPhone) msg += `📱 *WhatsApp do Ajudante:* ${partnerPhone}\n\n`;
+            msg += `Por favor, entre em contato com o ajudante para combinarem o ensaio. 🤝\n\n`;
         }
 
-        msg += `\n\nPor favor, confirme o recebimento.\nBom preparo!`;
+        msg += `Bom preparo! Que Jeová abençoe seu esforço. ✨`;
     }
+
+    msg += `\n─────────────\n`;
+    msg += `\n*Por favor, confirme o recebimento desta mensagem.* 🙏`;
 
     return msg;
 }
