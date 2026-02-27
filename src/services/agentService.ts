@@ -152,11 +152,14 @@ Use para tornar alguém apto/inapto ou mudar privilégios.
 \`\`\`
 
 5. DESIGNAR PARTE ESPECÍFICA:
+Use para atribuir alguém a uma parte.
+- **Sempre utilize o UUID** que aparece entre colchetes como \`[ID: UUID-AQUI]\` nas designações no contexto para o parâmetro \`partId\`.
+- Se o usuário não especificar o publicador, sugira os melhores candidatos com base no Score.
 \`\`\`json
 {
   "type": "ASSIGN_PART",
   "params": {
-    "partId": "ID-DA-PARTE",
+    "partId": "UUID-PRECISO-DO-CONTEXTO",
     "publisherName": "Nome do Publicador" 
   },
   "description": "Atribuindo parte..."

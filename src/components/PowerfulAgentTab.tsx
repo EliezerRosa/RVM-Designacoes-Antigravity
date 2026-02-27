@@ -26,9 +26,13 @@ interface Props {
     onDataChange?: () => void; // Trigger reload of parts
     initialCommand?: string;
     initialWeekId?: string;
+    isWorkbookLoading?: boolean;
 }
 
-export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder, historyRecords, onDataChange, initialCommand, initialWeekId }: Props) {
+export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder, historyRecords, onDataChange, initialCommand,
+    initialWeekId,
+    isWorkbookLoading
+}: Props) {
     // Estado de Navegação Híbrida
     // Inicializar do localStorage se disponível ou initialWeekId se fornecido
     const [currentWeekId, setCurrentWeekId] = useState<string | null>(() => {
