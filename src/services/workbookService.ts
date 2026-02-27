@@ -420,6 +420,23 @@ export const workbookService = {
     },
 
     /**
+     * Busca uma parte específica por ID
+     */
+    async getPartById(id: string): Promise<WorkbookPart | null> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+
+        if (error) {
+            console.error('[workbookService] Erro ao buscar parte por ID:', error);
+            return null;
+        }
+        return data ? mapDbToWorkbookPart(data) : null;
+    },
+
+    /**
      * Busca TODAS as partes (para filtro 'all' ou 'completed' histórico)
      * Útil para o ApprovalPanel listar histórico completo
      * @param filters Filtros opcionais para server-side filtering
