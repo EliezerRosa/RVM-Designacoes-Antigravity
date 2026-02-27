@@ -27,7 +27,8 @@ export type AgentActionType =
     | 'SEND_S140'
     | 'SEND_S89'
     | 'FETCH_DATA'
-    | 'SIMULATE_ASSIGNMENT';
+    | 'SIMULATE_ASSIGNMENT'
+    | 'NOTIFY_REFUSAL';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -614,6 +615,48 @@ export const agentActionService = {
                         data: { weekId },
                         actionType: action.type
                     };
+                }
+
+                case 'NOTIFY_REFUSAL': {
+                    let { partId, weekId, partName, reason } = action.params;
+                    let targetPart = parts.find(p => p.id === partId);
+
+                    if (!targetPart && (partId || partName)) {
+                        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(partId || '');
+                        if (!isUUID) {
+                            partName = partId || partName;
+                            if (!weekId) weekId = contextWeekId;
+                        }
+
+                        if (weekId && partName) {
+                            const candidates = parts.filter(p => p.weekId === weekId);
+                            const qName = partName.toLowerCase().trim();
+                            targetPart = candidates.find(p => {
+                                const pTitle = (p.tituloParte || '').toLowerCase();
+                                const pType = (p.tipoParte || '').toLowerCase();
+                                return pTitle.includes(qName) || pType.includes(qName);
+                            });
+                        }
+                    }
+
+                    if (!targetPart) {
+                        return { success: false, message: `Parte não encontrada para notificação de recusa.` };
+                    }
+
+                    try {
+                        const { communicationService } = await import('./communicationService');
+                        await communicationService.notifyOverseerOfRefusal(targetPart, reason || 'Não informado via Agente');
+
+                        return {
+                            success: true,
+                            message: `**Alerta Enviado:** O Superintendente (Edmardo) foi notificado sobre a recusa da parte "${targetPart.tipoParte}" e recebeu o link para selecionar um substituto.`,
+                            data: { partId: targetPart.id },
+                            actionType: 'NOTIFY_REFUSAL'
+                        };
+                    } catch (e) {
+                        console.error('[AgentAction] Fail to notify refusal', e);
+                        return { success: false, message: `Erro ao enviar alerta de recusa: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
                 }
 
                 default:
