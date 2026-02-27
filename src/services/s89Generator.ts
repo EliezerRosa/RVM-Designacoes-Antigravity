@@ -210,7 +210,13 @@ export function generateWhatsAppMessage(
     msg += `\n─────────────\n`;
 
     // Link de confirmação (Portal Público)
-    const baseUrl = window.location.origin;
+    const baseOrigin = window.location.origin;
+    const basePath = import.meta.env.BASE_URL || '/';
+    // Garantir que não haja barras duplas entre origin e path, mas que path comece com /
+    const normalizedPath = basePath.startsWith('/') ? basePath : `/${basePath}`;
+    const baseUrl = `${baseOrigin}${normalizedPath}`.replace(/\/+$/, '');
+
+    // Portal de confirmação
     const confirmUrl = `${baseUrl}/?portal=confirm&id=${part.id}`;
     msg += `\n👉 *Confirme sua participação aqui:* ${confirmUrl}\n`;
 

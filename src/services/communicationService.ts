@@ -148,7 +148,12 @@ export const communicationService = {
         alertMsg += `💡 *Sugestão de Substituto:* ${bestCandidate}\n`;
         alertMsg += `──────────────────\n\n`;
 
-        alertMsg += `👉 *Designar substituto:* ${window.location.origin}/?admin=true&action=replace&partId=${part.id}\n\n`;
+        const baseOrigin = window.location.origin;
+        const basePath = import.meta.env.BASE_URL || '/';
+        const normalizedPath = basePath.startsWith('/') ? basePath : `/${basePath}`;
+        const baseUrl = `${baseOrigin}${normalizedPath}`.replace(/\/+$/, '');
+
+        alertMsg += `👉 *Designar substituto:* ${baseUrl}/?admin=true&action=replace&partId=${part.id}\n\n`;
         alertMsg += `👤 *Responsável RVM:* Edmardo Queiroz (${srvmPhone})`;
 
         // 5. Abrir WhatsApp para o Ancião
