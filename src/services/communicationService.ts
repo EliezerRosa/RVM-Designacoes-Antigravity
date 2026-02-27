@@ -91,7 +91,11 @@ export const communicationService = {
         const hour = new Date().getHours();
         const greeting = hour < 12 ? 'dia' : hour < 18 ? 'tarde' : 'noite';
 
-        let text = `Olá irmãos! Bom ${greeting}!\n\nSegue programação da reunião de meio de semana, para quinta-feira, dia ${displayDate}.\n\n(Salmo 90:17)`;
+        let text = `Olá, amados irmãos! Bom ${greeting}. 👋\n\n`;
+        text += `Compartilhamos com alegria a *Programação da Reunião de Meio de Semana* para o dia *${displayDate}*:\n\n`;
+        text += `📜 *Acesse o programa completo anexo.* ⬆️\n\n`;
+        text += `_“E esteja sobre nós a benevolência de Jeová, nosso Deus; sim, torna próspero o trabalho de nossas mãos.”_ (Salmo 90:17) ✨`;
+
         return text;
     },
 
