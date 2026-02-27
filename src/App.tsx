@@ -317,12 +317,23 @@ function App() {
   const admin = urlParams.get('admin');
 
   // Handle Admin Action Links (e.g., from WhatsApp notifications)
+  const [initialAgentCommand, setInitialAgentCommand] = useState<string | null>(null);
+  const [initialAgentWeekId, setInitialAgentWeekId] = useState<string | null>(null);
+
   useEffect(() => {
     if (admin === 'true' && action === 'replace' && partId) {
       console.log(`[App] Admin action detected: replace part ${partId}`);
-      setActiveTab('workbook');
+
+      // Find the week for this part to set context
+      const part = workbookParts.find(p => p.id === partId);
+      if (part) {
+        setInitialAgentWeekId(part.weekId);
+      }
+
+      setInitialAgentCommand(`Substituir publicador da parte ${partId}`);
+      setActiveTab('agent');
     }
-  }, [admin, action, partId]);
+  }, [admin, action, partId, workbookParts.length > 0]);
 
   if (portal === 'confirm' && partId) {
     return (
@@ -418,7 +429,6 @@ function App() {
           <WorkbookManager
             publishers={publishers}
             isActive={activeTab === 'workbook'}
-            initialPartId={admin === 'true' && action === 'replace' ? partId || undefined : undefined}
           />
         </div>
 
@@ -489,6 +499,8 @@ function App() {
             workbookParts={workbookParts}
             historyRecords={historyRecords}
             refreshWorkbookParts={refreshAllData}
+            initialCommand={initialAgentCommand || undefined}
+            initialWeekId={initialAgentWeekId || undefined}
           />}
         </div>
 
@@ -567,11 +579,13 @@ function App() {
   )
 }
 
-function AgentTabContent({ publishers, workbookParts, historyRecords, refreshWorkbookParts }: {
+function AgentTabContent({ publishers, workbookParts, historyRecords, refreshWorkbookParts, initialCommand, initialWeekId }: {
   publishers: Publisher[];
   workbookParts: WorkbookPart[];
   historyRecords: HistoryRecord[];
   refreshWorkbookParts: () => void;
+  initialCommand?: string;
+  initialWeekId?: string;
 }) {
   const weekParts = useMemo(() => {
     return workbookParts.reduce((acc, part) => {
@@ -591,6 +605,8 @@ function AgentTabContent({ publishers, workbookParts, historyRecords, refreshWor
       weekOrder={weekOrder}
       historyRecords={historyRecords}
       onDataChange={refreshWorkbookParts}
+      initialCommand={initialCommand}
+      initialWeekId={initialWeekId}
     />
   );
 }

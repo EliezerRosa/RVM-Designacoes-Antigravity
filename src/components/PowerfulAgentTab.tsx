@@ -7,7 +7,7 @@
  * 3. Painel de Controle (Ações/Explicações)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import S140PreviewCarousel from './S140PreviewCarousel';
 import TemporalChat from './TemporalChat';
@@ -24,12 +24,24 @@ interface Props {
     weekOrder: string[];
     historyRecords: HistoryRecord[]; // NEW: Histórico completo para o Agente
     onDataChange?: () => void; // Trigger reload of parts
+    initialCommand?: string;
+    initialWeekId?: string;
 }
 
-export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder, historyRecords, onDataChange }: Props) {
+export default function PowerfulAgentTab({
+    publishers,
+    parts,
+    weekParts,
+    weekOrder,
+    historyRecords,
+    onDataChange,
+    initialCommand,
+    initialWeekId
+}: Props) {
     // Estado de Navegação Híbrida
-    // Inicializar do localStorage se disponível
+    // Inicializar do localStorage se disponível ou do initialWeekId
     const [currentWeekId, setCurrentWeekId] = useState<string | null>(() => {
+        if (initialWeekId) return initialWeekId;
         const stored = localStorage.getItem('rvm_agent_last_week_id');
         return stored || weekOrder[0] || null;
     });
@@ -37,13 +49,15 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     const [showS89Modal, setShowS89Modal] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
 
-    // Sync currentWeekId when weekOrder arrives asynchronously OR fallback if stored is invalid
+    // Sync currentWeekId when initialWeekId changes or weekOrder arrives
     useEffect(() => {
-        if (!currentWeekId && weekOrder.length > 0) {
+        if (initialWeekId) {
+            setCurrentWeekId(initialWeekId);
+        } else if (!currentWeekId && weekOrder.length > 0) {
             console.log('[AgentTab] Setting initial week to:', weekOrder[0]);
             setCurrentWeekId(weekOrder[0]);
         }
-    }, [weekOrder, currentWeekId]);
+    }, [weekOrder, currentWeekId, initialWeekId]);
 
     // Persist changes
     useEffect(() => {
@@ -58,8 +72,9 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
     // Sync week navigation with TemporalChat (placeholder implementation)
     useEffect(() => {
+        if (!currentWeekId) return;
+
         // When week changes, add a system message to chat history
-        // This assumes TemporalChat creates a session titled 'Temporal Chat'
         (async () => {
             const recent = await chatHistoryService.getRecentSessions(5);
             const session = recent.find(s => s.title === 'Temporal Chat');
@@ -89,14 +104,10 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
             if (result.actionType === 'GENERATE_WEEK' && result.data?.generatedWeeks?.[0]) {
                 handleCarouselNavigation(result.data.generatedWeeks[0]);
             } else if (result.actionType === 'ASSIGN_PART' && result.data?.partId) {
-                // Check if we need to navigate
                 const part = parts.find(p => p.id === result.data.partId);
                 if (part && part.weekId !== currentWeekId) {
                     handleCarouselNavigation(part.weekId);
                 }
-            } else if (result.actionType === 'CLEAR_WEEK') {
-                // CLEAR_WEEK: navegar para a semana limpada (weekId extraído do params)
-                // Não precisa de navegação extra, a semana já está visível
             } else if (result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId) {
                 handleCarouselNavigation(result.data.weekId);
             }
@@ -106,7 +117,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     // Callback de navegação do carrossel (Manual)
     const handleCarouselNavigation = (weekId: string) => {
         setCurrentWeekId(weekId);
-        // console.log(`[AgentTab] Usuário navegou para: ${weekId}`);
     };
 
     // Estilos
@@ -114,7 +124,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         display: 'grid',
         gridTemplateColumns: 'minmax(300px, 1fr) minmax(400px, 1.2fr) minmax(300px, 1fr)',
         gap: '20px',
-        height: 'calc(100vh - 100px)', // Ajustar conforme header
+        height: 'calc(100vh - 100px)',
         padding: '20px',
         background: '#F3F4F6',
     };
@@ -153,7 +163,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 </div>
                 <div style={{ ...contentStyle, padding: '10px' }}>
                     <S140PreviewCarousel
-                        weekParts={weekParts} // Use real parts
+                        weekParts={weekParts}
                         weekOrder={weekOrder}
                         publishers={publishers}
                         currentWeekId={currentWeekId}
@@ -190,11 +200,11 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         style={{
                             marginLeft: 'auto',
                             fontSize: '10px',
-                            background: '#3730A3', // Indigo-800
-                            color: '#E0E7FF', // Indigo-100
+                            background: '#3730A3',
+                            color: '#E0E7FF',
                             padding: '2px 8px',
                             borderRadius: '4px',
-                            border: '1px solid #6366F1', // Indigo-500
+                            border: '1px solid #6366F1',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -208,11 +218,12 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     <TemporalChat
                         publishers={publishers}
                         parts={parts}
-                        historyRecords={historyRecords} // Passar histórico completo
+                        historyRecords={historyRecords}
                         onAction={handleAgentAction}
                         onNavigateToWeek={handleCarouselNavigation}
                         onModelChange={setActiveModel}
                         currentWeekId={currentWeekId || undefined}
+                        initialCommand={initialCommand}
                     />
                 </div>
 
@@ -229,7 +240,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         zIndex: 9999
                     }} onClick={() => setShowSubscriptionModal(false)}>
                         <div style={{
-                            background: '#1E293B', // Slate-800 dark theme to match CostMonitor
+                            background: '#1E293B',
                             padding: '24px',
                             borderRadius: '12px',
                             maxWidth: '420px',
@@ -241,20 +252,16 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                                 <h3 style={{ margin: 0, color: '#F8FAFC' }}>📊 Monitoramento de Custos</h3>
                                 <button onClick={() => setShowSubscriptionModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '24px', color: '#94A3B8' }}>&times;</button>
                             </div>
-
                             <div style={{ marginBottom: '16px', fontSize: '13px', color: '#CBD5E1' }}>
                                 Acompanhe o consumo da API Gemini em tempo real.
                             </div>
-
                             <CostMonitor />
-
                             <div style={{ fontSize: '11px', color: '#64748B', marginTop: '16px', textAlign: 'center' }}>
                                 * Valores estimados com base na tabela Gemini 1.5 Flash
                             </div>
                         </div>
                     </div>
                 )}
-
             </div>
 
             {/* Coluna 3: Painel de Controle */}
@@ -267,7 +274,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         selectedPartId={selectedPartId}
                         parts={parts}
                         publishers={publishers}
-                        historyRecords={historyRecords} // Passando histórico completo para análise correta
+                        historyRecords={historyRecords}
                     />
                     {showContextAlert && (
                         <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, margin: '0 20px', padding: '8px', background: '#FFF3CD', color: '#856404', borderRadius: '4px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
