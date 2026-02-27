@@ -18,6 +18,16 @@ export interface NotificationRecord {
     action_url?: string;
 }
 
+export interface ActivityLogEntry {
+    id: string;
+    created_at: string;
+    type: 'CONFIRMATION' | 'REFUSAL' | 'NOTIFICATION_SENT';
+    part_id?: string;
+    publisher_name?: string;
+    details?: string;
+    status?: string;
+}
+
 export const communicationService = {
     /**
      * Registra uma nova mensagem no banco
@@ -33,6 +43,14 @@ export const communicationService = {
             console.error('[communicationService] Erro ao logar notificação:', error);
             throw error;
         }
+
+        // Logar também no feed de atividades
+        await this.logActivity({
+            type: 'NOTIFICATION_SENT',
+            publisher_name: record.recipient_name,
+            details: record.title || record.type,
+            status: record.status
+        });
 
         return data;
     },
@@ -68,6 +86,37 @@ export const communicationService = {
 
         if (error) {
             console.error('[communicationService] Erro ao carregar histórico:', error);
+            return [];
+        }
+
+        return data || [];
+    },
+
+    /**
+     * Registra um evento no log de atividades
+     */
+    async logActivity(entry: Omit<ActivityLogEntry, 'id' | 'created_at'>): Promise<void> {
+        const { error } = await supabase
+            .from('activity_logs')
+            .insert(entry);
+
+        if (error) {
+            console.error('[communicationService] Erro ao logar atividade:', error);
+        }
+    },
+
+    /**
+     * Busca o log de atividades recente
+     */
+    async getActivityLog(limit = 40): Promise<ActivityLogEntry[]> {
+        const { data, error } = await supabase
+            .from('activity_logs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            console.error('[communicationService] Erro ao carregar log de atividades:', error);
             return [];
         }
 

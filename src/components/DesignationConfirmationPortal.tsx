@@ -55,6 +55,14 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
                 await workbookService.updatePart(partId, {
                     status: WorkbookStatus.DESIGNADA // Ou status de confirmado
                 });
+
+                // Logar confirmação
+                await communicationService.logActivity({
+                    type: 'CONFIRMATION',
+                    part_id: partId,
+                    publisher_name: part?.resolvedPublisherName || part?.rawPublisherName,
+                    details: 'Confirmou participação via link portal'
+                });
             } else {
                 // Recusar
                 await workbookService.rejectProposal(partId, reason);
@@ -63,6 +71,13 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
                 // Usando o serviço de comunicação
                 if (part) {
                     await communicationService.notifyOverseerOfRefusal(part, reason);
+                    // Logar recusa
+                    await communicationService.logActivity({
+                        type: 'REFUSAL',
+                        part_id: partId,
+                        publisher_name: part.resolvedPublisherName || part.rawPublisherName,
+                        details: reason
+                    });
                 }
             }
             setStatus('success');

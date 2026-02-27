@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { communicationService, type NotificationRecord } from '../services/communicationService';
+import { communicationService, type NotificationRecord, type ActivityLogEntry } from '../services/communicationService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
 import { copyS89ToClipboard } from '../services/s89Generator';
@@ -7,24 +6,41 @@ import { supabase } from '../lib/supabase';
 
 export function CommunicationTab() {
     const [history, setHistory] = useState<NotificationRecord[]>([]);
+    const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [showActivity, setShowActivity] = useState(true);
 
     useEffect(() => {
         loadHistory();
+        loadActivity();
 
         // Escutar mudanças em tempo real para o Hub
-        const channel = supabase
+        const hubChannel = supabase
             .channel('hub-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
                 loadHistory();
             })
             .subscribe();
 
+        // Escutar mudanças no Log de Atividades
+        const activityChannel = supabase
+            .channel('activity-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_logs' }, () => {
+                loadActivity();
+            })
+            .subscribe();
+
         return () => {
-            supabase.removeChannel(channel);
+            supabase.removeChannel(hubChannel);
+            supabase.removeChannel(activityChannel);
         };
     }, []);
+
+    const loadActivity = async () => {
+        const data = await communicationService.getActivityLog();
+        setActivityLog(data);
+    };
 
     const loadHistory = async () => {
         try {
@@ -210,17 +226,74 @@ export function CommunicationTab() {
                         Gerencie e envie as designações geradas pelo Agente.
                     </p>
                 </div>
-                <button
-                    onClick={() => { setLoading(true); loadHistory(); }}
-                    style={{
-                        padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
-                        background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontSize: '0.9em',
-                        transition: 'all 0.2s'
-                    }}
-                >
-                    🔄 Atualizar
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        onClick={() => setShowActivity(!showActivity)}
+                        style={{
+                            padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
+                            background: showActivity ? '#4F46E5' : 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontSize: '0.9em',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        {showActivity ? '🙈 Ocultar Atividade' : '👁️ Ver Atividade'}
+                    </button>
+                    <button
+                        onClick={() => { setLoading(true); loadHistory(); loadActivity(); }}
+                        style={{
+                            padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
+                            background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontSize: '0.9em',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🔄 Atualizar
+                    </button>
+                </div>
             </div>
+
+            {/* Log de Atividades (NOVO) */}
+            {showActivity && activityLog.length > 0 && (
+                <div style={{
+                    marginBottom: '30px', background: 'rgba(255,255,255,0.02)', borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.08)', padding: '15px', overflow: 'hidden'
+                }}>
+                    <h3 style={{ margin: '0 0 15px 0', fontSize: '1em', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        📈 Feed de Atividades Recentes
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '5px' }}>
+                        {activityLog.map(entry => (
+                            <div key={entry.id} style={{
+                                display: 'flex', alignItems: 'center', gap: '12px', padding: '10px',
+                                background: 'rgba(0,0,0,0.2)', borderRadius: '10px', fontSize: '0.9em'
+                            }}>
+                                <span style={{
+                                    fontSize: '1.2em', width: '30px', height: '30px', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', borderRadius: '8px',
+                                    background: entry.type === 'CONFIRMATION' ? 'rgba(16, 185, 129, 0.1)' :
+                                        entry.type === 'REFUSAL' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(107, 114, 128, 0.1)'
+                                }}>
+                                    {entry.type === 'CONFIRMATION' ? '✅' : entry.type === 'REFUSAL' ? '❌' : '✉️'}
+                                </span>
+                                <div style={{ flex: 1 }}>
+                                    <span style={{ fontWeight: '600', color: 'white' }}>{entry.publisher_name}</span>
+                                    <span style={{ margin: '0 8px', color: '#6B7280' }}>•</span>
+                                    <span style={{ color: '#D1D5DB' }}>
+                                        {entry.type === 'CONFIRMATION' ? 'confirmou a designação' :
+                                            entry.type === 'REFUSAL' ? 'recusou a designação' : 'notificação registrada'}
+                                    </span>
+                                    {entry.details && (
+                                        <span style={{ marginLeft: '10px', color: '#9CA3AF', fontSize: '0.85em', fontStyle: 'italic' }}>
+                                            ({entry.details})
+                                        </span>
+                                    )}
+                                </div>
+                                <span style={{ fontSize: '0.8em', color: '#4B5563' }}>
+                                    {new Date(entry.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {loading && <div style={{ textAlign: 'center', padding: '100px', color: '#9CA3AF' }}>Carregando histórico...</div>}
 
