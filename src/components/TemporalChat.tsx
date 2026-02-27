@@ -14,18 +14,31 @@ import { specialEventService } from '../services/specialEventService';
 // import { localNeedsService } from '../services/localNeedsService';
 import type { SpecialEventInput, LocalNeedsInput } from '../services/contextBuilder';
 
-interface Props {
+interface TemporalChatProps {
     publishers: Publisher[];
     parts: WorkbookPart[];
     onAction?: (result: ActionResult) => void;
     onNavigateToWeek?: (weekId: string) => void;
     onModelChange?: (model: string) => void;
-    currentWeekId?: string; // New Prop
-    historyRecords?: HistoryRecord[]; // NEW: Histórico completo
+    currentWeekId?: string;
+    focusWeekId?: string;
+    historyRecords?: HistoryRecord[];
     initialCommand?: string;
+    isWorkbookLoading?: boolean;
 }
 
-export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange, currentWeekId, historyRecords = [], initialCommand }: Props) {
+export default function TemporalChat({
+    publishers,
+    parts,
+    onAction,
+    onNavigateToWeek,
+    onModelChange,
+    currentWeekId,
+    focusWeekId,
+    historyRecords = [],
+    initialCommand,
+    isWorkbookLoading = false
+}: TemporalChatProps) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -414,11 +427,13 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
 
     // Handle initial command on session load
     useEffect(() => {
-        if (initialCommand && sessionId && messages.length === 0 && !isLoading) {
-            console.log('[TemporalChat] Auto-triggering initial command:', initialCommand);
+        const canSend = !isLoading && !isWorkbookLoading && parts.length > 0;
+
+        if (initialCommand && sessionId && messages.length === 0 && canSend) {
+            console.log('[TemporalChat] Auto-triggering initial command after data load:', initialCommand);
             sendMessage(initialCommand);
         }
-    }, [sessionId, initialCommand]);
+    }, [sessionId, initialCommand, isLoading, isWorkbookLoading, parts.length]);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

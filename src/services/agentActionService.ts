@@ -495,13 +495,24 @@ export const agentActionService = {
                         targetPart = candidates.find(p => {
                             const pTitle = (p.tituloParte || '').toLowerCase();
                             const pType = (p.tipoParte || '').toLowerCase();
+                            const pSection = (p.section || '').toLowerCase();
 
                             for (const query of expandedNames) {
+                                // Match exato ou parcial no título (ex: "4. Iniciando conversas")
                                 if (pTitle && pTitle.includes(query)) return true;
                                 if (pType && pType.includes(query)) return true;
+
+                                // Match numérico (ex: usuário diz "parte 4")
+                                const numMatch = query.match(/(\d+)/);
+                                if (numMatch) {
+                                    const num = numMatch[1];
+                                    if (pTitle.startsWith(num + '.') || pTitle.includes(' ' + num + ' ')) return true;
+                                }
+
                                 if (pType && pType === query) return true;
                                 if (pTitle && pTitle.length > 3 && query.includes(pTitle)) return true;
                                 if (pType && pType.length > 3 && query.includes(pType)) return true;
+                                if (pSection && pSection.toLowerCase().includes(query)) return true;
                             }
                             return false;
                         });

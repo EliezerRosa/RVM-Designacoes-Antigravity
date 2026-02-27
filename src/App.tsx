@@ -202,16 +202,29 @@ function App() {
     };
   }, []);
 
-  // Load workbook parts when ChatAgent opens OR Agent tab is active
-  // Extract refresh function for Agent to use
+  // Monitorar necessidade de WorkbookParts (S-140 / Agente)
+  // Carrega apenas quando necessário para economizar recursos iniciais
+  useEffect(() => {
+    const needsParts = isChatAgentOpen || activeTab === 'agent' || activeTab === 'workbook';
+    if (needsParts && workbookParts.length === 0 && !isWorkbookLoading) {
+      refreshWorkbookParts();
+    }
+  }, [isChatAgentOpen, activeTab, workbookParts.length, isWorkbookLoading]);
+
   const refreshWorkbookParts = async () => {
-    console.log('[App] Refreshing workbook parts explicitly...');
+    if (isWorkbookLoading) return;
+
+    setIsWorkbookLoading(true);
     try {
-      const parts = await workbookService.getAll();
-      setWorkbookParts(parts);
-      console.log(`[App] Refreshed ${parts.length} parts`);
+      console.log('[App] Refreshing workbook parts explicitly...');
+      const data = await workbookService.getAll();
+      setWorkbookParts(data);
+      setLastPartsRefresh(Date.now());
+      console.log(`[App] Refreshed ${data.length} parts`);
     } catch (err) {
-      console.warn('[App] Error refreshing parts:', err);
+      console.error('[App] Error refreshing workbook parts:', err);
+    } finally {
+      setIsWorkbookLoading(false);
     }
   };
 
@@ -583,9 +596,10 @@ function App() {
   )
 }
 
-function AgentTabContent({ publishers, workbookParts, historyRecords, refreshWorkbookParts, initialCommand, initialWeekId }: {
+function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, historyRecords, refreshWorkbookParts, initialCommand, initialWeekId }: {
   publishers: Publisher[];
   workbookParts: WorkbookPart[];
+  isWorkbookLoading: boolean;
   historyRecords: HistoryRecord[];
   refreshWorkbookParts: () => void;
   initialCommand?: string;
@@ -601,18 +615,17 @@ function AgentTabContent({ publishers, workbookParts, historyRecords, refreshWor
 
   const weekOrder = useMemo(() => Object.keys(weekParts).sort(), [weekParts]);
 
-  return (
-    <PowerfulAgentTab
-      publishers={publishers}
-      parts={workbookParts}
-      weekParts={weekParts}
-      weekOrder={weekOrder}
-      historyRecords={historyRecords}
-      onDataChange={refreshWorkbookParts}
-      initialCommand={initialCommand}
-      initialWeekId={initialWeekId}
-    />
-  );
+  return <PowerfulAgentTab
+    publishers={publishers}
+    parts={workbookParts}
+    isWorkbookLoading={isWorkbookLoading}
+    weekParts={weekParts}
+    weekOrder={weekOrder}
+    historyRecords={historyRecords}
+    onDataChange={refreshWorkbookParts}
+    initialCommand={initialCommand}
+    initialWeekId={initialWeekId}
+  />;
 }
 
 export default App
