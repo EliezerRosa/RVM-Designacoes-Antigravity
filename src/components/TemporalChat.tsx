@@ -22,9 +22,10 @@ interface Props {
     onModelChange?: (model: string) => void;
     currentWeekId?: string; // New Prop
     historyRecords?: HistoryRecord[]; // NEW: Histórico completo
+    initialCommand?: string;
 }
 
-export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange, currentWeekId, historyRecords = [] }: Props) {
+export default function TemporalChat({ publishers, parts, onAction, onNavigateToWeek, onModelChange, currentWeekId, historyRecords = [], initialCommand }: Props) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -203,19 +204,20 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
         return () => clearInterval(timer);
     }, [rateLimitCountdown]);
 
-    const sendMessage = async () => {
-        if (!input.trim() || !sessionId || isLoading) return;
+    const sendMessage = async (overrideInput?: string) => {
+        const textToSend = overrideInput || input.trim();
+        if (!textToSend || !sessionId || isLoading) return;
 
         const userMsg: ChatMessage = {
             role: 'user',
-            content: input.trim(),
+            content: textToSend,
             timestamp: new Date(),
         };
 
         // Add user message to UI and IndexedDB
         await chatHistoryService.addMessage(sessionId, userMsg);
         setMessages(prev => [...prev, userMsg]);
-        setInput('');
+        if (!overrideInput) setInput('');
         setIsLoading(true);
 
 
@@ -395,6 +397,28 @@ export default function TemporalChat({ publishers, parts, onAction, onNavigateTo
             sendMessage();
         }
     };
+
+    // Auto-trigger initial command
+    useEffect(() => {
+        if (initialCommand && sessionId && messages.length > 0 && !isLoading) {
+            // Only trigger if the last message isn't already the command or from assistant answering it
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg.role === 'assistant' && messages.length === 1) {
+                // This is the "Naveguei para a semana" message
+                sendMessage(initialCommand);
+            } else if (messages.length === 0) {
+                sendMessage(initialCommand);
+            }
+        }
+    }, [initialCommand, sessionId, messages.length === 0]);
+
+    // Handle initial command on session load
+    useEffect(() => {
+        if (initialCommand && sessionId && messages.length === 0 && !isLoading) {
+            console.log('[TemporalChat] Auto-triggering initial command:', initialCommand);
+            sendMessage(initialCommand);
+        }
+    }, [sessionId, initialCommand]);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
