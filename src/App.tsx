@@ -44,6 +44,10 @@ function App() {
   // Chat Agent state
   const [isChatAgentOpen, setIsChatAgentOpen] = useState(false)
 
+  // Handle Admin Action Links (e.g., from WhatsApp notifications)
+  const [initialAgentCommand, setInitialAgentCommand] = useState<string | null>(null);
+  const [initialAgentWeekId, setInitialAgentWeekId] = useState<string | null>(null);
+
   // Persist active tab to Supabase
   const handleTabChange = async (tab: ActiveTab) => {
     setActiveTab(tab)
@@ -300,6 +304,27 @@ function App() {
     setShowPublisherForm(true)
   }
 
+  // Handle Admin Action Links effect
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const admin = urlParams.get('admin');
+    const action = urlParams.get('action');
+    const partId = urlParams.get('id') || urlParams.get('partId');
+
+    if (admin === 'true' && action === 'replace' && partId) {
+      console.log(`[App] Admin action detected: replace part ${partId}`);
+
+      // Find the week for this part to set context
+      const part = workbookParts.find(p => p.id === partId);
+      if (part) {
+        setInitialAgentWeekId(part.weekId);
+      }
+
+      setInitialAgentCommand(`Substituir publicador da parte ${partId}`);
+      setActiveTab('agent');
+    }
+  }, [workbookParts.length > 0]); // Dependency array simplified to run once data is ready
+
   if (isLoading) {
     return (
       <div className="loading-screen">
@@ -313,27 +338,6 @@ function App() {
   const urlParams = new URLSearchParams(window.location.search);
   const portal = urlParams.get('portal');
   const partId = urlParams.get('id') || urlParams.get('partId'); // Support both 'id' and 'partId'
-  const action = urlParams.get('action');
-  const admin = urlParams.get('admin');
-
-  // Handle Admin Action Links (e.g., from WhatsApp notifications)
-  const [initialAgentCommand, setInitialAgentCommand] = useState<string | null>(null);
-  const [initialAgentWeekId, setInitialAgentWeekId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (admin === 'true' && action === 'replace' && partId) {
-      console.log(`[App] Admin action detected: replace part ${partId}`);
-
-      // Find the week for this part to set context
-      const part = workbookParts.find(p => p.id === partId);
-      if (part) {
-        setInitialAgentWeekId(part.weekId);
-      }
-
-      setInitialAgentCommand(`Substituir publicador da parte ${partId}`);
-      setActiveTab('agent');
-    }
-  }, [admin, action, partId, workbookParts.length > 0]);
 
   if (portal === 'confirm' && partId) {
     return (
