@@ -40,6 +40,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [isWorkbookLoading, setIsWorkbookLoading] = useState(false);
+  const [lastPartsRefresh, setLastPartsRefresh] = useState(0);
 
   // Chat Agent state
   const [isChatAgentOpen, setIsChatAgentOpen] = useState(false)
@@ -516,7 +518,8 @@ function App() {
             workbookParts={workbookParts}
             historyRecords={historyRecords}
             refreshWorkbookParts={refreshAllData}
-            initialCommand={initialAgentCommand || undefined}
+            isWorkbookLoading={isWorkbookLoading}
+            initialCommand={initialCommand || undefined}
             initialWeekId={initialAgentWeekId || undefined}
           />}
         </div>
