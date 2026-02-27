@@ -218,7 +218,9 @@ export default function TemporalChat({
     }, [rateLimitCountdown]);
 
     const sendMessage = async (overrideInput?: string) => {
-        const textToSend = overrideInput || input.trim();
+        // Safety check: Ensure overrideInput is a string and not a PointerEvent or other object
+        const finalOverride = typeof overrideInput === 'string' ? overrideInput : undefined;
+        const textToSend = finalOverride || input.trim();
         if (!textToSend || !sessionId || isLoading) return;
 
         const userMsg: ChatMessage = {
@@ -674,7 +676,7 @@ export default function TemporalChat({
                     style={{ flex: 1, padding: '6px 10px', borderRadius: '4px', border: '1px solid #D1D5DB', opacity: rateLimitCountdown > 0 ? 0.6 : 1 }}
                 />
                 <button
-                    onClick={sendMessage}
+                    onClick={() => sendMessage()}
                     disabled={isLoading || rateLimitCountdown > 0 || creditsRemaining === 0}
                     style={{
                         background: (isLoading || rateLimitCountdown > 0 || creditsRemaining === 0) ? '#9CA3AF' : '#4F46E5',
