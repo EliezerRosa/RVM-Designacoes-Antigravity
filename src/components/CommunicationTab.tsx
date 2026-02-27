@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { communicationService, type NotificationRecord, type ActivityLogEntry } from '../services/communicationService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
