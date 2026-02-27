@@ -13,6 +13,7 @@ import { ChatAgent } from './components/ChatAgent'
 import PowerfulAgentTab from './components/PowerfulAgentTab'
 import TerritoryManager from './components/TerritoryManager'
 import { CommunicationTab } from './components/CommunicationTab'
+import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 
 import { workbookService } from './services/workbookService'
 import { AdminDashboard } from './pages/AdminDashboard'
@@ -306,6 +307,19 @@ function App() {
         <p>Carregando dados do servidor...</p>
       </div>
     )
+  }
+
+  // PORTAL ROUTING: Detect public confirmation link
+  const urlParams = new URLSearchParams(window.location.search);
+  const portal = urlParams.get('portal');
+  const partId = urlParams.get('id');
+
+  if (portal === 'confirm' && partId) {
+    return (
+      <div className="app portal-mode">
+        <DesignationConfirmationPortal partId={partId} />
+      </div>
+    );
   }
 
   return (

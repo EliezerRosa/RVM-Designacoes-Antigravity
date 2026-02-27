@@ -100,6 +100,63 @@ export const communicationService = {
     },
 
     /**
+     * Notifica o superintendente da RVM sobre uma recusa e sugere substitutos
+     */
+    async notifyOverseerOfRefusal(part: WorkbookPart, reason: string): Promise<void> {
+        console.log('[communicationService] Notificando superintendente da recusa...');
+
+        const publisherName = part.resolvedPublisherName || part.rawPublisherName;
+
+        // 1. Carregar dados necessários dinamicamente para evitar circular dependencies
+        const { api } = await import('./api');
+        const { loadCompletedParticipations } = await import('./historyAdapter');
+        const { getRankedCandidates } = await import('./unifiedRotationService');
+        const { checkEligibility } = await import('./eligibilityService');
+
+        const publishers = await api.loadPublishers();
+        const history = await loadCompletedParticipations();
+
+        // 2. Encontrar o Ancião Edmardo Queiroz (Superintendente RVM)
+        // Buscamos especificamente por Edmardo para evitar pegar outros parentes (Ex: Marilene, Larissa)
+        const srvm = publishers.find(p => p.name === 'Edmardo Queiroz' || p.name.includes('Edmardo'));
+        const srvmPhone = srvm?.phone || '';
+
+        // 3. Buscar sugestão de substituto
+        const eligible = publishers.filter(p => {
+            // Não sugerir quem acabou de recusar
+            if (p.name === publisherName) return false;
+
+            const res = checkEligibility(p, part.modalidade as any, part.funcao as any, {
+                date: part.date,
+                secao: part.section
+            });
+            return res.eligible;
+        });
+
+        const ranked = getRankedCandidates(eligible, part.modalidade, history);
+        const bestCandidate = ranked[0]?.publisher?.name || 'Não encontrado';
+
+        // 4. Montar mensagem de alerta
+        let alertMsg = `📢 *ALERTA DE RECUSA - RVM*\n\n`;
+        alertMsg += `O irmão *${publisherName}* informou que *NÃO PODERÁ* realizar a designação abaixo:\n\n`;
+        alertMsg += `📖 *Parte:* ${part.tipoParte}\n`;
+        alertMsg += `📅 *Data:* ${part.weekDisplay}\n`;
+        alertMsg += `📍 *Local:* ${part.modalidade?.toLowerCase().includes('b') ? 'SALA B' : 'SALÃO PRINCIPAL'}\n`;
+        alertMsg += `❌ *Motivo:* ${reason || 'Não informado'}\n\n`;
+
+        alertMsg += `──────────────────\n`;
+        alertMsg += `💡 *Sugestão de Substituto:* ${bestCandidate}\n`;
+        alertMsg += `──────────────────\n\n`;
+
+        alertMsg += `👉 *Designar substituto:* ${window.location.origin}/?admin=true&action=replace&partId=${part.id}\n\n`;
+        alertMsg += `👤 *Responsável RVM:* Edmardo Queiroz (${srvmPhone})`;
+
+        // 5. Abrir WhatsApp para o Ancião
+        const url = this.generateWhatsAppUrl(srvmPhone, alertMsg);
+        window.open(url, '_blank');
+    },
+
+    /**
      * Prepara a mensagem S-89 individual
      */
     prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = []): { content: string, phone?: string } {
@@ -143,12 +200,19 @@ export const communicationService = {
             partnerPhone = partnerPub?.phone;
         }
 
+        // 2. Encontrar o Ancião Edmardo Queiroz (Superintendente RVM)
+        const srvm = publishers.find(p => p.name === 'Edmardo Queiroz' || p.name.includes('Edmardo'));
+        const srvmName = srvm?.name || 'Edmardo Queiroz';
+        const srvmPhone = srvm?.phone || '';
+
         const content = generateWhatsAppMessage(
             part,
             recipientGender,
             partnerName,
             partnerPhone,
-            isAjudante
+            isAjudante,
+            srvmName,
+            srvmPhone
         );
 
         return {
