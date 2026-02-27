@@ -26,8 +26,7 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
     const loadPart = async () => {
         try {
             setLoading(true);
-            const allParts = await workbookService.getAll({ status: 'any' as any }); // Simple fetch
-            const found = allParts.find(p => p.id === partId);
+            const found = await workbookService.getPartById(partId);
 
             if (!found) {
                 setError('Designação não encontrada ou expirada.');
