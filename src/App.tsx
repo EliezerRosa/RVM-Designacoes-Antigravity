@@ -312,7 +312,17 @@ function App() {
   // PORTAL ROUTING: Detect public confirmation link
   const urlParams = new URLSearchParams(window.location.search);
   const portal = urlParams.get('portal');
-  const partId = urlParams.get('id');
+  const partId = urlParams.get('id') || urlParams.get('partId'); // Support both 'id' and 'partId'
+  const action = urlParams.get('action');
+  const admin = urlParams.get('admin');
+
+  // Handle Admin Action Links (e.g., from WhatsApp notifications)
+  useEffect(() => {
+    if (admin === 'true' && action === 'replace' && partId) {
+      console.log(`[App] Admin action detected: replace part ${partId}`);
+      setActiveTab('workbook');
+    }
+  }, [admin, action, partId]);
 
   if (portal === 'confirm' && partId) {
     return (
@@ -405,7 +415,11 @@ function App() {
       <main className="main-content">
         {/* Workbook */}
         <div style={{ display: activeTab === 'workbook' ? 'block' : 'none' }}>
-          <WorkbookManager publishers={publishers} isActive={activeTab === 'workbook'} />
+          <WorkbookManager
+            publishers={publishers}
+            isActive={activeTab === 'workbook'}
+            initialPartId={admin === 'true' && action === 'replace' ? partId || undefined : undefined}
+          />
         </div>
 
         {/* Approvals */}

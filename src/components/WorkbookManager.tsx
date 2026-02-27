@@ -39,6 +39,7 @@ import { generateSessionReport, type AnalyticsSummary } from '../services/analyt
 interface Props {
     publishers: Publisher[];
     isActive?: boolean;
+    initialPartId?: string;
 }
 
 // Colunas esperadas no Excel da apostila (deve corresponder ao extract_detailed_parts.py)
@@ -56,7 +57,7 @@ const EXPECTED_COLUMNS = [
 
 
 
-export function WorkbookManager({ publishers, isActive }: Props) {
+export function WorkbookManager({ publishers, isActive, initialPartId }: Props) {
     // ========================================================================
     // Estado
     // ========================================================================
@@ -165,12 +166,29 @@ export function WorkbookManager({ publishers, isActive }: Props) {
         }
     }, [isActive]);
 
-    // Carregar dados inicialmente
     useEffect(() => {
         loadPartsWithFilters();
         // Carregar histórico completo para cooldown (12 meses) de forma independente dos filtros
         loadCompletedParticipations().then(setHistoryRecords);
     }, []);
+
+    // NEW: Handle initialPartId from URL action links
+    useEffect(() => {
+        if (initialPartId && parts.length > 0) {
+            // Find the part in the loaded list
+            const part = parts.find(p => p.id === initialPartId);
+            if (part) {
+                console.log(`[WorkbookManager] Auto-opening modal for initialPartId: ${initialPartId}`);
+                handleEditPart(part);
+
+                // Optional: Scroll to it if it's in the list
+                // (Modal opens over the list, so it's already "focused")
+            } else {
+                console.log(`[WorkbookManager] initialPartId ${initialPartId} not found in current loaded parts (${parts.length})`);
+                // If not found, maybe it's very old or the ID is wrong
+            }
+        }
+    }, [initialPartId, parts.length > 0]); // Only trigger when initialPartId is present and parts are loaded
 
     // Recarregar dados quando filtros server-side mudarem
     // Debounce para evitar muitas requisições
