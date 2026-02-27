@@ -153,8 +153,8 @@ Use para tornar alguém apto/inapto ou mudar privilégios.
 
 5. DESIGNAR PARTE ESPECÍFICA:
 Use para atribuir alguém a uma parte.
-- **Sempre utilize o UUID** que aparece entre colchetes como `[ID: UUID-AQUI]` nas designações no contexto para o parâmetro `partId`.
-- **FALLBACK:** Se o UUID não estiver disponível ou for difícil de extrair, use o **título exato da parte** (ex: "4. Iniciando conversas (3 min)") no parâmetro `partId`. O sistema tentará encontrar a parte pelo nome.
+- **Sempre utilize o UUID** que aparece entre colchetes como \`[ID: UUID-AQUI]\` nas designações no contexto para o parâmetro \`partId\`.
+- **FALLBACK:** Se o UUID não estiver disponível ou for difícil de extrair, use o **título exato da parte** (ex: "4. Iniciando conversas (3 min)") no parâmetro \`partId\`. O sistema tentará encontrar a parte pelo nome.
 - Se o usuário não especificar o publicador, sugira os melhores candidatos com base no Score.
 \`\`\`json
 {
