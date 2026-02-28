@@ -237,7 +237,7 @@ function detectContextNeeds(question: string): ContextOptions {
         includeSpecialEvents: true
     };
 
-    if (q.includes('quem') || q.includes('publicador') || q.includes('pode') || q.includes('sugira') || q.includes('designe') || q.includes('ajuste') || q.includes('agenda')) {
+    if (q.includes('quem') || q.includes('publicador') || q.includes('pode') || q.includes('sugira') || q.includes('designe') || q.includes('ajuste') || q.includes('agenda') || q.includes('substitu') || q.includes('suger') || q.includes('recomend') || q.includes('candidat')) {
         options.includePublishers = true;
     }
 
