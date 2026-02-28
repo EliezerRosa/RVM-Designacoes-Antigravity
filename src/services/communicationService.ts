@@ -185,13 +185,37 @@ export const communicationService = {
         const ranked = getRankedCandidates(eligible, part.modalidade, history);
         const bestCandidate = ranked[0]?.publisher?.name || 'Não encontrado';
 
-        // 4. Montar mensagem de alerta
+        // 4. Buscar parceiro (Titular/Ajudante) da mesma semana
+        const { workbookService: ws } = await import('./workbookService');
+        const weekParts = await ws.getPartsByWeekId(part.weekId);
+        const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
+        const partNum = partNumMatch ? partNumMatch[1] : null;
+
+        const partnerPart = weekParts.find(p => {
+            if (p.id === part.id) return false;
+            if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
+            const otherNum = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/)?.[1];
+            if (partNum && otherNum && partNum === otherNum) return p.funcao !== part.funcao;
+            return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
+        });
+        const partnerName = partnerPart ? (partnerPart.resolvedPublisherName || partnerPart.rawPublisherName) : null;
+        const partnerPub = partnerName ? publishers.find(p => p.name.trim() === partnerName.trim()) : null;
+
+        // 5. Montar mensagem de alerta
         let alertMsg = `📢 *ALERTA DE RECUSA - RVM*\n\n`;
         alertMsg += `O irmão *${publisherName}* informou que *NÃO PODERÁ* realizar a designação abaixo:\n\n`;
         alertMsg += `📖 *Parte:* ${part.tipoParte}\n`;
+        if (part.tituloParte) alertMsg += `🎯 *Tema:* ${part.tituloParte}\n`;
         alertMsg += `📅 *Data:* ${part.weekDisplay}\n`;
         alertMsg += `📍 *Local:* ${part.modalidade?.toLowerCase().includes('b') ? 'SALA B' : 'SALÃO PRINCIPAL'}\n`;
         alertMsg += `❌ *Motivo:* ${reason || 'Não informado'}\n\n`;
+
+        if (partnerName) {
+            const partnerRole = partnerPart?.funcao === 'Ajudante' ? 'Ajudante' : 'Titular';
+            alertMsg += `👥 *${partnerRole} da mesma parte:* ${partnerName}`;
+            if (partnerPub?.phone) alertMsg += ` (${partnerPub.phone})`;
+            alertMsg += `\n\n`;
+        }
 
         alertMsg += `──────────────────\n`;
         alertMsg += `💡 *Sugestão de Substituto:* ${bestCandidate}\n`;
