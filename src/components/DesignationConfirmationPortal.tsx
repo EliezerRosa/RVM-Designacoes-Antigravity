@@ -134,6 +134,19 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
 
     if (!part) return null;
 
+    // Calcular quinta-feira da reunião
+    const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+        'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    let thursdayDisplay = part.weekDisplay || part.date;
+    const dp = part.date?.split('-');
+    if (dp && dp.length === 3) {
+        const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
+        const daysToThu = (4 - baseDate.getDay() + 7) % 7;
+        const thu = new Date(baseDate);
+        thu.setDate(thu.getDate() + daysToThu);
+        thursdayDisplay = `Quinta-feira, ${thu.getDate()} de ${MESES[thu.getMonth()]} de ${thu.getFullYear()}`;
+    }
+
     return (
         <div className="portal-container">
             <div className="portal-header">
@@ -144,7 +157,7 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
             <div className="assignment-card">
                 <div className="card-item">
                     <span className="label">📅 Data:</span>
-                    <span className="value">{part.weekDisplay}</span>
+                    <span className="value">{thursdayDisplay}</span>
                 </div>
                 <div className="card-item">
                     <span className="label">⏰ Horário:</span>

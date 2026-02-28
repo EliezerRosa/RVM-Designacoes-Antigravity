@@ -201,12 +201,25 @@ export const communicationService = {
         const partnerName = partnerPart ? (partnerPart.resolvedPublisherName || partnerPart.rawPublisherName) : null;
         const partnerPub = partnerName ? publishers.find(p => p.name.trim() === partnerName.trim()) : null;
 
-        // 5. Montar mensagem de alerta
+        // 5. Calcular quinta-feira da reunião
+        const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+            'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        let thursdayStr = part.weekDisplay || part.date;
+        const dp = part.date?.split('-');
+        if (dp && dp.length === 3) {
+            const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
+            const daysToThu = (4 - baseDate.getDay() + 7) % 7;
+            const thu = new Date(baseDate);
+            thu.setDate(thu.getDate() + daysToThu);
+            thursdayStr = `quinta-feira, ${thu.getDate()} de ${MESES[thu.getMonth()]} de ${thu.getFullYear()}`;
+        }
+
+        // 6. Montar mensagem de alerta
         let alertMsg = `📢 *ALERTA DE RECUSA - RVM*\n\n`;
         alertMsg += `O irmão *${publisherName}* informou que *NÃO PODERÁ* realizar a designação abaixo:\n\n`;
         alertMsg += `📖 *Parte:* ${part.tipoParte}\n`;
         if (part.tituloParte) alertMsg += `🎯 *Tema:* ${part.tituloParte}\n`;
-        alertMsg += `📅 *Data:* ${part.weekDisplay}\n`;
+        alertMsg += `📅 *Data:* ${thursdayStr}\n`;
         alertMsg += `📍 *Local:* ${part.modalidade?.toLowerCase().includes('b') ? 'SALA B' : 'SALÃO PRINCIPAL'}\n`;
         alertMsg += `❌ *Motivo:* ${reason || 'Não informado'}\n\n`;
 

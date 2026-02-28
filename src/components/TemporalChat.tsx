@@ -416,7 +416,7 @@ export default function TemporalChat({
 
     // Unified Auto-trigger for initial command (Replacement Flow)
     useEffect(() => {
-        const canSend = !isLoading && !isWorkbookLoading && parts.length > 0 && sessionId;
+        const canSend = !isLoading && !isWorkbookLoading && parts.length > 0 && sessionId && currentWeekId;
 
         if (initialCommand && canSend) {
             // Check if we already processed this specific command string
@@ -429,17 +429,17 @@ export default function TemporalChat({
                 return;
             }
 
-            console.log('[TemporalChat] Auto-triggering initial command:', initialCommand);
+            console.log('[TemporalChat] Auto-triggering initial command:', initialCommand, 'weekId:', currentWeekId);
             lastCommandRef.current = initialCommand;
 
-            // Short delay to ensure session and messages are stable
+            // Delay ensures weekId has propagated to context before agent fires
             const timer = setTimeout(() => {
                 sendMessage(initialCommand);
-            }, 500);
+            }, 1500);
 
             return () => clearTimeout(timer);
         }
-    }, [sessionId, initialCommand, isLoading, isWorkbookLoading, parts.length, messages.length === 0]);
+    }, [sessionId, initialCommand, isLoading, isWorkbookLoading, parts.length, messages.length === 0, currentWeekId]);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
