@@ -319,7 +319,7 @@ function App() {
     setShowPublisherForm(true)
   }
 
-  // Handle Admin Action Links effect
+  // Handle Admin Action Links effect (runs once on mount, no data dependency)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const admin = urlParams.get('admin');
@@ -329,17 +329,19 @@ function App() {
     if (admin === 'true' && action === 'replace' && partId) {
       console.log(`[App] Admin action detected: replace part ${partId}`);
 
-      // Find the week for this part to set context
-      const part = workbookParts.find(p => p.id === partId);
-      if (part) {
-        setInitialAgentWeekId(part.weekId);
-      }
-
-      // v9.4: Use explicit [ID: UUID] format for 100% agent accuracy
-      setInitialAgentCommand(`Sugerir substitutos recomendados para a parte [ID: ${partId}]`);
+      // Force switch to agent tab IMMEDIATELY (before data loads)
       setActiveTab('agent');
+
+      // Set command with [ID: UUID] format — agent resolves on its own
+      setInitialAgentCommand(`Sugerir substitutos recomendados para a parte [ID: ${partId}]`);
+
+      // Force data load to ensure workbookParts are available for the agent
+      refreshWorkbookParts();
+
+      // Clean URL to prevent re-trigger on refresh
+      window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [workbookParts.length > 0]); // Dependency array simplified to run once data is ready
+  }, []); // Runs once on mount — TemporalChat waits for parts internally
 
   if (isLoading) {
     return (

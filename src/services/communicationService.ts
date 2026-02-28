@@ -284,6 +284,6 @@ export const communicationService = {
         if (cleanedPhone && cleanedPhone.length <= 11 && !cleanedPhone.startsWith('55')) {
             cleanedPhone = '55' + cleanedPhone;
         }
-        return `https://web.whatsapp.com/send?${cleanedPhone ? 'phone=' + cleanedPhone + '&' : ''}text=${encoded}`;
+        return `https://api.whatsapp.com/send?${cleanedPhone ? 'phone=' + cleanedPhone + '&' : ''}text=${encoded}`;
     }
 };

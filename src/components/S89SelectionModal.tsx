@@ -247,7 +247,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
                 // 4. Abrir WhatsApp Web com texto preenchido
                 const encodedMessage = encodeURIComponent(message);
-                window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, '_blank');
+                window.open(`https://api.whatsapp.com/send?text=${encodedMessage}`, '_blank');
             } else {
                 alert('Seu navegador não suporta cópia direta. Imagem gerada, mas não copiada.');
             }
