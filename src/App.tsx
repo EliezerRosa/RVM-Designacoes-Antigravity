@@ -319,7 +319,11 @@ function App() {
     setShowPublisherForm(true)
   }
 
-  // Handle Admin Action Links effect (runs once on mount, no data dependency)
+  // Handle Admin Action Links effect — TWO STAGES:
+  // Stage 1: On mount — capture URL params, switch tab, set command (no data dependency)
+  // Stage 2: Once data loads — resolve weekId from partId for correct week focus
+  const pendingReplacePartIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const admin = urlParams.get('admin');
@@ -335,13 +339,33 @@ function App() {
       // Set command with [ID: UUID] format — agent resolves on its own
       setInitialAgentCommand(`Sugerir substitutos recomendados para a parte [ID: ${partId}]`);
 
+      // Store partId for Stage 2 (weekId resolution after data loads)
+      pendingReplacePartIdRef.current = partId;
+
       // Force data load to ensure workbookParts are available for the agent
       refreshWorkbookParts();
 
       // Clean URL to prevent re-trigger on refresh
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []); // Runs once on mount — TemporalChat waits for parts internally
+  }, []); // Stage 1: Runs once on mount
+
+  // Stage 2: Resolve weekId once workbookParts loads
+  useEffect(() => {
+    const pendingPartId = pendingReplacePartIdRef.current;
+    if (!pendingPartId || workbookParts.length === 0) return;
+
+    const part = workbookParts.find(p => p.id === pendingPartId);
+    if (part) {
+      console.log(`[App] Stage 2: Resolved weekId=${part.weekId} for partId=${pendingPartId}`);
+      setInitialAgentWeekId(part.weekId);
+    } else {
+      console.warn(`[App] Stage 2: Part ${pendingPartId} not found in loaded data`);
+    }
+
+    // Clear pending to avoid re-resolution
+    pendingReplacePartIdRef.current = null;
+  }, [workbookParts]); // Stage 2: Runs when data becomes available
 
   if (isLoading) {
     return (
