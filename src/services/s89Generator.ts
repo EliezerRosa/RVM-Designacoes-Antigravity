@@ -161,7 +161,7 @@ export function generateWhatsAppMessage(
         const day = thursdayDate.getDate();
         const month = MESES[thursdayDate.getMonth()];
         const year = thursdayDate.getFullYear();
-        displayDate = `${day} de ${month} de ${year}`;
+        displayDate = `quinta-feira, ${day} de ${month} de ${year}`;
     }
 
     let emoji = '📅';
