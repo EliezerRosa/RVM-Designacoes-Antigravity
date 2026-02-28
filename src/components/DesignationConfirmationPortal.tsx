@@ -10,6 +10,7 @@ interface DesignationConfirmationPortalProps {
 
 export function DesignationConfirmationPortal({ partId }: DesignationConfirmationPortalProps) {
     const [part, setPart] = useState<WorkbookPart | null>(null);
+    const [partnerInfo, setPartnerInfo] = useState<{ name: string; phone?: string; funcao: string } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
@@ -32,6 +33,37 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
                 setError('Designação não encontrada ou expirada.');
             } else {
                 setPart(found);
+
+                // Carregar parceiro (Titular/Ajudante) da mesma semana
+                try {
+                    const weekParts = await workbookService.getPartsByWeekId(found.weekId);
+                    const partNumMatch = (found.tituloParte || found.tipoParte || '').match(/^(\d+)/);
+                    const partNum = partNumMatch ? partNumMatch[1] : null;
+
+                    const partner = weekParts.find(p => {
+                        if (p.id === found.id) return false;
+                        if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
+                        const otherNumMatch = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/);
+                        const otherNum = otherNumMatch ? otherNumMatch[1] : null;
+                        if (partNum && otherNum && partNum === otherNum) return p.funcao !== found.funcao;
+                        return p.tipoParte === found.tipoParte && p.funcao !== found.funcao;
+                    });
+
+                    if (partner) {
+                        const partnerName = partner.resolvedPublisherName || partner.rawPublisherName || '';
+                        // Buscar telefone do parceiro
+                        const { api } = await import('../services/api');
+                        const publishers = await api.loadPublishers();
+                        const partnerPub = publishers.find(pub => pub.name.trim() === partnerName.trim());
+                        setPartnerInfo({
+                            name: partnerName,
+                            phone: partnerPub?.phone,
+                            funcao: partner.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'
+                        });
+                    }
+                } catch (partnerErr) {
+                    console.warn('[Portal] Não foi possível carregar parceiro:', partnerErr);
+                }
             }
         } catch (err) {
             console.error('Erro ao carregar designação:', err);
@@ -130,6 +162,22 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
                     <span className="label">👤 Designado:</span>
                     <span className="value">{part.resolvedPublisherName || part.rawPublisherName}</span>
                 </div>
+                {partnerInfo && (
+                    <div className="card-item" style={{ marginTop: '8px', padding: '8px', background: '#F0F9FF', borderRadius: '8px' }}>
+                        <span className="label">👥 {partnerInfo.funcao}:</span>
+                        <span className="value">{partnerInfo.name}</span>
+                        {partnerInfo.phone && (
+                            <div style={{ marginTop: '4px' }}>
+                                <a href={`https://api.whatsapp.com/send?phone=${partnerInfo.phone.replace(/[^0-9]/g, '').replace(/^(?!55)(\d{10,11})$/, '55$1')}`}
+                                    style={{ color: '#25D366', textDecoration: 'none', fontSize: '14px' }}
+                                    target="_blank" rel="noopener noreferrer">
+                                    📱 WhatsApp: {partnerInfo.phone}
+                                </a>
+                            </div>
+                        )}
+                        <p style={{ fontSize: '12px', color: '#6B7280', margin: '4px 0 0' }}>Entre em contato para combinarem o ensaio 🤝</p>
+                    </div>
+                )}
             </div>
 
             <div className="portal-form">

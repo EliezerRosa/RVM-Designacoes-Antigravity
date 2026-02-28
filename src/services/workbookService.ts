@@ -437,6 +437,22 @@ export const workbookService = {
     },
 
     /**
+     * Busca todas as partes de uma semana específica
+     */
+    async getPartsByWeekId(weekId: string): Promise<WorkbookPart[]> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .select('*')
+            .eq('week_id', weekId);
+
+        if (error) {
+            console.error('[workbookService] Erro ao buscar partes da semana:', error);
+            return [];
+        }
+        return (data || []).map(mapDbToWorkbookPart);
+    },
+
+    /**
      * Busca TODAS as partes (para filtro 'all' ou 'completed' histórico)
      * Útil para o ApprovalPanel listar histórico completo
      * @param filters Filtros opcionais para server-side filtering
