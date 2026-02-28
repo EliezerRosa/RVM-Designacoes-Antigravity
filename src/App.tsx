@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import './App.css'
 import type { Publisher, WorkbookPart } from './types'
 import PublisherList from './components/PublisherList'
@@ -322,7 +322,7 @@ function App() {
   // Handle Admin Action Links effect — TWO STAGES:
   // Stage 1: On mount — capture URL params, switch tab, set command (no data dependency)
   // Stage 2: Once data loads — resolve weekId from partId for correct week focus
-  const pendingReplacePartIdRef = React.useRef<string | null>(null);
+  const pendingReplacePartIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
