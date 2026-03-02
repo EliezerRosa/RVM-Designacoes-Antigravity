@@ -46,29 +46,55 @@ export interface ActionResult {
 // Service implementation
 export const agentActionService = {
 
-    // Parse response to find actions
+    // Parse response to find the FIRST action (backwards compat)
     detectAction(responseContent: string): AgentAction | null {
-        // Try to find JSON block
-        const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/) ||
-            responseContent.match(/{\s*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK|UPDATE_PUBLISHER|UPDATE_AVAILABILITY|UPDATE_ENGINE_RULES|MANAGE_SPECIAL_EVENT|SEND_S140|SEND_S89|FETCH_DATA)"[\s\S]*}/);
+        const all = agentActionService.detectAllActions(responseContent);
+        return all.length > 0 ? all[0] : null;
+    },
 
-        if (jsonMatch) {
+    // Parse response to find ALL action blocks (multi-action support)
+    detectAllActions(responseContent: string): AgentAction[] {
+        const actions: AgentAction[] = [];
+
+        // Match all ```json ... ``` blocks globally
+        const blockRegex = /```json\s*([\s\S]*?)\s*```/g;
+        let match: RegExpExecArray | null;
+
+        while ((match = blockRegex.exec(responseContent)) !== null) {
             try {
-                const jsonStr = jsonMatch[1] || jsonMatch[0];
-                const data = JSON.parse(jsonStr);
-
+                const data = JSON.parse(match[1]);
                 if (data.type) {
-                    return {
+                    actions.push({
                         type: data.type,
                         params: data.params || {},
                         description: data.description || 'Ação sugerida pelo agente'
-                    };
+                    });
                 }
             } catch (e) {
-                console.error('[AgentAction] Failed to parse action JSON:', e);
+                console.warn('[AgentAction] Failed to parse action JSON block:', e);
             }
         }
-        return null;
+
+        // Fallback: try inline JSON if no blocks found
+        if (actions.length === 0) {
+            const inlineMatch = responseContent.match(/{\s*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK|UPDATE_PUBLISHER|UPDATE_AVAILABILITY|UPDATE_ENGINE_RULES|MANAGE_SPECIAL_EVENT|SEND_S140|SEND_S89|FETCH_DATA|NOTIFY_REFUSAL)"[\s\S]*?}/);
+            if (inlineMatch) {
+                try {
+                    const data = JSON.parse(inlineMatch[0]);
+                    if (data.type) {
+                        actions.push({
+                            type: data.type,
+                            params: data.params || {},
+                            description: data.description || 'Ação sugerida pelo agente'
+                        });
+                    }
+                } catch (e) {
+                    console.error('[AgentAction] Failed to parse inline action JSON:', e);
+                }
+            }
+        }
+
+        return actions;
     },
 
     // Execute the action directly (Authorized User Mode)

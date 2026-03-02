@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Controle de Trabalho de Campo — Modelo UML</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #0f0f1a; color: #e2e8f0; padding: 40px; line-height: 1.6; }
+  h1 { font-size: 2rem; color: #a78bfa; margin-bottom: 8px; }
+  h2 { font-size: 1.5rem; color: #818cf8; margin: 40px 0 16px; border-bottom: 2px solid #2d2d44; padding-bottom: 8px; }
+  h3 { font-size: 1.1rem; color: #c4b5fd; margin: 24px 0 12px; }
+  p, li { font-size: 0.95rem; color: #cbd5e1; }
+  .subtitle { color: #94a3b8; font-size: 1.1rem; margin-bottom: 32px; }
+  .mermaid { background: #1a1a2e; border-radius: 12px; padding: 24px; margin: 16px 0; text-align: center; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #1a1a2e; border-radius: 8px; overflow: hidden; }
+  th { background: #2d2d5e; color: #a78bfa; padding: 12px 16px; text-align: left; font-weight: 600; }
+  td { padding: 10px 16px; border-top: 1px solid #2d2d44; color: #cbd5e1; }
+  tr:hover td { background: #1e1e3a; }
+  .note { background: #1e293b; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 8px; margin: 16px 0; }
+  .note strong { color: #60a5fa; }
+  hr { border: none; border-top: 1px solid #2d2d44; margin: 32px 0; }
+  @media print {
+    body { background: white; color: #1a1a2e; padding: 20px; }
+    .mermaid { background: #f8f9fa; border: 1px solid #ddd; }
+    table { background: white; }
+    th { background: #e8e8f0; color: #1a1a2e; }
+    td { color: #1a1a2e; border-color: #ddd; }
+    h1 { color: #4F46E5; }
+    h2 { color: #4F46E5; border-color: #ddd; }
+    .note { background: #f0f4ff; border-color: #4F46E5; }
+    .note strong { color: #4F46E5; }
+  }
+</style>
+</head>
+<body>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'dark' });</script>
+
+<h1>🌍 Controle de Trabalho de Campo</h1>
+<p class="subtitle">Modelo de Entidades — Territórios da Congregação</p>
+
+<h2>Visão Geral</h2>
+<p>O sistema organiza o <strong>trabalho de pregação</strong> da congregação em camadas:</p>
+<p><strong>Onde</strong> pregamos → <strong>Quem</strong> vai → <strong>O que</strong> foi feito</p>
+
+<div class="mermaid">
+graph TD
+    subgraph "📍 ONDE pregamos"
+        B["🏘️ Bairro<br/>(Ex: Jardim América)"]
+        T["🗺️ Território<br/>(Ex: Território 14)"]
+        Q["🧱 Quadra<br/>(Ex: Quadra A — Rua das Flores)"]
+        C["🏠 Casa<br/>(Ex: Nº 205, Apto 3)"]
+    end
+    subgraph "👤 QUEM vai"
+        P["👤 Publicador<br/>(Ex: João Mendes)"]
+        D["📋 Designação<br/>(Território → Publicador<br/>Saída: 01/Mar — Retorno: 30/Abr)"]
+    end
+    subgraph "📝 O QUE foi feito"
+        V["📝 Visita<br/>(Data, Resultado, Observações)"]
+    end
+    B -->|contém| T
+    T -->|dividido em| Q
+    Q -->|composta de| C
+    T -->|designado via| D
+    D -->|para| P
+    C -->|recebe| V
+    V -->|feita por| P
+    style B fill:#4F46E5,color:#fff,stroke:#4F46E5
+    style T fill:#7C3AED,color:#fff,stroke:#7C3AED
+    style Q fill:#9333EA,color:#fff,stroke:#9333EA
+    style C fill:#A855F7,color:#fff,stroke:#A855F7
+    style P fill:#059669,color:#fff,stroke:#059669
+    style D fill:#0891B2,color:#fff,stroke:#0891B2
+    style V fill:#D97706,color:#fff,stroke:#D97706
+</div>
+
+<hr>
+
+<h2>Diagrama de Classes (UML)</h2>
+
+<div class="mermaid">
+classDiagram
+    class Bairro {
+        +UUID id
+        +String nome
+        +String cidade
+        +String observacoes
+    }
+    class Territorio {
+        +UUID id
+        +String numero
+        +UUID bairro_id
+        +String descricao
+        +String mapa_url
+        +Date ultimo_trabalho
+    }
+    class Quadra {
+        +UUID id
+        +UUID territorio_id
+        +String nome
+        +Int ordem
+    }
+    class Casa {
+        +UUID id
+        +UUID quadra_id
+        +String numero
+        +String complemento
+        +String status
+        +String observacoes
+    }
+    class Publicador {
+        +String id
+        +String nome
+        +String telefone
+        +String genero
+    }
+    class Designacao {
+        +UUID id
+        +UUID territorio_id
+        +String publicador_id
+        +Date data_saida
+        +Date data_retorno
+    }
+    class Visita {
+        +UUID id
+        +UUID casa_id
+        +String publicador_id
+        +DateTime data
+        +String resultado
+        +String observacoes
+    }
+    Bairro "1" --> "*" Territorio : contém
+    Territorio "1" --> "*" Quadra : dividido em
+    Quadra "1" --> "*" Casa : composta de
+    Territorio "1" --> "*" Designacao : designado a
+    Designacao "*" --> "1" Publicador : atribuído a
+    Casa "1" --> "*" Visita : recebe
+    Visita "*" --> "1" Publicador : feita por
+</div>
+
+<hr>
+
+<h2>Glossário</h2>
+<table>
+  <tr><th>Entidade</th><th>O que é?</th><th>Exemplo Real</th></tr>
+  <tr><td><strong>Bairro</strong></td><td>A região geográfica que a congregação cobre</td><td>Jardim América, Centro, Vila Nova</td></tr>
+  <tr><td><strong>Território</strong></td><td>Uma subdivisão numerada do bairro, com mapa</td><td>Território 14 — Jardim América Norte</td></tr>
+  <tr><td><strong>Quadra</strong></td><td>Um bloco de ruas/casas dentro do território</td><td>Quadra A — Rua das Flores até Rua dos Ipês</td></tr>
+  <tr><td><strong>Casa</strong></td><td>Um endereço específico dentro da quadra</td><td>Nº 205, Apto 3</td></tr>
+  <tr><td><strong>Publicador</strong></td><td>O irmão ou irmã que realiza o trabalho</td><td>João Mendes</td></tr>
+  <tr><td><strong>Designação</strong></td><td>Entrega de um território para trabalhar</td><td>"João, trabalhe o Território 14. Retorne em 4 meses."</td></tr>
+  <tr><td><strong>Visita</strong></td><td>Registro do que aconteceu em cada casa</td><td>"Falei com morador, deixei convite."</td></tr>
+</table>
+
+<hr>
+
+<h2>Status de uma Casa</h2>
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> Normal : Casa nova no cadastro
+    Normal --> Revisita : Morador demonstrou interesse
+    Revisita --> EstudoBiblico : Aceitou estudo
+    Normal --> Ausente : Ninguém em casa
+    Ausente --> Normal : Tentativa seguinte
+    Normal --> NaoPerturbe : Morador pediu para não voltar
+    NaoPerturbe --> [*]
+    EstudoBiblico --> [*]
+</div>
+
+<h2>Ciclo de Vida de um Território</h2>
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> Disponivel : Território cadastrado
+    Disponivel --> Designado : Entregue a um publicador
+    Designado --> EmAndamento : Publicador está trabalhando
+    EmAndamento --> Concluido : Todas as casas visitadas
+    Concluido --> Disponivel : Retornado ao arquivo
+    Designado --> Disponivel : Publicador devolveu sem concluir
+</div>
+
+<hr>
+
+<h2>Mapeamento Banco ↔ Modelo</h2>
+<table>
+  <tr><th>Classe (Modelo)</th><th>Tabela (Supabase)</th><th>Status</th></tr>
+  <tr><td>Bairro</td><td><code>neighborhoods</code></td><td>✅ Criada (0 linhas)</td></tr>
+  <tr><td>Território</td><td><code>territories</code></td><td>✅ Criada (0 linhas)</td></tr>
+  <tr><td>Quadra</td><td><code>blocks</code></td><td>✅ Criada (0 linhas)</td></tr>
+  <tr><td>Casa</td><td><code>houses</code></td><td>✅ Criada (0 linhas)</td></tr>
+  <tr><td>Visita</td><td><code>visits</code></td><td>✅ Criada (0 linhas)</td></tr>
+  <tr><td>Designação</td><td><code>territory_assignments</code></td><td>✅ Criada (0 linhas)</td></tr>
+  <tr><td>Publicador</td><td><code>publishers</code></td><td>✅ Existente (123 linhas)</td></tr>
+</table>
+
+<div class="note">
+  <strong>ℹ️ Nota:</strong> Todas as tabelas de território já existem no banco com RLS ativado e chaves estrangeiras configuradas. Falta apenas a <strong>interface</strong> (frontend) para gerenciá-las.
+</div>
+
+</body>
+</html>

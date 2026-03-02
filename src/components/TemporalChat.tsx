@@ -296,23 +296,18 @@ export default function TemporalChat({
                 onModelChange(response.modelUsed);
             }
 
-            // Handle Action if present
-            if (response.success && response.action) {
-                console.log('[TemporalChat] Executing action:', response.action);
+            // Handle Actions if present (MULTI-ACTION SUPPORT)
+            const actionsToRun = response.actions?.length > 0 ? response.actions : (response.action ? [response.action] : []);
 
-                // v9.3: SIMULATE_BATCH removed - Agent delegates to generationService
+            if (response.success && actionsToRun.length > 0) {
+                console.log(`[TemporalChat] Executing ${actionsToRun.length} action(s):`, actionsToRun.map(a => a.type));
 
-                // SPECIAL HANDLER FOR S-140 (VIEW or SHARE)
-                if (response.action.type === 'SHARE_S140_WHATSAPP' || response.action.type === 'VIEW_S140') {
-                    // Start generation flow immediately
-                    const weekId = response.action.params.weekId;
-                    const isViewOnly = response.action.type === 'VIEW_S140';
-
-                    if (weekId) {
-                        handleShareS140(weekId, isViewOnly);
-                    }
-
-                    // Add system message about it
+                // SPECIAL HANDLER FOR S-140 (VIEW or SHARE) — only first S-140 action runs
+                const s140Action = actionsToRun.find(a => a.type === 'SHARE_S140_WHATSAPP' || a.type === 'VIEW_S140');
+                if (s140Action) {
+                    const weekId = s140Action.params.weekId;
+                    const isViewOnly = s140Action.type === 'VIEW_S140';
+                    if (weekId) handleShareS140(weekId, isViewOnly);
                     const actionLabel = isViewOnly ? 'Visualizando' : 'Abrindo painel de compartilhamento';
                     const systemMsg: ChatMessage = {
                         role: 'assistant',
@@ -321,48 +316,57 @@ export default function TemporalChat({
                     };
                     await chatHistoryService.addMessage(sessionId, systemMsg);
                     setMessages(prev => [...prev, systemMsg]);
-                    return; // Don't process via executeAction normally
+                    return;
                 }
 
-                // EXECUTE ACTION DIRECTLY
-                // Convert parts to history for deep analysis
+                // EXECUTE ALL ACTIONS SEQUENTIALLY
                 const history = parts.map(p => workbookPartToHistoryRecord(p));
-                const result = await agentActionService.executeAction(response.action, parts, publishers, history, currentWeekId);
+                const results: ActionResult[] = [];
 
-                if (result.success) {
-                    // Notify parent to update view
-                    if (onAction) onAction(result);
+                for (const action of actionsToRun) {
+                    const result = await agentActionService.executeAction(action, parts, publishers, history, currentWeekId);
+                    results.push(result);
 
-                    // Add system feedback message
-                    const systemMsg: ChatMessage = {
-                        role: 'assistant',
-                        content: result.actionType === 'CHECK_SCORE'
-                            ? result.message // Use the formatted report directly 
-                            : `✅ ${result.message}`,
-                        timestamp: new Date(),
-                    };
-                    await chatHistoryService.addMessage(sessionId, systemMsg);
-                    setMessages(prev => [...prev, systemMsg]);
+                    // Notify parent on success (e.g. to refresh workbook data)
+                    if (result.success && onAction) onAction(result);
 
-                    // Auto-navigate if applicable
-                    if (result.actionType === 'GENERATE_WEEK' && result.data?.generatedWeeks?.[0] && onNavigateToWeek) {
+                    // Auto-navigate on GENERATE_WEEK / NAVIGATE_WEEK
+                    if (result.success && result.actionType === 'GENERATE_WEEK' && result.data?.generatedWeeks?.[0] && onNavigateToWeek) {
                         onNavigateToWeek(result.data.generatedWeeks[0]);
                     }
-                    if (result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId && onNavigateToWeek) {
+                    if (result.success && result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId && onNavigateToWeek) {
                         onNavigateToWeek(result.data.weekId);
                     }
-                    // For CHECK_SCORE, we might want to optionally navigate to the reference date if provided, but typically it's just info.
-
-                } else {
-                    // Error in execution
-                    const errorMsg: ChatMessage = {
-                        role: 'assistant',
-                        content: `⚠️ Não foi possível realizar a ação: ${result.message}`,
-                        timestamp: new Date(),
-                    };
-                    await chatHistoryService.addMessage(sessionId, errorMsg);
-                    setMessages(prev => [...prev, errorMsg]);
                 }
+
+                // Build consolidated feedback message
+                const successCount = results.filter(r => r.success).length;
+                const failCount = results.length - successCount;
+
+                let feedbackContent: string;
+                if (results.length === 1) {
+                    // Single action: show result directly
+                    const r = results[0];
+                    feedbackContent = r.success
+                        ? (r.actionType === 'CHECK_SCORE' ? r.message : `✅ ${r.message}`)
+                        : `⚠️ Não foi possível realizar a ação: ${r.message}`;
+                } else {
+                    // Multiple actions: show summary + details
+                    const lines = [`✅ ${successCount} de ${results.length} ações executadas${failCount > 0 ? ` (${failCount} falharam)` : ''}:`];
+                    results.forEach((r, i) => {
+                        const icon = r.success ? '✅' : '❌';
+                        lines.push(`${icon} ${actionsToRun[i].description || actionsToRun[i].type}: ${r.message}`);
+                    });
+                    feedbackContent = lines.join('\n');
+                }
+
+                const feedbackMsg: ChatMessage = {
+                    role: 'assistant',
+                    content: feedbackContent,
+                    timestamp: new Date(),
+                };
+                await chatHistoryService.addMessage(sessionId, feedbackMsg);
+                setMessages(prev => [...prev, feedbackMsg]);
             }
 
         } catch (error) {

@@ -28,7 +28,13 @@ export const dataDiscoveryService = {
 
         if (params.filters) {
             Object.entries(params.filters).forEach(([column, value]) => {
-                query = query.eq(column, value);
+                // Special case: publishers table stores data in JSONB column
+                // Direct column filters won't work for 'name', 'phone', etc.
+                if (params.table === 'publishers' && column === 'name') {
+                    query = query.ilike('data->>name', `%${value}%`);
+                } else {
+                    query = query.eq(column, value);
+                }
             });
         }
 
