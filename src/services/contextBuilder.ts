@@ -38,8 +38,9 @@ export interface PartDesignation {
     designado: string;
     status: string;
     horaInicio: string;
-    duracao?: string; // NEW
-    descricao?: string; // NEW
+    date: string; // Data real da parte (YYYY-MM-DD)
+    duracao?: string;
+    descricao?: string;
     id: string; // ID da parte para ações do agente
 }
 
@@ -317,6 +318,7 @@ export function buildAgentContext(
                 designado,
                 status: part.status,
                 horaInicio: part.horaInicio,
+                date: part.date, // Data real da designação
             });
         }
     }
@@ -607,7 +609,12 @@ export function formatContextForPrompt(context: AgentContext): string {
             const isCurrentWeek = week.weekDisplay === context.currentWeek;
             const yearFromDate = week.date ? week.date.split('-')[0] : '';
             const displayWithYear = week.weekDisplay.includes(yearFromDate) ? week.weekDisplay : `${week.weekDisplay} ${yearFromDate}`;
-            lines.push(`📅 ${displayWithYear} (${week.date})${isCurrentWeek ? ' ← SEMANA ATUAL' : ''}`);
+
+            if (isCurrentWeek) {
+                lines.push(`╔══ SEMANA EM FOCO: ${displayWithYear} (${week.weekId}) ══╗`);
+            } else {
+                lines.push(`📅 ${displayWithYear} (${week.weekId})`);
+            }
 
             const sortedParts = [...week.parts].sort((a, b) =>
                 a.horaInicio.localeCompare(b.horaInicio)
@@ -616,10 +623,13 @@ export function formatContextForPrompt(context: AgentContext): string {
             for (const part of sortedParts) {
                 const funcaoLabel = part.funcao === 'Ajudante' ? ' (Ajudante)' : '';
                 const timeInfo = part.horaInicio ? `[${part.horaInicio}]` : '';
-                const durationInfo = part.duracao ? `(${part.duracao} min)` : '';
+                const durationInfo = part.duracao ? ` (${part.duracao} min)` : '';
                 const details = part.descricao ? ` - "${part.descricao}"` : '';
+                // Formatar data: YYYY-MM-DD → DD/MM/AAAA
+                const dateParts = part.date ? part.date.split('-') : [];
+                const dateLabel = dateParts.length === 3 ? ` | ${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : '';
 
-                lines.push(`  • ${timeInfo} ${part.tituloParte}${details}${durationInfo}${funcaoLabel}: ${part.designado} [ID: ${part.id}]`);
+                lines.push(`  • ${timeInfo}${dateLabel} ${part.tituloParte}${details}${durationInfo}${funcaoLabel}: ${part.designado} [ID: ${part.id}]`);
             }
             lines.push('');
         }
