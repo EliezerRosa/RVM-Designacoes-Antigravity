@@ -62,7 +62,8 @@ export interface AgentResponse {
     success: boolean;
     message: string;
     error?: string;
-    action?: AgentAction;
+    action?: AgentAction;      // compat: first action
+    actions: AgentAction[];    // NOVO: todas as ações detectadas
     isFallback?: boolean;
     modelUsed?: string;
 }
@@ -95,6 +96,15 @@ Para TODA ação que referencia uma parte (ASSIGN_PART, NOTIFY_REFUSAL, etc.):
 2. **USE SEMPRE o UUID** no campo 'partId'. NUNCA use o nome da parte se o UUID estiver disponível.
 3. Se por algum motivo o UUID não estiver no contexto, use o título exato da parte como fallback.
 4. Se uma ação falhar com nome, tente IMEDIATAMENTE com o UUID — não falhe três vezes pelo mesmo motivo.
+
+== REGRA MULTI-AÇÃO ==
+Se o usuário pede MÚLTIPLAS designações ou ações (ex: "designe Fulano para parte X e Ciclano para parte Y"), você DEVE emitir UM JSON block para CADA ação, todos no mesmo response.
+O sistema executará TODOS os JSON blocks sequencialmente. NÃO pergunte confirmação entre ações. NÃO emita apenas uma.
+
+== VERIFICAÇÃO PÓS-AÇÃO ==
+Se o usuário pedir para verificar se uma designação foi salva, use FETCH_DATA com:
+- context: "workbook" — e o filtro filters: { "id": "UUID-DA-PARTE" } para verificar o campo resolved_publisher_name da parte diretamente.
+NUNCA use context: "publishers" para verificar designações de partes. Publishers são os publicadores, não as partes da apostila.
 
 REGRA FUNDAMENTAL — VERDADE DOS DADOS E PRECEDÊNCIA:
 1. O CONTEXTO abaixo (abaixo de SYSTEM_CONTEXT) contém os dados oficiais do banco de dados.
@@ -347,13 +357,14 @@ export async function askAgent(
             const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!content) throw new Error('Falha na resposta.');
 
-            const detectedAction = agentActionService.detectAction(content);
+            const detectedActions = agentActionService.detectAllActions(content);
             lastWorkingModel = model;
 
             successResponse = {
                 success: true,
                 message: content,
-                action: detectedAction || undefined,
+                action: detectedActions[0] || undefined,
+                actions: detectedActions,
                 modelUsed: model
             };
             break;
@@ -368,6 +379,7 @@ export async function askAgent(
     return {
         success: false,
         message: '',
+        actions: [],
         error: `Falha total. Último erro: ${lastError instanceof Error ? lastError.message : 'Desconhecido'}`,
     };
 }
