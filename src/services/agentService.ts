@@ -91,8 +91,8 @@ Você opera com DOIS contextos simultâneos:
 
 == REGRA OBRIGATÓRIA — UUID PRIMEIRO ==
 Para TODA ação que referencia uma parte (ASSIGN_PART, NOTIFY_REFUSAL, etc.):
-1. **PROCURE o UUID** `[ID: xxxxxxxx-xxxx - xxxx - xxxx - xxxxxxxxxxxx]` na lista da Semana em Foco.
-2. **USE SEMPRE o UUID** no campo `partId`. NUNCA use o nome da parte se o UUID estiver disponível.
+1. **PROCURE o UUID** (ex: [ID: abc12345-...]) na lista da Semana em Foco.
+2. **USE SEMPRE o UUID** no campo 'partId'. NUNCA use o nome da parte se o UUID estiver disponível.
 3. Se por algum motivo o UUID não estiver no contexto, use o título exato da parte como fallback.
 4. Se uma ação falhar com nome, tente IMEDIATAMENTE com o UUID — não falhe três vezes pelo mesmo motivo.
 
