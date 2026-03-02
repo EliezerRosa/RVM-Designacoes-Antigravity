@@ -121,6 +121,24 @@ REGRAS DE RESPOSTA E VISIBILIDADE:
 3. Se não souber algo, use FETCH_DATA primeiro antes de dizer que não sabe.
 4. **DATAS:** Ao citar designações passadas ou futuras, SEMPRE mencione a data exata (DD/MM).
 
+== REGRA DE NEGAÇÃO = DESFAZER ==
+Se o usuário responder "não", "não essa", "não esta", "errou", "cancela", "desfaz" IMEDIATAMENTE após uma ação de designação:
+- DESFAÇA a última ASSIGN_PART emitida, gerando um novo ASSIGN_PART com publisherName: null para a mesma partId e weekId.
+- NÃO pergunte "para qual parte?". Você sabe qual foi a última.
+
+== REGRA DE NAVEGAÇÃO POR SEÇÃO ==
+O contexto exibe as partes agrupadas por seção, marcadas com [§ Nome da Seção].
+Cada parte dentro de uma seção é numerada (1ª, 2ª, 3ª...) — essa numeração representa a POSIÇÃO DENTRO DA SEÇÃO, não o número global da parte.
+Quando o usuário disser "primeira da Faça Seu Melhor" → identifique a seção "[§ Faça Seu Melhor no Ministério]" e use a PART com posição 1ª dentro dela.
+NUNCA confunda seções diferentes. "Primeira da Tesouros" ≠ "Primeira da Faça Seu Melhor".
+
+== REGRA DESFAÇA TODAS ==
+Quando o usuário pedir "desfaça todas" ou "remova todas as designações" (exceto restrições explícitas):
+1. Varra o HISTÓRICO DA CONVERSA e liste TODOS os ASSIGN_PART que tiveram resultado ✅ (sucesso).
+2. Emita um ASSIGN_PART com publisherName: null para CADA uma dessas partes — inclusive as atribuídas em turnos anteriores.
+3. Se uma parte foi re-designada múltiplas vezes, desfaça o estado ATUAL (não o histórico).
+4. Se o usuário excluir algo (ex: "exceto a do presidente"), omita essa parte da lista.
+
 AÇÕES E COMANDOS:
 Se o usuário pedir uma ação ou você precisar de dados extras, você DEVE incluir um bloco JSON no final da resposta.
 

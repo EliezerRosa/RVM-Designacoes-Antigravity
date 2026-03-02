@@ -34,6 +34,7 @@ export interface ParticipationSummary {
 export interface PartDesignation {
     tipoParte: string;
     tituloParte: string;
+    section: string; // Seção da parte (ex: "Faça Seu Melhor no Ministério")
     funcao: 'Titular' | 'Ajudante';
     designado: string;
     status: string;
@@ -314,11 +315,12 @@ export function buildAgentContext(
                 id: part.id,
                 tipoParte: part.tipoParte,
                 tituloParte: part.tituloParte,
+                section: part.section || 'Geral', // Seção da parte
                 funcao: part.funcao,
                 designado,
                 status: part.status,
                 horaInicio: part.horaInicio,
-                date: part.date, // Data real da designação
+                date: part.date,
             });
         }
     }
@@ -620,16 +622,26 @@ export function formatContextForPrompt(context: AgentContext): string {
                 a.horaInicio.localeCompare(b.horaInicio)
             );
 
+            // Agrupar partes por seção para orientar o agente sobre "primeira da seção X"
+            const sectionMap = new Map<string, PartDesignation[]>();
             for (const part of sortedParts) {
-                const funcaoLabel = part.funcao === 'Ajudante' ? ' (Ajudante)' : '';
-                const timeInfo = part.horaInicio ? `[${part.horaInicio}]` : '';
-                const durationInfo = part.duracao ? ` (${part.duracao} min)` : '';
-                const details = part.descricao ? ` - "${part.descricao}"` : '';
-                // Formatar data: YYYY-MM-DD → DD/MM/AAAA
-                const dateParts = part.date ? part.date.split('-') : [];
-                const dateLabel = dateParts.length === 3 ? ` | ${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : '';
+                const sec = part.section || 'Geral';
+                if (!sectionMap.has(sec)) sectionMap.set(sec, []);
+                sectionMap.get(sec)!.push(part);
+            }
 
-                lines.push(`  • ${timeInfo}${dateLabel} ${part.tituloParte}${details}${durationInfo}${funcaoLabel}: ${part.designado} [ID: ${part.id}]`);
+            for (const [sectionName, sectionParts] of sectionMap.entries()) {
+                lines.push(`  [§ ${sectionName}]`);
+                sectionParts.forEach((part, idx) => {
+                    const funcaoLabel = part.funcao === 'Ajudante' ? ' (Ajudante)' : '';
+                    const timeInfo = part.horaInicio ? `[${part.horaInicio}]` : '';
+                    const durationInfo = part.duracao ? ` (${part.duracao} min)` : '';
+                    const details = part.descricao ? ` - "${part.descricao}"` : '';
+                    const dp = part.date ? part.date.split('-') : [];
+                    const dateLabel = dp.length === 3 ? ` | ${dp[2]}/${dp[1]}/${dp[0]}` : '';
+                    const pos = `${idx + 1}ª`;
+                    lines.push(`    ${pos} ${timeInfo}${dateLabel} ${part.tituloParte}${details}${durationInfo}${funcaoLabel}: ${part.designado} [ID: ${part.id}]`);
+                });
             }
             lines.push('');
         }
