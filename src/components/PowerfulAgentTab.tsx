@@ -118,45 +118,20 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         // console.log(`[AgentTab] Usuário navegou para: ${weekId}`);
     };
 
-    // Estilos
-    const containerStyle: React.CSSProperties = {
-        display: 'grid',
-        gridTemplateColumns: 'minmax(300px, 1fr) minmax(400px, 1.2fr) minmax(300px, 1fr)',
-        gap: '20px',
-        height: 'calc(100vh - 100px)', // Ajustar conforme header
-        padding: '20px',
-        background: '#F3F4F6',
-    };
-
-    const columnStyle: React.CSSProperties = {
-        background: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-    };
-
-    const headerStyle: React.CSSProperties = {
-        padding: '16px',
-        borderBottom: '1px solid #E5E7EB',
-        fontWeight: '600',
-        color: '#374151',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-    };
-
-    const contentStyle: React.CSSProperties = {
-        flex: 1,
-        overflow: 'auto',
-        position: 'relative',
-    };
-
+    // Estilos — usando classes CSS para responsividade (ver App.css .agent-tab-*)
+    // Snap-scroll mobile: cada coluna ocupa 100vw, dedo rola uma por vez
     return (
-        <div style={containerStyle}>
+        <div className="agent-tab-container">
+
+            {/* Dot indicator (mobile only) */}
+            <div className="agent-tab-dots">
+                {['📄', '🤖', '⚙️'].map((icon, idx) => (
+                    <span key={idx} className="agent-tab-dot" aria-label={icon}>{icon}</span>
+                ))}
+            </div>
+
             {/* Coluna 1: S-140 Híbrido */}
-            <div style={columnStyle}>
+            <div className="agent-tab-column">
                 <div style={headerStyle}>
                     <span>📄</span> Visualização Contextual (S-140)
                 </div>
@@ -178,8 +153,8 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
             </div>
 
             {/* Coluna 2: Chat Temporal */}
-            <div style={columnStyle}>
-                <div style={headerStyle}>
+            <div className="agent-tab-column">
+                <div className="agent-tab-col-header">
                     <span>🤖</span> Agente RVM
                     {currentWeekId && (
                         <span style={{
@@ -213,7 +188,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         ⚡ Pro Reference
                     </span>
                 </div>
-                <div style={contentStyle}>
+                <div className="agent-tab-col-content">
                     <TemporalChat
                         publishers={publishers}
                         parts={parts}
@@ -269,11 +244,11 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
             </div>
 
             {/* Coluna 3: Painel de Controle */}
-            <div style={columnStyle}>
-                <div style={headerStyle}>
+            <div className="agent-tab-column">
+                <div className="agent-tab-col-header">
                     <span>⚙️</span> Controle & Explicações
                 </div>
-                <div style={{ ...contentStyle, padding: '10px' }}>
+                <div className="agent-tab-col-content" style={{ padding: '10px' }}>
                     <ActionControlPanel
                         selectedPartId={selectedPartId}
                         parts={parts}

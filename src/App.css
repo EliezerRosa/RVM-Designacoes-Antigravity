@@ -18,7 +18,7 @@
   /* Cores de destaque */
   --accent-500: #ff6b35;
   --accent-600: #e55a2b;
-  
+
   /* Cores de status */
   --success-500: #4caf50;
   --warning-500: #ff9800;
@@ -531,7 +531,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================================
@@ -581,6 +583,63 @@ body {
 }
 
 /* ============================================
+   Agent Tab (PowerfulAgentTab)
+   ============================================ */
+.agent-tab-container {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(400px, 1.2fr) minmax(300px, 1fr);
+  gap: 20px;
+  height: calc(100vh - 100px);
+  padding: 20px;
+  background: var(--bg-primary);
+  /* Use theme bg instead of #F3F4F6 */
+  width: 100%;
+}
+
+.agent-tab-column {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.agent-tab-col-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.agent-tab-col-content {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-tab-dots {
+  display: none;
+  /* Only show on mobile */
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+}
+
+.agent-tab-dot {
+  font-size: 1.2rem;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+/* ============================================
    Responsive
    ============================================ */
 
@@ -588,12 +647,52 @@ body {
   .app-header {
     flex-direction: column;
     gap: var(--spacing-md);
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
   }
 
   .main-nav {
     width: 100%;
     overflow-x: auto;
+    padding-bottom: 4px;
+    /* Hide scrollbar but keep functionality */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
+  }
+
+  /* Snap-scroll carrossel for Agent Tab */
+  .agent-tab-container {
+    display: flex;
+    overflow-x: scroll;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    gap: 0;
+    padding: 0;
+    height: calc(100vh - 140px);
+    /* Adjust for larger mobile header */
+  }
+
+  .agent-tab-dots {
+    display: flex;
+    position: absolute;
+    bottom: 5px;
+    left: 0;
+    right: 0;
+    z-index: 10;
+  }
+
+  .agent-tab-column {
+    min-width: 100vw;
+    scroll-snap-align: start;
+    border-radius: 0;
+    border: none;
+    border-right: 1px solid var(--border-color);
   }
 
   .page-header {
