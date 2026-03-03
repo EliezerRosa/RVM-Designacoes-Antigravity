@@ -132,10 +132,10 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
             {/* Coluna 1: S-140 Híbrido */}
             <div className="agent-tab-column">
-                <div style={headerStyle}>
+                <div className="agent-tab-col-header">
                     <span>📄</span> Visualização Contextual (S-140)
                 </div>
-                <div style={{ ...contentStyle, padding: '10px' }}>
+                <div className="agent-tab-col-content" style={{ padding: '10px' }}>
                     <S140PreviewCarousel
                         weekParts={weekParts} // Use real parts
                         weekOrder={weekOrder}
