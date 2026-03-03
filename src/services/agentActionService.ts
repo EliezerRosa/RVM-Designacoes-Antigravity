@@ -559,17 +559,43 @@ export const agentActionService = {
                         return { success: false, message: `Parte não encontrada (ID: ${partId} | Nome: ${partName})` };
                     }
 
+                    // === RESOLUÇÃO DE PUBLICADOR (UUID-first) ===
                     let resolvedName = publisherName;
-                    if (!publisherId && publisherName) {
-                        const pub = publishers.find(p => p.name.toLowerCase().includes(publisherName.toLowerCase().trim()));
+
+                    if (publisherName === null || publisherName === undefined || publisherName === '') {
+                        // Remover designação
+                        resolvedName = '';
+                    } else if (publisherId) {
+                        // Nível 1: UUID direto fornecido — busca no array pelo ID
+                        const pubById = publishers.find(p => p.id === publisherId);
+                        if (pubById) {
+                            console.log(`[ASSIGN_PART] Resolução por publisherId (UUID): ${pubById.name}`);
+                            resolvedName = pubById.name;
+                        } else {
+                            console.warn(`[ASSIGN_PART] publisherId ${publisherId} não encontrado no array local, tentando nome`);
+                            // Fallback: usa o nome
+                        }
+                    }
+
+                    if (resolvedName && resolvedName !== '' && !publisherId) {
+                        // Nível 2: Sem UUID — normaliza nome (remove acentos, lowercase) e faz match
+                        const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                        const qNorm = normalize(publisherName!);
+
+                        // Match exato normalizado
+                        let pub = publishers.find(p => normalize(p.name) === qNorm);
+
+                        // Match startsWith (nome parcial, ex: "Eliezer" → "Eliezer Rosa")
+                        if (!pub) pub = publishers.find(p => normalize(p.name).startsWith(qNorm));
+
+                        // Match contains (último recurso)
+                        if (!pub) pub = publishers.find(p => normalize(p.name).includes(qNorm));
+
                         if (pub) {
+                            console.log(`[ASSIGN_PART] Resolução por nome normalizado: "${publisherName}" → "${pub.name}" (${pub.id})`);
                             resolvedName = pub.name;
                         } else {
-                            if (publisherName.toLowerCase() === 'remover' || publisherName === '') {
-                                resolvedName = '';
-                            } else {
-                                return { success: false, message: `Publicador '${publisherName}' não encontrado.` };
-                            }
+                            return { success: false, message: `Publicador '${publisherName}' não encontrado (nome normalizado: '${qNorm}').` };
                         }
                     }
 

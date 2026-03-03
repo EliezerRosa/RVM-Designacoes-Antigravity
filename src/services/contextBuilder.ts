@@ -14,6 +14,7 @@ export const RULES_TEXT_VERSION = '2024-01-27.01'; // v8.3 - Elegibilidade no co
 // ===== Tipos =====
 
 export interface PublisherSummary {
+    id: string;   // UUID do publicador
     name: string;
     gender: 'brother' | 'sister';
     condition: string;
@@ -170,6 +171,7 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
         : [];
 
     return {
+        id: p.id,   // UUID do publicador
         name: p.name,
         gender: p.gender,
         condition: p.condition,
@@ -602,6 +604,21 @@ export function formatContextForPrompt(context: AgentContext): string {
         }
     } else {
         lines.push(`(Lista de publicadores omitida para economizar tokens. Se precisar, solicite especificamente.)`);
+    }
+
+    // REGISTRO COMPACTO UUID <-> NOME (para ações diretas do agente)
+    if (context.publishers && context.publishers.length > 0) {
+        lines.push(`\n=== REGISTRO DE PUBLICADORES [USE PARA UUID EM AÇÕES] ===`);
+        // Formato: Nome [PUB:uuid] | Nome [PUB:uuid] | ...
+        const regLines: string[] = [];
+        (context.publishers as any[]).forEach(p => {
+            if (p.id) regLines.push(`${p.name} [PUB:${p.id}]`);
+        });
+        // Agrupar em linhas de 4 para não poluir o prompt
+        for (let i = 0; i < regLines.length; i += 4) {
+            lines.push(regLines.slice(i, i + 4).join(' | '));
+        }
+        lines.push('');
     }
 
     // Designações por semana

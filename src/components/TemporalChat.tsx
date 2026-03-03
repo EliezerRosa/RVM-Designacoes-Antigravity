@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChatMessageBubble } from './ui/ChatMessageBubble';
 import { chatHistoryService } from '../services/chatHistoryService';
 import { askAgent, isAgentConfigured } from '../services/agentService';
@@ -65,6 +65,37 @@ export default function TemporalChat({
     // Context Data State
     const [specialEventsCtx, setSpecialEventsCtx] = useState<SpecialEventInput[]>([]);
     const [localNeedsCtx] = useState<LocalNeedsInput[]>([]);
+
+    // === REGISTRO DE PUBLICADORES (nome normalizado ↔ UUID) ===
+    const normalizeStr = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+    const publisherRegistry = useMemo(() => {
+        const map = new Map<string, string>(); // nome normalizado → UUID
+        publishers.forEach(p => {
+            map.set(normalizeStr(p.name), p.id);
+            // Alias: primeiro nome (ex: "Eliezer" → mesmo UUID)
+            const firstName = normalizeStr(p.name).split(' ')[0];
+            if (!map.has(firstName)) map.set(firstName, p.id);
+        });
+        return map;
+    }, [publishers]);
+
+    /** Resolve publisherName → UUID usando o registro em memória */
+    const resolvePublisherId = (name: string): string | null => {
+        if (!name) return null;
+        const norm = normalizeStr(name);
+        // Exato
+        if (publisherRegistry.has(norm)) return publisherRegistry.get(norm)!;
+        // startsWith
+        for (const [key, id] of publisherRegistry.entries()) {
+            if (key.startsWith(norm) || norm.startsWith(key)) return id;
+        }
+        // contains
+        for (const [key, id] of publisherRegistry.entries()) {
+            if (key.includes(norm)) return id;
+        }
+        return null;
+    };
 
     // Calculate Credits & Refill
     const now = Date.now();
@@ -299,11 +330,25 @@ export default function TemporalChat({
             // Handle Actions if present (MULTI-ACTION SUPPORT)
             const actionsToRun = response.actions?.length > 0 ? response.actions : (response.action ? [response.action] : []);
 
-            if (response.success && actionsToRun.length > 0) {
-                console.log(`[TemporalChat] Executing ${actionsToRun.length} action(s):`, actionsToRun.map(a => a.type));
+            // === PRE-RESOLUÇÃO DE PUBLISHER UUID ===
+            // Para cada ASSIGN_PART sem publisherId, injeta o UUID via registry
+            const resolvedActions = actionsToRun.map(action => {
+                if ((action.type === 'ASSIGN_PART' || action.type === 'SIMULATE_ASSIGNMENT') &&
+                    action.params.publisherName && !action.params.publisherId) {
+                    const resolvedId = resolvePublisherId(action.params.publisherName);
+                    if (resolvedId) {
+                        console.log(`[TemporalChat] Resolveu '${action.params.publisherName}' → UUID ${resolvedId}`);
+                        return { ...action, params: { ...action.params, publisherId: resolvedId } };
+                    }
+                }
+                return action;
+            });
+
+            if (response.success && resolvedActions.length > 0) {
+                console.log(`[TemporalChat] Executing ${resolvedActions.length} action(s):`, resolvedActions.map(a => a.type));
 
                 // SPECIAL HANDLER FOR S-140 (VIEW or SHARE) — only first S-140 action runs
-                const s140Action = actionsToRun.find(a => a.type === 'SHARE_S140_WHATSAPP' || a.type === 'VIEW_S140');
+                const s140Action = resolvedActions.find(a => a.type === 'SHARE_S140_WHATSAPP' || a.type === 'VIEW_S140');
                 if (s140Action) {
                     const weekId = s140Action.params.weekId;
                     const isViewOnly = s140Action.type === 'VIEW_S140';
@@ -323,7 +368,7 @@ export default function TemporalChat({
                 const history = parts.map(p => workbookPartToHistoryRecord(p));
                 const results: ActionResult[] = [];
 
-                for (const action of actionsToRun) {
+                for (const action of resolvedActions) {
                     const result = await agentActionService.executeAction(action, parts, publishers, history, currentWeekId);
                     results.push(result);
 
