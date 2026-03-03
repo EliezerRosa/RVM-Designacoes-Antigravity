@@ -14,29 +14,6 @@
 
 <body>
   <div id="root"></div>
-  <!-- Cache Cleanup: Clear any old service workers and caches -->
-  <script>
-    (function () {
-      // Unregister all service workers
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function (registrations) {
-          for (var registration of registrations) {
-            registration.unregister();
-            console.log('[Cache Cleanup] Service worker unregistered');
-          }
-        });
-      }
-      // Clear all caches
-      if ('caches' in window) {
-        caches.keys().then(function (names) {
-          for (var name of names) {
-            caches.delete(name);
-            console.log('[Cache Cleanup] Cache deleted:', name);
-          }
-        });
-      }
-    })();
-  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
