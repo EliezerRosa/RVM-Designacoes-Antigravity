@@ -140,7 +140,8 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     };
 
     const previewStyle: React.CSSProperties = {
-        height: '280px',
+        flex: 1, // Permite ocupar o espaço vazio do pai
+        minHeight: '280px', // Altura mínima garantida
         overflow: 'auto',
         background: 'white',
         padding: '10px',
@@ -244,39 +245,86 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                     />
                 </div>
 
-                {/* Lista de partes clicáveis */}
+                {/* Lista de partes clicáveis (Agrupadas por Seção) */}
                 {onPartClick && (
                     <div style={{
-                        maxHeight: '180px',
+                        flex: '0 1 auto',
+                        maxHeight: '40vh', // Limita a listagem a no máximo 40% da tela para sobrar pro preview no mobile
+                        minHeight: '150px',
                         overflowY: 'auto',
                         borderTop: '1px solid #E5E7EB',
                         background: '#FAFAFA',
+                        display: 'flex',
+                        flexDirection: 'column'
                     }}>
-                        <div style={{ padding: '6px 8px', fontSize: '10px', fontWeight: '600', color: '#6B7280', borderBottom: '1px solid #E5E7EB' }}>
+                        <div style={{ padding: '6px 8px', fontSize: '10px', fontWeight: '600', color: '#6B7280', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                             📋 Partes desta semana (clique para selecionar)
                         </div>
-                        {currentParts.map(part => (
-                            <div
-                                key={part.id}
-                                onClick={() => onPartClick(part.id)}
-                                style={{
-                                    padding: '6px 10px',
-                                    cursor: 'pointer',
-                                    fontSize: '11px',
-                                    borderBottom: '1px solid #E5E7EB',
-                                    background: selectedPartId === part.id ? '#EEF2FF' : 'transparent',
-                                    borderLeft: selectedPartId === part.id ? '3px solid #4F46E5' : '3px solid transparent',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <span style={{ color: '#374151' }}>
-                                    {part.tituloParte || part.tipoParte}
-                                </span>
-                                {part.resolvedPublisherName || part.rawPublisherName || '—'}
-                            </div>
-                        ))}
+                        {['Presidente', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Oração Final'].map((sectionTitle, idx) => {
+                            // Find parts matching this section logically. The raw 'section' string in DB can be diverse.
+                            // We use a simple heuristic based on tipoParte or section name
+                            const partsInSection = currentParts.filter(part => {
+                                const t = part.tipoParte?.toLowerCase() || '';
+                                const s = part.section?.toLowerCase() || '';
+
+                                if (sectionTitle === 'Presidente') {
+                                    return t.includes('presidente') || t.includes('oração inicial') || t.includes('iniciais');
+                                }
+                                if (sectionTitle === 'Tesouros da Palavra de Deus') {
+                                    return s.includes('tesouro') || t.includes('tesouro') || t.includes('leitura da');
+                                }
+                                if (sectionTitle === 'Faça Seu Melhor no Ministério') {
+                                    return s.includes('ministério') || s.includes('ministerio') || t.includes('estudante') || t.includes('iniciando') || t.includes('cultivando') || t.includes('fazendo') || t.includes('explicando');
+                                }
+                                if (sectionTitle === 'Nossa Vida Cristã') {
+                                    return (s.includes('vida cristã') || s.includes('vida crista')) && !t.includes('oração final');
+                                }
+                                if (sectionTitle === 'Oração Final') {
+                                    return t.includes('oração final') || t.includes('oracao final') || t.includes('comentários finais');
+                                }
+                                return false;
+                            });
+
+                            if (partsInSection.length === 0) return null;
+
+                            return (
+                                <div key={idx} style={{ marginBottom: '8px' }}>
+                                    <div style={{
+                                        padding: '4px 10px',
+                                        fontSize: '11px',
+                                        fontWeight: '700',
+                                        color: '#4F46E5',
+                                        background: '#EEF2FF',
+                                        borderBottom: '1px solid #E0E7FF'
+                                    }}>
+                                        {/* § {sectionTitle} */}
+                                        {idx + 1}. {sectionTitle}
+                                    </div>
+                                    {partsInSection.map(part => (
+                                        <div
+                                            key={part.id}
+                                            onClick={() => onPartClick(part.id)}
+                                            style={{
+                                                padding: '6px 10px',
+                                                cursor: 'pointer',
+                                                fontSize: '11px',
+                                                borderBottom: '1px solid #E5E7EB',
+                                                background: selectedPartId === part.id ? '#EEF2FF' : 'transparent',
+                                                borderLeft: selectedPartId === part.id ? '3px solid #4F46E5' : '3px solid transparent',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                            }}
+                                        >
+                                            <span style={{ color: '#374151', paddingLeft: '8px' }}>
+                                                {part.tituloParte || part.tipoParte}
+                                            </span>
+                                            {part.resolvedPublisherName || part.rawPublisherName || '—'}
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 

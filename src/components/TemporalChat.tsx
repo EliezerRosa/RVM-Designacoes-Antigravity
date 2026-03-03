@@ -298,8 +298,15 @@ export default function TemporalChat({
             );
 
             // Strip JSON action blocks for clean LN display (actions already extracted)
-            const stripJsonBlocks = (text: string) =>
-                text.replace(/```json[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n').trim();
+            // Strip JSON action blocks for clean LN display, and remove any leaked UUIDs
+            const stripJsonBlocks = (text: string) => {
+                const noJson = text.replace(/```json[\s\S]*?```/gi, '');
+                // Regex for UUID v4
+                const uuidRegex = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+                // Remove formats like "[ID: UUID]" or just the UUID
+                const noUuid = noJson.replace(/\[?ID:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]?/gi, '').replace(uuidRegex, '');
+                return noUuid.replace(/\n{3,}/g, '\n\n').trim();
+            };
 
             // Base message from agent (clean display — no UUIDs in JSON blocks)
             const agentMsg: ChatMessage = {

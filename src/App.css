@@ -160,7 +160,8 @@ body {
 .app-main {
   flex: 1;
   padding: var(--spacing-xl);
-  max-width: 1400px;
+  max-width: 100%;
+  /* Forçar largura total para melhor aproveitamento na aba Planejamento e Agente */
   margin: 0 auto;
   width: 100%;
 }
