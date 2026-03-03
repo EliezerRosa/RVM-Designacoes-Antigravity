@@ -4,6 +4,7 @@ import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
 import { copyS89ToClipboard } from '../services/s89Generator';
 import { supabase } from '../lib/supabase';
+import { auditService, type AuditRecord } from '../services/auditService';
 
 export function CommunicationTab() {
     const [history, setHistory] = useState<NotificationRecord[]>([]);
@@ -11,10 +12,12 @@ export function CommunicationTab() {
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [showActivity, setShowActivity] = useState(true);
+    const [agentLog, setAgentLog] = useState<AuditRecord[]>([]);
 
     useEffect(() => {
         loadHistory();
         loadActivity();
+        loadAgentLog();
 
         // Escutar mudanças em tempo real para o Hub
         const hubChannel = supabase
@@ -41,6 +44,25 @@ export function CommunicationTab() {
     const loadActivity = async () => {
         const data = await communicationService.getActivityLog();
         setActivityLog(data);
+    };
+
+    const loadAgentLog = async () => {
+        try {
+            const fourteenDaysAgo = new Date();
+            fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+            // Fetch logs directly via supabase to apply the 14 days filter
+            const { data } = await supabase
+                .from('audit_log')
+                .select('*')
+                .in('operation', ['AGENT_INTENT', 'AGENT_ACTION'])
+                .gte('changed_at', fourteenDaysAgo.toISOString())
+                .order('changed_at', { ascending: false })
+                .limit(50);
+
+            if (data) setAgentLog(data);
+        } catch (err) {
+            console.error('Erro ao carregar log do agente:', err);
+        }
     };
 
     const loadHistory = async () => {
@@ -239,7 +261,7 @@ export function CommunicationTab() {
                         {showActivity ? '🙈 Ocultar Atividade' : '👁️ Ver Atividade'}
                     </button>
                     <button
-                        onClick={() => { setLoading(true); loadHistory(); loadActivity(); }}
+                        onClick={() => { setLoading(true); loadHistory(); loadActivity(); loadAgentLog(); }}
                         style={{
                             padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
                             background: 'rgba(255,255,255,0.05)', color: 'white', cursor: 'pointer', fontSize: '0.9em',
@@ -290,6 +312,39 @@ export function CommunicationTab() {
                                 <span style={{ fontSize: '0.8em', color: '#4B5563' }}>
                                     {new Date(entry.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                 </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Log Técnico do Agente (NOVO) */}
+            {showActivity && agentLog.length > 0 && (
+                <div style={{
+                    marginBottom: '30px', background: 'rgba(17, 24, 39, 0.4)', borderRadius: '16px',
+                    border: '1px solid rgba(99, 102, 241, 0.2)', padding: '15px', overflow: 'hidden'
+                }}>
+                    <h3 style={{ margin: '0 0 15px 0', fontSize: '1em', color: '#818CF8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🤖 Log Técnico do Agente (Últimos 14 dias)
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto', paddingRight: '5px' }}>
+                        {agentLog.map(entry => (
+                            <div key={entry.id} style={{
+                                display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px',
+                                background: 'rgba(0,0,0,0.3)', borderRadius: '10px', fontSize: '0.85em',
+                                borderLeft: '3px solid #6366F1'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#9CA3AF' }}>
+                                    <span><strong>{entry.operation}</strong> em <code>{entry.table_name}</code></span>
+                                    <span>{new Date(entry.changed_at!).toLocaleString('pt-BR')}</span>
+                                </div>
+                                <pre style={{
+                                    margin: 0, padding: '10px', background: '#0F172A', borderRadius: '6px',
+                                    color: '#A5B4FC', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                                    maxHeight: '150px'
+                                }}>
+                                    {JSON.stringify(entry.new_data, null, 2)}
+                                </pre>
                             </div>
                         ))}
                     </div>

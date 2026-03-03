@@ -297,10 +297,14 @@ export default function TemporalChat({
                 currentWeekId // FOCUS WEEK ID provided by Parent (WorkbookManager)
             );
 
-            // Base message from agent
+            // Strip JSON action blocks for clean LN display (actions already extracted)
+            const stripJsonBlocks = (text: string) =>
+                text.replace(/```json[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+            // Base message from agent (clean display — no UUIDs in JSON blocks)
             const agentMsg: ChatMessage = {
                 role: 'assistant',
-                content: response.success ? response.message : `❌ Erro: ${response.error}`,
+                content: response.success ? stripJsonBlocks(response.message) : `❌ Erro: ${response.error}`,
                 timestamp: new Date(),
             };
 
