@@ -405,6 +405,25 @@ export default function TemporalChat({
                     feedbackContent = lines.join('\n');
                 }
 
+                // === FEEDBACK PROATIVO: partes pendentes na semana em foco ===
+                const hasAssignActions = resolvedActions.some(a =>
+                    a.type === 'ASSIGN_PART' || a.type === 'GENERATE_WEEK' || a.type === 'CLEAR_WEEK'
+                );
+                if (hasAssignActions && currentWeekId) {
+                    const weekParts = parts.filter(p => p.weekId === currentWeekId);
+                    // Recount after actions — approximate since parts state may not have refreshed yet
+                    const assignedInThisBatch = results.filter(r => r.success && r.actionType === 'ASSIGN_PART' && r.data?.assignedTo).length;
+                    const removedInThisBatch = results.filter(r => r.success && r.actionType === 'ASSIGN_PART' && !r.data?.assignedTo).length;
+                    const currentPending = weekParts.filter(p => !p.resolvedPublisherName).length - assignedInThisBatch + removedInThisBatch;
+                    const pendingCount = Math.max(0, currentPending);
+
+                    if (pendingCount > 0) {
+                        feedbackContent += `\n📋 Restam ${pendingCount} parte${pendingCount > 1 ? 's' : ''} sem designação nesta semana.`;
+                    } else if (pendingCount === 0 && weekParts.length > 0) {
+                        feedbackContent += `\n🎉 Todas as partes desta semana estão designadas!`;
+                    }
+                }
+
                 const feedbackMsg: ChatMessage = {
                     role: 'assistant',
                     content: feedbackContent,

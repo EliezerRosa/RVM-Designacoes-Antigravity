@@ -647,7 +647,15 @@ export function formatContextForPrompt(context: AgentContext): string {
                 sectionMap.get(sec)!.push(part);
             }
 
-            for (const [sectionName, sectionParts] of sectionMap.entries()) {
+            // Ordem canônica: Tesouros → Ministério → Vida Cristã → resto
+            const SECTION_ORDER = ['Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã'];
+            const orderedSections = [
+                ...SECTION_ORDER.filter(s => sectionMap.has(s)),
+                ...[...sectionMap.keys()].filter(s => !SECTION_ORDER.includes(s))
+            ];
+
+            for (const sectionName of orderedSections) {
+                const sectionParts = sectionMap.get(sectionName)!;
                 lines.push(`  [§ ${sectionName}]`);
                 sectionParts.forEach((part, idx) => {
                     const funcaoLabel = part.funcao === 'Ajudante' ? ' (Ajudante)' : '';
