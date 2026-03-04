@@ -144,7 +144,7 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
                 </div>
 
                 {/* Botões de Ação */}
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {/* Botão UNDO */}
                     <button
                         onClick={async () => {

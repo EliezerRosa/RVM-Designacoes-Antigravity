@@ -606,12 +606,12 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', minWidth: 0 }}>
 
             {/* Header Tabs */}
-            <div style={{ padding: '10px 20px', background: 'white', borderBottom: '1px solid #E5E7EB', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.2em', fontWeight: '600', color: '#1F2937' }}>RVM Designações</h2>
+            <div style={{ padding: '10px 20px', background: 'white', borderBottom: '1px solid #E5E7EB', display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                    <h2 className="hide-on-mobile-strict" style={{ margin: 0, fontSize: '1.2em', fontWeight: '600', color: '#1F2937' }}>RVM Designações</h2>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => setActiveTab('planning')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: activeTab === 'planning' ? '#E0E7FF' : 'transparent', color: activeTab === 'planning' ? '#4338CA' : '#6B7280', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}>Planejamento</button>
                         <button onClick={handleGenerateReport} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: activeTab === 'reports' ? '#E0E7FF' : 'transparent', color: activeTab === 'reports' ? '#4338CA' : '#6B7280', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -622,7 +622,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                         </button>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {activeTab === 'planning' && (
                         <>
                             <button onClick={() => setIsEventsModalOpen(true)} style={{ padding: '8px 16px', background: '#8B5CF6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -639,13 +639,13 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                 </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+            <div style={{ flex: 1, overflowY: 'auto', position: 'relative', minWidth: 0 }}>
                 {activeTab === 'reports' ? (
                     <ReportsTab data={reportData} />
                 ) : activeTab === 'analytics' ? (
                     <ParticipationAnalytics />
                 ) : (
-                    <div style={{ padding: '0 16px 8px', maxWidth: '1600px', margin: '0 auto', minHeight: '100%' }}>
+                    <div style={{ padding: '0 16px 8px', maxWidth: '1600px', width: '100%', margin: '0 auto', minHeight: '100%' }}>
 
 
                         {/* Mensagens */}

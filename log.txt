@@ -1,0 +1,15 @@
+﻿8c5e841 fix(ux): Planejamento desktop flex-wrap bounding and S-140 mobile bounding box fixes
+73ca950 fix(ux): Responsive Planejamento header
+79ed5c5 fix(ux): Phase 3 Agent and S-140 Fixes
+2c960e1 feat(ux): Phase 2 Agent and PWA Fixes
+97a9ae1 fix(agent): UI undefined error and CSS breakpoint adjustments
+2463b23 feat(agent): UX ergonomics improvements (JSON strip, snap-scroll, agent log, md tables)
+7c0650e feat(agent): canonical section order + proactive pending feedback
+946cf26 feat(agent): publisher UUID registry ÔÇö in-memory resolution, normalized fallback, PUB registry in context
+b16cc02 fix(agent): section-aware context, negation=undo rule, desfa├ºa-todas tracking
+7fe0a0d fix(agent): multi-action execution, JSONB publisher filter, verification prompt rules
+22e1997 fix(agent): remove backtick in template literal causing esbuild parse error
+e9f8b8f fix(agent): dual-context awareness, UUID-first actions, date on all parts
+4df90c2 fix: Thursday date everywhere, agent week sync, SRVM msg date
+c6a929a hotfix: React.useRef -> useRef (missing import)
+7fedf4b fix: two-stage weekId resolution for replacement link focus

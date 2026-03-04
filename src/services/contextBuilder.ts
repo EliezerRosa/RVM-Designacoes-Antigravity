@@ -312,7 +312,14 @@ export function buildAgentContext(
             });
         }
 
-        if (isStatPart(part.tituloParte || part.tipoParte || part.funcao || '') || (part.tipoParte && part.tipoParte.toLowerCase().includes('presidente'))) {
+        const tLower = (part.tipoParte || '').toLowerCase();
+        const pLower = (part.tituloParte || '').toLowerCase();
+        const isContextPart = isStatPart(pLower || tLower || part.funcao || '') ||
+            tLower.includes('presidente') ||
+            tLower.includes('oração') || pLower.includes('oração') ||
+            tLower.includes('comentários') || pLower.includes('comentários');
+
+        if (isContextPart) {
             weekMap.get(weekId)!.parts.push({
                 id: part.id,
                 tipoParte: part.tipoParte,
