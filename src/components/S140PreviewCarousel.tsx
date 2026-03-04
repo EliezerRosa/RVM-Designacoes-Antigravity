@@ -239,10 +239,27 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                             <span style={{ color: '#4F46E5', fontWeight: '500' }}>Gerando visualização...</span>
                         </div>
                     )}
-                    <div
-                        dangerouslySetInnerHTML={{ __html: s140HTML }}
-                        style={{ transform: 'scale(0.4)', transformOrigin: 'top left', width: '250%' }}
-                    />
+                    <div style={{
+                        maxWidth: '100%',
+                        width: '357px', // 794 * 0.45
+                        height: '505px', // 1123 * 0.45
+                        overflowX: 'auto',
+                        overflowY: 'hidden',
+                        background: 'white',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        margin: '0 auto'
+                    }}>
+                        <div
+                            dangerouslySetInnerHTML={{ __html: s140HTML }}
+                            style={{
+                                width: '794px',
+                                height: '1123px',
+                                transform: 'scale(0.45)',
+                                transformOrigin: 'top left',
+                                background: 'white'
+                            }}
+                        />
+                    </div>
                 </div>
 
                 {/* Lista de partes clicáveis (Agrupadas por Seção) */}
@@ -260,30 +277,17 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                         <div style={{ padding: '6px 8px', fontSize: '10px', fontWeight: '600', color: '#6B7280', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                             📋 Partes desta semana (clique para selecionar)
                         </div>
-                        {['Presidente', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Oração Final'].map((sectionTitle, idx) => {
-                            // Find parts matching this section logically. The raw 'section' string in DB can be diverse.
-                            // We use a simple heuristic based on tipoParte or section name
+                        {['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião', 'Outras Partes'].map((sectionTitle, idx) => {
                             const partsInSection = currentParts.filter(part => {
-                                const t = part.tipoParte?.toLowerCase() || '';
-                                const s = part.section?.toLowerCase() || '';
-
-                                if (sectionTitle === 'Presidente') {
-                                    return t.includes('presidente') || t.includes('oração inicial') || t.includes('iniciais');
+                                const s = part.section?.trim() || '';
+                                if (sectionTitle === 'Outras Partes') {
+                                    // Fallback para qualquer parte que não seja das 5 categorias principais
+                                    return !['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião'].includes(s);
                                 }
-                                if (sectionTitle === 'Tesouros da Palavra de Deus') {
-                                    return s.includes('tesouro') || t.includes('tesouro') || t.includes('leitura da');
-                                }
-                                if (sectionTitle === 'Faça Seu Melhor no Ministério') {
-                                    return s.includes('ministério') || s.includes('ministerio') || t.includes('estudante') || t.includes('iniciando') || t.includes('cultivando') || t.includes('fazendo') || t.includes('explicando');
-                                }
-                                if (sectionTitle === 'Nossa Vida Cristã') {
-                                    return (s.includes('vida cristã') || s.includes('vida crista')) && !t.includes('oração final');
-                                }
-                                if (sectionTitle === 'Oração Final') {
-                                    return t.includes('oração final') || t.includes('oracao final') || t.includes('comentários finais');
-                                }
-                                return false;
+                                return s === sectionTitle;
                             });
+
+                            if (partsInSection.length === 0) return null;
 
                             if (partsInSection.length === 0) return null;
 

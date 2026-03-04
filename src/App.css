@@ -645,6 +645,10 @@ body {
    ============================================ */
 
 @media (max-width: 1024px) {
+  .hide-on-mobile-strict {
+    display: none !important;
+  }
+
   .app-header {
     flex-direction: column;
     gap: var(--spacing-md);
