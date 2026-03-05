@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { workbookService } from '../services/workbookService';
 import { communicationService } from '../services/communicationService';
 import { WorkbookPart, WorkbookStatus } from '../types';
@@ -14,6 +15,7 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
+    const [alreadyResponded, setAlreadyResponded] = useState<'confirmed' | 'refused' | null>(null);
 
     // Form state
     const [accept, setAccept] = useState<boolean | null>(null);
@@ -32,6 +34,13 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
             if (!found) {
                 setError('Designação não encontrada ou expirada.');
             } else {
+                // Guard: Verificar se já foi respondido (proteção contra dupla submissão)
+                const currentStatus = found.status;
+                if (currentStatus === WorkbookStatus.DESIGNADA || currentStatus === WorkbookStatus.CONCLUIDA) {
+                    setAlreadyResponded('confirmed');
+                } else if (currentStatus === WorkbookStatus.REJEITADA || currentStatus === WorkbookStatus.CANCELADA) {
+                    setAlreadyResponded('refused');
+                }
                 setPart(found);
 
                 // Carregar parceiro (Titular/Ajudante) da mesma semana
@@ -75,6 +84,7 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
 
     const handleSubmit = async () => {
         if (accept === null) return;
+        if (alreadyResponded) return; // Proteção extra contra dupla submissão
         if (accept === false && !reason.trim()) {
             alert('Por favor, informe o motivo da recusa.');
             return;
@@ -99,11 +109,20 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
                 // Recusar
                 await workbookService.rejectProposal(partId, reason);
 
-                // Notificar Superintendente (Edmardo)
-                // Usando o serviço de comunicação
                 if (part) {
+                    // Gravar em refusal_logs para auditoria persistente
+                    await supabase.from('refusal_logs').insert({
+                        part_id: partId,
+                        publisher_name: part.resolvedPublisherName || part.rawPublisherName || '',
+                        reason: reason,
+                        week_id: part.weekId,
+                        tipo_parte: part.tipoParte
+                    });
+
+                    // Notificar Superintendente (Edmardo) via WhatsApp
                     await communicationService.notifyOverseerOfRefusal(part, reason);
-                    // Logar recusa
+
+                    // Logar recusa no activity_logs
                     await communicationService.logActivity({
                         type: 'REFUSAL',
                         part_id: partId,
@@ -123,6 +142,27 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
 
     if (loading) return <div className="portal-container"><div className="spinner"></div><p>Carregando dados...</p></div>;
     if (error) return <div className="portal-container error"><h2>⚠️ Ops!</h2><p>{error}</p></div>;
+
+    // Proteção contra dupla submissão
+    if (alreadyResponded && status === 'pending') return (
+        <div className="portal-container success">
+            <h2>{alreadyResponded === 'confirmed' ? '✅ Já Confirmado!' : '❌ Já Respondido'}</h2>
+            <p>
+                {alreadyResponded === 'confirmed'
+                    ? 'Sua participação já foi confirmada anteriormente. Obrigado!'
+                    : 'Esta designação já foi respondida anteriormente. O superintendente já foi notificado.'}
+            </p>
+            {part && (
+                <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', textAlign: 'left', fontSize: '0.9rem' }}>
+                    <p style={{ margin: '4px 0', color: '#94a3b8' }}>📝 <strong style={{ color: '#e2e8f0' }}>{part.tipoParte}</strong></p>
+                    {part.tituloParte && <p style={{ margin: '4px 0', color: '#94a3b8', fontStyle: 'italic' }}>"{part.tituloParte}"</p>}
+                    <p style={{ margin: '4px 0', color: '#94a3b8' }}>👤 {part.resolvedPublisherName || part.rawPublisherName}</p>
+                </div>
+            )}
+            <button onClick={() => window.close()} className="btn-close">Fechar Janela</button>
+        </div>
+    );
+
     if (status === 'success') return (
         <div className="portal-container success">
             <h2>✨ Recebido!</h2>
@@ -212,7 +252,7 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
 
                 {accept === false && (
                     <div className="reason-field">
-                        <label>Motivo da recusa (opcional para o Ancião):</label>
+                        <label>Motivo da recusa (obrigatório):</label>
                         <textarea
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
