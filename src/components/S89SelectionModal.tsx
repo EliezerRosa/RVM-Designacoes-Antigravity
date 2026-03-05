@@ -51,11 +51,12 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     };
 
     // Carregar histórico de mensagens ao abrir o modal
+    // Deps incluem weekParts e publishers para regen a msg ao mudar designação
     useEffect(() => {
         if (isOpen) {
             loadHistory();
         }
-    }, [isOpen, weekId]);
+    }, [isOpen, weekId, weekParts, publishers]);
 
     const loadHistory = async () => {
         try {
@@ -68,11 +69,12 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             });
             setLastMessages(mapping);
 
-            // Inicializar mensagens de edição com o padrão se não houver no histórico
+            // SEMPRE regenerar a mensagem com dados ATUAIS do part
+            // O histórico (mapping) é usado apenas para o badge "Enviado em ..."
             const initialEdits: Record<string, string> = {};
             validParts.forEach(p => {
                 const { content } = communicationService.prepareS89Message(p, publishers, weekParts);
-                initialEdits[p.id] = mapping[p.id]?.content || content;
+                initialEdits[p.id] = content;
             });
             setEditingMessages(initialEdits);
         } catch (err) {
