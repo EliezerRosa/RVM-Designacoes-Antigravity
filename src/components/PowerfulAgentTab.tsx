@@ -135,7 +135,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 <div className="agent-tab-col-header">
                     <span>📄</span> Visualização Contextual (S-140)
                 </div>
-                <div className="agent-tab-col-content" style={{ padding: '10px' }}>
+                <div className="agent-tab-col-content" style={{ padding: '0' }}>
                     <S140PreviewCarousel
                         weekParts={weekParts}
                         weekOrder={weekOrder}
@@ -144,9 +144,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         onWeekChange={handleCarouselNavigation}
                         onRequestS89={() => setShowS89Modal(true)}
                     />
-                    <div style={{ padding: '10px', fontSize: '12px', color: '#6B7280', textAlign: 'center' }}>
-                        Navegue para dar contexto ao Agente
-                    </div>
                 </div>
             </div>
 
@@ -247,7 +244,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     <span>⚙️</span> Controle & Explicações
                 </div>
                 <div className="agent-tab-col-content" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {/* Lista de Partes para seleção */}
+                    {/* Lista de Partes — 40% */}
                     {(() => {
                         const currentPartsForList = weekParts[currentWeekId || ''] || [];
                         const isDesignatable = (tp: string) => {
@@ -261,8 +258,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         const sections = ['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião'];
                         return (
                             <div style={{
-                                flex: '0 0 auto',
-                                maxHeight: '40vh',
+                                flex: '0 0 40%',
                                 overflowY: 'auto',
                                 borderBottom: '2px solid #E5E7EB',
                                 background: '#FAFAFA'
@@ -317,8 +313,8 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             </div>
                         );
                     })()}
-                    {/* Painel de Ações/Explicações */}
-                    <div style={{ flex: '1 1 auto', overflow: 'auto', padding: '10px' }}>
+                    {/* Painel de Ações/Explicações — 60% */}
+                    <div style={{ flex: '0 0 60%', overflow: 'auto', padding: '10px' }}>
                         <ActionControlPanel
                             selectedPartId={selectedPartId}
                             parts={parts}
@@ -341,6 +337,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 weekId={currentWeekId || ''}
                 publishers={publishers}
             />
-        </div>
+        </div >
     );
 }

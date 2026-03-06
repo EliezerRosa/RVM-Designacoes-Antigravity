@@ -76,8 +76,6 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
         return () => { isMounted = false; };
     }, [activeWeekId, currentParts]); // Re-run when week or parts change
 
-    const [isFullscreen, setIsFullscreen] = useState(false);
-
     if (weekOrder.length === 0) {
         return (
             <div style={{ padding: '20px', textAlign: 'center', color: '#6B7280' }}>
@@ -138,204 +136,99 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     };
 
     const previewStyle: React.CSSProperties = {
-        flex: '0 0 auto', // NÃO expandir — altura fixa para garantir espaço para a lista
-        maxHeight: '55vh', // Limita a 55% da tela para a lista sempre caber
-        minHeight: '250px',
-        overflow: 'hidden', // Sem scroll no container externo
+        flex: 1, // Preencher toda a coluna
+        overflow: 'hidden',
         background: 'white',
         padding: '10px',
         position: 'relative',
-    };
-
-    const fullscreenOverlay: React.CSSProperties = {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.9)',
-        zIndex: 10000,
         display: 'flex',
-        flexDirection: 'column',
-    };
-
-    const fullscreenHeader: React.CSSProperties = {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '16px 24px',
-        background: '#1F2937',
-        color: 'white',
-    };
-
-    const fullscreenContent: React.CSSProperties = {
-        flex: 1,
-        overflow: 'auto',
-        background: 'white',
-        margin: '20px',
-        borderRadius: '8px',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
     };
 
     return (
-        <>
-            <div style={containerStyle}>
-                {/* Header com navegação */}
-                <div style={headerStyle}>
-                    <button
-                        onClick={goToPrev}
-                        disabled={currentIndex === 0}
-                        style={{ ...navBtnStyle, opacity: currentIndex === 0 ? 0.3 : 1 }}
-                    >
-                        ◀️
-                    </button>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            <span>📄 S-140 B A4</span>
-                            {onRequestS89 && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onRequestS89(); }}
-                                    style={{
-                                        background: '#22c55e',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        padding: '2px 6px',
-                                        fontSize: '11px',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold'
-                                    }}
-                                    title="Enviar S-89 desta semana"
-                                >
-                                    Zap 📤
-                                </button>
-                            )}
-                        </div>
-                        <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                            {weekDisplay} ({currentIndex + 1}/{weekOrder.length})
-                        </div>
+        <div style={containerStyle}>
+            {/* Header com navegação */}
+            <div style={headerStyle}>
+                <button
+                    onClick={goToPrev}
+                    disabled={currentIndex === 0}
+                    style={{ ...navBtnStyle, opacity: currentIndex === 0 ? 0.3 : 1 }}
+                >
+                    ◀️
+                </button>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <span>📄 S-140 B A4</span>
+                        {onRequestS89 && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onRequestS89(); }}
+                                style={{
+                                    background: '#22c55e',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    padding: '2px 6px',
+                                    fontSize: '11px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold'
+                                }}
+                                title="Enviar S-89 desta semana"
+                            >
+                                Zap 📤
+                            </button>
+                        )}
                     </div>
-                    <button
-                        onClick={goToNext}
-                        disabled={currentIndex === weekOrder.length - 1}
-                        style={{ ...navBtnStyle, opacity: currentIndex === weekOrder.length - 1 ? 0.3 : 1 }}
-                    >
-                        ▶️
-                    </button>
-                </div>
-
-                {/* Preview */}
-                <div style={previewStyle}>
-                    {isGenerating && (
-                        <div style={{
-                            position: 'absolute',
-                            top: 0, left: 0, right: 0, bottom: 0,
-                            background: 'rgba(255,255,255,0.7)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 10
-                        }}>
-                            <span style={{ color: '#4F46E5', fontWeight: '500' }}>Gerando visualização...</span>
-                        </div>
-                    )}
-                    <div style={{
-                        maxWidth: '100%',
-                        width: '357px', // 794 * 0.45
-                        height: '505px', // 1123 * 0.45
-                        overflow: 'hidden', // HIDDEN — sem scroll horizontal (fix página em branco no mobile)
-                        background: 'white',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                        margin: '0 auto'
-                    }}>
-                        <div
-                            dangerouslySetInnerHTML={{ __html: s140HTML }}
-                            style={{
-                                width: '794px',
-                                height: '1123px',
-                                transform: 'scale(0.45)',
-                                transformOrigin: 'top left',
-                                background: 'white'
-                            }}
-                        />
+                    <div style={{ fontSize: '12px', opacity: 0.8 }}>
+                        {weekDisplay} ({currentIndex + 1}/{weekOrder.length})
                     </div>
                 </div>
-
-
-
-                {/* Footer com botão ampliar */}
-                <div style={{
-                    padding: '8px 12px',
-                    background: '#F3F4F6',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    borderTop: '1px solid #E5E7EB'
-                }}>
-                    <button
-                        onClick={() => setIsFullscreen(true)}
-                        style={{
-                            padding: '6px 16px',
-                            border: 'none',
-                            borderRadius: '4px',
-                            background: '#4F46E5',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: '500',
-                        }}
-                    >
-                        🔍 Ampliar
-                    </button>
-                </div>
+                <button
+                    onClick={goToNext}
+                    disabled={currentIndex === weekOrder.length - 1}
+                    style={{ ...navBtnStyle, opacity: currentIndex === weekOrder.length - 1 ? 0.3 : 1 }}
+                >
+                    ▶️
+                </button>
             </div>
 
-            {/* Fullscreen Modal */}
-            {isFullscreen && (
-                <div style={fullscreenOverlay} onClick={() => setIsFullscreen(false)}>
-                    <div style={fullscreenHeader} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <button
-                                onClick={goToPrev}
-                                disabled={currentIndex === 0}
-                                style={{ ...navBtnStyle, background: currentIndex === 0 ? '#374151' : '#4F46E5' }}
-                            >
-                                ◀️ Anterior
-                            </button>
-                            <span style={{ fontWeight: '600' }}>
-                                {weekDisplay} ({currentIndex + 1}/{weekOrder.length})
-                            </span>
-                            <button
-                                onClick={goToNext}
-                                disabled={currentIndex === weekOrder.length - 1}
-                                style={{ ...navBtnStyle, background: currentIndex === weekOrder.length - 1 ? '#374151' : '#4F46E5' }}
-                            >
-                                Próximo ▶️
-                            </button>
-                        </div>
-                        <button
-                            onClick={() => setIsFullscreen(false)}
-                            style={{
-                                padding: '8px 16px',
-                                border: 'none',
-                                borderRadius: '4px',
-                                background: '#EF4444',
-                                color: 'white',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight: '500',
-                            }}
-                        >
-                            ✕ Fechar
-                        </button>
+            {/* Preview — ocupa toda a área disponível */}
+            <div style={previewStyle}>
+                {isGenerating && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(255,255,255,0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10
+                    }}>
+                        <span style={{ color: '#4F46E5', fontWeight: '500' }}>Gerando visualização...</span>
                     </div>
-                    <div style={fullscreenContent} onClick={e => e.stopPropagation()}>
-                        <div
-                            dangerouslySetInnerHTML={{ __html: s140HTML }}
-                            style={{ padding: '20px' }}
-                        />
-                    </div>
+                )}
+                <div style={{
+                    maxWidth: '100%',
+                    width: '357px',
+                    height: '505px',
+                    overflow: 'hidden',
+                    background: 'white',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    margin: '0 auto'
+                }}>
+                    <div
+                        dangerouslySetInnerHTML={{ __html: s140HTML }}
+                        style={{
+                            width: '794px',
+                            height: '1123px',
+                            transform: 'scale(0.45)',
+                            transformOrigin: 'top left',
+                            background: 'white'
+                        }}
+                    />
                 </div>
-            )}
-        </>
+            </div>
+        </div>
     );
 }
 
