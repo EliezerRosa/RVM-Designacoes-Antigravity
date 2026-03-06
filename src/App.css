@@ -689,11 +689,29 @@ body {
 
   .agent-tab-dots {
     display: flex;
-    position: absolute;
-    bottom: 5px;
-    left: 0;
-    right: 0;
-    z-index: 10;
+    justify-content: center;
+    gap: 16px;
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 6px 16px;
+    border-radius: 20px;
+  }
+
+  .agent-tab-dot {
+    font-size: 20px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+
+  .agent-tab-dot.active {
+    opacity: 1;
   }
 
   .agent-tab-column {
@@ -702,6 +720,8 @@ body {
     border-radius: 0;
     border: none;
     border-right: 1px solid var(--border-color);
+    padding-bottom: 50px;
+    /* Space for the floating dots */
   }
 
   .page-header {
