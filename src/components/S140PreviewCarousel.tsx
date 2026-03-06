@@ -27,11 +27,20 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     const [s140HTML, setS140HTML] = useState<string>('<div style="padding: 20px; color: #666;">Carregando visualização...</div>');
     const [isGenerating, setIsGenerating] = useState(false);
     const [scale, setScale] = useState(0.45);
+    const [contentHeight, setContentHeight] = useState(1123);
 
     // Sync scaling using ResizeObserver to ensure it fits any mobile or PC screen perfectly
     // Use a callback ref so that if the element is rendered later (due to early returns), we still observe it.
     const containerRef = useRef<HTMLDivElement | null>(null);
+    const contentRef = useRef<HTMLDivElement | null>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
+
+    // Calculate height occasionally if content changes
+    useEffect(() => {
+        if (contentRef.current) {
+            setContentHeight(Math.max(1123, contentRef.current.scrollHeight));
+        }
+    }, [s140HTML, scale]);
 
     const setContainerRef = (element: HTMLDivElement | null) => {
         containerRef.current = element;
@@ -168,12 +177,12 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
 
     const previewStyle: React.CSSProperties = {
         flex: 1, // Preencher toda a coluna
-        overflow: 'hidden',
+        overflow: 'auto', // Allow scrolling
         background: 'white',
         padding: '10px',
         position: 'relative',
         display: 'flex',
-        alignItems: 'center', // Center vertically
+        alignItems: 'flex-start', // Let it span from top
         justifyContent: 'center', // Center horizontally
     };
 
@@ -244,18 +253,20 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                     style={{
                         width: '100%',
                         maxWidth: '794px', // Limit to max original size
-                        aspectRatio: '794 / 1123',
+                        height: `${contentHeight * scale}px`, // Dynamically calculated exact height!
                         overflow: 'hidden',
                         background: 'white',
                         boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                         margin: '0 auto',
-                        position: 'relative'
+                        position: 'relative',
+                        transition: 'height 0.2s ease-in-out'
                     }}>
                     <div
+                        ref={contentRef}
                         dangerouslySetInnerHTML={{ __html: s140HTML }}
                         style={{
                             width: '794px',
-                            height: '1123px',
+                            minHeight: '1123px',
                             transform: `scale(${scale})`,
                             transformOrigin: 'top left',
                             background: 'white',

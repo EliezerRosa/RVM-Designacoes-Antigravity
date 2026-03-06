@@ -123,12 +123,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     return (
         <div className="agent-tab-container">
 
-            {/* Dot indicator (mobile only) */}
-            <div className="agent-tab-dots">
-                {['📄', '🤖', '⚙️'].map((icon, idx) => (
-                    <span key={idx} className="agent-tab-dot" aria-label={icon}>{icon}</span>
-                ))}
-            </div>
 
             {/* Coluna 1: S-140 Híbrido */}
             <div className="agent-tab-column">
