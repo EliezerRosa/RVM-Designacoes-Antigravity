@@ -137,13 +137,11 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 </div>
                 <div className="agent-tab-col-content" style={{ padding: '10px' }}>
                     <S140PreviewCarousel
-                        weekParts={weekParts} // Use real parts
+                        weekParts={weekParts}
                         weekOrder={weekOrder}
                         publishers={publishers}
                         currentWeekId={currentWeekId}
                         onWeekChange={handleCarouselNavigation}
-                        onPartClick={(partId) => setSelectedPartId(partId)}
-                        selectedPartId={selectedPartId}
                         onRequestS89={() => setShowS89Modal(true)}
                     />
                     <div style={{ padding: '10px', fontSize: '12px', color: '#6B7280', textAlign: 'center' }}>
@@ -248,13 +246,86 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 <div className="agent-tab-col-header">
                     <span>⚙️</span> Controle & Explicações
                 </div>
-                <div className="agent-tab-col-content" style={{ padding: '10px' }}>
-                    <ActionControlPanel
-                        selectedPartId={selectedPartId}
-                        parts={parts}
-                        publishers={publishers}
-                        historyRecords={historyRecords} // Passando histórico completo para análise correta
-                    />
+                <div className="agent-tab-col-content" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {/* Lista de Partes para seleção */}
+                    {(() => {
+                        const currentPartsForList = weekParts[currentWeekId || ''] || [];
+                        const isDesignatable = (tp: string) => {
+                            const t = tp.toLowerCase();
+                            if (t.includes('cântico') || t.includes('cantico')) return false;
+                            if (t.includes('comentários iniciais') || t.includes('comentarios iniciais')) return false;
+                            if (t.includes('comentários finais') || t.includes('comentarios finais')) return false;
+                            if (t.includes('elogios') || t.includes('conselhos')) return false;
+                            return true;
+                        };
+                        const sections = ['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião'];
+                        return (
+                            <div style={{
+                                flex: '0 0 auto',
+                                maxHeight: '40vh',
+                                overflowY: 'auto',
+                                borderBottom: '2px solid #E5E7EB',
+                                background: '#FAFAFA'
+                            }}>
+                                <div style={{ padding: '6px 10px', fontSize: '10px', fontWeight: '600', color: '#6B7280', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                                    📋 Partes da semana {currentWeekId || ''} (clique para ver detalhes)
+                                </div>
+                                {currentPartsForList.length === 0 ? (
+                                    <div style={{ padding: '12px', fontSize: '11px', color: '#9CA3AF', textAlign: 'center' }}>Selecione uma semana no S-140</div>
+                                ) : (
+                                    sections.map((sectionTitle, idx) => {
+                                        const partsInSection = currentPartsForList.filter(part => {
+                                            const s = part.section?.trim() || '';
+                                            const tp = part.tipoParte || '';
+                                            if (!isDesignatable(tp)) return false;
+                                            return s === sectionTitle;
+                                        });
+                                        if (partsInSection.length === 0) return null;
+                                        return (
+                                            <div key={idx}>
+                                                <div style={{ padding: '3px 10px', fontSize: '10px', fontWeight: '700', color: '#4F46E5', background: '#EEF2FF', borderBottom: '1px solid #E0E7FF' }}>
+                                                    {idx + 1}. {sectionTitle}
+                                                </div>
+                                                {partsInSection.map(part => (
+                                                    <div
+                                                        key={part.id}
+                                                        onClick={() => setSelectedPartId(part.id)}
+                                                        style={{
+                                                            padding: '5px 10px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '11px',
+                                                            borderBottom: '1px solid #F3F4F6',
+                                                            background: selectedPartId === part.id ? '#EEF2FF' : 'transparent',
+                                                            borderLeft: selectedPartId === part.id ? '3px solid #4F46E5' : '3px solid transparent',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                        }}
+                                                    >
+                                                        <span style={{ color: '#374151', paddingLeft: '6px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {part.tituloParte || part.tipoParte}
+                                                        </span>
+                                                        <span style={{ color: '#6B7280', fontSize: '10px', marginLeft: '4px', flexShrink: 0 }}>
+                                                            {part.resolvedPublisherName || part.rawPublisherName || '—'}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        );
+                    })()}
+                    {/* Painel de Ações/Explicações */}
+                    <div style={{ flex: '1 1 auto', overflow: 'auto', padding: '10px' }}>
+                        <ActionControlPanel
+                            selectedPartId={selectedPartId}
+                            parts={parts}
+                            publishers={publishers}
+                            historyRecords={historyRecords}
+                        />
+                    </div>
                     {showContextAlert && (
                         <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, margin: '0 20px', padding: '8px', background: '#FFF3CD', color: '#856404', borderRadius: '4px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                             Contexto atualizado
