@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { communicationService, type NotificationRecord, type ActivityLogEntry } from '../services/communicationService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
 import { copyS89ToClipboard } from '../services/s89Generator';
+// Removed unused type import
+import type { AuditRecord } from '../services/auditService';
 import { supabase } from '../lib/supabase';
-import { auditService, type AuditRecord } from '../services/auditService';
 
 export function CommunicationTab() {
     const [history, setHistory] = useState<NotificationRecord[]>([]);

@@ -1,0 +1,15 @@
+﻿src/App.tsx(44,10): error TS6133: 'lastPartsRefresh' is declared but its value is never read.
+src/components/ActionControlPanel.tsx(4,10): error TS6133: 'getCooldownInfo' is declared but its value is never read.
+src/components/ApprovalPanel.tsx(219,44): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '"brother" | "sister" | undefined'.
+  Type 'string' is not assignable to type '"brother" | "sister" | undefined'.
+src/components/CommunicationTab.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/CommunicationTab.tsx(7,10): error TS6133: 'auditService' is declared but its value is never read.
+src/components/DesignationConfirmationPortal.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/DesignationConfirmationPortal.tsx(5,10): error TS1484: 'WorkbookPart' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+src/components/PublisherSelect.tsx(4,10): error TS6133: 'getCooldownInfo' is declared but its value is never read.
+src/components/S89SelectionModal.tsx(4,10): error TS6133: 'sendS89ViaWhatsApp' is declared but its value is never read.
+src/components/S89SelectionModal.tsx(127,17): error TS6133: 'titularName' is declared but its value is never read.
+src/components/TemporalChat.tsx(37,5): error TS6133: 'focusWeekId' is declared but its value is never read.
+src/components/TerritoryManager.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/TerritoryManager.tsx(2,1): error TS6133: 'supabase' is declared but its value is never read.
+src/services/agentService.ts(319,9): error TS2741: Property 'actions' is missing in type '{ success: false; message: string; error: string; }' but required in type 'AgentResponse'.

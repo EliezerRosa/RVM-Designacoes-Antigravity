@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { WorkbookPart, Publisher } from '../types';
 
-import { sendS89ViaWhatsApp, copyS89ToClipboard } from '../services/s89Generator';
+import { copyS89ToClipboard } from '../services/s89Generator';
 import html2canvas from 'html2canvas';
 
 import { communicationService } from '../services/communicationService';
@@ -124,15 +124,13 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const currentPartNumber = extractPartNumber(part.tituloParte || part.tipoParte);
 
             let assistantName: string | undefined;
-            let titularName: string | undefined;
 
             if (isAjudante) {
                 // Find Titular
-                const titular = weekParts.find(p => {
+                /* const titular = weekParts.find(p => {
                     const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
                     return pNum === currentPartNumber && p.funcao === 'Titular' && p.id !== part.id;
-                });
-                titularName = titular?.resolvedPublisherName || titular?.rawPublisherName;
+                }); */
             } else {
                 // Find Assistant
                 const assistant = weekParts.find(p => {

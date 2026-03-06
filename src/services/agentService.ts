@@ -194,7 +194,7 @@ Use para tornar alguém apto/inapto ou mudar privilégios.
 \`\`\`
 
 5. NAVEGAR PARA UMA SEMANA ESPECÍFICA:
-Use para alterar o foco do aplicativo e da interface para outra semana. (Muito importante usar este comando em vez de apenas texto quando o usuário pedir para `focar`, `ir para`, `mostrar` outra semana).
+Use para alterar o foco do aplicativo e da interface para outra semana. (Muito importante usar este comando em vez de apenas texto quando o usuário pedir para "focar", "ir para", "mostrar" outra semana).
 \`\`\`json
 {
   "type": "NAVIGATE_WEEK",
@@ -316,7 +316,7 @@ export async function askAgent(
     focusWeekId?: string
 ): Promise<AgentResponse> {
     if (!isAgentConfigured()) {
-        return { success: false, message: '', error: 'API Key não configurada.' };
+        return { success: false, message: '', error: 'API Key não configurada.', actions: [] };
     }
 
     let attemptList = [...MODEL_CANDIDATES];
@@ -406,9 +406,9 @@ export async function askAgent(
 
     return {
         success: false,
-        message: '',
-        actions: [],
-        error: `Falha total. Último erro: ${lastError instanceof Error ? lastError.message : 'Desconhecido'}`,
+        message: 'Erro ao conectar com a IA.',
+        error: lastError ? String(lastError) : 'Falha desconhecida',
+        actions: []
     };
 }
 

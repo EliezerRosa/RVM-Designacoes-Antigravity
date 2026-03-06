@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 import { checkEligibility, isElderOrMS, buildEligibilityContext } from '../services/eligibilityService';
-import { getCooldownInfo, getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
+import { getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { calculateScore } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
 import { EnumModalidade, EnumFuncao } from '../types';
@@ -501,10 +501,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             title={eligible
                                 ? (cooldownInfo?.isInCooldown
                                     ? (cooldownInfo.weeksSinceLast >= 0
-                                        ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')}`
-                                        : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')}`)
+                                        ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `
+                                        : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `)
                                     : '✅ Elegível')
-                                : `❌ ${reason}`}
+                                : `❌ ${reason} `}
                         >
                             {icon}{p.name}
                         </option>

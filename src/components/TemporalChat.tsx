@@ -34,7 +34,6 @@ export default function TemporalChat({
     onNavigateToWeek,
     onModelChange,
     currentWeekId,
-    focusWeekId,
     historyRecords = [],
     initialCommand,
     isWorkbookLoading = false

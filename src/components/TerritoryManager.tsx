@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect } from 'react';
 
 export default function TerritoryManager() {
     const [isLoading, setIsLoading] = useState(true);
