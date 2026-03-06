@@ -8,7 +8,7 @@
  * - Renderiza HTML inline do S-140
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { WorkbookPart, Publisher } from '../types';
 
 interface Props {
@@ -26,6 +26,25 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     // State for Async HTML Generation
     const [s140HTML, setS140HTML] = useState<string>('<div style="padding: 20px; color: #666;">Carregando visualização...</div>');
     const [isGenerating, setIsGenerating] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(0.45);
+
+    // Sync scaling using ResizeObserver to ensure it fits any mobile or PC screen perfectly
+    useEffect(() => {
+        const observer = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                const width = entry.contentRect.width;
+                // S-140 A4 original width is 794px
+                setScale(width / 794);
+            }
+        });
+
+        if (containerRef.current) {
+            observer.observe(containerRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, []);
 
     // Sync with external control
     useEffect(() => {
@@ -142,14 +161,14 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
         padding: '10px',
         position: 'relative',
         display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
+        alignItems: 'center', // Center vertically
+        justifyContent: 'center', // Center horizontally
     };
 
     return (
-        <div style={containerStyle}>
+        <div style={containerStyle} >
             {/* Header com navegação */}
-            <div style={headerStyle}>
+            < div style={headerStyle} >
                 <button
                     onClick={goToPrev}
                     disabled={currentIndex === 0}
@@ -190,10 +209,10 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                 >
                     ▶️
                 </button>
-            </div>
+            </div >
 
             {/* Preview — ocupa toda a área disponível */}
-            <div style={previewStyle}>
+            < div style={previewStyle} >
                 {isGenerating && (
                     <div style={{
                         position: 'absolute',
@@ -206,29 +225,36 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                     }}>
                         <span style={{ color: '#4F46E5', fontWeight: '500' }}>Gerando visualização...</span>
                     </div>
-                )}
-                <div style={{
-                    maxWidth: '100%',
-                    width: '357px',
-                    height: '505px',
-                    overflow: 'hidden',
-                    background: 'white',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                    margin: '0 auto'
-                }}>
+                )
+                }
+                <div
+                    ref={containerRef}
+                    style={{
+                        width: '100%',
+                        maxWidth: '794px', // Limit to max original size
+                        aspectRatio: '794 / 1123',
+                        overflow: 'hidden',
+                        background: 'white',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        margin: '0 auto',
+                        position: 'relative'
+                    }}>
                     <div
                         dangerouslySetInnerHTML={{ __html: s140HTML }}
                         style={{
                             width: '794px',
                             height: '1123px',
-                            transform: 'scale(0.45)',
+                            transform: `scale(${scale})`,
                             transformOrigin: 'top left',
-                            background: 'white'
+                            background: 'white',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0
                         }}
                     />
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 
