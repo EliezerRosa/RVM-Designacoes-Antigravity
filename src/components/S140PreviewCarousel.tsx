@@ -26,24 +26,36 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     // State for Async HTML Generation
     const [s140HTML, setS140HTML] = useState<string>('<div style="padding: 20px; color: #666;">Carregando visualização...</div>');
     const [isGenerating, setIsGenerating] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(0.45);
 
     // Sync scaling using ResizeObserver to ensure it fits any mobile or PC screen perfectly
-    useEffect(() => {
-        const observer = new ResizeObserver(entries => {
-            for (let entry of entries) {
-                const width = entry.contentRect.width;
-                // S-140 A4 original width is 794px
-                setScale(width / 794);
-            }
-        });
+    // Use a callback ref so that if the element is rendered later (due to early returns), we still observe it.
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const observerRef = useRef<ResizeObserver | null>(null);
 
-        if (containerRef.current) {
-            observer.observe(containerRef.current);
+    const setContainerRef = (element: HTMLDivElement | null) => {
+        containerRef.current = element;
+
+        if (observerRef.current) {
+            observerRef.current.disconnect();
         }
 
-        return () => observer.disconnect();
+        if (element) {
+            observerRef.current = new ResizeObserver(entries => {
+                for (let entry of entries) {
+                    const width = entry.contentRect.width;
+                    setScale(width / 794);
+                }
+            });
+            observerRef.current.observe(element);
+        }
+    };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (observerRef.current) observerRef.current.disconnect();
+        };
     }, []);
 
     // Sync with external control
@@ -228,7 +240,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                 )
                 }
                 <div
-                    ref={containerRef}
+                    ref={setContainerRef}
                     style={{
                         width: '100%',
                         maxWidth: '794px', // Limit to max original size
