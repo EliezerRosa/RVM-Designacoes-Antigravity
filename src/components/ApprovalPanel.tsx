@@ -216,7 +216,14 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
             }
 
             // 2. Fluxo original: Baixar PDF + Abrir WhatsApp
-            await sendS89ViaWhatsApp(part, assistantName, phone, isForAssistant, titularName);
+            // Descobrir gênero do destinatário
+            const recipientName = isForAssistant ? assistantName : (part.resolvedPublisherName || part.rawPublisherName);
+            const foundRecipient = publishers.find(p => p.name === recipientName);
+            const gender = foundRecipient?.gender === 'sister' ? 'sister' : 'brother';
+
+            const partnerName = isForAssistant ? titularName : assistantName;
+
+            await sendS89ViaWhatsApp(part, gender, partnerName, undefined, phone, isForAssistant);
 
             if (copied) {
                 // Aviso para usuário colar

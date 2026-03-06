@@ -15,6 +15,7 @@ import TerritoryManager from './components/TerritoryManager'
 import { CommunicationTab } from './components/CommunicationTab'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 
+
 import { workbookService } from './services/workbookService'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { loadCompletedParticipations } from './services/historyAdapter'
@@ -41,9 +42,10 @@ function App() {
   const [isSaving, setIsSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [isWorkbookLoading, setIsWorkbookLoading] = useState(false);
-  const [lastPartsRefresh, setLastPartsRefresh] = useState(0);
 
-  // Chat Agent state
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_, setLastPartsRefresh] = useState(0);
   const [isChatAgentOpen, setIsChatAgentOpen] = useState(false)
 
   // Handle Admin Action Links (e.g., from WhatsApp notifications)

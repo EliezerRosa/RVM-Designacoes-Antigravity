@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { workbookService } from '../services/workbookService';
 import { communicationService } from '../services/communicationService';
-import { WorkbookPart, WorkbookStatus } from '../types';
+import type { WorkbookPart } from '../types';
+import { WorkbookStatus } from '../types';
 import './DesignationConfirmationPortal.css';
 
 interface DesignationConfirmationPortalProps {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
-import { getCooldownInfo, getBlockInfo, type CooldownInfo } from '../services/cooldownService';
+import { getBlockInfo, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
