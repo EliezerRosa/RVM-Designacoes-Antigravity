@@ -140,12 +140,13 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     };
 
     const previewStyle: React.CSSProperties = {
-        flex: 1, // Permite ocupar o espaço vazio do pai
-        minHeight: '280px', // Altura mínima garantida
-        overflow: 'auto',
+        flex: '0 0 auto', // NÃO expandir — altura fixa para garantir espaço para a lista
+        maxHeight: '55vh', // Limita a 55% da tela para a lista sempre caber
+        minHeight: '250px',
+        overflow: 'hidden', // Sem scroll no container externo
         background: 'white',
         padding: '10px',
-        position: 'relative', // Para o loading overlay
+        position: 'relative',
     };
 
     const fullscreenOverlay: React.CSSProperties = {
@@ -243,8 +244,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                         maxWidth: '100%',
                         width: '357px', // 794 * 0.45
                         height: '505px', // 1123 * 0.45
-                        overflowX: 'auto',
-                        overflowY: 'hidden',
+                        overflow: 'hidden', // HIDDEN — sem scroll horizontal (fix página em branco no mobile)
                         background: 'white',
                         boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                         margin: '0 auto'
@@ -265,9 +265,8 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                 {/* Lista de partes clicáveis (Agrupadas por Seção) */}
                 {onPartClick && (
                     <div style={{
-                        flex: '0 1 auto',
-                        maxHeight: '40vh', // Limita a listagem a no máximo 40% da tela para sobrar pro preview no mobile
-                        minHeight: '150px',
+                        flex: '1 1 auto', // Ocupa todo espaço restante
+                        minHeight: '120px',
                         overflowY: 'auto',
                         borderTop: '1px solid #E5E7EB',
                         background: '#FAFAFA',
@@ -278,10 +277,22 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                             📋 Partes desta semana (clique para selecionar)
                         </div>
                         {['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião', 'Outras Partes'].map((sectionTitle, idx) => {
+                            // Filtrar partes: excluir partes não-designáveis (cânticos, comentários iniciais/finais, elogios)
+                            const isDesignatable = (tp: string) => {
+                                const t = tp.toLowerCase();
+                                if (t.includes('cântico') || t.includes('cantico')) return false;
+                                if (t.includes('comentários iniciais') || t.includes('comentarios iniciais')) return false;
+                                if (t.includes('comentários finais') || t.includes('comentarios finais')) return false;
+                                if (t.includes('elogios') || t.includes('conselhos')) return false;
+                                return true;
+                            };
+
                             const partsInSection = currentParts.filter(part => {
                                 const s = part.section?.trim() || '';
+                                const tp = part.tipoParte || '';
+                                // Excluir partes não-designáveis
+                                if (!isDesignatable(tp)) return false;
                                 if (sectionTitle === 'Outras Partes') {
-                                    // Fallback para qualquer parte que não seja das 5 categorias principais
                                     return !['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião'].includes(s);
                                 }
                                 return s === sectionTitle;
@@ -289,10 +300,8 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
 
                             if (partsInSection.length === 0) return null;
 
-                            if (partsInSection.length === 0) return null;
-
                             return (
-                                <div key={idx} style={{ marginBottom: '8px' }}>
+                                <div key={idx} style={{ marginBottom: '4px' }}>
                                     <div style={{
                                         padding: '4px 10px',
                                         fontSize: '11px',
@@ -301,7 +310,6 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                                         background: '#EEF2FF',
                                         borderBottom: '1px solid #E0E7FF'
                                     }}>
-                                        {/* § {sectionTitle} */}
                                         {idx + 1}. {sectionTitle}
                                     </div>
                                     {partsInSection.map(part => (
