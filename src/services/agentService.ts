@@ -193,7 +193,17 @@ Use para tornar alguém apto/inapto ou mudar privilégios.
 }
 \`\`\`
 
-5. DESIGNAR PARTE ESPECÍFICA:
+5. NAVEGAR PARA UMA SEMANA ESPECÍFICA:
+Use para alterar o foco do aplicativo e da interface para outra semana. (Muito importante usar este comando em vez de apenas texto quando o usuário pedir para `focar`, `ir para`, `mostrar` outra semana).
+\`\`\`json
+{
+  "type": "NAVIGATE_WEEK",
+  "params": { "weekId": "YYYY-MM-DD" },
+  "description": "Navegando para a semana desejada..."
+}
+\`\`\`
+
+6. DESIGNAR PARTE ESPECÍFICA:
 Use para atribuir alguém a uma parte.
 - **Sempre utilize o UUID** que aparece entre colchetes como \`[ID: UUID-AQUI]\` nas designações no contexto para o parâmetro \`partId\`.
 - **FALLBACK (NOME DA PARTE):** Se o UUID não estiver disponível ou for difícil de extrair, use o **título exato da parte** (ex: "4. Iniciando conversas (3 min)") no parâmetro \`partId\`. O sistema resolverá automaticamente.

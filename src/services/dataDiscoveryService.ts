@@ -1,13 +1,5 @@
 
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// No frontend usamos a anon key, mas para "Visão Total" o agente 
-// pode precisar de mais privilégios se o RLS bloquear.
-// Por enquanto, usaremos o cliente padrão.
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { supabase } from '../lib/supabase';
 
 export type DataContext = 'publishers' | 'workbook' | 'notifications' | 'territories' | 'audit';
 
