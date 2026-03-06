@@ -18,12 +18,10 @@ interface Props {
     // NEW: External control props
     currentWeekId?: string | null;
     onWeekChange?: (weekId: string) => void;
-    onPartClick?: (partId: string) => void;
-    selectedPartId?: string | null;
     onRequestS89?: () => void;
 }
 
-export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentWeekId, onWeekChange, onPartClick, selectedPartId, onRequestS89 }: Props) {
+export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentWeekId, onWeekChange, onRequestS89 }: Props) {
     const [currentIndex, setCurrentIndex] = useState(0);
     // State for Async HTML Generation
     const [s140HTML, setS140HTML] = useState<string>('<div style="padding: 20px; color: #666;">Carregando visualização...</div>');
@@ -262,83 +260,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                     </div>
                 </div>
 
-                {/* Lista de partes clicáveis (Agrupadas por Seção) */}
-                {onPartClick && (
-                    <div style={{
-                        flex: '1 1 auto', // Ocupa todo espaço restante
-                        minHeight: '120px',
-                        overflowY: 'auto',
-                        borderTop: '1px solid #E5E7EB',
-                        background: '#FAFAFA',
-                        display: 'flex',
-                        flexDirection: 'column'
-                    }}>
-                        <div style={{ padding: '6px 8px', fontSize: '10px', fontWeight: '600', color: '#6B7280', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                            📋 Partes desta semana (clique para selecionar)
-                        </div>
-                        {['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião', 'Outras Partes'].map((sectionTitle, idx) => {
-                            // Filtrar partes: excluir partes não-designáveis (cânticos, comentários iniciais/finais, elogios)
-                            const isDesignatable = (tp: string) => {
-                                const t = tp.toLowerCase();
-                                if (t.includes('cântico') || t.includes('cantico')) return false;
-                                if (t.includes('comentários iniciais') || t.includes('comentarios iniciais')) return false;
-                                if (t.includes('comentários finais') || t.includes('comentarios finais')) return false;
-                                if (t.includes('elogios') || t.includes('conselhos')) return false;
-                                return true;
-                            };
 
-                            const partsInSection = currentParts.filter(part => {
-                                const s = part.section?.trim() || '';
-                                const tp = part.tipoParte || '';
-                                // Excluir partes não-designáveis
-                                if (!isDesignatable(tp)) return false;
-                                if (sectionTitle === 'Outras Partes') {
-                                    return !['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião'].includes(s);
-                                }
-                                return s === sectionTitle;
-                            });
-
-                            if (partsInSection.length === 0) return null;
-
-                            return (
-                                <div key={idx} style={{ marginBottom: '4px' }}>
-                                    <div style={{
-                                        padding: '4px 10px',
-                                        fontSize: '11px',
-                                        fontWeight: '700',
-                                        color: '#4F46E5',
-                                        background: '#EEF2FF',
-                                        borderBottom: '1px solid #E0E7FF'
-                                    }}>
-                                        {idx + 1}. {sectionTitle}
-                                    </div>
-                                    {partsInSection.map(part => (
-                                        <div
-                                            key={part.id}
-                                            onClick={() => onPartClick(part.id)}
-                                            style={{
-                                                padding: '6px 10px',
-                                                cursor: 'pointer',
-                                                fontSize: '11px',
-                                                borderBottom: '1px solid #E5E7EB',
-                                                background: selectedPartId === part.id ? '#EEF2FF' : 'transparent',
-                                                borderLeft: selectedPartId === part.id ? '3px solid #4F46E5' : '3px solid transparent',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                            }}
-                                        >
-                                            <span style={{ color: '#374151', paddingLeft: '8px' }}>
-                                                {part.tituloParte || part.tipoParte}
-                                            </span>
-                                            {part.resolvedPublisherName || part.rawPublisherName || '—'}
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
 
                 {/* Footer com botão ampliar */}
                 <div style={{
