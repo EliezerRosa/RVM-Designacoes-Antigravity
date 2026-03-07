@@ -218,10 +218,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     // Estilos
     const sectionStyle: React.CSSProperties = {
         marginBottom: '16px',
-        padding: '12px',
-        background: '#F9FAFB',
-        borderRadius: '8px',
-        border: '1px solid #E5E7EB',
+        padding: '0 12px',
     };
 
     const labelStyle: React.CSSProperties = {
@@ -240,11 +237,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     };
 
     return (
-        <div style={{ padding: '12px', height: '100%', overflowY: 'auto' }}>
+        <div style={{ height: '100%', overflowY: 'auto' }}>
             {selectedPart ? (
                 <>
                     {/* Header com título da parte */}
-                    <div style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '2px solid #4F46E5' }}>
+                    <div style={{ marginBottom: '16px', padding: '12px', borderTop: '2px solid #4F46E5', borderBottom: '1px solid #E5E7EB' }}>
                         <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', color: '#111827' }}>
                             {selectedPart.tituloParte || selectedPart.tipoParte}
                         </h3>

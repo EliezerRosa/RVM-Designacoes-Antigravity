@@ -63,24 +63,13 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
     const [showContextAlert, setShowContextAlert] = useState(false);
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [rateLimitInfo, setRateLimitInfo] = useState<{ remaining: number, max: number, refillInSeconds: number } | null>(null);
     const [, setActiveModel] = useState<string>('gemini-1.5-flash'); // Default model active
 
-    // Sync week navigation with TemporalChat (placeholder implementation)
+    // Sync week navigation with TemporalChat
     useEffect(() => {
         if (!currentWeekId) return;
-        // When week changes, add a system message to chat history
-        (async () => {
-            const recent = await chatHistoryService.getRecentSessions(5);
-            const session = recent.find(s => s.title === 'Temporal Chat');
-            if (session) {
-                await chatHistoryService.addMessage(session.id, {
-                    role: 'assistant',
-                    content: `Naveguei para a semana ${currentWeekId}`,
-                    timestamp: new Date(),
-                });
-            }
-        })();
-        // Show a simple visual alert for context change
+        // Show a simple visual alert for context change instead of adding a message to the chat
         setShowContextAlert(true);
         const timer = setTimeout(() => setShowContextAlert(false), 3000);
         return () => clearTimeout(timer);
@@ -143,7 +132,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
             {/* Coluna 2: Chat Temporal */}
             <div className="agent-tab-column">
-                <div className="agent-tab-col-header">
+                <div className="agent-tab-col-header" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <span>🤖</span> Agente RVM
                     {currentWeekId && (
                         <span style={{
@@ -188,6 +177,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         currentWeekId={currentWeekId || undefined}
                         initialCommand={initialCommand}
                         isWorkbookLoading={isWorkbookLoading}
+                        onRateLimitChange={(remaining, max, refillInSeconds) => setRateLimitInfo({ remaining, max, refillInSeconds })}
                     />
                 </div>
 
@@ -222,6 +212,26 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             </div>
 
                             <CostMonitor />
+
+                            {rateLimitInfo && (
+                                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #334155' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', color: '#F8FAFC', fontSize: '14px' }}>Limites da Janela Atual</h4>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#CBD5E1', fontSize: '13px' }}>
+                                        <span>Créditos Totais (por Minuto):</span>
+                                        <span style={{ fontWeight: '500' }}>{rateLimitInfo.max}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: rateLimitInfo.remaining > 0 ? '#10B981' : '#EF4444', fontSize: '13px', marginTop: '4px' }}>
+                                        <span>Restantes:</span>
+                                        <span style={{ fontWeight: '600' }}>{rateLimitInfo.remaining}</span>
+                                    </div>
+                                    {rateLimitInfo.refillInSeconds > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#F59E0B', fontSize: '13px', marginTop: '4px' }}>
+                                            <span>Recarga de 1 crédito em:</span>
+                                            <span>{rateLimitInfo.refillInSeconds}s</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div style={{ fontSize: '11px', color: '#64748B', marginTop: '16px', textAlign: 'center' }}>
                                 * Valores estimados com base na tabela Gemini 1.5 Flash
@@ -308,7 +318,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         );
                     })()}
                     {/* Painel de Ações/Explicações — 60% */}
-                    <div style={{ flex: '0 0 60%', overflow: 'auto', padding: '10px' }}>
+                    <div style={{ flex: '0 0 60%', overflow: 'hidden' }}>
                         <ActionControlPanel
                             selectedPartId={selectedPartId}
                             parts={parts}
@@ -317,8 +327,12 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         />
                     </div>
                     {showContextAlert && (
-                        <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, margin: '0 20px', padding: '8px', background: '#FFF3CD', color: '#856404', borderRadius: '4px', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                            Contexto atualizado
+                        <div style={{
+                            position: 'absolute', bottom: 10, left: 0, right: 0, margin: '0 20px', padding: '10px',
+                            background: '#4F46E5', color: '#FFFFFF', borderRadius: '8px', textAlign: 'center',
+                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 1000, fontWeight: '500'
+                        }}>
+                            Naveguei para a semana {currentWeekId}
                         </div>
                     )}
                 </div>

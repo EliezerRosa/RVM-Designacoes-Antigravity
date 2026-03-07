@@ -25,6 +25,7 @@ interface TemporalChatProps {
     historyRecords?: HistoryRecord[];
     initialCommand?: string;
     isWorkbookLoading?: boolean;
+    onRateLimitChange?: (remaining: number, max: number, refillInSeconds: number) => void;
 }
 
 export default function TemporalChat({
@@ -36,7 +37,8 @@ export default function TemporalChat({
     currentWeekId,
     historyRecords = [],
     initialCommand,
-    isWorkbookLoading = false
+    isWorkbookLoading = false,
+    onRateLimitChange
 }: TemporalChatProps) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
@@ -96,12 +98,18 @@ export default function TemporalChat({
         return null;
     };
 
-    // Calculate Credits & Refill
     const now = Date.now();
     const recentRequests = requestTimestamps.filter(t => now - t < 60000);
     const creditsRemaining = Math.max(0, MAX_REQUESTS_PER_MINUTE - recentRequests.length);
     const oldestRequest = recentRequests.length > 0 ? recentRequests[0] : null;
     const refillInSeconds = oldestRequest ? Math.ceil((oldestRequest + 60000 - now) / 1000) : 0;
+
+    // Report rate limit to parent
+    useEffect(() => {
+        if (onRateLimitChange) {
+            onRateLimitChange(creditsRemaining, MAX_REQUESTS_PER_MINUTE, refillInSeconds);
+        }
+    }, [creditsRemaining, MAX_REQUESTS_PER_MINUTE, refillInSeconds, onRateLimitChange]);
 
     // Action Handling State
     // Action Handling State (No longer used for pendingResult, actions are immediate)
@@ -771,19 +779,6 @@ export default function TemporalChat({
                 >
                     {isLoading ? '...' : rateLimitCountdown > 0 ? `${rateLimitCountdown}s` : creditsRemaining === 0 ? 'Aguarde recarga...' : 'Enviar'}
                 </button>
-            </div>
-            <div style={{ padding: '0 8px 4px 8px', display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#9CA3AF' }}>
-                <span title="Créditos restantes nesta janela de 1 minuto">
-                    {rateLimitCountdown > 0
-                        ? <span style={{ color: '#EF4444', fontWeight: 'bold' }}>⛔ Bloqueado pela API</span>
-                        : `💳 Créditos: ${creditsRemaining}/${MAX_REQUESTS_PER_MINUTE}`
-                    }
-                </span>
-                {refillInSeconds > 0 && (
-                    <span title="Tempo para liberar mais uma requisição">
-                        ⏳ Recarga em: {rateLimitCountdown > 0 ? rateLimitCountdown : refillInSeconds}s
-                    </span>
-                )}
             </div>
         </div>
     );
