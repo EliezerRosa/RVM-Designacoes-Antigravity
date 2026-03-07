@@ -247,21 +247,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 {selectedPart ? (
                     <div style={{ padding: '0 10px 10px 10px' }}>
                         <div style={sectionStyle}>
-                            {/* Status e Horário */}
-                            <div style={{ paddingBottom: '16px', borderBottom: '1px solid #E5E7EB', marginBottom: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            {/* Status */}
+                            <div style={{ paddingBottom: '12px', borderBottom: '1px solid #E5E7EB', marginBottom: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={labelStyle}>Status</div>
                                     {getStatusBadge(selectedPart.status)}
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                    <div>
-                                        <div style={labelStyle}>Horário</div>
-                                        <div style={valueStyle}>{selectedPart.horaInicio} - {selectedPart.horaFim}</div>
-                                    </div>
-                                    <div>
-                                        <div style={labelStyle}>Duração</div>
-                                        <div style={valueStyle}>{selectedPart.duracao}</div>
-                                    </div>
                                 </div>
                             </div>
 
