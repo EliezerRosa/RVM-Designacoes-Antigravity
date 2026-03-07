@@ -251,6 +251,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                             </div>
                         </div>
 
+                        {/* Título da Parte Selecionada */}
+                        <div style={{ marginBottom: '16px', color: '#DC2626', fontSize: '13px', fontWeight: 'bold' }}>
+                            {selectedPart.tituloParte || selectedPart.tipoParte}
+                        </div>
+
                         {/* Publicador Designado */}
                         <div style={{ paddingBottom: assignedPublisher ? '16px' : 0, borderBottom: assignedPublisher ? '1px solid #E5E7EB' : 'none', marginBottom: assignedPublisher ? '16px' : 0 }}>
                             <div style={labelStyle}>Publicador Designado</div>
