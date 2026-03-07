@@ -222,6 +222,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
         background: '#F9FAFB',
         borderRadius: '8px',
         border: '1px solid #E5E7EB',
+        borderTop: '2px solid #4F46E5',
     };
 
     const labelStyle: React.CSSProperties = {
@@ -243,277 +244,265 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
         <div style={{ height: '100%', overflowY: 'auto' }}>
             {selectedPart ? (
                 <>
-                    {/* Header com título da parte */}
-                    <div style={{ marginBottom: '16px', padding: '12px 10px', borderTop: '2px solid #4F46E5', borderBottom: '1px solid #E5E7EB' }}>
-                        <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', color: '#111827' }}>
-                            {selectedPart.tituloParte || selectedPart.tipoParte}
-                        </h3>
-                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                            {selectedPart.section}
-                        </div>
-                    </div>
-
-                    <div style={{ padding: '0 10px 10px 10px' }}>
-                        <div style={sectionStyle}>
-                            {/* Status e Horário */}
-                            <div style={{ paddingBottom: '16px', borderBottom: '1px solid #E5E7EB', marginBottom: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <div style={labelStyle}>Status</div>
-                                    {getStatusBadge(selectedPart.status)}
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                    <div>
-                                        <div style={labelStyle}>Horário</div>
-                                        <div style={valueStyle}>{selectedPart.horaInicio} - {selectedPart.horaFim}</div>
-                                    </div>
-                                    <div>
-                                        <div style={labelStyle}>Duração</div>
-                                        <div style={valueStyle}>{selectedPart.duracao}</div>
-                                    </div>
-                                </div>
+                    <div style={sectionStyle}>
+                        {/* Status e Horário */}
+                        <div style={{ paddingBottom: '16px', borderBottom: '1px solid #E5E7EB', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <div style={labelStyle}>Status</div>
+                                {getStatusBadge(selectedPart.status)}
                             </div>
-
-                            {/* Publicador Designado */}
-                            <div style={{ paddingBottom: assignedPublisher ? '16px' : 0, borderBottom: assignedPublisher ? '1px solid #E5E7EB' : 'none', marginBottom: assignedPublisher ? '16px' : 0 }}>
-                                <div style={labelStyle}>Publicador Designado</div>
-
-                                {/* Verificação de Parte Não Designável (Ex: Cântico) */}
-                                {eligibility?.reason === 'Cânticos não são designados' ? (
-                                    <div style={{ fontSize: '12px', color: '#9CA3AF', fontStyle: 'italic', padding: '8px 0' }}>
-                                        (Não se aplica a esta parte)
-                                    </div>
-                                ) : (selectedPart.resolvedPublisherName || selectedPart.rawPublisherName) ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                                        <div style={{
-                                            width: '32px',
-                                            height: '32px',
-                                            borderRadius: '50%',
-                                            background: '#4F46E5',
-                                            color: 'white',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '14px',
-                                            fontWeight: '600',
-                                        }}>
-                                            {(selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || '?').charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <div style={valueStyle}>{selectedPart.resolvedPublisherName || selectedPart.rawPublisherName}</div>
-                                            {assignedPublisher && (
-                                                <div style={{ fontSize: '11px', color: '#4B5563', marginTop: '2px', lineHeight: '1.4' }}>
-                                                    <div style={{ fontWeight: '500', color: '#1F2937' }}>
-                                                        {assignedPublisher.gender === 'brother' ? '👨' : '👩'} {assignedPublisher.condition} • {assignedPublisher.isBaptized ? 'Batizado' : 'Não Batizado'} • {assignedPublisher.ageGroup}
-                                                    </div>
-                                                    <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '2px' }}>
-                                                        <strong>Privilégios:</strong> {[
-                                                            assignedPublisher.privileges.canPreside && 'Presidente',
-                                                            assignedPublisher.privileges.canGiveTalks && 'Orador',
-                                                            assignedPublisher.privileges.canPray && 'Oração',
-                                                            assignedPublisher.privileges.canReadCBS && 'Leitor',
-                                                            assignedPublisher.isHelperOnly && 'Apenas Ajudante'
-                                                        ].filter(Boolean).join(', ') || 'Nenhum específico'}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <div style={{ marginTop: '8px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                                {assignedPublisher?.privilegesBySection?.canParticipateInTreasures && (
-                                                    <span style={{ fontSize: '10px', background: '#F3F4F6', color: '#374151', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E5E7EB' }}>📖 Tesouros</span>
-                                                )}
-                                                {assignedPublisher?.privilegesBySection?.canParticipateInMinistry && (
-                                                    <span style={{ fontSize: '10px', background: '#FFFBEB', color: '#92400E', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>🌾 Ministério</span>
-                                                )}
-                                                {assignedPublisher?.privilegesBySection?.canParticipateInLife && (
-                                                    <span style={{ fontSize: '10px', background: '#FEF2F2', color: '#991B1B', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FECACA' }}>❤️ Vida Cristã</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div style={{ ...valueStyle, color: '#DC2626', marginTop: '4px' }}>
-                                        ⚠️ Nenhum publicador designado
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Painel de Análise Unificado */}
-                            {assignedPublisher && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                 <div>
+                                    <div style={labelStyle}>Horário</div>
+                                    <div style={valueStyle}>{selectedPart.horaInicio} - {selectedPart.horaFim}</div>
+                                </div>
+                                <div>
+                                    <div style={labelStyle}>Duração</div>
+                                    <div style={valueStyle}>{selectedPart.duracao}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Publicador Designado */}
+                        <div style={{ paddingBottom: assignedPublisher ? '16px' : 0, borderBottom: assignedPublisher ? '1px solid #E5E7EB' : 'none', marginBottom: assignedPublisher ? '16px' : 0 }}>
+                            <div style={labelStyle}>Publicador Designado</div>
+
+                            {/* Verificação de Parte Não Designável (Ex: Cântico) */}
+                            {eligibility?.reason === 'Cânticos não são designados' ? (
+                                <div style={{ fontSize: '12px', color: '#9CA3AF', fontStyle: 'italic', padding: '8px 0' }}>
+                                    (Não se aplica a esta parte)
+                                </div>
+                            ) : (selectedPart.resolvedPublisherName || selectedPart.rawPublisherName) ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                                     <div style={{
-                                        marginBottom: '12px',
-                                        borderBottom: '1px solid #E5E7EB',
-                                        paddingBottom: '8px',
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '50%',
+                                        background: '#4F46E5',
+                                        color: 'white',
                                         display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
                                     }}>
-                                        <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#374151' }}>
-                                            {selectedPart && isCleanablePart(selectedPart.tipoParte) ? (
-                                                <span>🚫 Não Requer Designação</span>
-                                            ) : selectedPart && isAutoAssignedToChairman(selectedPart.tipoParte) ? (
-                                                <span>🤖 Auto-Designação</span>
-                                            ) : (
-                                                <span>📊 Análise & Status</span>
-                                            )}
-                                        </span>
-                                        {scoreData && !isNonDesignatablePart(selectedPart?.tipoParte || '') && (
-                                            <span style={{ fontSize: '10px', color: '#6B7280', background: '#E5E7EB', padding: '2px 6px', borderRadius: '4px' }}>
-                                                Score: {scoreData.score}
-                                            </span>
-                                        )}
+                                        {(selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || '?').charAt(0).toUpperCase()}
                                     </div>
-
-                                    {/* Conteúdo da Análise - Bloqueado para partes não designáveis */}
-                                    {selectedPart && isCleanablePart(selectedPart.tipoParte) ? (
-                                        <div style={{
-                                            padding: '16px',
-                                            textAlign: 'center',
-                                            color: '#6B7280',
-                                            fontSize: '12px',
-                                            background: '#F3F4F6',
-                                            borderRadius: '6px',
-                                            fontStyle: 'italic'
-                                        }}>
-                                            Esta parte (Cântico, etc.) não requer designação manual.
-                                            <br />
-                                            O sistema limpará qualquer nome atribuído automaticamente.
-                                        </div>
-                                    ) : selectedPart && isAutoAssignedToChairman(selectedPart.tipoParte) ? (
-                                        <div style={{
-                                            padding: '16px',
-                                            textAlign: 'center',
-                                            color: '#4F46E5', // Indigo
-                                            fontSize: '12px',
-                                            background: '#EEF2FF',
-                                            borderRadius: '6px',
-                                            border: '1px solid #C7D2FE'
-                                        }}>
-                                            <strong>🤖 Auto-Designação</strong>
-                                            <br />
-                                            Esta parte é atribuída automaticamente ao Presidente da Reunião.
-                                        </div>
-                                    ) : loading ? (
-                                        <div style={{ fontSize: '11px', color: '#6B7280', fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
-                                            Carregando análise...
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-
-                                            {/* 1. Alertas de Bloqueio/Aviso (Prioridade Máxima) */}
-                                            {(!eligibility?.eligible || cooldown?.isInCooldown) ? (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                    {!eligibility?.eligible && (
-                                                        <div style={{ fontSize: '11px', color: '#DC2626', background: '#FEF2F2', padding: '6px', borderRadius: '4px', border: '1px solid #FECACA' }}>
-                                                            <strong>🚫 Inelegível:</strong> {eligibility?.reason}
-                                                        </div>
-                                                    )}
-                                                    {cooldown?.isInCooldown && (
-                                                        <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
-                                                            <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
-                                                                ? <><strong>Participações Passadas:</strong> Realizou {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
-                                                                : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
-
-                                                            }
-                                                            <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 'normal', color: '#92400E' }}>
-                                                                (Convenção: Aguardar 3 semanas após partes principais. Pode ser ignorada manualmente.)
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                    <div>
+                                        <div style={valueStyle}>{selectedPart.resolvedPublisherName || selectedPart.rawPublisherName}</div>
+                                        {assignedPublisher && (
+                                            <div style={{ fontSize: '11px', color: '#4B5563', marginTop: '2px', lineHeight: '1.4' }}>
+                                                <div style={{ fontWeight: '500', color: '#1F2937' }}>
+                                                    {assignedPublisher.gender === 'brother' ? '👨' : '👩'} {assignedPublisher.condition} • {assignedPublisher.isBaptized ? 'Batizado' : 'Não Batizado'} • {assignedPublisher.ageGroup}
                                                 </div>
-                                            ) : (
-                                                // Se tudo ok, mostra indicador discreto
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                                    <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px' }}>
-                                                        ✓ Elegível
-                                                    </span>
-                                                    {!cooldown?.isInCooldown && (
-                                                        <span style={{ fontSize: '11px', color: '#059669', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px' }}>
-                                                            ✓ Descansado
-                                                        </span>
-                                                    )}
-                                                    {/* Exibir Disponibilidade */}
-                                                    {assignedPublisher.availability && (
-                                                        <span style={{
-                                                            fontSize: '11px',
-                                                            color: assignedPublisher.availability.mode === 'always' ? '#059669' : '#B45309',
-                                                            background: assignedPublisher.availability.mode === 'always' ? '#ECFDF5' : '#FFFBEB',
-                                                            padding: '2px 6px',
-                                                            borderRadius: '4px'
-                                                        }}>
-                                                            {assignedPublisher.availability.mode === 'always' ? '📅 Disponível (Padrão)' : '📅 Disponibilidade Limitada'}
-                                                        </span>
-                                                    )}
+                                                <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '2px' }}>
+                                                    <strong>Privilégios:</strong> {[
+                                                        assignedPublisher.privileges.canPreside && 'Presidente',
+                                                        assignedPublisher.privileges.canGiveTalks && 'Orador',
+                                                        assignedPublisher.privileges.canPray && 'Oração',
+                                                        assignedPublisher.privileges.canReadCBS && 'Leitor',
+                                                        assignedPublisher.isHelperOnly && 'Apenas Ajudante'
+                                                    ].filter(Boolean).join(', ') || 'Nenhum específico'}
                                                 </div>
+                                            </div>
+                                        )}
+                                        <div style={{ marginTop: '8px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                            {assignedPublisher?.privilegesBySection?.canParticipateInTreasures && (
+                                                <span style={{ fontSize: '10px', background: '#F3F4F6', color: '#374151', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E5E7EB' }}>📖 Tesouros</span>
                                             )}
-
-                                            {/* 2. Explicação em Linguagem Natural (O Coração da Análise) */}
-                                            {explanation && (
-                                                <div style={{
-                                                    background: '#FFFFFF',
-                                                    padding: '10px',
-                                                    borderRadius: '6px',
-                                                    fontSize: '11px',
-                                                    color: '#334155',
-                                                    borderLeft: '3px solid #6366F1',
-                                                    lineHeight: '1.4',
-                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                                }}>
-                                                    <div style={{ fontWeight: '600', marginBottom: '4px', color: '#475569' }}>
-                                                        Análise do Sistema:
-                                                    </div>
-                                                    <div style={{ whiteSpace: 'pre-wrap' }}>{explanation}</div>
-                                                </div>
+                                            {assignedPublisher?.privilegesBySection?.canParticipateInMinistry && (
+                                                <span style={{ fontSize: '10px', background: '#FFFBEB', color: '#92400E', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>🌾 Ministério</span>
                                             )}
-
-                                            {/* 3. Dados Específicos de Apoio (Contexto Fino) */}
-                                            {stats && (
-                                                <div style={{
-                                                    marginTop: '4px',
-                                                    paddingTop: '8px',
-                                                    borderTop: '1px solid #F3F4F6',
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    fontSize: '10px',
-                                                    color: '#6B7280'
-                                                }}>
-                                                    <div>
-                                                        <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '1px' }}>Última vez neste tipo de parte:</span>
-                                                        {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma (Histórico)'}
-                                                    </div>
-
-                                                    {stats.nextDate && (
-                                                        <div style={{ textAlign: 'right', color: '#D97706' }}>
-                                                            <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '1px' }}>Próxima Agendada:</span>
-                                                            {new Date(stats.nextDate).toLocaleDateString()}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                            {assignedPublisher?.privilegesBySection?.canParticipateInLife && (
+                                                <span style={{ fontSize: '10px', background: '#FEF2F2', color: '#991B1B', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FECACA' }}>❤️ Vida Cristã</span>
                                             )}
-
-                                            {/* 4. Sugestão de Melhor Candidato (Se existir e for melhor) */}
-                                            {bestCandidate && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > (scoreData?.score || 0) && (
-                                                <div style={{
-                                                    marginTop: '8px',
-                                                    background: '#ECFDF5',
-                                                    padding: '8px',
-                                                    borderRadius: '6px',
-                                                    fontSize: '11px',
-                                                    border: '1px solid #A7F3D0'
-                                                }}>
-                                                    <div style={{ color: '#047857', fontWeight: 'bold', marginBottom: '2px' }}>
-                                                        💡 Sugestão: {bestCandidate.name} (Score {bestCandidate.score})
-                                                    </div>
-                                                    <div style={{ color: '#065F46', fontSize: '10px' }}>
-                                                        {bestCandidate.explanation.split('\n')[0]} {/* Só a primeira linha da explicação */}
-                                                    </div>
-                                                </div>
-                                            )}
-
                                         </div>
-                                    )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ ...valueStyle, color: '#DC2626', marginTop: '4px' }}>
+                                    ⚠️ Nenhum publicador designado
                                 </div>
                             )}
                         </div>
+
+                        {/* Painel de Análise Unificado */}
+                        {assignedPublisher && (
+                            <div>
+                                <div style={{
+                                    marginBottom: '12px',
+                                    borderBottom: '1px solid #E5E7EB',
+                                    paddingBottom: '8px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <span style={{ fontWeight: 'bold', fontSize: '12px', color: '#374151' }}>
+                                        {selectedPart && isCleanablePart(selectedPart.tipoParte) ? (
+                                            <span>🚫 Não Requer Designação</span>
+                                        ) : selectedPart && isAutoAssignedToChairman(selectedPart.tipoParte) ? (
+                                            <span>🤖 Auto-Designação</span>
+                                        ) : (
+                                            <span>📊 Análise & Status</span>
+                                        )}
+                                    </span>
+                                    {scoreData && !isNonDesignatablePart(selectedPart?.tipoParte || '') && (
+                                        <span style={{ fontSize: '10px', color: '#6B7280', background: '#E5E7EB', padding: '2px 6px', borderRadius: '4px' }}>
+                                            Score: {scoreData.score}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Conteúdo da Análise - Bloqueado para partes não designáveis */}
+                                {selectedPart && isCleanablePart(selectedPart.tipoParte) ? (
+                                    <div style={{
+                                        padding: '16px',
+                                        textAlign: 'center',
+                                        color: '#6B7280',
+                                        fontSize: '12px',
+                                        background: '#F3F4F6',
+                                        borderRadius: '6px',
+                                        fontStyle: 'italic'
+                                    }}>
+                                        Esta parte (Cântico, etc.) não requer designação manual.
+                                        <br />
+                                        O sistema limpará qualquer nome atribuído automaticamente.
+                                    </div>
+                                ) : selectedPart && isAutoAssignedToChairman(selectedPart.tipoParte) ? (
+                                    <div style={{
+                                        padding: '16px',
+                                        textAlign: 'center',
+                                        color: '#4F46E5', // Indigo
+                                        fontSize: '12px',
+                                        background: '#EEF2FF',
+                                        borderRadius: '6px',
+                                        border: '1px solid #C7D2FE'
+                                    }}>
+                                        <strong>🤖 Auto-Designação</strong>
+                                        <br />
+                                        Esta parte é atribuída automaticamente ao Presidente da Reunião.
+                                    </div>
+                                ) : loading ? (
+                                    <div style={{ fontSize: '11px', color: '#6B7280', fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
+                                        Carregando análise...
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+                                        {/* 1. Alertas de Bloqueio/Aviso (Prioridade Máxima) */}
+                                        {(!eligibility?.eligible || cooldown?.isInCooldown) ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                {!eligibility?.eligible && (
+                                                    <div style={{ fontSize: '11px', color: '#DC2626', background: '#FEF2F2', padding: '6px', borderRadius: '4px', border: '1px solid #FECACA' }}>
+                                                        <strong>🚫 Inelegível:</strong> {eligibility?.reason}
+                                                    </div>
+                                                )}
+                                                {cooldown?.isInCooldown && (
+                                                    <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
+                                                        <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
+                                                            ? <><strong>Participações Passadas:</strong> Realizou {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
+                                                            : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
+
+                                                        }
+                                                        <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 'normal', color: '#92400E' }}>
+                                                            (Convenção: Aguardar 3 semanas após partes principais. Pode ser ignorada manualmente.)
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            // Se tudo ok, mostra indicador discreto
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px' }}>
+                                                    ✓ Elegível
+                                                </span>
+                                                {!cooldown?.isInCooldown && (
+                                                    <span style={{ fontSize: '11px', color: '#059669', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px' }}>
+                                                        ✓ Descansado
+                                                    </span>
+                                                )}
+                                                {/* Exibir Disponibilidade */}
+                                                {assignedPublisher.availability && (
+                                                    <span style={{
+                                                        fontSize: '11px',
+                                                        color: assignedPublisher.availability.mode === 'always' ? '#059669' : '#B45309',
+                                                        background: assignedPublisher.availability.mode === 'always' ? '#ECFDF5' : '#FFFBEB',
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px'
+                                                    }}>
+                                                        {assignedPublisher.availability.mode === 'always' ? '📅 Disponível (Padrão)' : '📅 Disponibilidade Limitada'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* 2. Explicação em Linguagem Natural (O Coração da Análise) */}
+                                        {explanation && (
+                                            <div style={{
+                                                background: '#FFFFFF',
+                                                padding: '10px',
+                                                borderRadius: '6px',
+                                                fontSize: '11px',
+                                                color: '#334155',
+                                                borderLeft: '3px solid #6366F1',
+                                                lineHeight: '1.4',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}>
+                                                <div style={{ fontWeight: '600', marginBottom: '4px', color: '#475569' }}>
+                                                    Análise do Sistema:
+                                                </div>
+                                                <div style={{ whiteSpace: 'pre-wrap' }}>{explanation}</div>
+                                            </div>
+                                        )}
+
+                                        {/* 3. Dados Específicos de Apoio (Contexto Fino) */}
+                                        {stats && (
+                                            <div style={{
+                                                marginTop: '4px',
+                                                paddingTop: '8px',
+                                                borderTop: '1px solid #F3F4F6',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                fontSize: '10px',
+                                                color: '#6B7280'
+                                            }}>
+                                                <div>
+                                                    <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '1px' }}>Última vez neste tipo de parte:</span>
+                                                    {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma (Histórico)'}
+                                                </div>
+
+                                                {stats.nextDate && (
+                                                    <div style={{ textAlign: 'right', color: '#D97706' }}>
+                                                        <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '1px' }}>Próxima Agendada:</span>
+                                                        {new Date(stats.nextDate).toLocaleDateString()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* 4. Sugestão de Melhor Candidato (Se existir e for melhor) */}
+                                        {bestCandidate && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > (scoreData?.score || 0) && (
+                                            <div style={{
+                                                marginTop: '8px',
+                                                background: '#ECFDF5',
+                                                padding: '8px',
+                                                borderRadius: '6px',
+                                                fontSize: '11px',
+                                                border: '1px solid #A7F3D0'
+                                            }}>
+                                                <div style={{ color: '#047857', fontWeight: 'bold', marginBottom: '2px' }}>
+                                                    💡 Sugestão: {bestCandidate.name} (Score {bestCandidate.score})
+                                                </div>
+                                                <div style={{ color: '#065F46', fontSize: '10px' }}>
+                                                    {bestCandidate.explanation.split('\n')[0]} {/* Só a primeira linha da explicação */}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </>
             ) : (
@@ -533,7 +522,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         Clique em uma parte na lista do carrossel para ver detalhes e opções de ação.
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
