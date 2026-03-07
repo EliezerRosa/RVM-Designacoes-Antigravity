@@ -1,0 +1,764 @@
+[
+    {
+        "number": "1",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Belo Horizonte, R. São Paulo, R. Goiânia, R. João Pessoa, Av. Abido Saad, Av. N. S. dos Navegantes",
+        "image_url": "/territories/territory_card_01.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Belo%20Horizonte%20e%20R.%20S%C3%A3o%20Paulo%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Belo Horizonte",
+            "R. São Paulo",
+            "R. Goiânia",
+            "R. João Pessoa",
+            "Av. Abido Saad",
+            "Av. N. S. dos Navegantes"
+        ]
+    },
+    {
+        "number": "2",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Goiânia, R. São Paulo, R. João Pessoa, R. Vitória, R. Salvador, R. Belo Horizonte",
+        "image_url": "/territories/territory_card_02.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Goi%C3%A2nia%20e%20R.%20S%C3%A3o%20Paulo%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Goiânia",
+            "R. São Paulo",
+            "R. João Pessoa",
+            "R. Vitória",
+            "R. Salvador",
+            "R. Belo Horizonte"
+        ]
+    },
+    {
+        "number": "3",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. São Paulo, R. Goiânia, R. João Pessoa, R. Niterói, R. Vitória",
+        "image_url": "/territories/territory_card_03.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20S%C3%A3o%20Paulo%20e%20R.%20Goi%C3%A2nia%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. São Paulo",
+            "R. Goiânia",
+            "R. João Pessoa",
+            "R. Niterói",
+            "R. Vitória"
+        ]
+    },
+    {
+        "number": "4",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Goiânia, R. João Pessoa, R. Terezina, R. Niterói, R. Vitória, R. Salvador",
+        "image_url": "/territories/territory_card_04.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Goi%C3%A2nia%20e%20R.%20Jo%C3%A3o%20Pessoa%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Goiânia",
+            "R. João Pessoa",
+            "R. Terezina",
+            "R. Niterói",
+            "R. Vitória",
+            "R. Salvador"
+        ]
+    },
+    {
+        "number": "5",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. João Pessoa, R. Terezina, Av. Abdo Saad, R. Belo Horizonte, R. Salvador",
+        "image_url": "/territories/territory_card_05.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Jo%C3%A3o%20Pessoa%20e%20R.%20Terezina%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. João Pessoa",
+            "R. Terezina",
+            "Av. Abdo Saad",
+            "R. Belo Horizonte",
+            "R. Salvador"
+        ]
+    },
+    {
+        "number": "6",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Terezina, R. Belém, R. Porto Alegre, Av. Abdo Saad, R. Belo Horizonte, R. Salvador",
+        "image_url": "/territories/territory_card_06.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Terezina%20e%20R.%20Bel%C3%A9m%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Terezina",
+            "R. Belém",
+            "R. Porto Alegre",
+            "Av. Abdo Saad",
+            "R. Belo Horizonte",
+            "R. Salvador"
+        ]
+    },
+    {
+        "number": "7",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Terezina, R. Belém, R. Vitória, R. Niterói, R. Salvador",
+        "image_url": "/territories/territory_card_07.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Terezina%20e%20R.%20Bel%C3%A9m%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Terezina",
+            "R. Belém",
+            "R. Vitória",
+            "R. Niterói",
+            "R. Salvador"
+        ]
+    },
+    {
+        "number": "8",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Salvador, R. Porto Alegre, R. Belém, R. Florianópolis, R. Belo Horizonte",
+        "image_url": "/territories/territory_card_08.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Salvador%20e%20R.%20Porto%20Alegre%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Salvador",
+            "R. Porto Alegre",
+            "R. Belém",
+            "R. Florianópolis",
+            "R. Belo Horizonte"
+        ]
+    },
+    {
+        "number": "9",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Belém, R. Porto Alegre, R. Niterói, R. Vitória, R. Salvador",
+        "image_url": "/territories/territory_card_09.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Bel%C3%A9m%20e%20R.%20Porto%20Alegre%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Belém",
+            "R. Porto Alegre",
+            "R. Niterói",
+            "R. Vitória",
+            "R. Salvador"
+        ]
+    },
+    {
+        "number": "10",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Porto Alegre, R. Florianópolis, R. Fortaleza, R. Salvador, R. Belo Horizonte, Av. Abdo Saad",
+        "image_url": "/territories/territory_card_10.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Porto%20Alegre%20e%20R.%20Florian%C3%B3polis%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Porto Alegre",
+            "R. Florianópolis",
+            "R. Fortaleza",
+            "R. Salvador",
+            "R. Belo Horizonte",
+            "Av. Abdo Saad"
+        ]
+    },
+    {
+        "number": "11",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Salvador, R. Porto Alegre, R. Florianópolis, R. Fortaleza, R. Vitória",
+        "image_url": "/territories/territory_card_11.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Salvador%20e%20R.%20Porto%20Alegre%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Salvador",
+            "R. Porto Alegre",
+            "R. Florianópolis",
+            "R. Fortaleza",
+            "R. Vitória"
+        ]
+    },
+    {
+        "number": "12",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Porto Alegre, R. Florianópolis, R. Fortaleza, R. Niterói, R. Vitória",
+        "image_url": "/territories/territory_card_12.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Porto%20Alegre%20e%20R.%20Florian%C3%B3polis%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Porto Alegre",
+            "R. Florianópolis",
+            "R. Fortaleza",
+            "R. Niterói",
+            "R. Vitória"
+        ]
+    },
+    {
+        "number": "13",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Fortaleza, R. Belo Horinzonte, R. Rio Branco, R. Aracaju, R. Irene Teresinha Basílio, R. Lourival Ribeiro, R. Iolanda Noé, Av. Ábido Saad",
+        "image_url": "/territories/territory_card_13.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Fortaleza%20e%20R.%20Belo%20Horinzonte%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Fortaleza",
+            "R. Belo Horinzonte",
+            "R. Rio Branco",
+            "R. Aracaju",
+            "R. Irene Teresinha Basílio",
+            "R. Lourival Ribeiro",
+            "R. Iolanda Noé",
+            "Av. Ábido Saad"
+        ]
+    },
+    {
+        "number": "14",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Belo Horizonte, R. Fortaleza, R. Rio Branco, R. Vitória, R. Salvador",
+        "image_url": "/territories/territory_card_14.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Belo%20Horizonte%20e%20R.%20Fortaleza%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Belo Horizonte",
+            "R. Fortaleza",
+            "R. Rio Branco",
+            "R. Vitória",
+            "R. Salvador"
+        ]
+    },
+    {
+        "number": "15",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R 16 de Maio, R. Belo Horizonte, R. Rio Branco, R. Vitóriaa",
+        "image_url": "/territories/territory_card_15.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R%2016%20de%20Maio%20e%20R.%20Belo%20Horizonte%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R 16 de Maio",
+            "R. Belo Horizonte",
+            "R. Rio Branco",
+            "R. Vitóriaa"
+        ]
+    },
+    {
+        "number": "16",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. Rio Branco, R. 8 de Agosto, R. 16 de Maio, R. Vitória, R. Niterói",
+        "image_url": "/territories/territory_card_16.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Rio%20Branco%20e%20R.%208%20de%20Agosto%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Rio Branco",
+            "R. 8 de Agosto",
+            "R. 16 de Maio",
+            "R. Vitória",
+            "R. Niterói"
+        ]
+    },
+    {
+        "number": "17",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: R. João Pessoa, R. Terezina, R. Belém, R. Porto Alegre, R. Florianópolis, Av. N. S. dos Navegantes, Av. Ábido Saad",
+        "image_url": "/territories/territory_card_17.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Jo%C3%A3o%20Pessoa%20e%20R.%20Terezina%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. João Pessoa",
+            "R. Terezina",
+            "R. Belém",
+            "R. Porto Alegre",
+            "R. Florianópolis",
+            "Av. N. S. dos Navegantes",
+            "Av. Ábido Saad"
+        ]
+    },
+    {
+        "number": "18",
+        "neighborhood": "PARQUE JACARAÍPE",
+        "description": "Limites: Av. Ns. dos Navegantes, Av. Abido Saad, R. Florianópolis, R. Fortaleza, R. Rio Branco, R. Aracaju, R. Irene Teresinha Basílio",
+        "image_url": "/territories/territory_card_18.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Av.%20Ns.%20dos%20Navegantes%20e%20Av.%20Abido%20Saad%2C%20PARQUE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "Av. Ns. dos Navegantes",
+            "Av. Abido Saad",
+            "R. Florianópolis",
+            "R. Fortaleza",
+            "R. Rio Branco",
+            "R. Aracaju",
+            "R. Irene Teresinha Basílio"
+        ]
+    },
+    {
+        "number": "19",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. Jaspe, R. Niterói, R. São Paulo, R. Goiânia, R. João Pessoa, R. Topázio, R. Turqueza, R. Diamante, Av. Saﬁra",
+        "image_url": "/territories/territory_card_19.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Jaspe%20e%20R.%20Niter%C3%B3i%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Jaspe",
+            "R. Niterói",
+            "R. São Paulo",
+            "R. Goiânia",
+            "R. João Pessoa",
+            "R. Topázio",
+            "R. Turqueza",
+            "R. Diamante",
+            "Av. Saﬁra"
+        ]
+    },
+    {
+        "number": "20",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. São Paulo, R. Ametista, R. Ágata, R. Diamante, R. Jaspe, R. Quartzo, R. do Cravo, R. das Gardênias, R. da Betúnia",
+        "image_url": "/territories/territory_card_20.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20S%C3%A3o%20Paulo%20e%20R.%20Ametista%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. São Paulo",
+            "R. Ametista",
+            "R. Ágata",
+            "R. Diamante",
+            "R. Jaspe",
+            "R. Quartzo",
+            "R. do Cravo",
+            "R. das Gardênias",
+            "R. da Betúnia"
+        ]
+    },
+    {
+        "number": "21",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. Quartzo, R. Ametista, R. Ágata, R. Jade, R. Água Marinha, R. Turmalina, R. São Paulo, R. Diamante, R. Jaspe, R. Turqueza, R. do Lírio",
+        "image_url": "/territories/territory_card_21.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Quartzo%20e%20R.%20Ametista%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Quartzo",
+            "R. Ametista",
+            "R. Ágata",
+            "R. Jade",
+            "R. Água Marinha",
+            "R. Turmalina",
+            "R. São Paulo",
+            "R. Diamante",
+            "R. Jaspe",
+            "R. Turqueza",
+            "R. do Lírio"
+        ]
+    },
+    {
+        "number": "22",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. Cristal, R. Quartzo, R. Jaspe, R. Ametista, R. Ágata, R. Topázio, R. Turqueza",
+        "image_url": "/territories/territory_card_22.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Cristal%20e%20R.%20Quartzo%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Cristal",
+            "R. Quartzo",
+            "R. Jaspe",
+            "R. Ametista",
+            "R. Ágata",
+            "R. Topázio",
+            "R. Turqueza"
+        ]
+    },
+    {
+        "number": "23",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. Ametista, R. Ágata, R. Jade, R. Água Marinha, R. Quartzo, R. Diamante, R. Jaspe",
+        "image_url": "/territories/territory_card_23.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Ametista%20e%20R.%20%C3%81gata%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Ametista",
+            "R. Ágata",
+            "R. Jade",
+            "R. Água Marinha",
+            "R. Quartzo",
+            "R. Diamante",
+            "R. Jaspe"
+        ]
+    },
+    {
+        "number": "24",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: Av. Saﬁra, R. Topázio, R. Turquesa, R. Cristal, R. Quartzo, R. Turmalina, R. Esmeralda, R. Rubi, R. Jaspe",
+        "image_url": "/territories/territory_card_24.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Av.%20Sa%EF%AC%81ra%20e%20R.%20Top%C3%A1zio%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "Av. Saﬁra",
+            "R. Topázio",
+            "R. Turquesa",
+            "R. Cristal",
+            "R. Quartzo",
+            "R. Turmalina",
+            "R. Esmeralda",
+            "R. Rubi",
+            "R. Jaspe"
+        ]
+    },
+    {
+        "number": "25",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. Esmeralda, Av. Saﬁra, R. Topázio, R. Turquesa, R. Turmalina, R. Jasper, R. Rubi",
+        "image_url": "/territories/territory_card_25.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Esmeralda%20e%20Av.%20Sa%EF%AC%81ra%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Esmeralda",
+            "Av. Saﬁra",
+            "R. Topázio",
+            "R. Turquesa",
+            "R. Turmalina",
+            "R. Jasper",
+            "R. Rubi"
+        ]
+    },
+    {
+        "number": "26",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. Topázio, R. Terezina, R. Belém, R. Porto Alegre, R. João Pessoa, R. Esmeralda, Av. Saﬁra, R. Niterói, R. Natal",
+        "image_url": "/territories/territory_card_26.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Top%C3%A1zio%20e%20R.%20Terezina%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Topázio",
+            "R. Terezina",
+            "R. Belém",
+            "R. Porto Alegre",
+            "R. João Pessoa",
+            "R. Esmeralda",
+            "Av. Saﬁra",
+            "R. Niterói",
+            "R. Natal"
+        ]
+    },
+    {
+        "number": "27",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. Natal, R. Esmeralda, R. Turmalina, Av. Saﬁra, R. Florianópolis, R. Granada, R. Porto Alegre, R. Belém",
+        "image_url": "/territories/territory_card_27.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Natal%20e%20R.%20Esmeralda%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Natal",
+            "R. Esmeralda",
+            "R. Turmalina",
+            "Av. Saﬁra",
+            "R. Florianópolis",
+            "R. Granada",
+            "R. Porto Alegre",
+            "R. Belém"
+        ]
+    },
+    {
+        "number": "28",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. Belém, R. Natal, R. Porto Alegre, R. Florianópolis, R Niterói, R. Vitória",
+        "image_url": "/territories/territory_card_28.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Bel%C3%A9m%20e%20R.%20Natal%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Belém",
+            "R. Natal",
+            "R. Porto Alegre",
+            "R. Florianópolis",
+            "R Niterói",
+            "R. Vitória"
+        ]
+    },
+    {
+        "number": "29",
+        "neighborhood": "SÃO PATRÍCIO",
+        "description": "Limites: R. 8 de Agosto, R. Natal, R. Niterói, R. Florianópolis, R. Fortaleza, R. Rio Branco",
+        "image_url": "/territories/territory_card_29.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%208%20de%20Agosto%20e%20R.%20Natal%2C%20S%C3%83O%20PATR%C3%8DCIO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. 8 de Agosto",
+            "R. Natal",
+            "R. Niterói",
+            "R. Florianópolis",
+            "R. Fortaleza",
+            "R. Rio Branco"
+        ]
+    },
+    {
+        "number": "30",
+        "neighborhood": "CASTELÂNDIA",
+        "description": "Limites: Av. S. Pedro, R. ‘e’, R. Prof. Leal, Av. N. S. dos Navegantes, R. Rômulo Castelo, R. Wilson César N. Filho, R. Bartolomeu S. Ribeiro",
+        "image_url": "/territories/territory_card_30.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Av.%20S.%20Pedro%20e%20R.%20%E2%80%98e%E2%80%99%2C%20CASTEL%C3%82NDIA%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "Av. S. Pedro",
+            "R. ‘e’",
+            "R. Prof. Leal",
+            "Av. N. S. dos Navegantes",
+            "R. Rômulo Castelo",
+            "R. Wilson César N. Filho",
+            "R. Bartolomeu S. Ribeiro"
+        ]
+    },
+    {
+        "number": "31",
+        "neighborhood": "CASTELÂNDIA",
+        "description": "Limites: R Hélio Viana, Av. São Pedro, R Natalino Ribeiro, R. Bartolomeu S. Ribeiro, Av. Talma R. Ribeiro",
+        "image_url": "/territories/territory_card_31.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R%20H%C3%A9lio%20Viana%20e%20Av.%20S%C3%A3o%20Pedro%2C%20CASTEL%C3%82NDIA%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R Hélio Viana",
+            "Av. São Pedro",
+            "R Natalino Ribeiro",
+            "R. Bartolomeu S. Ribeiro",
+            "Av. Talma R. Ribeiro"
+        ]
+    },
+    {
+        "number": "32",
+        "neighborhood": "CASTELÂNDIA",
+        "description": "Limites: R ‘e’, R Hélio Viana, R ‘g’, R Francisco L. de Aguiar, R ‘i’, R Natalino Ribeiro, Av. Rômulo Castelo, R. Wilson César N. Filho, R. Bartolomeu S. Ribeiro",
+        "image_url": "/territories/territory_card_32.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R%20%E2%80%98e%E2%80%99%20e%20R%20H%C3%A9lio%20Viana%2C%20CASTEL%C3%82NDIA%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R ‘e’",
+            "R Hélio Viana",
+            "R ‘g’",
+            "R Francisco L. de Aguiar",
+            "R ‘i’",
+            "R Natalino Ribeiro",
+            "Av. Rômulo Castelo",
+            "R. Wilson César N. Filho",
+            "R. Bartolomeu S. Ribeiro"
+        ]
+    },
+    {
+        "number": "33",
+        "neighborhood": "CASTELÂNDIA",
+        "description": "Limites: R. ‘g’, R. Francisco Lacerda de Aguiar, R. ‘i’, Av. Rômulo Castello, R. Natalino Ribeiro, R. Wilson C. N. Filho, R. Bartolomeu S. Ribeiro, Av. N. S. dos Navegantes",
+        "image_url": "/territories/territory_card_33.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20%E2%80%98g%E2%80%99%20e%20R.%20Francisco%20Lacerda%20de%20Aguiar%2C%20CASTEL%C3%82NDIA%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. ‘g’",
+            "R. Francisco Lacerda de Aguiar",
+            "R. ‘i’",
+            "Av. Rômulo Castello",
+            "R. Natalino Ribeiro",
+            "R. Wilson C. N. Filho",
+            "R. Bartolomeu S. Ribeiro",
+            "Av. N. S. dos Navegantes"
+        ]
+    },
+    {
+        "number": "34",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: R. Guruçá, R ‘k’, R Wilson C. Nascimento, R. Rômulo Castello, R. Jucelino Kubitschek, R. Leão Castelo, Av. Rômulo Castelo, Av. N. S. dos Navegantes, R. Bartolomeu S. Ribeiro, R. Natalino Ribeiro",
+        "image_url": "/territories/territory_card_34.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Guru%C3%A7%C3%A1%20e%20R%20%E2%80%98k%E2%80%99%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Guruçá",
+            "R ‘k’",
+            "R Wilson C. Nascimento",
+            "R. Rômulo Castello",
+            "R. Jucelino Kubitschek",
+            "R. Leão Castelo",
+            "Av. Rômulo Castelo",
+            "Av. N. S. dos Navegantes",
+            "R. Bartolomeu S. Ribeiro",
+            "R. Natalino Ribeiro"
+        ]
+    },
+    {
+        "number": "35",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: R Bartholomeu Santos Ribeiro, R Natalino Ribeiro, R Aratú, R Guruçá, R José de Março, R Alvim Machado, Av. Rômulo Castelo, R. Wilson C. N. Filho, Av. N. S. dos Navegantes",
+        "image_url": "/territories/territory_card_35.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R%20Bartholomeu%20Santos%20Ribeiro%20e%20R%20Natalino%20Ribeiro%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R Bartholomeu Santos Ribeiro",
+            "R Natalino Ribeiro",
+            "R Aratú",
+            "R Guruçá",
+            "R José de Março",
+            "R Alvim Machado",
+            "Av. Rômulo Castelo",
+            "R. Wilson C. N. Filho",
+            "Av. N. S. dos Navegantes"
+        ]
+    },
+    {
+        "number": "36",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: R. Aratú, R.Miguel Leão, R. ‘q’, R. Natalino Ribeiro, R. Bartolomeu dos Santos Ribeiro, R. Rômulo Castelo, R.Wilsom César N. Filho, Av. N. Sra dos Navegantes",
+        "image_url": "/territories/territory_card_36.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Arat%C3%BA%20e%20R.Miguel%20Le%C3%A3o%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Aratú",
+            "R.Miguel Leão",
+            "R. ‘q’",
+            "R. Natalino Ribeiro",
+            "R. Bartolomeu dos Santos Ribeiro",
+            "R. Rômulo Castelo",
+            "R.Wilsom César N. Filho",
+            "Av. N. Sra dos Navegantes"
+        ]
+    },
+    {
+        "number": "37",
+        "neighborhood": "CASTELÂNDIA",
+        "description": "Limites: R. ‘q’, Av. Raul Leão Castello, R. Portugal, R. Natalino Robeiro, Av. Rômulo Castelo, R. Bartolomeu S. Ribeiro, R. Wilson C. N. Filho",
+        "image_url": "/territories/territory_card_37.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20%E2%80%98q%E2%80%99%20e%20Av.%20Raul%20Le%C3%A3o%20Castello%2C%20CASTEL%C3%82NDIA%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. ‘q’",
+            "Av. Raul Leão Castello",
+            "R. Portugal",
+            "R. Natalino Robeiro",
+            "Av. Rômulo Castelo",
+            "R. Bartolomeu S. Ribeiro",
+            "R. Wilson C. N. Filho"
+        ]
+    },
+    {
+        "number": "38",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: Av. Raul Leão Castello, R. Quênia, R. Líbano, R. Portugal, R. O, R. Noruega, R. México, R. Natalino Ribeiro, R. Rússia",
+        "image_url": "/territories/territory_card_38.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Av.%20Raul%20Le%C3%A3o%20Castello%20e%20R.%20Qu%C3%AAnia%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "Av. Raul Leão Castello",
+            "R. Quênia",
+            "R. Líbano",
+            "R. Portugal",
+            "R. O",
+            "R. Noruega",
+            "R. México",
+            "R. Natalino Ribeiro",
+            "R. Rússia"
+        ]
+    },
+    {
+        "number": "39",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: R. Líbano, R. Itália, R. México, R. Japão, R. Koréa, R. Rússia, Av. Raul Leão Castelo, R. Noruega, R. Havaí, Av. Des. Antônio",
+        "image_url": "/territories/territory_card_39.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20L%C3%ADbano%20e%20R.%20It%C3%A1lia%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Líbano",
+            "R. Itália",
+            "R. México",
+            "R. Japão",
+            "R. Koréa",
+            "R. Rússia",
+            "Av. Raul Leão Castelo",
+            "R. Noruega",
+            "R. Havaí",
+            "Av. Des. Antônio"
+        ]
+    },
+    {
+        "number": "40",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: R. Líbano, R. Havaí, R. Grécia, R. França, R. Itália, R. Japão, R. Koréa, R. Rússia, Av. Raul Leão Castelo, Av. Des. Antônio J. M. Feu Rosa, Av. Des. Antônio J.",
+        "image_url": "/territories/territory_card_40.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20L%C3%ADbano%20e%20R.%20Hava%C3%AD%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Líbano",
+            "R. Havaí",
+            "R. Grécia",
+            "R. França",
+            "R. Itália",
+            "R. Japão",
+            "R. Koréa",
+            "R. Rússia",
+            "Av. Raul Leão Castelo",
+            "Av. Des. Antônio J. M. Feu Rosa",
+            "Av. Des. Antônio J."
+        ]
+    },
+    {
+        "number": "41",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: R. Havaí, R. Grécia, R. França, R. Egito, R. Dinamarca, R. Itália, Av. Raul Leão Castelo",
+        "image_url": "/territories/territory_card_41.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Hava%C3%AD%20e%20R.%20Gr%C3%A9cia%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Havaí",
+            "R. Grécia",
+            "R. França",
+            "R. Egito",
+            "R. Dinamarca",
+            "R. Itália",
+            "Av. Raul Leão Castelo"
+        ]
+    },
+    {
+        "number": "42",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: Av. Raul Leão Castello, R. França, R. Egito, R. Bélgica, R. Canadá, R. Dinamarca",
+        "image_url": "/territories/territory_card_42.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Av.%20Raul%20Le%C3%A3o%20Castello%20e%20R.%20Fran%C3%A7a%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "Av. Raul Leão Castello",
+            "R. França",
+            "R. Egito",
+            "R. Bélgica",
+            "R. Canadá",
+            "R. Dinamarca"
+        ]
+    },
+    {
+        "number": "43",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: R. Egito, R. Austrália, R. Bélgica, R. Canadá, R. Dinamarca, Av. Raul Leão Castelo, Av. Talma Ro",
+        "image_url": "/territories/territory_card_43.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Egito%20e%20R.%20Austr%C3%A1lia%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Egito",
+            "R. Austrália",
+            "R. Bélgica",
+            "R. Canadá",
+            "R. Dinamarca",
+            "Av. Raul Leão Castelo",
+            "Av. Talma Ro"
+        ]
+    },
+    {
+        "number": "44",
+        "neighborhood": "PORTAL DE JACARAÍPE",
+        "description": "Limites: R. Egito, R. Austrália, R. Bélgica, R. Canadá, R. Dinamarca, Av. Raul Leão Castelo, Av. Talma Ro",
+        "image_url": "/territories/territory_card_44.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R.%20Egito%20e%20R.%20Austr%C3%A1lia%2C%20PORTAL%20DE%20JACARA%C3%8DPE%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R. Egito",
+            "R. Austrália",
+            "R. Bélgica",
+            "R. Canadá",
+            "R. Dinamarca",
+            "Av. Raul Leão Castelo",
+            "Av. Talma Ro"
+        ]
+    },
+    {
+        "number": "45",
+        "neighborhood": "SÃO PEDRO",
+        "description": "Limites: Av. São Pedro",
+        "image_url": "/territories/territory_card_45.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Av.%20S%C3%A3o%20Pedro%2C%20S%C3%83O%20PEDRO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "Av. São Pedro"
+        ]
+    },
+    {
+        "number": "46",
+        "neighborhood": "SÃO PEDRO",
+        "description": "Limites: Av. S. Pedro, R 8 de Agosto, R. Hermam Stern, R. Pica-Pau, R. Um",
+        "image_url": "/territories/territory_card_46.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Av.%20S.%20Pedro%20e%20R%208%20de%20Agosto%2C%20S%C3%83O%20PEDRO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "Av. S. Pedro",
+            "R 8 de Agosto",
+            "R. Hermam Stern",
+            "R. Pica-Pau",
+            "R. Um"
+        ]
+    },
+    {
+        "number": "47",
+        "neighborhood": "SÃO PEDRO",
+        "description": "Limites: Av. S. Pedro, R. Pica-Pau, R. Um, R. Hermam Stern",
+        "image_url": "/territories/territory_card_47.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Av.%20S.%20Pedro%20e%20R.%20Pica-Pau%2C%20S%C3%83O%20PEDRO%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "Av. S. Pedro",
+            "R. Pica-Pau",
+            "R. Um",
+            "R. Hermam Stern"
+        ]
+    },
+    {
+        "number": "48",
+        "neighborhood": "CASTELÂNDIA",
+        "description": "Limites: R Hélio Viana, R ‘e’, R ‘g’, R ‘i’, R Natalino Ribeiro, R ‘k’, R Leão Castello, R Dom João Batista, R ‘h’, R Jucelino Kubitschek, R ‘o’",
+        "image_url": "/territories/territory_card_48.png",
+        "google_maps_url": "https://www.google.com/maps/search/?api=1&query=R%20H%C3%A9lio%20Viana%20e%20R%20%E2%80%98e%E2%80%99%2C%20CASTEL%C3%82NDIA%2C%20Serra%20-%20ES",
+        "extracted_streets": [
+            "R Hélio Viana",
+            "R ‘e’",
+            "R ‘g’",
+            "R ‘i’",
+            "R Natalino Ribeiro",
+            "R ‘k’",
+            "R Leão Castello",
+            "R Dom João Batista",
+            "R ‘h’",
+            "R Jucelino Kubitschek",
+            "R ‘o’"
+        ]
+    }
+]
