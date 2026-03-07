@@ -243,17 +243,19 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
             <div style={{ flex: 1, overflowY: 'auto', background: '#F9FAFB' }}>
                 {selectedPart ? (
                     <div style={sectionStyle}>
-                        {/* Status */}
+                        {/* Status e Título */}
                         <div style={{ paddingBottom: '12px', borderBottom: '1px solid #E5E7EB', marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={labelStyle}>Status</div>
-                                {getStatusBadge(selectedPart.status)}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div>
+                                    <div style={{ ...labelStyle, marginBottom: '2px' }}>Status</div>
+                                    <div style={{ color: '#DC2626', fontSize: '14px', fontWeight: 'bold', lineHeight: 1.2 }}>
+                                        {selectedPart.tituloParte || selectedPart.tipoParte}
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: '2px' }}>
+                                    {getStatusBadge(selectedPart.status)}
+                                </div>
                             </div>
-                        </div>
-
-                        {/* Título da Parte Selecionada */}
-                        <div style={{ marginBottom: '16px', color: '#DC2626', fontSize: '13px', fontWeight: 'bold' }}>
-                            {selectedPart.tituloParte || selectedPart.tipoParte}
                         </div>
 
                         {/* Publicador Designado */}
