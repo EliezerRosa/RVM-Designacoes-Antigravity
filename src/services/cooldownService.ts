@@ -32,12 +32,19 @@ export function getParticipationCategory(tipoParte: string, funcao: string = 'Ti
 
     const lower = tipoParte?.toLowerCase() || '';
 
-    // 2. IGNORADOS: Orações, NL, Cânticos - NÃO CONTAM para bloqueio
+    // 2. IGNORADOS: Orações, NL, Cânticos, e partes secundárias da Presidência - NÃO CONTAM para bloqueio
     if (lower.includes('oração') ||
         lower.includes('oracao') ||
         lower.includes('necessidades') ||
         lower.includes('cântico') ||
-        lower.includes('cantico')) {
+        lower.includes('cantico') ||
+        lower.includes('elogios') ||
+        lower.includes('comentários iniciais') ||
+        lower.includes('comentarios iniciais') ||
+        lower.includes('observações finais') ||
+        lower.includes('observacoes finais') ||
+        lower.includes('comentários finais') ||
+        lower.includes('comentarios finais')) {
         return 'IGNORED';
     }
 
