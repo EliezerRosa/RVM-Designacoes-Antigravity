@@ -75,6 +75,20 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         return () => clearTimeout(timer);
     }, [currentWeekId]);
 
+    // Reseta a Seleção de Parte automaticamente ao trocar de semana
+    useEffect(() => {
+        if (currentWeekId && weekParts[currentWeekId]) {
+            const partsList = weekParts[currentWeekId];
+            if (partsList && partsList.length > 0) {
+                // Verificar se a parte atualmente selecionada pertence a esta semana.
+                const isCurrentSelectionValid = partsList.some(p => p.id === selectedPartId);
+                if (!isCurrentSelectionValid) {
+                    setSelectedPartId(partsList[0].id); // Auto select da primeira parte
+                }
+            }
+        }
+    }, [currentWeekId, weekParts, selectedPartId]);
+
     // Handle actions from Chat
     const handleAgentAction = (result: ActionResult) => {
         if (result.success) {
