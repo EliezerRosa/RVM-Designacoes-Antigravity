@@ -316,14 +316,18 @@ export default function TemporalChat({
             };
 
             // Base message from agent (clean display — no UUIDs in JSON blocks)
-            const agentMsg: ChatMessage = {
-                role: 'assistant',
-                content: response.success ? stripJsonBlocks(response.message) : `❌ Erro: ${response.error}`,
-                timestamp: new Date(),
-            };
+            const cleanedContent = response.success ? stripJsonBlocks(response.message) : `❌ Erro: ${response.error}`;
 
-            await chatHistoryService.addMessage(sessionId, agentMsg);
-            setMessages(prev => [...prev, agentMsg]);
+            if (cleanedContent.trim() !== '') {
+                const agentMsg: ChatMessage = {
+                    role: 'assistant',
+                    content: cleanedContent,
+                    timestamp: new Date(),
+                };
+
+                await chatHistoryService.addMessage(sessionId, agentMsg);
+                setMessages(prev => [...prev, agentMsg]);
+            }
 
             if (response.isFallback) {
                 console.warn('[TemporalChat] Smart Fallback activated (System alert suppressed in UI)');
