@@ -520,6 +520,13 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
         } catch (e) {
             console.error('Erro ao atualizar publicador:', e);
             const msg = e instanceof Error ? e.message : 'Erro desconhecido';
+
+            if (msg.includes('Failed to fetch dynamically imported module')) {
+                console.warn('[WorkbookManager] Refreshing page to load new app version...');
+                window.location.reload();
+                return;
+            }
+
             setError(msg);
             alert(`Erro ao salvar: ${msg}`);
         }
