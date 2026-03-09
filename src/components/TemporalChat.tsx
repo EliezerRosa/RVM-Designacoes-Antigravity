@@ -433,15 +433,44 @@ export default function TemporalChat({
                 );
                 if (hasAssignActions && currentWeekId) {
                     const weekParts = parts.filter(p => p.weekId === currentWeekId);
-                    // Recount after actions — approximate since parts state may not have refreshed yet
-                    const assignedInThisBatch = results.filter(r => r.success && r.actionType === 'ASSIGN_PART' && r.data?.assignedTo).length;
-                    const removedInThisBatch = results.filter(r => r.success && r.actionType === 'ASSIGN_PART' && !r.data?.assignedTo).length;
-                    const currentPending = weekParts.filter(p => !p.resolvedPublisherName).length - assignedInThisBatch + removedInThisBatch;
-                    const pendingCount = Math.max(0, currentPending);
+
+                    // Verificamos o resultado (actionType real retornado)
+                    const gotCleared = results.some(r => r.success && r.actionType === 'CLEAR_WEEK');
+                    const gotGenerated = results.some(r => r.success && r.actionType === 'GENERATE_WEEK');
+
+                    let pendingCount = 0;
+
+                    if (gotCleared) {
+                        // Se limpou a semana inteira, TUDO está pendente
+                        pendingCount = weekParts.filter(p => p.status !== 'OCULTA').length; // Simplificando
+                    } else if (gotGenerated) {
+                        // Se mandou AUTO-GERAR, dependemos do banco (o optimistic state pode falhar), 
+                        // então contamos o que sobrou no optimistic state ou evitamos afirmar que tudo está vazio
+                        // O ideal: gerar semana retorna dados atualizados, mas como é complexo, 
+                        // verificamos se sobrou algo "não designado" no estado atual ignorando a ação. 
+                        // (Na verdade, GENERATE preenche quase tudo, CLEAR esvazia).
+                        const unassignableCount = weekParts.filter(p =>
+                            p.tipoParte === 'Cântico' || p.tipoParte === 'Oração' || p.tipoParte === 'Presidente da Reunião'
+                        ).length;
+                        // Para simplificar, não cravamos "faltam X" logo após um auto-generate, pois a API já avisa "32 designações geradas".
+                        pendingCount = -1; // Flag para pular a contagem exata no feedback do chat
+
+                        // Busca no history de results se o backend avisou quantas sobraram (ex: result message "Restam X")
+                        const genResult = results.find(r => r.actionType === 'GENERATE_WEEK');
+                        if (genResult && genResult.message.includes('Restam')) {
+                            // Não precisamos injetar, a mensagem original já tem.
+                        }
+                    } else {
+                        // Math padrão para ASSIGN_PART individual
+                        const assignedInThisBatch = results.filter(r => r.success && r.actionType === 'ASSIGN_PART' && r.data?.assignedTo).length;
+                        const removedInThisBatch = results.filter(r => r.success && r.actionType === 'ASSIGN_PART' && !r.data?.assignedTo).length;
+                        const currentPending = weekParts.filter(p => !p.resolvedPublisherName).length - assignedInThisBatch + removedInThisBatch;
+                        pendingCount = Math.max(0, currentPending);
+                    }
 
                     if (pendingCount > 0) {
                         feedbackContent += `\n📋 Restam ${pendingCount} parte${pendingCount > 1 ? 's' : ''} sem designação nesta semana.`;
-                    } else if (pendingCount === 0 && weekParts.length > 0) {
+                    } else if (pendingCount === 0 && weekParts.length > 0 && !gotCleared) {
                         feedbackContent += `\n🎉 Todas as partes desta semana estão designadas!`;
                     }
                 }
