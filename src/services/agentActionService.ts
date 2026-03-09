@@ -716,9 +716,18 @@ export const agentActionService = {
             }
         } catch (e) {
             console.error('[AgentAction] Execution error:', e);
+            const errorMsg = e instanceof Error ? e.message : String(e);
+
+            // Handle Vite dynamic import chunk missing error (e.g., after deployment)
+            if (errorMsg.includes('Failed to fetch dynamically imported module')) {
+                console.warn('[AgentAction] Refreshing page to load new app version...');
+                window.location.reload();
+                return { success: true, message: 'Nova versão detectada. Atualizando o aplicativo...' };
+            }
+
             return {
                 success: false,
-                message: e instanceof Error ? e.message : 'Erro desconhecido na execução.'
+                message: errorMsg || 'Erro desconhecido na execução.'
             };
         }
     }
