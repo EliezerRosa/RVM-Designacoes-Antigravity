@@ -42,10 +42,17 @@ export function getRotationConfig() {
 // Partes que não contam para estatísticas ou histórico do publicador
 export const EXCLUDED_STATS_PARTS = [
     "Cântico",
+    "Cantico",
     "Oração",
+    "Oracao",
+    "Necessidades",
     "Comentários iniciais",
+    "Comentarios iniciais",
     "Elogios e conselhos",
+    "Observações finais",
+    "Observacoes finais",
     "Comentários finais",
+    "Comentarios finais",
     "Presidente"
 ];
 

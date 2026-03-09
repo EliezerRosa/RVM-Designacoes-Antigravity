@@ -44,7 +44,8 @@ export function getParticipationCategory(tipoParte: string, funcao: string = 'Ti
         lower.includes('observações finais') ||
         lower.includes('observacoes finais') ||
         lower.includes('comentários finais') ||
-        lower.includes('comentarios finais')) {
+        lower.includes('comentarios finais') ||
+        lower.includes('presidente')) {
         return 'IGNORED';
     }
 
