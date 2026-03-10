@@ -13,6 +13,7 @@ import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140Gen
 import { specialEventService } from '../services/specialEventService';
 // import { localNeedsService } from '../services/localNeedsService';
 import type { SpecialEventInput, LocalNeedsInput } from '../services/contextBuilder';
+import { supabase } from '../lib/supabase';
 
 interface TemporalChatProps {
     publishers: Publisher[];
