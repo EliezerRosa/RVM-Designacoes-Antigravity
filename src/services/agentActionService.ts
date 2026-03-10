@@ -75,25 +75,55 @@ export const agentActionService = {
             }
         }
 
-        // Fallback: try inline JSON if no blocks found
+        // Fallback: try to extract JSON by finding the first { and matching braces
         if (actions.length === 0) {
-            const startMatch = responseContent.match(/{\s*"type"\s*:/);
-            if (startMatch && startMatch.index !== undefined) {
-                const endIdx = responseContent.lastIndexOf('}');
-                if (endIdx > startMatch.index) {
-                    const jsonStr = responseContent.substring(startMatch.index, endIdx + 1);
-                    try {
-                        const data = JSON.parse(jsonStr);
-                        if (data.type) {
-                            actions.push({
-                                type: data.type,
-                                params: data.params || {},
-                                description: data.description || 'Ação sugerida pelo agente'
-                            });
-                        }
-                    } catch (e) {
-                        console.error('[AgentAction] Failed to parse inline action JSON:', e);
+            const extractObject = (text: string): string | null => {
+                const startIdx = text.indexOf('{');
+                if (startIdx === -1) return null;
+
+                let braceCount = 0;
+                let inString = false;
+                let escape = false;
+
+                for (let i = startIdx; i < text.length; i++) {
+                    const char = text[i];
+                    if (escape) {
+                        escape = false;
+                        continue;
                     }
+                    if (char === '\\') {
+                        escape = true;
+                        continue;
+                    }
+                    if (char === '"') {
+                        inString = !inString;
+                        continue;
+                    }
+                    if (!inString) {
+                        if (char === '{') braceCount++;
+                        else if (char === '}') braceCount--;
+
+                        if (braceCount === 0) {
+                            return text.substring(startIdx, i + 1);
+                        }
+                    }
+                }
+                return null;
+            };
+
+            const jsonStr = extractObject(responseContent);
+            if (jsonStr) {
+                try {
+                    const data = JSON.parse(jsonStr);
+                    if (data.type) {
+                        actions.push({
+                            type: data.type,
+                            params: data.params || {},
+                            description: data.description || 'Ação sugerida pelo agente'
+                        });
+                    }
+                } catch (e) {
+                    console.error('[AgentAction] Failed to parse inline action JSON:', e, 'Raw string:', jsonStr);
                 }
             }
         }
