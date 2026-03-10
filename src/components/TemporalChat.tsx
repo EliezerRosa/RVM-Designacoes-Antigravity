@@ -67,13 +67,21 @@ export default function TemporalChat({
     const recognitionRef = useRef<any>(null);
 
     useEffect(() => {
-        // Initialize SpeechRecognition once
         if (typeof window !== 'undefined') {
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+            // Strict Chrome detection (blocks Edge, Opera, etc)
+            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+
             if (SpeechRecognition) {
+                if (!isChrome) {
+                    setSpeechError('Voz requer Google Chrome (Edge/outros não suportados)');
+                    return;
+                }
+
                 const recognition = new SpeechRecognition();
                 recognition.continuous = false;
-                recognition.interimResults = true;
+                recognition.interimResults = false;
                 recognition.lang = 'pt-BR';
 
                 recognition.onstart = () => {
@@ -82,23 +90,17 @@ export default function TemporalChat({
                 };
 
                 recognition.onresult = (event: any) => {
-                    let finalTranscript = '';
-                    let interimTranscript = '';
+                    const transcript = Array.from(event.results)
+                        .map((result: any) => result[0])
+                        .map((result) => result.transcript)
+                        .join('');
 
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            finalTranscript += event.results[i][0].transcript;
-                        } else {
-                            interimTranscript += event.results[i][0].transcript;
-                        }
-                    }
-
-                    // Se terminou a frase atual, seta direto
-                    if (finalTranscript) {
-                        setInput(prev => prev ? prev + ' ' + finalTranscript : finalTranscript);
-                    } else if (interimTranscript) {
-                        // Não mudamos o input principal com o parcial para não conflitar com digitação manual,
-                        // Mas poderíamos colocar um preview flutuante. Por enquanto, só o final já resolve bem.
+                    if (transcript) {
+                        setInput(transcript);
+                        // Auto-send after a small delay to let UI updates
+                        setTimeout(() => {
+                            sendMessage(transcript);
+                        }, 500);
                     }
                 };
 
@@ -126,6 +128,12 @@ export default function TemporalChat({
     }, []);
 
     const toggleListening = () => {
+        const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (!isChrome) {
+            alert('A digitação por voz está restrita ao Google Chrome para evitar falhas de rede.\nPor favor, abra o RVM Designações no Chrome.');
+            return;
+        }
+
         if (!recognitionRef.current) {
             alert(speechError || 'Reconhecimento de voz não suportado neste navegador.');
             return;
