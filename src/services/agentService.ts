@@ -321,7 +321,8 @@ export async function askAgent(
     accessLevel: AccessLevel = 'publisher',
     specialEvents: SpecialEventInput[] = [],
     localNeeds: LocalNeedsInput[] = [],
-    focusWeekId?: string
+    focusWeekId?: string,
+    audioData?: { mimeType: string, data: string }
 ): Promise<AgentResponse> {
     if (!isAgentConfigured()) {
         return { success: false, message: '', error: 'API Key não configurada.', actions: [] };
@@ -358,12 +359,26 @@ export async function askAgent(
                 parts: [{ text: msg.content }],
             }));
 
+            // Montar objeto da pergunta atual com texto e áudio (se houver)
+            const currentUserParts: any[] = [];
+            if (question) {
+                currentUserParts.push({ text: question });
+            }
+            if (audioData) {
+                currentUserParts.push({ inlineData: audioData });
+            }
+
+            // Se veio só áudio e a question for vazia, adicionar instrução para transcrever/responder
+            if (audioData && !question) {
+                currentUserParts.push({ text: "Analise o comando de voz em anexo e execute a ação apropriada." });
+            }
+
             const requestBody = {
                 contents: [
                     { role: 'user', parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }] },
                     { role: 'model', parts: [{ text: `Entendido! Assistente RVM disponível.` }] },
                     ...recentChat,
-                    { role: 'user', parts: [{ text: question }] },
+                    { role: 'user', parts: currentUserParts },
                 ],
                 generationConfig: { temperature: 0.7, maxOutputTokens: 8192, topP: 0.95 }
             };
