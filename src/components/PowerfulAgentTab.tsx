@@ -16,6 +16,8 @@ import { chatHistoryService } from '../services/chatHistoryService';
 import { S89SelectionModal } from './S89SelectionModal';
 import type { ActionResult } from '../services/agentActionService';
 import { CostMonitor } from './admin/CostMonitor';
+import AgentModalHost from './AgentModalHost';
+import type { AgentModalType } from './AgentModalHost';
 
 interface Props {
     publishers: Publisher[];
@@ -43,6 +45,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
     const [showS89Modal, setShowS89Modal] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
+    const [activeModal, setActiveModal] = useState<AgentModalType>(null);
 
     // Sync currentWeekId when weekOrder arrives asynchronously OR fallback if stored is invalid
     useEffect(() => {
@@ -91,6 +94,13 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
     // Handle actions from Chat
     const handleAgentAction = (result: ActionResult) => {
+        // Intercept SHOW_MODAL — it's a UI action, not a data action
+        if (result.actionType === 'SHOW_MODAL' && result.data?.modal) {
+            console.log('[PowerfulAgent] Opening modal:', result.data.modal);
+            setActiveModal(result.data.modal as AgentModalType);
+            return;
+        }
+
         if (result.success) {
             console.log('[PowerfulAgent] Action successful, requesting reload...');
 
@@ -358,6 +368,16 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 weekParts={weekParts[currentWeekId || ''] || []}
                 weekId={currentWeekId || ''}
                 publishers={publishers}
+            />
+
+            <AgentModalHost
+                modal={activeModal}
+                onClose={() => setActiveModal(null)}
+                publishers={publishers}
+                weekParts={weekParts}
+                weekOrder={weekOrder}
+                focusWeekId={currentWeekId || undefined}
+                onDataChange={onDataChange}
             />
         </div >
     );

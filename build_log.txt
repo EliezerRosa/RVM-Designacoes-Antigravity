@@ -1,0 +1,6 @@
+[Vite Config] Loading env for mode: production
+[Vite Config] VITE_SUPABASE_URL present? true
+[Vite Config] VITE_SUPABASE_URL starts with: https://pe...
+[36mvite v7.2.7 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m???[39m 1214 modules transformed.
