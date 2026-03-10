@@ -104,7 +104,13 @@ export default function TemporalChat({
 
                 recognition.onerror = (event: any) => {
                     console.error('Speech recognition error', event.error);
-                    setSpeechError(event.error === 'not-allowed' ? 'Permissão negada' : 'Erro no microfone');
+                    if (event.error === 'not-allowed') {
+                        setSpeechError('Permissão negada');
+                    } else if (event.error === 'network') {
+                        setSpeechError('Erro de conexão (verifique sua internet)');
+                    } else {
+                        setSpeechError('Erro no microfone');
+                    }
                     setIsListening(false);
                 };
 

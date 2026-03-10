@@ -77,19 +77,23 @@ export const agentActionService = {
 
         // Fallback: try inline JSON if no blocks found
         if (actions.length === 0) {
-            const inlineMatch = responseContent.match(/{\s*"type"\s*:\s*"(?:GENERATE_WEEK|ASSIGN_PART|UNDO_LAST|NAVIGATE_WEEK|VIEW_S140|SHARE_S140_WHATSAPP|SIMULATE_ASSIGNMENT|CHECK_SCORE|CLEAR_WEEK|UPDATE_PUBLISHER|UPDATE_AVAILABILITY|UPDATE_ENGINE_RULES|MANAGE_SPECIAL_EVENT|SEND_S140|SEND_S89|FETCH_DATA|NOTIFY_REFUSAL)"[\s\S]*?}/);
-            if (inlineMatch) {
-                try {
-                    const data = JSON.parse(inlineMatch[0]);
-                    if (data.type) {
-                        actions.push({
-                            type: data.type,
-                            params: data.params || {},
-                            description: data.description || 'Ação sugerida pelo agente'
-                        });
+            const startMatch = responseContent.match(/{\s*"type"\s*:/);
+            if (startMatch && startMatch.index !== undefined) {
+                const endIdx = responseContent.lastIndexOf('}');
+                if (endIdx > startMatch.index) {
+                    const jsonStr = responseContent.substring(startMatch.index, endIdx + 1);
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        if (data.type) {
+                            actions.push({
+                                type: data.type,
+                                params: data.params || {},
+                                description: data.description || 'Ação sugerida pelo agente'
+                            });
+                        }
+                    } catch (e) {
+                        console.error('[AgentAction] Failed to parse inline action JSON:', e);
                     }
-                } catch (e) {
-                    console.error('[AgentAction] Failed to parse inline action JSON:', e);
                 }
             }
         }
