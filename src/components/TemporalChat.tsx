@@ -59,6 +59,85 @@ export default function TemporalChat({
     // Rate Limit Countdown State (from API error)
     const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
 
+    // Voice Chat State
+    const [isListening, setIsListening] = useState(false);
+    const [speechError, setSpeechError] = useState<string | null>(null);
+
+    // Initializer for Speech Recognition
+    const recognitionRef = useRef<any>(null);
+
+    useEffect(() => {
+        // Initialize SpeechRecognition once
+        if (typeof window !== 'undefined') {
+            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.lang = 'pt-BR';
+
+                recognition.onstart = () => {
+                    setIsListening(true);
+                    setSpeechError(null);
+                };
+
+                recognition.onresult = (event: any) => {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+
+                    // Se terminou a frase atual, seta direto
+                    if (finalTranscript) {
+                        setInput(prev => prev ? prev + ' ' + finalTranscript : finalTranscript);
+                    } else if (interimTranscript) {
+                        // Não mudamos o input principal com o parcial para não conflitar com digitação manual,
+                        // Mas poderíamos colocar um preview flutuante. Por enquanto, só o final já resolve bem.
+                    }
+                };
+
+                recognition.onerror = (event: any) => {
+                    console.error('Speech recognition error', event.error);
+                    setSpeechError(event.error === 'not-allowed' ? 'Permissão negada' : 'Erro no microfone');
+                    setIsListening(false);
+                };
+
+                recognition.onend = () => {
+                    setIsListening(false);
+                };
+
+                recognitionRef.current = recognition;
+            } else {
+                setSpeechError('Seu navegador não suporta reconhecimento de voz. Tente o Chrome.');
+            }
+        }
+    }, []);
+
+    const toggleListening = () => {
+        if (!recognitionRef.current) {
+            alert(speechError || 'Reconhecimento de voz não suportado neste navegador.');
+            return;
+        }
+
+        if (isListening) {
+            recognitionRef.current.stop();
+        } else {
+            try {
+                recognitionRef.current.start();
+            } catch (err) {
+                console.error("Failed to start listening", err);
+                recognitionRef.current.stop();
+                setTimeout(() => recognitionRef.current.start(), 100);
+            }
+        }
+    };
+
     // Local Rate Limit Tracking (15 req/min)
     const [requestTimestamps, setRequestTimestamps] = useState<number[]>([]);
     const MAX_REQUESTS_PER_MINUTE = 15;
@@ -791,13 +870,33 @@ export default function TemporalChat({
                 <input
                     ref={inputRef}
                     type="text"
-                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : "Digite sua mensagem..."}
+                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : (isListening ? "Ouvindo..." : "Digite sua mensagem...")}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKey}
                     disabled={isLoading || rateLimitCountdown > 0}
                     style={{ flex: 1, padding: '6px 10px', borderRadius: '4px', border: '1px solid #D1D5DB', opacity: rateLimitCountdown > 0 ? 0.6 : 1 }}
                 />
+                <button
+                    onClick={toggleListening}
+                    disabled={isLoading || rateLimitCountdown > 0}
+                    title={speechError || "Falar"}
+                    style={{
+                        background: isListening ? '#EF4444' : '#F3F4F6',
+                        color: isListening ? '#FFFFFF' : '#374151',
+                        border: '1px solid',
+                        borderColor: isListening ? '#EF4444' : '#D1D5DB',
+                        borderRadius: '4px',
+                        padding: '6px 12px',
+                        cursor: (isLoading || rateLimitCountdown > 0) ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        animation: isListening ? 'pulse 1.5s infinite' : 'none'
+                    }}
+                >
+                    {isListening ? '🛑' : '🎤'}
+                </button>
                 <button
                     onClick={() => sendMessage()}
                     disabled={isLoading || rateLimitCountdown > 0 || creditsRemaining === 0}
