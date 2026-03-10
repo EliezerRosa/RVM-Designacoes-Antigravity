@@ -425,6 +425,48 @@ export default function TemporalChat({
         return () => clearInterval(timer);
     }, [rateLimitCountdown]);
 
+    // === TTS (Text-to-Speech) ===
+    const speakText = (text: string) => {
+        if (!window.speechSynthesis) return;
+
+        // Cancelar qualquer fala em andamento
+        window.speechSynthesis.cancel();
+
+        // Limpar markdown, emojis e caracteres especiais para leitura mais natural
+        const cleanText = text
+            .replace(/[#*_~`>|]/g, '')             // Remove markdown
+            .replace(/\[.*?\]\(.*?\)/g, '')         // Remove links markdown
+            .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Remove emojis faces
+            .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Remove emojis symbols
+            .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Remove emojis transport
+            .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Remove emojis supplemental
+            .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Remove misc symbols
+            .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Remove dingbats
+            .replace(/\n+/g, '. ')                  // Newlines → pausas
+            .replace(/\s+/g, ' ')                   // Normalizar espaços
+            .trim();
+
+        if (!cleanText) return;
+
+        // Limitar para evitar leituras muito longas (máx ~500 chars)
+        const truncated = cleanText.length > 500
+            ? cleanText.substring(0, 500) + '.'
+            : cleanText;
+
+        const utterance = new SpeechSynthesisUtterance(truncated);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 1.1;      // Ligeiramente mais rápido
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        // Tentar encontrar uma voz pt-BR
+        const voices = window.speechSynthesis.getVoices();
+        const ptBrVoice = voices.find(v => v.lang === 'pt-BR') || voices.find(v => v.lang.startsWith('pt'));
+        if (ptBrVoice) utterance.voice = ptBrVoice;
+
+        window.speechSynthesis.speak(utterance);
+    };
+
     const sendMessage = async (overrideInput?: string, audioData?: { mimeType: string, data: string }) => {
         // Safety check: Ensure overrideInput is a string and not a PointerEvent or other object
         const finalOverride = typeof overrideInput === 'string' ? overrideInput : undefined;
@@ -434,20 +476,25 @@ export default function TemporalChat({
         if ((!textToSend && !audioData) || !sessionId || isLoading) return;
 
         const isPureAudio = audioData && !textToSend;
-        // Sempre pular a renderização visual do áudio puro
-        const skipUserMsgUI = isPureAudio;
 
-        const userMsg: ChatMessage = {
-            role: 'user',
-            content: isPureAudio ? "🎤 Áudio gravado e enviado para análise..." : textToSend,
-            timestamp: new Date(),
-        };
-
-        // Add user message to UI and IndexedDB only if we are not hiding pure audio messages
-        if (!skipUserMsgUI) {
+        // Para texto normal, mostrar mensagem do usuário imediatamente
+        if (!isPureAudio) {
+            const userMsg: ChatMessage = {
+                role: 'user',
+                content: textToSend,
+                timestamp: new Date(),
+            };
             await chatHistoryService.addMessage(sessionId, userMsg);
             setMessages(prev => [...prev, userMsg]);
-        } else if (isPureAudio) {
+        } else {
+            // Para áudio puro: mostrar indicador temporário e logar no audit_log
+            const tempMsg: ChatMessage = {
+                role: 'user',
+                content: '🎤 Processando comando de voz...',
+                timestamp: new Date(),
+            };
+            setMessages(prev => [...prev, tempMsg]);
+
             // Logar silenciosamente no audit_log
             try {
                 await supabase.from('audit_log').insert([{
@@ -461,7 +508,6 @@ export default function TemporalChat({
                         timestamp: new Date().toISOString()
                     }
                 }]);
-                console.log('[TemporalChat] Audio log inserted into audit_log');
             } catch (err) {
                 console.warn('[TemporalChat] Failed to log audio input to audit_log:', err);
             }
@@ -489,7 +535,7 @@ export default function TemporalChat({
 
             // Call the agent
             const response = await askAgent(
-                userMsg.content,
+                isPureAudio ? '' : textToSend,
                 publishers,
                 parts,
                 historyRecords, // Passar histórico completo injetado
@@ -501,7 +547,6 @@ export default function TemporalChat({
                 audioData // 👈 Injecting Multimodal Audio Base64
             );
 
-            // Strip JSON action blocks for clean LN display (actions already extracted)
             // Strip JSON action blocks for clean LN display, and remove any leaked UUIDs
             const stripJsonBlocks = (text: string) => {
                 const noJson = text.replace(/```json[\s\S]*?```/gi, '');
@@ -512,8 +557,61 @@ export default function TemporalChat({
                 return noUuid.replace(/\n{3,}/g, '\n\n').trim();
             };
 
-            // Base message from agent (clean display — no UUIDs in JSON blocks)
-            const cleanedContent = response.success ? stripJsonBlocks(response.message) : `❌ Erro: ${response.error}`;
+            // Base message from agent
+            let rawContent = response.success ? response.message : `❌ Erro: ${response.error}`;
+
+            // === TRANSCRIÇÃO: Extrair texto falado pelo usuário ===
+            let transcribedText: string | null = null;
+            if (isPureAudio && response.success) {
+                const transcriptionMatch = rawContent.match(/\[TRANSCRIÇÃO:\s*(.*?)\]/i);
+                if (transcriptionMatch) {
+                    transcribedText = transcriptionMatch[1].trim();
+                    // Remover a tag de transcrição da resposta do agente
+                    rawContent = rawContent.replace(/\[TRANSCRIÇÃO:\s*.*?\]\s*/i, '').trim();
+                }
+            }
+
+            // Se temos transcrição, substituir a mensagem temporária do usuário
+            if (isPureAudio && transcribedText) {
+                const realUserMsg: ChatMessage = {
+                    role: 'user',
+                    content: `🎤 ${transcribedText}`,
+                    timestamp: new Date(),
+                };
+                // Substituir a msg temporária "Processando..." pela transcrição real
+                setMessages(prev => {
+                    const updated = [...prev];
+                    // Encontrar a última mensagem do user com "Processando..."
+                    for (let i = updated.length - 1; i >= 0; i--) {
+                        if (updated[i].role === 'user' && updated[i].content.includes('Processando comando de voz')) {
+                            updated[i] = realUserMsg;
+                            break;
+                        }
+                    }
+                    return updated;
+                });
+                await chatHistoryService.addMessage(sessionId, realUserMsg);
+            } else if (isPureAudio) {
+                // Sem transcrição — manter o indicador com texto genérico
+                const fallbackMsg: ChatMessage = {
+                    role: 'user',
+                    content: '🎤 (comando de voz)',
+                    timestamp: new Date(),
+                };
+                setMessages(prev => {
+                    const updated = [...prev];
+                    for (let i = updated.length - 1; i >= 0; i--) {
+                        if (updated[i].role === 'user' && updated[i].content.includes('Processando comando de voz')) {
+                            updated[i] = fallbackMsg;
+                            break;
+                        }
+                    }
+                    return updated;
+                });
+                await chatHistoryService.addMessage(sessionId, fallbackMsg);
+            }
+
+            const cleanedContent = stripJsonBlocks(rawContent);
 
             if (cleanedContent.trim() !== '') {
                 const agentMsg: ChatMessage = {
@@ -522,10 +620,12 @@ export default function TemporalChat({
                     timestamp: new Date(),
                 };
 
-                // Only attach agent response to UI if we shouldn't hide the interaction OR if it's text text / error
-                if (!skipUserMsgUI || !response.success || response.isFallback || response.actions?.length === 0) {
-                    await chatHistoryService.addMessage(sessionId, agentMsg);
-                    setMessages(prev => [...prev, agentMsg]);
+                await chatHistoryService.addMessage(sessionId, agentMsg);
+                setMessages(prev => [...prev, agentMsg]);
+
+                // === TTS: Falar a resposta se o input foi de voz ===
+                if (isPureAudio && response.success) {
+                    speakText(cleanedContent);
                 }
             }
 
