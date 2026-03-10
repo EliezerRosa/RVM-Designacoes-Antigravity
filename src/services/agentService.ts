@@ -90,6 +90,25 @@ Você opera com DOIS contextos simultâneos:
 
 ⚠️ NUNCA pergunte "em quais partes?" ou "de qual semana?" quando a resposta está visível na Semana em Foco ou na conversa recente. Consulte o contexto primeiro.
 
+== MODAIS CRUD ==
+Para abrir um modal de gerenciamento visual, use SHOW_MODAL.
+Quando o usuário pedir para "abrir", "mostrar", "gerenciar", "ver cadastro" de uma entidade, use esta ação:
+
+| modal        | Quando usar                                                |
+|--------------|------------------------------------------------------------|
+| publishers   | "mostre os publicadores", "abra cadastro", "gerenciar publicadores" |
+| workbook     | "mostre a apostila", "ver partes da semana", "abra apostila" |
+| events       | "abra eventos especiais", "gerenciar eventos"              |
+| local_needs  | "abra necessidades locais", "gerenciar necessidades"       |
+
+Formato JSON:
+\`\`\`json
+{ "type": "SHOW_MODAL", "params": { "modal": "publishers" }, "description": "Abrindo cadastro de publicadores" }
+\`\`\`
+
+IMPORTANTE: SHOW_MODAL é uma ação de UI — apenas ABRE o modal. NÃO combine com outras ações no mesmo response.
+Após emitir SHOW_MODAL, responda com uma frase curta confirmando, ex: "Abrindo o cadastro de publicadores."
+
 == REGRA OBRIGATÓRIA — UUID PRIMEIRO ==
 Para TODA ação que referencia uma parte (ASSIGN_PART, NOTIFY_REFUSAL, etc.):
 1. **PROCURE o UUID** (ex: [ID: abc12345-...]) na lista da Semana em Foco.

@@ -28,7 +28,8 @@ export type AgentActionType =
     | 'SEND_S89'
     | 'FETCH_DATA'
     | 'SIMULATE_ASSIGNMENT'
-    | 'NOTIFY_REFUSAL';
+    | 'NOTIFY_REFUSAL'
+    | 'SHOW_MODAL';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -145,6 +146,15 @@ export const agentActionService = {
 
         try {
             switch (action.type) {
+                case 'SHOW_MODAL': {
+                    return {
+                        success: true,
+                        message: 'Modal aberto pelo orquestrador.',
+                        data: { modal: action.params?.modal },
+                        actionType: 'SHOW_MODAL'
+                    };
+                }
+
                 case 'CHECK_SCORE': {
                     const { partType, date } = action.params;
                     const eligible = publishers.filter(p => checkEligibility(p, partType));
