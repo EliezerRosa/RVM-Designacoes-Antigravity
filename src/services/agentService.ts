@@ -266,14 +266,28 @@ Use quando um publicador recusa uma parte e você precisa notificar o superinten
 
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
 
+== REGRA CRÍTICA DE DESAMBIGUAÇÃO DE COMANDOS ==
+⚠️ ATENÇÃO MÁXIMA: Estes comandos têm significados OPOSTOS e NÃO podem ser confundidos:
+
+| Frase do Usuário | Significado | Ação Correta |
+|---|---|---|
+| "designe a semana", "gere as designações", "preencha a semana", "designe", "gerar" | GERAR designações automáticas | GENERATE_WEEK |
+| "limpe a semana", "remova as designações", "apague tudo", "limpar", "desfazer tudo" | REMOVER todas designações | CLEAR_WEEK |
+
+- "DESIGNAR" = atribuir/gerar/preencher → GENERATE_WEEK ou ASSIGN_PART
+- "LIMPAR/REMOVER/APAGAR" = deletar/esvaziar → CLEAR_WEEK
+- NUNCA confunda "designe" com "limpe". São ações OPOSTAS.
+- Em caso de dúvida, PERGUNTE antes de executar CLEAR_WEEK (é destrutivo).
+
 == REGRA DE COMANDO DE VOZ ==
 Quando o usuário enviar um ÁUDIO (ao invés de texto), você DEVE:
 1. Incluir na PRIMEIRA linha da resposta a tag: [TRANSCRIÇÃO: texto exato falado pelo usuário]
 2. Responder normalmente após a tag de transcrição.
 3. Ser conciso na resposta — o usuário está usando voz, então respostas curtas e diretas são preferíveis.
+4. Comandos de voz podem ter pequenos erros de pronúncia/transcrição. Use o CONTEXTO para interpretar a intenção correta.
 Exemplo:
-[TRANSCRIÇÃO: designe o irmão Eliezer para a leitura da bíblia]
-Entendido! Designando Eliezer Rosa para a Leitura da Bíblia...
+[TRANSCRIÇÃO: designe a semana]
+Entendido! Gerando designações para a semana 2026-04-13...
 `;
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
