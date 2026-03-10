@@ -67,22 +67,41 @@ export default function TemporalChat({
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<BlobPart[]>([]);
 
+    // Silence Detection (VAD) Refs
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
+
     useEffect(() => {
-        // Cleanup function for media stream
+        // Cleanup function for media stream & Web Audio
         return () => {
             if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
                 mediaRecorderRef.current.stop();
             }
+            if (audioContextRef.current) {
+                audioContextRef.current.close().catch(console.error);
+            }
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         };
     }, []);
 
+    const stopListening = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        if (audioContextRef.current) {
+            audioContextRef.current.close().catch(console.error);
+            audioContextRef.current = null;
+        }
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        setIsListening(false);
+    };
+
     const toggleListening = async () => {
         if (isListening) {
-            // Stop recording
-            if (mediaRecorderRef.current) {
-                mediaRecorderRef.current.stop();
-            }
-            setIsListening(false);
+            stopListening();
             return;
         }
 
@@ -90,11 +109,61 @@ export default function TemporalChat({
         try {
             setSpeechError(null);
 
-            // Requisita acesso ao microfone (funciona em Edge/Firefox/Chrome/Safari)
+            // Requisita acesso ao microfone
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
             const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
             audioChunksRef.current = [];
+
+            // --- VAD (Voice Activity Detection) Setup ---
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            audioContextRef.current = audioContext;
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 512;
+            analyser.minDecibels = -55; // Threshold considered "silence"
+            source.connect(analyser);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            let isCurrentlySilent = true;
+
+            const checkSilence = () => {
+                if (!isListening && mediaRecorder.state === 'inactive') return;
+
+                analyser.getByteFrequencyData(dataArray);
+                // Calcula volume médio bruto
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / bufferLength;
+
+                if (average < 5) { // Threshold de volume (ajustável entre 2 e 10)
+                    if (!isCurrentlySilent) {
+                        isCurrentlySilent = true;
+                        // Inicia o timer de silêncio de 2 segundos
+                        silenceTimerRef.current = setTimeout(() => {
+                            if (mediaRecorder.state !== 'inactive') {
+                                console.log('[VAD] Auto-stopping due to 2s of silence');
+                                stopListening();
+                            }
+                        }, 2000); // 2 segundos de silêncio para auto-stop
+                    }
+                } else {
+                    if (isCurrentlySilent) {
+                        isCurrentlySilent = false;
+                        if (silenceTimerRef.current) {
+                            clearTimeout(silenceTimerRef.current);
+                            silenceTimerRef.current = null;
+                        }
+                    }
+                }
+
+                animationFrameRef.current = requestAnimationFrame(checkSilence);
+            };
+            checkSilence(); // Start monitoring loop
+            // --- End VAD Setup ---
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -109,8 +178,14 @@ export default function TemporalChat({
             mediaRecorder.onstop = async () => {
                 setIsListening(false);
 
-                // Parar as faixas do microfone para liberar o ícone no navegador
+                // Cleanup audio routes
                 stream.getTracks().forEach(track => track.stop());
+                if (audioContextRef.current) {
+                    audioContextRef.current.close().catch(console.error);
+                    audioContextRef.current = null;
+                }
+                if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+                if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
 
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
 
@@ -123,7 +198,7 @@ export default function TemporalChat({
                     const base64Clean = base64data.split(',')[1];
 
                     if (base64Clean) {
-                        // Enviar comando para IA (vazio como texto, mas com áudio)
+                        // Enviar comando para IA
                         sendMessage(undefined, { mimeType: 'audio/webm', data: base64Clean });
                     }
                 };
@@ -358,15 +433,40 @@ export default function TemporalChat({
         // Return only if no text AND no audio is present
         if ((!textToSend && !audioData) || !sessionId || isLoading) return;
 
+        const isPureAudio = audioData && !textToSend;
+        // Sempre pular a renderização visual do áudio puro
+        const skipUserMsgUI = isPureAudio;
+
         const userMsg: ChatMessage = {
             role: 'user',
-            content: audioData && !textToSend ? "🎤 Áudio gravado e enviado para análise..." : textToSend,
+            content: isPureAudio ? "🎤 Áudio gravado e enviado para análise..." : textToSend,
             timestamp: new Date(),
         };
 
-        // Add user message to UI and IndexedDB
-        await chatHistoryService.addMessage(sessionId, userMsg);
-        setMessages(prev => [...prev, userMsg]);
+        // Add user message to UI and IndexedDB only if we are not hiding pure audio messages
+        if (!skipUserMsgUI) {
+            await chatHistoryService.addMessage(sessionId, userMsg);
+            setMessages(prev => [...prev, userMsg]);
+        } else if (isPureAudio) {
+            // Logar silenciosamente no audit_log
+            try {
+                await supabase.from('audit_log').insert([{
+                    operation: 'AGENT_VOICE_INPUT',
+                    table_name: 'temporal_chat',
+                    user_id: null,
+                    old_data: null,
+                    new_data: {
+                        mimeType: audioData.mimeType,
+                        dataLength: audioData.data.length,
+                        timestamp: new Date().toISOString()
+                    }
+                }]);
+                console.log('[TemporalChat] Audio log inserted into audit_log');
+            } catch (err) {
+                console.warn('[TemporalChat] Failed to log audio input to audit_log:', err);
+            }
+        }
+
         if (!overrideInput) setInput('');
         setIsLoading(true);
 
@@ -422,8 +522,11 @@ export default function TemporalChat({
                     timestamp: new Date(),
                 };
 
-                await chatHistoryService.addMessage(sessionId, agentMsg);
-                setMessages(prev => [...prev, agentMsg]);
+                // Only attach agent response to UI if we shouldn't hide the interaction OR if it's text text / error
+                if (!skipUserMsgUI || !response.success || response.isFallback || response.actions?.length === 0) {
+                    await chatHistoryService.addMessage(sessionId, agentMsg);
+                    setMessages(prev => [...prev, agentMsg]);
+                }
             }
 
             if (response.isFallback) {
