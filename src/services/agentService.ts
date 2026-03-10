@@ -361,7 +361,10 @@ export async function askAgent(
 
     for (const model of attemptList) {
         try {
-            const contextOptions = detectContextNeeds(question);
+            // Para áudio puro, incluir TODO o contexto — não sabemos o que o usuário falou
+            const contextOptions = audioData
+                ? { includePublishers: true, includeRules: true, includeSchedule: true, includeHistory: true, includeSpecialEvents: true }
+                : detectContextNeeds(question);
             const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds, contextOptions, focusWeekId);
             const contextText = formatContextForPrompt(context);
             const rulesText = contextOptions.includeRules ? getEligibilityRulesText() : '';
