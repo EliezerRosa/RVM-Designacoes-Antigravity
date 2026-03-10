@@ -64,92 +64,92 @@ export default function TemporalChat({
     const [speechError, setSpeechError] = useState<string | null>(null);
 
     // Initializer for Speech Recognition
-    const recognitionRef = useRef<any>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<BlobPart[]>([]);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-            // Strict Chrome detection (blocks Edge, Opera, etc)
-            const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
-
-            if (SpeechRecognition) {
-                if (!isChrome) {
-                    setSpeechError('Voz requer Google Chrome (Edge/outros não suportados)');
-                    return;
-                }
-
-                const recognition = new SpeechRecognition();
-                recognition.continuous = false;
-                recognition.interimResults = false;
-                recognition.lang = 'pt-BR';
-
-                recognition.onstart = () => {
-                    setIsListening(true);
-                    setSpeechError(null);
-                };
-
-                recognition.onresult = (event: any) => {
-                    const transcript = Array.from(event.results)
-                        .map((result: any) => result[0])
-                        .map((result) => result.transcript)
-                        .join('');
-
-                    if (transcript) {
-                        setInput(transcript);
-                        // Auto-send after a small delay to let UI updates
-                        setTimeout(() => {
-                            sendMessage(transcript);
-                        }, 500);
-                    }
-                };
-
-                recognition.onerror = (event: any) => {
-                    console.error('Speech recognition error', event.error);
-                    if (event.error === 'not-allowed') {
-                        setSpeechError('Permissão do microfone negada');
-                    } else if (event.error === 'network') {
-                        setSpeechError('Erro de rede na voz (experimente o Chrome)');
-                    } else {
-                        setSpeechError('Erro no microfone (' + event.error + ')');
-                    }
-                    setIsListening(false);
-                };
-
-                recognition.onend = () => {
-                    setIsListening(false);
-                };
-
-                recognitionRef.current = recognition;
-            } else {
-                setSpeechError('Seu navegador não suporta reconhecimento de voz. Tente o Chrome.');
+        // Cleanup function for media stream
+        return () => {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                mediaRecorderRef.current.stop();
             }
-        }
+        };
     }, []);
 
-    const toggleListening = () => {
-        const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
-        if (!isChrome) {
-            alert('A digitação por voz está restrita ao Google Chrome para evitar falhas de rede.\nPor favor, abra o RVM Designações no Chrome.');
-            return;
-        }
-
-        if (!recognitionRef.current) {
-            alert(speechError || 'Reconhecimento de voz não suportado neste navegador.');
-            return;
-        }
-
+    const toggleListening = async () => {
         if (isListening) {
-            recognitionRef.current.stop();
-        } else {
-            try {
-                setSpeechError(null);
-                recognitionRef.current.start();
-            } catch (err) {
-                console.error("Failed to start listening", err);
-                recognitionRef.current.stop();
-                setTimeout(() => recognitionRef.current.start(), 100);
+            // Stop recording
+            if (mediaRecorderRef.current) {
+                mediaRecorderRef.current.stop();
             }
+            setIsListening(false);
+            return;
+        }
+
+        // Start recording
+        try {
+            setSpeechError(null);
+
+            // Requisita acesso ao microfone (funciona em Edge/Firefox/Chrome/Safari)
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstart = () => {
+                setIsListening(true);
+            };
+
+            mediaRecorder.onstop = async () => {
+                setIsListening(false);
+
+                // Parar as faixas do microfone para liberar o ícone no navegador
+                stream.getTracks().forEach(track => track.stop());
+
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+                // Converter para Base64 para a Gemini API
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    const base64data = reader.result as string;
+                    // Extrair apenas o base64 descartando "data:audio/webm;base64,"
+                    const base64Clean = base64data.split(',')[1];
+
+                    if (base64Clean) {
+                        // Enviar comando para IA (vazio como texto, mas com áudio)
+                        sendMessage(undefined, { mimeType: 'audio/webm', data: base64Clean });
+                    }
+                };
+            };
+
+            mediaRecorder.onerror = (event: any) => {
+                console.error("MediaRecorder error", event.error);
+                setSpeechError("Erro ao gravar áudio: " + event.error?.message);
+                setIsListening(false);
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorderRef.current = mediaRecorder;
+            mediaRecorder.start();
+
+        } catch (err: any) {
+            console.error("Failed to start listening", err);
+
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                setSpeechError('Permissão do microfone negada pelo navegador.');
+            } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                setSpeechError('Nenhum microfone encontrado no dispositivo.');
+            } else {
+                setSpeechError(`Erro no microfone: ${err.message || 'Desconhecido'}`);
+            }
+            setIsListening(false);
         }
     };
 
@@ -350,15 +350,17 @@ export default function TemporalChat({
         return () => clearInterval(timer);
     }, [rateLimitCountdown]);
 
-    const sendMessage = async (overrideInput?: string) => {
+    const sendMessage = async (overrideInput?: string, audioData?: { mimeType: string, data: string }) => {
         // Safety check: Ensure overrideInput is a string and not a PointerEvent or other object
         const finalOverride = typeof overrideInput === 'string' ? overrideInput : undefined;
         const textToSend = finalOverride || input.trim();
-        if (!textToSend || !sessionId || isLoading) return;
+
+        // Return only if no text AND no audio is present
+        if ((!textToSend && !audioData) || !sessionId || isLoading) return;
 
         const userMsg: ChatMessage = {
             role: 'user',
-            content: textToSend,
+            content: audioData && !textToSend ? "🎤 Áudio gravado e enviado para análise..." : textToSend,
             timestamp: new Date(),
         };
 
@@ -395,7 +397,8 @@ export default function TemporalChat({
                 'elder', // accessLevel
                 specialEventsCtx, // specialEvents
                 localNeedsCtx, // localNeeds
-                currentWeekId // FOCUS WEEK ID provided by Parent (WorkbookManager)
+                currentWeekId, // FOCUS WEEK ID provided by Parent (WorkbookManager)
+                audioData // 👈 Injecting Multimodal Audio Base64
             );
 
             // Strip JSON action blocks for clean LN display (actions already extracted)
