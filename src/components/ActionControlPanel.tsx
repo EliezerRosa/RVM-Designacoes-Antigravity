@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
-import { checkEligibility, type EligibilityResult } from '../services/eligibilityService';
+import { checkEligibility, buildEligibilityContext, type EligibilityResult } from '../services/eligibilityService';
 import { getBlockInfo, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
@@ -69,13 +69,13 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     ? historyRecords
                     : parts.map(workbookPartToHistoryRecord);
 
+                // Criar o contexto usando o builder oficial (resolve gênero do titular)
+                const weekParts = parts.filter(p => p.weekId === selectedPart.weekId);
+                const eligibilityCtx = buildEligibilityContext(selectedPart, weekParts, publishers);
+
                 // 1. Calcular o MELHOR CANDIDATO (Top Recommendation)
                 const eligibleCandidates = publishers.filter(p =>
-                    checkEligibility(p, selectedPart.modalidade as any, selectedPart.funcao as any, {
-                        date: selectedPart.date,
-                        partTitle: selectedPart.tituloParte,
-                        secao: selectedPart.section
-                    }).eligible
+                    checkEligibility(p, selectedPart.modalidade as any, selectedPart.funcao as any, eligibilityCtx).eligible
                 );
 
                 const ranked = getRankedCandidates(eligibleCandidates, selectedPart.tipoParte, allHistory);
@@ -99,11 +99,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         assignedPublisher,
                         selectedPart.modalidade as any, // Cast to any to accept string
                         selectedPart.funcao as any,
-                        {
-                            date: selectedPart.date,
-                            partTitle: selectedPart.tituloParte,
-                            secao: selectedPart.section
-                        }
+                        eligibilityCtx
                     );
 
                     // v9.5: Filtrar histórico para excluir a semana ATUAL
