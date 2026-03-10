@@ -52,6 +52,27 @@ function App() {
   const [initialAgentCommand, setInitialAgentCommand] = useState<string | null>(null);
   const [initialAgentWeekId, setInitialAgentWeekId] = useState<string | null>(null);
 
+  const isChrome = useMemo(() => {
+    return /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+  }, []);
+
+  if (!isChrome) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9FAFB', fontFamily: 'sans-serif' }}>
+        <div style={{ textAlign: 'center', background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', maxWidth: '500px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}>🛑</div>
+          <h1 style={{ color: '#1F2937', marginBottom: '16px', fontSize: '24px' }}>Navegador Incompatível</h1>
+          <p style={{ color: '#4B5563', lineHeight: '1.6', marginBottom: '24px' }}>
+            Para garantir a estabilidade do sistema, especialmente os recursos de reconhecimento de voz e conexão com banco de dados, o RVM Designações exige o uso do <strong>Google Chrome</strong>.
+          </p>
+          <p style={{ color: '#6B7280', fontSize: '14px' }}>
+            Por favor, abra este link (https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/) no Google Chrome para continuar.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Persist active tab to Supabase
   const handleTabChange = async (tab: ActiveTab) => {
     setActiveTab(tab)
