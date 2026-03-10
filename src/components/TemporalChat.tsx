@@ -105,11 +105,11 @@ export default function TemporalChat({
                 recognition.onerror = (event: any) => {
                     console.error('Speech recognition error', event.error);
                     if (event.error === 'not-allowed') {
-                        setSpeechError('Permissão negada');
+                        setSpeechError('Permissão do microfone negada');
                     } else if (event.error === 'network') {
-                        setSpeechError('Erro de conexão (verifique sua internet)');
+                        setSpeechError('Erro de rede na voz (experimente o Chrome)');
                     } else {
-                        setSpeechError('Erro no microfone');
+                        setSpeechError('Erro no microfone (' + event.error + ')');
                     }
                     setIsListening(false);
                 };
@@ -135,6 +135,7 @@ export default function TemporalChat({
             recognitionRef.current.stop();
         } else {
             try {
+                setSpeechError(null);
                 recognitionRef.current.start();
             } catch (err) {
                 console.error("Failed to start listening", err);
@@ -876,12 +877,19 @@ export default function TemporalChat({
                 <input
                     ref={inputRef}
                     type="text"
-                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : (isListening ? "Ouvindo..." : "Digite sua mensagem...")}
+                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : (speechError ? speechError : (isListening ? "Ouvindo..." : "Digite sua mensagem..."))}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKey}
                     disabled={isLoading || rateLimitCountdown > 0}
-                    style={{ flex: 1, padding: '6px 10px', borderRadius: '4px', border: '1px solid #D1D5DB', opacity: rateLimitCountdown > 0 ? 0.6 : 1 }}
+                    style={{
+                        flex: 1,
+                        padding: '6px 10px',
+                        borderRadius: '4px',
+                        border: '1px solid',
+                        borderColor: speechError ? '#EF4444' : '#D1D5DB',
+                        opacity: rateLimitCountdown > 0 ? 0.6 : 1
+                    }}
                 />
                 <button
                     onClick={toggleListening}
