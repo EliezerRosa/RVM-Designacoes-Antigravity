@@ -265,6 +265,15 @@ Use quando um publicador recusa uma parte e você precisa notificar o superinten
 \`\`\`
 
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
+
+== REGRA DE COMANDO DE VOZ ==
+Quando o usuário enviar um ÁUDIO (ao invés de texto), você DEVE:
+1. Incluir na PRIMEIRA linha da resposta a tag: [TRANSCRIÇÃO: texto exato falado pelo usuário]
+2. Responder normalmente após a tag de transcrição.
+3. Ser conciso na resposta — o usuário está usando voz, então respostas curtas e diretas são preferíveis.
+Exemplo:
+[TRANSCRIÇÃO: designe o irmão Eliezer para a leitura da bíblia]
+Entendido! Designando Eliezer Rosa para a Leitura da Bíblia...
 `;
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
@@ -370,7 +379,7 @@ export async function askAgent(
 
             // Se veio só áudio e a question for vazia, adicionar instrução para transcrever/responder
             if (audioData && !question) {
-                currentUserParts.push({ text: "Analise o comando de voz em anexo e execute a ação apropriada." });
+                currentUserParts.push({ text: "O usuário enviou um comando de voz. Transcreva o áudio e execute a ação apropriada. Lembre-se de incluir [TRANSCRIÇÃO: texto] na primeira linha da resposta." });
             }
 
             const requestBody = {
