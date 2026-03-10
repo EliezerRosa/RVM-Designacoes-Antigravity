@@ -87,6 +87,7 @@ export const agentActionService = {
 
                 for (let i = startIdx; i < text.length; i++) {
                     const char = text[i];
+
                     if (escape) {
                         escape = false;
                         continue;
@@ -97,13 +98,14 @@ export const agentActionService = {
                     }
                     if (char === '"') {
                         inString = !inString;
-                        continue;
+                        // Don't continue here, just flip the state, so we don't count braces inside strings
                     }
+
                     if (!inString) {
                         if (char === '{') braceCount++;
                         else if (char === '}') braceCount--;
 
-                        if (braceCount === 0) {
+                        if (braceCount === 0 && char === '}') {
                             return text.substring(startIdx, i + 1);
                         }
                     }
