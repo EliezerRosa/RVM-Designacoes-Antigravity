@@ -17,7 +17,9 @@ import PublisherForm from './PublisherForm';
 import { SpecialEventsManager } from './SpecialEventsManager';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { WorkbookTable } from './WorkbookTable';
+import { PartEditModal } from './PartEditModal';
 import { api } from '../services/api';
+import { workbookService } from '../services/workbookService';
 
 export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | null;
 
@@ -36,11 +38,17 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
     const [editingPublisher, setEditingPublisher] = useState<Publisher | null>(null);
     const [showPublisherForm, setShowPublisherForm] = useState(false);
 
+    // Workbook CRUD state
+    const [editingPart, setEditingPart] = useState<WorkbookPart | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
     if (!modal) return null;
 
     const handleClose = () => {
         setEditingPublisher(null);
         setShowPublisherForm(false);
+        setEditingPart(null);
+        setIsEditModalOpen(false);
         onClose();
     };
 
@@ -79,6 +87,48 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
     const handleCancelPublisherForm = () => {
         setShowPublisherForm(false);
         setEditingPublisher(null);
+    };
+
+    // ===== Workbook Handlers =====
+    const handleEditPart = (part: WorkbookPart) => {
+        setEditingPart(part);
+        setIsEditModalOpen(true);
+    };
+
+    const handleSaveEditPart = async (id: string, updates: Partial<WorkbookPart>, applyToWeek?: boolean) => {
+        try {
+            if (updates.status === 'PENDENTE') {
+                updates.resolvedPublisherName = '';
+            }
+
+            const updatedPart = await workbookService.updatePart(id, updates);
+
+            if (applyToWeek && updates.status && updatedPart.weekId) {
+                const clearPublisher = updates.status === 'PENDENTE';
+                await workbookService.updateWeekStatus(updatedPart.weekId, updates.status, clearPublisher);
+            }
+
+            if (onDataChange) onDataChange();
+            setIsEditModalOpen(false);
+            setEditingPart(null);
+        } catch (error) {
+            console.error('Erro ao salvar parte:', error);
+            alert('Erro ao salvar alterações: ' + (error instanceof Error ? error.message : String(error)));
+            throw error;
+        }
+    };
+
+    const handlePublisherSelect = async (partId: string, _newId: string, newName: string) => {
+        try {
+            await workbookService.updatePart(partId, {
+                resolvedPublisherName: newName,
+                status: 'CONFIRMADA'
+            });
+            if (onDataChange) onDataChange();
+        } catch (error) {
+            console.error('Erro ao designar publicador:', error);
+            alert('Não foi possível designar o publicador.');
+        }
     };
 
     // ===== Available weeks for SpecialEvents / LocalNeeds =====
@@ -153,14 +203,28 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                     );
                 }
                 return (
-                    <WorkbookTable
-                        filteredParts={currentParts}
-                        publishers={publishers}
-                        historyRecords={[]}
-                        currentPage={0}
-                        onPublisherSelect={() => { }}
-                        onEditPart={() => { }}
-                    />
+                    <>
+                        <WorkbookTable
+                            filteredParts={currentParts}
+                            publishers={publishers}
+                            historyRecords={[]}
+                            currentPage={0}
+                            onPublisherSelect={handlePublisherSelect}
+                            onEditPart={handleEditPart}
+                        />
+                        {isEditModalOpen && editingPart && (
+                            <PartEditModal
+                                isOpen={isEditModalOpen}
+                                onClose={() => {
+                                    setIsEditModalOpen(false);
+                                    setEditingPart(null);
+                                }}
+                                part={editingPart}
+                                onSave={handleSaveEditPart}
+                                publishers={publishers}
+                            />
+                        )}
+                    </>
                 );
             }
 
