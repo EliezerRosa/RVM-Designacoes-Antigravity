@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
 import { supabase } from '../lib/supabase';
-import type { SpecialEvent, EventImpactAction } from '../types';
+import type { SpecialEvent, EventImpactAction, EventImpactOverride, ParticipationType } from '../types';
 
 interface Props {
     availableWeeks: { weekId: string; display: string }[];
@@ -29,12 +29,16 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const [formTargetPartId, setFormTargetPartId] = useState('');
     const [formAutoApply, setFormAutoApply] = useState(true);
     const [targetParts, setTargetParts] = useState<Array<{ id: string; title: string; duration: string }>>([]);
-    // Novos form states
-    const [formOverrideAction, setFormOverrideAction] = useState<EventImpactAction | ''>('');
+
+    // Suporte a Múltiplos Impactos
+    const [formImpacts, setFormImpacts] = useState<(EventImpactOverride & { _uiKey: string })[]>([]);
+
+    // Campos de Informação Adicional
     const [formContent, setFormContent] = useState('');
     const [formReference, setFormReference] = useState('');
     const [formLinks, setFormLinks] = useState('');
-    const [formSelectedPartIds, setFormSelectedPartIds] = useState<string[]>([]);
+
+    // Lista de Partes para Seleção do Form
     const [allWeekParts, setAllWeekParts] = useState<Array<{ id: string; title: string; duration: string; section: string; tipoParte: string }>>([]);
 
     const templates = EVENT_TEMPLATES;
@@ -112,12 +116,15 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         fetchParts();
     }, [formWeekId]);
 
-    // Quando troca template, pré-selecionar ação padrão
+    // Quando troca template, pré-selecionar ação padrão se vazio
     useEffect(() => {
-        if (selectedTemplate) {
-            setFormOverrideAction(selectedTemplate.impact.action as EventImpactAction);
+        if (selectedTemplate && formImpacts.length === 0) {
+            setFormImpacts([{
+                _uiKey: Date.now().toString(),
+                action: selectedTemplate.impact.action as EventImpactAction
+            }]);
         }
-    }, [selectedTemplate]);
+    }, [selectedTemplate, formImpacts.length]);
 
     const resetForm = () => {
         setFormTemplateId('');
@@ -130,11 +137,10 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setEditingEvent(null);
         setShowForm(false);
         // Novos resets
-        setFormOverrideAction('');
+        setFormImpacts([]);
         setFormContent('');
         setFormReference('');
         setFormLinks('');
-        setFormSelectedPartIds([]);
         setAllWeekParts([]);
     };
 
@@ -144,16 +150,22 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
             return;
         }
 
-        // Validação adicional para eventos que reduzem tempo
-        if (selectedTemplate?.impact.action === 'REDUCE_VIDA_CRISTA_TIME' && !formTargetPartId) {
-            setError('Selecione a parte que terá o tempo reduzido');
+        // Validação adicional para impactos que reduzem tempo
+        const hasMissingTimeReduction = formImpacts.some(
+            i => (i.action === 'REDUCE_VIDA_CRISTA_TIME' || i.action === 'TIME_ADJUSTMENT')
+                && !i.timeReductionDetails?.targetPartId
+        );
+
+        if (hasMissingTimeReduction) {
+            setError('Selecione a parte que terá o tempo reduzido nos impactos configurados.');
             return;
         }
 
         try {
             setLoading(true);
 
-            const effectiveAction = formOverrideAction || selectedTemplate?.impact.action;
+            // Remover '_uiKey' antes de salvar no banco
+            const cleanedImpacts = formImpacts.map(({ _uiKey, ...rest }) => rest);
 
             const eventData = {
                 templateId: formTemplateId,
@@ -161,13 +173,14 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 theme: formTheme || undefined,
                 responsible: formAssignee || undefined,
                 duration: selectedTemplate?.defaults.duration,
-                targetPartId: formTargetPartId || undefined,
                 isApplied: false,
-                // Novos campos
-                overrideAction: effectiveAction !== selectedTemplate?.impact.action
-                    ? effectiveAction as EventImpactAction
-                    : undefined,
-                affectedPartIds: formSelectedPartIds.length > 0 ? formSelectedPartIds : undefined,
+                // Nova Arquitetura de Múltiplos Impactos
+                impacts: cleanedImpacts,
+                // Limpar campos singulares legados
+                overrideAction: undefined,
+                affectedPartIds: undefined,
+                targetPartId: undefined,
+                // Outros campos
                 content: formContent || undefined,
                 reference: formReference || undefined,
                 links: formLinks ? formLinks.split('\n').filter(l => l.trim()) : undefined,
@@ -215,12 +228,24 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormWeekId(event.week);
         setFormTheme(event.theme || '');
         setFormAssignee(event.responsible || '');
-        setFormTargetPartId(event.targetPartId || '');
-        setFormOverrideAction(event.overrideAction || '');
+
+        // Popular múltiplos impactos ou criar fallback dos legados
+        if (event.impacts && event.impacts.length > 0) {
+            setFormImpacts(event.impacts.map((i, idx) => ({ ...i, _uiKey: idx.toString() })));
+        } else {
+            const legacyAction = event.overrideAction || event.templateId; // Fallback simples
+            const legacyImpact: EventImpactOverride & { _uiKey: string } = {
+                _uiKey: '0',
+                action: legacyAction as EventImpactAction,
+                affectedPartIds: event.affectedPartIds,
+                timeReductionDetails: event.targetPartId ? { targetPartId: event.targetPartId, minutes: event.duration || 10 } : undefined
+            };
+            setFormImpacts([legacyImpact]);
+        }
+
         setFormContent(event.content || '');
         setFormReference(event.reference || '');
         setFormLinks(event.links?.join('\n') || '');
-        setFormSelectedPartIds(event.affectedPartIds || []);
         setShowForm(true);
     };
 
@@ -421,85 +446,134 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                         ))}
                     </select>
 
-                    {/* Ação de Impacto (dropdown flexível) */}
+                    {/* SEÇÃO DINÂMICA DE MÚLTIPLOS IMPACTOS */}
                     {selectedTemplate && formWeekId && (
-                        <>
-                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
-                                Ação de Impacto
-                                <span style={{ fontWeight: 'normal', color: '#6B7280', marginLeft: '4px' }}>
-                                    (padrão: {IMPACT_OPTIONS.find(o => o.value === selectedTemplate.impact.action)?.label})
-                                </span>
-                            </label>
-                            <select
-                                value={formOverrideAction}
-                                onChange={e => setFormOverrideAction(e.target.value as EventImpactAction)}
-                                style={inputStyle}
-                            >
-                                {IMPACT_OPTIONS.map(o => (
-                                    <option key={o.value} value={o.value}>
-                                        {o.label}{o.value === selectedTemplate.impact.action ? ' ★' : ''}
-                                    </option>
-                                ))}
-                            </select>
-                        </>
-                    )}
-
-                    {/* Multi-part: seleção de partes específicas para REPLACE_PART */}
-                    {formOverrideAction === 'REPLACE_PART' && allWeekParts.length > 0 && (
-                        <div style={{ marginBottom: '12px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                                Partes a Cancelar <span style={{ fontWeight: 'normal', color: '#6B7280' }}>(marque uma ou mais)</span>
-                            </label>
-                            <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #D1D5DB', borderRadius: '6px', padding: '6px', background: '#fff' }}>
-                                {allWeekParts.map(p => (
-                                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', cursor: 'pointer', fontSize: '13px', borderBottom: '1px solid #F3F4F6' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={formSelectedPartIds.includes(p.id)}
-                                            onChange={e => {
-                                                if (e.target.checked) {
-                                                    setFormSelectedPartIds(prev => [...prev, p.id]);
-                                                } else {
-                                                    setFormSelectedPartIds(prev => prev.filter(id => id !== p.id));
-                                                }
-                                            }}
-                                            style={{ width: '14px', height: '14px' }}
-                                        />
-                                        <span style={{ flex: 1 }}>{p.title}</span>
-                                        <span style={{ color: '#9CA3AF', fontSize: '11px' }}>{p.section} • {p.duration}</span>
-                                    </label>
-                                ))}
+                        <div style={{ marginTop: '16px', borderTop: '1px solid #E5E7EB', paddingTop: '16px', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                <label style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937', margin: 0 }}>
+                                    Impactos e Ações deste Evento
+                                </label>
+                                <button
+                                    onClick={() => setFormImpacts([...formImpacts, { _uiKey: Date.now().toString(), action: 'NO_IMPACT' }])}
+                                    style={{ ...btnStyle('#3B82F6'), fontSize: '11px', padding: '4px 8px' }}
+                                >
+                                    ➕ Adicionar Impacto
+                                </button>
                             </div>
-                            {formSelectedPartIds.length > 0 && (
-                                <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px' }}>
-                                    {formSelectedPartIds.length} parte(s) selecionada(s)
+
+                            {formImpacts.length === 0 && (
+                                <div style={{ fontSize: '12px', color: '#6B7280', fontStyle: 'italic', marginBottom: '12px' }}>
+                                    Nenhum impacto configurado. Este evento será apenas informativo.
                                 </div>
                             )}
-                        </div>
-                    )}
 
-                    {/* REDUCE_VIDA_CRISTA_TIME: seleção de parte única */}
-                    {formOverrideAction === 'REDUCE_VIDA_CRISTA_TIME' && targetParts.length > 0 && (
-                        <>
-                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
-                                Parte para Reduzir Tempo
-                                <span style={{ fontWeight: 'normal', color: '#6B7280', marginLeft: '4px' }}>
-                                    (Será reduzida em {selectedTemplate?.defaults.duration || 10} min)
-                                </span>
-                            </label>
-                            <select
-                                value={formTargetPartId}
-                                onChange={e => setFormTargetPartId(e.target.value)}
-                                style={inputStyle}
-                            >
-                                <option value="">Selecione a parte...</option>
-                                {targetParts.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.title} ({p.duration})
-                                    </option>
-                                ))}
-                            </select>
-                        </>
+                            {formImpacts.map((impact, index) => (
+                                <div key={impact._uiKey} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '8px', padding: '12px', marginBottom: '8px' }}>
+
+                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '11px', fontWeight: '600', color: '#4B5563', display: 'block', marginBottom: '4px' }}>
+                                                Ação {index + 1}
+                                            </label>
+                                            <select
+                                                value={impact.action}
+                                                onChange={e => {
+                                                    const newAction = e.target.value as EventImpactAction;
+                                                    setFormImpacts(formImpacts.map(i => i._uiKey === impact._uiKey ? { ...i, action: newAction } : i));
+                                                }}
+                                                style={{ ...inputStyle, marginBottom: 0, padding: '4px 8px', fontSize: '13px' }}
+                                            >
+                                                {IMPACT_OPTIONS.map(o => (
+                                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <button
+                                            onClick={() => setFormImpacts(formImpacts.filter(i => i._uiKey !== impact._uiKey))}
+                                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', alignSelf: 'flex-end', padding: '6px' }}
+                                            title="Remover Impacto"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
+
+                                    {/* MÚLTIPLAS PARTES - REPLACE_PART */}
+                                    {impact.action === 'REPLACE_PART' && allWeekParts.length > 0 && (
+                                        <div style={{ marginBottom: '8px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                                            <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
+                                                Partes a Cancelar/Substituir
+                                            </label>
+                                            <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                                                {allWeekParts.map(p => (
+                                                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid #F3F4F6' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={impact.affectedPartIds?.includes(p.id) || false}
+                                                            onChange={e => {
+                                                                const currentIds = impact.affectedPartIds || [];
+                                                                const newIds = e.target.checked
+                                                                    ? [...currentIds, p.id]
+                                                                    : currentIds.filter(id => id !== p.id);
+                                                                setFormImpacts(formImpacts.map(i => i._uiKey === impact._uiKey ? { ...i, affectedPartIds: newIds } : i));
+                                                            }}
+                                                            style={{ margin: 0 }}
+                                                        />
+                                                        <span style={{ flex: 1 }}>{p.title}</span>
+                                                        <span style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* REDUÇÃO DE TEMPO */}
+                                    {(impact.action === 'REDUCE_VIDA_CRISTA_TIME' || impact.action === 'TIME_ADJUSTMENT') && targetParts.length > 0 && (
+                                        <div style={{ display: 'flex', gap: '8px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                                            <div style={{ flex: 2 }}>
+                                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>
+                                                    Parte para Reduzir Tempo
+                                                </label>
+                                                <select
+                                                    value={impact.timeReductionDetails?.targetPartId || ''}
+                                                    onChange={e => {
+                                                        const currentDetails = impact.timeReductionDetails || { minutes: selectedTemplate?.defaults.duration || 10 };
+                                                        setFormImpacts(formImpacts.map(i => i._uiKey === impact._uiKey ? {
+                                                            ...i,
+                                                            timeReductionDetails: { ...currentDetails, targetPartId: e.target.value }
+                                                        } : i));
+                                                    }}
+                                                    style={{ ...inputStyle, marginBottom: 0, padding: '4px 8px', fontSize: '12px' }}
+                                                >
+                                                    <option value="">Selecione a parte...</option>
+                                                    {targetParts.map(p => (
+                                                        <option key={p.id} value={p.id}>{p.title} ({p.duration})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>
+                                                    Minutos
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={impact.timeReductionDetails?.minutes || selectedTemplate?.defaults.duration || 10}
+                                                    onChange={e => {
+                                                        const currentDetails = impact.timeReductionDetails || { targetPartId: '' };
+                                                        setFormImpacts(formImpacts.map(i => i._uiKey === impact._uiKey ? {
+                                                            ...i,
+                                                            timeReductionDetails: { ...currentDetails, minutes: Number(e.target.value) }
+                                                        } : i));
+                                                    }}
+                                                    style={{ ...inputStyle, marginBottom: 0, padding: '4px 8px', fontSize: '12px' }}
+                                                    min="1"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                </div>
+                            ))}
+                        </div>
                     )}
 
                     {/* Campos de Tema e Responsável */}
