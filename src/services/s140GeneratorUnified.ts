@@ -318,17 +318,49 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
         }
     });
 
-    // Banner de eventos especiais
-    let eventBanner = '';
+    // Notas de rodapé para eventos especiais (NUNCA no topo ou corpo)
+    let footerNotes = '';
     if (weekData.hasEvents && weekData.events.length > 0) {
-        const eventNames = weekData.events.map(e => {
+        const noteItems = weekData.events.map(e => {
             const template = EVENT_TEMPLATES.find(t => t.id === e.templateId);
-            return template?.name || e.theme || 'Evento Especial';
-        }).join(', ');
+            const name = template?.name || e.theme || 'Evento Especial';
+            const action = (e as any).overrideAction || template?.impact.action || 'NO_IMPACT';
 
-        eventBanner = `
-            <div style="background: ${COLORS.EVENT_BG}; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; font-size: 11pt; color: #2E7D32;">
-                📌 <strong>Evento Especial:</strong> ${eventNames}
+            let impactDesc = '';
+            switch (action) {
+                case 'CANCEL_WEEK': impactDesc = 'Semana cancelada'; break;
+                case 'SC_VISIT_LOGIC': impactDesc = 'EBC, NL e Coment. Finais cancelados'; break;
+                case 'TIME_ADJUSTMENT': impactDesc = 'Tempo do EBC ajustado'; break;
+                case 'REDUCE_VIDA_CRISTA_TIME': impactDesc = 'Tempo reduzido em parte da Vida Cristã'; break;
+                case 'ADD_PART': impactDesc = 'Parte adicionada'; break;
+                case 'REPLACE_PART': impactDesc = 'Parte(s) substituída(s)/cancelada(s)'; break;
+                case 'REPLACE_SECTION': impactDesc = 'Seção substituída'; break;
+                case 'NO_IMPACT': impactDesc = 'Informativo'; break;
+                default: impactDesc = ''; break;
+            }
+
+            // Anúncio/Notificação: mostrar conteúdo e referência
+            const content = (e as any).content;
+            const reference = (e as any).reference;
+            let extra = '';
+            if (content) extra += ` — ${content}`;
+            if (reference) extra += ` (Ref: ${reference})`;
+
+            const icon = (e.templateId === 'anuncio') ? '📢' : (e.templateId === 'notificacao') ? '🔔' : '📌';
+            return `<div style="margin-bottom: 4px;">${icon} <strong>${name}</strong>${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
+        }).join('');
+
+        footerNotes = `
+            <div style="
+                margin-top: 12px;
+                padding: 10px 14px;
+                border-top: 2px solid #D1D5DB;
+                font-family: Calibri, sans-serif;
+                font-size: 10pt;
+                color: #6B7280;
+            ">
+                <div style="font-weight: 600; margin-bottom: 4px; color: #374151; font-size: 10pt;">Notas:</div>
+                ${noteItems}
             </div>
         `;
     }
@@ -494,8 +526,6 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             <span class="title-year">Programação da reunião do meio de semana — <strong>${year}</strong></span>
         </div>
 
-        ${eventBanner}
-
         <div class="week-info">
             <span class="week-date">${weekData.weekDisplay.toUpperCase()}</span>
             <span class="president-info">Presidente: ${weekData.president}</span>
@@ -516,6 +546,8 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
                 ${finalHTML}
             </tbody>
         </table>
+
+        ${footerNotes}
     `;
 }
 

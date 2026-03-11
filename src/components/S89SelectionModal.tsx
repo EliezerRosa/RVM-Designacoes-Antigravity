@@ -72,10 +72,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             // SEMPRE regenerar a mensagem com dados ATUAIS do part
             // O histórico (mapping) é usado apenas para o badge "Enviado em ..."
             const initialEdits: Record<string, string> = {};
-            validParts.forEach(p => {
-                const { content } = communicationService.prepareS89Message(p, publishers, weekParts);
+            for (const p of validParts) {
+                const { content } = await communicationService.prepareS89Message(p, publishers, weekParts);
                 initialEdits[p.id] = content;
-            });
+            }
             setEditingMessages(initialEdits);
         } catch (err) {
             console.error('Erro ao carregar histórico no modal:', err);

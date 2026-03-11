@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
 import { supabase } from '../lib/supabase';
-import type { SpecialEvent } from '../types';
+import type { SpecialEvent, EventImpactAction } from '../types';
 
 interface Props {
     availableWeeks: { weekId: string; display: string }[];
@@ -27,10 +27,29 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const [formTheme, setFormTheme] = useState('');
     const [formAssignee, setFormAssignee] = useState('');
     const [formTargetPartId, setFormTargetPartId] = useState('');
-    const [formAutoApply, setFormAutoApply] = useState(true);  // Padrão: aplicar automaticamente
+    const [formAutoApply, setFormAutoApply] = useState(true);
     const [targetParts, setTargetParts] = useState<Array<{ id: string; title: string; duration: string }>>([]);
+    // Novos form states
+    const [formOverrideAction, setFormOverrideAction] = useState<EventImpactAction | ''>('');
+    const [formContent, setFormContent] = useState('');
+    const [formReference, setFormReference] = useState('');
+    const [formLinks, setFormLinks] = useState('');
+    const [formSelectedPartIds, setFormSelectedPartIds] = useState<string[]>([]);
+    const [allWeekParts, setAllWeekParts] = useState<Array<{ id: string; title: string; duration: string; section: string; tipoParte: string }>>([]);
 
     const templates = EVENT_TEMPLATES;
+
+    // Todas as ações de impacto disponíveis
+    const IMPACT_OPTIONS: { value: EventImpactAction; label: string }[] = [
+        { value: 'NO_IMPACT', label: 'Sem Impacto (informativo)' },
+        { value: 'REPLACE_PART', label: 'Cancelar Partes Específicas' },
+        { value: 'REPLACE_SECTION', label: 'Cancelar Seção Inteira' },
+        { value: 'TIME_ADJUSTMENT', label: 'Ajustar Tempo do EBC' },
+        { value: 'REDUCE_VIDA_CRISTA_TIME', label: 'Reduzir Tempo (Vida Cristã)' },
+        { value: 'ADD_PART', label: 'Adicionar Nova Parte' },
+        { value: 'CANCEL_WEEK', label: 'Cancelar Semana Inteira' },
+        { value: 'SC_VISIT_LOGIC', label: 'Visita do SC (lógica especial)' },
+    ];
 
     const loadEvents = useCallback(async () => {
         try {
@@ -50,46 +69,55 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
-    // Carregar partes da seção Vida Cristã quando necessário
+    // Carregar partes da semana quando necessário para REDUCE_VIDA_CRISTA_TIME ou REPLACE_PART
     useEffect(() => {
         const fetchParts = async () => {
-            if (!formWeekId || !selectedTemplate || selectedTemplate.impact.action !== 'REDUCE_VIDA_CRISTA_TIME') {
+            if (!formWeekId) {
                 setTargetParts([]);
+                setAllWeekParts([]);
                 return;
             }
 
             try {
-                // Buscar partes da semana que sejam da seção Vida e Ministério
-                // Filtrar por seção que contenha "Vida" ou "Ministério" ou "Ministerio"
                 const { data, error } = await supabase
                     .from('workbook_parts')
                     .select('id, part_title, tipo_parte, duracao, section')
                     .eq('week_id', formWeekId)
-                    .neq('status', 'CANCELADA'); // Não mostrar canceladas
+                    .neq('status', 'CANCELADA');
 
                 if (error) throw error;
 
-                const vidaParts = (data || []).filter(p => {
-                    const sec = (p.section || '').toLowerCase();
-                    const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
-                    // Excluir partes de presidência/oração se houver
-                    const isPresidency = p.tipo_parte === 'Presidente' || p.tipo_parte?.includes('Oração');
-                    return isVida && !isPresidency;
-                }).map(p => ({
+                const allParts = (data || []).map(p => ({
                     id: p.id,
                     title: p.part_title || p.tipo_parte,
-                    duration: p.duracao
+                    duration: p.duracao,
+                    section: p.section || '',
+                    tipoParte: p.tipo_parte || '',
                 }));
+                setAllWeekParts(allParts);
 
+                // Filtrar partes Vida Cristã (para REDUCE_VIDA_CRISTA_TIME)
+                const vidaParts = allParts.filter(p => {
+                    const sec = p.section.toLowerCase();
+                    const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
+                    const isPresidency = p.tipoParte === 'Presidente' || p.tipoParte?.includes('Oração');
+                    return isVida && !isPresidency;
+                });
                 setTargetParts(vidaParts);
             } catch (err) {
                 console.error('Erro ao buscar partes alvo:', err);
-                // Não bloquear erro
             }
         };
 
         fetchParts();
-    }, [formWeekId, formTemplateId, selectedTemplate]);
+    }, [formWeekId]);
+
+    // Quando troca template, pré-selecionar ação padrão
+    useEffect(() => {
+        if (selectedTemplate) {
+            setFormOverrideAction(selectedTemplate.impact.action as EventImpactAction);
+        }
+    }, [selectedTemplate]);
 
     const resetForm = () => {
         setFormTemplateId('');
@@ -97,10 +125,17 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormTheme('');
         setFormAssignee('');
         setFormTargetPartId('');
-        setFormAutoApply(true);  // Resetar para padrão
+        setFormAutoApply(true);
         setTargetParts([]);
         setEditingEvent(null);
         setShowForm(false);
+        // Novos resets
+        setFormOverrideAction('');
+        setFormContent('');
+        setFormReference('');
+        setFormLinks('');
+        setFormSelectedPartIds([]);
+        setAllWeekParts([]);
     };
 
     const handleSubmit = async () => {
@@ -118,6 +153,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         try {
             setLoading(true);
 
+            const effectiveAction = formOverrideAction || selectedTemplate?.impact.action;
+
             const eventData = {
                 templateId: formTemplateId,
                 week: formWeekId,
@@ -126,6 +163,14 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 duration: selectedTemplate?.defaults.duration,
                 targetPartId: formTargetPartId || undefined,
                 isApplied: false,
+                // Novos campos
+                overrideAction: effectiveAction !== selectedTemplate?.impact.action
+                    ? effectiveAction as EventImpactAction
+                    : undefined,
+                affectedPartIds: formSelectedPartIds.length > 0 ? formSelectedPartIds : undefined,
+                content: formContent || undefined,
+                reference: formReference || undefined,
+                links: formLinks ? formLinks.split('\n').filter(l => l.trim()) : undefined,
             };
 
             let createdEvent: SpecialEvent;
@@ -171,6 +216,11 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormTheme(event.theme || '');
         setFormAssignee(event.responsible || '');
         setFormTargetPartId(event.targetPartId || '');
+        setFormOverrideAction(event.overrideAction || '');
+        setFormContent(event.content || '');
+        setFormReference(event.reference || '');
+        setFormLinks(event.links?.join('\n') || '');
+        setFormSelectedPartIds(event.affectedPartIds || []);
         setShowForm(true);
     };
 
@@ -371,12 +421,70 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                         ))}
                     </select>
 
-                    {selectedTemplate?.impact.action === 'REDUCE_VIDA_CRISTA_TIME' && (
+                    {/* Ação de Impacto (dropdown flexível) */}
+                    {selectedTemplate && formWeekId && (
+                        <>
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                                Ação de Impacto
+                                <span style={{ fontWeight: 'normal', color: '#6B7280', marginLeft: '4px' }}>
+                                    (padrão: {IMPACT_OPTIONS.find(o => o.value === selectedTemplate.impact.action)?.label})
+                                </span>
+                            </label>
+                            <select
+                                value={formOverrideAction}
+                                onChange={e => setFormOverrideAction(e.target.value as EventImpactAction)}
+                                style={inputStyle}
+                            >
+                                {IMPACT_OPTIONS.map(o => (
+                                    <option key={o.value} value={o.value}>
+                                        {o.label}{o.value === selectedTemplate.impact.action ? ' ★' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </>
+                    )}
+
+                    {/* Multi-part: seleção de partes específicas para REPLACE_PART */}
+                    {formOverrideAction === 'REPLACE_PART' && allWeekParts.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
+                                Partes a Cancelar <span style={{ fontWeight: 'normal', color: '#6B7280' }}>(marque uma ou mais)</span>
+                            </label>
+                            <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #D1D5DB', borderRadius: '6px', padding: '6px', background: '#fff' }}>
+                                {allWeekParts.map(p => (
+                                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', cursor: 'pointer', fontSize: '13px', borderBottom: '1px solid #F3F4F6' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formSelectedPartIds.includes(p.id)}
+                                            onChange={e => {
+                                                if (e.target.checked) {
+                                                    setFormSelectedPartIds(prev => [...prev, p.id]);
+                                                } else {
+                                                    setFormSelectedPartIds(prev => prev.filter(id => id !== p.id));
+                                                }
+                                            }}
+                                            style={{ width: '14px', height: '14px' }}
+                                        />
+                                        <span style={{ flex: 1 }}>{p.title}</span>
+                                        <span style={{ color: '#9CA3AF', fontSize: '11px' }}>{p.section} • {p.duration}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {formSelectedPartIds.length > 0 && (
+                                <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px' }}>
+                                    {formSelectedPartIds.length} parte(s) selecionada(s)
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* REDUCE_VIDA_CRISTA_TIME: seleção de parte única */}
+                    {formOverrideAction === 'REDUCE_VIDA_CRISTA_TIME' && targetParts.length > 0 && (
                         <>
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
                                 Parte para Reduzir Tempo
                                 <span style={{ fontWeight: 'normal', color: '#6B7280', marginLeft: '4px' }}>
-                                    (Será reduzida em {selectedTemplate.defaults.duration} min)
+                                    (Será reduzida em {selectedTemplate?.defaults.duration || 10} min)
                                 </span>
                             </label>
                             <select
@@ -394,6 +502,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                         </>
                     )}
 
+                    {/* Campos de Tema e Responsável */}
                     {selectedTemplate?.defaults.requiresTheme && (
                         <>
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>Tema</label>
@@ -416,6 +525,42 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                 onChange={e => setFormAssignee(e.target.value)}
                                 placeholder="Nome do responsável"
                                 style={inputStyle}
+                            />
+                        </>
+                    )}
+
+                    {/* Campos de Conteúdo/Referência/Links (Anúncio/Notificação) */}
+                    {(formTemplateId === 'anuncio' || formTemplateId === 'notificacao') && (
+                        <>
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                                {formTemplateId === 'anuncio' ? '📢 Conteúdo do Anúncio' : '🔔 Conteúdo da Notificação'}
+                            </label>
+                            <textarea
+                                value={formContent}
+                                onChange={e => setFormContent(e.target.value)}
+                                placeholder="Essência / conteúdo..."
+                                rows={3}
+                                style={{ ...inputStyle, resize: 'vertical' }}
+                            />
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>Referência</label>
+                            <input
+                                type="text"
+                                value={formReference}
+                                onChange={e => setFormReference(e.target.value)}
+                                placeholder="Ex: Carta nº 123 do Corpo Governante"
+                                style={inputStyle}
+                            />
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                                Links <span style={{ fontWeight: 'normal', color: '#6B7280' }}>(um por linha)</span>
+                            </label>
+                            <textarea
+                                value={formLinks}
+                                onChange={e => setFormLinks(e.target.value)}
+                                placeholder="https://exemplo.com/recurso"
+                                rows={2}
+                                style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }}
                             />
                         </>
                     )}
