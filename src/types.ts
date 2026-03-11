@@ -139,7 +139,8 @@ export type EventImpactAction =
     | 'SC_VISIT_LOGIC'
     | 'CANCEL_WEEK'
     | 'TIME_ADJUSTMENT'
-    | 'REDUCE_VIDA_CRISTA_TIME';  // Para eventos satélite (Preparação/Recapitulação)
+    | 'REDUCE_VIDA_CRISTA_TIME'
+    | 'NO_IMPACT';  // Evento informativo (Anúncio, Notificação) — sem alteração nas partes
 
 export interface EventImpact {
     action: EventImpactAction;
@@ -187,9 +188,16 @@ export interface SpecialEvent {
     createdAt?: string;
     updatedAt?: string;
     createdBy?: string;
-    // Novos campos para eventos satélite
+    // Campos para eventos satélite
     parentEventId?: string;     // Vincula a evento pai (Assembleia/Congresso)
     targetPartId?: string;      // Parte específica a ter tempo reduzido
+    // Campos para impacto flexível e multi-part
+    overrideAction?: EventImpactAction;  // Ação de impacto escolhida pelo usuário (sobrescreve template)
+    affectedPartIds?: string[];          // Múltiplas partes afetadas
+    // Campos para Anúncio / Notificação
+    content?: string;           // Essência/conteúdo do anúncio ou notificação
+    reference?: string;         // Referência bibliográfica ou documental
+    links?: string[];           // Links relacionados
 }
 
 // ===== APOSTILA (WORKBOOK STAGING) =====

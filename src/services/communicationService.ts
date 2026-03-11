@@ -249,37 +249,42 @@ export const communicationService = {
 
     /**
      * Prepara a mensagem S-89 individual
+     * Inclui contexto de excepcionalidades (eventos especiais) quando aplicável
      */
-    prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = []): { content: string, phone?: string } {
+    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = []): Promise<{ content: string, phone?: string }> {
         const publisherName = (part.resolvedPublisherName || part.rawPublisherName || '').trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
 
+        // Verificar se a parte foi CANCELADA por evento
+        if (part.status === 'CANCELADA' && (part as any).affectedByEventId) {
+            const greeting = recipientGender === 'sister' ? 'Querida irmã' : 'Querido irmão';
+            let cancelMsg = `${greeting} *${publisherName}*, paz! 🙏\n\n`;
+            cancelMsg += `Informamos que a sua designação para a parte *"${part.tituloParte || part.tipoParte}"* `;
+            cancelMsg += `foi *cancelada* devido a uma alteração na programação da semana.\n\n`;
+            if ((part as any).cancelReason) {
+                cancelMsg += `📌 *Motivo:* ${(part as any).cancelReason}\n\n`;
+            }
+            cancelMsg += `Agradecemos sua compreensão e disposição! 💛`;
+            return { content: cancelMsg, phone: pub?.phone };
+        }
+
         // Lógica de Parceiro (Titular/Ajudante)
         const isAjudante = part.funcao === 'Ajudante';
 
-        // Identificar número da parte ou contexto para achar o parceiro
         let partner: WorkbookPart | undefined;
         if (allWeekParts.length > 0) {
-            // Regex simples para extrair número da parte (ex: "1. Leitura")
             const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
             const partNum = partNumMatch ? partNumMatch[1] : null;
 
             partner = allWeekParts.find(p => {
                 if (p.id === part.id) return false;
-
-                // Só considera parceiro se tiver um publicador escalado
                 if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
-
                 const otherNumMatch = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/);
                 const otherNum = otherNumMatch ? otherNumMatch[1] : null;
-
-                // Se tem número, bate pelo número E garante função oposta
                 if (partNum && otherNum && partNum === otherNum) {
                     return p.funcao !== part.funcao;
                 }
-
-                // Fallback: mesmo tipo de parte, função necessária oposta
                 return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
             });
         }
@@ -291,12 +296,11 @@ export const communicationService = {
             partnerPhone = partnerPub?.phone;
         }
 
-        // 2. Encontrar o Ancião Edmardo Queiroz (Superintendente RVM)
         const srvm = publishers.find(p => p.name === 'Edmardo Queiroz' || p.name.includes('Edmardo'));
         const srvmName = srvm?.name || 'Edmardo Queiroz';
         const srvmPhone = srvm?.phone || '';
 
-        const content = generateWhatsAppMessage(
+        let content = generateWhatsAppMessage(
             part,
             recipientGender,
             partnerName,
@@ -305,6 +309,60 @@ export const communicationService = {
             srvmName,
             srvmPhone
         );
+
+        // Buscar eventos especiais da semana para adicionar contexto
+        try {
+            const { data: events } = await supabase
+                .from('special_events')
+                .select('*')
+                .eq('week', part.weekId)
+                .eq('is_applied', true);
+
+            if (events && events.length > 0) {
+                const { EVENT_TEMPLATES } = await import('./specialEventService');
+                const relevantNotes: string[] = [];
+
+                for (const evt of events) {
+                    const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.template_id);
+                    const eventName = template?.name || evt.theme || 'Evento Especial';
+                    const action = evt.override_action || template?.impact?.action || 'NO_IMPACT';
+
+                    // Verificar se ESTA parte é afetada diretamente
+                    const isDirectlyAffected = (part as any).affectedByEventId === evt.id;
+
+                    if (isDirectlyAffected) {
+                        switch (action) {
+                            case 'TIME_ADJUSTMENT':
+                            case 'REDUCE_VIDA_CRISTA_TIME':
+                                relevantNotes.push(`⏱️ O tempo desta parte foi ajustado devido a: *${eventName}*`);
+                                break;
+                            case 'REPLACE_PART':
+                            case 'REPLACE_SECTION':
+                                relevantNotes.push(`🔄 Esta parte foi alterada devido a: *${eventName}*`);
+                                break;
+                        }
+                    }
+
+                    // Sempre incluir anúncios/notificações da semana
+                    if (evt.template_id === 'anuncio' || evt.template_id === 'notificacao') {
+                        const icon = evt.template_id === 'anuncio' ? '📢' : '🔔';
+                        const evtContent = evt.content ? `: ${evt.content}` : '';
+                        relevantNotes.push(`${icon} *${eventName}*${evtContent}`);
+                    }
+                }
+
+                if (relevantNotes.length > 0) {
+                    content += `\n\n──────────────────\n`;
+                    content += `⚠️ *ATENÇÃO — Alterações nesta semana:*\n`;
+                    relevantNotes.forEach(note => {
+                        content += `• ${note}\n`;
+                    });
+                }
+            }
+        } catch (err) {
+            console.error('[communicationService] Erro ao buscar eventos para contexto:', err);
+            // Não bloquear o envio da mensagem
+        }
 
         return {
             content,

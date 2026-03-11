@@ -80,6 +80,21 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
         impact: { action: 'REDUCE_VIDA_CRISTA_TIME' },
         defaults: { duration: 10, requiresTheme: true, requiresAssignee: true },
     },
+    // --- EVENTOS INFORMATIVOS ---
+    {
+        id: 'anuncio',
+        name: 'Anúncio',
+        description: 'Anúncio para a congregação. Por padrão sem impacto nas partes, mas pode ser configurado para cancelar/reduzir partes se necessário.',
+        impact: { action: 'NO_IMPACT' },
+        defaults: { duration: 0, requiresTheme: true, requiresAssignee: false },
+    },
+    {
+        id: 'notificacao',
+        name: 'Notificação',
+        description: 'Notificação informativa. Por padrão sem impacto nas partes, mas pode ser configurado para cancelar/reduzir partes se necessário.',
+        impact: { action: 'NO_IMPACT' },
+        defaults: { duration: 0, requiresTheme: true, requiresAssignee: false },
+    },
 ];
 
 // ============================================================================
@@ -106,6 +121,12 @@ function mapDbToEvent(row: Record<string, unknown>): SpecialEvent {
         createdBy: row.created_by as string | undefined,
         parentEventId: row.parent_event_id as string | undefined,
         targetPartId: row.target_part_id as string | undefined,
+        // Novos campos
+        overrideAction: row.override_action as EventImpactAction | undefined,
+        affectedPartIds: row.affected_part_ids as string[] | undefined,
+        content: row.content as string | undefined,
+        reference: row.reference as string | undefined,
+        links: row.links as string[] | undefined,
     };
 }
 
@@ -178,6 +199,12 @@ export const specialEventService = {
             details: event.details,
             parent_event_id: event.parentEventId,
             target_part_id: event.targetPartId,
+            // Novos campos
+            override_action: event.overrideAction,
+            affected_part_ids: event.affectedPartIds,
+            content: event.content,
+            reference: event.reference,
+            links: event.links,
         };
 
         const { data, error } = await supabase
@@ -207,6 +234,12 @@ export const specialEventService = {
         if (updates.observations !== undefined) dbUpdates.observations = updates.observations;
         if (updates.configuration !== undefined) dbUpdates.configuration = updates.configuration;
         if (updates.details !== undefined) dbUpdates.details = updates.details;
+        // Novos campos
+        if (updates.overrideAction !== undefined) dbUpdates.override_action = updates.overrideAction;
+        if (updates.affectedPartIds !== undefined) dbUpdates.affected_part_ids = updates.affectedPartIds;
+        if (updates.content !== undefined) dbUpdates.content = updates.content;
+        if (updates.reference !== undefined) dbUpdates.reference = updates.reference;
+        if (updates.links !== undefined) dbUpdates.links = updates.links;
 
         const { error } = await supabase
             .from('special_events')
@@ -239,20 +272,48 @@ export const specialEventService = {
         const template = this.getTemplateById(event.templateId);
         if (!template) throw new Error(`Template não encontrado: ${event.templateId}`);
 
-        const action = template.impact.action as EventImpactAction;
+        // overrideAction permite que o usuário escolha um impacto diferente do template
+        const action = (event.overrideAction || template.impact.action) as EventImpactAction;
         let affected = 0;
 
         switch (action) {
+            case 'NO_IMPACT':
+                // Evento informativo — não altera nenhuma parte
+                affected = 0;
+                break;
+
             case 'REPLACE_PART':
-                // Marcar partes específicas do tipo alvo como CANCELADA
-                if (template.impact.targetType) {
+                // Cancela partes específicas pelo tipo_parte (não pela seção)
+                if (event.affectedPartIds && event.affectedPartIds.length > 0) {
+                    // Multi-part: cancelar partes selecionadas pelo usuário
                     const { error, count } = await supabase
                         .from('workbook_parts')
                         .update({ status: 'CANCELADA', cancel_reason: `Evento: ${template.name}`, affected_by_event_id: event.id })
-                        .in('id', weekParts)
-                        .eq('section', template.impact.targetType);
+                        .in('id', event.affectedPartIds);
                     if (error) throw error;
                     affected = count || 0;
+                } else if (template.impact.targetType) {
+                    // Fallback: filtrar por tipo_parte
+                    const targetTypes = Array.isArray(template.impact.targetType)
+                        ? template.impact.targetType
+                        : [template.impact.targetType];
+                    const { data: parts } = await supabase
+                        .from('workbook_parts')
+                        .select('id, tipo_parte')
+                        .in('id', weekParts);
+                    if (parts) {
+                        const idsToCancel = parts
+                            .filter(p => targetTypes.includes(p.tipo_parte))
+                            .map(p => p.id);
+                        if (idsToCancel.length > 0) {
+                            const { error, count } = await supabase
+                                .from('workbook_parts')
+                                .update({ status: 'CANCELADA', cancel_reason: `Evento: ${template.name}`, affected_by_event_id: event.id })
+                                .in('id', idsToCancel);
+                            if (error) throw error;
+                            affected = count || 0;
+                        }
+                    }
                 }
                 break;
 
@@ -490,8 +551,11 @@ export const specialEventService = {
         const template = this.getTemplateById(event.templateId);
         if (!template) return { marked: 0 };
 
-        const action = template.impact.action;
+        const action = event.overrideAction || template.impact.action;
         let marked = 0;
+
+        // NO_IMPACT: nada a marcar
+        if (action === 'NO_IMPACT') return { marked: 0 };
 
         switch (action) {
             case 'CANCEL_WEEK':
