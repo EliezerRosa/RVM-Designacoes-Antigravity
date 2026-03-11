@@ -325,21 +325,25 @@ export const communicationService = {
                 for (const evt of events) {
                     const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.template_id);
                     const eventName = template?.name || evt.theme || 'Evento Especial';
-                    const action = evt.override_action || template?.impact?.action || 'NO_IMPACT';
+                    const resolvedImpacts = (evt.impacts && evt.impacts.length > 0)
+                        ? evt.impacts
+                        : [{ action: evt.override_action || template?.impact?.action || 'NO_IMPACT' }];
 
                     // Verificar se ESTA parte é afetada diretamente
-                    const isDirectlyAffected = (part as any).affectedByEventId === evt.id;
+                    const isDirectlyAffected = (part as any).affectedByEventId === evt.id || (part as any).createdByEventId === evt.id;
 
                     if (isDirectlyAffected) {
-                        switch (action) {
-                            case 'TIME_ADJUSTMENT':
-                            case 'REDUCE_VIDA_CRISTA_TIME':
-                                relevantNotes.push(`⏱️ O tempo desta parte foi ajustado devido a: *${eventName}*`);
-                                break;
-                            case 'REPLACE_PART':
-                            case 'REPLACE_SECTION':
-                                relevantNotes.push(`🔄 Esta parte foi alterada devido a: *${eventName}*`);
-                                break;
+                        const actions = resolvedImpacts.map((i: any) => i.action);
+
+                        if (actions.includes('TIME_ADJUSTMENT') || actions.includes('REDUCE_VIDA_CRISTA_TIME')) {
+                            relevantNotes.push(`⏱️ O tempo desta parte foi ajustado devido a: *${eventName}*`);
+                        }
+                        if (actions.includes('REPLACE_PART') || actions.includes('REPLACE_SECTION') || actions.includes('SC_VISIT_LOGIC')) {
+                            // Se a parte foi alterada e for a substituta, ou algo assim. 
+                            relevantNotes.push(`🔄 Esta parte sofreu adaptações na programação devido a: *${eventName}*`);
+                        }
+                        if (actions.includes('ADD_PART')) {
+                            relevantNotes.push(`✨ Esta é uma parte especial da programação de: *${eventName}*`);
                         }
                     }
 
@@ -352,9 +356,12 @@ export const communicationService = {
                 }
 
                 if (relevantNotes.length > 0) {
+                    // Remover duplicatas
+                    const uniqueNotes = Array.from(new Set(relevantNotes));
+
                     content += `\n\n──────────────────\n`;
                     content += `⚠️ *ATENÇÃO — Alterações nesta semana:*\n`;
-                    relevantNotes.forEach(note => {
+                    uniqueNotes.forEach(note => {
                         content += `• ${note}\n`;
                     });
                 }

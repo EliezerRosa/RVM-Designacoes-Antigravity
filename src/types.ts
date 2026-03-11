@@ -165,6 +165,21 @@ export interface EventTemplate {
     };
 }
 
+export interface EventImpactOverride {
+    action: EventImpactAction;
+    affectedPartIds?: string[]; // Para REPLACE_PART/SECTION (quais excluir/substituir)
+    timeReductionDetails?: {
+        targetPartId?: string; // ID da parte a reduzir
+        targetType?: ParticipationType; // Ou tipo de parte (para retrocompatibilidade)
+        minutes: number;
+    };
+    newPartDetails?: {
+        insertAfterId?: string; // Onde colocar a nova parte
+        duration: number;
+        theme?: string;
+    };
+}
+
 export interface SpecialEvent {
     id: string;
     week: string;
@@ -191,9 +206,14 @@ export interface SpecialEvent {
     // Campos para eventos satélite
     parentEventId?: string;     // Vincula a evento pai (Assembleia/Congresso)
     targetPartId?: string;      // Parte específica a ter tempo reduzido
-    // Campos para impacto flexível e multi-part
-    overrideAction?: EventImpactAction;  // Ação de impacto escolhida pelo usuário (sobrescreve template)
-    affectedPartIds?: string[];          // Múltiplas partes afetadas
+
+    // Suporte a Múltiplos Impactos (Nova Arquitetura via JSONB)
+    impacts?: EventImpactOverride[];
+
+    // Campos legados mantidos provisoriamente para retrocompatibilidade
+    overrideAction?: EventImpactAction;
+    affectedPartIds?: string[];
+
     // Campos para Anúncio / Notificação
     content?: string;           // Essência/conteúdo do anúncio ou notificação
     reference?: string;         // Referência bibliográfica ou documental
