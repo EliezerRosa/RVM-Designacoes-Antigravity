@@ -379,7 +379,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             if (reference) extra += ` (Ref: ${reference})`;
 
             const icon = (e.templateId === 'anuncio') ? '📢' : (e.templateId === 'notificacao') ? '🔔' : '📌';
-            return `<div style="margin-bottom: 4px;"><strong>*${currentIndex}</strong> ${icon} <strong>${name}</strong>${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
+            return `<div style="margin-bottom: 4px;"><strong>*<sup style="font-size: 9pt;">${currentIndex}</sup></strong> ${icon} <strong>${name}</strong>${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
         }).join('');
 
         footerNotes = `
@@ -397,16 +397,12 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
         `;
     }
 
-    const superscriptMap: Record<number, string> = {
-        1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹'
-    };
-
     const renderTitle = (part: S140Part, bulletColor: string) => {
         const bullet = part.isCantico ? `<span style="color: ${bulletColor}; font-size: 18px;">●</span> ` : '';
         let footnoteSup = '';
         if (part.id && partToFootnotes.has(part.id)) {
-            const indices = partToFootnotes.get(part.id)!.map(i => superscriptMap[i] || i.toString()).join(', *');
-            footnoteSup = `<sup style="color: #E53E3E; font-size: 10pt; font-weight: bold; margin-left: 4px;">*${indices}</sup>`;
+            const markers = partToFootnotes.get(part.id)!.map(i => `*<sup style="color: #E53E3E; font-size: 10pt; font-weight: bold;">${i}</sup>`).join(', ');
+            footnoteSup = `<span style="margin-left: 4px;">${markers}</span>`;
         }
         return `${bullet}${part.title}${footnoteSup}`;
     };

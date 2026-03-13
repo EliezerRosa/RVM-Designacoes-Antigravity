@@ -156,6 +156,10 @@ export const communicationService = {
                 const eventNotes: string[] = [];
 
                 let noteIndex = 1;
+                const superscriptMap: Record<number, string> = {
+                    1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹'
+                };
+
                 for (const evt of events) {
                     const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.template_id);
                     let eventName = template?.name || evt.theme || 'Evento Especial';
@@ -164,7 +168,8 @@ export const communicationService = {
                     }
 
                     const currentIndex = noteIndex++;
-                    const notePrefix = `*[Nota *${currentIndex}]*`;
+                    const noteChar = superscriptMap[currentIndex] || currentIndex.toString();
+                    const notePrefix = `*[Nota *${noteChar}]*`;
 
                     if (evt.template_id === 'anuncio') {
                         eventNotes.push(`📢 ${notePrefix} *${eventName}*${evt.content ? `: ${evt.content}` : ''}`);
