@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
+import { useState, useEffect, useMemo } from 'react';
+import type { Publisher, WorkbookPart, HistoryRecord, SpecialEvent } from '../types';
 import { checkEligibility, buildEligibilityContext, type EligibilityResult } from '../services/eligibilityService';
 import { getBlockInfo, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
@@ -16,6 +16,7 @@ interface Props {
     parts: WorkbookPart[];
     publishers: Publisher[];
     historyRecords: HistoryRecord[]; // NEW: Receber histórico completo
+    weeklyEvents?: SpecialEvent[]; // NEW: Receber eventos da semana
 }
 
 interface PublisherStats {
@@ -25,7 +26,7 @@ interface PublisherStats {
     totalAssignments: number;
 }
 
-export default function ActionControlPanel({ selectedPartId, parts, publishers, historyRecords }: Props) {
+export default function ActionControlPanel({ selectedPartId, parts, publishers, historyRecords, weeklyEvents = [] }: Props) {
     const selectedPart = parts.find(p => p.id === selectedPartId);
 
     // Buscar o publicador designado para esta parte
@@ -44,6 +45,27 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     const [explanation, setExplanation] = useState<string | null>(null);
     const [bestCandidate, setBestCandidate] = useState<{ name: string; explanation: string; score: number } | null>(null);
     const [loading, setLoading] = useState(false);
+    
+    // Memoized impacts for the selected part
+    const partImpacts = useMemo(() => {
+        if (!selectedPartId || !weeklyEvents.length) return [];
+        const impactsList: { event: SpecialEvent, action: string, minutes?: number }[] = [];
+        
+        weeklyEvents.forEach(ev => {
+            const rawImpacts = (ev as any).impacts || [];
+            rawImpacts.forEach((imp: any) => {
+                const affectedIds = imp.affectedPartIds || (imp.targetPartId ? [imp.targetPartId] : []);
+                if (affectedIds.includes(selectedPartId)) {
+                    impactsList.push({ 
+                        event: ev, 
+                        action: imp.action, 
+                        minutes: imp.minutes 
+                    });
+                }
+            });
+        });
+        return impactsList;
+    }, [selectedPartId, weeklyEvents]);
 
     useEffect(() => {
         let isMounted = true;
@@ -252,6 +274,24 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                     {getStatusBadge(selectedPart.status)}
                                 </div>
                             </div>
+                            {/* Badges de Eventos no Título */}
+                            {partImpacts.length > 0 && (
+                                <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                    {partImpacts.map((imp, idx) => (
+                                        <span key={idx} style={{ 
+                                            fontSize: '10px', 
+                                            background: '#FEF3C7', 
+                                            color: '#92400E', 
+                                            padding: '1px 6px', 
+                                            borderRadius: '4px', 
+                                            border: '1px dotted #F59E0B',
+                                            fontWeight: '600'
+                                        }}>
+                                            ✨ {imp.action === 'REDUCE_TIME' ? `Tempo -${imp.minutes}m` : imp.action === 'CANCEL' ? 'Cancelada' : 'Vínculo Evento'}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Publicador Designado */}
@@ -492,6 +532,31 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Seção de Eventos da Semana (Sempre visível se houver) */}
+                        {weeklyEvents.length > 0 && (
+                            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px solid #E5E7EB' }}>
+                                <div style={{ ...labelStyle, color: '#0369A1' }}>📅 Contexto da Semana (Eventos)</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                                    {weeklyEvents.map(ev => (
+                                        <div key={ev.id} style={{ 
+                                            background: '#EFF6FF', 
+                                            padding: '8px', 
+                                            borderRadius: '6px', 
+                                            border: '1px solid #BFDBFE',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '2px'
+                                        }}>
+                                            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1E40AF' }}>{ev.theme || 'Evento Especial'}</div>
+                                            {ev.observations && (
+                                                <div style={{ fontSize: '10px', color: '#60A5FA', fontStyle: 'italic' }}>{ev.observations}</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>

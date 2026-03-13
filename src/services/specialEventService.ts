@@ -152,7 +152,8 @@ export const specialEventService = {
         const { data, error } = await supabase
             .from('special_events')
             .select('*')
-            .eq('week', weekId);
+            .eq('week', weekId)
+            .order('created_at', { ascending: true });
 
         if (error) throw new Error(`Erro ao buscar eventos: ${error.message}`);
         return (data || []).map(row => mapDbToEvent(row as Record<string, unknown>));

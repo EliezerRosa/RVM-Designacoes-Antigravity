@@ -13,6 +13,8 @@ import S140PreviewCarousel from './S140PreviewCarousel';
 import TemporalChat from './TemporalChat';
 import ActionControlPanel from './ActionControlPanel';
 import { chatHistoryService } from '../services/chatHistoryService';
+import { specialEventService } from '../services/specialEventService';
+import type { SpecialEvent } from '../types';
 import { S89SelectionModal } from './S89SelectionModal';
 import type { ActionResult } from '../services/agentActionService';
 import { CostMonitor } from './admin/CostMonitor';
@@ -46,6 +48,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     const [showS89Modal, setShowS89Modal] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
     const [activeModal, setActiveModal] = useState<AgentModalType>(null);
+    const [weeklyEvents, setWeeklyEvents] = useState<SpecialEvent[]>([]);
 
     // Sync currentWeekId when weekOrder arrives asynchronously OR fallback if stored is invalid
     useEffect(() => {
@@ -72,6 +75,18 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     // Sync week navigation with TemporalChat
     useEffect(() => {
         if (!currentWeekId) return;
+        
+        async function fetchEvents() {
+            try {
+                const events = await specialEventService.getEventsByWeek(currentWeekId!);
+                setWeeklyEvents(events.filter(e => e.isApplied));
+            } catch (err) {
+                console.error('[AgentTab] Error fetching events:', err);
+                setWeeklyEvents([]);
+            }
+        }
+        fetchEvents();
+
         // Show a simple visual alert for context change instead of adding a message to the chat
         setShowContextAlert(true);
         const timer = setTimeout(() => setShowContextAlert(false), 3000);
@@ -294,6 +309,16 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                                 <div style={{ padding: '6px 10px', fontSize: '10px', fontWeight: '600', color: '#6B7280', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                                     📋 Partes da semana {currentWeekId || ''} (clique para ver detalhes)
                                 </div>
+                                {weeklyEvents.length > 0 && (
+                                    <div style={{ padding: '6px 10px', background: '#F0F9FF', borderBottom: '1px solid #BAE6FD' }}>
+                                        <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0369A1', textTransform: 'uppercase', marginBottom: '2px' }}>✨ Eventos Especiais Ativos</div>
+                                        {weeklyEvents.map(ev => (
+                                            <div key={ev.id} style={{ fontSize: '10px', color: '#0C4A6E', fontWeight: '500' }}>
+                                                • {ev.theme || 'Evento'}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 {currentPartsForList.length === 0 ? (
                                     <div style={{ padding: '12px', fontSize: '11px', color: '#9CA3AF', textAlign: 'center' }}>Selecione uma semana no S-140</div>
                                 ) : (
@@ -348,6 +373,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             parts={parts}
                             publishers={publishers}
                             historyRecords={historyRecords}
+                            weeklyEvents={weeklyEvents}
                         />
                     </div>
                     {showContextAlert && (
