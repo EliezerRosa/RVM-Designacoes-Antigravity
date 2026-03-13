@@ -40,6 +40,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
     // Lista de Partes para Seleção do Form
     const [allWeekParts, setAllWeekParts] = useState<Array<{ id: string; title: string; duration: string; section: string; tipoParte: string; seq?: number }>>([]);
+    const [formGlobalAffectedPartIds, setFormGlobalAffectedPartIds] = useState<string[]>([]);
 
     const templates = EVENT_TEMPLATES;
 
@@ -150,6 +151,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormReference('');
         setFormLinks('');
         setAllWeekParts([]);
+        setFormGlobalAffectedPartIds([]);
     };
 
     const handleSubmit = async () => {
