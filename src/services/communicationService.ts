@@ -145,11 +145,9 @@ export const communicationService = {
 
         // Add special events notes
         try {
-            const { data: events } = await supabase
-                .from('special_events')
-                .select('*')
-                .eq('week', weekId)
-                .eq('is_applied', true);
+            const { specialEventService } = await import('./specialEventService');
+            const events = (await specialEventService.getEventsByWeek(weekId))
+                .filter(e => e.isApplied);
 
             if (events && events.length > 0) {
                 const { EVENT_TEMPLATES } = await import('./specialEventService');
@@ -362,14 +360,13 @@ export const communicationService = {
 
         // Buscar eventos especiais da semana para adicionar contexto
         try {
-            const { data: events } = await supabase
-                .from('special_events')
-                .select('*')
-                .eq('week', part.weekId)
-                .eq('is_applied', true);
+            const { specialEventService } = await import('./specialEventService');
+            const events = (await specialEventService.getEventsByWeek(part.weekId))
+                .filter(e => e.isApplied);
 
             if (events && events.length > 0) {
                 const { EVENT_TEMPLATES } = await import('./specialEventService');
+                const relevantNotes: string[] = [];
                 let noteIndex = 1;
                 for (const evt of events) {
                     const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.template_id);
@@ -399,16 +396,26 @@ export const communicationService = {
                     const sup = superscriptMap[currentIndex] || currentIndex.toString();
 
                     if (isDirectlyAffected) {
-                        const actions = resolvedImpacts.map((i: any) => i.action);
+                        // Detectar impactos específicos para esta parte no array de impactos
+                        const partSpecificImpacts = resolvedImpacts.filter((imp: any) => 
+                            imp.affectedPartIds?.includes(part.id) || 
+                            imp.targetPartIds?.includes(part.id) || 
+                            imp.targetPartId === part.id
+                        );
 
-                        if (actions.includes('TIME_ADJUSTMENT') || actions.includes('REDUCE_VIDA_CRISTA_TIME')) {
-                            relevantNotes.push(`⏱️ *[Nota *${sup}]* O tempo desta parte foi ajustado devido a: *${eventName}*`);
-                        } else if (actions.includes('REPLACE_PART') || actions.includes('REPLACE_SECTION') || actions.includes('SC_VISIT_LOGIC')) {
-                            relevantNotes.push(`🔄 *[Nota *${sup}]* Esta parte sofreu adaptações na programação devido a: *${eventName}*`);
-                        } else if (actions.includes('ADD_PART')) {
+                        if (partSpecificImpacts.length > 0) {
+                            partSpecificImpacts.forEach((imp: any) => {
+                                if (imp.action === 'TIME_ADJUSTMENT' || imp.action === 'REDUCE_VIDA_CRISTA_TIME') {
+                                    relevantNotes.push(`⏱️ *[Nota *${sup}]* O tempo desta parte foi reduzido em *${imp.timeReductionDetails?.minutes || 5} min* devido a: *${eventName}*`);
+                                } else if (imp.action === 'REPLACE_PART' || imp.action === 'REPLACE_SECTION' || imp.action === 'SC_VISIT_LOGIC') {
+                                    relevantNotes.push(`🔄 *[Nota *${sup}]* Esta parte sofreu adaptações na programação devido a: *${eventName}*`);
+                                }
+                            });
+                        } else if ((part as any).createdByEventId === evt.id) {
                             relevantNotes.push(`✨ *[Nota *${sup}]* Esta é uma parte especial da programação de: *${eventName}*`);
-                        } else if (actions.includes('NO_IMPACT')) {
-                            relevantNotes.push(`📌 *[Nota *${sup}]* Esta parte tem uma observação importante: *${eventName}*`);
+                        } else {
+                            // Vínculo visual genérico
+                            relevantNotes.push(`📌 *[Nota *${sup}]* Esta parte tem uma observação importante relacionada a: *${eventName}*`);
                         }
                     }
 
