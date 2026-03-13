@@ -216,7 +216,7 @@ export const specialEventService = {
             .single();
 
         if (error) throw new Error(`Erro ao criar evento: ${error.message}`);
-        return data;
+        return mapDbToEvent(data as Record<string, unknown>);
     },
 
     // Atualizar evento existente
@@ -315,6 +315,14 @@ export const specialEventService = {
         for (const impact of resolvedImpacts) {
             switch (impact.action) {
                 case 'NO_IMPACT':
+                    if (impact.affectedPartIds && impact.affectedPartIds.length > 0) {
+                        const { error, count } = await supabase
+                            .from('workbook_parts')
+                            .update({ affected_by_event_id: event.id })
+                            .in('id', impact.affectedPartIds);
+                        if (error) throw error;
+                        totalAffected += count || 0;
+                    }
                     break;
 
                 case 'REPLACE_PART':
@@ -404,20 +412,28 @@ export const specialEventService = {
                 case 'TIME_ADJUSTMENT':
                 case 'REDUCE_VIDA_CRISTA_TIME':
                     {
-                        // Fallback to old behavior if no exact reduction details available
                         const reductionDetails = impact.timeReductionDetails;
 
                         if (reductionDetails) {
-                            const targetId = reductionDetails.targetPartId;
+                            // Fase 5.b: Suporte a N partes
+                            const targetIds = reductionDetails.targetPartIds ||
+                                (reductionDetails.targetPartId ? [reductionDetails.targetPartId] : []);
+
                             const targetType = reductionDetails.targetType || 'Dirigente do EBC';
 
                             let query = supabase.from('workbook_parts').select('id, tipo_parte, duracao').in('id', weekParts);
-                            if (targetId) query = query.eq('id', targetId);
+                            if (targetIds.length > 0) {
+                                query = query.in('id', targetIds);
+                            }
 
                             const { data: parts } = await query;
-                            const partToReduce = parts?.find(p => targetId ? p.id === targetId : p.tipo_parte === targetType);
 
-                            if (partToReduce) {
+                            // Filtrar quais aplicar
+                            const partsToReduce = parts?.filter(p =>
+                                targetIds.length > 0 ? targetIds.includes(p.id) : p.tipo_parte === targetType
+                            ) || [];
+
+                            for (const partToReduce of partsToReduce) {
                                 const currentDuration = parseInt(partToReduce.duracao) || (targetType === 'Dirigente do EBC' ? 30 : 15);
                                 const newDuration = Math.max(5, currentDuration - reductionDetails.minutes);
 
@@ -497,7 +513,7 @@ export const specialEventService = {
 
         let restored = 0;
 
-        // Restaurar partes canceladas
+        // 1. Restaurar partes canceladas pelo evento
         const { error: cancelError, count: cancelCount } = await supabase
             .from('workbook_parts')
             .update({ status: 'PENDENTE', cancel_reason: null, affected_by_event_id: null })
@@ -507,22 +523,36 @@ export const specialEventService = {
         if (cancelError) throw cancelError;
         restored += cancelCount || 0;
 
-        // Restaurar durações originais (para TIME_ADJUSTMENT e REDUCE_VIDA_CRISTA_TIME)
-        if (template.impact.action === 'TIME_ADJUSTMENT' || template.impact.action === 'REDUCE_VIDA_CRISTA_TIME') {
-            const { data: adjustedParts } = await supabase
-                .from('workbook_parts')
-                .select('id, original_duration')
-                .eq('affected_by_event_id', event.id)
-                .not('original_duration', 'is', null);
+        // 2. Limpar vínculos de partes que NÃO foram canceladas (ex: Informativos/NO_IMPACT)
+        const { error: linkError, count: linkCount } = await supabase
+            .from('workbook_parts')
+            .update({ affected_by_event_id: null })
+            .eq('affected_by_event_id', event.id)
+            .neq('status', 'CANCELADA');
+        
+        if (linkError) throw linkError;
+        restored += linkCount || 0;
 
-            if (adjustedParts) {
-                for (const part of adjustedParts) {
-                    await supabase
-                        .from('workbook_parts')
-                        .update({ duracao: part.original_duration, original_duration: null, affected_by_event_id: null })
-                        .eq('id', part.id);
-                    restored++;
-                }
+        // 3. Restaurar durações originais (se houver)
+        const { data: adjustedParts, error: adjError } = await supabase
+            .from('workbook_parts')
+            .select('id, original_duration')
+            .eq('affected_by_event_id', event.id)
+            .not('original_duration', 'is', null);
+
+        if (adjError) throw adjError;
+
+        if (adjustedParts && adjustedParts.length > 0) {
+            for (const part of adjustedParts) {
+                await supabase
+                    .from('workbook_parts')
+                    .update({ 
+                        duracao: part.original_duration, 
+                        original_duration: null, 
+                        affected_by_event_id: null 
+                    })
+                    .eq('id', part.id);
+                restored++;
             }
         }
 
@@ -641,21 +671,28 @@ export const specialEventService = {
                     {
                         const reductionDetails = impact.timeReductionDetails;
                         if (reductionDetails) {
-                            const targetId = reductionDetails.targetPartId;
+                            const targetIds = reductionDetails.targetPartIds ||
+                                (reductionDetails.targetPartId ? [reductionDetails.targetPartId] : []);
                             const targetType = reductionDetails.targetType || 'Dirigente do EBC';
 
                             let query = supabase.from('workbook_parts').select('id, tipo_parte').in('id', weekParts);
-                            if (targetId) query = query.eq('id', targetId);
+                            if (targetIds.length > 0) {
+                                query = query.in('id', targetIds);
+                            }
 
                             const { data: parts } = await query;
-                            const partToMark = parts?.find(p => targetId ? p.id === targetId : p.tipo_parte === targetType);
 
-                            if (partToMark) {
-                                await supabase
+                            const partsToMark = parts?.filter(p =>
+                                targetIds.length > 0 ? targetIds.includes(p.id) : p.tipo_parte === targetType
+                            ) || [];
+
+                            if (partsToMark.length > 0) {
+                                const idsToMark = partsToMark.map(p => p.id);
+                                const { count } = await supabase
                                     .from('workbook_parts')
                                     .update({ pending_event_id: event.id })
-                                    .eq('id', partToMark.id);
-                                totalMarked += 1;
+                                    .in('id', idsToMark);
+                                totalMarked += count || 0;
                             }
                         }
                     }

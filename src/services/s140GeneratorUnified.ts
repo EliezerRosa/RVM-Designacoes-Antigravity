@@ -93,6 +93,7 @@ function isOracao(tipoParte: string): boolean {
 // ============================================================================
 
 interface S140Part {
+    id?: string;
     seq: number;
     section: string;
     time: string;
@@ -230,6 +231,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?:
             const duration = typeof p.duracao === 'string' ? parseInt(p.duracao, 10) || 0 : (p.duracao || 0);
 
             return {
+                id: p.id,
                 seq: p.seq || 0,
                 section: p.section || '',
                 time,
@@ -318,13 +320,43 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
         }
     });
 
+    // Mapeamento de notas de rodapé
+    const partToFootnotes = new Map<string, number[]>();
+
     // Notas de rodapé para eventos especiais (NUNCA no topo ou corpo)
     let footerNotes = '';
     if (weekData.hasEvents && weekData.events.length > 0) {
+        let noteIndex = 1;
         const noteItems = weekData.events.map(e => {
             const template = EVENT_TEMPLATES.find(t => t.id === e.templateId);
             const name = template?.name || e.theme || 'Evento Especial';
             const action = (e as any).overrideAction || template?.impact.action || 'NO_IMPACT';
+
+            // Mapear partes afetadas
+            const affectedIds = new Set<string>();
+            const impacts = (e as any).impacts;
+            if (impacts && Array.isArray(impacts)) {
+                impacts.forEach(imp => {
+                    if (imp.targetPartId) affectedIds.add(imp.targetPartId);
+                    if (imp.targetPartIds && Array.isArray(imp.targetPartIds)) {
+                        imp.targetPartIds.forEach((id: string) => affectedIds.add(id));
+                    }
+                    if (imp.affectedPartIds && Array.isArray(imp.affectedPartIds)) {
+                        imp.affectedPartIds.forEach((id: string) => affectedIds.add(id));
+                    }
+                });
+            } else {
+                if ((e as any).targetPartId) affectedIds.add((e as any).targetPartId);
+                if ((e as any).affectedPartIds && Array.isArray((e as any).affectedPartIds)) {
+                    (e as any).affectedPartIds.forEach((id: string) => affectedIds.add(id));
+                }
+            }
+
+            const currentIndex = noteIndex++;
+            affectedIds.forEach(partId => {
+                if (!partToFootnotes.has(partId)) partToFootnotes.set(partId, []);
+                partToFootnotes.get(partId)!.push(currentIndex);
+            });
 
             let impactDesc = '';
             switch (action) {
@@ -347,7 +379,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             if (reference) extra += ` (Ref: ${reference})`;
 
             const icon = (e.templateId === 'anuncio') ? '📢' : (e.templateId === 'notificacao') ? '🔔' : '📌';
-            return `<div style="margin-bottom: 4px;">${icon} <strong>${name}</strong>${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
+            return `<div style="margin-bottom: 4px;"><strong>*${currentIndex}</strong> ${icon} <strong>${name}</strong>${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
         }).join('');
 
         footerNotes = `
@@ -365,19 +397,30 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
         `;
     }
 
+    const superscriptMap: Record<number, string> = {
+        1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹'
+    };
+
+    const renderTitle = (part: S140Part, bulletColor: string) => {
+        const bullet = part.isCantico ? `<span style="color: ${bulletColor}; font-size: 18px;">●</span> ` : '';
+        let footnoteSup = '';
+        if (part.id && partToFootnotes.has(part.id)) {
+            const indices = partToFootnotes.get(part.id)!.map(i => superscriptMap[i] || i.toString()).join(', *');
+            footnoteSup = `<sup style="color: #E53E3E; font-size: 10pt; font-weight: bold; margin-left: 4px;">*${indices}</sup>`;
+        }
+        return `${bullet}${part.title}${footnoteSup}`;
+    };
+
     // === PARTES INICIAIS ===
     let initialHTML = '';
     initialParts.forEach(part => {
-        const bulletColor = COLORS.TESOUROS_BG;
-        const bullet = part.isCantico ? `<span style="color: ${bulletColor}; font-size: 18px;">●</span> ` : '';
-
         initialHTML += `
             <tr>
                 <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 12pt; color: #666; width: 55px; text-align: center;">
                     ${part.time}
                 </td>
                 <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: #333;">
-                    ${bullet}${part.title}
+                    ${renderTitle(part, COLORS.TESOUROS_BG)}
                 </td>
                 <td style="padding: 6px 10px;"></td>
                 <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; font-weight: 500; color: #333333; text-align: right;">
@@ -453,8 +496,6 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
 
         parts.forEach(part => {
             const textColor = part.isCantico ? '#333333' : bgColor;
-            const bullet = part.isCantico ? `<span style="color: ${bgColor}; font-size: 18px;">●</span> ` : '';
-
             const mainDisplay = part.mainHallAssistant
                 ? `${part.mainHallAssignee} / ${part.mainHallAssistant}`
                 : part.mainHallAssignee;
@@ -470,7 +511,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
                             ${part.duration > 0 ? part.time : ''}
                         </td>
                         <td colspan="3" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: ${textColor};">
-                            ${bullet}${part.title}
+                            ${renderTitle(part, bgColor)}
                         </td>
                         <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; font-weight: 500; color: #333333; text-align: right;">
                             ${mainDisplay}
@@ -484,7 +525,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
                             ${part.duration > 0 ? part.time : ''}
                         </td>
                         <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: ${textColor};">
-                            ${bullet}${part.title}
+                            ${renderTitle(part, bgColor)}
                         </td>
                         <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: #333333; text-align: center; background: ${part.isStudentPart ? '#FAFEFF' : 'transparent'};">
                             ${part.isStudentPart ? roomBDisplay : ''}
@@ -501,16 +542,13 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
     // === PARTES FINAIS ===
     let finalHTML = '';
     finalParts.forEach(part => {
-        const bulletColor = COLORS.VIDA_CRISTA_BG;
-        const bullet = part.isCantico ? `<span style="color: ${bulletColor}; font-size: 18px;">●</span> ` : '';
-
         finalHTML += `
             <tr>
                 <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 12pt; color: #666; width: 55px; text-align: center;">
                     ${part.time}
                 </td>
                 <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: #333;">
-                    ${bullet}${part.title}
+                    ${renderTitle(part, COLORS.VIDA_CRISTA_BG)}
                 </td>
                 <td style="padding: 6px 10px;"></td>
                 <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; font-weight: 500; color: #333333; text-align: right;">

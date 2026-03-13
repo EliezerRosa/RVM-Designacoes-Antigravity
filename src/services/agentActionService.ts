@@ -367,7 +367,7 @@ export const agentActionService = {
 
                     try {
                         const weekParts = parts.filter(p => p.weekId === weekId);
-                        const message = communicationService.prepareS140Message(weekId, weekParts);
+                        const message = await communicationService.prepareS140Message(weekId, weekParts);
 
                         await communicationService.logNotification({
                             type: 'S140',

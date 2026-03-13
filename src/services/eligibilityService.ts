@@ -106,7 +106,7 @@ export function buildEligibilityContext(
             }
         } else {
             if (titularPart) {
-                console.warn(`[Eligibility] Parte Titular ENCONTRADA ("${titularPart.tituloParte}"), mas resolvedPublisherName está VAZIO/NULL.`);
+                // console.log(`[Eligibility] Parte Titular ENCONTRADA ("${titularPart.tituloParte}"), mas resolvedPublisherName está VAZIO/NULL.`);
             }
         }
     }

@@ -126,7 +126,7 @@ export const communicationService = {
     /**
      * Prepara a mensagem de S-140 para o Agente
      */
-    prepareS140Message(weekId: string, _parts: WorkbookPart[]): string {
+    async prepareS140Message(weekId: string, _parts: WorkbookPart[]): Promise<string> {
         // Encontrar a data da reunião (Quinta-feira)
         const dateParts = weekId.split('-');
         let displayDate = weekId;
@@ -142,6 +142,51 @@ export const communicationService = {
 
         let text = `Olá, amados irmãos! Bom ${greeting}. 👋\n\n`;
         text += `Compartilhamos com alegria a *Programação da Reunião de Meio de Semana* para o dia *${displayDate}*:\n\n`;
+
+        // Add special events notes
+        try {
+            const { data: events } = await supabase
+                .from('special_events')
+                .select('*')
+                .eq('week', weekId)
+                .eq('is_applied', true);
+
+            if (events && events.length > 0) {
+                const { EVENT_TEMPLATES } = await import('./specialEventService');
+                const eventNotes: string[] = [];
+
+                let noteIndex = 1;
+                for (const evt of events) {
+                    const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.template_id);
+                    let eventName = template?.name || evt.theme || 'Evento Especial';
+                    if (evt.observation) {
+                        eventName += ` (Obs: ${evt.observation})`;
+                    }
+
+                    const currentIndex = noteIndex++;
+                    const notePrefix = `*[Nota *${currentIndex}]*`;
+
+                    if (evt.template_id === 'anuncio') {
+                        eventNotes.push(`📢 ${notePrefix} *${eventName}*${evt.content ? `: ${evt.content}` : ''}`);
+                    } else if (evt.template_id === 'notificacao') {
+                        eventNotes.push(`🔔 ${notePrefix} *${eventName}*${evt.content ? `: ${evt.content}` : ''}`);
+                    } else {
+                        eventNotes.push(`🔸 ${notePrefix} *${eventName}*`);
+                    }
+                }
+
+                if (eventNotes.length > 0) {
+                    text += `⚠️ *Atenção — Alterações nesta semana:*\n`;
+                    eventNotes.forEach(note => {
+                        text += `${note}\n`;
+                    });
+                    text += `\n`;
+                }
+            }
+        } catch (err) {
+            console.error('[communicationService] Erro ao buscar eventos para S-140:', err);
+        }
+
         text += `📜 *Acesse o programa completo anexo.* ⬆️\n\n`;
         text += `_“E esteja sobre nós a benevolência de Jeová, nosso Deus; sim, torna próspero o trabalho de nossas mãos.”_ (Salmo 90:17) ✨`;
 
@@ -320,38 +365,53 @@ export const communicationService = {
 
             if (events && events.length > 0) {
                 const { EVENT_TEMPLATES } = await import('./specialEventService');
-                const relevantNotes: string[] = [];
-
+                let noteIndex = 1;
                 for (const evt of events) {
                     const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.template_id);
-                    const eventName = template?.name || evt.theme || 'Evento Especial';
+                    let eventName = template?.name || evt.theme || 'Evento Especial';
+                    if (evt.observation) {
+                        eventName += ` (Obs: ${evt.observation})`;
+                    }
+
                     const resolvedImpacts = (evt.impacts && evt.impacts.length > 0)
                         ? evt.impacts
                         : [{ action: evt.override_action || template?.impact?.action || 'NO_IMPACT' }];
 
                     // Verificar se ESTA parte é afetada diretamente
-                    const isDirectlyAffected = (part as any).affectedByEventId === evt.id || (part as any).createdByEventId === evt.id;
+                    const affectedIds = new Set<string>();
+                    resolvedImpacts.forEach((imp: any) => {
+                        if (imp.targetPartId) affectedIds.add(imp.targetPartId);
+                        if (imp.targetPartIds) imp.targetPartIds.forEach((id: string) => affectedIds.add(id));
+                        if (imp.affectedPartIds) imp.affectedPartIds.forEach((id: string) => affectedIds.add(id));
+                    });
+
+                    const isDirectlyAffected = (part as any).affectedByEventId === evt.id || (part as any).createdByEventId === evt.id || affectedIds.has(part.id);
+
+                    const superscriptMap: Record<number, string> = {
+                        1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹'
+                    };
+                    const currentIndex = noteIndex++;
+                    const sup = superscriptMap[currentIndex] || currentIndex.toString();
 
                     if (isDirectlyAffected) {
                         const actions = resolvedImpacts.map((i: any) => i.action);
 
                         if (actions.includes('TIME_ADJUSTMENT') || actions.includes('REDUCE_VIDA_CRISTA_TIME')) {
-                            relevantNotes.push(`⏱️ O tempo desta parte foi ajustado devido a: *${eventName}*`);
-                        }
-                        if (actions.includes('REPLACE_PART') || actions.includes('REPLACE_SECTION') || actions.includes('SC_VISIT_LOGIC')) {
-                            // Se a parte foi alterada e for a substituta, ou algo assim. 
-                            relevantNotes.push(`🔄 Esta parte sofreu adaptações na programação devido a: *${eventName}*`);
-                        }
-                        if (actions.includes('ADD_PART')) {
-                            relevantNotes.push(`✨ Esta é uma parte especial da programação de: *${eventName}*`);
+                            relevantNotes.push(`⏱️ *[Nota *${sup}]* O tempo desta parte foi ajustado devido a: *${eventName}*`);
+                        } else if (actions.includes('REPLACE_PART') || actions.includes('REPLACE_SECTION') || actions.includes('SC_VISIT_LOGIC')) {
+                            relevantNotes.push(`🔄 *[Nota *${sup}]* Esta parte sofreu adaptações na programação devido a: *${eventName}*`);
+                        } else if (actions.includes('ADD_PART')) {
+                            relevantNotes.push(`✨ *[Nota *${sup}]* Esta é uma parte especial da programação de: *${eventName}*`);
+                        } else if (actions.includes('NO_IMPACT')) {
+                            relevantNotes.push(`📌 *[Nota *${sup}]* Esta parte tem uma observação importante: *${eventName}*`);
                         }
                     }
 
-                    // Sempre incluir anúncios/notificações da semana
+                    // Sempre incluir anúncios/notificações da semana na lista geral
                     if (evt.template_id === 'anuncio' || evt.template_id === 'notificacao') {
                         const icon = evt.template_id === 'anuncio' ? '📢' : '🔔';
                         const evtContent = evt.content ? `: ${evt.content}` : '';
-                        relevantNotes.push(`${icon} *${eventName}*${evtContent}`);
+                        relevantNotes.push(`${icon} *[Nota *${sup}] ${eventName}*${evtContent}`);
                     }
                 }
 

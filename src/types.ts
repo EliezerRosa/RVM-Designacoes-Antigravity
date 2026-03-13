@@ -169,7 +169,8 @@ export interface EventImpactOverride {
     action: EventImpactAction;
     affectedPartIds?: string[]; // Para REPLACE_PART/SECTION (quais excluir/substituir)
     timeReductionDetails?: {
-        targetPartId?: string; // ID da parte a reduzir
+        targetPartIds?: string[]; // Suporte a múltiplas partes a reduzir (Fase 5.b)
+        targetPartId?: string; // ID da parte a reduzir (Retrocompatibilidade)
         targetType?: ParticipationType; // Ou tipo de parte (para retrocompatibilidade)
         minutes: number;
     };
@@ -185,6 +186,7 @@ export interface SpecialEvent {
     week: string;
     templateId: string;
     theme?: string;
+    observation?: string; // Novo campo de observação livre (Fase 5.b)
     responsible?: string;
     duration?: number;
     boletimYear?: number;

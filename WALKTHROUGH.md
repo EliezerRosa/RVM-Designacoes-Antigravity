@@ -121,3 +121,32 @@ Esta atualização foca na experiência de chat e na consistência das respostas
 -   **Precedência de Ação**: Resolvido o conflito onde o Agente duvidava de suas próprias ações devido ao cache do sistema. Ele agora prioriza o sucesso imediato da ferramenta sobre o contexto textual.
 -   **Mensagens Descritivas**: O motor de ações retorna detalhes mais claros (ex: "[APTO]" ou "[INAPTO]"), ajudando o Agente a manter a coerência no turno seguinte.
 -   **Sanitização de Código**: Removidos caracteres não-ASCII que causavam instabilidade no `esbuild` em ambientes Windows.
+
+---
+
+## Fase 5 — Arquitetura de Múltiplos Impactos (Eventos Especiais)
+
+A Fase 5 refatorou profundamente a forma como os Eventos Especiais afetam a programação (Pauta), transitando de uma relação 1:1 (um evento = uma ação) para suportar Múltiplos Impactos através do uso da coluna JSONB `impacts` no Supabase.
+
+### 1. Modelo de Dados (`JSONB`)
+O banco de dados foi atualizado para armazenar um array flexível de impactos em cada evento especial. Isso garante compatibilidade retroativa com campos legados (`affectedPartIds`, `targetPartId`, `overrideAction`) enquanto abre o caminho para N-Impactos simultâneos (ex: Reduzir tempo da parte X e Cancelar a parte Y).
+
+### 2. Interface de Usuário (`SpecialEventsManager.tsx`)
+O formulário de eventos agora renderiza um painel dinâmico, permitindo ao secretário adicionar várias "Ações" ao mesmo evento. Além disso, o suporte a _Fallback_ assegura a visualização ininterrupta de eventos velhos do BD.
+
+### 3. Mecanismo de Aplicação (`specialEventService.ts`)
+As funções-chave (`markPendingImpact` e `applyEventImpact`) foram submetidas a loops no lado do servidor para varrer o array `event.impacts`. O motor entende quais partes reduzir, focar, ou cancelar interativamente.
+
+### 4. Notificações Dinâmicas (`communicationService.ts`)
+O preparador do WhatsApp (S-89) agora decifra o JSONB e agrupa as observações de impacto. Ao enviar o cartão a um irmão, ele será avisado assertivamente se a sua parte em específico sofreu redução de tempo ou modificações drásticas baseadas nos múltiplos impactos da semana.
+
+---
+
+## Fase 5.b — Enriquecimento de Eventos Especiais
+
+A Fase 5.b expandiu a arquitetura N-N dos Eventos Especiais para permitir maior especificidade e flexibilidade.
+
+-   **Múltiplas Partes por Impacto de Tempo**: A UI e o Backend agora usam `targetPartIds` (Array), permitindo que um único impacto de `REDUCE_VIDA_CRISTA_TIME` atinja N partes simultaneamente com o uso de checkboxes.
+-   **Validação Cruzada Múltipla**: Partes canceladas por impacto principal (`REPLACE_PART`) na UI agora ficam imediatamente inativas (rasuradas) para os selectores secundários de redução de tempo dentro do mesmo evento.
+-   **Impacto Neutro / Invisível**: A opção informativa "Nenhum Impacto" foi otimizada para ser a principal de _templates_ como Anúncios e Notificações, preenchendo as comunicações, mas ignorando alterações nos blocos reais da apostila.
+-   **Campo `Observações`**: Uma propriedade formal de notas de rodapé opcional, injetada em S-89/S-140 via geradores do `communicationService`.

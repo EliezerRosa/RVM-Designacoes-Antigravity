@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modelo de Dados - RVM Designações</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f8f9fa; }
+        h1 { color: #2c3e50; text-align: center; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 1200px; margin: auto; }
+        .mermaid { display: flex; justify-content: center; }
+        .instructions { margin-top: 30px; padding: 15px; background: #e7f5ff; border-left: 5px solid #1971c2; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Diagrama do Banco de Dados</h1>
+        <div class="mermaid">
+            erDiagram
+                PUBLISHERS ||--o{ TERRITORY_ASSIGNMENTS : assigned_to
+                PUBLISHERS ||--o{ SCHEDULED_ASSIGNMENTS : principal
+                PUBLISHERS ||--o{ WORKBOOK_PARTS : assigned_to
+                
+                WORKBOOK_BATCHES ||--o{ WORKBOOK_PARTS : contains
+                
+                NEIGHBORHOODS ||--o{ TERRITORIES : location
+                TERRITORIES ||--o{ TERRITORY_ASSIGNMENTS : history
+                TERRITORIES ||--o{ BLOCKS : contains
+                BLOCKS ||--o{ HOUSES : contains
+                HOUSES ||--o{ VISITS : logs
+                
+                PUBLISHERS {
+                    uuid id PK
+                    jsonb data
+                    timestamp created_at
+                }
+                WORKBOOK_PARTS {
+                    uuid id PK
+                    uuid batch_id FK
+                    string part_title
+                    uuid assigned_publisher_id FK
+                }
+                TERRITORIES {
+                    uuid id PK
+                    string number
+                    uuid neighborhood_id FK
+                }
+        </div>
+
+        <div class="instructions">
+            <h3>Como ver esta versão interativa:</h3>
+            <p>1. Clique com o botão direito neste arquivo no VS Code e escolha <b>"Open with Live Server"</b> ou <b>"Open in Browser"</b>.</p>
+            <p>2. Se preferir editar o diagrama original, abra o arquivo <code>docs/database_model.excalidraw</code> no site <a href="https://excalidraw.com" target="_blank">excalidraw.com</a>.</p>
+        </div>
+    </div>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'forest' });</script>
+</body>
+</html>
