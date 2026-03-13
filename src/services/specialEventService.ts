@@ -500,7 +500,7 @@ export const specialEventService = {
             .update({ is_applied: true, applied_at: new Date().toISOString() })
             .eq('id', event.id);
 
-        return { affected };
+        return { affected: totalAffected };
     },
 
     /**
