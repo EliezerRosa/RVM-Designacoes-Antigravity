@@ -312,6 +312,16 @@ export const specialEventService = {
         const resolvedImpacts = this._resolveImpacts(event, template);
         let totalAffected = 0;
 
+        // 1. Aplicar vínculos visuais (*¹) globais DEFINIDOS NO EVENTO
+        if (event.affectedPartIds && event.affectedPartIds.length > 0) {
+            const { error, count } = await supabase
+                .from('workbook_parts')
+                .update({ affected_by_event_id: event.id })
+                .in('id', event.affectedPartIds);
+            if (error) throw error;
+            totalAffected += count || 0;
+        }
+
         for (const impact of resolvedImpacts) {
             switch (impact.action) {
                 case 'NO_IMPACT':
@@ -583,6 +593,15 @@ export const specialEventService = {
 
         const resolvedImpacts = this._resolveImpacts(event, template);
         let totalMarked = 0;
+
+        // 1. Marcar vínculos visuais (*¹) globais
+        if (event.affectedPartIds && event.affectedPartIds.length > 0) {
+            const { count } = await supabase
+                .from('workbook_parts')
+                .update({ pending_event_id: event.id })
+                .in('id', event.affectedPartIds);
+            totalMarked += count || 0;
+        }
 
         for (const impact of resolvedImpacts) {
             switch (impact.action) {
