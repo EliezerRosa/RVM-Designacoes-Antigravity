@@ -26,12 +26,11 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const [formWeekId, setFormWeekId] = useState('');
     const [formTheme, setFormTheme] = useState('');
     const [formAssignee, setFormAssignee] = useState('');
-    const [formTargetPartId, setFormTargetPartId] = useState('');
     const [formAutoApply, setFormAutoApply] = useState(true);
     const [targetParts, setTargetParts] = useState<Array<{ id: string; title: string; duration: string }>>([]);
 
-    // Suporte a Múltiplos Impactos
-    const [formImpacts, setFormImpacts] = useState<(EventImpactOverride & { _uiKey: string })[]>([]);
+    // Suporte a Impactos Granulares por Parte
+    const [formGranularImpacts, setFormGranularImpacts] = useState<Record<string, { visual: boolean; cancel: boolean; reduceTime: boolean; minutes: number }>>({});
 
     // Campos de Informação Adicional
     const [formContent, setFormContent] = useState('');
@@ -41,7 +40,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
     // Lista de Partes para Seleção do Form
     const [allWeekParts, setAllWeekParts] = useState<Array<{ id: string; title: string; duration: string; section: string; tipoParte: string; seq?: number }>>([]);
-    const [formGlobalAffectedPartIds, setFormGlobalAffectedPartIds] = useState<string[]>([]);
 
     const templates = EVENT_TEMPLATES;
 
@@ -119,34 +117,39 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         fetchParts();
     }, [formWeekId]);
 
-    // Quando troca template, pré-selecionar ação padrão se vazio
+    // Quando troca template, resetar impactos granulares se vazio? 
+    // Na verdade, melhor manter ou pré-popular baseado no template.
     useEffect(() => {
-        if (selectedTemplate && formImpacts.length === 0) {
-            setFormImpacts([{
-                _uiKey: Date.now().toString(),
-                action: selectedTemplate.impact.action as EventImpactAction
-            }]);
+        if (selectedTemplate && Object.keys(formGranularImpacts).length === 0 && allWeekParts.length > 0) {
+            const initial: Record<string, any> = {};
+            // Lógica legada/template: Se template for 'visita-sc', marcar partes específicas para cancelar
+            if (formTemplateId === 'visita-sc') {
+                allWeekParts.forEach(p => {
+                    if (p.tipoParte === 'Dirigente do EBC' || p.tipoParte === 'Leitor do EBC' || p.tipoParte === 'Necessidades Locais' || p.tipoParte === 'Comentários Finais') {
+                        initial[p.id] = { visual: true, cancel: true, reduceTime: false, minutes: 0 };
+                    }
+                });
+            }
+            setFormGranularImpacts(initial);
         }
-    }, [selectedTemplate, formImpacts.length]);
+    }, [formTemplateId, allWeekParts.length]);
 
     const resetForm = () => {
         setFormTemplateId('');
         setFormWeekId('');
         setFormTheme('');
         setFormAssignee('');
-        setFormTargetPartId('');
         setFormAutoApply(true);
         setTargetParts([]);
         setEditingEvent(null);
         setShowForm(false);
         // Novos resets
-        setFormImpacts([]);
+        setFormGranularImpacts({});
         setFormContent('');
         setFormObservation('');
         setFormReference('');
         setFormLinks('');
         setAllWeekParts([]);
-        setFormGlobalAffectedPartIds([]);
     };
 
     const handleSubmit = async () => {
@@ -155,23 +158,47 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
             return;
         }
 
-        // Validação adicional para impactos que reduzem tempo
-        const hasMissingTimeReduction = formImpacts.some(
-            i => (i.action === 'REDUCE_VIDA_CRISTA_TIME' || i.action === 'TIME_ADJUSTMENT')
-                && (!i.timeReductionDetails?.targetPartIds || i.timeReductionDetails.targetPartIds.length === 0)
-                && !i.timeReductionDetails?.targetPartId
-        );
+        const partsToAffect = Object.entries(formGranularImpacts).filter(([_, cfg]) => cfg.visual || cfg.cancel || cfg.reduceTime);
 
-        if (hasMissingTimeReduction) {
-            setError('Selecione ao menos uma parte para ter o tempo reduzido nos impactos configurados.');
-            return;
+        if (partsToAffect.length === 0 && !selectedTemplate?.defaults.requiresTheme) {
+             // Opcional: permitir salvamento sem impacto se for informativo
         }
 
         try {
             setLoading(true);
 
-            // Remover '_uiKey' antes de salvar no banco
-            const cleanedImpacts = formImpacts.map(({ _uiKey, ...rest }) => rest);
+            // TRANSFORMAÇÃO: Granular -> impacts[]
+            const visualIds: string[] = [];
+            const canceledIds: string[] = [];
+            const timeReductions: Record<number, string[]> = {};
+
+            Object.entries(formGranularImpacts).forEach(([id, cfg]) => {
+                if (cfg.visual) visualIds.push(id);
+                if (cfg.cancel) canceledIds.push(id);
+                if (cfg.reduceTime) {
+                    if (!timeReductions[cfg.minutes]) timeReductions[cfg.minutes] = [];
+                    timeReductions[cfg.minutes].push(id);
+                }
+            });
+
+            const impacts: EventImpactOverride[] = [];
+            
+            if (canceledIds.length > 0) {
+                impacts.push({
+                    action: 'REPLACE_PART',
+                    affectedPartIds: canceledIds
+                });
+            }
+
+            Object.entries(timeReductions).forEach(([mins, ids]) => {
+                impacts.push({
+                    action: 'REDUCE_VIDA_CRISTA_TIME',
+                    timeReductionDetails: {
+                        targetPartIds: ids,
+                        minutes: Number(mins)
+                    }
+                });
+            });
 
             const eventData = {
                 templateId: formTemplateId,
@@ -180,14 +207,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 responsible: formAssignee || undefined,
                 duration: selectedTemplate?.defaults.duration,
                 isApplied: false,
-                // Nova Arquitetura de Múltiplos Impactos
-                impacts: cleanedImpacts,
-                // Limpar campos singulares legados
-                overrideAction: undefined,
-                // ListaGlobal de Notas (Visual *¹)
-                affectedPartIds: formGlobalAffectedPartIds.length > 0 ? formGlobalAffectedPartIds : undefined,
-                targetPartId: undefined,
-                // Outros campos
+                impacts: impacts,
+                affectedPartIds: visualIds.length > 0 ? visualIds : undefined,
                 content: formContent || undefined,
                 observation: formObservation || undefined,
                 reference: formReference || undefined,
@@ -237,19 +258,35 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormTheme(event.theme || '');
         setFormAssignee(event.responsible || '');
 
-        // Popular múltiplos impactos ou criar fallback dos legados
-        if (event.impacts && event.impacts.length > 0) {
-            setFormImpacts(event.impacts.map((i, idx) => ({ ...i, _uiKey: idx.toString() })));
-        } else {
-            const legacyAction = event.overrideAction || event.templateId; // Fallback simples
-            const legacyImpact: EventImpactOverride & { _uiKey: string } = {
-                _uiKey: '0',
-                action: legacyAction as EventImpactAction,
-                affectedPartIds: event.affectedPartIds,
-                timeReductionDetails: event.targetPartId ? { targetPartId: event.targetPartId, minutes: event.duration || 10 } : undefined
-            };
-            setFormImpacts([legacyImpact]);
+        // Popular impactos granulares a partir do array de impacts do banco
+        const granular: Record<string, any> = {};
+        
+        // 1. Processar affectedPartIds globais como "Visual"
+        if (event.affectedPartIds) {
+            event.affectedPartIds.forEach(id => {
+                granular[id] = { ...granular[id], visual: true };
+            });
         }
+
+        // 2. Processar impactos específicos
+        if (event.impacts) {
+            event.impacts.forEach(imp => {
+                const ids = imp.affectedPartIds || [];
+                if (imp.action === 'REPLACE_PART' || imp.action === 'CANCEL_WEEK' || imp.action === 'SC_VISIT_LOGIC') {
+                    ids.forEach(id => {
+                        granular[id] = { ...granular[id], cancel: true, visual: true };
+                    });
+                }
+                if (imp.action === 'REDUCE_VIDA_CRISTA_TIME' || imp.action === 'TIME_ADJUSTMENT') {
+                    const tIds = imp.timeReductionDetails?.targetPartIds || (imp.timeReductionDetails?.targetPartId ? [imp.timeReductionDetails.targetPartId] : []);
+                    tIds.forEach(id => {
+                        granular[id] = { ...granular[id], reduceTime: true, minutes: imp.timeReductionDetails?.minutes || 5 };
+                    });
+                }
+            });
+        }
+
+        setFormGranularImpacts(granular);
 
         setFormContent(event.content || '');
         setFormObservation(event.observation || '');
@@ -456,151 +493,72 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                         ))}
                     </select>
 
-                    {/* SEÇÃO DINÂMICA DE MÚLTIPLOS IMPACTOS */}
-                    {selectedTemplate && formWeekId && (
+                    {/* NOVA SEÇÃO: IMPACTOS POR PARTE (Modelagem Granular) */}
+                    {formWeekId && allWeekParts.length > 0 && (
                         <div style={{ marginTop: '16px', borderTop: '1px solid #E5E7EB', paddingTop: '16px', marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                <label style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937', margin: 0 }}>
-                                    Impactos e Ações deste Evento
-                                </label>
-                                <button
-                                    onClick={() => setFormImpacts([...formImpacts, { _uiKey: Date.now().toString(), action: 'NO_IMPACT' }])}
-                                    style={{ ...btnStyle('#3B82F6'), fontSize: '11px', padding: '4px 8px' }}
-                                >
-                                    ➕ Adicionar Impacto
-                                </button>
-                            </div>
+                            <label style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937', display: 'block', marginBottom: '12px' }}>
+                                Configuração de Impactos por Parte
+                            </label>
 
-                            {formImpacts.length === 0 && (
-                                <div style={{ fontSize: '12px', color: '#6B7280', fontStyle: 'italic', marginBottom: '12px' }}>
-                                    Nenhum impacto configurado. Este evento será apenas informativo.
-                                </div>
-                            )}
-
-                            {formImpacts.map((impact, index) => (
-                                <div key={impact._uiKey} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', borderRadius: '8px', padding: '12px', marginBottom: '8px' }}>
-
-                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '11px', fontWeight: '600', color: '#4B5563', display: 'block', marginBottom: '4px' }}>
-                                                Ação {index + 1}
-                                            </label>
-                                            <select
-                                                value={impact.action}
-                                                onChange={e => {
-                                                    const newAction = e.target.value as EventImpactAction;
-                                                    setFormImpacts(formImpacts.map(i => i._uiKey === impact._uiKey ? { ...i, action: newAction } : i));
-                                                }}
-                                                style={{ ...inputStyle, marginBottom: 0, padding: '4px 8px', fontSize: '13px' }}
-                                            >
-                                                {IMPACT_OPTIONS.map(o => (
-                                                    <option key={o.value} value={o.value}>{o.label}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <button
-                                            onClick={() => setFormImpacts(formImpacts.filter(i => i._uiKey !== impact._uiKey))}
-                                            style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', alignSelf: 'flex-end', padding: '6px' }}
-                                            title="Remover Impacto"
-                                        >
-                                            🗑️
-                                        </button>
-                                    </div>
-
-                                    {/* MÚLTIPLAS PARTES - APENAS para REPLACE_PART */}
-                                    {impact.action === 'REPLACE_PART' && allWeekParts.length > 0 && (
-                                        <div style={{ marginBottom: '8px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
-                                            <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                                                Partes a Cancelar/Substituir
-                                            </label>
-                                            <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
-                                                {allWeekParts.map(p => (
-                                                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid #F3F4F6' }}>
+                            <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                    <thead style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
+                                        <tr>
+                                            <th style={{ textAlign: 'left', padding: '8px', width: '40%' }}>Parte</th>
+                                            <th style={{ padding: '8px', width: '15%' }}>Vínculo (*¹)</th>
+                                            <th style={{ padding: '8px', width: '15%' }}>Cancelar</th>
+                                            <th style={{ padding: '8px', width: '30%' }}>Tempo (- min)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {allWeekParts.map(p => {
+                                            const cfg = formGranularImpacts[p.id] || { visual: false, cancel: false, reduceTime: false, minutes: 5 };
+                                            return (
+                                                <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                                                    <td style={{ padding: '8px' }}>
+                                                        <div style={{ fontWeight: '500' }}>{p.seq ? p.seq + '. ' : ''}{p.title}</div>
+                                                        <div style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</div>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', padding: '8px' }}>
                                                         <input
                                                             type="checkbox"
-                                                            checked={impact.affectedPartIds?.includes(p.id) || false}
-                                                            onChange={e => {
-                                                                const currentIds = impact.affectedPartIds || [];
-                                                                const newIds = e.target.checked
-                                                                    ? [...currentIds, p.id]
-                                                                    : currentIds.filter(id => id !== p.id);
-                                                                setFormImpacts(formImpacts.map(i => i._uiKey === impact._uiKey ? { ...i, affectedPartIds: newIds } : i));
-                                                            }}
-                                                            style={{ margin: 0 }}
+                                                            checked={cfg.visual || cfg.cancel} // Se cancelar, o vínculo é implícito
+                                                            disabled={cfg.cancel}
+                                                            onChange={e => setFormGranularImpacts({ ...formGranularImpacts, [p.id]: { ...cfg, visual: e.target.checked } })}
                                                         />
-                                                        <span style={{ flex: 1 }}>{p.seq ? p.seq + '. ' : ''}{p.title}</span>
-                                                        <span style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* REDUÇÃO DE TEMPO */}
-                                    {(impact.action === 'REDUCE_VIDA_CRISTA_TIME' || impact.action === 'TIME_ADJUSTMENT') && targetParts.length > 0 && (
-                                        <div style={{ display: 'flex', gap: '8px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #E5E7EB', flexWrap: 'wrap' }}>
-                                            <div style={{ flex: '1 1 100%' }}>
-                                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                                                    Quais partes terão tempo reduzido?
-                                                </label>
-                                                <div style={{ maxHeight: '120px', overflowY: 'auto', marginBottom: '8px' }}>
-                                                    {targetParts.map(p => {
-                                                        // Validação Cruzada: Se a parte está marcada para ser Substituída/Cancelada em OUTRO impacto, disable o checkbox
-                                                        const isCanceledInOtherImpact = formImpacts.some(otherImpact =>
-                                                            (otherImpact.action === 'REPLACE_PART' || otherImpact.action === 'SC_VISIT_LOGIC' || otherImpact.action === 'CANCEL_WEEK') &&
-                                                            (otherImpact.action === 'CANCEL_WEEK' || (otherImpact.affectedPartIds && otherImpact.affectedPartIds.includes(p.id)))
-                                                        );
-
-                                                        return (
-                                                            <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', cursor: isCanceledInOtherImpact ? 'not-allowed' : 'pointer', fontSize: '12px', borderBottom: '1px solid #F3F4F6', opacity: isCanceledInOtherImpact ? 0.5 : 1 }}>
+                                                    </td>
+                                                    <td style={{ textAlign: 'center', padding: '8px' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={cfg.cancel}
+                                                            onChange={e => setFormGranularImpacts({ ...formGranularImpacts, [p.id]: { ...cfg, cancel: e.target.checked, visual: e.target.checked ? true : cfg.visual } })}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '8px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={cfg.reduceTime}
+                                                                disabled={cfg.cancel}
+                                                                onChange={e => setFormGranularImpacts({ ...formGranularImpacts, [p.id]: { ...cfg, reduceTime: e.target.checked } })}
+                                                            />
+                                                            {cfg.reduceTime && (
                                                                 <input
-                                                                    type="checkbox"
-                                                                    disabled={isCanceledInOtherImpact}
-                                                                    checked={!isCanceledInOtherImpact && (impact.timeReductionDetails?.targetPartIds?.includes(p.id) || impact.timeReductionDetails?.targetPartId === p.id || false)}
-                                                                    onChange={e => {
-                                                                        const currentDetails = impact.timeReductionDetails || { minutes: selectedTemplate?.defaults.duration || 10 };
-                                                                        const currentIds = currentDetails.targetPartIds || (currentDetails.targetPartId ? [currentDetails.targetPartId] : []);
-                                                                        const newIds = e.target.checked
-                                                                            ? [...currentIds, p.id]
-                                                                            : currentIds.filter(id => id !== p.id);
-
-                                                                        setFormImpacts(formImpacts.map(i => i._uiKey === impact._uiKey ? {
-                                                                            ...i,
-                                                                            timeReductionDetails: { ...currentDetails, targetPartIds: newIds, targetPartId: undefined }
-                                                                        } : i));
-                                                                    }}
-                                                                    style={{ margin: 0 }}
+                                                                    type="number"
+                                                                    value={cfg.minutes}
+                                                                    onChange={e => setFormGranularImpacts({ ...formGranularImpacts, [p.id]: { ...cfg, minutes: Number(e.target.value) } })}
+                                                                    style={{ width: '50px', padding: '2px 4px', fontSize: '11px', border: '1px solid #D1D5DB', borderRadius: '4px' }}
+                                                                    min="1"
                                                                 />
-                                                                <span style={{ flex: 1, textDecoration: isCanceledInOtherImpact ? 'line-through' : 'none' }}>{p.title}</span>
-                                                                <span style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</span>
-                                                            </label>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                            <div style={{ flex: '0 0 120px' }}>
-                                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '4px' }}>
-                                                    Minutos a Reduzir
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    value={impact.timeReductionDetails?.minutes || selectedTemplate?.defaults.duration || 10}
-                                                    onChange={e => {
-                                                        const currentDetails = impact.timeReductionDetails || { targetPartIds: [] };
-                                                        setFormImpacts(formImpacts.map(i => i._uiKey === impact._uiKey ? {
-                                                            ...i,
-                                                            timeReductionDetails: { ...currentDetails, minutes: Number(e.target.value) }
-                                                        } : i));
-                                                    }}
-                                                    style={{ ...inputStyle, marginBottom: 0, padding: '4px 8px', fontSize: '12px' }}
-                                                    min="1"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                </div>
-                            ))}
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 
