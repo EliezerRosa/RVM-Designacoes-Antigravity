@@ -40,7 +40,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const [formLinks, setFormLinks] = useState('');
 
     // Lista de Partes para Seleção do Form
-    const [allWeekParts, setAllWeekParts] = useState<Array<{ id: string; title: string; duration: string; section: string; tipoParte: string }>>([]);
+    const [allWeekParts, setAllWeekParts] = useState<Array<{ id: string; title: string; duration: string; section: string; tipoParte: string; seq?: number }>>([]);
+    const [formGlobalAffectedPartIds, setFormGlobalAffectedPartIds] = useState<string[]>([]);
 
     const templates = EVENT_TEMPLATES;
 
@@ -94,10 +95,11 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
                 const allParts = (data || []).map(p => ({
                     id: p.id,
-                    title: p.part_title || p.tipo_parte,
+                    title: p.part_title || p.tipo_parte || 'Parte sem título',
                     duration: p.duracao,
                     section: p.section || '',
                     tipoParte: p.tipo_parte || '',
+                    seq: p.seq
                 }));
                 setAllWeekParts(allParts);
 
@@ -144,6 +146,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormReference('');
         setFormLinks('');
         setAllWeekParts([]);
+        setFormGlobalAffectedPartIds([]);
     };
 
     const handleSubmit = async () => {
@@ -181,7 +184,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 impacts: cleanedImpacts,
                 // Limpar campos singulares legados
                 overrideAction: undefined,
-                affectedPartIds: undefined,
+                // ListaGlobal de Notas (Visual *¹)
+                affectedPartIds: formGlobalAffectedPartIds.length > 0 ? formGlobalAffectedPartIds : undefined,
                 targetPartId: undefined,
                 // Outros campos
                 content: formContent || undefined,
@@ -251,6 +255,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormObservation(event.observation || '');
         setFormReference(event.reference || '');
         setFormLinks(event.links?.join('\n') || '');
+        setFormGlobalAffectedPartIds(event.affectedPartIds || []);
         setShowForm(true);
     };
 
@@ -502,8 +507,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                         </button>
                                     </div>
 
-                                    {/* MÚLTIPLAS PARTES - REPLACE_PART ou NO_IMPACT (para vínculo visual) */}
-                                    {(impact.action === 'REPLACE_PART' || impact.action === 'NO_IMPACT') && allWeekParts.length > 0 && (
+                                    {/* MÚLTIPLAS PARTES - APENAS para REPLACE_PART */}
+                                    {impact.action === 'REPLACE_PART' && allWeekParts.length > 0 && (
                                         <div style={{ marginBottom: '8px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
                                             <label style={{ fontSize: '11px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
                                                 Partes a Cancelar/Substituir
@@ -523,7 +528,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                                             }}
                                                             style={{ margin: 0 }}
                                                         />
-                                                        <span style={{ flex: 1 }}>{p.title}</span>
+                                                        <span style={{ flex: 1 }}>{p.seq ? p.seq + '. ' : ''}{p.title}</span>
                                                         <span style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</span>
                                                     </label>
                                                 ))}
@@ -596,6 +601,37 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* SEÇÃO GLOBAL: VÍNCULO VISUAL (*¹) - Sempre disponível se houver partes */}
+                    {allWeekParts.length > 0 && (
+                        <div style={{ marginTop: '16px', background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#92400E', display: 'block', marginBottom: '4px' }}>
+                                📌 Vínculo Visual (*¹)
+                            </label>
+                            <p style={{ fontSize: '11px', color: '#B45309', marginBottom: '8px' }}>
+                                Selecione as partes que exibirão o marcador de nota visual no PDF e WhatsApp.
+                            </p>
+                            <div style={{ maxHeight: '150px', overflowY: 'auto', background: '#fff', borderRadius: '6px', border: '1px solid #FDE68A' }}>
+                                {allWeekParts.map(p => (
+                                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid #FEF3C7' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formGlobalAffectedPartIds.includes(p.id)}
+                                            onChange={e => {
+                                                const newIds = e.target.checked
+                                                    ? [...formGlobalAffectedPartIds, p.id]
+                                                    : formGlobalAffectedPartIds.filter(id => id !== p.id);
+                                                setFormGlobalAffectedPartIds(newIds);
+                                            }}
+                                            style={{ margin: 0 }}
+                                        />
+                                        <span style={{ flex: 1 }}><strong>{p.seq ? p.seq + '. ' : ''}</strong>{p.title}</span>
+                                        <span style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</span>
+                                    </label>
+                                ))}
+                            </div>
                         </div>
                     )}
 
