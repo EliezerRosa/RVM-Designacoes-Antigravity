@@ -379,7 +379,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             if (reference) extra += ` (Ref: ${reference})`;
 
             const icon = (e.templateId === 'anuncio') ? '📢' : (e.templateId === 'notificacao') ? '🔔' : '📌';
-            return `<div style="margin-bottom: 4px;"><strong>*<sup style="font-size: 9pt;">${currentIndex}</sup></strong> ${icon} <strong>${name}</strong>${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
+            return `<div style="margin-bottom: 4px;"><span style="font-size: 10pt; vertical-align: super; font-weight: bold; color: #4B5563;">*${currentIndex}</span> ${icon} <strong>${name}</strong>${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
         }).join('');
 
         footerNotes = `
@@ -401,8 +401,10 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
         const bullet = part.isCantico ? `<span style="color: ${bulletColor}; font-size: 18px;">●</span> ` : '';
         let footnoteSup = '';
         if (part.id && partToFootnotes.has(part.id)) {
-            const markers = partToFootnotes.get(part.id)!.map(i => `*<sup style="color: #E53E3E; font-size: 10pt; font-weight: bold;">${i}</sup>`).join(', ');
-            footnoteSup = `<span style="margin-left: 4px;">${markers}</span>`;
+            const markers = partToFootnotes.get(part.id)!.map(i => 
+                `<span style="color: #E53E3E; font-size: 10pt; font-weight: bold; vertical-align: super; margin-left: 2px;">*${i}</span>`
+            ).join(', ');
+            footnoteSup = `<span style="display: inline-block;">${markers}</span>`;
         }
         return `${bullet}${part.title}${footnoteSup}`;
     };
