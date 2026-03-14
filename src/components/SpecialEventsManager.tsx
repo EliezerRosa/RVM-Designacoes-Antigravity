@@ -86,15 +86,16 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
             try {
                 const { data, error } = await supabase
                     .from('workbook_parts')
-                    .select('id, titulo_parte, tipo_parte, duracao, section, seq')
+                    .select('id, part_title, tipo_parte, duracao, section, seq')
                     .eq('week_id', formWeekId)
+                    .order('seq', { ascending: true })
                     .neq('status', 'CANCELADA');
 
                 if (error) throw error;
 
                 const allParts = (data || []).map(p => ({
                     id: p.id,
-                    title: p.titulo_parte || p.tipo_parte || 'Parte sem título',
+                    title: p.part_title || p.tipo_parte || 'Parte sem título',
                     duration: p.duracao,
                     section: p.section || '',
                     tipoParte: p.tipo_parte || '',
