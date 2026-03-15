@@ -510,13 +510,15 @@ export const workbookService = {
         tipoParte?: string;
         status?: string;
         funcao?: string;
-    }): Promise<WorkbookPart[]> {
+    }, options?: { forceRefresh?: boolean }): Promise<WorkbookPart[]> {
         const cacheKey = JSON.stringify(filters || {});
 
-        // Retorna cache se válido (< 5s)
-        const cached = _cache.get(cacheKey);
-        if (cached && Date.now() - cached.ts < CACHE_TTL) {
-            return cached.data;
+        // Retorna cache se válido (< 30s) — a menos que forceRefresh
+        if (!options?.forceRefresh) {
+            const cached = _cache.get(cacheKey);
+            if (cached && Date.now() - cached.ts < CACHE_TTL) {
+                return cached.data;
+            }
         }
 
         // Retorna promise em andamento se já existe (deduplicação)
