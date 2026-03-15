@@ -17,7 +17,12 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 // Request deduplication: evita múltiplas chamadas simultâneas com mesmos filtros
 const _pendingRequests = new Map<string, Promise<WorkbookPart[]>>();
 const _cache = new Map<string, { data: WorkbookPart[]; ts: number }>();
-const CACHE_TTL = 5000; // 5 segundos
+const CACHE_TTL = 30000; // 30 segundos
+
+/** Limpa o cache para forçar dados frescos no próximo getAll() */
+export function _clearCache() {
+    _cache.clear();
+}
 
 export interface WorkbookExcelRow {
     id?: string;

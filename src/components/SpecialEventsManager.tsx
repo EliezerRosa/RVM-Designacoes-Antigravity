@@ -510,10 +510,10 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                                     <thead style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
                                         <tr>
-                                            <th style={{ textAlign: 'left', padding: '8px', width: '40%' }}>Parte</th>
-                                            <th style={{ padding: '8px', width: '15%' }}>Vínculo (*¹)</th>
-                                            <th style={{ padding: '8px', width: '15%' }}>Cancelar</th>
-                                            <th style={{ padding: '8px', width: '30%' }}>Tempo (- min)</th>
+                                            <th style={{ textAlign: 'left', padding: '8px', width: '40%', color: '#374151' }}>Parte</th>
+                                            <th style={{ padding: '8px', width: '15%', color: '#374151' }}>Vínculo (*¹)</th>
+                                            <th style={{ padding: '8px', width: '15%', color: '#374151' }}>Cancelar</th>
+                                            <th style={{ padding: '8px', width: '30%', color: '#374151' }}>Tempo (- min)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -592,7 +592,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                             }}
                                             style={{ margin: 0 }}
                                         />
-                                        <span style={{ flex: 1 }}><strong>{p.seq ? p.seq + '. ' : ''}</strong>{p.title || '[SEM TÍTULO]'}</span>
+                                        <span style={{ flex: 1, color: '#1F2937' }}><strong>{p.seq ? p.seq + '. ' : ''}</strong>{p.title || '[SEM TÍTULO]'}</span>
                                         <span style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</span>
                                     </label>
                                 ))}
