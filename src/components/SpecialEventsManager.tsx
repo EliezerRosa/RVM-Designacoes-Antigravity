@@ -86,21 +86,28 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
             try {
                 const { data, error } = await supabase
                     .from('workbook_parts')
-                    .select('id, title:part_title, tipoParte:tipo_parte, duration:duracao, section, seq')
+                    .select('id, part_title, tipo_parte, duracao, section, seq')
                     .eq('week_id', formWeekId)
                     .order('seq', { ascending: true })
                     .neq('status', 'CANCELADA');
 
                 if (error) throw error;
 
-                const allParts = (data || []).map((p: any) => ({
-                    id: p.id,
-                    title: (p.title || p.tipoParte || 'Parte sem título').trim() || 'Parte sem título',
-                    duration: p.duration || '0 min',
-                    section: p.section || '',
-                    tipoParte: p.tipoParte || '',
-                    seq: p.seq
-                }));
+                const allParts = (data || []).map((p: any) => {
+                    // Mapeamento explícito para evitar problemas com aliases ou chaves ausentes
+                    const rawTitle = p.part_title || p.tipo_parte || 'Parte sem título';
+                    const finalTitle = rawTitle.trim() || 'Parte sem título';
+                    const finalDuration = (p.duracao || '0 min').trim() || '0 min';
+                    
+                    return {
+                        id: p.id,
+                        title: finalTitle,
+                        duration: finalDuration,
+                        section: p.section || '',
+                        tipoParte: p.tipo_parte || '',
+                        seq: p.seq
+                    };
+                });
                 setAllWeekParts(allParts);
 
                 // Filtrar partes Vida Cristã (para REDUCE_VIDA_CRISTA_TIME)
