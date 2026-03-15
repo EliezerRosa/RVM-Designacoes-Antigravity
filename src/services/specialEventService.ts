@@ -539,17 +539,7 @@ export const specialEventService = {
         if (cancelError) throw cancelError;
         restored += cancelCount || 0;
 
-        // 2. Limpar vínculos de partes que NÃO foram canceladas (ex: Informativos/NO_IMPACT)
-        const { error: linkError, count: linkCount } = await supabase
-            .from('workbook_parts')
-            .update({ affected_by_event_id: null })
-            .eq('affected_by_event_id', event.id)
-            .neq('status', 'CANCELADA');
-        
-        if (linkError) throw linkError;
-        restored += linkCount || 0;
-
-        // 3. Restaurar durações originais (se houver)
+        // 2. Restaurar durações originais ANTES de limpar vínculos
         const { data: adjustedParts, error: adjError } = await supabase
             .from('workbook_parts')
             .select('id, original_duration')
@@ -571,6 +561,16 @@ export const specialEventService = {
                 restored++;
             }
         }
+
+        // 3. Limpar vínculos restantes de partes que NÃO foram canceladas (ex: Informativos/NO_IMPACT)
+        const { error: linkError, count: linkCount } = await supabase
+            .from('workbook_parts')
+            .update({ affected_by_event_id: null })
+            .eq('affected_by_event_id', event.id)
+            .neq('status', 'CANCELADA');
+        
+        if (linkError) throw linkError;
+        restored += linkCount || 0;
 
         // Deletar partes CRIADAS pelo evento (ADD_PART)
         const { count: deletedCount } = await supabase

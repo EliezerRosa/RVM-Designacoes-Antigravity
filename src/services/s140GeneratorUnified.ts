@@ -325,15 +325,25 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
 
     // Notas de rodapé para eventos especiais (NUNCA no topo ou corpo)
     let footerNotes = '';
-    if (weekData.hasEvents && weekData.events.length > 0) {
+    // Apenas eventos aplicados geram notas no S-140
+    const appliedEvents = (weekData.events || []).filter(e => e.isApplied);
+    if (appliedEvents.length > 0) {
         let noteIndex = 1;
-        const noteItems = weekData.events.map(e => {
+        const noteItems = appliedEvents.map(e => {
             const template = EVENT_TEMPLATES.find(t => t.id === e.templateId);
             const name = template?.name || e.theme || 'Evento Especial';
             const action = (e as any).overrideAction || template?.impact.action || 'NO_IMPACT';
 
             // Mapear partes afetadas
             const affectedIds = new Set<string>();
+
+            // Top-level affectedPartIds (Vínculo Visual)
+            if ((e as any).affectedPartIds && Array.isArray((e as any).affectedPartIds)) {
+                (e as any).affectedPartIds.forEach((id: string) => affectedIds.add(id));
+            }
+            if ((e as any).targetPartId) affectedIds.add((e as any).targetPartId);
+
+            // IDs dentro de impacts[]
             const impacts = (e as any).impacts;
             if (impacts && Array.isArray(impacts)) {
                 impacts.forEach(imp => {
@@ -345,11 +355,6 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
                         imp.affectedPartIds.forEach((id: string) => affectedIds.add(id));
                     }
                 });
-            } else {
-                if ((e as any).targetPartId) affectedIds.add((e as any).targetPartId);
-                if ((e as any).affectedPartIds && Array.isArray((e as any).affectedPartIds)) {
-                    (e as any).affectedPartIds.forEach((id: string) => affectedIds.add(id));
-                }
             }
 
             const currentIndex = noteIndex++;
