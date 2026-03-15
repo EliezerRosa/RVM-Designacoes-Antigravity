@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '../lib/supabase';
-import type { EventTemplate, SpecialEvent, EventImpactAction } from '../types';
+import type { EventTemplate, SpecialEvent, EventImpactAction, EventImpactOverride } from '../types';
 
 // ============================================================================
 // TEMPLATES PRÉ-DEFINIDOS (Pode ser movido para BD futuramente)
@@ -101,34 +101,35 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
 // HELPER: Converter snake_case do BD para camelCase do TypeScript
 // ============================================================================
 function mapDbToEvent(row: Record<string, unknown>): SpecialEvent {
+    const details = (row.details || {}) as Record<string, unknown>;
     return {
         id: row.id as string,
         week: row.week as string,
         templateId: row.template_id as string,
         theme: row.theme as string | undefined,
-        responsible: row.responsible as string | undefined,
+        responsible: (row.responsible as string) || (row.assignee_name as string) || undefined,
         duration: row.duration as number | undefined,
         boletimYear: row.boletim_year as number | undefined,
         boletimNumber: row.boletim_number as number | undefined,
         guidelines: row.guidelines as string | undefined,
         observations: row.observations as string | undefined,
-        configuration: row.configuration as SpecialEvent['configuration'],
         isApplied: row.is_applied as boolean | undefined,
         appliedAt: row.applied_at as string | undefined,
-        details: row.details as Record<string, unknown> | undefined,
+        details: details,
         createdAt: row.created_at as string | undefined,
         updatedAt: row.updated_at as string | undefined,
         createdBy: row.created_by as string | undefined,
-        parentEventId: row.parent_event_id as string | undefined,
-        targetPartId: row.target_part_id as string | undefined,
-        // Suporte Múltiplos Impactos (JSONB)
-        impacts: row.impacts as EventImpactOverride[] | undefined,
-        // Campos legados (Para retrocompatibilidade)
-        overrideAction: row.override_action as EventImpactAction | undefined,
-        affectedPartIds: row.affected_part_ids as string[] | undefined,
-        content: row.content as string | undefined,
-        reference: row.reference as string | undefined,
-        links: row.links as string[] | undefined,
+        // Campos extras lidos de details JSONB (com fallback para colunas legadas)
+        configuration: (details.configuration as SpecialEvent['configuration']) || (row.configuration as SpecialEvent['configuration']),
+        parentEventId: (details.parentEventId as string) || (row.parent_event_id as string) || undefined,
+        targetPartId: (details.targetPartId as string) || (row.target_part_id as string) || undefined,
+        impacts: (details.impacts as EventImpactOverride[]) || (row.impacts as EventImpactOverride[]) || undefined,
+        overrideAction: (details.overrideAction as EventImpactAction) || (row.override_action as EventImpactAction) || undefined,
+        affectedPartIds: (details.affectedPartIds as string[]) || (row.affected_part_ids as string[]) || undefined,
+        content: (details.content as string) || (row.content as string) || undefined,
+        observation: (details.observation as string) || (row.observation as string) || undefined,
+        reference: (details.reference as string) || (row.reference as string) || undefined,
+        links: (details.links as string[]) || (row.links as string[]) || undefined,
     };
 }
 
@@ -185,7 +186,19 @@ export const specialEventService = {
 
     // Criar novo evento
     async createEvent(event: Omit<SpecialEvent, 'id'>): Promise<SpecialEvent> {
-        // Converter camelCase para snake_case
+        // Campos extras vão no details JSONB (evita erro de colunas inexistentes)
+        const extraDetails: Record<string, unknown> = { ...(event.details || {}) };
+        if (event.configuration) extraDetails.configuration = event.configuration;
+        if (event.parentEventId) extraDetails.parentEventId = event.parentEventId;
+        if (event.targetPartId) extraDetails.targetPartId = event.targetPartId;
+        if (event.impacts) extraDetails.impacts = event.impacts;
+        if (event.overrideAction) extraDetails.overrideAction = event.overrideAction;
+        if (event.affectedPartIds) extraDetails.affectedPartIds = event.affectedPartIds;
+        if (event.content) extraDetails.content = event.content;
+        if (event.observation) extraDetails.observation = event.observation;
+        if (event.reference) extraDetails.reference = event.reference;
+        if (event.links) extraDetails.links = event.links;
+
         const dbEvent = {
             template_id: event.templateId,
             week: event.week,
@@ -198,16 +211,7 @@ export const specialEventService = {
             boletim_number: event.boletimNumber,
             guidelines: event.guidelines,
             observations: event.observations,
-            configuration: event.configuration,
-            details: event.details,
-            parent_event_id: event.parentEventId,
-            target_part_id: event.targetPartId,
-            // Novos campos
-            override_action: event.overrideAction,
-            affected_part_ids: event.affectedPartIds,
-            content: event.content,
-            reference: event.reference,
-            links: event.links,
+            details: Object.keys(extraDetails).length > 0 ? extraDetails : undefined,
         };
 
         const { data, error } = await supabase
@@ -222,7 +226,6 @@ export const specialEventService = {
 
     // Atualizar evento existente
     async updateEvent(id: string, updates: Partial<SpecialEvent>): Promise<void> {
-        // Converter camelCase para snake_case
         const dbUpdates: Record<string, unknown> = {};
         if (updates.templateId !== undefined) dbUpdates.template_id = updates.templateId;
         if (updates.week !== undefined) dbUpdates.week = updates.week;
@@ -235,18 +238,20 @@ export const specialEventService = {
         if (updates.boletimNumber !== undefined) dbUpdates.boletim_number = updates.boletimNumber;
         if (updates.guidelines !== undefined) dbUpdates.guidelines = updates.guidelines;
         if (updates.observations !== undefined) dbUpdates.observations = updates.observations;
-        if (updates.configuration !== undefined) dbUpdates.configuration = updates.configuration;
-        if (updates.details !== undefined) dbUpdates.details = updates.details;
 
-        // Suporte Múltiplos Impactos
-        if (updates.impacts !== undefined) dbUpdates.impacts = updates.impacts;
-
-        // Novos campos / Legados
-        if (updates.overrideAction !== undefined) dbUpdates.override_action = updates.overrideAction;
-        if (updates.affectedPartIds !== undefined) dbUpdates.affected_part_ids = updates.affectedPartIds;
-        if (updates.content !== undefined) dbUpdates.content = updates.content;
-        if (updates.reference !== undefined) dbUpdates.reference = updates.reference;
-        if (updates.links !== undefined) dbUpdates.links = updates.links;
+        // Campos extras vão no details JSONB
+        const extraDetails: Record<string, unknown> = { ...(updates.details || {}) };
+        if (updates.configuration !== undefined) extraDetails.configuration = updates.configuration;
+        if (updates.parentEventId !== undefined) extraDetails.parentEventId = updates.parentEventId;
+        if (updates.targetPartId !== undefined) extraDetails.targetPartId = updates.targetPartId;
+        if (updates.impacts !== undefined) extraDetails.impacts = updates.impacts;
+        if (updates.overrideAction !== undefined) extraDetails.overrideAction = updates.overrideAction;
+        if (updates.affectedPartIds !== undefined) extraDetails.affectedPartIds = updates.affectedPartIds;
+        if (updates.content !== undefined) extraDetails.content = updates.content;
+        if (updates.observation !== undefined) extraDetails.observation = updates.observation;
+        if (updates.reference !== undefined) extraDetails.reference = updates.reference;
+        if (updates.links !== undefined) extraDetails.links = updates.links;
+        if (Object.keys(extraDetails).length > 0) dbUpdates.details = extraDetails;
 
         const { error } = await supabase
             .from('special_events')
