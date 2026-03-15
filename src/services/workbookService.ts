@@ -128,6 +128,43 @@ function minutesToTime(totalMinutes: number): string {
 // Formatar para 12h com AM/PM para UI se necessário, mas o banco guarda string simples.
 // Vamos manter o formato simples HH:mm para consistência com o input type="time"
 
+// Implementação standalone para evitar problemas de binding com `this`
+async function _getAllImpl(filters?: {
+    weekId?: string;
+    section?: string;
+    tipoParte?: string;
+    status?: string;
+    funcao?: string;
+}): Promise<WorkbookPart[]> {
+    const rawData = await fetchAllRows<Record<string, unknown>>(
+        'workbook_parts',
+        (query) => {
+            let q = query
+                .order('date', { ascending: false })
+                .order('seq', { ascending: true });
+
+            if (filters?.weekId) {
+                q = q.eq('week_id', filters.weekId);
+            }
+            if (filters?.section) {
+                q = q.eq('section', filters.section);
+            }
+            if (filters?.tipoParte) {
+                q = q.eq('tipo_parte', filters.tipoParte);
+            }
+            if (filters?.status) {
+                q = q.eq('status', filters.status);
+            }
+            if (filters?.funcao && filters.funcao !== 'all') {
+                q = q.eq('funcao', filters.funcao);
+            }
+
+            return q;
+        }
+    );
+
+    return rawData.map(mapDbToWorkbookPart);
+}
 
 export const workbookService = {
     // ========================================================================
@@ -483,7 +520,7 @@ export const workbookService = {
             return pending;
         }
 
-        const request = this._getAllImpl(filters).then(result => {
+        const request = _getAllImpl(filters).then(result => {
             _cache.set(cacheKey, { data: result, ts: Date.now() });
             _pendingRequests.delete(cacheKey);
             return result;
@@ -494,46 +531,6 @@ export const workbookService = {
 
         _pendingRequests.set(cacheKey, request);
         return request;
-    },
-
-    async _getAllImpl(filters?: {
-        weekId?: string;
-        section?: string;
-        tipoParte?: string;
-        status?: string;
-        funcao?: string;
-    }): Promise<WorkbookPart[]> {
-        // Se não houver filtros, retorna paginado (pode ser lento para muitos registros)
-        // Aplica filtros no servidor para melhor performance
-        const rawData = await fetchAllRows<Record<string, unknown>>(
-            'workbook_parts',
-            (query) => {
-                let q = query
-                    .order('date', { ascending: false }) // Mais recentes primeiro para histórico
-                    .order('seq', { ascending: true });   // Sequência correta dentro da reunião
-
-                // Aplicar filtros server-side
-                if (filters?.weekId) {
-                    q = q.eq('week_id', filters.weekId);
-                }
-                if (filters?.section) {
-                    q = q.eq('section', filters.section);
-                }
-                if (filters?.tipoParte) {
-                    q = q.eq('tipo_parte', filters.tipoParte);
-                }
-                if (filters?.status) {
-                    q = q.eq('status', filters.status);
-                }
-                if (filters?.funcao && filters.funcao !== 'all') {
-                    q = q.eq('funcao', filters.funcao);
-                }
-
-                return q;
-            }
-        );
-
-        return rawData.map(mapDbToWorkbookPart);
     },
 
     /**
