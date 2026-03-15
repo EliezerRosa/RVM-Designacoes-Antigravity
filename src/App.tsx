@@ -16,7 +16,7 @@ import { CommunicationTab } from './components/CommunicationTab'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 
 
-import { workbookService } from './services/workbookService'
+import { workbookService, _clearCache } from './services/workbookService'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { loadCompletedParticipations } from './services/historyAdapter'
 import type { HistoryRecord } from './types'
@@ -179,13 +179,20 @@ function App() {
       )
       .subscribe();
 
-    // Polling fallback for parts (15 seconds)
-    let lastPartsHash = "";
+    // Polling fallback for parts (60 seconds)
+    let lastPartsHash = "INIT"; // Evita falso "change detected" no primeiro poll
     const computePartsHash = (ps: WorkbookPart[]) =>
       ps.length + ":" + ps.slice(0, 50).map(p => `${p.id}:${p.resolvedPublisherName || ""}:${p.status}`).join("|");
 
+    // Inicializar hash sem recarregar (usa dados existentes no cache)  
+    workbookService.getAll().then(ps => {
+      lastPartsHash = computePartsHash(ps);
+    }).catch(() => {});
+
     partsPollingInterval = setInterval(async () => {
       try {
+        // Invalidar cache antes do poll para obter dados frescos
+        _clearCache();
         const freshParts = await workbookService.getAll();
         const newHash = computePartsHash(freshParts);
         if (newHash !== lastPartsHash) {
