@@ -6,15 +6,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
 import { supabase } from '../lib/supabase';
-import type { SpecialEvent, EventImpactAction, EventImpactOverride, ParticipationType } from '../types';
+import type { SpecialEvent, EventImpactAction, EventImpactOverride, ParticipationType, WorkbookPart } from '../types';
 
 interface Props {
     availableWeeks: { weekId: string; display: string }[];
     onClose: () => void;
     onEventApplied?: () => void;  // Callback para recarregar partes
+    workbookParts?: WorkbookPart[];  // Partes já carregadas (evita query direta)
 }
 
-export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }: Props) {
+export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, workbookParts }: Props) {
     const [events, setEvents] = useState<SpecialEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -76,13 +77,41 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
     // Carregar partes da semana quando necessário para REDUCE_VIDA_CRISTA_TIME ou REPLACE_PART
     useEffect(() => {
-        const fetchParts = async () => {
-            if (!formWeekId) {
-                setTargetParts([]);
-                setAllWeekParts([]);
-                return;
-            }
+        if (!formWeekId) {
+            setTargetParts([]);
+            setAllWeekParts([]);
+            return;
+        }
 
+        // Usar partes já carregadas via prop (mesmo padrão do PowerfulAgentTab)
+        if (workbookParts && workbookParts.length > 0) {
+            const weekFiltered = workbookParts
+                .filter(p => p.weekId === formWeekId && p.status !== 'CANCELADA')
+                .sort((a, b) => (a.seq || 0) - (b.seq || 0));
+
+            const allParts = weekFiltered.map(p => ({
+                id: p.id,
+                title: (p.tituloParte || p.tipoParte || 'Parte sem título').trim() || 'Parte sem título',
+                duration: (p.duracao || '0 min').trim() || '0 min',
+                section: p.section || '',
+                tipoParte: p.tipoParte || '',
+                seq: p.seq
+            }));
+            setAllWeekParts(allParts);
+
+            // Filtrar partes Vida Cristã (para REDUCE_VIDA_CRISTA_TIME)
+            const vidaParts = allParts.filter(p => {
+                const sec = p.section.toLowerCase();
+                const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
+                const isPresidency = p.tipoParte === 'Presidente' || p.tipoParte?.includes('Oração');
+                return isVida && !isPresidency;
+            });
+            setTargetParts(vidaParts);
+            return;
+        }
+
+        // Fallback: query direta (caso prop não fornecida)
+        const fetchParts = async () => {
             try {
                 const { data, error } = await supabase
                     .from('workbook_parts')
@@ -93,24 +122,16 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
                 if (error) throw error;
 
-                const allParts = (data || []).map((p: any) => {
-                    // Mapeamento explícito para evitar problemas com aliases ou chaves ausentes
-                    const rawTitle = p.part_title || p.tipo_parte || 'Parte sem título';
-                    const finalTitle = rawTitle.trim() || 'Parte sem título';
-                    const finalDuration = (p.duracao || '0 min').trim() || '0 min';
-                    
-                    return {
-                        id: p.id,
-                        title: finalTitle,
-                        duration: finalDuration,
-                        section: p.section || '',
-                        tipoParte: p.tipo_parte || '',
-                        seq: p.seq
-                    };
-                });
+                const allParts = (data || []).map((p: any) => ({
+                    id: p.id,
+                    title: (p.part_title || p.tipo_parte || 'Parte sem título').trim() || 'Parte sem título',
+                    duration: (p.duracao || '0 min').trim() || '0 min',
+                    section: p.section || '',
+                    tipoParte: p.tipo_parte || '',
+                    seq: p.seq
+                }));
                 setAllWeekParts(allParts);
 
-                // Filtrar partes Vida Cristã (para REDUCE_VIDA_CRISTA_TIME)
                 const vidaParts = allParts.filter(p => {
                     const sec = p.section.toLowerCase();
                     const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
@@ -122,9 +143,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 console.error('Erro ao buscar partes alvo:', err);
             }
         };
-
         fetchParts();
-    }, [formWeekId]);
+    }, [formWeekId, workbookParts]);
 
     // Quando troca template, resetar impactos granulares se vazio? 
     // Na verdade, melhor manter ou pré-popular baseado no template.
