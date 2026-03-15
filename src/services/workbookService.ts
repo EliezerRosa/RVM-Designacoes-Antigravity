@@ -14,6 +14,11 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 // Tipos auxiliares
 // ============================================================================
 
+// Request deduplication: evita múltiplas chamadas simultâneas com mesmos filtros
+const _pendingRequests = new Map<string, Promise<WorkbookPart[]>>();
+const _cache = new Map<string, { data: WorkbookPart[]; ts: number }>();
+const CACHE_TTL = 5000; // 5 segundos
+
 export interface WorkbookExcelRow {
     id?: string;
     year?: number;
@@ -458,6 +463,40 @@ export const workbookService = {
      * @param filters Filtros opcionais para server-side filtering
      */
     async getAll(filters?: {
+        weekId?: string;
+        section?: string;
+        tipoParte?: string;
+        status?: string;
+        funcao?: string;
+    }): Promise<WorkbookPart[]> {
+        const cacheKey = JSON.stringify(filters || {});
+
+        // Retorna cache se válido (< 5s)
+        const cached = _cache.get(cacheKey);
+        if (cached && Date.now() - cached.ts < CACHE_TTL) {
+            return cached.data;
+        }
+
+        // Retorna promise em andamento se já existe (deduplicação)
+        const pending = _pendingRequests.get(cacheKey);
+        if (pending) {
+            return pending;
+        }
+
+        const request = this._getAllImpl(filters).then(result => {
+            _cache.set(cacheKey, { data: result, ts: Date.now() });
+            _pendingRequests.delete(cacheKey);
+            return result;
+        }).catch(err => {
+            _pendingRequests.delete(cacheKey);
+            throw err;
+        });
+
+        _pendingRequests.set(cacheKey, request);
+        return request;
+    },
+
+    async _getAllImpl(filters?: {
         weekId?: string;
         section?: string;
         tipoParte?: string;
