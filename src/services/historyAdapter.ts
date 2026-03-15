@@ -53,13 +53,25 @@ import { HISTORY_LOOKBACK_MONTHS } from '../constants/config';
 
 // ... (imports anteriores mantidos)
 
+// Cache para evitar chamadas duplicadas
+let _historyCache: { data: HistoryRecord[]; ts: number } | null = null;
+let _historyPending: Promise<HistoryRecord[]> | null = null;
+const HISTORY_CACHE_TTL = 60000; // 60 segundos
+
 /**
  * Carrega histórico de participações da tabela workbook_parts
  * ATUALIZADO: Respeita janela de histórico definida em config.ts (12 meses)
  * v9.3: Usa Paginação para garantir carga total (>1000 rows)
  */
 export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
-    console.log(`[historyAdapter] Carregando participações (últimos ${HISTORY_LOOKBACK_MONTHS} meses)...`);
+    // Retorna cache se válido
+    if (_historyCache && Date.now() - _historyCache.ts < HISTORY_CACHE_TTL) {
+        return _historyCache.data;
+    }
+    // Deduplicar chamadas concorrentes
+    if (_historyPending) return _historyPending;
+
+    _historyPending = (async () => {
 
     // Calcular data limite
     const limitDate = new Date();
@@ -76,9 +88,18 @@ export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
     );
 
     const records = data.map(row => workbookPartToHistoryRecord(mapDbToWorkbookPart(row)));
-    console.log(`[historyAdapter] ${records.length} participações carregadas (Total)`);
 
+    _historyCache = { data: records, ts: Date.now() };
+    _historyPending = null;
     return records;
+    })();
+
+    try {
+        return await _historyPending;
+    } catch (err) {
+        _historyPending = null;
+        throw err;
+    }
 }
 
 /**
