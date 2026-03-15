@@ -517,12 +517,13 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {allWeekParts.map(p => {
+                                        {allWeekParts.map((p, idx) => {
+                                            if (idx === 0) console.log('[SpecialEvents] RENDER allWeekParts[0]:', JSON.stringify(p));
                                             const cfg = formGranularImpacts[p.id] || { visual: false, cancel: false, reduceTime: false, minutes: 5 };
                                             return (
                                                 <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                                                     <td style={{ padding: '8px' }}>
-                                                        <div style={{ fontWeight: '500' }}>{p.seq ? p.seq + '. ' : ''}{p.title}</div>
+                                                        <div style={{ fontWeight: '500', color: '#111827' }}>{p.seq ? p.seq + '. ' : ''}{p.title || '[SEM TÍTULO]'}</div>
                                                         <div style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</div>
                                                     </td>
                                                     <td style={{ textAlign: 'center', padding: '8px' }}>
@@ -591,7 +592,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                             }}
                                             style={{ margin: 0 }}
                                         />
-                                        <span style={{ flex: 1 }}><strong>{p.seq ? p.seq + '. ' : ''}</strong>{p.title}</span>
+                                        <span style={{ flex: 1 }}><strong>{p.seq ? p.seq + '. ' : ''}</strong>{p.title || '[SEM TÍTULO]'}</span>
                                         <span style={{ color: '#9CA3AF', fontSize: '10px' }}>{p.duration}</span>
                                     </label>
                                 ))}
