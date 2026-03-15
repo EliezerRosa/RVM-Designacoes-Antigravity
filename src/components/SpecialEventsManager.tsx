@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
+import { workbookService } from '../services/workbookService';
 import { supabase } from '../lib/supabase';
 import type { SpecialEvent, EventImpactAction, EventImpactOverride, ParticipationType, WorkbookPart } from '../types';
 
@@ -12,10 +13,10 @@ interface Props {
     availableWeeks: { weekId: string; display: string }[];
     onClose: () => void;
     onEventApplied?: () => void;  // Callback para recarregar partes
-    workbookParts?: WorkbookPart[];  // Partes já carregadas (evita query direta)
+    workbookParts?: WorkbookPart[];  // Mantido para compatibilidade, mas não usado
 }
 
-export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, workbookParts }: Props) {
+export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }: Props) {
     const [events, setEvents] = useState<SpecialEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -75,7 +76,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
-    // Carregar partes da semana quando necessário para REDUCE_VIDA_CRISTA_TIME ou REPLACE_PART
+    // Carregar partes da semana via workbookService (fonte da verdade)
     useEffect(() => {
         if (!formWeekId) {
             setTargetParts([]);
@@ -83,20 +84,14 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
             return;
         }
 
-        // Tentar usar partes da prop (mesmo padrão do PowerfulAgentTab)
-        if (workbookParts && workbookParts.length > 0) {
-            const weekFiltered = workbookParts
-                .filter(p => p.weekId === formWeekId && p.status !== 'CANCELADA')
-                .sort((a, b) => (a.seq || 0) - (b.seq || 0));
+        const fetchParts = async () => {
+            try {
+                const parts = await workbookService.getAll({ weekId: formWeekId });
+                const filtered = parts
+                    .filter(p => p.status !== 'CANCELADA')
+                    .sort((a, b) => (a.seq || 0) - (b.seq || 0));
 
-            console.log('[SpecialEvents] Props:', { totalParts: workbookParts.length, weekId: formWeekId, weekMatches: weekFiltered.length });
-            if (weekFiltered.length > 0) {
-                console.log('[SpecialEvents] Sample part:', { tituloParte: weekFiltered[0].tituloParte, tipoParte: weekFiltered[0].tipoParte, seq: weekFiltered[0].seq });
-            }
-
-            // Se a prop contém partes da semana selecionada, usá-las
-            if (weekFiltered.length > 0) {
-                const allParts = weekFiltered.map(p => ({
+                const allParts = filtered.map(p => ({
                     id: p.id,
                     title: (p.tituloParte || p.tipoParte || 'Parte sem título').trim() || 'Parte sem título',
                     duration: (p.duracao || '0 min').trim() || '0 min',
@@ -113,46 +108,12 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                     return isVida && !isPresidency;
                 });
                 setTargetParts(vidaParts);
-                return;
-            }
-        }
-
-        // Fallback: query direta ao Supabase (prop vazia ou sem a semana selecionada)
-        console.log('[SpecialEvents] Fallback: using direct Supabase query for week', formWeekId);
-        const fetchParts = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('workbook_parts')
-                    .select('id, part_title, tipo_parte, duracao, section, seq')
-                    .eq('week_id', formWeekId)
-                    .order('seq', { ascending: true })
-                    .neq('status', 'CANCELADA');
-
-                if (error) throw error;
-
-                const allParts = (data || []).map((p: any) => ({
-                    id: p.id,
-                    title: (p.part_title || p.tipo_parte || 'Parte sem título').trim() || 'Parte sem título',
-                    duration: (p.duracao || '0 min').trim() || '0 min',
-                    section: p.section || '',
-                    tipoParte: p.tipo_parte || '',
-                    seq: p.seq
-                }));
-                setAllWeekParts(allParts);
-
-                const vidaParts = allParts.filter(p => {
-                    const sec = p.section.toLowerCase();
-                    const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
-                    const isPresidency = p.tipoParte === 'Presidente' || p.tipoParte?.includes('Oração');
-                    return isVida && !isPresidency;
-                });
-                setTargetParts(vidaParts);
             } catch (err) {
-                console.error('Erro ao buscar partes alvo:', err);
+                console.error('Erro ao buscar partes da semana:', err);
             }
         };
         fetchParts();
-    }, [formWeekId, workbookParts]);
+    }, [formWeekId]);
 
     // Quando troca template, resetar impactos granulares se vazio? 
     // Na verdade, melhor manter ou pré-popular baseado no template.
