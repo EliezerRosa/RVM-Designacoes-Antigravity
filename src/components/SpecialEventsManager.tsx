@@ -83,34 +83,42 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
             return;
         }
 
-        // Usar partes já carregadas via prop (mesmo padrão do PowerfulAgentTab)
+        // Tentar usar partes da prop (mesmo padrão do PowerfulAgentTab)
         if (workbookParts && workbookParts.length > 0) {
             const weekFiltered = workbookParts
                 .filter(p => p.weekId === formWeekId && p.status !== 'CANCELADA')
                 .sort((a, b) => (a.seq || 0) - (b.seq || 0));
 
-            const allParts = weekFiltered.map(p => ({
-                id: p.id,
-                title: (p.tituloParte || p.tipoParte || 'Parte sem título').trim() || 'Parte sem título',
-                duration: (p.duracao || '0 min').trim() || '0 min',
-                section: p.section || '',
-                tipoParte: p.tipoParte || '',
-                seq: p.seq
-            }));
-            setAllWeekParts(allParts);
+            console.log('[SpecialEvents] Props:', { totalParts: workbookParts.length, weekId: formWeekId, weekMatches: weekFiltered.length });
+            if (weekFiltered.length > 0) {
+                console.log('[SpecialEvents] Sample part:', { tituloParte: weekFiltered[0].tituloParte, tipoParte: weekFiltered[0].tipoParte, seq: weekFiltered[0].seq });
+            }
 
-            // Filtrar partes Vida Cristã (para REDUCE_VIDA_CRISTA_TIME)
-            const vidaParts = allParts.filter(p => {
-                const sec = p.section.toLowerCase();
-                const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
-                const isPresidency = p.tipoParte === 'Presidente' || p.tipoParte?.includes('Oração');
-                return isVida && !isPresidency;
-            });
-            setTargetParts(vidaParts);
-            return;
+            // Se a prop contém partes da semana selecionada, usá-las
+            if (weekFiltered.length > 0) {
+                const allParts = weekFiltered.map(p => ({
+                    id: p.id,
+                    title: (p.tituloParte || p.tipoParte || 'Parte sem título').trim() || 'Parte sem título',
+                    duration: (p.duracao || '0 min').trim() || '0 min',
+                    section: p.section || '',
+                    tipoParte: p.tipoParte || '',
+                    seq: p.seq
+                }));
+                setAllWeekParts(allParts);
+
+                const vidaParts = allParts.filter(p => {
+                    const sec = p.section.toLowerCase();
+                    const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
+                    const isPresidency = p.tipoParte === 'Presidente' || p.tipoParte?.includes('Oração');
+                    return isVida && !isPresidency;
+                });
+                setTargetParts(vidaParts);
+                return;
+            }
         }
 
-        // Fallback: query direta (caso prop não fornecida)
+        // Fallback: query direta ao Supabase (prop vazia ou sem a semana selecionada)
+        console.log('[SpecialEvents] Fallback: using direct Supabase query for week', formWeekId);
         const fetchParts = async () => {
             try {
                 const { data, error } = await supabase
