@@ -23,8 +23,6 @@ export async function fetchAllRows<T extends Record<string, unknown>>(
     let offset = 0;
     let hasMore = true;
 
-    console.log(`[Pagination] Iniciando busca paginada em ${table}...`);
-
     while (hasMore) {
         // Cria query base e aplica filtros
         const baseQuery = supabase.from(table).select('*');
@@ -45,14 +43,12 @@ export async function fetchAllRows<T extends Record<string, unknown>>(
                 hasMore = false; // Última página (incompleta)
             } else {
                 offset += PAGE_SIZE;
-                console.log(`[Pagination] ${table}: ${allRecords.length} registros carregados, buscando mais...`);
             }
         } else {
             hasMore = false;
         }
     }
 
-    console.log(`[Pagination] ${table}: Total de ${allRecords.length} registros`);
     return allRecords;
 }
 
