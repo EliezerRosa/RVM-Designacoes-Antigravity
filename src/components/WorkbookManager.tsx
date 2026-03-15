@@ -161,14 +161,12 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
     // ========================================================================
     useEffect(() => {
         if (isActive) {
-            console.log('[WorkbookManager] 🔄 Tab activated, refreshing data...');
             loadPartsWithFilters();
         }
     }, [isActive]);
 
     useEffect(() => {
-        loadPartsWithFilters();
-        // Carregar histórico completo para cooldown (12 meses) de forma independente dos filtros
+        // Carregar histórico completo para cooldown (12 meses) — apenas no mount
         loadCompletedParticipations().then(setHistoryRecords);
     }, []);
 
@@ -204,14 +202,6 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
 
     useEffect(() => {
         if (filterTrigger === 0) return; // Skip initial render
-
-        // Sempre recarregar quando trigger muda
-        const hasActiveFilters = filterSection || filterStatus;
-        console.log('[WorkbookManager] 🔄 Recarregando com filtros:', {
-            section: filterSection,
-            status: filterStatus,
-            hasActiveFilters
-        });
 
         loadPartsWithFilters({
             section: filterSection || undefined,

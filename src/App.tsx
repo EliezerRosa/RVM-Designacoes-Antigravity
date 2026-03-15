@@ -16,7 +16,7 @@ import { CommunicationTab } from './components/CommunicationTab'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 
 
-import { workbookService, _clearCache } from './services/workbookService'
+import { workbookService } from './services/workbookService'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { loadCompletedParticipations } from './services/historyAdapter'
 import type { HistoryRecord } from './types'
@@ -166,8 +166,7 @@ function App() {
           partsDebounceTimer = setTimeout(async () => {
             try {
               isPartsProcessing = true;
-              console.log('[REALTIME] workbook_parts changed, reloading...');
-              const freshParts = await workbookService.getAll();
+              const freshParts = await workbookService.getAll(undefined, { forceRefresh: true });
               setWorkbookParts(freshParts);
             } catch (err) {
               console.warn('[REALTIME] Failed to reload parts:', err);
@@ -191,9 +190,8 @@ function App() {
 
     partsPollingInterval = setInterval(async () => {
       try {
-        // Invalidar cache antes do poll para obter dados frescos
-        _clearCache();
-        const freshParts = await workbookService.getAll();
+        // Buscar dados frescos sem invalidar cache de outros filtros
+        const freshParts = await workbookService.getAll(undefined, { forceRefresh: true });
         const newHash = computePartsHash(freshParts);
         if (newHash !== lastPartsHash) {
           console.log('[POLLING] Parts change detected, refreshing...');
@@ -227,11 +225,9 @@ function App() {
 
     setIsWorkbookLoading(true);
     try {
-      console.log('[App] Refreshing workbook parts explicitly...');
       const data = await workbookService.getAll();
       setWorkbookParts(data);
       setLastPartsRefresh(Date.now());
-      console.log(`[App] Refreshed ${data.length} parts`);
     } catch (err) {
       console.error('[App] Error refreshing workbook parts:', err);
     } finally {
@@ -240,7 +236,6 @@ function App() {
   };
 
   const refreshAllData = async () => {
-    console.log('[App] Refreshing all data explicitly...');
     try {
       const [parts, pubs] = await Promise.all([
         workbookService.getAll(),
@@ -248,20 +243,13 @@ function App() {
       ]);
       setWorkbookParts(parts);
       setPublishers(pubs);
-      console.log(`[App] Refreshed ${parts.length} parts and ${pubs.length} publishers`);
     } catch (err) {
       console.warn('[App] Error refreshing all data:', err);
     }
   };
 
   // Load workbook parts when ChatAgent opens OR Agent tab is active
-  useEffect(() => {
-    const needsParts = isChatAgentOpen || activeTab === 'agent';
-    if (needsParts) {
-      console.log('[Agent] Loading workbook parts for AI...');
-      refreshWorkbookParts();
-    }
-  }, [isChatAgentOpen, activeTab]);
+  // (handled by the needsParts useEffect above — only when parts are empty)
 
   const savePublisher = async (publisher: Publisher) => {
     setIsSaving(true)
