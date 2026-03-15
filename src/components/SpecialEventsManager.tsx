@@ -94,8 +94,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
                 if (fetchErr) throw fetchErr;
 
-                console.log('[SpecialEvents] Raw DB rows:', data?.length, 'sample:', data?.[0] ? { part_title: data[0].part_title, tipo_parte: data[0].tipo_parte, duracao: data[0].duracao } : 'EMPTY');
-
                 const allParts = (data || []).map((row: any) => ({
                     id: row.id,
                     title: (row.part_title || row.tipo_parte || 'Parte sem título').trim() || 'Parte sem título',
@@ -105,7 +103,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                     seq: row.seq
                 }));
 
-                console.log('[SpecialEvents] Mapped parts:', allParts.length, 'first title:', allParts[0]?.title);
                 setAllWeekParts(allParts);
 
                 const vidaParts = allParts.filter(p => {
@@ -188,6 +185,9 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
             });
 
             const impacts: EventImpactOverride[] = [];
+
+            // Combinar IDs visuais da tabela granular + seção "Vínculo Visual"
+            const allVisualIds = [...new Set([...visualIds, ...formGlobalAffectedPartIds])];
             
             if (canceledIds.length > 0) {
                 impacts.push({
@@ -214,7 +214,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 duration: selectedTemplate?.defaults.duration,
                 isApplied: false,
                 impacts: impacts,
-                affectedPartIds: visualIds.length > 0 ? visualIds : undefined,
+                affectedPartIds: allVisualIds.length > 0 ? allVisualIds : undefined,
                 content: formContent || undefined,
                 observation: formObservation || undefined,
                 reference: formReference || undefined,
@@ -518,7 +518,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                     </thead>
                                     <tbody>
                                         {allWeekParts.map((p, idx) => {
-                                            if (idx === 0) console.log('[SpecialEvents] RENDER allWeekParts[0]:', JSON.stringify(p));
                                             const cfg = formGranularImpacts[p.id] || { visual: false, cancel: false, reduceTime: false, minutes: 5 };
                                             return (
                                                 <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
