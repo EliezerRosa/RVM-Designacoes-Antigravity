@@ -159,7 +159,7 @@ export const communicationService = {
                 };
 
                 for (const evt of events) {
-                    const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.template_id);
+                    const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.templateId);
                     let eventName = template?.name || evt.theme || 'Evento Especial';
                     if (evt.observation) {
                         eventName += ` (Obs: ${evt.observation})`;
@@ -169,9 +169,9 @@ export const communicationService = {
                     const noteChar = superscriptMap[currentIndex] || currentIndex.toString();
                     const notePrefix = `*[Nota *${noteChar}]*`;
 
-                    if (evt.template_id === 'anuncio') {
+                    if (evt.templateId === 'anuncio') {
                         eventNotes.push(`📢 ${notePrefix} *${eventName}*${evt.content ? `: ${evt.content}` : ''}`);
-                    } else if (evt.template_id === 'notificacao') {
+                    } else if (evt.templateId === 'notificacao') {
                         eventNotes.push(`🔔 ${notePrefix} *${eventName}*${evt.content ? `: ${evt.content}` : ''}`);
                     } else {
                         eventNotes.push(`🔸 ${notePrefix} *${eventName}*`);
@@ -369,7 +369,7 @@ export const communicationService = {
                 const relevantNotes: string[] = [];
                 let noteIndex = 1;
                 for (const evt of events) {
-                    const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.template_id);
+                    const template = EVENT_TEMPLATES.find((t: any) => t.id === evt.templateId);
                     let eventName = template?.name || evt.theme || 'Evento Especial';
                     if (evt.observation) {
                         eventName += ` (Obs: ${evt.observation})`;
@@ -377,10 +377,13 @@ export const communicationService = {
 
                     const resolvedImpacts = (evt.impacts && evt.impacts.length > 0)
                         ? evt.impacts
-                        : [{ action: evt.override_action || template?.impact?.action || 'NO_IMPACT' }];
+                        : [{ action: evt.overrideAction || template?.impact?.action || 'NO_IMPACT' }];
 
                     // Verificar se ESTA parte é afetada diretamente
                     const affectedIds = new Set<string>();
+                    // Top-level affectedPartIds (Vínculo Visual)
+                    if (evt.affectedPartIds) evt.affectedPartIds.forEach((id: string) => affectedIds.add(id));
+                    // IDs dentro de impacts[]
                     resolvedImpacts.forEach((imp: any) => {
                         if (imp.targetPartId) affectedIds.add(imp.targetPartId);
                         if (imp.targetPartIds) imp.targetPartIds.forEach((id: string) => affectedIds.add(id));
@@ -420,8 +423,8 @@ export const communicationService = {
                     }
 
                     // Sempre incluir anúncios/notificações da semana na lista geral
-                    if (evt.template_id === 'anuncio' || evt.template_id === 'notificacao') {
-                        const icon = evt.template_id === 'anuncio' ? '📢' : '🔔';
+                    if (evt.templateId === 'anuncio' || evt.templateId === 'notificacao') {
+                        const icon = evt.templateId === 'anuncio' ? '📢' : '🔔';
                         const evtContent = evt.content ? `: ${evt.content}` : '';
                         relevantNotes.push(`${icon} *[Nota *${sup}] ${eventName}*${evtContent}`);
                     }
