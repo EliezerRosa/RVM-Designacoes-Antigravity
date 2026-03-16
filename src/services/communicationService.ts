@@ -416,17 +416,14 @@ export const communicationService = {
                             });
                         } else if ((part as any).createdByEventId === evt.id) {
                             relevantNotes.push(`✨ *[Nota *${sup}]* Esta é uma parte especial da programação de: *${eventName}*`);
+                        } else if (evt.templateId === 'anuncio' || evt.templateId === 'notificacao') {
+                            const icon = evt.templateId === 'anuncio' ? '📢' : '🔔';
+                            const evtContent = evt.content ? `: ${evt.content}` : '';
+                            relevantNotes.push(`${icon} *[Nota *${sup}] ${eventName}*${evtContent}`);
                         } else {
                             // Vínculo visual genérico
                             relevantNotes.push(`📌 *[Nota *${sup}]* Esta parte tem uma observação importante relacionada a: *${eventName}*`);
                         }
-                    }
-
-                    // Sempre incluir anúncios/notificações da semana na lista geral
-                    if (evt.templateId === 'anuncio' || evt.templateId === 'notificacao') {
-                        const icon = evt.templateId === 'anuncio' ? '📢' : '🔔';
-                        const evtContent = evt.content ? `: ${evt.content}` : '';
-                        relevantNotes.push(`${icon} *[Nota *${sup}] ${eventName}*${evtContent}`);
                     }
                 }
 
