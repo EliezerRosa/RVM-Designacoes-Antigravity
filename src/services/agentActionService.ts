@@ -479,9 +479,10 @@ export const agentActionService = {
                             data: results,
                             actionType: 'FETCH_DATA'
                         };
-                    } catch (e) {
+                    } catch (e: any) {
                         console.error('[AgentAction] Fail to fetch data', e);
-                        return { success: false, message: `Erro ao buscar dados: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                        const errMsg = e instanceof Error ? e.message : e?.message || 'Desconhecido';
+                        return { success: false, message: `Erro ao buscar dados: ${errMsg}` };
                     }
                 }
 
