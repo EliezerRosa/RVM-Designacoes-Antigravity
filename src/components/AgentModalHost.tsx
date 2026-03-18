@@ -21,8 +21,9 @@ import { PartEditModal } from './PartEditModal';
 import { api } from '../services/api';
 import { workbookService } from '../services/workbookService';
 import TerritoryManager from './TerritoryManager';
+import { WorkbookImportModal } from './WorkbookImportModal';
 
-export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | null;
+export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | 'workbook_import' | null;
 
 interface Props {
     modal: AgentModalType;
@@ -146,6 +147,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
             case 'events': return '🎉 Eventos Especiais';
             case 'local_needs': return '📋 Necessidades Locais';
             case 'territories': return '🗺️ Territórios';
+            case 'workbook_import': return '📥 Importar Apostila do JW.org';
             default: return '';
         }
     };
@@ -251,6 +253,14 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
 
             case 'territories':
                 return <TerritoryManager />;
+
+            case 'workbook_import':
+                return (
+                    <WorkbookImportModal
+                        onClose={handleClose}
+                        onDataChange={onDataChange}
+                    />
+                );
 
             default:
                 return null;
