@@ -619,7 +619,7 @@ export function formatContextForPrompt(context: AgentContext): string {
         // Formato: Nome [PUB:uuid] | Nome [PUB:uuid] | ...
         const regLines: string[] = [];
         (context.publishers as any[]).forEach(p => {
-            if (p.id) regLines.push(`${p.name} [PUB:${p.id}]`);
+            if (p.id && typeof p.id === 'string' && p.id.trim()) regLines.push(`${p.name} [PUB:${p.id}]`);
         });
         // Agrupar em linhas de 4 para não poluir o prompt
         for (let i = 0; i < regLines.length; i += 4) {
