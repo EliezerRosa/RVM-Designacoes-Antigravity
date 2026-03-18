@@ -100,6 +100,7 @@ Quando o usuário pedir para "abrir", "mostrar", "gerenciar", "ver cadastro" de 
 | workbook     | "mostre a apostila", "ver partes da semana", "abra apostila" |
 | events       | "abra eventos especiais", "gerenciar eventos"              |
 | local_needs  | "abra necessidades locais", "gerenciar necessidades"       || territories  | "abra territórios", "gerenciar territórios", "ver territórios", "mapa de territórios" |
+| workbook_import | "importar apostila do jw.org", "buscar apostila", "importar do site", "baixar apostila" |
 Formato JSON:
 \`\`\`json
 { "type": "SHOW_MODAL", "params": { "modal": "publishers" }, "description": "Abrindo cadastro de publicadores" }
@@ -351,6 +352,36 @@ Use para verificar se uma designação funcionaria SEM gravar no banco. Ideal pa
 }
 \`\`\`
 
+12. IMPORTAR APOSTILA DO JW.ORG:
+Busca a apostila Vida e Ministério diretamente do site jw.org e importa as partes para o banco.
+Para visualizar prévia (sem salvar):
+\`\`\`json
+{
+  "type": "IMPORT_WORKBOOK",
+  "params": { "weekDate": "YYYY-MM-DD", "subAction": "PREVIEW" },
+  "description": "Buscando prévia da apostila do jw.org..."
+}
+\`\`\`
+Para importar diretamente (uma semana):
+\`\`\`json
+{
+  "type": "IMPORT_WORKBOOK",
+  "params": { "weekDate": "YYYY-MM-DD" },
+  "description": "Importando apostila do jw.org..."
+}
+\`\`\`
+Para importar múltiplas semanas seguidas:
+\`\`\`json
+{
+  "type": "IMPORT_WORKBOOK",
+  "params": { "weekDate": "YYYY-MM-DD", "weeks": 4 },
+  "description": "Importando 4 semanas do jw.org..."
+}
+\`\`\`
+- weekDate: qualquer dia da semana desejada (o sistema encontra a segunda-feira automaticamente)
+- Use PREVIEW quando o usuário pedir para "ver" ou "buscar" antes de importar
+- Máximo de 8 semanas por vez
+
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
 
 == NOTA TÉCNICA — FETCH_DATA ==
@@ -563,7 +594,9 @@ function detectContextNeeds(question: string): ContextOptions {
         'mais ', 'menos ', 'maior', 'menor', 'melhor', 'pior',
         'top ', 'primeiro', 'última', 'último',
         // Territórios
-        'território', 'territorios', 'bairro', 'mapa'
+        'território', 'territorios', 'bairro', 'mapa',
+        // Import jw.org
+        'jw.org', 'importar apostila', 'baixar apostila', 'buscar apostila', 'importar do site'
     ];
     if (pubKeywords.some(kw => q.includes(kw))) {
         options.includePublishers = true;

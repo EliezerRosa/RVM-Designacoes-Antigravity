@@ -12,6 +12,7 @@ import { dataDiscoveryService } from './dataDiscoveryService';
 import { auditService } from './auditService';
 import { localNeedsService } from './localNeedsService';
 import { participationAnalyticsService } from './participationAnalyticsService';
+import { importWorkbookFromJwOrg, fetchWorkbookFromJwOrg, importMultipleWeeks } from './jwOrgService';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -33,7 +34,8 @@ export type AgentActionType =
     | 'NOTIFY_REFUSAL'
     | 'SHOW_MODAL'
     | 'MANAGE_LOCAL_NEEDS'
-    | 'GET_ANALYTICS';
+    | 'GET_ANALYTICS'
+    | 'IMPORT_WORKBOOK';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -901,6 +903,69 @@ export const agentActionService = {
                     } catch (e: any) {
                         console.error('[AgentAction] Fail to get analytics', e);
                         return { success: false, message: `Erro ao buscar analytics: ${e?.message || 'Desconhecido'}` };
+                    }
+                }
+
+                case 'IMPORT_WORKBOOK': {
+                    try {
+                        const subAction = action.params.subAction || 'IMPORT';
+                        const weekDateStr = action.params.weekDate; // YYYY-MM-DD
+                        const weeksCount = action.params.weeks || 1;
+
+                        if (!weekDateStr) {
+                            return { success: false, message: 'Parâmetro weekDate (YYYY-MM-DD) é obrigatório.' };
+                        }
+
+                        const weekDate = new Date(weekDateStr + 'T12:00:00');
+                        if (isNaN(weekDate.getTime())) {
+                            return { success: false, message: `Data inválida: ${weekDateStr}` };
+                        }
+
+                        if (subAction === 'PREVIEW') {
+                            // Apenas busca e mostra sem salvar
+                            const result = await fetchWorkbookFromJwOrg(weekDate);
+                            if (!result.success) {
+                                return { success: false, message: `Erro ao buscar apostila: ${result.error}` };
+                            }
+                            const summary = result.parts
+                                .filter(p => p.funcao === 'Titular')
+                                .map(p => `- **${p.tipoParte}**: ${p.tituloParte} (${p.duracao} min)`)
+                                .join('\n');
+                            return {
+                                success: true,
+                                message: `**Prévia da Apostila — ${result.weekDisplay}**\n${result.totalParts} partes encontradas:\n\n${summary}\n\nDeseja que eu importe essas partes para o banco?`,
+                                data: { parts: result.parts, weekId: result.weekId, weekDisplay: result.weekDisplay, preview: true },
+                                actionType: 'IMPORT_WORKBOOK'
+                            };
+                        }
+
+                        if (weeksCount > 1) {
+                            // Import múltiplas semanas
+                            const results = await importMultipleWeeks(weekDate, Math.min(weeksCount, 8));
+                            const successes = results.filter(r => r.success);
+                            const failures = results.filter(r => !r.success);
+                            let msg = `**Importação de ${results.length} semanas:**\n`;
+                            successes.forEach(r => { msg += `\n✅ ${r.weekDisplay}: ${r.totalParts} partes`; });
+                            failures.forEach(r => { msg += `\n❌ ${r.weekDisplay || 'Semana'}: ${r.error}`; });
+                            return {
+                                success: successes.length > 0,
+                                message: msg,
+                                data: { results, totalImported: successes.reduce((a, r) => a + r.totalParts, 0) },
+                                actionType: 'IMPORT_WORKBOOK'
+                            };
+                        }
+
+                        // Import single week
+                        const result = await importWorkbookFromJwOrg(weekDate);
+                        return {
+                            success: result.success,
+                            message: result.message,
+                            data: { weekId: result.weekId, weekDisplay: result.weekDisplay, totalParts: result.totalParts },
+                            actionType: 'IMPORT_WORKBOOK'
+                        };
+                    } catch (e: any) {
+                        console.error('[AgentAction] IMPORT_WORKBOOK error:', e);
+                        return { success: false, message: `Erro ao importar apostila: ${e?.message || 'Desconhecido'}` };
                     }
                 }
 
