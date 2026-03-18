@@ -11,7 +11,7 @@ import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
 
 import { specialEventService } from '../services/specialEventService';
-// import { localNeedsService } from '../services/localNeedsService';
+import { localNeedsService } from '../services/localNeedsService';
 import type { SpecialEventInput, LocalNeedsInput } from '../services/contextBuilder';
 import { supabase } from '../lib/supabase';
 
@@ -27,6 +27,7 @@ interface TemporalChatProps {
     initialCommand?: string;
     isWorkbookLoading?: boolean;
     onRateLimitChange?: (remaining: number, max: number, refillInSeconds: number) => void;
+    accessLevel?: 'elder' | 'publisher';
 }
 
 export default function TemporalChat({
@@ -39,7 +40,8 @@ export default function TemporalChat({
     historyRecords = [],
     initialCommand,
     isWorkbookLoading = false,
-    onRateLimitChange
+    onRateLimitChange,
+    accessLevel = 'elder'
 }: TemporalChatProps) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
@@ -235,7 +237,7 @@ export default function TemporalChat({
 
     // Context Data State
     const [specialEventsCtx, setSpecialEventsCtx] = useState<SpecialEventInput[]>([]);
-    const [localNeedsCtx] = useState<LocalNeedsInput[]>([]);
+    const [localNeedsCtx, setLocalNeedsCtx] = useState<LocalNeedsInput[]>([]);
 
     // === REGISTRO DE PUBLICADORES (nome normalizado ↔ UUID) ===
     const normalizeStr = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -380,11 +382,15 @@ export default function TemporalChat({
                 }));
                 setSpecialEventsCtx(processedEvents);
 
-                // 2. Local Needs (Assuming we can fetch pending ones)
-                // Note: localNeedsService might not have a simple 'getAll' exposed for chat context yet
-                // For now, we fetch from queue if available, or just keep empty if not easy to access
-                // Trying a direct supabase fetch as fallback if service doesn't have it
-                // ... (Skipping complex local needs fetch for this iteration to avoid breaking build, focusing on Special Events)
+                // 2. Local Needs
+                const pendingNeeds = await localNeedsService.getPendingQueue();
+                setLocalNeedsCtx(pendingNeeds.map(ln => ({
+                    theme: ln.theme,
+                    assigneeName: ln.assigneeName,
+                    orderPosition: ln.orderPosition,
+                    targetWeek: ln.targetWeek,
+                    assignedToPartId: ln.assignedToPartId,
+                })));
 
             } catch (err) {
                 console.error('Error loading chat context data:', err);
@@ -541,7 +547,7 @@ export default function TemporalChat({
                 parts,
                 historyRecords, // Passar histórico completo injetado
                 messages, // chatHistory
-                'elder', // accessLevel
+                accessLevel, // accessLevel
                 specialEventsCtx, // specialEvents
                 localNeedsCtx, // localNeeds
                 currentWeekId, // FOCUS WEEK ID provided by Parent (WorkbookManager)

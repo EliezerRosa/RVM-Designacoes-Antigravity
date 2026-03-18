@@ -294,11 +294,14 @@ export const agentActionService = {
 
                     try {
                         const { api } = await import('./api');
+                        // Merge: adicionar novas datas às existentes (sem duplicar)
+                        const existingDates = pub.availability.exceptionDates || [];
+                        const mergedDates = [...new Set([...existingDates, ...unavailableDates])];
                         const updatedPub = {
                             ...pub,
                             availability: {
                                 ...pub.availability,
-                                exceptionDates: unavailableDates
+                                exceptionDates: mergedDates
                             }
                         };
 
@@ -314,7 +317,7 @@ export const agentActionService = {
 
                         return {
                             success: true,
-                            message: `**Agenda Atualizada:** As seguintes datas **(${unavailableDates.join(', ')})** foram marcadas como indisponíveis para **${pub.name}**. O agente agora considera este publicador bloqueado nessas datas.`,
+                            message: `**Agenda Atualizada:** As datas **(${unavailableDates.join(', ')})** foram adicionadas às indisponibilidades de **${pub.name}** (total: ${mergedDates.length} datas bloqueadas).`,
                             data: updatedPub,
                             actionType: 'UPDATE_AVAILABILITY'
                         };
@@ -543,8 +546,31 @@ export const agentActionService = {
                     }
                 }
 
-                case 'ASSIGN_PART':
                 case 'SIMULATE_ASSIGNMENT': {
+                    // Dry-run: simula a designação sem gravar no banco
+                    const simPartId = action.params.partId;
+                    const simPubName = action.params.publisherName;
+                    const simWeekId = action.params.weekId || contextWeekId;
+                    const simPart = parts.find(p => p.id === simPartId) ||
+                        parts.filter(p => p.weekId === simWeekId).find(p =>
+                            (p.tituloParte || '').toLowerCase().includes((simPartId || '').toLowerCase())
+                        );
+                    if (!simPart) {
+                        return { success: false, message: `Parte não encontrada para simulação (ID: ${simPartId})` };
+                    }
+                    const simPub = publishers.find(p => p.name.toLowerCase().includes((simPubName || '').toLowerCase().trim()));
+                    if (!simPub && simPubName) {
+                        return { success: false, message: `Publicador '${simPubName}' não encontrado para simulação.` };
+                    }
+                    return {
+                        success: true,
+                        message: `**Simulação:** ${simPub?.name || simPubName} seria designado(a) para "${simPart.tituloParte}" na semana ${simWeekId}. Nenhuma alteração foi salva.`,
+                        data: { partId: simPart.id, simulatedAssignee: simPub?.name || simPubName, weekId: simWeekId },
+                        actionType: 'SIMULATE_ASSIGNMENT'
+                    };
+                }
+
+                case 'ASSIGN_PART': {
                     let { partId, publisherId, publisherName, weekId, partName } = action.params;
                     let targetPart = parts.find(p => p.id === partId);
 
