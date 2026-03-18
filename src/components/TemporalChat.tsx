@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChatMessageBubble } from './ui/ChatMessageBubble';
 import { chatHistoryService } from '../services/chatHistoryService';
-import { askAgent, isAgentConfigured } from '../services/agentService';
+import { askAgent, isAgentConfigured, getSuggestedQuestions } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { agentActionService } from '../services/agentActionService';
@@ -456,9 +456,13 @@ export default function TemporalChat({
         if (!cleanText) return;
 
         // Limitar para evitar leituras muito longas (máx ~500 chars)
-        const truncated = cleanText.length > 500
-            ? cleanText.substring(0, 500) + '.'
-            : cleanText;
+        // Cortar no último ponto/sentença antes do limite
+        let truncated = cleanText;
+        if (cleanText.length > 500) {
+            const cut = cleanText.substring(0, 500);
+            const lastSentence = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'));
+            truncated = lastSentence > 100 ? cut.substring(0, lastSentence + 1) : cut + '.';
+        }
 
         const utterance = new SpeechSynthesisUtterance(truncated);
         utterance.lang = 'pt-BR';
@@ -874,7 +878,29 @@ export default function TemporalChat({
                 {messages.length === 0 && (
                     <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '20px' }}>
                         <p>👋 Olá! Sou o Assistente RVM.</p>
-                        <p style={{ fontSize: '12px' }}>Pergunte sobre publicadores, designações ou regras de elegibilidade.</p>
+                        <p style={{ fontSize: '12px', marginBottom: '16px' }}>Pergunte sobre publicadores, designações ou regras de elegibilidade.</p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                            {getSuggestedQuestions().map((q, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => { setInput(q); setTimeout(() => sendMessage(q), 100); }}
+                                    style={{
+                                        background: '#F3F4F6',
+                                        border: '1px solid #E5E7EB',
+                                        borderRadius: '16px',
+                                        padding: '6px 14px',
+                                        fontSize: '12px',
+                                        color: '#4B5563',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                    }}
+                                    onMouseOver={e => { (e.target as HTMLElement).style.background = '#E5E7EB'; }}
+                                    onMouseOut={e => { (e.target as HTMLElement).style.background = '#F3F4F6'; }}
+                                >
+                                    {q}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
                 {messages.map((msg, idx) => (

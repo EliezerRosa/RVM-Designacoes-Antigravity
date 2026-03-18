@@ -10,6 +10,8 @@ import { communicationService } from './communicationService';
 import { specialEventService } from './specialEventService';
 import { dataDiscoveryService } from './dataDiscoveryService';
 import { auditService } from './auditService';
+import { localNeedsService } from './localNeedsService';
+import { participationAnalyticsService } from './participationAnalyticsService';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -29,7 +31,9 @@ export type AgentActionType =
     | 'FETCH_DATA'
     | 'SIMULATE_ASSIGNMENT'
     | 'NOTIFY_REFUSAL'
-    | 'SHOW_MODAL';
+    | 'SHOW_MODAL'
+    | 'MANAGE_LOCAL_NEEDS'
+    | 'GET_ANALYTICS';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -781,6 +785,122 @@ export const agentActionService = {
                     } catch (e) {
                         console.error('[AgentAction] Fail to notify refusal', e);
                         return { success: false, message: `Erro ao enviar alerta de recusa: ${e instanceof Error ? e.message : 'Desconhecido'}` };
+                    }
+                }
+
+                case 'MANAGE_LOCAL_NEEDS': {
+                    const { subAction, theme, assigneeName, targetWeek, preassignmentId, newPosition } = action.params;
+
+                    try {
+                        switch (subAction) {
+                            case 'LIST': {
+                                const queue = await localNeedsService.getPendingQueue();
+                                const history = await localNeedsService.getAssignedHistory();
+                                const queueText = queue.length > 0
+                                    ? queue.map((ln, i) => `${i + 1}. **${ln.theme}** → ${ln.assigneeName}${ln.targetWeek ? ` (Semana: ${ln.targetWeek})` : ''}`).join('\n')
+                                    : 'Fila vazia.';
+                                const histText = history.length > 0
+                                    ? history.slice(0, 10).map(ln => `- ${ln.theme} → ${ln.assigneeName} (${ln.assignedAt?.split('T')[0] || '?'})`).join('\n')
+                                    : 'Nenhum histórico.';
+                                return {
+                                    success: true,
+                                    message: `**Fila Pendente (${queue.length}):**\n${queueText}\n\n**Histórico Recente:**\n${histText}`,
+                                    data: { queue, history: history.slice(0, 10) },
+                                    actionType: 'MANAGE_LOCAL_NEEDS'
+                                };
+                            }
+                            case 'ADD': {
+                                if (!theme || !assigneeName) {
+                                    return { success: false, message: 'Faltam parâmetros: theme e assigneeName são obrigatórios.' };
+                                }
+                                const newItem = await localNeedsService.addToQueue(theme, assigneeName, targetWeek || null);
+                                return {
+                                    success: true,
+                                    message: `**Adicionado à fila:** "${theme}" → ${assigneeName} (posição #${newItem.orderPosition})`,
+                                    data: newItem,
+                                    actionType: 'MANAGE_LOCAL_NEEDS'
+                                };
+                            }
+                            case 'REMOVE': {
+                                if (!preassignmentId) {
+                                    return { success: false, message: 'Faltam parâmetros: preassignmentId.' };
+                                }
+                                await localNeedsService.remove(preassignmentId);
+                                return {
+                                    success: true,
+                                    message: `**Removido da fila** com sucesso.`,
+                                    actionType: 'MANAGE_LOCAL_NEEDS'
+                                };
+                            }
+                            case 'REORDER': {
+                                if (!preassignmentId || newPosition === undefined) {
+                                    return { success: false, message: 'Faltam parâmetros: preassignmentId e newPosition.' };
+                                }
+                                await localNeedsService.reorder(preassignmentId, newPosition);
+                                return {
+                                    success: true,
+                                    message: `**Fila reordenada:** Item movido para posição #${newPosition}.`,
+                                    actionType: 'MANAGE_LOCAL_NEEDS'
+                                };
+                            }
+                            default:
+                                return { success: false, message: `Sub-ação desconhecida para MANAGE_LOCAL_NEEDS: ${subAction}. Use LIST, ADD, REMOVE ou REORDER.` };
+                        }
+                    } catch (e: any) {
+                        console.error('[AgentAction] Fail to manage local needs', e);
+                        return { success: false, message: `Erro ao gerenciar necessidades locais: ${e?.message || 'Desconhecido'}` };
+                    }
+                }
+
+                case 'GET_ANALYTICS': {
+                    const { publisherName, startDate, endDate, tipoParte, compare } = action.params;
+
+                    try {
+                        if (compare && Array.isArray(compare) && compare.length > 0) {
+                            const data = await participationAnalyticsService.comparePublishers(compare, {
+                                startDate, endDate, tipoParte
+                            });
+                            const rows = data.publishers.map(p =>
+                                `| ${p.name} | ${p.totalParticipations} | ${p.asTitular} | ${p.asAjudante} | ${p.lastParticipation || 'Nunca'} |`
+                            ).join('\n');
+                            return {
+                                success: true,
+                                message: `**Comparação (${data.periodStart} a ${data.periodEnd}):**\n\n| Nome | Total | Titular | Ajudante | Última |\n|------|-------|---------|----------|--------|\n${rows}`,
+                                data,
+                                actionType: 'GET_ANALYTICS'
+                            };
+                        }
+
+                        if (publisherName) {
+                            const stats = await participationAnalyticsService.getPublisherStats(publisherName, {
+                                startDate, endDate, tipoParte
+                            });
+                            const tipoBreakdown = Object.entries(stats.byTipoParte)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([tipo, count]) => `- ${tipo}: ${count}x`)
+                                .join('\n');
+                            return {
+                                success: true,
+                                message: `**Estatísticas de ${stats.name}:**\n- Total: ${stats.totalParticipations} (${stats.asTitular} Titular, ${stats.asAjudante} Ajudante)\n- Última participação: ${stats.lastParticipation || 'Nunca'}\n\n**Por tipo de parte:**\n${tipoBreakdown || 'Nenhuma participação registrada.'}`,
+                                data: stats,
+                                actionType: 'GET_ANALYTICS'
+                            };
+                        }
+
+                        // General: list distinct publishers, modalidades, tipos
+                        const [distinctPubs, distinctTipos] = await Promise.all([
+                            participationAnalyticsService.getDistinctPublishers(),
+                            participationAnalyticsService.getDistinctTiposParte()
+                        ]);
+                        return {
+                            success: true,
+                            message: `**Dados disponíveis para analytics:**\n- ${distinctPubs.length} publicadores com participações\n- ${distinctTipos.length} tipos de parte: ${distinctTipos.slice(0, 15).join(', ')}${distinctTipos.length > 15 ? '...' : ''}\n\nUse com publisherName ou compare para ver detalhes.`,
+                            data: { totalPublishers: distinctPubs.length, tiposParte: distinctTipos },
+                            actionType: 'GET_ANALYTICS'
+                        };
+                    } catch (e: any) {
+                        console.error('[AgentAction] Fail to get analytics', e);
+                        return { success: false, message: `Erro ao buscar analytics: ${e?.message || 'Desconhecido'}` };
                     }
                 }
 

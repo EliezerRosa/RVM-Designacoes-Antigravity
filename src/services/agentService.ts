@@ -286,7 +286,79 @@ Use quando um publicador recusa uma parte e você precisa notificar o superinten
 }
 \`\`\`
 
+7. VERIFICAR SCORE DE ROTAÇÃO:
+Use para consultar o ranking de candidatos para um tipo de parte.
+\`\`\`json
+{
+  "type": "CHECK_SCORE",
+  "params": { "partType": "Demonstração", "date": "YYYY-MM-DD" },
+  "description": "Verificando ranking de candidatos..."
+}
+\`\`\`
+
+8. GERENCIAR EVENTOS ESPECIAIS:
+Sub-ações: CREATE_AND_APPLY (criar e aplicar) ou DELETE (reverter e deletar).
+\`\`\`json
+{
+  "type": "MANAGE_SPECIAL_EVENT",
+  "params": { "action": "CREATE_AND_APPLY", "eventData": { "week": "YYYY-MM-DD", "templateId": "visita_sc" } },
+  "description": "Criando evento especial..."
+}
+\`\`\`
+
+9. GERENCIAR NECESSIDADES LOCAIS:
+Sub-ações: LIST (ver fila), ADD (adicionar), REMOVE (remover), REORDER (reordenar).
+\`\`\`json
+{
+  "type": "MANAGE_LOCAL_NEEDS",
+  "params": { "subAction": "LIST" },
+  "description": "Listando fila de necessidades locais..."
+}
+\`\`\`
+Para adicionar:
+\`\`\`json
+{
+  "type": "MANAGE_LOCAL_NEEDS",
+  "params": { "subAction": "ADD", "theme": "Tema do discurso", "assigneeName": "Nome", "targetWeek": "YYYY-MM-DD" },
+  "description": "Adicionando à fila..."
+}
+\`\`\`
+
+10. CONSULTAR ANALYTICS (Estatísticas Avançadas):
+Use para obter estatísticas detalhadas de participação por publicador, comparações, ou visão geral.
+\`\`\`json
+{
+  "type": "GET_ANALYTICS",
+  "params": { "publisherName": "Nome" },
+  "description": "Buscando estatísticas de participação..."
+}
+\`\`\`
+Para comparar múltiplos publicadores:
+\`\`\`json
+{
+  "type": "GET_ANALYTICS",
+  "params": { "compare": ["Nome1", "Nome2"], "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD" },
+  "description": "Comparando participações..."
+}
+\`\`\`
+
+11. SIMULAR DESIGNAÇÃO (Dry-Run):
+Use para verificar se uma designação funcionaria SEM gravar no banco. Ideal para testar antes de confirmar.
+\`\`\`json
+{
+  "type": "SIMULATE_ASSIGNMENT",
+  "params": { "partId": "UUID-OU-NOME", "publisherName": "Nome", "weekId": "YYYY-MM-DD" },
+  "description": "Simulando designação..."
+}
+\`\`\`
+
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
+
+== NOTA TÉCNICA — FETCH_DATA ==
+O banco usa limit padrão de 50 registros. Se precisar de TODOS, use "limit": 200 (ou maior).
+A tabela publishers armazena dados em JSONB (coluna 'data'). Filtros como phone, name, gender são campos DENTRO do JSON.
+Para buscar publicadores sem telefone: filters: { "phone": null }.
+Para buscar por nome parcial: filters: { "name": "parcial" } (usa ilike).
 
 == REGRA CRÍTICA DE DESAMBIGUAÇÃO DE COMANDOS ==
 ⚠️ ATENÇÃO MÁXIMA: Estes comandos têm significados OPOSTOS e NÃO podem ser confundidos:
@@ -346,15 +418,39 @@ function detectContextNeeds(question: string): ContextOptions {
         includeSpecialEvents: true
     };
 
-    if (q.includes('quem') || q.includes('publicador') || q.includes('pode') || q.includes('sugira') || q.includes('designe') || q.includes('ajuste') || q.includes('agenda') || q.includes('substitu') || q.includes('suger') || q.includes('recomend') || q.includes('candidat')) {
+    // Publishers: qualquer menção a pessoas, dados pessoais, elegibilidade, designação
+    const pubKeywords = [
+        'quem', 'publicador', 'pode', 'sugira', 'designe', 'ajuste', 'agenda',
+        'substitu', 'suger', 'recomend', 'candidat', 'telefone', 'celular',
+        'contato', 'email', 'batizado', 'batizada', 'gênero', 'sexo', 'idade',
+        'irmão', 'irmã', 'ancião', 'anciao', 'servo', 'priv', 'apto', 'inapto',
+        'elegível', 'elegivel', 'inativo', 'ativa', 'ativo', 'bloqueado',
+        'disponível', 'disponivel', 'indispon', 'sem telefone', 'sem celular',
+        'dados', 'cadastro', 'lista', 'todos', 'todas', 'nome', 'publicadores',
+        'pai', 'mãe', 'filho', 'filha', 'ajudante', 'titular', 'score',
+        'pontuação', 'rotação', 'cooldown'
+    ];
+    if (pubKeywords.some(kw => q.includes(kw))) {
         options.includePublishers = true;
     }
 
-    if (q.includes('regras') || q.includes('requisito') || q.includes('por que') || q.includes('gerar') || q.includes('motor') || q.includes('envie') || q.includes('zap') || q.includes('notifique')) {
+    // Rules: regras, requisitos, motor de geração, comunicação
+    const ruleKeywords = [
+        'regras', 'requisito', 'por que', 'gerar', 'motor', 'envie', 'zap',
+        'notifique', 'whatsapp', 's-140', 's140', 's-89', 's89', 'elegibilidade',
+        'permitido', 'proibido', 'configuração'
+    ];
+    if (ruleKeywords.some(kw => q.includes(kw))) {
         options.includeRules = true;
     }
 
-    if (q.includes('histórico') || q.includes('última vez') || q.includes('participou') || q.includes('vezes') || q.includes('frequência')) {
+    // History: histórico, participações, frequência, estatísticas
+    const histKeywords = [
+        'histórico', 'última vez', 'participou', 'vezes', 'frequência',
+        'estatística', 'analytics', 'relatório', 'compara', 'mais ativ',
+        'menos ativ', 'quantas vezes', 'quando foi'
+    ];
+    if (histKeywords.some(kw => q.includes(kw))) {
         options.includeHistory = true;
     }
 
@@ -406,7 +502,7 @@ export async function askAgent(
                 systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
             }
 
-            const recentChat = chatHistory.slice(-5).map(msg => ({
+            const recentChat = chatHistory.slice(-15).map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.content }],
             }));
@@ -489,10 +585,13 @@ export async function askAgent(
 
 export function getSuggestedQuestions(): string[] {
     return [
-        'Quem são os Anciãos?',
-        'Quem pode fazer Leitura da Bíblia?',
         'Quem está designado esta semana?',
+        'Gere as designações da semana',
+        'Quem não tem telefone?',
+        'Quem são os Anciãos?',
         'Sugira alguém para a Demonstração',
-        'Envie a programação para o grupo'
+        'Mostre as necessidades locais',
+        'Envie a programação pelo WhatsApp',
+        'Estatísticas de participação'
     ];
 }
