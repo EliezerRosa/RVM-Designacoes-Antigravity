@@ -373,6 +373,121 @@ Para buscar por nome parcial: filters: { "name": "parcial" } (usa ilike).
 - NUNCA confunda "designe" com "limpe". São ações OPOSTAS.
 - Em caso de dúvida, PERGUNTE antes de executar CLEAR_WEEK (é destrutivo).
 
+== GUIA EXAUSTIVO DE PERGUNTAS — RACIOCÍNIO POR TIPO ==
+Você DEVE ser capaz de responder QUALQUER pergunta sobre o sistema. Abaixo está o mapa completo de como raciocinar.
+Para cada tipo de pergunta, está indicado: a estratégia de resposta, a fonte dos dados e exemplos.
+
+### QUEM (Identidade, Atribuição, Perfil)
+Padrões: "quem", "qual publicador", "qual irmão", "qual irmã", "quem é", "quem está", "quem foi", "quem pode", "quem não"
+Estratégia: Busque na lista de publicadores ou nas designações da Semana em Foco.
+- "Quem está designado para X?" → Olhe a Semana em Foco, encontre a parte, retorne o designado.
+- "Quem são os anciãos?" → Filtre publisherSummaries onde condition inclui "Ancião".
+- "Quem pode fazer Demonstração?" → Filtre por gênero=sister + privileges inclui Estudante + sem restrições.
+- "Quem não tem telefone?" → Use FETCH_DATA com filters: { "phone": null }. LISTE TODOS sem cortar.
+- "Quem está inativo?" → Filtre publisherSummaries onde restrictions inclui "Inativo".
+- "Quem é filho de X?" → Filtre publicadores onde parentNames inclui "X".
+- "Quem é batizado?" → Filtre isBaptized=true.
+- "Quem não é batizado?" → Filtre isBaptized=false ou use FETCH_DATA com filters: { "isBaptized": false }.
+- "Quem tem bloqueio em Tesouros?" → Filtre restrictions inclui "BloqTesouros".
+- "Quem está disponível na semana X?" → Verificar availability de cada publicador contra a data.
+- "Quem nunca participou?" → Cruzar lista de publicadores ativos com recentParticipations. Os que não aparecem = nunca.
+- "Quem mais participa?" → Usar participationAnalytics.mostActive.
+- "Quem menos participa?" → Usar participationAnalytics.leastActive.
+
+### O QUE / QUE (Conteúdo, Tipos, Definição)
+Padrões: "o que", "que tipo", "quais", "qual é", "que partes", "que seções", "que privilégios"
+Estratégia: Use o contexto estruturado ou as regras de elegibilidade.
+- "Que partes tem esta semana?" → Liste as partes da Semana em Foco agrupadas por seção.
+- "Que tipos de parte existem?" → Leitura da Bíblia, Iniciando Conversas, Demonstração, Discurso, Fazendo Revisitas, Dirigindo Estudos, etc.
+- "Quais privilégios do irmão X?" → Busque no summary de X, campo privileges.
+- "Quais são as restrições de X?" → Busque no summary de X, campo restrictions.
+- "O que é o Score?" → Explique: Score de Rotação = prioridade para designação. Maior score = mais tempo sem participar = prioridade.
+- "O que são eventos especiais?" → Explique: Visitas do SC, assembleias, etc. que modificam a programação da semana.
+- "Quais eventos especiais estão programados?" → Consulte context.specialEvents.
+- "O que é a fila de necessidades locais?" → Explique: fila de discursos locais com tema/orador/ordem.
+- "Que seções existem na reunião?" → Tesouros da Palavra de Deus, Faça Seu Melhor no Ministério, Nossa Vida Cristã.
+
+### QUANDO (Tempo, Datas, Frequência)
+Padrões: "quando", "última vez", "há quanto tempo", "desde quando", "qual data", "que dia", "próxima vez"
+Estratégia: Consulte recentParticipations, weekDesignations ou use FETCH_DATA para histórico antigo.
+- "Quando X participou pela última vez?" → Busque em recentParticipations filtrando por publisherName. Se não encontrar, use GET_ANALYTICS.
+- "Há quanto tempo X não participa?" → Calcule dias desde lastParticipation do publicador até hoje.
+- "Quando é a próxima semana com evento especial?" → Filtre specialEvents ordenados por data.
+- "Quando X foi designado como titular?" → Busque em recentParticipations com funcao='Titular'.
+- "Que dia é a reunião desta semana?" → Use a data da Semana em Foco (context.weekDesignations[focus].date) e informe o dia da semana.
+- "Desde quando X está inapto?" → Essa informação pode não estar no contexto. Use FETCH_DATA se necessário, ou informe que o sistema não registra a data exata.
+
+### ONDE (Localização, Seção, Posição)
+Padrões: "onde", "em qual seção", "em que parte", "em qual semana"
+Estratégia: Navegue pela estrutura de seções e semanas.
+- "Onde está designado X esta semana?" → Busque X em weekDesignations da Semana em Foco. Retorne seção + parte.
+- "Em qual seção fica a Leitura da Bíblia?" → Tesouros da Palavra de Deus.
+- "Em que semana X participou por último?" → Busca em recentParticipations, retorne weekDisplay.
+
+### POR QUE (Motivo, Causa, Justificativa)
+Padrões: "por que", "por quê", "porque", "qual o motivo", "qual razão", "motivo", "justificativa"
+Estratégia: Combine regras de elegibilidade com dados do publicador.
+- "Por que X não pode fazer Leitura?" → Verifique: é irmã? (irmãs não fazem Leitura). Tem BloqTesouros? É inapto? Está indisponível?
+- "Por que X tem score alto?" → Use CHECK_SCORE ou explique: mais tempo sem participar = score maior.
+- "Por que a semana está sem designações?" → Verifique se foi gerada (GENERATE_WEEK) ou se há evento especial cancelando.
+- "Por que X foi designado e não Y?" → Score maior, disponibilidade, sem conflitos de cooldown/gênero.
+
+### COM QUEM (Pares, Relações, Associações)
+Padrões: "com quem", "par de", "ajudante de", "titular com", "dupla", "junto com"
+Estratégia: Verifique relações titular/ajudante nas designações e parentIds nos publicadores.
+- "Com quem X está fazendo par?" → Busque a parte onde X é titular, veja se tem ajudante na mesma parte.
+- "Quem é ajudante de X?" → Mesma lógica, busque partes com titular=X e funcao=Ajudante.
+- "Com quem Y pode ser ajudante?" → Se canPairWithNonParent=false, só pode com os pais (parentNames).
+
+### QUANTOS/QUANTAS (Contagem, Estatísticas)
+Padrões: "quantos", "quantas", "total", "número de", "contagem", "quanto"
+Estratégia: Use contadores do contexto ou calcule a partir das listas.
+- "Quantos publicadores temos?" → context.totalPublishers.
+- "Quantos ativos?" → context.activePublishers.
+- "Quantas vezes X participou?" → Use GET_ANALYTICS com publisherName.
+- "Quantos anciãos temos?" → context.eligibilityStats.eldersAndMS ou filtre da lista.
+- "Quantas partes tem esta semana?" → Conte parts da Semana em Foco.
+- "Quantas semanas sem participar?" → Calcule a partir de lastParticipation.
+- "Quantos publicadores sem telefone?" → FETCH_DATA com filters: { "phone": null }, retorne count.
+- "Quantas irmãs temos?" → Filtre gender=sister da lista de publicadores.
+
+### COMPARAÇÕES (Entre Publicadores, Períodos, etc.)
+Padrões: "comparar", "comparação", "versus", "diferença entre", "X vs Y", "quem tem mais", "quem tem menos"
+Estratégia: Use GET_ANALYTICS com parâmetro compare ou analise os dados de ambos.
+- "Compare X e Y" → GET_ANALYTICS com compare: ["X", "Y"]. Apresente em TABELA lado a lado.
+- "Quem participou mais: X ou Y?" → Compare totais de participação.
+- "Diferença entre ancião e servo ministerial" → Explique condições e privilégios de cada.
+
+### LISTAS E FILTRAGENS (Agrupamento, Ranking)
+Padrões: "liste", "mostre", "enumere", "ranking", "top", "melhores", "piores", "ordenar por"
+Estratégia: Filtre e ordene dados do contexto, apresente em TABELA Markdown.
+- "Liste todos os anciãos" → Filtre condition=Ancião, apresente em tabela com nome, privilégios, telefone.
+- "Mostre os 10 com maior score" → priorityCandidates (top 20 já calculado).
+- "Liste publicadores inaptos" → Filtre restrictions inclui "ÑQualificado".
+- "Mostre quem está bloqueado" → Filtre restrictions inclui "Bloq".
+- "Ranking de participação" → participationAnalytics.mostActive + leastActive.
+
+### HIPOTÉTICAS / SIMULAÇÕES
+Padrões: "e se", "seria possível", "posso", "daria para", "funciona se", "simular"
+Estratégia: Use SIMULATE_ASSIGNMENT ou raciocínio sobre regras.
+- "E se eu designar X para Y?" → SIMULATE_ASSIGNMENT.
+- "X pode fazer Leitura?" → Verifique regras: gênero, privilégios, restrições, disponibilidade.
+- "Daria para trocar X por Y?" → Verifique se Y é elegível para a parte de X.
+
+### REGRAS GERAIS DE RESPOSTA A PERGUNTAS:
+1. **SEMPRE responda com dados concretos.** Nunca diga "não sei" sem antes tentar FETCH_DATA ou GET_ANALYTICS.
+2. **SEMPRE use TABELA Markdown** para listas com 3+ itens.
+3. **SEMPRE mostre TODOS os resultados.** Se forem 37 publicadores sem telefone, liste os 37. NUNCA trunque.
+4. **SEMPRE calcule** quando a pergunta pede contagem — não diga "vários" ou "alguns", diga o número exato.
+5. **SEMPRE cruze fontes.** Se o contexto não tem a resposta, use FETCH_DATA. Se FETCH_DATA não basta, use GET_ANALYTICS.
+6. **NUNCA invente dados.** Se realmente não há informação disponível, diga: "Essa informação não está registrada no sistema."
+7. **Para perguntas complexas** que combinam tipos (ex: "Quem são os anciãos que não participaram nas últimas 4 semanas?"), decomponha em passos:
+   a. Identifique os anciãos (filtro por condition)
+   b. Cruze com participações recentes
+   c. Apresente o resultado filtrado
+8. **Perguntas ambíguas:** Se a pergunta pode ter múltiplas interpretações, responda à mais provável E mencione a alternativa.
+   Ex: "Quem é o presidente?" → "O presidente DESTA SEMANA é X. Se você quer saber quem tem o privilégio de presidir, são: [lista]."
+
 == REGRA DE COMANDO DE VOZ ==
 Quando o usuário enviar um ÁUDIO (ao invés de texto), você DEVE:
 1. Incluir na PRIMEIRA linha da resposta a tag: [TRANSCRIÇÃO: texto exato falado pelo usuário]
@@ -418,37 +533,64 @@ function detectContextNeeds(question: string): ContextOptions {
         includeSpecialEvents: true
     };
 
-    // Publishers: qualquer menção a pessoas, dados pessoais, elegibilidade, designação
+    // Publishers: qualquer menção a pessoas, dados pessoais, elegibilidade, designação, perguntas interrogativas
     const pubKeywords = [
-        'quem', 'publicador', 'pode', 'sugira', 'designe', 'ajuste', 'agenda',
-        'substitu', 'suger', 'recomend', 'candidat', 'telefone', 'celular',
-        'contato', 'email', 'batizado', 'batizada', 'gênero', 'sexo', 'idade',
-        'irmão', 'irmã', 'ancião', 'anciao', 'servo', 'priv', 'apto', 'inapto',
-        'elegível', 'elegivel', 'inativo', 'ativa', 'ativo', 'bloqueado',
-        'disponível', 'disponivel', 'indispon', 'sem telefone', 'sem celular',
-        'dados', 'cadastro', 'lista', 'todos', 'todas', 'nome', 'publicadores',
-        'pai', 'mãe', 'filho', 'filha', 'ajudante', 'titular', 'score',
-        'pontuação', 'rotação', 'cooldown'
+        // Interrogativos diretos
+        'quem', 'quantos', 'quantas', 'qual ', 'quais', 'liste', 'mostre',
+        'enumere', 'ranking', 'compare', 'versus',
+        // Entidades e dados pessoais
+        'publicador', 'publicadores', 'irmão', 'irmã', 'irmãos', 'irmãs',
+        'ancião', 'anciao', 'anciãos', 'servo', 'servos',
+        'nome', 'telefone', 'celular', 'contato', 'email', 'endereço',
+        'batizado', 'batizada', 'batismo', 'gênero', 'sexo', 'idade',
+        // Elegibilidade e estado
+        'pode', 'apto', 'inapto', 'elegível', 'elegivel', 'inelegível',
+        'inativo', 'ativa', 'ativo', 'bloqueado', 'bloqueio',
+        'disponível', 'disponivel', 'indispon', 'qualificad',
+        // Relações e papéis  
+        'pai', 'mãe', 'filho', 'filha', 'pais', 'filhos',
+        'ajudante', 'titular', 'par ', 'dupla', 'com quem',
+        // Ações com publicadores
+        'sugira', 'designe', 'ajuste', 'agenda', 'substitu', 'suger',
+        'recomend', 'candidat', 'trocar', 'troque',
+        // Score e rotação
+        'score', 'pontuação', 'rotação', 'cooldown', 'prioridade',
+        // Dados e listagens
+        'dados', 'cadastro', 'lista', 'todos', 'todas',
+        'sem telefone', 'sem celular', 'sem batismo',
+        'priv', 'privilégio', 'privilégios', 'restrição', 'restrições',
+        // Filtros comuns
+        'não tem', 'não possui', 'não é', 'nunca', 'nenhum', 'sem ',
+        'mais ', 'menos ', 'maior', 'menor', 'melhor', 'pior',
+        'top ', 'primeiro', 'última', 'último'
     ];
     if (pubKeywords.some(kw => q.includes(kw))) {
         options.includePublishers = true;
     }
 
-    // Rules: regras, requisitos, motor de geração, comunicação
+    // Rules: regras, requisitos, motor de geração, comunicação, justificativas
     const ruleKeywords = [
-        'regras', 'requisito', 'por que', 'gerar', 'motor', 'envie', 'zap',
-        'notifique', 'whatsapp', 's-140', 's140', 's-89', 's89', 'elegibilidade',
-        'permitido', 'proibido', 'configuração'
+        'regras', 'requisito', 'por que', 'por quê', 'porque', 'motivo',
+        'razão', 'justificativa', 'como funciona', 'como é',
+        'gerar', 'motor', 'envie', 'zap', 'notifique', 'whatsapp',
+        's-140', 's140', 's-89', 's89', 'elegibilidade',
+        'permitido', 'proibido', 'configuração', 'critério', 'critérios',
+        'explicar', 'explique', 'entender', 'o que é', 'o que são',
+        'diferença entre', 'significa'
     ];
     if (ruleKeywords.some(kw => q.includes(kw))) {
         options.includeRules = true;
     }
 
-    // History: histórico, participações, frequência, estatísticas
+    // History: histórico, participações, frequência, estatísticas, tempo, comparação
     const histKeywords = [
         'histórico', 'última vez', 'participou', 'vezes', 'frequência',
-        'estatística', 'analytics', 'relatório', 'compara', 'mais ativ',
-        'menos ativ', 'quantas vezes', 'quando foi'
+        'estatística', 'analytics', 'relatório', 'compara', 'comparação',
+        'mais ativ', 'menos ativ', 'quantas vezes', 'quando foi',
+        'há quanto', 'desde quando', 'tempo sem', 'semanas sem',
+        'meses sem', 'nunca fez', 'nunca participou', 'já fez',
+        'já participou', 'faz tempo', 'recente', 'anterior',
+        'passado', 'últimas semanas', 'últimos meses'
     ];
     if (histKeywords.some(kw => q.includes(kw))) {
         options.includeHistory = true;
@@ -589,12 +731,12 @@ export async function askAgent(
 export function getSuggestedQuestions(): string[] {
     return [
         'Quem está designado esta semana?',
-        'Gere as designações da semana',
+        'Quantos publicadores temos?',
         'Quem não tem telefone?',
-        'Quem são os Anciãos?',
-        'Sugira alguém para a Demonstração',
-        'Mostre as necessidades locais',
-        'Envie a programação pelo WhatsApp',
-        'Estatísticas de participação'
+        'Compare os anciãos por participação',
+        'Quem nunca participou?',
+        'Há quanto tempo X não participa?',
+        'Por que X não pode fazer Leitura?',
+        'Mostre o ranking de participação'
     ];
 }
