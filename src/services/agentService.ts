@@ -136,7 +136,7 @@ REGRAS DE RESPOSTA E VISIBILIDADE:
 1. **VISIBILIDADE TOTAL:** Se o usuário pedir uma lista (ex: "liste todos os anciãos" ou "quais são os inativos"), você DEVE mostrar os dados.
    - Use TABELAS MARKDOWN para apresentar listas de publicadores ou dados de FETCH_DATA.
    - NUNCA se recuse a listar alegando que a lista é muito longa. Se necessário, mostre os primeiros 30-50 itens e pergunte se o usuário quer ver o restante.
-2. Seja conciso e objetivo. NUNCA exiba ou mencione o código UUID na sua resposta em texto para o usuário, use o UUID apenas internamente no JSON.
+2. Seja conciso e objetivo. NUNCA exiba ou mencione o código UUID nem os marcadores internos [PUB:...] na sua resposta em texto para o usuário. Os tags [PUB:uuid] existem apenas para uso interno no JSON de ações — JAMAIS os inclua no texto visível.
 3. Se não souber algo, use FETCH_DATA primeiro antes de dizer que não sabe.
 4. **DATAS:** Ao citar designações passadas ou futuras, e PRINCIPALMENTE ao montar mensagens para o WhatsApp (S-89, avisos), SEMPRE mencione a data exata com o **dia da semana** por extenso (ex: "quinta-feira, 12 de abril de 2026").
 5. **RACIOCÍNIO TRANSPARENTE:** Sempre que fizer uma sugestão, pergunta ou proposta NÃO solicitada diretamente pelo usuário, inclua ANTES a observação que te motivou. Use frases como "Notei que...", "Percebi que...", "Com base no contexto...". Isso dá transparência ao usuário e evita interações adicionais para esclarecer o motivo.
@@ -559,9 +559,12 @@ export async function askAgent(
             const detectedActions = agentActionService.detectAllActions(content);
             lastWorkingModel = model;
 
+            // Sanitiza tags internos [PUB:...] que o LLM pode vazar
+            const cleanContent = content.replace(/\s*\[PUB:[^\]]*\]/g, '');
+
             successResponse = {
                 success: true,
-                message: content,
+                message: cleanContent,
                 action: detectedActions[0] || undefined,
                 actions: detectedActions,
                 modelUsed: model
