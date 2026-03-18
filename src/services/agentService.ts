@@ -99,8 +99,7 @@ Quando o usuário pedir para "abrir", "mostrar", "gerenciar", "ver cadastro" de 
 | publishers   | "mostre os publicadores", "abra cadastro", "gerenciar publicadores" |
 | workbook     | "mostre a apostila", "ver partes da semana", "abra apostila" |
 | events       | "abra eventos especiais", "gerenciar eventos"              |
-| local_needs  | "abra necessidades locais", "gerenciar necessidades"       |
-
+| local_needs  | "abra necessidades locais", "gerenciar necessidades"       || territories  | "abra territórios", "gerenciar territórios", "ver territórios", "mapa de territórios" |
 Formato JSON:
 \`\`\`json
 { "type": "SHOW_MODAL", "params": { "modal": "publishers" }, "description": "Abrindo cadastro de publicadores" }
@@ -562,7 +561,9 @@ function detectContextNeeds(question: string): ContextOptions {
         // Filtros comuns
         'não tem', 'não possui', 'não é', 'nunca', 'nenhum', 'sem ',
         'mais ', 'menos ', 'maior', 'menor', 'melhor', 'pior',
-        'top ', 'primeiro', 'última', 'último'
+        'top ', 'primeiro', 'última', 'último',
+        // Territórios
+        'território', 'territorios', 'bairro', 'mapa'
     ];
     if (pubKeywords.some(kw => q.includes(kw))) {
         options.includePublishers = true;

@@ -20,8 +20,9 @@ import { WorkbookTable } from './WorkbookTable';
 import { PartEditModal } from './PartEditModal';
 import { api } from '../services/api';
 import { workbookService } from '../services/workbookService';
+import TerritoryManager from './TerritoryManager';
 
-export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | null;
+export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | null;
 
 interface Props {
     modal: AgentModalType;
@@ -144,6 +145,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
             case 'workbook': return '📖 Apostila — Semana em Foco';
             case 'events': return '🎉 Eventos Especiais';
             case 'local_needs': return '📋 Necessidades Locais';
+            case 'territories': return '🗺️ Territórios';
             default: return '';
         }
     };
@@ -246,6 +248,9 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                         onClose={handleClose}
                     />
                 );
+
+            case 'territories':
+                return <TerritoryManager />;
 
             default:
                 return null;
