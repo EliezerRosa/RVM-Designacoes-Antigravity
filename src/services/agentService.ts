@@ -480,6 +480,10 @@ Estratégia: Use contadores do contexto ou calcule a partir das listas.
 - "Quantas semanas sem participar?" → Calcule a partir de lastParticipation.
 - "Quantos publicadores sem telefone?" → FETCH_DATA com filters: { "phone": null }, retorne count.
 - "Quantas irmãs temos?" → Filtre gender=sister da lista de publicadores.
+- "Quantos territórios existem?" → FETCH_DATA com context: "territories", limit: 200. Conte os registros retornados.
+- "Quantos bairros?" → FETCH_DATA com context: "territories", limit: 200. As tabelas retornadas incluem 'neighborhoods' (bairros) e 'territories'.
+
+**REGRA TERRITÓRIOS:** Para PERGUNTAS sobre territórios (quantos, quais, listar), use FETCH_DATA com context: "territories". Para GERENCIAR (abrir, editar, criar), use SHOW_MODAL com modal: "territories".
 
 ### COMPARAÇÕES (Entre Publicadores, Períodos, etc.)
 Padrões: "comparar", "comparação", "versus", "diferença entre", "X vs Y", "quem tem mais", "quem tem menos"

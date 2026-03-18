@@ -64,7 +64,7 @@ export const dataDiscoveryService = {
             case 'publishers': return ['publishers'];
             case 'workbook': return ['workbook_parts', 'special_events'];
             case 'notifications': return ['notifications'];
-            case 'territories': return ['territories', 'blocks', 'addresses', 'visits'];
+            case 'territories': return ['territories', 'neighborhoods'];
             case 'audit': return ['audit_log', 'backup_history'];
             default: return [];
         }
