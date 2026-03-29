@@ -5,6 +5,7 @@
  */
 
 import { workbookService, type WorkbookExcelRow } from './workbookService';
+import { buildWorkbookParts } from './workbookPartsBuilder';
 
 // ===== Constantes =====
 
@@ -307,13 +308,21 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         });
     }
 
+    // Aplicar builder para inserir partes automáticas e horários padronizados
+    const partesFinal = buildWorkbookParts(parts, {
+        presidente: '', // Pode ser ajustado se necessário
+        horaInicioReuniao: '19:30',
+        incluirComentarios: true,
+        incluirOracoes: true,
+        incluirCanticos: true,
+    });
     return {
-        success: parts.length > 0,
-        parts,
+        success: partesFinal.length > 0,
+        parts: partesFinal,
         weekDisplay,
         weekId,
-        totalParts: parts.length,
-        error: parts.length === 0 ? 'Nenhuma parte encontrada no HTML' : undefined,
+        totalParts: partesFinal.length,
+        error: partesFinal.length === 0 ? 'Nenhuma parte encontrada no HTML' : undefined,
     };
 }
 
