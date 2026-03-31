@@ -59,7 +59,20 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
                         return p.tipoParte === found.tipoParte && p.funcao !== found.funcao;
                     });
 
+                    // Verificar se é parte solo
+                    let isValidPartner = !!partner;
                     if (partner) {
+                        const { getModalidadeFromTipo } = await import('../constants/mappings');
+                        const { EnumModalidade } = await import('../types');
+                        const titularPart = found.funcao === 'Ajudante' ? partner : found;
+                        const titularMod = titularPart.modalidade || getModalidadeFromTipo(titularPart.tipoParte, titularPart.section);
+                        const soloModalidades = [EnumModalidade.DISCURSO_ESTUDANTE, EnumModalidade.LEITURA_ESTUDANTE];
+                        if (soloModalidades.includes(titularMod as any)) {
+                            isValidPartner = false;
+                        }
+                    }
+
+                    if (isValidPartner && partner) {
                         const partnerName = partner.resolvedPublisherName || partner.rawPublisherName || '';
                         // Buscar telefone do parceiro
                         const { api } = await import('../services/api');
