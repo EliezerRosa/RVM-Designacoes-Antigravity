@@ -60,12 +60,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             }
         }
     });
-    // Para cada número de parte, sempre adiciona ambos os cartões (mesmo se só um estiver presente)
+    // Para cada número de parte, adiciona cartões apenas para designados reais
     Object.values(partNumberMap).forEach((group) => {
-        if (group.Titular) validParts.push(group.Titular);
-        else validParts.push({ ...group.Ajudante, funcao: 'Titular', resolvedPublisherName: '', rawPublisherName: '', id: `fake-titular-${group.Ajudante?.id || Math.random()}` });
-        if (group.Ajudante) validParts.push(group.Ajudante);
-        else validParts.push({ ...group.Titular, funcao: 'Ajudante', resolvedPublisherName: '', rawPublisherName: '', id: `fake-ajudante-${group.Titular?.id || Math.random()}` });
+        if (group.Titular && (group.Titular.resolvedPublisherName || group.Titular.rawPublisherName)) validParts.push(group.Titular);
+        if (group.Ajudante && (group.Ajudante.resolvedPublisherName || group.Ajudante.rawPublisherName)) validParts.push(group.Ajudante);
     });
 
     // Carregar histórico de mensagens ao abrir o modal
