@@ -22,28 +22,43 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [lastMessages, setLastMessages] = useState<Record<string, any>>({});
     const s140Ref = useRef<HTMLDivElement>(null);
 
-    // Filter relevant parts (have publisher assigned AND not administrative)
-    const validParts = weekParts.filter((p) => {
+    // Unify titular/helper logic: always show both as separate cards if paired
+    // Build a flat list of parts: for each pairable part, add both titular and helper as separate entries
+    const validParts = [];
+    const PAIRABLE_FUNCOES = ['Titular', 'Ajudante'];
+    const partNumberMap = {};
+    // First, group by part number for pairing
+    weekParts.forEach((p) => {
         const pType = (p.tipoParte || '').toLowerCase();
         const hasPublisher = !!(p.resolvedPublisherName || p.rawPublisherName);
-
-        // Regras de Filtro Inteligente (User Request 3.1)
         const isPresident = pType.includes('presidente');
-        // Elogios/Conselhos não geram card S-89 individual, são apenas feedback
         const isCounsel = pType.includes('elogios') || pType.includes('conselhos');
-
-        // Filtrar partes administrativas (Cânticos, Comentários), mas manter Oração Final
         const isAdminPart = (pType.includes('cântico') ||
             pType.includes('cantico') ||
             pType.includes('comentários') ||
             pType.includes('comentarios')) && !pType.includes('oração');
-
         const isFinalPrayer = pType.includes('oração final') || pType.includes('oracao final');
-
-        if (isPresident) return hasPublisher;
-        if (isCounsel) return false;
-
-        return hasPublisher && (!isAdminPart || isFinalPrayer);
+        if (isCounsel) return;
+        if (!hasPublisher && !isPresident) return;
+        // Only group pairable parts
+        const partNum = extractPartNumber(p.tituloParte || p.tipoParte);
+        if (partNum && PAIRABLE_FUNCOES.includes(p.funcao)) {
+            if (!partNumberMap[partNum]) partNumberMap[partNum] = [];
+            partNumberMap[partNum].push(p);
+        } else {
+            // Non-pairable or single
+            if (isPresident || hasPublisher && (!isAdminPart || isFinalPrayer)) {
+                validParts.push(p);
+            }
+        }
+    });
+    // For each pair, add both titular and helper as separate cards (if present)
+    Object.values(partNumberMap).forEach((group) => {
+        // Always show both titular and helper if present
+        const titular = group.find(p => p.funcao === 'Titular');
+        const ajudante = group.find(p => p.funcao === 'Ajudante');
+        if (titular) validParts.push(titular);
+        if (ajudante) validParts.push(ajudante);
     });
     const extractPartNumber = (titulo: string): string => {
         const match = titulo?.match(/^(\d+)/);
