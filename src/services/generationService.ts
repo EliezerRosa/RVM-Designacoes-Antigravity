@@ -463,7 +463,19 @@ export const generationService = {
                         const titularPart = weekParts.find(p => p.weekId === part.weekId && p.seq === part.seq && p.funcao === 'Titular') ||
                             weekParts.find(p => p.weekId === part.weekId && p.id !== part.id && p.tipoParte === part.tipoParte && p.funcao === 'Titular'); // Simplificação da busca posicional
 
+                        // Verificar se o titular é uma parte SOLO (sem ajudante)
+                        // Ex: Discurso de Estudante, Leitura da Bíblia
                         if (titularPart) {
+                            const titularMod = titularPart.modalidade || getModalidadeFromTipo(titularPart.tipoParte, titularPart.section);
+                            const soloModalidades = [EnumModalidade.DISCURSO_ESTUDANTE, EnumModalidade.LEITURA_ESTUDANTE];
+                            if (soloModalidades.includes(titularMod as any)) {
+                                // Parte solo — não designar ajudante, limpar se existente
+                                if (part.resolvedPublisherName) {
+                                    selectedPublisherByPart.set(part.id, { id: 'CLEANUP', name: '' });
+                                }
+                                continue;
+                            }
+
                             const titularName = selectedPublisherByPart.get(titularPart.id)?.name || titularPart.resolvedPublisherName || titularPart.rawPublisherName;
                             const titularPub = publishers.find(p => p.name === titularName);
                             if (titularPub) titularGender = titularPub.gender;
