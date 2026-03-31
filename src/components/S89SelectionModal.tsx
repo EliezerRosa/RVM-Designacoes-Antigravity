@@ -31,12 +31,12 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         return match ? match[1] : '';
     };
 
-    // Unify titular/helper logic: always show both as separate cards if paired
-    // Build a flat list of parts: for each pairable part, add both titular and helper as separate entries
+
+    // Nova lógica: sempre exibir cartões para titular e ajudante, mesmo se só um estiver presente
     const validParts = [];
     const PAIRABLE_FUNCOES = ['Titular', 'Ajudante'];
     const partNumberMap = {};
-    // First, group by part number for pairing
+    // Agrupa partes pareáveis por número
     weekParts.forEach((p) => {
         const pType = (p.tipoParte || '').toLowerCase();
         const hasPublisher = !!(p.resolvedPublisherName || p.rawPublisherName);
@@ -49,25 +49,23 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         const isFinalPrayer = pType.includes('oração final') || pType.includes('oracao final');
         if (isCounsel) return;
         if (!hasPublisher && !isPresident) return;
-        // Only group pairable parts
         const partNum = extractPartNumber(p.tituloParte || p.tipoParte);
         if (partNum && PAIRABLE_FUNCOES.includes(p.funcao)) {
-            if (!partNumberMap[partNum]) partNumberMap[partNum] = [];
-            partNumberMap[partNum].push(p);
+            if (!partNumberMap[partNum]) partNumberMap[partNum] = { Titular: null, Ajudante: null };
+            partNumberMap[partNum][p.funcao] = p;
         } else {
-            // Non-pairable or single
+            // Não pareáveis ou funções únicas
             if (isPresident || hasPublisher && (!isAdminPart || isFinalPrayer)) {
                 validParts.push(p);
             }
         }
     });
-    // For each pair, add both titular and helper as separate cards (if present)
+    // Para cada número de parte, sempre adiciona ambos os cartões (mesmo se só um estiver presente)
     Object.values(partNumberMap).forEach((group) => {
-        // Always show both titular and helper if present
-        const titular = group.find(p => p.funcao === 'Titular');
-        const ajudante = group.find(p => p.funcao === 'Ajudante');
-        if (titular) validParts.push(titular);
-        if (ajudante) validParts.push(ajudante);
+        if (group.Titular) validParts.push(group.Titular);
+        else validParts.push({ ...group.Ajudante, funcao: 'Titular', resolvedPublisherName: '', rawPublisherName: '', id: `fake-titular-${group.Ajudante?.id || Math.random()}` });
+        if (group.Ajudante) validParts.push(group.Ajudante);
+        else validParts.push({ ...group.Titular, funcao: 'Ajudante', resolvedPublisherName: '', rawPublisherName: '', id: `fake-ajudante-${group.Titular?.id || Math.random()}` });
     });
 
     // Carregar histórico de mensagens ao abrir o modal
