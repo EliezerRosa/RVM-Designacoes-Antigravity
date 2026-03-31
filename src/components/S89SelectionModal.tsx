@@ -22,6 +22,13 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [lastMessages, setLastMessages] = useState<Record<string, any>>({});
     const s140Ref = useRef<HTMLDivElement>(null);
 
+
+    // Helper function must be declared before use
+    const extractPartNumber = (titulo: string): string => {
+        const match = titulo?.match(/^(\d+)/);
+        return match ? match[1] : '';
+    };
+
     // Unify titular/helper logic: always show both as separate cards if paired
     // Build a flat list of parts: for each pairable part, add both titular and helper as separate entries
     const validParts = [];
@@ -60,10 +67,6 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         if (titular) validParts.push(titular);
         if (ajudante) validParts.push(ajudante);
     });
-    const extractPartNumber = (titulo: string): string => {
-        const match = titulo?.match(/^(\d+)/);
-        return match ? match[1] : '';
-    };
 
     // Carregar histórico de mensagens ao abrir o modal
     // Deps incluem weekParts e publishers para regen a msg ao mudar designação
