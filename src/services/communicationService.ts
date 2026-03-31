@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase';
 import type { WorkbookPart, Publisher } from '../types';
 import { generateWhatsAppMessage } from './s89Generator';
+import { getModalidadeFromTipo } from '../constants/mappings';
+import { EnumModalidade } from '../types';
 
 export type NotificationType = 'S140' | 'S89' | 'ANNOUNCEMENT' | 'INDIVIDUAL';
 export type NotificationStatus = 'PREPARED' | 'SENT' | 'FAILED';
@@ -335,6 +337,16 @@ export const communicationService = {
                 }
                 return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
             });
+
+            // Verificar se é parte solo
+            const titularPart = isAjudante ? partner : part;
+            if (titularPart) {
+                const titularMod = titularPart.modalidade || getModalidadeFromTipo(titularPart.tipoParte, titularPart.section);
+                const soloModalidades = [EnumModalidade.DISCURSO_ESTUDANTE, EnumModalidade.LEITURA_ESTUDANTE];
+                if (soloModalidades.includes(titularMod as any)) {
+                    partner = undefined; // Forçar undefined se for solo, ignora ajudantes no banco
+                }
+            }
         }
 
         const partnerName = partner ? (partner.resolvedPublisherName || partner.rawPublisherName) : undefined;
