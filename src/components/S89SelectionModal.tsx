@@ -17,6 +17,7 @@ interface S89SelectionModalProps {
 }
 
 export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishers }: S89SelectionModalProps) {
+    console.log('WEEKPARTS MODAL', weekParts);
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [isSharingS140, setIsSharingS140] = useState(false);
     const [s140HTML, setS140HTML] = useState<string>('');
