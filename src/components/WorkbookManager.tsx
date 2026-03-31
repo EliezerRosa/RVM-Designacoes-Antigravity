@@ -673,6 +673,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                             filterStatus={filterStatus}
                             filteredParts={filteredParts}
                             parts={parts}
+                            publishers={publishers}
                             currentPage={currentPage}
                             uniqueWeeks={uniqueWeeks}
                             uniqueSections={uniqueSections}
@@ -891,6 +892,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                             <S140MultiModal
                                 isOpen={isS140MultiModalOpen}
                                 parts={parts}
+                                publishers={publishers}
                                 onClose={() => setIsS140MultiModalOpen(false)}
                             />
                         </div>

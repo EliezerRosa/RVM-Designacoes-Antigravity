@@ -900,8 +900,8 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
 /**
  * Download S-140 Unificado para uma semana
  */
-export async function downloadS140Unified(parts: WorkbookPart[]): Promise<void> {
-    const weekData = await prepareS140UnifiedData(parts);
+export async function downloadS140Unified(parts: WorkbookPart[], publishers?: Publisher[]): Promise<void> {
+    const weekData = await prepareS140UnifiedData(parts, publishers);
     await generateS140UnifiedPDF(weekData);
 }
 
@@ -912,14 +912,15 @@ export async function downloadS140Unified(parts: WorkbookPart[]): Promise<void> 
  */
 export async function downloadS140UnifiedMultiWeek(
     allParts: WorkbookPart[],
-    weekIds: string[]
+    weekIds: string[],
+    publishers?: Publisher[]
 ): Promise<void> {
     const weeksData: S140WeekDataUnified[] = [];
 
     for (const weekId of weekIds) {
         const weekParts = allParts.filter(p => p.weekId === weekId);
         if (weekParts.length > 0) {
-            const weekData = await prepareS140UnifiedData(weekParts);
+            const weekData = await prepareS140UnifiedData(weekParts, publishers);
             weeksData.push(weekData);
         }
     }
