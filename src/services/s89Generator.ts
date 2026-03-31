@@ -147,8 +147,8 @@ export function generateWhatsAppMessage(
     const salutation = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
 
     // Calcular quinta-feira da semana (igual ao S-89)
-    let displayDate = part.date;
-    const dateParts = part.date.split('-');
+    let displayDate = part.date || part.weekId || '';
+    const dateParts = displayDate ? displayDate.split('-') : [];
     if (dateParts.length === 3) {
         const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
         const dayOfWeek = baseDate.getDay();

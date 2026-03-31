@@ -43,11 +43,35 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             }
             const { prepareS140UnifiedData } = await import('../services/s140GeneratorUnified');
             const weekData = await prepareS140UnifiedData(weekParts, publishers);
+
+            // Helper: encontrar WorkbookPart original pelo ID do S140Part
+            const findOriginal = (s140PartId?: string) =>
+                weekParts.find(wp => wp.id === s140PartId);
+
             const cards = [];
             for (const part of weekData.parts || []) {
+                const original = findOriginal(part.id);
+                // Campos do WorkbookPart necessários para prepareS89Message / generateWhatsAppMessage
+                const wpFields = original ? {
+                    date: original.date,
+                    weekId: original.weekId,
+                    weekDisplay: original.weekDisplay,
+                    tituloParte: original.tituloParte,
+                    modalidade: original.modalidade,
+                    status: original.status,
+                    horaInicio: original.horaInicio,
+                    descricaoParte: original.descricaoParte,
+                    detalhesParte: original.detalhesParte,
+                    duracao: original.duracao,
+                    rawPublisherName: original.rawPublisherName,
+                    resolvedPublisherId: original.resolvedPublisherId,
+                    section: original.section,
+                } : {};
+
                 if (part.mainHallAssignee) {
                     cards.push({
                         ...part,
+                        ...wpFields,
                         funcao: 'Titular',
                         resolvedPublisherName: part.mainHallAssignee,
                         tipoParte: part.tipoParte,
@@ -57,6 +81,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 if (part.mainHallAssistant) {
                     cards.push({
                         ...part,
+                        ...wpFields,
                         funcao: 'Ajudante',
                         resolvedPublisherName: part.mainHallAssistant,
                         tipoParte: part.tipoParte,
