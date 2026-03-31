@@ -4,16 +4,17 @@
  */
 
 import { useState } from 'react';
-import type { WorkbookPart } from '../types';
+import type { WorkbookPart, Publisher } from '../types';
 import { downloadS140UnifiedMultiWeek } from '../services/s140GeneratorUnified';
 
 interface S140MultiModalProps {
     isOpen: boolean;
     parts: WorkbookPart[];
+    publishers: Publisher[];
     onClose: () => void;
 }
 
-export function S140MultiModal({ isOpen, parts, onClose }: S140MultiModalProps) {
+export function S140MultiModal({ isOpen, parts, publishers, onClose }: S140MultiModalProps) {
     const [startWeek, setStartWeek] = useState('');
     const [endWeek, setEndWeek] = useState('');
     const [loading, setLoading] = useState(false);
@@ -36,7 +37,7 @@ export function S140MultiModal({ isOpen, parts, onClose }: S140MultiModalProps) 
         const selectedWeeks = allWeeks.slice(startIdx, endIdx + 1);
         try {
             setLoading(true);
-            await downloadS140UnifiedMultiWeek(parts, selectedWeeks);
+            await downloadS140UnifiedMultiWeek(parts, selectedWeeks, publishers);
             setStartWeek('');
             setEndWeek('');
             onClose();

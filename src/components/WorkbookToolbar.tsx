@@ -3,7 +3,7 @@
  * Extraído de WorkbookManager.tsx (Fase 5B da Auditoria)
  */
 
-import { type WorkbookPart } from '../types';
+import { type WorkbookPart, type Publisher } from '../types';
 import { downloadS140Unified } from '../services/s140GeneratorUnified';
 import { undoService } from '../services/undoService';
 
@@ -31,6 +31,7 @@ interface WorkbookToolbarProps {
     // Dados derivados
     filteredParts: WorkbookPart[];
     parts: WorkbookPart[];
+    publishers: Publisher[];
     currentPage: number;
     uniqueWeeks: WeekOption[];
     uniqueSections: string[];
@@ -62,7 +63,7 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
     const {
         loading, canUndo, undoDescription, showHiddenParts,
         searchText, filterWeek, filterSection, filterFuncao, filterTipo, filterStatus,
-        filteredParts, parts, currentPage, uniqueWeeks, uniqueSections, uniqueTipos,
+        filteredParts, parts, publishers, currentPage, uniqueWeeks, uniqueSections, uniqueTipos,
         onSearchTextChange, onFilterWeekChange, onFilterSectionChange, onFilterFuncaoChange,
         onFilterTipoChange, onFilterStatusChange, onShowHiddenPartsChange, onCurrentPageChange,
         onFileUpload, onRefresh, onOpenGeneration, onOpenLocalNeeds, onOpenEvents,
@@ -202,7 +203,7 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
                         onClick={() => {
                             if (currentWeekId) {
                                 const weekParts = parts.filter(p => p.weekId === currentWeekId);
-                                downloadS140Unified(weekParts);
+                                downloadS140Unified(weekParts, publishers);
                             }
                         }}
                         disabled={loading || !hasWeek}
