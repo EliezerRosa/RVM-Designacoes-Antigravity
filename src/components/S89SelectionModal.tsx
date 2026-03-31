@@ -32,39 +32,40 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     };
 
 
-    // Nova lógica: sempre exibir cartões para titular e ajudante, mesmo se só um estiver presente
-    const validParts = [];
-    const PAIRABLE_FUNCOES = ['Titular', 'Ajudante'];
-    const partNumberMap = {};
-    // Agrupa partes pareáveis por número
-    weekParts.forEach((p) => {
-        const pType = (p.tipoParte || '').toLowerCase();
-        const hasPublisher = !!(p.resolvedPublisherName || p.rawPublisherName);
-        const isPresident = pType.includes('presidente');
-        const isCounsel = pType.includes('elogios') || pType.includes('conselhos');
-        const isAdminPart = (pType.includes('cântico') ||
-            pType.includes('cantico') ||
-            pType.includes('comentários') ||
-            pType.includes('comentarios')) && !pType.includes('oração');
-        const isFinalPrayer = pType.includes('oração final') || pType.includes('oracao final');
-        if (isCounsel) return;
-        if (!hasPublisher && !isPresident) return;
-        const partNum = extractPartNumber(p.tituloParte || p.tipoParte);
-        if (partNum && PAIRABLE_FUNCOES.includes(p.funcao)) {
-            if (!partNumberMap[partNum]) partNumberMap[partNum] = { Titular: null, Ajudante: null };
-            partNumberMap[partNum][p.funcao] = p;
-        } else {
-            // Não pareáveis ou funções únicas
-            if (isPresident || hasPublisher && (!isAdminPart || isFinalPrayer)) {
-                validParts.push(p);
+
+    // Nova lógica: usar prepareS140UnifiedData para garantir agrupamento idêntico ao S-140 contextual
+    const [validParts, setValidParts] = useState<any[]>([]);
+    useEffect(() => {
+        let mounted = true;
+        async function prepareParts() {
+            const { prepareS140UnifiedData } = await import('../services/s140GeneratorUnified');
+            const weekData = await prepareS140UnifiedData(weekParts, publishers);
+            const cards = [];
+            for (const part of weekData.preparedParts || []) {
+                if (part.mainHallAssignee) {
+                    cards.push({
+                        ...part,
+                        funcao: 'Titular',
+                        resolvedPublisherName: part.mainHallAssignee,
+                        tipoParte: part.tipoParte,
+                        id: part.id + '-titular',
+                    });
+                }
+                if (part.mainHallAssistant) {
+                    cards.push({
+                        ...part,
+                        funcao: 'Ajudante',
+                        resolvedPublisherName: part.mainHallAssistant,
+                        tipoParte: part.tipoParte,
+                        id: part.id + '-ajudante',
+                    });
+                }
             }
+            if (mounted) setValidParts(cards);
         }
-    });
-    // Para cada número de parte, adiciona cartões apenas para designados reais
-    Object.values(partNumberMap).forEach((group) => {
-        if (group.Titular && (group.Titular.resolvedPublisherName || group.Titular.rawPublisherName)) validParts.push(group.Titular);
-        if (group.Ajudante && (group.Ajudante.resolvedPublisherName || group.Ajudante.rawPublisherName)) validParts.push(group.Ajudante);
-    });
+        prepareParts();
+        return () => { mounted = false; };
+    }, [weekParts, publishers]);
 
     // Carregar histórico de mensagens ao abrir o modal
     // Deps incluem weekParts e publishers para regen a msg ao mudar designação
