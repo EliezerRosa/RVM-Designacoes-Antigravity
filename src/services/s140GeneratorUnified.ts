@@ -19,7 +19,10 @@ function resolveName(part: WorkbookPart | undefined, publishers?: Publisher[]): 
     if (part.resolvedPublisherId && publishers) {
         const pub = publishers.find(p => p.id === part.resolvedPublisherId);
         if (pub) return pub.name;
+        // Fallback: o ID pode ser numérico legado, tentar buscar pelo nome cacheado
+        // ou pelo campo .data.name do publisher (já aplanado como .name no frontend)
     }
+    // Fallback: nome resolvido em cache > nome bruto do import
     return part.resolvedPublisherName || part.rawPublisherName || '';
 }
 
@@ -196,13 +199,15 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?:
     };
 
     // Mapa de ajudantes por número de sequência
+    // IMPORTANTE: sempre adicionar ao mapa, mesmo sem nome (pendente), para que
+    // o S-89 modal e S-140 saibam que há slot de ajudante
     const ajudanteBySeq = new Map<string, string>();
     ajudanteParts.forEach(a => {
         const name = resolveName(a, publishers);
         const titulo = a.tituloParte || a.tipoParte;
         const seqNum = extractSeqNumber(titulo);
-        if (name && seqNum) {
-            ajudanteBySeq.set(seqNum, name);
+        if (seqNum) {
+            ajudanteBySeq.set(seqNum, name || '(Pendente)');
         }
     });
 

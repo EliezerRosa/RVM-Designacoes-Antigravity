@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 
-console.log('DEPLOY TESTE', Date.now());
 import type { WorkbookPart, Publisher } from '../types';
 
 import { copyS89ToClipboard } from '../services/s89Generator';
@@ -17,7 +16,6 @@ interface S89SelectionModalProps {
 }
 
 export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishers }: S89SelectionModalProps) {
-    console.log('WEEKPARTS MODAL', weekParts);
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [isSharingS140, setIsSharingS140] = useState(false);
     const [s140HTML, setS140HTML] = useState<string>('');
@@ -45,9 +43,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             }
             const { prepareS140UnifiedData } = await import('../services/s140GeneratorUnified');
             const weekData = await prepareS140UnifiedData(weekParts, publishers);
-            console.log('PREPARED PARTS', weekData.preparedParts);
             const cards = [];
-            for (const part of weekData.preparedParts || []) {
+            for (const part of weekData.parts || []) {
                 if (part.mainHallAssignee) {
                     cards.push({
                         ...part,
@@ -67,7 +64,6 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     });
                 }
             }
-            console.log('VALIDPARTS MODAL', cards);
             if (mounted) setValidParts(cards);
         }
         prepareParts();
@@ -117,8 +113,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             try {
                 const { prepareS140UnifiedData, renderS140ToElement } = await import('../services/s140GeneratorUnified');
 
-                // Just in case weekParts changed
-                const weekData = await prepareS140UnifiedData(weekParts);
+                // Passa publishers para que resolveName funcione quando resolvedPublisherName é null
+                const weekData = await prepareS140UnifiedData(weekParts, publishers);
                 const element = renderS140ToElement(weekData);
 
                 if (isMounted) {
@@ -132,7 +128,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         generateHiddenS140();
 
         return () => { isMounted = false; };
-    }, [weekParts, isOpen]);
+    }, [weekParts, publishers, isOpen]);
 
     // Helper to find publisher phone
     const getPublisher = (name?: string) => publishers.find(p => p.name === name);
