@@ -38,6 +38,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     useEffect(() => {
         let mounted = true;
         async function prepareParts() {
+            if (!weekParts || weekParts.length === 0) {
+                setValidParts([]);
+                return;
+            }
             const { prepareS140UnifiedData } = await import('../services/s140GeneratorUnified');
             const weekData = await prepareS140UnifiedData(weekParts, publishers);
             const cards = [];
