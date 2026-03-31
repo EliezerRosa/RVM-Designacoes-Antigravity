@@ -198,17 +198,33 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?:
         return match ? match[1] : titulo;
     };
 
+    // Modalidades que NÃO precisam de ajudante (discurso solo, leitura)
+    const NO_HELPER_MODALIDADES = ['Discurso de Estudante', 'Discurso', 'Leitura'];
+
     // Mapa de ajudantes por número de sequência
     // IMPORTANTE: sempre adicionar ao mapa, mesmo sem nome (pendente), para que
     // o S-89 modal e S-140 saibam que há slot de ajudante
+    // EXCEÇÃO: se o titular correspondente é modalidade "Discurso de Estudante",
+    // não há ajudante (é um discurso solo)
     const ajudanteBySeq = new Map<string, string>();
     ajudanteParts.forEach(a => {
-        const name = resolveName(a, publishers);
         const titulo = a.tituloParte || a.tipoParte;
         const seqNum = extractSeqNumber(titulo);
-        if (seqNum) {
-            ajudanteBySeq.set(seqNum, name || '(Pendente)');
-        }
+        if (!seqNum) return;
+
+        // Verificar se o titular correspondente é um discurso (sem ajudante)
+        const titularPart = titularParts.find(t => {
+            const tSeq = extractSeqNumber(t.tituloParte || t.tipoParte);
+            return tSeq === seqNum;
+        });
+        const titularModalidade = titularPart?.modalidade || a.modalidade || '';
+        const isDiscursoSolo = NO_HELPER_MODALIDADES.some(m =>
+            titularModalidade.toLowerCase().includes(m.toLowerCase())
+        );
+        if (isDiscursoSolo) return; // Não adicionar — parte não tem ajudante
+
+        const name = resolveName(a, publishers);
+        ajudanteBySeq.set(seqNum, name || '(Pendente)');
     });
 
     // Preparar partes
