@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+
+console.log('DEPLOY TESTE', Date.now());
 import type { WorkbookPart, Publisher } from '../types';
 
 import { copyS89ToClipboard } from '../services/s89Generator';
