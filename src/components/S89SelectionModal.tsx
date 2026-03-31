@@ -45,6 +45,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             }
             const { prepareS140UnifiedData } = await import('../services/s140GeneratorUnified');
             const weekData = await prepareS140UnifiedData(weekParts, publishers);
+            console.log('PREPARED PARTS', weekData.preparedParts);
             const cards = [];
             for (const part of weekData.preparedParts || []) {
                 if (part.mainHallAssignee) {
@@ -66,6 +67,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     });
                 }
             }
+            console.log('VALIDPARTS MODAL', cards);
             if (mounted) setValidParts(cards);
         }
         prepareParts();
