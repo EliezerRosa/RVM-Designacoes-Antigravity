@@ -469,8 +469,21 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <div style={{ fontWeight: '600', color: '#374151', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <div style={{ fontWeight: '600', color: '#374151', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                                 {part.modalidade} {part.tituloParte ? `- ${part.tituloParte}` : ''}
+                                                {part.status && (
+                                                    <span style={{ 
+                                                        fontSize: '0.75em', 
+                                                        padding: '2px 8px', 
+                                                        borderRadius: '12px', 
+                                                        background: part.status === 'DESIGNADA' ? '#D1FAE5' : (part.status === 'PROPOSTA' ? '#DBEAFE' : '#F3F4F6'),
+                                                        color: part.status === 'DESIGNADA' ? '#065F46' : (part.status === 'PROPOSTA' ? '#1E40AF' : '#374151'),
+                                                        fontWeight: 'bold',
+                                                        letterSpacing: '0.05em'
+                                                    }}>
+                                                        {part.status}
+                                                    </span>
+                                                )}
                                                 {lastSent && (
                                                     <span
                                                         title={`Última msg: ${lastSent.content}`}
