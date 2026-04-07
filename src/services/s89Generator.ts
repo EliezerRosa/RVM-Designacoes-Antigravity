@@ -217,7 +217,11 @@ export function generateWhatsAppMessage(
     const baseUrl = `${baseOrigin}${normalizedPath}`.replace(/\/+$/, '');
 
     // Portal de confirmação
-    const confirmUrl = `${baseUrl}/?portal=confirm&id=${part.id}`;
+    // IMPORTANTE: part.id pode ser um ID virtual de UI (ex: "[uuid]-ajudante" ou "[uuid]-titular")
+    // gerado pelo S89SelectionModal para diferenciar cards na lista.
+    // O ID real no banco nunca contém esses sufixos — precisamos limpá-los antes de usar na URL.
+    const realPartId = part.id.replace(/-(titular|ajudante)$/, '');
+    const confirmUrl = `${baseUrl}/?portal=confirm&id=${realPartId}`;
     msg += `\n👉 *Confirme sua participação aqui:* ${confirmUrl}\n`;
 
     msg += `\n*Por favor, confirme o recebimento desta mensagem.* 🙏\n`;
