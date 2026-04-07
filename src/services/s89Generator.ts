@@ -182,26 +182,48 @@ export function generateWhatsAppMessage(
     msg += `─────────────\n`;
 
     if (isForAssistant && partnerName) {
-        // Mensagem para o AJUDANTE
-        msg += `${emoji} *Sua função:* Ajudante\n`;
+        // Mensagem para o AJUDANTE / LEITOR
+        let functionName = 'Ajudante';
+        let mainRoleName = 'Titular';
+        if (part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc')) {
+            functionName = 'Leitor';
+            mainRoleName = 'Dirigente';
+        }
+
+        msg += `${emoji} *Sua função:* ${functionName}\n`;
         msg += `📝 *Tipo de Parte:* ${part.tipoParte}\n`;
         if (part.tituloParte) msg += `🎯 *Tema:* ${part.tituloParte}\n`;
         msg += `📍 *Local:* ${room}\n`;
         msg += `⏰ *Início:*${time}\n\n`;
-        msg += `👤 *Titular:* ${partnerName}\n`;
-        if (partnerPhone) msg += `📱 *WhatsApp do Titular:* ${partnerPhone}\n\n`;
-        msg += `Por favor, entre em contato com o titular para combinarem o ensaio. 🤝`;
+        msg += `👤 *${mainRoleName}:* ${partnerName}\n`;
+        if (partnerPhone) msg += `📱 *WhatsApp do ${mainRoleName}:* ${partnerPhone}\n\n`;
+        
+        if (functionName === 'Ajudante') {
+            msg += `Por favor, entre em contato com o titular para combinarem o ensaio. 🤝`;
+        } else {
+            msg += `Lembre-se de revisar os parágrafos com antecedência. O dirigente poderá alinhar detalhes com você. 🤝`;
+        }
     } else {
-        // Mensagem para o TITULAR
+        // Mensagem para o TITULAR / DIRIGENTE
         msg += `${emoji} *Parte:* ${part.tipoParte}\n`;
         if (part.tituloParte) msg += `🎯 *Tema:* ${part.tituloParte}\n`;
         msg += `📍 *Local:* ${room}\n`;
         msg += `⏰ *Início:*${time}\n\n`;
 
         if (partnerName) {
-            msg += `👥 *Ajudante:* ${partnerName}\n`;
-            if (partnerPhone) msg += `📱 *WhatsApp do Ajudante:* ${partnerPhone}\n\n`;
-            msg += `Por favor, entre em contato com o ajudante para combinarem o ensaio. 🤝\n\n`;
+            let roleName = 'Ajudante';
+            if (part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc')) {
+                roleName = 'Leitor';
+            }
+
+            msg += `👥 *${roleName}:* ${partnerName}\n`;
+            if (partnerPhone) msg += `📱 *WhatsApp do ${roleName}:* ${partnerPhone}\n\n`;
+            
+            if (roleName === 'Ajudante') {
+                msg += `Por favor, entre em contato com o ajudante para combinarem o ensaio. 🤝\n\n`;
+            } else {
+                msg += `Sinta-se à vontade para combinar os detalhes e andamento da leitura com ele. 📖\n\n`;
+            }
         }
 
         msg += `Bom preparo! Que Jeová abençoe seu esforço. ✨`;
