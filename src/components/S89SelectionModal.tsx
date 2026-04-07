@@ -129,6 +129,26 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     }, [isOpen, weekId, weekParts, publishers]);
 
+    // Re-gerar mensagens sempre que validParts mudar (garante cobertura das novas cards)
+    useEffect(() => {
+        if (!isOpen || validParts.length === 0) return;
+        let mounted = true;
+        async function generateMessages() {
+            const edits: Record<string, string> = {};
+            for (const p of validParts) {
+                try {
+                    const { content } = await communicationService.prepareS89Message(p, publishers, weekParts);
+                    edits[p.id] = content;
+                } catch (err) {
+                    console.warn('[S89Modal] Falha ao gerar mensagem para', p.id, err);
+                }
+            }
+            if (mounted) setEditingMessages(prev => ({ ...prev, ...edits }));
+        }
+        generateMessages();
+        return () => { mounted = false; };
+    }, [validParts]);
+
     const loadHistory = async () => {
         try {
             const history = await communicationService.getHistory(100);
@@ -139,15 +159,6 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 }
             });
             setLastMessages(mapping);
-
-            // SEMPRE regenerar a mensagem com dados ATUAIS do part
-            // O histórico (mapping) é usado apenas para o badge "Enviado em ..."
-            const initialEdits: Record<string, string> = {};
-            for (const p of validParts) {
-                const { content } = await communicationService.prepareS89Message(p, publishers, weekParts);
-                initialEdits[p.id] = content;
-            }
-            setEditingMessages(initialEdits);
         } catch (err) {
             console.error('Erro ao carregar histórico no modal:', err);
         }
@@ -211,7 +222,24 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
             }
 
-            const message = editingMessages[part.id];
+            // Obter mensagem (pode estar undefined se validParts acabou de ser populado)
+            let message = editingMessages[part.id];
+
+            // Gerar on-demand se ainda não estiver pronta
+            if (!message) {
+                try {
+                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts);
+                    message = content;
+                    setEditingMessages(prev => ({ ...prev, [part.id]: content }));
+                } catch (err) {
+                    console.warn('[S89Modal] Mensagem gerada on-demand falhou:', err);
+                }
+            }
+
+            if (!message) {
+                alert('Mensagem ainda não carregada. Aguarde um instante e tente novamente.');
+                return;
+            }
 
             // 1. Identificar se é Estudante (Para Image Capture)
             const pType = (part.tipoParte || '').toLowerCase();
