@@ -49,6 +49,9 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 weekParts.find(wp => wp.id === s140PartId);
 
             const cards = [];
+            // Rastrear IDs já incluídos via S-140 para não duplicar
+            const includedOriginalIds = new Set<string>();
+
             for (const part of weekData.parts || []) {
                 const original = findOriginal(part.id);
                 // Campos do WorkbookPart necessários para prepareS89Message / generateWhatsAppMessage
@@ -77,6 +80,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                         tipoParte: part.tipoParte,
                         id: part.id + '-titular',
                     });
+                    if (part.id) includedOriginalIds.add(part.id);
                 }
                 if (part.mainHallAssistant) {
                     cards.push({
@@ -88,6 +92,28 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                         id: part.id + '-ajudante',
                     });
                 }
+            }
+
+            // Garantia de cobertura: incluir partes designadas/aprovadas do weekParts
+            // que possam ter ficado de fora do S-140 (ex: partes respondidas, reconfirmações)
+            const DESIGNATABLE_STATUSES = ['DESIGNADA', 'APROVADA', 'PROPOSTA', 'CONCLUIDA'];
+            const HIDDEN_TYPES = ['Cântico', 'Cantico', 'Comentários Iniciais', 'Comentarios Iniciais',
+                'Comentários Finais', 'Comentarios Finais', 'Elogios e Conselhos', 'Elogios e conselhos'];
+
+            for (const wp of weekParts) {
+                if (!DESIGNATABLE_STATUSES.includes(wp.status)) continue;
+                if (HIDDEN_TYPES.some(h => wp.tipoParte?.includes(h))) continue;
+                const name = wp.resolvedPublisherName || wp.rawPublisherName;
+                if (!name) continue;
+                // Já incluída via S-140?
+                const virtualId = wp.id + (wp.funcao === 'Ajudante' ? '-ajudante' : '-titular');
+                if (cards.some(c => c.id === virtualId)) continue;
+                // Adicionar card avulso para garantir reenvio
+                cards.push({
+                    ...wp,
+                    id: virtualId,
+                    resolvedPublisherName: name,
+                });
             }
             if (mounted) setValidParts(cards);
         }
@@ -268,9 +294,9 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     })
                 ]);
 
-                // 1. Calcular Saudação (Dia/Tarde/Noite)
+                // 1. Calcular Saudação (Dia/Tarde/Noite) — PT-BR: bom dia / boa tarde / boa noite
                 const hour = new Date().getHours();
-                const greeting = hour < 12 ? 'dia' : hour < 18 ? 'tarde' : 'noite';
+                const greeting = hour < 12 ? 'bom dia' : hour < 18 ? 'boa tarde' : 'boa noite';
 
                 // 2. Calcular Data da Quinta-feira da semana
                 // weekId assume formato YYYY-MM-DD (Segunda-feira)
@@ -288,7 +314,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 const formattedDate = `${day} de ${month} de ${year}`;
 
                 // 3. Montar Mensagem
-                const message = `Olá irmãos! Bom ${greeting}!\n\nSegue programação da reunião de meio de semana, para quinta-feira, dia ${formattedDate}.\n\n(Salmo 90:17)`;
+                const message = `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para quinta-feira, dia ${formattedDate}.\n\n(Salmo 90:17)`;
 
                 // 4. Abrir WhatsApp Web com texto preenchido
                 const encodedMessage = encodeURIComponent(message);

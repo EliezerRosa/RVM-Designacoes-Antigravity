@@ -140,9 +140,10 @@ export const communicationService = {
         }
 
         const hour = new Date().getHours();
-        const greeting = hour < 12 ? 'dia' : hour < 18 ? 'tarde' : 'noite';
+        // PT-BR: "dia" é masculino (bom dia), "tarde" e "noite" são femininos (boa tarde/noite)
+        const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
-        let text = `Olá, amados irmãos! Bom ${greeting}. 👋\n\n`;
+        let text = `Olá, amados irmãos! ${greeting}. 👋\n\n`;
         text += `Compartilhamos com alegria a *Programação da Reunião de Meio de Semana* para o dia *${displayDate}*:\n\n`;
 
         // Add special events notes
