@@ -72,25 +72,52 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 } : {};
 
                 if (part.mainHallAssignee) {
+                    // ID real do Titular = original.id (já é correto via findOriginal)
+                    const titularRealId = original?.id || part.id;
                     cards.push({
                         ...part,
                         ...wpFields,
                         funcao: 'Titular',
                         resolvedPublisherName: part.mainHallAssignee,
                         tipoParte: part.tipoParte,
-                        id: part.id + '-titular',
+                        id: titularRealId + '-titular',
                     });
-                    if (part.id) includedOriginalIds.add(part.id);
+                    if (titularRealId) includedOriginalIds.add(titularRealId);
                 }
                 if (part.mainHallAssistant) {
+                    // CORREÇÃO CRÍTICA: o S140 agrupa Titular e Ajudante num mesmo slot (part.id = ID do Titular).
+                    // Precisamos buscar o ID real do Ajudante no weekParts pelo nome,
+                    // caso contrário o link de confirmação apontaria para o registro do Titular.
+                    const ajudanteWp = weekParts.find(wp =>
+                        wp.funcao === 'Ajudante' &&
+                        (wp.resolvedPublisherName === part.mainHallAssistant ||
+                         wp.rawPublisherName === part.mainHallAssistant)
+                    );
+                    const ajudanteRealId = ajudanteWp?.id || part.id; // fallback = ID do slot se não encontrado
+                    const ajudanteWpFields = ajudanteWp ? {
+                        date: ajudanteWp.date,
+                        weekId: ajudanteWp.weekId,
+                        weekDisplay: ajudanteWp.weekDisplay,
+                        tituloParte: ajudanteWp.tituloParte,
+                        modalidade: ajudanteWp.modalidade,
+                        status: ajudanteWp.status,
+                        horaInicio: ajudanteWp.horaInicio,
+                        descricaoParte: ajudanteWp.descricaoParte,
+                        detalhesParte: ajudanteWp.detalhesParte,
+                        duracao: ajudanteWp.duracao,
+                        rawPublisherName: ajudanteWp.rawPublisherName,
+                        resolvedPublisherId: ajudanteWp.resolvedPublisherId,
+                        section: ajudanteWp.section,
+                    } : wpFields;
                     cards.push({
                         ...part,
-                        ...wpFields,
+                        ...ajudanteWpFields,
                         funcao: 'Ajudante',
                         resolvedPublisherName: part.mainHallAssistant,
                         tipoParte: part.tipoParte,
-                        id: part.id + '-ajudante',
+                        id: ajudanteRealId + '-ajudante', // ID real do Ajudante + sufixo UI
                     });
+                    if (ajudanteRealId) includedOriginalIds.add(ajudanteRealId);
                 }
             }
 
