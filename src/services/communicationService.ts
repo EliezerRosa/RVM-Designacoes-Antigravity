@@ -331,12 +331,27 @@ export const communicationService = {
             partner = allWeekParts.find(p => {
                 if (p.id === part.id) return false;
                 if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
+                
+                // Mesmo partNum (e.g. "5. Iniciando")
                 const otherNumMatch = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/);
                 const otherNum = otherNumMatch ? otherNumMatch[1] : null;
-                if (partNum && otherNum && partNum === otherNum) {
-                    return p.funcao !== part.funcao;
+
+                // Mesma sala (Principal vs Sala B)
+                // Usando o mesmo critério do generateWhatsAppMessage para determinar Sala B
+                const pIsSalaB = p.modalidade?.toLowerCase().includes('b') || false;
+                const partIsSalaB = part.modalidade?.toLowerCase().includes('b') || false;
+
+                // Se houver partNum nos dois
+                if (partNum && otherNum) {
+                    return partNum === otherNum && 
+                           p.funcao !== part.funcao && 
+                           pIsSalaB === partIsSalaB;
                 }
-                return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
+                
+                // Fallback (caso não tenha número, ex: "Leitura da Bíblia")
+                return p.tipoParte === part.tipoParte && 
+                       p.funcao !== part.funcao && 
+                       pIsSalaB === partIsSalaB;
             });
 
             // Verificar se é parte solo
