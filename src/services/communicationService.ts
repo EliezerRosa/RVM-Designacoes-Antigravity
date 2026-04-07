@@ -320,8 +320,11 @@ export const communicationService = {
             return { content: cancelMsg, phone: pub?.phone };
         }
 
-        // Lógica de Parceiro (Titular/Ajudante)
-        const isAjudante = part.funcao === 'Ajudante';
+        // Lógica de Parceiro (Titular/Ajudante) e (Dirigente/Leitor de EBC)
+        const isLeitorEBC = part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc');
+        const isDirigenteEBC = part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc');
+        
+        const isAjudante = part.funcao === 'Ajudante' || isLeitorEBC;
 
         let partner: WorkbookPart | undefined;
         if (allWeekParts.length > 0) {
@@ -337,18 +340,25 @@ export const communicationService = {
                 const otherNum = otherNumMatch ? otherNumMatch[1] : null;
 
                 // Mesma sala (Principal vs Sala B)
-                // Usando o mesmo critério do generateWhatsAppMessage para determinar Sala B
                 const pIsSalaB = p.modalidade?.toLowerCase().includes('b') || false;
                 const partIsSalaB = part.modalidade?.toLowerCase().includes('b') || false;
 
-                // Se houver partNum nos dois
+                // Se houver partNum nos dois e baterem, OK. Se apenas não combinarem e tiverem, descarta.
                 if (partNum && otherNum) {
-                    return partNum === otherNum && 
-                           p.funcao !== part.funcao && 
-                           pIsSalaB === partIsSalaB;
+                    if (partNum === otherNum) {
+                        return p.funcao !== part.funcao && pIsSalaB === partIsSalaB;
+                    }
+                    return false;
                 }
                 
-                // Fallback (caso não tenha número, ex: "Leitura da Bíblia")
+                // Caso de Dirigente e Leitor EBC
+                const otherIsLeitorEBC = p.tipoParte?.toLowerCase().includes('leitor') && p.tipoParte?.toLowerCase().includes('ebc');
+                const otherIsDirigenteEBC = p.tipoParte?.toLowerCase().includes('dirigente') && p.tipoParte?.toLowerCase().includes('ebc');
+                
+                if (isDirigenteEBC && otherIsLeitorEBC) return true;
+                if (isLeitorEBC && otherIsDirigenteEBC) return true;
+
+                // Fallback (caso não tenha número e não seja EBC)
                 return p.tipoParte === part.tipoParte && 
                        p.funcao !== part.funcao && 
                        pIsSalaB === partIsSalaB;
