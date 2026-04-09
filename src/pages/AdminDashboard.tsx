@@ -15,6 +15,7 @@ interface CacheItem {
 
 import { ELIGIBILITY_RULES_VERSION } from '../services/eligibilityService';
 import { RULES_TEXT_VERSION } from '../services/contextBuilder.ts';
+import { ActionDiagnosticPanel } from '../components/admin/ActionDiagnosticPanel';
 
 interface SystemLog {
     id: string;
@@ -326,6 +327,15 @@ export function AdminDashboard() {
                         </div>
                     </div>
                 )}
+                {/* Diagnostic Agent Panel */}
+                <div className="table-card" style={{ marginTop: '24px' }}>
+                    <div className="table-header">
+                        <h3>🔬 Diagnóstico de Ações do Chat-IA</h3>
+                    </div>
+                    <div style={{ padding: '16px' }}>
+                        <ActionDiagnosticPanel />
+                    </div>
+                </div>
             </div>
         </div>
     );
