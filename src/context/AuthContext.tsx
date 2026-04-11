@@ -77,9 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .maybeSingle();
 
     if (error) {
-      console.error('[Auth] Error fetching profile:', error);
+      console.error('[Auth] Error fetching profile:', error.message, error.code, error.hint, JSON.stringify(error));
       return null;
     }
+    console.log('[Auth] Profile fetched:', data ? `${data.email} (${data.role})` : 'NULL');
     return data as Profile | null;
   }, []);
 
