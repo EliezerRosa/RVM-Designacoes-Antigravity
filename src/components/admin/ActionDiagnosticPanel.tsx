@@ -38,24 +38,38 @@ export function ActionDiagnosticPanel() {
     const [selectedAction, setSelectedAction] = useState<AgentActionType | 'ALL'>('ALL');
     const [report, setReport] = useState<DiagnosticReport | null>(null);
     const [isRunning, setIsRunning] = useState(false);
-    const [expandedRow, setExpandedRow] = useState<string | null>(null);
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     // Visual tab state
     const [selectedVisualAction, setSelectedVisualAction] = useState<AgentActionType | 'ALL'>('ALL');
     const [visualReport, setVisualReport] = useState<VisualDiagnosticReport | null>(null);
     const [isVisualRunning, setIsVisualRunning] = useState(false);
-    const [expandedVisualRow, setExpandedVisualRow] = useState<string | null>(null);
+    const [expandedVisualRows, setExpandedVisualRows] = useState<Set<string>>(new Set());
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+    const toggleRow = (key: string) => setExpandedRows(prev => {
+        const next = new Set(prev);
+        next.has(key) ? next.delete(key) : next.add(key);
+        return next;
+    });
+    const toggleVisualRow = (key: string) => setExpandedVisualRows(prev => {
+        const next = new Set(prev);
+        next.has(key) ? next.delete(key) : next.add(key);
+        return next;
+    });
 
     const visualActionTypes = getVisualActionTypes();
 
     const handleRun = async () => {
         setIsRunning(true);
         setReport(null);
-        setExpandedRow(null);
+        setExpandedRows(new Set());
         try {
             const result = await runDiagnostic(selectedAction);
+            console.log('[DiagnosticPanel] Resultado completo:', JSON.stringify(result.results.map(r => ({ action: r.actionType, status: r.status, hasScript: !!r.testScript }))));
             setReport(result);
+            // Auto-expandir todos os resultados
+            setExpandedRows(new Set(result.results.map(r => r.actionType)));
         } catch (e) {
             console.error('[DiagnosticPanel] Erro:', e);
         } finally {
@@ -66,11 +80,14 @@ export function ActionDiagnosticPanel() {
     const handleVisualRun = async () => {
         setIsVisualRunning(true);
         setVisualReport(null);
-        setExpandedVisualRow(null);
+        setExpandedVisualRows(new Set());
         setPreviewImage(null);
         try {
             const result = await runVisualDiagnostic(selectedVisualAction);
+            console.log('[VisualDiagnostic] Resultado:', JSON.stringify(result.results.map(r => ({ action: r.actionType, passed: r.validationPassed, hasScript: !!r.testScript, scriptCenario: r.testScript?.cenario?.substring(0, 60) }))));
             setVisualReport(result);
+            // Auto-expandir todos os resultados visuais
+            setExpandedVisualRows(new Set(result.results.map(r => r.actionType)));
         } catch (e) {
             console.error('[VisualDiagnostic] Erro:', e);
         } finally {
@@ -235,8 +252,8 @@ export function ActionDiagnosticPanel() {
                         <ResultRow
                             key={r.actionType + i}
                             result={r}
-                            isExpanded={expandedRow === r.actionType}
-                            onToggle={() => setExpandedRow(expandedRow === r.actionType ? null : r.actionType)}
+                            isExpanded={expandedRows.has(r.actionType)}
+                            onToggle={() => toggleRow(r.actionType)}
                         />
                     ))}
                 </div>
@@ -329,8 +346,8 @@ export function ActionDiagnosticPanel() {
                         <VisualResultRow
                             key={r.actionType + i}
                             result={r}
-                            isExpanded={expandedVisualRow === r.actionType}
-                            onToggle={() => setExpandedVisualRow(expandedVisualRow === r.actionType ? null : r.actionType)}
+                            isExpanded={expandedVisualRows.has(r.actionType)}
+                            onToggle={() => toggleVisualRow(r.actionType)}
                             onPreview={(img) => setPreviewImage(img)}
                         />
                     ))}

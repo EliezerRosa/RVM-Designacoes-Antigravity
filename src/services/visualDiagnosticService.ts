@@ -515,6 +515,7 @@ export async function runVisualDiagnostic(
                 validationPassed,
             };
             const testScript = mock.buildScript(scriptCtx);
+            console.log(`[VisualDiag] ${actionType} testScript:`, testScript?.cenario?.substring(0, 80), '| fields:', Object.keys(testScript || {}).length);
 
             results.push({
                 actionType,
