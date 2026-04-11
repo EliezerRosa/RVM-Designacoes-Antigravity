@@ -197,7 +197,7 @@ Avalie em português do Brasil:
     },
 
     CHECK_SCORE: {
-        command: 'Mostre o ranking de candidatos para Leitura da Bíblia',
+        command: 'Mostre o ranking de candidatos para Leitura de Estudante',
         description: 'Gera tabela de elegibilidade/ranking e valida com Gemini',
         renderType: 'data-table',
         geminiPrompt: `Esta imagem mostra o ranking de candidatos elegíveis para uma designação. Valide:
@@ -208,18 +208,18 @@ Avalie em português do Brasil:
 5. Veredito: APROVADO ou REPROVADO.`,
         buildAction: (weekId) => ({
             type: 'CHECK_SCORE',
-            params: { partType: 'Leitura da Bíblia', date: weekId },
+            params: { partType: 'Leitura de Estudante', date: weekId },
             description: 'Mock: ranking de elegibilidade para Leitura',
         }),
         buildScript: (ctx) => ({
-            cenario: `${ctx.publisherCount} publicadores. Ranking para "Leitura da Bíblia" na semana ${ctx.firstWeekId}.`,
-            comandoSimulado: '"Mostre o ranking de candidatos para Leitura da Bíblia"',
+            cenario: `${ctx.publisherCount} publicadores. Ranking para "Leitura de Estudante" na semana ${ctx.firstWeekId}.`,
+            comandoSimulado: '"Mostre o ranking de candidatos para Leitura de Estudante"',
             expectativaVisual: 'Tabela com posição (#), nome do publicador, score e métricas. Ordenada do melhor candidato ao pior. Pelo menos 1 candidato visível.',
             acaoExecutada: ctx.error ? `ERRO: ${ctx.error}` : (ctx.actionSuccess ? `Ranking gerado. "${ctx.actionMessage.substring(0, 100)}"` : `Falha: ${ctx.actionMessage}`),
             capturaRealizada: ctx.hadScreenshot ? 'Tabela de ranking capturada como imagem.' : 'Sem captura — ranking vazio ou ação falhou.',
             analiseGemini: ctx.geminiSummary || 'Não analisado.',
             diagnosticoFinal: ctx.validationPassed ? `Ranking de elegibilidade gerado e validado visualmente. Tabela legível com candidatos ordenados.` : `Ranking reprovado ou não gerado. ${ctx.error || ctx.actionMessage}`,
-            dadosUtilizados: { tipoParte: 'Leitura da Bíblia', semana: ctx.firstWeekId, publicadores: ctx.publisherCount },
+            dadosUtilizados: { modalidade: 'Leitura de Estudante', semana: ctx.firstWeekId, publicadores: ctx.publisherCount },
         }),
     },
 

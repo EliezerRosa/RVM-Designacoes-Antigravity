@@ -147,18 +147,18 @@ const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
     }),
 
     CHECK_SCORE: (fx) => ({
-        action: { type: 'CHECK_SCORE', params: { partType: 'Leitura da Bíblia', date: fx.firstWeekId || '2026-04-06' }, description: 'Teste: ranking de candidatos' },
+        action: { type: 'CHECK_SCORE', params: { partType: 'Leitura de Estudante', date: fx.firstWeekId || '2026-04-06' }, description: 'Teste: ranking de candidatos' },
         safe: true,
         skipIf: fx.publishers.length === 0 ? 'Sem publicadores cadastrados' : null,
         buildScript: (_fx, result, error) => {
             const elegiveisCount = result?.data ? (Array.isArray(result.data) ? result.data.length : 0) : 0;
             return {
-                cenario: `${fx.publishers.length} publicadores no banco. Semana de referência: ${fx.firstWeekId || 'N/A'}. Tipo de parte: "Leitura da Bíblia".`,
-                comandoSimulado: '"Mostre o ranking de candidatos para Leitura da Bíblia"',
-                expectativa: 'O motor de elegibilidade filtra publicadores qualificados para "Leitura da Bíblia" (homens batizados, não desqualificados), calcula score com base no histórico de participações e retorna ranking ordenado (Top 10).',
+                cenario: `${fx.publishers.length} publicadores no banco. Semana de referência: ${fx.firstWeekId || 'N/A'}. Modalidade: "Leitura de Estudante".`,
+                comandoSimulado: '"Mostre o ranking de candidatos para Leitura de Estudante"',
+                expectativa: 'O motor de elegibilidade filtra publicadores qualificados para "Leitura de Estudante" (homens batizados, não desqualificados), calcula score com base no histórico de participações e retorna ranking ordenado (Top 10).',
                 resultadoObtido: error ? `ERRO: ${error}` : (result?.success ? `${elegiveisCount} candidatos elegíveis encontrados e ranqueados. ${result.message?.substring(0, 150)}...` : `Falha: ${result?.message}`),
-                diagnostico: error ? `Exceção ao calcular scores. Verifique checkEligibility e getRankedCandidates.` : (result?.success ? (elegiveisCount > 0 ? `Ranking gerado com sucesso. ${elegiveisCount} publicadores passaram no filtro de elegibilidade. O 1º colocado é o candidato com maior intervalo desde a última participação neste tipo de parte.` : 'Ranking vazio — nenhum publicador é elegível para Leitura da Bíblia. Verifique se há homens batizados não-desqualificados no banco.') : `Ação falhou: ${result?.message}`),
-                dadosUtilizados: { tipoParte: 'Leitura da Bíblia', semana: fx.firstWeekId, totalPublicadores: fx.publishers.length, elegiveis: elegiveisCount },
+                diagnostico: error ? `Exceção ao calcular scores. Verifique checkEligibility e getRankedCandidates.` : (result?.success ? (elegiveisCount > 0 ? `Ranking gerado com sucesso. ${elegiveisCount} publicadores passaram no filtro de elegibilidade. O 1º colocado é o candidato com maior intervalo desde a última participação neste tipo de parte.` : 'Ranking vazio — nenhum publicador é elegível para Leitura de Estudante. Verifique se há homens batizados não-desqualificados no banco.') : `Ação falhou: ${result?.message}`),
+                dadosUtilizados: { modalidade: 'Leitura de Estudante', semana: fx.firstWeekId, totalPublicadores: fx.publishers.length, elegiveis: elegiveisCount },
             };
         },
     }),

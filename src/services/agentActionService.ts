@@ -163,7 +163,19 @@ export const agentActionService = {
 
                 case 'CHECK_SCORE': {
                     const { partType, date } = action.params;
-                    const eligible = publishers.filter(p => checkEligibility(p, partType));
+                    // Mapeamento defensivo: o agente de IA pode enviar nomes informais
+                    const MODALIDADE_ALIASES: Record<string, string> = {
+                        'Leitura da Bíblia': 'Leitura de Estudante',
+                        'Leitura': 'Leitura de Estudante',
+                        'Discurso': 'Discurso de Estudante',
+                        'Demonstração': 'Demonstração',
+                        'Oração': 'Oração',
+                        'Estudo Bíblico': 'Demonstração',
+                        'Primeira Conversa': 'Demonstração',
+                        'Revisita': 'Demonstração',
+                    };
+                    const resolvedModalidade = MODALIDADE_ALIASES[partType] || partType;
+                    const eligible = publishers.filter(p => checkEligibility(p, resolvedModalidade));
 
                     if (eligible.length === 0) {
                         return { success: false, message: `Nenhum publicador elegível encontrado para ${partType}.` };
