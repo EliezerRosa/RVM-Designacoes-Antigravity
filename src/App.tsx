@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import './App.css'
 import type { Publisher, WorkbookPart } from './types'
 import PublisherList from './components/PublisherList'
@@ -6,18 +6,19 @@ import PublisherForm from './components/PublisherForm'
 
 import { api } from './services/api'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
-import WorkbookManager from './components/WorkbookManager'
-import ApprovalPanel from './components/ApprovalPanel'
-import BackupRestore from './components/BackupRestore'
 import { ChatAgent } from './components/ChatAgent'
-import PowerfulAgentTab from './components/PowerfulAgentTab'
-import TerritoryManager from './components/TerritoryManager'
-import { CommunicationTab } from './components/CommunicationTab'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 
+// Lazy-loaded tabs (code splitting)
+const WorkbookManager = lazy(() => import('./components/WorkbookManager'))
+const ApprovalPanel = lazy(() => import('./components/ApprovalPanel'))
+const BackupRestore = lazy(() => import('./components/BackupRestore'))
+const PowerfulAgentTab = lazy(() => import('./components/PowerfulAgentTab'))
+const TerritoryManager = lazy(() => import('./components/TerritoryManager'))
+const CommunicationTab = lazy(() => import('./components/CommunicationTab').then(m => ({ default: m.CommunicationTab })))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 
 import { workbookService } from './services/workbookService'
-import { AdminDashboard } from './pages/AdminDashboard'
 import { loadCompletedParticipations } from './services/historyAdapter'
 import type { HistoryRecord } from './types'
 import { supabase } from './lib/supabase'
@@ -467,99 +468,101 @@ function App() {
       </header>
 
       <main className="main-content">
-        {/* Workbook */}
-        <div style={{ display: activeTab === 'workbook' ? 'block' : 'none' }}>
-          <WorkbookManager
-            publishers={publishers}
-            isActive={activeTab === 'workbook'}
-          />
-        </div>
-
-        {/* Approvals */}
-        <div style={{ display: activeTab === 'approvals' ? 'block' : 'none' }}>
-          <ApprovalPanel publishers={publishers} />
-        </div>
-
-        {/* Publishers */}
-        <div style={{ display: activeTab === 'publishers' ? 'block' : 'none' }}>
-          <div className="publishers-page">
-            <div className="page-header">
-              <h2>Publicadores</h2>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  className="btn-secondary"
-                  onClick={() => setShowDuplicateChecker(true)}
-                  style={{ background: '#f59e0b', color: '#000' }}
-                >
-                  🔍 Verificar Duplicatas
-                </button>
-                <button
-                  className="btn-primary"
-                  onClick={() => setShowPublisherForm(true)}
-                >
-                  + Novo Publicador
-                </button>
-              </div>
-            </div>
-            <PublisherList
-              publishers={publishers}
-              onEdit={editPublisher}
-              onDelete={deletePublisher}
-            />
+        <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
+          <div style={{ textAlign: 'center', color: '#9ca3af' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+            Carregando...
           </div>
-          {showDuplicateChecker && (
-            <PublisherDuplicateChecker
+        </div>}>
+          {/* Workbook */}
+          {activeTab === 'workbook' && (
+            <WorkbookManager
               publishers={publishers}
-              onDelete={(id) => {
-                const pub = publishers.find(p => p.id === id);
-                if (pub) deletePublisher(pub);
-              }}
-              onClose={() => setShowDuplicateChecker(false)}
+              isActive={true}
             />
           )}
-        </div>
 
-        {/* Publishers */}
-        <div style={{ display: activeTab === 'publishers' ? 'block' : 'none' }}>
-          {/* ... kept hidden to save space in prompt ... */}
-          {/* (Assuming user context handles surrounding lines match) */}
-        </div>
+          {/* Approvals */}
+          {activeTab === 'approvals' && (
+            <ApprovalPanel publishers={publishers} />
+          )}
 
-        {/* Territories */}
-        <div style={{ display: activeTab === 'territories' ? 'block' : 'none' }}>
-          <TerritoryManager />
-        </div>
+          {/* Publishers */}
+          {activeTab === 'publishers' && (
+            <>
+              <div className="publishers-page">
+                <div className="page-header">
+                  <h2>Publicadores</h2>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setShowDuplicateChecker(true)}
+                      style={{ background: '#f59e0b', color: '#000' }}
+                    >
+                      🔍 Verificar Duplicatas
+                    </button>
+                    <button
+                      className="btn-primary"
+                      onClick={() => setShowPublisherForm(true)}
+                    >
+                      + Novo Publicador
+                    </button>
+                  </div>
+                </div>
+                <PublisherList
+                  publishers={publishers}
+                  onEdit={editPublisher}
+                  onDelete={deletePublisher}
+                />
+              </div>
+              {showDuplicateChecker && (
+                <PublisherDuplicateChecker
+                  publishers={publishers}
+                  onDelete={(id) => {
+                    const pub = publishers.find(p => p.id === id);
+                    if (pub) deletePublisher(pub);
+                  }}
+                  onClose={() => setShowDuplicateChecker(false)}
+                />
+              )}
+            </>
+          )}
 
-        {/* Communication */}
-        <div style={{ display: activeTab === 'communication' ? 'block' : 'none' }}>
-          <CommunicationTab />
-        </div>
+          {/* Territories */}
+          {activeTab === 'territories' && (
+            <TerritoryManager />
+          )}
 
-        {/* Agent Tab */}
-        <div style={{ display: activeTab === 'agent' ? 'block' : 'none' }}>
-          {activeTab === 'agent' && <AgentTabContent
-            publishers={publishers}
-            workbookParts={workbookParts}
-            historyRecords={historyRecords}
-            refreshWorkbookParts={refreshAllData}
-            isWorkbookLoading={isWorkbookLoading}
-            initialCommand={initialAgentCommand || undefined}
-            initialWeekId={initialAgentWeekId || undefined}
-          />}
-        </div>
+          {/* Communication */}
+          {activeTab === 'communication' && (
+            <CommunicationTab />
+          )}
 
-        {/* Backup */}
-        <div style={{ display: activeTab === 'backup' ? 'block' : 'none' }}>
-          <BackupRestore />
-        </div>
+          {/* Agent Tab */}
+          {activeTab === 'agent' && (
+            <AgentTabContent
+              publishers={publishers}
+              workbookParts={workbookParts}
+              historyRecords={historyRecords}
+              refreshWorkbookParts={refreshAllData}
+              isWorkbookLoading={isWorkbookLoading}
+              initialCommand={initialAgentCommand || undefined}
+              initialWeekId={initialAgentWeekId || undefined}
+            />
+          )}
 
-        {/* Admin Dashboard */}
-        {/* Admin Dashboard */}
-        {activeTab === 'admin' && (
-          <div className="admin-container">
-            <AdminDashboard />
-          </div>
-        )}
+          {/* Backup */}
+          {activeTab === 'backup' && (
+            <BackupRestore />
+          )}
+
+          {/* Admin Dashboard */}
+          {activeTab === 'admin' && (
+            <div className="admin-container">
+              <AdminDashboard />
+            </div>
+          )}
+        </Suspense>
       </main>
 
       {showPublisherForm && (
