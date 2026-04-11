@@ -16,6 +16,7 @@ interface CacheItem {
 import { ELIGIBILITY_RULES_VERSION } from '../services/eligibilityService';
 import { RULES_TEXT_VERSION } from '../services/contextBuilder.ts';
 import { ActionDiagnosticPanel } from '../components/admin/ActionDiagnosticPanel';
+import { AuthLogsPanel } from '../components/admin/AuthLogsPanel';
 
 interface SystemLog {
     id: string;
@@ -335,6 +336,14 @@ export function AdminDashboard() {
                     <div style={{ padding: '16px' }}>
                         <ActionDiagnosticPanel />
                     </div>
+                </div>
+
+                {/* Auth & Transaction Logs */}
+                <div className="table-card" style={{ marginTop: '24px' }}>
+                    <div className="table-header">
+                        <h3>🔐 Histórico de Autenticação & Transações</h3>
+                    </div>
+                    <AuthLogsPanel />
                 </div>
             </div>
         </div>

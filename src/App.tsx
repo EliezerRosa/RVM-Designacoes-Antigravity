@@ -8,6 +8,8 @@ import { api } from './services/api'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
+import { LoginPage } from './components/LoginPage'
+import { useAuth } from './context/AuthContext'
 
 // Lazy-loaded tabs (code splitting)
 const WorkbookManager = lazy(() => import('./components/WorkbookManager'))
@@ -27,6 +29,28 @@ import { updateRotationConfig } from './services/unifiedRotationService'
 type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin' | 'communication'
 
 function App() {
+  const { isAuthenticated, isLoading: authLoading, needs2FA, isAdmin, signOut, profile } = useAuth();
+
+  // Auth guard: show login if not authenticated
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <div style={{ textAlign: 'center', color: '#94a3b8' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⏳</div>
+          <p>Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || needs2FA) {
+    return <LoginPage />;
+  }
+
+  return <AuthenticatedApp isAdmin={isAdmin} onSignOut={signOut} userEmail={profile?.email || ''} />;
+}
+
+function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean; onSignOut: () => void; userEmail: string }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('workbook')
 
   // Data State
@@ -452,7 +476,12 @@ function App() {
             className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => handleTabChange('admin')}
             title="Admin Dashboard (Resilience)"
-            style={{ background: activeTab === 'admin' ? '#10B981' : 'transparent', border: activeTab === 'admin' ? 'none' : '1px solid #10B981', color: activeTab === 'admin' ? 'white' : '#10B981' }}
+            style={{ 
+              background: activeTab === 'admin' ? '#10B981' : 'transparent', 
+              border: activeTab === 'admin' ? 'none' : '1px solid #10B981', 
+              color: activeTab === 'admin' ? 'white' : '#10B981',
+              display: isAdmin ? 'inline-flex' : 'none',
+            }}
           >
             📊 Admin
           </button>
@@ -465,6 +494,27 @@ function App() {
             🤖 Agente
           </button>
         </nav>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto', flexShrink: 0 }}>
+          <span style={{ color: '#94a3b8', fontSize: '0.75rem' }} title={userEmail}>
+            👤 {userEmail.split('@')[0]}
+          </span>
+          <button
+            onClick={onSignOut}
+            style={{
+              background: 'transparent',
+              border: '1px solid #ef4444',
+              color: '#ef4444',
+              borderRadius: '0.5rem',
+              padding: '0.35rem 0.75rem',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            title="Sair"
+          >
+            Sair
+          </button>
+        </div>
       </header>
 
       <main className="main-content">

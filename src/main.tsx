@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { AuthProvider } from './context/AuthContext'
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configuração Global do Worker PDF (Antes de qualquer renderização)
@@ -25,7 +26,9 @@ console.log('[App] Initializing... Build Time: ' + new Date().toISOString());
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </ErrorBoundary>
   </StrictMode>,
 )
