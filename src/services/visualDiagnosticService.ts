@@ -239,10 +239,6 @@ function formatMarkdownToHtml(md: string): string {
 // ===== Gemini Vision API =====
 
 async function analyzeWithGeminiVision(imageBase64: string, prompt: string): Promise<string> {
-    if (!GEMINI_API_KEY || GEMINI_API_KEY.length < 10) {
-        return '[Gemini Vision indisponível — API key não configurada]';
-    }
-
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
     const requestBody = {
@@ -256,13 +252,25 @@ async function analyzeWithGeminiVision(imageBase64: string, prompt: string): Pro
         generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
     };
 
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const hasLocalKey = !!GEMINI_API_KEY && GEMINI_API_KEY.length > 10;
+    let response: Response;
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-    });
+    if (hasLocalKey) {
+        // Dev local: chama Gemini diretamente com a key
+        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+        });
+    } else {
+        // Produção (Vercel): usa o proxy /api/chat que injeta a key server-side
+        response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+        });
+    }
 
     if (!response.ok) {
         const errText = await response.text().catch(() => '');
