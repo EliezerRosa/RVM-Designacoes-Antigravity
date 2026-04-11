@@ -88,6 +88,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAdmin = profile?.role === 'admin';
     const needs2FA = !!user && !!profile && !profile.whatsapp_verified && !isAdmin;
 
+    console.log('[Auth] updateState:', { 
+      hasUser: !!user, hasProfile: !!profile, isAdmin, needs2FA, 
+      isAuthenticated: !!user && !!profile && (profile?.whatsapp_verified || isAdmin),
+      email: user?.email 
+    });
+
     setState({
       user,
       session,
