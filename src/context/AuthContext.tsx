@@ -103,13 +103,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!mounted) return;
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('[Auth] getSession error:', error);
+          if (mounted) updateState(null, null, null);
+          return;
+        }
+        if (!mounted) return;
 
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        if (mounted) updateState(session.user, session, profile);
-      } else {
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id);
+          if (mounted) updateState(session.user, session, profile);
+        } else {
+          if (mounted) updateState(null, null, null);
+        }
+      } catch (e) {
+        console.error('[Auth] Init error:', e);
         if (mounted) updateState(null, null, null);
       }
     }
@@ -118,12 +128,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+      console.log('[Auth] onAuthStateChange:', event, session?.user?.email);
 
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session?.user) {
         const profile = await fetchProfile(session.user.id);
         if (mounted) {
           updateState(session.user, session, profile);
-          logAuthEvent(session.user.id, session.user.email || '', 'login');
+          if (event === 'SIGNED_IN') {
+            logAuthEvent(session.user.id, session.user.email || '', 'login');
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         if (mounted) updateState(null, null, null);
