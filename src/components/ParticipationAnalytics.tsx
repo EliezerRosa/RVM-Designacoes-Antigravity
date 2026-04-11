@@ -387,7 +387,7 @@ export function ParticipationAnalytics() {
                             <h3 style={{ fontSize: '1.1em', marginBottom: '15px', color: '#fff' }}>
                                 📊 Comparação de Participações
                             </h3>
-                            <ResponsiveContainer width="100%" height={300}>
+                            <ResponsiveContainer width="100%" height={300} minWidth={1}>
                                 <BarChart data={comparisonData.chartData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                                     <XAxis dataKey="name" stroke="#9ca3af" />
@@ -416,7 +416,7 @@ export function ParticipationAnalytics() {
                             <h3 style={{ fontSize: '1.1em', marginBottom: '15px', color: '#fff' }}>
                                 📈 Evolução Mensal - {comparisonData.publishers[0].name}
                             </h3>
-                            <ResponsiveContainer width="100%" height={250}>
+                            <ResponsiveContainer width="100%" height={250} minWidth={1}>
                                 <LineChart data={comparisonData.publishers[0].timeline}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                                     <XAxis dataKey="date" stroke="#9ca3af" />

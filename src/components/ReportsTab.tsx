@@ -42,7 +42,7 @@ export function ReportsTab({ data }: ReportsTabProps) {
 
                 {/* DISTRIBUIÇÃO */}
                 <ChartContainer title="Distribuição por Tipo">
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={250} minWidth={1}>
                         <PieChart>
                             <Pie
                                 data={distributionByType}
@@ -68,7 +68,7 @@ export function ReportsTab({ data }: ReportsTabProps) {
                     <div style={{ fontSize: '0.8em', color: '#666', marginBottom: '5px', textAlign: 'center' }}>
                         Posição no Ranking Acumulado (1º no topo)
                     </div>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={250} minWidth={1}>
                         <LineChart data={bumpChartData?.data || []}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="name" />
@@ -96,7 +96,7 @@ export function ReportsTab({ data }: ReportsTabProps) {
 
                 {/* TOP 10 */}
                 <ChartContainer title="Top 10 Mais Designados (Total)">
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={250} minWidth={1}>
                         <BarChart data={topDesignated} layout="vertical" margin={{ left: 40 }}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis type="number" />
@@ -109,7 +109,7 @@ export function ReportsTab({ data }: ReportsTabProps) {
 
                 {/* LOW 10 */}
                 <ChartContainer title="Top 10 Menos Designados (Total)">
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={250} minWidth={1}>
                         <BarChart data={lowDesignated} layout="vertical" margin={{ left: 40 }}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis type="number" />
