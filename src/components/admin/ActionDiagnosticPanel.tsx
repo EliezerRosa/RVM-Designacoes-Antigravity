@@ -444,6 +444,31 @@ function ResultRow({ result, isExpanded, onToggle }: { result: ActionDiagnostic;
                             🐛 {result.error}
                         </div>
                     )}
+
+                    {/* Script detalhado do teste */}
+                    {result.testScript && (
+                        <div style={{ marginTop: '8px', background: '#0F172A', border: '1px solid #334155', borderRadius: '8px', padding: '10px 12px' }}>
+                            <div style={{ color: '#818CF8', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>
+                                📜 Script Detalhado do Teste
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <ScriptField label="Cenário" value={result.testScript.cenario} color="#60A5FA" />
+                                <ScriptField label="Comando Simulado" value={result.testScript.comandoSimulado} color="#A78BFA" />
+                                <ScriptField label="Expectativa" value={result.testScript.expectativa} color="#34D399" />
+                                <ScriptField label="Resultado Obtido" value={result.testScript.resultadoObtido} color={result.status === 'PASS' ? '#10B981' : result.status === 'FAIL' ? '#F87171' : '#FBBF24'} />
+                                <ScriptField label="Diagnóstico Final" value={result.testScript.diagnostico} color="#F472B6" />
+                                {result.testScript.dadosUtilizados && (
+                                    <details style={{ marginTop: '2px' }}>
+                                        <summary style={{ cursor: 'pointer', color: '#64748B', fontSize: '11px' }}>📦 Dados utilizados no teste</summary>
+                                        <pre style={{ background: '#1E293B', padding: '6px 8px', borderRadius: '4px', fontSize: '10px', color: '#94A3B8', marginTop: '4px', overflow: 'auto', maxHeight: '150px' }}>
+                                            {JSON.stringify(result.testScript.dadosUtilizados, null, 2)}
+                                        </pre>
+                                    </details>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {result.resultData && (
                         <details style={{ marginTop: '6px' }}>
                             <summary style={{ cursor: 'pointer', color: '#818CF8', fontSize: '11px' }}>
@@ -555,8 +580,34 @@ function VisualResultRow({ result, isExpanded, onToggle, onPreview }: {
                         </div>
                     )}
 
+                    {/* Script detalhado visual */}
+                    {result.testScript && (
+                        <div style={{ marginTop: '8px', background: '#0F172A', border: '1px solid #4C1D95', borderRadius: '8px', padding: '10px 12px' }}>
+                            <div style={{ color: '#C4B5FD', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>
+                                📜 Script Detalhado do Teste Visual
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <ScriptField label="Cenário" value={result.testScript.cenario} color="#60A5FA" />
+                                <ScriptField label="Comando Simulado" value={result.testScript.comandoSimulado} color="#A78BFA" />
+                                <ScriptField label="Expectativa Visual" value={result.testScript.expectativaVisual} color="#34D399" />
+                                <ScriptField label="Ação Executada" value={result.testScript.acaoExecutada} color="#FBBF24" />
+                                <ScriptField label="Captura Realizada" value={result.testScript.capturaRealizada} color="#818CF8" />
+                                <ScriptField label="Análise Gemini" value={result.testScript.analiseGemini} color="#C4B5FD" />
+                                <ScriptField label="Diagnóstico Final" value={result.testScript.diagnosticoFinal} color={passed ? '#10B981' : '#F87171'} />
+                                {result.testScript.dadosUtilizados && (
+                                    <details style={{ marginTop: '2px' }}>
+                                        <summary style={{ cursor: 'pointer', color: '#64748B', fontSize: '11px' }}>📦 Dados utilizados no teste</summary>
+                                        <pre style={{ background: '#1E293B', padding: '6px 8px', borderRadius: '4px', fontSize: '10px', color: '#94A3B8', marginTop: '4px', overflow: 'auto', maxHeight: '150px' }}>
+                                            {JSON.stringify(result.testScript.dadosUtilizados, null, 2)}
+                                        </pre>
+                                    </details>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Validation details */}
-                    <div style={{ color: color, fontSize: '11px', fontWeight: '600' }}>
+                    <div style={{ color: color, fontSize: '11px', fontWeight: '600', marginTop: '8px' }}>
                         {passed ? '✅' : '❌'} {result.validationDetails}
                     </div>
 
@@ -568,6 +619,20 @@ function VisualResultRow({ result, isExpanded, onToggle, onPreview }: {
                     )}
                 </div>
             )}
+        </div>
+    );
+}
+
+function ScriptField({ label, value, color }: { label: string; value: string; color: string }) {
+    if (!value) return null;
+    return (
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+            <span style={{ color, fontSize: '10px', fontWeight: '700', minWidth: '120px', textTransform: 'uppercase', letterSpacing: '0.3px', lineHeight: '1.8' }}>
+                {label}:
+            </span>
+            <span style={{ color: '#CBD5E1', fontSize: '12px', lineHeight: '1.6', flex: 1 }}>
+                {value}
+            </span>
         </div>
     );
 }
