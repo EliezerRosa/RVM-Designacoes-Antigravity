@@ -21,6 +21,17 @@ export default defineConfig(({ command, mode }) => {
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY),
     },
     plugins: [react()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            supabase: ['@supabase/supabase-js'],
+            charts: ['recharts'],
+          }
+        }
+      }
+    },
     // Local (dev) ou Vercel = raiz ('/')
     // GitHub Pages (build não-Vercel) = subdiretório
     base: (isDev || isVercel) ? '/' : '/RVM-Designacoes-Antigravity/',
