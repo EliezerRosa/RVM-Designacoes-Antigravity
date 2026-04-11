@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
@@ -105,13 +105,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Track loading state with ref for safety timeout (avoids stale closure)
+  const isLoadingRef = useRef(true);
+  useEffect(() => { isLoadingRef.current = state.isLoading; }, [state.isLoading]);
+
+  // Prevent duplicate profile fetches: SIGNED_IN and INITIAL_SESSION fire in any order
+  const processedUserRef = useRef<string | null>(null);
+
   // Initialize session — rely on onAuthStateChange for all events
   useEffect(() => {
     let mounted = true;
 
     // Safety timeout: if still loading after 5s, force show login
     const timeout = setTimeout(() => {
-      if (mounted && state.isLoading) {
+      if (mounted && isLoadingRef.current) {
         console.warn('[Auth] Safety timeout - forcing loading to false');
         setState(prev => ({ ...prev, isLoading: false }));
       }
@@ -121,25 +128,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return;
       console.log('[Auth] onAuthStateChange:', event, session?.user?.email);
 
-      if (event === 'INITIAL_SESSION') {
-        // Initial load — session from storage
-        if (session?.user) {
-          const profile = await fetchProfile(session.user.id);
-          if (mounted) updateState(session.user, session, profile);
-        } else {
-          if (mounted) updateState(null, null, null);
+      if (event === 'SIGNED_OUT') {
+        processedUserRef.current = null;
+        if (mounted) updateState(null, null, null);
+        return;
+      }
+
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
+        // Skip if we already processed this exact user (avoids double fetch)
+        if (processedUserRef.current === session.user.id) {
+          console.log('[Auth] Skipping duplicate event for', session.user.email);
+          return;
         }
-      } else if (event === 'SIGNED_IN' && session?.user) {
+        processedUserRef.current = session.user.id;
+
         const profile = await fetchProfile(session.user.id);
         if (mounted) {
           updateState(session.user, session, profile);
-          logAuthEvent(session.user.id, session.user.email || '', 'login');
+          if (event === 'SIGNED_IN') {
+            logAuthEvent(session.user.id, session.user.email || '', 'login');
+          }
         }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         const profile = await fetchProfile(session.user.id);
         if (mounted) updateState(session.user, session, profile);
-      } else if (event === 'SIGNED_OUT') {
-        if (mounted) updateState(null, null, null);
       }
     });
 
