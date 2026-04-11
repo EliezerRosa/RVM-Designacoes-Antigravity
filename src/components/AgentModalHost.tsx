@@ -10,7 +10,7 @@
  * - Extensível: adicionar novo modal = adicionar 1 case no switch
  */
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import type { Publisher, WorkbookPart } from '../types';
 import PublisherList from './PublisherList';
 import PublisherForm from './PublisherForm';
@@ -124,7 +124,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
         try {
             await workbookService.updatePart(partId, {
                 resolvedPublisherName: newName,
-                status: 'CONFIRMADA'
+                status: 'DESIGNADA'
             });
             if (onDataChange) onDataChange();
         } catch (error) {
@@ -225,7 +225,6 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                                 }}
                                 part={editingPart}
                                 onSave={handleSaveEditPart}
-                                publishers={publishers}
                             />
                         )}
                     </>
