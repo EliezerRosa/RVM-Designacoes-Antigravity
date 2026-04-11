@@ -32,6 +32,20 @@ export interface VisualTestResult {
     validationDetails: string;
     durationMs: number;
     error?: string;
+    /** Script detalhado do teste visual */
+    testScript?: VisualTestScript;
+}
+
+/** Documenta o cenário completo do teste visual */
+export interface VisualTestScript {
+    cenario: string;
+    comandoSimulado: string;
+    expectativaVisual: string;
+    acaoExecutada: string;
+    capturaRealizada: string;
+    analiseGemini: string;
+    diagnosticoFinal: string;
+    dadosUtilizados?: Record<string, any>;
 }
 
 export interface VisualDiagnosticReport {
@@ -51,6 +65,23 @@ interface VisualMock {
     renderType: 's140' | 'data-table' | 'text-report';
     geminiPrompt: string;     // Prompt específico para o Gemini analisar a captura
     buildAction: (weekId: string, publisherName?: string) => { type: AgentActionType; params: Record<string, any>; description: string };
+    /** Monta o VisualTestScript com contexto completo */
+    buildScript: (ctx: VisualScriptContext) => VisualTestScript;
+}
+
+interface VisualScriptContext {
+    weekIds: string[];
+    firstWeekId: string;
+    publisherCount: number;
+    partsInWeek: number;
+    designadasInWeek: number;
+    firstPubName?: string;
+    actionSuccess: boolean;
+    actionMessage: string;
+    hadScreenshot: boolean;
+    geminiSummary: string;
+    validationPassed: boolean;
+    error?: string;
 }
 
 const VISUAL_TEST_MAP: Record<string, VisualMock> = {
@@ -70,6 +101,16 @@ Avalie em português do Brasil:
             params: { weekId },
             description: `Mock: visualizar S-140 semana ${weekId}`,
         }),
+        buildScript: (ctx) => ({
+            cenario: `Semana ${ctx.firstWeekId}: ${ctx.partsInWeek} partes, ${ctx.designadasInWeek} designadas. ${ctx.publisherCount} publicadores no banco.`,
+            comandoSimulado: `"Mostre o S-140 da semana ${ctx.firstWeekId}"`,
+            expectativaVisual: `O S-140 deve exibir formulário completo com cabeçalho (congregação, semana), 3 seções coloridas (Tesouros, Ministério, Vida Cristã), cânticos, orações, e ${ctx.designadasInWeek} nomes de designados visíveis.`,
+            acaoExecutada: ctx.error ? `ERRO ao executar VIEW_S140: ${ctx.error}` : (ctx.actionSuccess ? `Ação VIEW_S140 retornou sucesso. "${ctx.actionMessage.substring(0, 100)}"` : `Ação falhou: ${ctx.actionMessage}`),
+            capturaRealizada: ctx.hadScreenshot ? `Screenshot capturado via html2canvas (escala 2x) de ${ctx.partsInWeek} partes renderizadas off-screen.` : 'Screenshot NÃO capturado — sem partes na semana ou erro no render.',
+            analiseGemini: ctx.geminiSummary || 'Não analisado pelo Gemini Vision.',
+            diagnosticoFinal: ctx.error ? `Falha técnica ao visualizar S-140.` : (!ctx.hadScreenshot ? 'Sem captura visual — impossível validar.' : (ctx.validationPassed ? `S-140 da semana ${ctx.firstWeekId} renderizado e APROVADO pelo Gemini Vision. Layout, seções e designações estão corretos.` : `S-140 da semana ${ctx.firstWeekId} REPROVADO pelo Gemini Vision. Verifique a análise acima para detalhes.`)),
+            dadosUtilizados: { semana: ctx.firstWeekId, partes: ctx.partsInWeek, designadas: ctx.designadasInWeek },
+        }),
     },
 
     SEND_S140: {
@@ -86,6 +127,16 @@ Avalie em português do Brasil:
             type: 'SEND_S140',
             params: { weekId },
             description: `Mock: preparar S-140 semana ${weekId}`,
+        }),
+        buildScript: (ctx) => ({
+            cenario: `Preparação de S-140 para envio externo. Semana ${ctx.firstWeekId}: ${ctx.partsInWeek} partes.`,
+            comandoSimulado: `"Prepare a programação S-140 da semana ${ctx.firstWeekId} para envio"`,
+            expectativaVisual: `S-140 gerado como imagem de alta resolução, adequado para impressão e WhatsApp. Todos os campos preenchidos devem estar legíveis.`,
+            acaoExecutada: ctx.error ? `ERRO: ${ctx.error}` : (ctx.actionSuccess ? `SEND_S140 OK. "${ctx.actionMessage.substring(0, 100)}"` : `Falha: ${ctx.actionMessage}`),
+            capturaRealizada: ctx.hadScreenshot ? 'Screenshot capturado em alta resolução (2x).' : 'Sem captura.',
+            analiseGemini: ctx.geminiSummary || 'Não analisado.',
+            diagnosticoFinal: ctx.validationPassed ? `S-140 pronto para envio — qualidade visual aprovada.` : `S-140 reprovado ou não capturado. ${ctx.error || ctx.actionMessage}`,
+            dadosUtilizados: { semana: ctx.firstWeekId, partes: ctx.partsInWeek },
         }),
     },
 
@@ -104,6 +155,16 @@ Avalie em português do Brasil:
             params: { weekId },
             description: `Mock: compartilhar S-140 via WhatsApp semana ${weekId}`,
         }),
+        buildScript: (ctx) => ({
+            cenario: `Compartilhamento via WhatsApp do S-140 da semana ${ctx.firstWeekId}.`,
+            comandoSimulado: `"Compartilhe o S-140 da semana ${ctx.firstWeekId} no WhatsApp"`,
+            expectativaVisual: 'Imagem PNG nítida e legível em tela de celular. Texto grande o suficiente, cores com bom contraste, sem cortes.',
+            acaoExecutada: ctx.error ? `ERRO: ${ctx.error}` : (ctx.actionSuccess ? `Compartilhamento sinalizado. "${ctx.actionMessage.substring(0, 100)}"` : `Falha: ${ctx.actionMessage}`),
+            capturaRealizada: ctx.hadScreenshot ? 'PNG capturado em resolução 2x para WhatsApp.' : 'Sem captura.',
+            analiseGemini: ctx.geminiSummary || 'Não analisado.',
+            diagnosticoFinal: ctx.validationPassed ? 'Imagem aprovada para envio via WhatsApp — legível e completa.' : `Imagem reprovada para WhatsApp. ${ctx.error || 'Verifique análise do Gemini.'}`,
+            dadosUtilizados: { semana: ctx.firstWeekId, partes: ctx.partsInWeek },
+        }),
     },
 
     NAVIGATE_WEEK: {
@@ -120,6 +181,19 @@ Avalie em português do Brasil:
             params: { weekId },
             description: `Mock: navegar para semana ${weekId}`,
         }),
+        buildScript: (ctx) => {
+            const nextWeek = ctx.weekIds.length > 1 ? ctx.weekIds[1] : ctx.firstWeekId;
+            return {
+                cenario: `Semanas disponíveis: [${ctx.weekIds.slice(0, 5).join(', ')}${ctx.weekIds.length > 5 ? '...' : ''}] (${ctx.weekIds.length} total). Navegando para ${ctx.firstWeekId}. Partes na semana: ${ctx.partsInWeek}.`,
+                comandoSimulado: `"Vá para a semana ${ctx.firstWeekId}"`,
+                expectativaVisual: `Após navegar, o S-140 da semana ${ctx.firstWeekId} deve ser renderizado com suas ${ctx.partsInWeek} partes. Deve exibir cabeçalho com data correta e conteúdo válido (não vazio).`,
+                acaoExecutada: ctx.error ? `ERRO: ${ctx.error}` : (ctx.actionSuccess ? `Navegação para ${ctx.firstWeekId} OK. "${ctx.actionMessage.substring(0, 100)}"` : `Navegação falhou: ${ctx.actionMessage}`),
+                capturaRealizada: ctx.hadScreenshot ? `Screenshot do S-140 da semana de destino (${ctx.firstWeekId}) capturado.` : 'Sem captura — semana pode estar vazia.',
+                analiseGemini: ctx.geminiSummary || 'Não analisado.',
+                diagnosticoFinal: ctx.error ? `Erro na navegação.` : (!ctx.hadScreenshot ? `Semana ${ctx.firstWeekId} não tem partes — página vazia. Importe a apostila primeiro.` : (ctx.validationPassed ? `Navegação para ${ctx.firstWeekId} validada visualmente. O S-140 exibe ${ctx.partsInWeek} partes (${ctx.designadasInWeek} designadas). Gemini confirmou conteúdo válido.` : `Navegação realizou-se mas o S-140 foi reprovado visualmente. Verifique se a semana ${ctx.firstWeekId} tem dados corretos.`)),
+                dadosUtilizados: { semanaDestino: ctx.firstWeekId, proximaSemana: nextWeek, totalSemanas: ctx.weekIds.length, partes: ctx.partsInWeek, designadas: ctx.designadasInWeek },
+            };
+        },
     },
 
     CHECK_SCORE: {
@@ -137,6 +211,16 @@ Avalie em português do Brasil:
             params: { partType: 'Leitura da Bíblia', date: weekId },
             description: 'Mock: ranking de elegibilidade para Leitura',
         }),
+        buildScript: (ctx) => ({
+            cenario: `${ctx.publisherCount} publicadores. Ranking para "Leitura da Bíblia" na semana ${ctx.firstWeekId}.`,
+            comandoSimulado: '"Mostre o ranking de candidatos para Leitura da Bíblia"',
+            expectativaVisual: 'Tabela com posição (#), nome do publicador, score e métricas. Ordenada do melhor candidato ao pior. Pelo menos 1 candidato visível.',
+            acaoExecutada: ctx.error ? `ERRO: ${ctx.error}` : (ctx.actionSuccess ? `Ranking gerado. "${ctx.actionMessage.substring(0, 100)}"` : `Falha: ${ctx.actionMessage}`),
+            capturaRealizada: ctx.hadScreenshot ? 'Tabela de ranking capturada como imagem.' : 'Sem captura — ranking vazio ou ação falhou.',
+            analiseGemini: ctx.geminiSummary || 'Não analisado.',
+            diagnosticoFinal: ctx.validationPassed ? `Ranking de elegibilidade gerado e validado visualmente. Tabela legível com candidatos ordenados.` : `Ranking reprovado ou não gerado. ${ctx.error || ctx.actionMessage}`,
+            dadosUtilizados: { tipoParte: 'Leitura da Bíblia', semana: ctx.firstWeekId, publicadores: ctx.publisherCount },
+        }),
     },
 
     GET_ANALYTICS: {
@@ -153,6 +237,16 @@ Avalie em português do Brasil:
             params: {},
             description: 'Mock: estatísticas gerais de participação',
         }),
+        buildScript: (ctx) => ({
+            cenario: `${ctx.publisherCount} publicadores. Consulta geral de analytics de participação.`,
+            comandoSimulado: '"Mostre as estatísticas gerais de participação"',
+            expectativaVisual: 'Relatório com dados numéricos (total de participações, publicadores ativos, tipos de parte) formatado e legível.',
+            acaoExecutada: ctx.error ? `ERRO: ${ctx.error}` : (ctx.actionSuccess ? `Analytics gerado. "${ctx.actionMessage.substring(0, 100)}"` : `Falha: ${ctx.actionMessage}`),
+            capturaRealizada: ctx.hadScreenshot ? 'Relatório de analytics capturado como imagem.' : 'Sem captura.',
+            analiseGemini: ctx.geminiSummary || 'Não analisado.',
+            diagnosticoFinal: ctx.validationPassed ? 'Relatório de analytics validado — dados numéricos legíveis e bem organizados.' : `Analytics reprovado. ${ctx.error || ctx.actionMessage}`,
+            dadosUtilizados: { publicadores: ctx.publisherCount },
+        }),
     },
 
     SHOW_MODAL: {
@@ -167,6 +261,16 @@ Avalie em português do Brasil:
             type: 'SHOW_MODAL',
             params: { modal: 'publishers' },
             description: 'Mock: abrir modal de publicadores',
+        }),
+        buildScript: (ctx) => ({
+            cenario: `Solicitação de abertura do modal "publishers". ${ctx.publisherCount} publicadores no banco.`,
+            comandoSimulado: '"Abra o cadastro de publicadores"',
+            expectativaVisual: 'Relatório textual confirmando qual modal seria aberto e que a ação foi processada corretamente.',
+            acaoExecutada: ctx.error ? `ERRO: ${ctx.error}` : (ctx.actionSuccess ? `SHOW_MODAL retornou sucesso. "${ctx.actionMessage.substring(0, 100)}"` : `Falha: ${ctx.actionMessage}`),
+            capturaRealizada: ctx.hadScreenshot ? 'Relatório textual capturado.' : 'Sem captura.',
+            analiseGemini: ctx.geminiSummary || 'Não analisado.',
+            diagnosticoFinal: ctx.validationPassed ? 'Modal "publishers" sinalizado corretamente e aprovado pelo Gemini.' : `SHOW_MODAL reprovado. ${ctx.error || ctx.actionMessage}`,
+            dadosUtilizados: { modal: 'publishers', publicadores: ctx.publisherCount },
         }),
     },
 };
@@ -349,6 +453,10 @@ export async function runVisualDiagnostic(
         });
     }
 
+    // Dados auxiliares para scripts visuais
+    const weekPartsAll = parts.filter(p => p.weekId === firstWeekId);
+    const designadasAll = weekPartsAll.filter(p => p.resolvedPublisherName);
+
     // Executar cada teste visual
     for (const actionType of actionsToTest) {
         const mock = VISUAL_TEST_MAP[actionType];
@@ -392,6 +500,22 @@ export async function runVisualDiagnostic(
                 validationPassed = lower.includes('aprovado') && !lower.includes('reprovado');
             }
 
+            // 4. Construir script detalhado
+            const scriptCtx: VisualScriptContext = {
+                weekIds,
+                firstWeekId,
+                publisherCount: publishers.length,
+                partsInWeek: weekPartsAll.length,
+                designadasInWeek: designadasAll.length,
+                firstPubName,
+                actionSuccess: actionResult.success,
+                actionMessage: actionResult.message || '',
+                hadScreenshot: !!screenshotBase64,
+                geminiSummary: geminiAnalysis || '',
+                validationPassed,
+            };
+            const testScript = mock.buildScript(scriptCtx);
+
             results.push({
                 actionType,
                 mockCommand: mock.command,
@@ -403,17 +527,37 @@ export async function runVisualDiagnostic(
                     ? (validationPassed ? 'Gemini Vision aprovou o resultado visual' : 'Gemini Vision reprovou — veja análise')
                     : (actionResult.success ? 'Ação executada sem captura visual' : `Ação falhou: ${actionResult.message}`),
                 durationMs: Math.round(performance.now() - t0),
+                testScript,
             });
 
         } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            // Script detalhado para falha
+            const scriptCtx: VisualScriptContext = {
+                weekIds,
+                firstWeekId,
+                publisherCount: publishers.length,
+                partsInWeek: weekPartsAll.length,
+                designadasInWeek: designadasAll.length,
+                firstPubName,
+                actionSuccess: false,
+                actionMessage: errMsg,
+                hadScreenshot: false,
+                geminiSummary: '',
+                validationPassed: false,
+                error: errMsg,
+            };
+            const testScript = mock.buildScript(scriptCtx);
+
             results.push({
                 actionType,
                 mockCommand: mock.command,
                 mockDescription: mock.description,
                 validationPassed: false,
-                validationDetails: `Exceção: ${err instanceof Error ? err.message : String(err)}`,
+                validationDetails: `Exceção: ${errMsg}`,
                 durationMs: Math.round(performance.now() - t0),
-                error: String(err),
+                error: errMsg,
+                testScript,
             });
         }
     }
