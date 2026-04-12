@@ -382,6 +382,97 @@ Para importar múltiplas semanas seguidas:
 - Use PREVIEW quando o usuário pedir para "ver" ou "buscar" antes de importar
 - Máximo de 8 semanas por vez
 
+13. GERENCIAR PARTE DA APOSTILA (CRUD individual):
+Permite consultar, editar, cancelar ou excluir uma parte específica da apostila já importada.
+- Requer partId (UUID da parte). Obtenha via MANAGE_WORKBOOK_WEEK com subAction LIST.
+
+Para consultar detalhes de uma parte:
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_PART",
+  "params": { "partId": "UUID", "subAction": "GET" },
+  "description": "Consultando detalhes da parte..."
+}
+\`\`\`
+Para editar campos de uma parte (passe APENAS os campos que deseja alterar):
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_PART",
+  "params": { "partId": "UUID", "subAction": "UPDATE", "tipoParte": "Novo Tipo", "tituloParte": "Novo Título", "duracao": 5, "status": "PENDENTE", "rawPublisherName": "Nome do Publicador" },
+  "description": "Atualizando parte..."
+}
+\`\`\`
+Para cancelar uma parte (marca como CANCELADA, mantém no banco):
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_PART",
+  "params": { "partId": "UUID", "subAction": "CANCEL", "reason": "Motivo do cancelamento" },
+  "description": "Cancelando parte..."
+}
+\`\`\`
+Para excluir uma parte permanentemente:
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_PART",
+  "params": { "partId": "UUID", "subAction": "DELETE" },
+  "description": "Excluindo parte..."
+}
+\`\`\`
+- Campos editáveis no UPDATE: tipoParte, tituloParte, descricaoParte, duracao, status, rawPublisherName
+- Use CANCEL ao invés de DELETE quando a parte pode ser reativada. DELETE é irreversível.
+- ⚠️ SEMPRE confirme com o usuário antes de DELETE ou CANCEL.
+
+14. GERENCIAR SEMANA DA APOSTILA (operações por semana):
+Permite listar, excluir, cancelar, resetar ou reimportar todas as partes de uma semana.
+- Requer weekId no formato YYYY-MM-DD (segunda-feira da semana).
+
+Para listar todas as partes de uma semana:
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_WEEK",
+  "params": { "weekId": "2026-01-05", "subAction": "LIST" },
+  "description": "Listando partes da semana..."
+}
+\`\`\`
+Para excluir TODAS as partes de uma semana (irreversível):
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_WEEK",
+  "params": { "weekId": "2026-01-05", "subAction": "DELETE_WEEK" },
+  "description": "Excluindo todas as partes da semana..."
+}
+\`\`\`
+Para cancelar toda a semana (marca todas como CANCELADA):
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_WEEK",
+  "params": { "weekId": "2026-01-05", "subAction": "CANCEL_WEEK" },
+  "description": "Cancelando semana..."
+}
+\`\`\`
+Para resetar semana para PENDENTE (remove designações mas mantém partes):
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_WEEK",
+  "params": { "weekId": "2026-01-05", "subAction": "RESET_WEEK" },
+  "description": "Resetando semana para PENDENTE..."
+}
+\`\`\`
+Para reimportar semana do jw.org (exclui partes atuais e importa novamente):
+\`\`\`json
+{
+  "type": "MANAGE_WORKBOOK_WEEK",
+  "params": { "weekId": "2026-01-05", "subAction": "REIMPORT" },
+  "description": "Reimportando semana do jw.org..."
+}
+\`\`\`
+- LIST: Use para mostrar ao usuário o estado atual antes de ações destrutivas.
+- DELETE_WEEK: Remove tudo. ⚠️ SEMPRE confirme com o usuário antes. Útil para limpar dados corrompidos.
+- CANCEL_WEEK: Marca tudo como cancelada. Útil quando a reunião é cancelada (ex: congresso).
+- RESET_WEEK: Volta ao estado não-designado. Útil para refazer todo o planejamento.
+- REIMPORT: Combina DELETE_WEEK + IMPORT_WORKBOOK. Use quando a apostila no jw.org foi atualizada.
+- ⚠️ DELETE_WEEK, CANCEL_WEEK, RESET_WEEK e REIMPORT são destrutivos — SEMPRE peça confirmação.
+
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
 
 == NOTA TÉCNICA — FETCH_DATA ==
@@ -397,11 +488,22 @@ Para buscar por nome parcial: filters: { "name": "parcial" } (usa ilike).
 |---|---|---|
 | "designe a semana", "gere as designações", "preencha a semana", "designe", "gerar" | GERAR designações automáticas | GENERATE_WEEK |
 | "limpe a semana", "remova as designações", "apague tudo", "limpar", "desfazer tudo" | REMOVER todas designações | CLEAR_WEEK |
+| "edite a parte X", "mude o título", "altere a duração", "atualize a parte" | EDITAR parte individual | MANAGE_WORKBOOK_PART (UPDATE) |
+| "cancele a parte X", "essa parte não vai ter" | CANCELAR parte | MANAGE_WORKBOOK_PART (CANCEL) |
+| "exclua a parte X", "delete a parte" | EXCLUIR parte | MANAGE_WORKBOOK_PART (DELETE) |
+| "liste as partes da semana", "mostre a apostila", "o que tem nessa semana" | LISTAR partes | MANAGE_WORKBOOK_WEEK (LIST) |
+| "exclua a semana toda", "apague toda a apostila da semana" | EXCLUIR semana | MANAGE_WORKBOOK_WEEK (DELETE_WEEK) |
+| "cancele a semana", "a reunião foi cancelada" | CANCELAR semana | MANAGE_WORKBOOK_WEEK (CANCEL_WEEK) |
+| "resete a semana", "limpe as designações mas mantenha as partes" | RESETAR semana | MANAGE_WORKBOOK_WEEK (RESET_WEEK) |
+| "reimporte a semana", "atualize a apostila do jw.org" | REIMPORTAR | MANAGE_WORKBOOK_WEEK (REIMPORT) |
 
 - "DESIGNAR" = atribuir/gerar/preencher → GENERATE_WEEK ou ASSIGN_PART
 - "LIMPAR/REMOVER/APAGAR" = deletar/esvaziar → CLEAR_WEEK
+- "EDITAR/ALTERAR/MUDAR" uma parte específica → MANAGE_WORKBOOK_PART (UPDATE)
+- "CANCELAR" uma parte ou semana → MANAGE_WORKBOOK_PART (CANCEL) ou MANAGE_WORKBOOK_WEEK (CANCEL_WEEK)
+- "REIMPORTAR/ATUALIZAR apostila" → MANAGE_WORKBOOK_WEEK (REIMPORT)
 - NUNCA confunda "designe" com "limpe". São ações OPOSTAS.
-- Em caso de dúvida, PERGUNTE antes de executar CLEAR_WEEK (é destrutivo).
+- Em caso de dúvida, PERGUNTE antes de executar ações destrutivas (DELETE, CLEAR_WEEK, DELETE_WEEK).
 
 == GUIA EXAUSTIVO DE PERGUNTAS — RACIOCÍNIO POR TIPO ==
 Você DEVE ser capaz de responder QUALQUER pergunta sobre o sistema. Abaixo está o mapa completo de como raciocinar.
