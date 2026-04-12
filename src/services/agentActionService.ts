@@ -35,7 +35,9 @@ export type AgentActionType =
     | 'SHOW_MODAL'
     | 'MANAGE_LOCAL_NEEDS'
     | 'GET_ANALYTICS'
-    | 'IMPORT_WORKBOOK';
+    | 'IMPORT_WORKBOOK'
+    | 'MANAGE_WORKBOOK_PART'
+    | 'MANAGE_WORKBOOK_WEEK';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -978,6 +980,163 @@ export const agentActionService = {
                     } catch (e: any) {
                         console.error('[AgentAction] IMPORT_WORKBOOK error:', e);
                         return { success: false, message: `Erro ao importar apostila: ${e?.message || 'Desconhecido'}` };
+                    }
+                }
+
+                // ===== CRUD DE PARTES DA APOSTILA =====
+                case 'MANAGE_WORKBOOK_PART': {
+                    try {
+                        const subAction = (action.params.subAction || '').toUpperCase();
+                        const partId = action.params.partId;
+
+                        if (!partId) {
+                            return { success: false, message: 'Parâmetro partId é obrigatório.' };
+                        }
+
+                        const part = await workbookService.getPartById(partId);
+                        if (!part) {
+                            return { success: false, message: `Parte não encontrada: ${partId}` };
+                        }
+
+                        switch (subAction) {
+                            case 'UPDATE': {
+                                const updates: Record<string, any> = {};
+                                if (action.params.tipoParte !== undefined) updates.tipoParte = action.params.tipoParte;
+                                if (action.params.tituloParte !== undefined) updates.tituloParte = action.params.tituloParte;
+                                if (action.params.descricaoParte !== undefined) updates.descricaoParte = action.params.descricaoParte;
+                                if (action.params.duracao !== undefined) updates.duracao = action.params.duracao;
+                                if (action.params.status !== undefined) updates.status = action.params.status;
+                                if (action.params.rawPublisherName !== undefined) updates.rawPublisherName = action.params.rawPublisherName;
+
+                                if (Object.keys(updates).length === 0) {
+                                    return { success: false, message: 'Nenhum campo para atualizar.' };
+                                }
+
+                                const updated = await workbookService.updatePart(partId, updates);
+                                return {
+                                    success: true,
+                                    message: `✅ Parte "${part.tipoParte}" (seq ${part.seq}) atualizada.`,
+                                    data: { part: updated },
+                                    actionType: 'MANAGE_WORKBOOK_PART'
+                                };
+                            }
+                            case 'DELETE': {
+                                await workbookService.deletePart(partId);
+                                return {
+                                    success: true,
+                                    message: `✅ Parte "${part.tipoParte}" (seq ${part.seq}) excluída.`,
+                                    actionType: 'MANAGE_WORKBOOK_PART'
+                                };
+                            }
+                            case 'CANCEL': {
+                                const cancelled = await workbookService.updatePart(partId, { status: 'CANCELADA' as any, cancelReason: action.params.reason || 'Cancelada pelo agente' });
+                                return {
+                                    success: true,
+                                    message: `✅ Parte "${part.tipoParte}" marcada como CANCELADA.`,
+                                    data: { part: cancelled },
+                                    actionType: 'MANAGE_WORKBOOK_PART'
+                                };
+                            }
+                            case 'GET': {
+                                return {
+                                    success: true,
+                                    message: `**${part.tipoParte}** (${part.funcao})\n- Título: ${part.tituloParte || '—'}\n- Seção: ${part.section}\n- Duração: ${part.duracao} min\n- Status: ${part.status}\n- Designado: ${part.resolvedPublisherName || part.rawPublisherName || '—'}`,
+                                    data: { part },
+                                    actionType: 'MANAGE_WORKBOOK_PART'
+                                };
+                            }
+                            default:
+                                return { success: false, message: `subAction inválida: "${subAction}". Use UPDATE, DELETE, CANCEL ou GET.` };
+                        }
+                    } catch (e: any) {
+                        console.error('[AgentAction] MANAGE_WORKBOOK_PART error:', e);
+                        return { success: false, message: `Erro ao gerenciar parte: ${e?.message || 'Desconhecido'}` };
+                    }
+                }
+
+                case 'MANAGE_WORKBOOK_WEEK': {
+                    try {
+                        const subAction = (action.params.subAction || '').toUpperCase();
+                        const weekId = action.params.weekId;
+
+                        if (!weekId) {
+                            return { success: false, message: 'Parâmetro weekId (YYYY-MM-DD) é obrigatório.' };
+                        }
+
+                        switch (subAction) {
+                            case 'LIST': {
+                                const weekParts = await workbookService.getPartsByWeekId(weekId);
+                                if (weekParts.length === 0) {
+                                    return { success: true, message: `Nenhuma parte encontrada para semana ${weekId}.`, data: { parts: [] }, actionType: 'MANAGE_WORKBOOK_WEEK' };
+                                }
+                                const titulares = weekParts.filter(p => p.funcao === 'Titular');
+                                const summary = titulares.map(p =>
+                                    `- **${p.tipoParte}**: ${p.tituloParte || '—'} | ${p.resolvedPublisherName || p.rawPublisherName || '—'} | ${p.status}`
+                                ).join('\n');
+                                return {
+                                    success: true,
+                                    message: `**Semana ${weekId}** — ${weekParts.length} partes (${titulares.length} titulares):\n\n${summary}`,
+                                    data: { parts: weekParts, totalParts: weekParts.length },
+                                    actionType: 'MANAGE_WORKBOOK_WEEK'
+                                };
+                            }
+                            case 'DELETE_WEEK': {
+                                const weekParts = await workbookService.getPartsByWeekId(weekId);
+                                if (weekParts.length === 0) {
+                                    return { success: false, message: `Nenhuma parte encontrada para semana ${weekId}.` };
+                                }
+                                // Excluir todas as partes da semana
+                                for (const p of weekParts) {
+                                    await workbookService.deletePart(p.id);
+                                }
+                                return {
+                                    success: true,
+                                    message: `✅ ${weekParts.length} partes da semana ${weekId} excluídas.`,
+                                    data: { deletedCount: weekParts.length },
+                                    actionType: 'MANAGE_WORKBOOK_WEEK'
+                                };
+                            }
+                            case 'CANCEL_WEEK': {
+                                await workbookService.updateWeekStatus(weekId, 'CANCELADA' as any, true);
+                                return {
+                                    success: true,
+                                    message: `✅ Todas as partes da semana ${weekId} marcadas como CANCELADA.`,
+                                    actionType: 'MANAGE_WORKBOOK_WEEK'
+                                };
+                            }
+                            case 'RESET_WEEK': {
+                                await workbookService.updateWeekStatus(weekId, 'PENDENTE' as any, true);
+                                return {
+                                    success: true,
+                                    message: `✅ Semana ${weekId} resetada para PENDENTE (designações removidas).`,
+                                    actionType: 'MANAGE_WORKBOOK_WEEK'
+                                };
+                            }
+                            case 'REIMPORT': {
+                                // Excluir semana atual e reimportar do jw.org
+                                const existingParts = await workbookService.getPartsByWeekId(weekId);
+                                if (existingParts.length > 0) {
+                                    for (const p of existingParts) {
+                                        await workbookService.deletePart(p.id);
+                                    }
+                                }
+                                const weekDate = new Date(weekId + 'T12:00:00');
+                                const result = await importWorkbookFromJwOrg(weekDate);
+                                return {
+                                    success: result.success,
+                                    message: result.success
+                                        ? `✅ Semana ${weekId} reimportada: ${existingParts.length} partes antigas excluídas, ${result.totalParts} novas importadas.`
+                                        : `Erro ao reimportar: ${result.error}`,
+                                    data: { deletedCount: existingParts.length, importedCount: result.totalParts },
+                                    actionType: 'MANAGE_WORKBOOK_WEEK'
+                                };
+                            }
+                            default:
+                                return { success: false, message: `subAction inválida: "${subAction}". Use LIST, DELETE_WEEK, CANCEL_WEEK, RESET_WEEK ou REIMPORT.` };
+                        }
+                    } catch (e: any) {
+                        console.error('[AgentAction] MANAGE_WORKBOOK_WEEK error:', e);
+                        return { success: false, message: `Erro ao gerenciar semana: ${e?.message || 'Desconhecido'}` };
                     }
                 }
 

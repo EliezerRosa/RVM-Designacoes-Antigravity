@@ -6,6 +6,7 @@
 
 import { workbookService, type WorkbookExcelRow } from './workbookService';
 import { buildWorkbookParts } from './workbookPartsBuilder';
+import { validateWeekAgainstTemplate } from '../constants/s140Template';
 
 // ===== Constantes =====
 
@@ -43,7 +44,19 @@ const TIPO_TO_MODALIDADE: Record<string, string> = {
     'Parte Vida Cristã': 'Discurso de Ensino',
 };
 
-const NEEDS_HELPER = ['Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos', 'Explicando Suas Crenças'];
+// 'Explicando Suas Crenças' pode ser demonstração (com ajudante) ou discurso (sem).
+// O ajudante é decidido por classifyPartType com base no contexto da apostila.
+const NEEDS_HELPER_ALWAYS = ['Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos'];
+
+// Partes AUTO inseridas pelo builder — se parseadas do HTML, devem ser filtradas para evitar duplicação
+const AUTO_PART_TYPES = [
+    'cântico inicial', 'cantico inicial',
+    'oração inicial', 'oracao inicial',
+    'comentários iniciais', 'comentarios iniciais',
+    'comentários finais', 'comentarios finais',
+    'oração final', 'oracao final',
+    'cântico final', 'cantico final',
+];
 
 // ===== Tipos =====
 
@@ -83,7 +96,13 @@ function formatTime(minutes: number): string {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 }
 
-/** Classifica o tipo da parte pelo título */
+/**
+ * Classifica o tipo da parte pelo título.
+ * 
+ * "Explicando Suas Crenças" pode ser demonstração (titular+ajudante) ou
+ * discurso (só titular). A heurística usa a presença de "discurso" no título
+ * para decidir. Sem "discurso", assume demonstração (com ajudante).
+ */
 function classifyPartType(title: string, sectionKey: string, partNum: number): { tipo: string; needsHelper: boolean } {
     const lower = title.toLowerCase();
 
@@ -93,7 +112,12 @@ function classifyPartType(title: string, sectionKey: string, partNum: number): {
     if (lower.includes('iniciando')) return { tipo: 'Iniciando Conversas', needsHelper: true };
     if (lower.includes('cultivando')) return { tipo: 'Cultivando o Interesse', needsHelper: true };
     if (lower.includes('fazendo disc')) return { tipo: 'Fazendo Discípulos', needsHelper: true };
-    if (lower.includes('explicando')) return { tipo: 'Explicando Suas Crenças', needsHelper: true };
+    if (lower.includes('explicando')) {
+        // "Explicando Suas Crenças" pode ser demonstração ou discurso.
+        // Se o título contém "discurso", é só titular (sem ajudante).
+        const isDiscurso = lower.includes('discurso');
+        return { tipo: 'Explicando Suas Crenças', needsHelper: !isDiscurso };
+    }
     if (lower.includes('discurso') && sectionKey === 'MINISTERIO')
         return { tipo: 'Discurso de Estudante', needsHelper: false };
     if (lower.includes('estudo bíblico de congregação') || lower.includes('estudo biblico de congregacao'))
@@ -184,7 +208,36 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
             return;
         }
 
-        // h3 — potential part
+        // h3 — Detectar Cântico do Meio (heading sem número de parte: "Cântico 65")
+        const canticoMatch = text.match(/^c[aâ]ntico\s+(\d+)/i);
+        if (canticoMatch && !text.match(/^\d+\./)) {
+            // É um cântico sem número de parte — Cântico do Meio
+            const canticoNum = canticoMatch[1];
+            parts.push({
+                year,
+                weekId,
+                weekDisplay,
+                date: weekId,
+                section: currentSection || 'Nossa Vida Cristã',
+                tipoParte: 'Cântico do Meio',
+                modalidade: 'Cântico',
+                tituloParte: `Cântico ${canticoNum}`,
+                descricaoParte: '',
+                detalhesParte: '',
+                seq,
+                funcao: 'Titular',
+                duracao: '3',
+                horaInicio: formatTime(currentTime),
+                horaFim: formatTime(currentTime + 3),
+                rawPublisherName: '',
+                status: 'PENDENTE',
+            });
+            currentTime += 3;
+            seq += 1;
+            return;
+        }
+
+        // h3 — potential numbered part
         // Match: "N. Title" or "N. Title (X min)"
         const partMatch = text.match(/^(\d+)\.\s+(.+)/);
         if (!partMatch) return;
@@ -308,14 +361,31 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         });
     }
 
+    // Filtrar partes AUTO que possam ter sido parseadas do HTML (evitar duplicação)
+    // O builder vai inserir essas partes automaticamente
+    const filteredParts = parts.filter(p => {
+        const lower = p.tipoParte.toLowerCase().trim();
+        return !AUTO_PART_TYPES.includes(lower);
+    });
+
     // Aplicar builder para inserir partes automáticas e horários padronizados
-    const partesFinal = buildWorkbookParts(parts, {
+    const partesFinal = buildWorkbookParts(filteredParts, {
         presidente: '', // Pode ser ajustado se necessário
         horaInicioReuniao: '19:30',
         incluirComentarios: true,
         incluirOracoes: true,
         incluirCanticos: true,
     });
+
+    // Validar resultado contra o template S-140
+    const validation = validateWeekAgainstTemplate(partesFinal);
+    if (validation.warnings.length > 0) {
+        console.warn(`[jwOrgService] Warnings para semana ${weekId}:`, validation.warnings);
+    }
+    if (!validation.valid) {
+        console.error(`[jwOrgService] Erros de validação para semana ${weekId}:`, validation.errors);
+    }
+
     return {
         success: partesFinal.length > 0,
         parts: partesFinal,
