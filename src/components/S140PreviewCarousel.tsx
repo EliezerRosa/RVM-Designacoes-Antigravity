@@ -30,8 +30,8 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     const [contentHeight, setContentHeight] = useState(1123);
 
     // Sync scaling using ResizeObserver to ensure it fits any mobile or PC screen perfectly
-    // Observe the preview area to get both available width and height.
-    const previewRef = useRef<HTMLDivElement | null>(null);
+    // Use a callback ref so that if the element is rendered later (due to early returns), we still observe it.
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const contentRef = useRef<HTMLDivElement | null>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
 
@@ -42,8 +42,8 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
         }
     }, [s140HTML, scale]);
 
-    const setPreviewRef = (element: HTMLDivElement | null) => {
-        previewRef.current = element;
+    const setContainerRef = (element: HTMLDivElement | null) => {
+        containerRef.current = element;
 
         if (observerRef.current) {
             observerRef.current.disconnect();
@@ -52,11 +52,8 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
         if (element) {
             observerRef.current = new ResizeObserver(entries => {
                 for (const entry of entries) {
-                    const availW = entry.contentRect.width - 20; // minus padding
-                    const availH = entry.contentRect.height - 20;
-                    const wScale = availW / 794;
-                    const hScale = availH / contentHeight;
-                    setScale(Math.min(wScale, hScale));
+                    const width = entry.contentRect.width;
+                    setScale(width / 794);
                 }
             });
             observerRef.current.observe(element);
@@ -157,9 +154,6 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
         borderRadius: '8px',
         overflow: 'hidden',
         background: '#F9FAFB',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
     };
 
     const headerStyle: React.CSSProperties = {
@@ -183,13 +177,13 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
 
     const previewStyle: React.CSSProperties = {
         flex: 1, // Preencher toda a coluna
-        overflow: 'hidden', // No scrollbar — scale fits everything
+        overflow: 'auto', // Allow scrolling
         background: 'white',
         padding: '10px',
         position: 'relative',
         display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
+        alignItems: 'flex-start', // Let it span from top
+        justifyContent: 'center', // Center horizontally
     };
 
     return (
@@ -239,7 +233,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
             </div >
 
             {/* Preview — ocupa toda a área disponível */}
-            < div style={previewStyle} ref={setPreviewRef} >
+            < div style={previewStyle} >
                 {isGenerating && (
                     <div style={{
                         position: 'absolute',
@@ -255,6 +249,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                 )
                 }
                 <div
+                    ref={setContainerRef}
                     style={{
                         width: '100%',
                         maxWidth: '794px', // Limit to max original size
