@@ -17,6 +17,7 @@ import { ELIGIBILITY_RULES_VERSION } from '../services/eligibilityService';
 import { RULES_TEXT_VERSION } from '../services/contextBuilder.ts';
 import { ActionDiagnosticPanel } from '../components/admin/ActionDiagnosticPanel';
 import { AuthLogsPanel } from '../components/admin/AuthLogsPanel';
+import { PermissionManager } from '../components/admin/PermissionManager';
 
 interface SystemLog {
     id: string;
@@ -344,6 +345,16 @@ export function AdminDashboard() {
                         <h3>🔐 Histórico de Autenticação & Transações</h3>
                     </div>
                     <AuthLogsPanel />
+                </div>
+
+                {/* Permissions Manager */}
+                <div className="table-card" style={{ marginTop: '24px' }}>
+                    <div className="table-header">
+                        <h3>🛡️ Gerenciamento de Permissões</h3>
+                    </div>
+                    <div style={{ padding: '16px' }}>
+                        <PermissionManager />
+                    </div>
                 </div>
             </div>
         </div>

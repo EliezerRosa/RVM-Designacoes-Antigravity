@@ -41,7 +41,7 @@ export default function TemporalChat({
     initialCommand,
     isWorkbookLoading = false,
     onRateLimitChange,
-    accessLevel = 'elder'
+    accessLevel = 'publisher'
 }: TemporalChatProps) {
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);

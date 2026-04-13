@@ -6,6 +6,7 @@
 
 import { agentActionService, type AgentAction } from './agentActionService';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
+import { getPermissions, createPermissionGate } from './permissionService';
 import {
     buildAgentContext,
     formatContextForPrompt,
@@ -782,6 +783,13 @@ export async function askAgent(
                 sensitiveContextText = formatSensitiveContext(sensitiveInfo);
             } else {
                 systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
+            }
+
+            // Inject allowed actions based on permissions
+            const gate = createPermissionGate(getPermissions());
+            const allowedActions = gate.getAllowedAgentActions();
+            if (allowedActions.length > 0) {
+                systemPrompt += `\n\nAÇÕES PERMITIDAS PARA ESTE USUÁRIO:\nVocê SÓ pode executar as seguintes ações: ${allowedActions.join(', ')}.\nSe o usuário pedir algo fora dessas ações, informe que ele não tem permissão.`;
             }
 
             const recentChat = chatHistory.slice(-15).map(msg => ({
