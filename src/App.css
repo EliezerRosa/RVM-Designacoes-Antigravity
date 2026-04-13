@@ -598,7 +598,7 @@ body {
 }
 
 .agent-tab-container.two-columns {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(300px, 1fr) minmax(400px, 2.2fr);
 }
 
 .agent-tab-column {
