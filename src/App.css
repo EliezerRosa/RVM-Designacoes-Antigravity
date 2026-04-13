@@ -597,6 +597,10 @@ body {
   width: 100%;
 }
 
+.agent-tab-container.two-columns {
+  grid-template-columns: minmax(300px, 1fr) minmax(400px, 1.5fr);
+}
+
 .agent-tab-column {
   background: var(--bg-secondary);
   border-radius: 12px;

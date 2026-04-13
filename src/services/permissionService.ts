@@ -26,6 +26,8 @@ export interface ResolvedPermissions {
     blockedActions: Set<string>;
     dataAccessLevel: DataAccessLevel;
     canSeeSensitiveData: boolean;
+    canSeeAgentControlPanel: boolean;
+    canSendZap: boolean;
     publisherFilters: PublisherFilterCriteria;
     isAdmin: boolean;
     resolvedAt: number;
@@ -35,6 +37,8 @@ export interface PermissionGate {
     canViewTab(tab: ActiveTab): boolean;
     canAgentAction(action: AgentActionType): boolean;
     canSeeSensitiveData(): boolean;
+    canSeeAgentControlPanel(): boolean;
+    canSendZap(): boolean;
     getAccessLevel(): 'elder' | 'publisher';
     getPublisherFilters(): PublisherFilterCriteria;
     getAllowedAgentActions(): AgentActionType[];
@@ -82,6 +86,8 @@ const FALLBACK_PERMISSIONS: ResolvedPermissions = {
     blockedActions: new Set(),
     dataAccessLevel: 'self',
     canSeeSensitiveData: false,
+    canSeeAgentControlPanel: false,
+    canSendZap: false,
     publisherFilters: { accessLevel: 'self' },
     isAdmin: false,
     resolvedAt: 0,
@@ -100,6 +106,8 @@ const FULL_ADMIN_PERMISSIONS: ResolvedPermissions = {
     blockedActions: new Set(),
     dataAccessLevel: 'all',
     canSeeSensitiveData: true,
+    canSeeAgentControlPanel: true,
+    canSendZap: true,
     publisherFilters: { accessLevel: 'all' },
     isAdmin: true,
     resolvedAt: 0,
@@ -167,6 +175,8 @@ function mergeWithOverride(policy: PermissionPolicy, override: PermissionOverrid
         blockedActions,
         dataAccessLevel,
         canSeeSensitiveData: canSeeSensitive,
+        canSeeAgentControlPanel: false, // Set by loadPermissions based on condition+funcao
+        canSendZap: false, // Set by loadPermissions based on condition+funcao
         publisherFilters,
         isAdmin: false,
         resolvedAt: Date.now(),
@@ -238,6 +248,20 @@ export async function loadPermissions(
 
         // 5. Merge and cache
         const resolved = mergeWithOverride(bestPolicy, overrides || null);
+
+        // 6. Compute column-level visibility for Agent control panel (Column 3)
+        resolved.canSeeAgentControlPanel =
+            condition === 'Ancião' ||
+            (condition === 'Servo Ministerial' &&
+             funcao === 'Ajudante do Superintendente da Reunião Vida e Ministério');
+
+        // 7. Compute Zap button visibility (only SRVM-related roles)
+        resolved.canSendZap =
+            (condition === 'Ancião' &&
+             funcao === 'Superintendente da Reunião Vida e Ministério') ||
+            (condition === 'Servo Ministerial' &&
+             funcao === 'Ajudante do Superintendente da Reunião Vida e Ministério');
+
         _cachedPermissions = resolved;
         _scheduleRefresh(profileId, profileRole, publisherId);
         
@@ -316,6 +340,16 @@ export function createPermissionGate(perms: ResolvedPermissions): PermissionGate
 
         isFullAdmin(): boolean {
             return perms.isAdmin;
+        },
+
+        canSeeAgentControlPanel(): boolean {
+            if (perms.isAdmin) return true;
+            return perms.canSeeAgentControlPanel;
+        },
+
+        canSendZap(): boolean {
+            if (perms.isAdmin) return true;
+            return perms.canSendZap;
         },
 
         isLoaded(): boolean {
