@@ -611,6 +611,8 @@ function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean;
               initialCommand={initialAgentCommand || undefined}
               initialWeekId={initialAgentWeekId || undefined}
               accessLevel={permissions.getAccessLevel()}
+              showControlPanel={permissions.canSeeAgentControlPanel()}
+              canSendZap={permissions.canSendZap()}
             />
           )}
 
@@ -689,7 +691,7 @@ function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean;
   )
 }
 
-function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, historyRecords, refreshWorkbookParts, initialCommand, initialWeekId, accessLevel = 'publisher' }: {
+function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, historyRecords, refreshWorkbookParts, initialCommand, initialWeekId, accessLevel = 'publisher', showControlPanel = false, canSendZap = false }: {
   publishers: Publisher[];
   workbookParts: WorkbookPart[];
   isWorkbookLoading: boolean;
@@ -698,6 +700,8 @@ function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, history
   initialCommand?: string;
   initialWeekId?: string;
   accessLevel?: 'elder' | 'publisher';
+  showControlPanel?: boolean;
+  canSendZap?: boolean;
 }) {
   const weekParts = useMemo(() => {
     return workbookParts.reduce((acc, part) => {
@@ -720,6 +724,8 @@ function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, history
     initialCommand={initialCommand}
     initialWeekId={initialWeekId}
     accessLevel={accessLevel}
+    showControlPanel={showControlPanel}
+    canSendZap={canSendZap}
   />;
 }
 

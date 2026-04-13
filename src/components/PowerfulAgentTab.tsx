@@ -32,12 +32,16 @@ interface Props {
     initialWeekId?: string;
     isWorkbookLoading?: boolean;
     accessLevel?: 'elder' | 'publisher';
+    showControlPanel?: boolean;
+    canSendZap?: boolean;
 }
 
 export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder, historyRecords, onDataChange, initialCommand,
     initialWeekId,
     isWorkbookLoading,
-    accessLevel = 'publisher'
+    accessLevel = 'publisher',
+    showControlPanel = false,
+    canSendZap = false
 }: Props) {
     // Estado de Navegação Híbrida
     // Inicializar do localStorage se disponível ou initialWeekId se fornecido
@@ -151,7 +155,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     // Estilos — usando classes CSS para responsividade (ver App.css .agent-tab-*)
     // Snap-scroll mobile: cada coluna ocupa 100vw, dedo rola uma por vez
     return (
-        <div className="agent-tab-container">
+        <div className={`agent-tab-container${showControlPanel ? '' : ' two-columns'}`}>
 
 
             {/* Coluna 1: S-140 Híbrido */}
@@ -166,7 +170,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         publishers={publishers}
                         currentWeekId={currentWeekId}
                         onWeekChange={handleCarouselNavigation}
-                        onRequestS89={() => setShowS89Modal(true)}
+                        onRequestS89={canSendZap ? () => setShowS89Modal(true) : undefined}
                     />
                 </div>
             </div>
@@ -284,8 +288,8 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
             </div>
 
-            {/* Coluna 3: Painel de Controle */}
-            <div className="agent-tab-column">
+            {/* Coluna 3: Painel de Controle — só visível para Anciãos, SM Ajudante SRVM e Admin */}
+            {showControlPanel && (<div className="agent-tab-column">
                 <div className="agent-tab-col-header">
                     <span>⚙️</span> Controle & Explicações
                 </div>
@@ -389,7 +393,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         </div>
                     )}
                 </div>
-            </div>
+            </div>)}
 
             <S89SelectionModal
                 isOpen={showS89Modal}
