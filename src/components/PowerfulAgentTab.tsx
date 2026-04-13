@@ -31,11 +31,13 @@ interface Props {
     initialCommand?: string;
     initialWeekId?: string;
     isWorkbookLoading?: boolean;
+    accessLevel?: 'elder' | 'publisher';
 }
 
 export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrder, historyRecords, onDataChange, initialCommand,
     initialWeekId,
-    isWorkbookLoading
+    isWorkbookLoading,
+    accessLevel = 'publisher'
 }: Props) {
     // Estado de Navegação Híbrida
     // Inicializar do localStorage se disponível ou initialWeekId se fornecido
@@ -217,6 +219,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         initialCommand={initialCommand}
                         isWorkbookLoading={isWorkbookLoading}
                         onRateLimitChange={(remaining, max, refillInSeconds) => setRateLimitInfo({ remaining, max, refillInSeconds })}
+                        accessLevel={accessLevel}
                     />
                 </div>
 

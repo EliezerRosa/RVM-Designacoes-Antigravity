@@ -10,6 +10,7 @@ import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 import { LoginPage } from './components/LoginPage'
 import { useAuth } from './context/AuthContext'
+import { usePermissions } from './hooks/usePermissions'
 
 // Lazy-loaded tabs (code splitting)
 const WorkbookManager = lazy(() => import('./components/WorkbookManager'))
@@ -51,7 +52,12 @@ function App() {
 }
 
 function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean; onSignOut: () => void; userEmail: string }) {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('workbook')
+  const { profile } = useAuth()
+  const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    // Non-admins default to 'agent' tab if they can't see 'workbook'
+    return 'workbook' // will be corrected after permissions load
+  })
 
   // Data State
   const [publishers, setPublishers] = useState<Publisher[]>([])
@@ -72,6 +78,13 @@ function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_, setLastPartsRefresh] = useState(0);
   const [isChatAgentOpen, setIsChatAgentOpen] = useState(false)
+
+  // Redirect to 'agent' tab if current tab is not allowed after permissions load
+  useEffect(() => {
+    if (!permissionsLoading && !permissions.canViewTab(activeTab)) {
+      setActiveTab('agent')
+    }
+  }, [permissionsLoading])
 
   // Handle Admin Action Links (e.g., from WhatsApp notifications)
   const [initialAgentCommand, setInitialAgentCommand] = useState<string | null>(null);
@@ -428,51 +441,51 @@ function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean;
         )}
 
         <nav className="main-nav">
-          <button
+          {permissions.canViewTab('workbook') && <button
             className={`nav-btn ${activeTab === 'workbook' ? 'active' : ''}`}
             onClick={() => handleTabChange('workbook')}
             title="Gerenciador de Apostila"
           >
             📖 Apostila
-          </button>
-          <button
+          </button>}
+          {permissions.canViewTab('approvals') && <button
             className={`nav-btn ${activeTab === 'approvals' ? 'active' : ''}`}
             onClick={() => handleTabChange('approvals')}
             title="Painel de Aprovação"
           >
             ✅ Aprovações
-          </button>
-          <button
+          </button>}
+          {permissions.canViewTab('publishers') && <button
             className={`nav-btn ${activeTab === 'publishers' ? 'active' : ''}`}
             onClick={() => handleTabChange('publishers')}
           >
             👥 Publicadores
-          </button>
-          <button
+          </button>}
+          {permissions.canViewTab('territories') && <button
             className={`nav-btn ${activeTab === 'territories' ? 'active' : ''}`}
             onClick={() => handleTabChange('territories')}
             title="Gerenciar de Territórios"
           >
             🌍 Territórios
-          </button>
-          <button
+          </button>}
+          {permissions.canViewTab('backup') && <button
             className={`nav-btn ${activeTab === 'backup' ? 'active' : ''}`}
             onClick={() => handleTabChange('backup')}
             title="Backup e Restauração"
           >
             💾 Backup
-          </button>
+          </button>}
 
-          <button
+          {permissions.canViewTab('communication') && <button
             className={`nav-btn ${activeTab === 'communication' ? 'active' : ''}`}
             onClick={() => handleTabChange('communication')}
             title="Hub de Comunicação"
             style={{ position: 'relative' }}
           >
             💬 Comunicação
-          </button>
+          </button>}
 
-          <button
+          {permissions.canViewTab('admin') && <button
             className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => handleTabChange('admin')}
             title="Admin Dashboard (Resilience)"
@@ -480,11 +493,10 @@ function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean;
               background: activeTab === 'admin' ? '#10B981' : 'transparent', 
               border: activeTab === 'admin' ? 'none' : '1px solid #10B981', 
               color: activeTab === 'admin' ? 'white' : '#10B981',
-              display: isAdmin ? 'inline-flex' : 'none',
             }}
           >
             📊 Admin
-          </button>
+          </button>}
           <button
             className={`nav-btn ${activeTab === 'agent' ? 'active' : ''}`}
             onClick={() => handleTabChange('agent')}
@@ -598,6 +610,7 @@ function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean;
               isWorkbookLoading={isWorkbookLoading}
               initialCommand={initialAgentCommand || undefined}
               initialWeekId={initialAgentWeekId || undefined}
+              accessLevel={permissions.getAccessLevel()}
             />
           )}
 
@@ -676,7 +689,7 @@ function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean;
   )
 }
 
-function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, historyRecords, refreshWorkbookParts, initialCommand, initialWeekId }: {
+function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, historyRecords, refreshWorkbookParts, initialCommand, initialWeekId, accessLevel = 'publisher' }: {
   publishers: Publisher[];
   workbookParts: WorkbookPart[];
   isWorkbookLoading: boolean;
@@ -684,6 +697,7 @@ function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, history
   refreshWorkbookParts: () => void;
   initialCommand?: string;
   initialWeekId?: string;
+  accessLevel?: 'elder' | 'publisher';
 }) {
   const weekParts = useMemo(() => {
     return workbookParts.reduce((acc, part) => {
@@ -705,6 +719,7 @@ function AgentTabContent({ publishers, workbookParts, isWorkbookLoading, history
     onDataChange={refreshWorkbookParts}
     initialCommand={initialCommand}
     initialWeekId={initialWeekId}
+    accessLevel={accessLevel}
   />;
 }
 

@@ -1,5 +1,6 @@
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
+import { getPermissions, createPermissionGate } from './permissionService';
 
 import { generationService } from './generationService';
 import { workbookService } from './workbookService';
@@ -151,6 +152,17 @@ export const agentActionService = {
         contextWeekId?: string
     ): Promise<ActionResult> {
         console.log('[AgentAction] Executing:', action);
+
+        // Permission gate: check if the current user can perform this action
+        const perms = getPermissions();
+        const gate = createPermissionGate(perms);
+        if (!gate.canAgentAction(action.type)) {
+            return {
+                success: false,
+                message: `Ação "${action.type}" não permitida para seu perfil de permissão.`,
+                actionType: action.type
+            };
+        }
 
         try {
             switch (action.type) {

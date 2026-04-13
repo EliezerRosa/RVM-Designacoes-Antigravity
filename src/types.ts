@@ -7,6 +7,13 @@
 
 export type Gender = 'brother' | 'sister';
 export type Condition = 'Anciao' | 'Ancião' | 'Servo Ministerial' | 'Publicador';
+export type Funcao =
+    | 'Coordenador do Corpo de Anciãos'
+    | 'Secretário'
+    | 'Superintendente de Serviço'
+    | 'Superintendente da Reunião Vida e Ministério'
+    | 'Ajudante do Superintendente da Reunião Vida e Ministério'
+    | null;
 export type AgeGroup = 'Adulto' | 'Jovem' | 'Crianca';
 
 export interface PublisherPrivileges {
@@ -36,6 +43,7 @@ export interface Publisher {
     name: string;
     gender: Gender;
     condition: Condition;
+    funcao: Funcao;
     phone: string;
     isBaptized: boolean;
     isServing: boolean;

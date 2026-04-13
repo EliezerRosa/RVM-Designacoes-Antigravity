@@ -28,6 +28,7 @@ const emptyPublisher: Publisher = {
     name: '',
     gender: 'brother',
     condition: 'Publicador',
+    funcao: null,
     phone: '',
     isBaptized: false,
     isServing: true,
@@ -185,6 +186,33 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                 </select>
                             </div>
                         </div>
+
+                        {(formData.condition === 'Ancião' || formData.condition === 'Anciao' || formData.condition === 'Servo Ministerial') && (
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Função</label>
+                                <select
+                                    name="funcao"
+                                    value={formData.funcao || ''}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, funcao: e.target.value || null }))}
+                                >
+                                    <option value="">Sem função específica</option>
+                                    {(formData.condition === 'Ancião' || formData.condition === 'Anciao') && (
+                                        <>
+                                            <option value="Coordenador do Corpo de Anciãos">Coordenador do Corpo de Anciãos</option>
+                                            <option value="Secretário">Secretário</option>
+                                            <option value="Superintendente de Serviço">Superintendente de Serviço</option>
+                                            <option value="Superintendente da Reunião Vida e Ministério">Superintendente da Reunião Vida e Ministério</option>
+                                            <option value="Ajudante do Superintendente da Reunião Vida e Ministério">Ajudante do Sup. da Reunião VM</option>
+                                        </>
+                                    )}
+                                    {formData.condition === 'Servo Ministerial' && (
+                                        <option value="Ajudante do Superintendente da Reunião Vida e Ministério">Ajudante do Sup. da Reunião VM</option>
+                                    )}
+                                </select>
+                            </div>
+                        </div>
+                        )}
 
                         <div className="form-row">
                             <div className="form-group">
