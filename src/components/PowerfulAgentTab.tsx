@@ -192,7 +192,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             Semana: {currentWeekId}
                         </span>
                     )}
-                    <span
+                    {accessLevel === 'elder' && (<span
                         onClick={() => setShowSubscriptionModal(true)}
                         style={{
                             marginLeft: 'auto',
@@ -209,7 +209,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
                         }} title="Clique para ver custos">
                         ⚡ Pro Reference
-                    </span>
+                    </span>)}
                 </div>
                 <div className="agent-tab-col-content">
                     <TemporalChat
