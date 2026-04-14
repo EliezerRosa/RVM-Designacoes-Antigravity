@@ -150,7 +150,33 @@ async function fetchWeekHtml(weekDate: Date): Promise<{ html: string; articleUrl
 }
 
 /**
- * Parseia o HTML da apostila e extrai as partes estruturadas
+ * Parseia o HTML da apostila e extrai as partes estruturadas.
+ * 
+ * REGRAS DE PARSING (refinadas):
+ * 
+ * CÂNTICOS:
+ * - O HTML contém 3 cânticos: Inicial, Meio e Final.
+ * - Cântico Inicial: H3 no formato "Cântico NN e oração | Comentários iniciais (1 min)"
+ *   → Aparece ANTES de qualquer seção H2 ou dentro de "Início da Reunião"
+ * - Cântico do Meio: H3 no formato "Cântico NN" (sem número de parte)
+ *   → Aparece entre as seções Ministério e Vida Cristã
+ * - Cântico Final: H3 no formato "Comentários finais (3 min) | Cântico NN e oração"
+ *   → Aparece no final do documento, após o EBC
+ * 
+ * DURAÇÕES:
+ * - Formato: (N min) ou (N min.) — o ponto após "min" é opcional
+ * - Se não encontrado no texto do H3, buscar no texto acumulado dos siblings
+ * - Fallback: usar duração padrão do template S-140 para aquele tipo de parte
+ * 
+ * ORDENAÇÃO:
+ * - As partes parseadas do HTML seguem a ordem do documento
+ * - O Cântico do Meio é REMOVIDO da lista principal e passado ao builder como parâmetro
+ * - O builder posiciona o Cântico do Meio entre Ministério e Vida Cristã (posição canônica)
+ * 
+ * SEÇÕES:
+ * - H2 determina a seção atual (Tesouros, Ministério, Vida Cristã)
+ * - H3 dentro de uma seção são as partes numeradas
+ * - H3 sem número de parte podem ser cânticos ou headers especiais
  */
 function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
     const parser = new DOMParser();
@@ -181,7 +207,27 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         weekDisplay = weekId;
     }
 
-    // 2. Parse sections and parts from the HTML headings
+    // 2. Extrair números dos 3 cânticos do texto completo
+    //    Formato abertura: "Cântico 21 e oração"
+    //    Formato meio: "Cântico 100" (standalone H3)
+    //    Formato encerramento: "Cântico 42 e oração" (no final, após "Comentários finais")
+    const canticoRegex = /c[aâ]ntico\s+(\d+)/gi;
+    const allCanticos: number[] = [];
+    let canticoScan: RegExpExecArray | null;
+    while ((canticoScan = canticoRegex.exec(bodyText)) !== null) {
+        const num = parseInt(canticoScan[1]);
+        if (!allCanticos.includes(num)) {
+            allCanticos.push(num);
+        }
+    }
+    // Tipicamente: [21, 100, 42] → inicial, meio, final
+    const canticoInicial = allCanticos.length >= 1 ? allCanticos[0] : null;
+    const canticoMeio = allCanticos.length >= 2 ? allCanticos[1] : null;
+    const canticoFinal = allCanticos.length >= 3 ? allCanticos[2] : null;
+
+    console.log(`[jwOrgService] Cânticos detectados: Inicial=${canticoInicial}, Meio=${canticoMeio}, Final=${canticoFinal}`);
+
+    // 3. Parse sections and parts from the HTML headings
     const parts: WorkbookExcelRow[] = [];
     let seq = 1;
     let currentTime = 19 * 60 + 30; // 19:30
@@ -190,6 +236,21 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
     const headings = doc.querySelectorAll('h2, h3');
     let currentSection = '';
     let currentSectionKey = '';
+
+    // Durações padrão por tipo de parte (fallback do template S-140)
+    const DEFAULT_DURATIONS: Record<string, number> = {
+        'Discurso Tesouros': 10,
+        'Joias Espirituais': 10,
+        'Leitura da Bíblia': 4,
+        'Iniciando Conversas': 3,
+        'Cultivando o Interesse': 4,
+        'Fazendo Discípulos': 5,
+        'Explicando Suas Crenças': 5,
+        'Discurso de Estudante': 5,
+        'Parte Vida Cristã': 15,
+        'Necessidades Locais': 15,
+        'Dirigente EBC': 30,
+    };
 
     headings.forEach((heading) => {
         const text = (heading.textContent || '').trim();
@@ -208,32 +269,23 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
             return;
         }
 
-        // h3 — Detectar Cântico do Meio (heading sem número de parte: "Cântico 65")
-        const canticoMatch = text.match(/^c[aâ]ntico\s+(\d+)/i);
+        // h3 — Detectar cânticos (heading sem número de parte: "Cântico 65")
+        // Ignorar: cânticos inicial e final são gerenciados pelo builder
+        // Capturar: Cântico do Meio é passado como parâmetro ao builder
+        const canticoMatch = text.match(/c[aâ]ntico\s+(\d+)/i);
         if (canticoMatch && !text.match(/^\d+\./)) {
-            // É um cântico sem número de parte — Cântico do Meio
-            const canticoNum = canticoMatch[1];
-            parts.push({
-                year,
-                weekId,
-                weekDisplay,
-                date: weekId,
-                section: currentSection || 'Nossa Vida Cristã',
-                tipoParte: 'Cântico do Meio',
-                modalidade: 'Cântico',
-                tituloParte: `Cântico ${canticoNum}`,
-                descricaoParte: '',
-                detalhesParte: '',
-                seq,
-                funcao: 'Titular',
-                duracao: '3',
-                horaInicio: formatTime(currentTime),
-                horaFim: formatTime(currentTime + 3),
-                rawPublisherName: '',
-                status: 'PENDENTE',
-            });
-            currentTime += 3;
-            seq += 1;
+            // Se contém "oração" ou "comentários", é cântico de abertura/encerramento → ignorar (builder insere)
+            const lower = text.toLowerCase();
+            if (lower.includes('oração') || lower.includes('oracao') || 
+                lower.includes('comentários') || lower.includes('comentarios')) {
+                return; // Cântico inicial ou final — builder cuida
+            }
+            // É o Cântico do Meio — NÃO adicionar à lista (será passado via options ao builder)
+            return;
+        }
+
+        // h3 que começa com "Comentários finais" → ignorar (builder insere)
+        if (text.toLowerCase().startsWith('comentários finais') || text.toLowerCase().startsWith('comentarios finais')) {
             return;
         }
 
@@ -246,9 +298,12 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         const partNum = parseInt(partMatch[1]);
         let titleAndRest = partMatch[2];
 
-        // Extract duration
-        const timeMatch = titleAndRest.match(/\((\d+)\s*min\)/);
-        const duracao = timeMatch ? timeMatch[1] : '5';
+        // Extract duration — aceita "min" ou "min." com ponto opcional
+        const timeMatch = titleAndRest.match(/\((\d+)\s*min\.?\)/);
+        // Classify first to get default duration as fallback
+        const { tipo, needsHelper } = classifyPartType(titleAndRest, currentSectionKey, partNum);
+        const defaultDur = DEFAULT_DURATIONS[tipo] || 5;
+        const duracao = timeMatch ? timeMatch[1] : String(defaultDur);
         const duracaoMin = parseInt(duracao);
 
         // Title is everything before (X min)
@@ -284,8 +339,7 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
             detalhes = extraLines.join(' ');
         }
 
-        // Classify
-        const { tipo, needsHelper } = classifyPartType(title, currentSectionKey, partNum);
+        // tipo e needsHelper já classificados acima (antes da extração de duração)
         const modalidade = TIPO_TO_MODALIDADE[tipo] || 'Demonstração';
 
         // Titular record
@@ -369,12 +423,16 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
     });
 
     // Aplicar builder para inserir partes automáticas e horários padronizados
+    // Passar números dos 3 cânticos extraídos do HTML
     const partesFinal = buildWorkbookParts(filteredParts, {
         presidente: '', // Pode ser ajustado se necessário
         horaInicioReuniao: '19:30',
         incluirComentarios: true,
         incluirOracoes: true,
         incluirCanticos: true,
+        canticoInicial: canticoInicial ?? undefined,
+        canticoMeio: canticoMeio ?? undefined,
+        canticoFinal: canticoFinal ?? undefined,
     });
 
     // Validar resultado contra o template S-140
