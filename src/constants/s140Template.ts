@@ -102,6 +102,23 @@ export interface S140TemplatePart {
 export const S140_TEMPLATE: S140TemplatePart[] = [
   // ─── INÍCIO DA REUNIÃO (AUTO) ─────────────────────────────────
   {
+    templateSeq: 0,
+    section: EnumSecao.INICIO_REUNIAO,
+    tipoParte: EnumTipoParte.PRESIDENTE,
+    modalidade: EnumModalidade.PRESIDENCIA,
+    origin: 'AUTO',
+    designationType: 'MANUAL',
+    defaultDuration: 0,
+    mandatory: true,
+    visibleInS140: true,
+    showAssigneeInS140: true,
+    hasSalaBColumn: false,
+    canHaveHelper: false,
+    funcao: 'Titular',
+    defaultPublisher: '',
+    description: 'Presidente da reunião — renderizado na linha da data (extrema direita), não como linha da tabela.',
+  },
+  {
     templateSeq: 1,
     section: EnumSecao.INICIO_REUNIAO,
     tipoParte: EnumTipoParte.CANTICO_INICIAL,
@@ -128,12 +145,13 @@ export const S140_TEMPLATE: S140TemplatePart[] = [
     defaultDuration: 2,
     mandatory: true,
     visibleInS140: true,
-    showAssigneeInS140: true,
+    showAssigneeInS140: false,
     hasSalaBColumn: false,
     canHaveHelper: false,
     funcao: 'Titular',
     defaultPublisher: 'presidente',
-    description: 'Oração de abertura — designada pelo presidente',
+    description: 'Oração de abertura — nome implícito (presidente), já visível na linha da data.',
+    // NOTA: showAssigneeInS140=false porque o presidente já é exibido na linha da data acima.
   },
   {
     templateSeq: 3,
@@ -282,6 +300,44 @@ export const S140_TEMPLATE: S140TemplatePart[] = [
     defaultPublisher: '',
     description: 'Explicando Suas Crenças — pode ser demonstração (titular+ajudante) OU discurso (só titular). Formato definido pela apostila da semana.',
   },
+  {
+    templateSeq: 10.1,
+    section: EnumSecao.MINISTERIO,
+    tipoParte: 'Discurso de Estudante',
+    modalidade: EnumModalidade.DISCURSO_ESTUDANTE,
+    origin: 'APOSTILA',
+    designationType: 'MANUAL',
+    frequency: 'OCCASIONAL',
+    defaultDuration: 5,
+    mandatory: false,
+    visibleInS140: true,
+    showAssigneeInS140: true,
+    hasSalaBColumn: true,
+    canHaveHelper: false,
+    funcao: 'Titular',
+    defaultPublisher: '',
+    description: 'Discurso de estudante (solo, sem ajudante) — só varões. Alternativa a Explicando Suas Crenças quando a apostila indica formato discurso.',
+  },
+
+  // ─── ELOGIOS E CONSELHOS (AUTO — dinâmico, após cada parte de estudante) ──
+  {
+    templateSeq: 90,
+    section: EnumSecao.MINISTERIO,
+    tipoParte: EnumTipoParte.ELOGIOS_CONSELHOS,
+    modalidade: EnumModalidade.ACONSELHAMENTO,
+    origin: 'AUTO',
+    designationType: 'AUTO_CHAIRMAN',
+    frequency: 'EVERY_WEEK',
+    defaultDuration: 1,
+    mandatory: true,
+    visibleInS140: false,
+    showAssigneeInS140: false,
+    hasSalaBColumn: false,
+    canHaveHelper: false,
+    funcao: 'Titular',
+    defaultPublisher: 'presidente',
+    description: 'Elogios e conselhos do presidente após cada parte de estudante (~4x por reunião, 1 min cada). Não visível no S-140, mas soma ao cálculo de horários.',
+  },
 
   // ─── CÂNTICO DO MEIO (marca transição Ministério → Vida Cristã) ──
   {
@@ -379,7 +435,9 @@ export const S140_TEMPLATE: S140TemplatePart[] = [
     origin: 'DERIVED',
     designationType: 'MANUAL',
     frequency: 'MOST_WEEKS',
-    defaultDuration: 30,
+    defaultDuration: 0,
+    // NOTA: Duração 0 = concorrente ao Dirigente EBC (mesmos 30 min, não soma ao total).
+    // Não exibe horário nem número sequencial no S-140.
     mandatory: false,
     visibleInS140: true,
     showAssigneeInS140: true,
@@ -484,6 +542,7 @@ export const S140_RULES = {
 
   /** Partes AUTO obrigatórias (inseridas pelo builder) */
   autoPartsStart: [
+    EnumTipoParte.PRESIDENTE,
     EnumTipoParte.CANTICO_INICIAL,
     EnumTipoParte.ORACAO_INICIAL,
     EnumTipoParte.COMENTARIOS_INICIAIS,

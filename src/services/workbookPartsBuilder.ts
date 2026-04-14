@@ -4,11 +4,14 @@
 // REGRAS DE COMPOSIÇÃO (refinadas):
 //
 // ESTRUTURA CANÔNICA DA REUNIÃO:
+//   0. Presidente (duração 0 — registro de designação, não afeta horário)
 //   1. Cântico Inicial (número da apostila)
 //   2. Oração Inicial (presidente)
 //   3. Comentários Iniciais (presidente, 1 min)
 //   4-N. Partes de Tesouros da Palavra de Deus
+//        (após cada parte de estudante: Elogios e Conselhos, 1 min)
 //   N+1-M. Partes de Faça Seu Melhor no Ministério
+//        (após cada parte de estudante: Elogios e Conselhos, 1 min)
 //   M+1. Cântico do Meio (número da apostila) ← ENTRE Ministério e Vida Cristã
 //   M+2-P. Partes de Nossa Vida Cristã
 //   P+1. Comentários Finais (presidente, 3 min)
@@ -62,6 +65,10 @@ export function buildWorkbookParts(rawParts: WorkbookExcelRow[], options?: {
     const lower = p.tipoParte.toLowerCase();
     // Ignorar cântico do meio (builder insere na posição canônica)
     if (lower === 'cântico do meio' || lower === 'cantico do meio') continue;
+    // Ignorar Presidente (builder insere como auto-part)
+    if (lower === 'presidente' || lower === 'presidente da reunião') continue;
+    // Ignorar Elogios e Conselhos (builder insere dinamicamente após cada parte de estudante)
+    if (lower.includes('elogios') || lower.includes('conselhos')) continue;
 
     if (p.section === 'Nossa Vida Cristã') {
       partesVidaCrista.push(p);
@@ -81,7 +88,23 @@ export function buildWorkbookParts(rawParts: WorkbookExcelRow[], options?: {
   };
 
   // ─── INÍCIO DA REUNIÃO ───────────────────────────────
-
+  // Presidente da Reunião (duração 0 — não afeta horário, apenas registro de designação)
+  partesCompletas.push({
+    ...meta,
+    section: 'Início da Reunião',
+    tipoParte: 'Presidente',
+    modalidade: 'Presidência',
+    tituloParte: '',
+    descricaoParte: '',
+    detalhesParte: '',
+    seq: seq++,
+    funcao: 'Titular',
+    duracao: '0',
+    horaInicio: '',
+    horaFim: '',
+    rawPublisherName: presidente,
+    status: 'PENDENTE',
+  });
   // Cântico Inicial
   if (incluirCanticos) {
     partesCompletas.push({
@@ -142,9 +165,59 @@ export function buildWorkbookParts(rawParts: WorkbookExcelRow[], options?: {
     });
   }
 
-  // ─── TESOUROS + MINISTÉRIO (partes do parser, na ordem) ──────
-  for (const p of partesTesourosMinist) {
+  // ─── TESOUROS + MINISTÉRIO (partes do parser, na ordem) + ELOGIOS ──────
+  for (let i = 0; i < partesTesourosMinist.length; i++) {
+    const p = partesTesourosMinist[i];
+    const next = partesTesourosMinist[i + 1];
     partesCompletas.push({ ...p, seq: seq++ });
+
+    // Após cada parte de estudante (Titular), inserir Elogios e Conselhos (1 min)
+    // Se a parte tem Ajudante logo após, inserir Elogios DEPOIS do Ajudante
+    const isTitularEstudante = p.funcao === 'Titular' && isStudentPart(p.tipoParte);
+    const nextIsAjudante = next && next.funcao === 'Ajudante';
+
+    if (isTitularEstudante && !nextIsAjudante) {
+      // Estudante sem ajudante (Leitura, Discurso) — Elogios após Titular
+      partesCompletas.push({
+        ...meta,
+        section: p.section,
+        tipoParte: 'Elogios e Conselhos',
+        modalidade: 'Aconselhamento',
+        tituloParte: '',
+        descricaoParte: '',
+        detalhesParte: '',
+        seq: seq++,
+        funcao: 'Titular',
+        duracao: '1',
+        horaInicio: '',
+        horaFim: '',
+        rawPublisherName: presidente,
+        status: 'PENDENTE',
+      });
+    }
+
+    if (p.funcao === 'Ajudante' && i > 0) {
+      const prev = partesTesourosMinist[i - 1];
+      if (prev && prev.funcao === 'Titular' && isStudentPart(prev.tipoParte)) {
+        // Ajudante de parte de estudante — Elogios após Ajudante
+        partesCompletas.push({
+          ...meta,
+          section: p.section,
+          tipoParte: 'Elogios e Conselhos',
+          modalidade: 'Aconselhamento',
+          tituloParte: '',
+          descricaoParte: '',
+          detalhesParte: '',
+          seq: seq++,
+          funcao: 'Titular',
+          duracao: '1',
+          horaInicio: '',
+          horaFim: '',
+          rawPublisherName: presidente,
+          status: 'PENDENTE',
+        });
+      }
+    }
   }
 
   // ─── CÂNTICO DO MEIO (posição canônica: entre Ministério e Vida Cristã) ──
@@ -258,4 +331,17 @@ function minutesToTime(totalMinutes: number): string {
   const minutes = totalMinutes % 60;
   let h = hours % 24;
   return `${h.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+// Tipos de partes de estudante (após cada uma, inserir Elogios e Conselhos)
+const STUDENT_TIPO_KEYWORDS = [
+  'leitura da bíblia', 'leitura da biblia',
+  'iniciando conversas', 'cultivando o interesse',
+  'fazendo discípulos', 'explicando suas crenças',
+  'discurso de estudante',
+];
+
+function isStudentPart(tipoParte: string): boolean {
+  const lower = tipoParte.toLowerCase();
+  return STUDENT_TIPO_KEYWORDS.some(kw => lower.includes(kw));
 }
