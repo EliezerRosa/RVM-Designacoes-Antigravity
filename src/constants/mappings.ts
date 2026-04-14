@@ -170,6 +170,7 @@ export const TIPO_ORDER = [
 // Tipos que geralmente são "ocultos" da visão principal ou estatísticas
 // Usado para filtros de UI "Mostrar Ocultos"
 export const HIDDEN_VIEW_TYPES = [
+    'Presidente', 'Presidente da Reunião',
     'Comentários Iniciais', 'Comentarios Iniciais',
     'Comentários Finais', 'Comentarios Finais',
     'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',

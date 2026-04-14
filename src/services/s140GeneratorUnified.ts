@@ -44,7 +44,7 @@ const COLORS = {
     CANCELLED_BG: '#FFEBEE',  // Vermelho claro para canceladas
 };
 
-const EXCLUDED_PARTS = ['Elogios e Conselhos', 'Elogios', 'Conselhos'];
+const EXCLUDED_PARTS = ['Elogios e Conselhos', 'Elogios', 'Conselhos', 'Presidente', 'Presidente da Reunião'];
 
 // Partes que NÃO devem ter nome do designado impresso no S-140:
 // - Cânticos: não têm designado (toda a congregação canta)
