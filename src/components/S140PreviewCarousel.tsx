@@ -30,8 +30,8 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     const [contentHeight, setContentHeight] = useState(1123);
 
     // Sync scaling using ResizeObserver to ensure it fits any mobile or PC screen perfectly
-    // Observe the preview area for both width and height to fit the entire S-140.
-    const previewRef = useRef<HTMLDivElement | null>(null);
+    // Use a callback ref so that if the element is rendered later (due to early returns), we still observe it.
+    const containerRef = useRef<HTMLDivElement | null>(null);
     const contentRef = useRef<HTMLDivElement | null>(null);
     const observerRef = useRef<ResizeObserver | null>(null);
 
@@ -40,10 +40,10 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
         if (contentRef.current) {
             setContentHeight(Math.max(1123, contentRef.current.scrollHeight));
         }
-    }, [s140HTML]);
+    }, [s140HTML, scale]);
 
-    const setPreviewRef = (element: HTMLDivElement | null) => {
-        previewRef.current = element;
+    const setContainerRef = (element: HTMLDivElement | null) => {
+        containerRef.current = element;
 
         if (observerRef.current) {
             observerRef.current.disconnect();
@@ -51,14 +51,9 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
 
         if (element) {
             observerRef.current = new ResizeObserver(entries => {
-                for (const entry of entries) {
-                    const w = entry.contentRect.width;
-                    const h = entry.contentRect.height;
-                    if (w > 0 && h > 0) {
-                        const wScale = w / 794;
-                        const hScale = h / contentHeight;
-                        setScale(Math.min(wScale, hScale));
-                    }
+                for (let entry of entries) {
+                    const width = entry.contentRect.width;
+                    setScale(width / 794);
                 }
             });
             observerRef.current.observe(element);
@@ -159,10 +154,6 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
         borderRadius: '8px',
         overflow: 'hidden',
         background: '#F9FAFB',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 0,
     };
 
     const headerStyle: React.CSSProperties = {
@@ -185,15 +176,14 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
     };
 
     const previewStyle: React.CSSProperties = {
-        flex: 1,
-        minHeight: 0, // Critical: allow flex child to shrink below content size
-        overflow: 'hidden',
+        flex: 1, // Preencher toda a coluna
+        overflow: 'auto', // Allow scrolling
         background: 'white',
         padding: '10px',
         position: 'relative',
         display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
+        alignItems: 'flex-start', // Let it span from top
+        justifyContent: 'center', // Center horizontally
     };
 
     return (
@@ -243,7 +233,7 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
             </div >
 
             {/* Preview — ocupa toda a área disponível */}
-            < div style={previewStyle} ref={setPreviewRef} >
+            < div style={previewStyle} >
                 {isGenerating && (
                     <div style={{
                         position: 'absolute',
@@ -259,14 +249,17 @@ export function S140PreviewCarousel({ weekParts, weekOrder, publishers, currentW
                 )
                 }
                 <div
+                    ref={setContainerRef}
                     style={{
-                        width: `${794 * scale}px`,
-                        height: `${contentHeight * scale}px`,
+                        width: '100%',
+                        maxWidth: '794px', // Limit to max original size
+                        height: `${contentHeight * scale}px`, // Dynamically calculated exact height!
                         overflow: 'hidden',
                         background: 'white',
                         boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        margin: '0 auto',
                         position: 'relative',
-                        flexShrink: 0,
+                        transition: 'height 0.2s ease-in-out'
                     }}>
                     <div
                         ref={contentRef}
