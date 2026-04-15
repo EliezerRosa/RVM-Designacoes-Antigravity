@@ -52,6 +52,26 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             // Rastrear IDs já incluídos via S-140 para não duplicar
             const includedOriginalIds = new Set<string>();
 
+            // Incluir Presidente explicitamente (S-140 o coloca no cabeçalho, não em parts)
+            if (weekData.president) {
+                const presidenteWp = weekParts.find(wp =>
+                    (wp.tipoParte === 'Presidente' || wp.tipoParte === 'Presidente da Reunião') &&
+                    wp.funcao === 'Titular'
+                );
+                if (presidenteWp && (presidenteWp.resolvedPublisherName || presidenteWp.rawPublisherName)) {
+                    const presId = presidenteWp.id;
+                    cards.push({
+                        ...presidenteWp,
+                        id: presId + '-titular',
+                        resolvedPublisherName: presidenteWp.resolvedPublisherName || presidenteWp.rawPublisherName,
+                        funcao: 'Titular',
+                        tipoParte: presidenteWp.tipoParte,
+                        title: `Presidente da Reunião`,
+                    });
+                    includedOriginalIds.add(presId);
+                }
+            }
+
             for (const part of weekData.parts || []) {
                 const original = findOriginal(part.id);
                 // Campos do WorkbookPart necessários para prepareS89Message / generateWhatsAppMessage
