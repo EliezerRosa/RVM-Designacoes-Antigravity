@@ -437,7 +437,8 @@ export const agentActionService = {
                             const pType = (part.tipoParte || '').toLowerCase();
                             const pSection = (part.section || '').toLowerCase();
 
-                            const isAdminPart = pType.includes('presidente') ||
+                            // Pular partes automáticas (cânticos, comentários) — mas NÃO presidente
+                            const isAutoAdminPart =
                                 pType.includes('cântico') ||
                                 pType.includes('cantico') ||
                                 pType.includes('comentários') ||
@@ -445,7 +446,7 @@ export const agentActionService = {
 
                             const isFinalPrayer = pType.includes('oração final') || pType.includes('oracao final');
 
-                            if (isAdminPart && !isFinalPrayer) continue;
+                            if (isAutoAdminPart && !isFinalPrayer) continue;
 
                             const isStudent = pSection.includes('ministério') ||
                                 pSection.includes('ministerio') ||
