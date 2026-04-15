@@ -32,6 +32,20 @@ type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'territories' | 'back
 function App() {
   const { isAuthenticated, isLoading: authLoading, needs2FA, isAdmin, signOut, profile } = useAuth();
 
+  // PORTAL ROUTING: links públicos de confirmação de designação
+  // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
+  const urlParams = new URLSearchParams(window.location.search);
+  const portal = urlParams.get('portal');
+  const portalPartId = urlParams.get('id') || urlParams.get('partId');
+
+  if (portal === 'confirm' && portalPartId) {
+    return (
+      <div className="app portal-mode">
+        <DesignationConfirmationPortal partId={portalPartId} />
+      </div>
+    );
+  }
+
   // Auth guard: show login if not authenticated
   if (authLoading) {
     return (
@@ -409,19 +423,6 @@ function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean;
         <p>Carregando dados do servidor...</p>
       </div>
     )
-  }
-
-  // PORTAL ROUTING: Detect public confirmation link
-  const urlParams = new URLSearchParams(window.location.search);
-  const portal = urlParams.get('portal');
-  const partId = urlParams.get('id') || urlParams.get('partId'); // Support both 'id' and 'partId'
-
-  if (portal === 'confirm' && partId) {
-    return (
-      <div className="app portal-mode">
-        <DesignationConfirmationPortal partId={partId} />
-      </div>
-    );
   }
 
   return (

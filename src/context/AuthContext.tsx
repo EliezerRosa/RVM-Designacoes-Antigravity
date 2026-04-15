@@ -163,10 +163,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchProfile, updateState]);
 
   const signInWithGoogle = useCallback(async () => {
+    // Preservar query params (ex: ?portal=confirm&id=...) para que o usuário
+    // retorne à mesma página após login OAuth
+    const returnUrl = window.location.search
+      ? `${window.location.origin}${window.location.pathname}${window.location.search}`
+      : `${window.location.origin}`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}`,
+        redirectTo: returnUrl,
         queryParams: { prompt: 'select_account' },
       },
     });
