@@ -124,7 +124,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, 5000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // IMPORTANT: Do NOT await supabase queries inside this callback!
+    // supabase-js v2.91+ awaits callbacks internally while holding navigator.locks.
+    // Calling fetchProfile (which needs getSession → same lock) causes a deadlock.
+    // Instead, schedule profile fetch via setTimeout(0) to run outside the lock.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
       console.log('[Auth] onAuthStateChange:', event, session?.user?.email);
 
@@ -142,16 +146,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         processedUserRef.current = session.user.id;
 
-        const profile = await fetchProfile(session.user.id);
-        if (mounted) {
-          updateState(session.user, session, profile);
-          if (event === 'SIGNED_IN') {
-            logAuthEvent(session.user.id, session.user.email || '', 'login');
+        // Schedule outside auth lock to avoid deadlock
+        const user = session.user;
+        const ev = event;
+        setTimeout(async () => {
+          if (!mounted) return;
+          const profile = await fetchProfile(user.id);
+          if (mounted) {
+            updateState(user, session, profile);
+            if (ev === 'SIGNED_IN') {
+              logAuthEvent(user.id, user.email || '', 'login');
+            }
           }
-        }
+        }, 0);
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        if (mounted) updateState(session.user, session, profile);
+        const user = session.user;
+        setTimeout(async () => {
+          if (!mounted) return;
+          const profile = await fetchProfile(user.id);
+          if (mounted) updateState(user, session, profile);
+        }, 0);
       }
     });
 
