@@ -5,6 +5,7 @@
  */
 
 import { agentActionService, type AgentAction } from './agentActionService';
+import { getAiProxyUrl } from '../lib/ai/clientProxy';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getPermissions, createPermissionGate } from './permissionService';
 import {
@@ -17,39 +18,6 @@ import {
     type LocalNeedsInput,
     type ContextOptions,
 } from './contextBuilder';
-
-// ===== Configuração =====
-
-// A API key deve ser configurada em .env.local como VITE_GEMINI_API_KEY
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-
-const MODEL_CANDIDATES = [
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-latest',
-    'gemini-2.0-flash',
-    'gemini-1.5-pro',
-    'gemini-1.5-pro-latest'
-];
-
-// Cache do último modelo que funcionou para agilizar próximas chamadas
-let lastWorkingModel: string | null = null;
-
-function getGeminiUrl(model: string): string {
-    // Usar v1 para modelos estáveis se v1beta falhar ou for desnecessário
-    const apiVersion = model.includes('2.0') ? 'v1beta' : 'v1';
-    return `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent`;
-}
-
-// SEGURANÇA: Modelos permitidos no Free Tier
-const FREE_TIER_SAFE_MODELS = [
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-pro',
-    'gemini-1.5-flash-8b',
-    'gemini-1.5-flash-001',
-    'gemini-1.5-flash-002'
-];
 
 // ===== Tipos =====
 
@@ -649,15 +617,7 @@ RESTRIÇÕES DE ACESSO - PUBLICADOR:
 Você NÃO tem acesso a informações confidenciais. Seja genérico sobre motivos de não-elegibilidade.`;
 
 export function isAgentConfigured(): boolean {
-    if (!!GEMINI_API_KEY && GEMINI_API_KEY.length > 10) return true;
     return true;
-}
-
-function checkSafetyMode(url: string): void {
-    const isSafe = FREE_TIER_SAFE_MODELS.some(model => url.includes(model));
-    if (!isSafe) {
-        throw new Error('Bloqueio de Segurança: Modelo não-verificado.');
-    }
 }
 
 function detectContextNeeds(question: string): ContextOptions {
@@ -753,127 +713,93 @@ export async function askAgent(
     audioData?: { mimeType: string, data: string }
 ): Promise<AgentResponse> {
     if (!isAgentConfigured()) {
-        return { success: false, message: '', error: 'API Key não configurada.', actions: [] };
+    return { success: false, message: '', error: 'Serviço de IA indisponível.', actions: [] };
     }
 
-    let attemptList = [...MODEL_CANDIDATES];
-    if (lastWorkingModel && attemptList.includes(lastWorkingModel)) {
-        attemptList = [lastWorkingModel, ...attemptList.filter(m => m !== lastWorkingModel)];
+  try {
+    const contextOptions = audioData
+      ? { includePublishers: true, includeRules: true, includeSchedule: true, includeHistory: true, includeSpecialEvents: true }
+      : detectContextNeeds(question);
+    const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds, contextOptions, focusWeekId);
+    const contextText = formatContextForPrompt(context);
+    const rulesText = contextOptions.includeRules ? getEligibilityRulesText() : '';
+
+    let systemPrompt = SYSTEM_PROMPT_BASE;
+    let sensitiveContextText = '';
+
+    if (accessLevel === 'elder') {
+      systemPrompt += SYSTEM_PROMPT_ELDER_ADDON;
+      const sensitiveInfo = buildSensitiveContext(publishers);
+      sensitiveContextText = formatSensitiveContext(sensitiveInfo);
+    } else {
+      systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
     }
 
-    let lastError: any = null;
-    let successResponse: AgentResponse | null = null;
-
-    for (const model of attemptList) {
-        try {
-            // Para áudio puro, incluir TODO o contexto — não sabemos o que o usuário falou
-            const contextOptions = audioData
-                ? { includePublishers: true, includeRules: true, includeSchedule: true, includeHistory: true, includeSpecialEvents: true }
-                : detectContextNeeds(question);
-            const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds, contextOptions, focusWeekId);
-            const contextText = formatContextForPrompt(context);
-            const rulesText = contextOptions.includeRules ? getEligibilityRulesText() : '';
-
-            let systemPrompt = SYSTEM_PROMPT_BASE;
-            let sensitiveContextText = '';
-
-            if (accessLevel === 'elder') {
-                systemPrompt += SYSTEM_PROMPT_ELDER_ADDON;
-                const sensitiveInfo = buildSensitiveContext(publishers);
-                sensitiveContextText = formatSensitiveContext(sensitiveInfo);
-            } else {
-                systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
-            }
-
-            // Inject allowed actions based on permissions
-            const gate = createPermissionGate(getPermissions());
-            const allowedActions = gate.getAllowedAgentActions();
-            if (allowedActions.length > 0) {
-                systemPrompt += `\n\nAÇÕES PERMITIDAS PARA ESTE USUÁRIO:\nVocê SÓ pode executar as seguintes ações: ${allowedActions.join(', ')}.\nSe o usuário pedir algo fora dessas ações, informe que ele não tem permissão.`;
-            }
-
-            const recentChat = chatHistory.slice(-15).map(msg => ({
-                role: msg.role === 'user' ? 'user' : 'model',
-                parts: [{ text: msg.content }],
-            }));
-
-            // Montar objeto da pergunta atual com texto e áudio (se houver)
-            const currentUserParts: any[] = [];
-            if (question) {
-                currentUserParts.push({ text: question });
-            }
-            if (audioData) {
-                currentUserParts.push({ inlineData: audioData });
-            }
-
-            // Se veio só áudio e a question for vazia, adicionar instrução para transcrever/responder
-            if (audioData && !question) {
-                currentUserParts.push({ text: "O usuário enviou um comando de voz. Transcreva o áudio e execute a ação apropriada. Lembre-se de incluir [TRANSCRIÇÃO: texto] na primeira linha da resposta." });
-            }
-
-            const requestBody = {
-                contents: [
-                    { role: 'user', parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }] },
-                    { role: 'model', parts: [{ text: `Entendido! Assistente RVM disponível.` }] },
-                    ...recentChat,
-                    { role: 'user', parts: currentUserParts },
-                ],
-                generationConfig: { temperature: 0.7, maxOutputTokens: 8192, topP: 0.95 }
-            };
-
-            let response: Response;
-            const hasLocalKey = !!GEMINI_API_KEY && GEMINI_API_KEY.length > 10;
-            const targetUrl = getGeminiUrl(model);
-
-            if (hasLocalKey) {
-                checkSafetyMode(targetUrl);
-                response = await fetch(`${targetUrl}?key=${GEMINI_API_KEY}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody),
-                });
-            } else {
-                response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody),
-                });
-            }
-
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-            const data = await response.json();
-            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!content) throw new Error('Falha na resposta.');
-
-            const detectedActions = agentActionService.detectAllActions(content);
-            lastWorkingModel = model;
-
-            // Sanitiza tags internos [PUB:...] que o LLM pode vazar
-            const cleanContent = content.replace(/\s*\[PUB:[^\]]*\]/g, '');
-
-            successResponse = {
-                success: true,
-                message: cleanContent,
-                action: detectedActions[0] || undefined,
-                actions: detectedActions,
-                modelUsed: model
-            };
-            break;
-
-        } catch (error) {
-            lastError = error;
-        }
+    const gate = createPermissionGate(getPermissions());
+    const allowedActions = gate.getAllowedAgentActions();
+    if (allowedActions.length > 0) {
+      systemPrompt += `\n\nAÇÕES PERMITIDAS PARA ESTE USUÁRIO:\nVocê SÓ pode executar as seguintes ações: ${allowedActions.join(', ')}.\nSe o usuário pedir algo fora dessas ações, informe que ele não tem permissão.`;
     }
 
-    if (successResponse) return successResponse;
+    const recentChat = chatHistory.slice(-15).map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }],
+    }));
+
+    const currentUserParts: any[] = [];
+    if (question) {
+      currentUserParts.push({ text: question });
+    }
+    if (audioData) {
+      currentUserParts.push({ inlineData: audioData });
+    }
+    if (audioData && !question) {
+      currentUserParts.push({ text: 'O usuário enviou um comando de voz. Transcreva o áudio e execute a ação apropriada. Lembre-se de incluir [TRANSCRIÇÃO: texto] na primeira linha da resposta.' });
+    }
+
+    const requestBody = {
+      contents: [
+        { role: 'user', parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }] },
+        { role: 'model', parts: [{ text: 'Entendido! Assistente RVM disponível.' }] },
+        ...recentChat,
+        { role: 'user', parts: currentUserParts },
+      ],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8192, topP: 0.95 }
+    };
+
+    const response = await fetch(getAiProxyUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`HTTP ${response.status}${errorText ? `: ${errorText.slice(0, 200)}` : ''}`);
+    }
+
+    const data = await response.json();
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!content) throw new Error('Falha na resposta.');
+
+    const detectedActions = agentActionService.detectAllActions(content);
+    const cleanContent = content.replace(/\s*\[PUB:[^\]]*\]/g, '');
 
     return {
-        success: false,
-        message: 'Erro ao conectar com a IA.',
-        error: lastError ? String(lastError) : 'Falha desconhecida',
-        actions: []
+      success: true,
+      message: cleanContent,
+      action: detectedActions[0] || undefined,
+      actions: detectedActions,
+      modelUsed: response.headers.get('X-RVM-Model-Used') || undefined
     };
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Erro ao conectar com a IA.',
+      error: error instanceof Error ? error.message : String(error),
+      actions: []
+    };
+  }
 }
 
 export function getSuggestedQuestions(): string[] {
