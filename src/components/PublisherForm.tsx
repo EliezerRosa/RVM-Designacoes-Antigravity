@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { Publisher, PublisherPrivileges, PublisherPrivilegesBySection } from '../types'
+import type { Funcao, Publisher, PublisherPrivileges, PublisherPrivilegesBySection } from '../types'
 
 interface PublisherFormProps {
     publisher: Publisher | null
@@ -194,7 +194,7 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                 <select
                                     name="funcao"
                                     value={formData.funcao || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, funcao: e.target.value || null }))}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, funcao: (e.target.value || null) as Funcao }))}
                                 >
                                     <option value="">Sem função específica</option>
                                     {(formData.condition === 'Ancião' || formData.condition === 'Anciao') && (

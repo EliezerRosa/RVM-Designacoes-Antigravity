@@ -44,10 +44,6 @@ const TIPO_TO_MODALIDADE: Record<string, string> = {
     'Parte Vida Cristã': 'Discurso de Ensino',
 };
 
-// 'Explicando Suas Crenças' pode ser demonstração (com ajudante) ou discurso (sem).
-// O ajudante é decidido por classifyPartType com base no contexto da apostila.
-const NEEDS_HELPER_ALWAYS = ['Iniciando Conversas', 'Cultivando o Interesse', 'Fazendo Discípulos'];
-
 // Partes AUTO inseridas pelo builder — se parseadas do HTML, devem ser filtradas para evitar duplicação
 const AUTO_PART_TYPES = [
     'cântico inicial', 'cantico inicial',

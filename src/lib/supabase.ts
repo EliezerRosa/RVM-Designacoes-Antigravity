@@ -16,5 +16,12 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 // Prevent crash if URL is missing (Dummy client or null)
 export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storageKey: 'rvm-designacoes-auth',
+        },
+    })
     : (() => { throw new Error('Supabase not configured'); })();

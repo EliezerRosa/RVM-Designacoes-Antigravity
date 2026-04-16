@@ -4,16 +4,11 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  console.log('[Vite Config] Loading env for mode:', mode);
-  console.log('[Vite Config] VITE_SUPABASE_URL present?', !!env.VITE_SUPABASE_URL);
-  if (env.VITE_SUPABASE_URL) {
-    console.log('[Vite Config] VITE_SUPABASE_URL starts with:', env.VITE_SUPABASE_URL.substring(0, 10) + '...');
-  } else {
+  if (!env.VITE_SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
     console.warn('[Vite Config] WARNING: VITE_SUPABASE_URL is MISSING in environment variables!');
   }
 
   const isDev = command === 'serve';
-  const isVercel = process.env.VERCEL === '1';
 
   return {
     define: {
@@ -32,9 +27,9 @@ export default defineConfig(({ command, mode }) => {
         }
       }
     },
-    // Local (dev) ou Vercel = raiz ('/')
-    // GitHub Pages (build não-Vercel) = subdiretório
-    base: (isDev || isVercel) ? '/' : '/RVM-Designacoes-Antigravity/',
+    // Dev usa raiz; produção usa paths relativos para o mesmo artefato funcionar
+    // tanto em GitHub Pages quanto em Vercel sem rebuild específico por host.
+    base: isDev ? '/' : './',
     server: {
       proxy: {
         '/api': {

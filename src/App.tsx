@@ -67,7 +67,7 @@ function App() {
   return <AuthenticatedApp isAdmin={isAdmin} onSignOut={signOut} userEmail={profile?.email || ''} />;
 }
 
-function AuthenticatedApp({ isAdmin, onSignOut, userEmail }: { isAdmin: boolean; onSignOut: () => void; userEmail: string }) {
+function AuthenticatedApp({ onSignOut, userEmail }: { isAdmin: boolean; onSignOut: () => void; userEmail: string }) {
   const { profile } = useAuth()
   const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {

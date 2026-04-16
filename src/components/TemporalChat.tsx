@@ -72,7 +72,7 @@ export default function TemporalChat({
 
     // Silence Detection (VAD) Refs
     const audioContextRef = useRef<AudioContext | null>(null);
-    const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationFrameRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -753,16 +753,13 @@ export default function TemporalChat({
 
                     if (gotCleared) {
                         // Se limpou a semana inteira, TUDO está pendente
-                        pendingCount = weekParts.filter(p => p.status !== 'OCULTA').length; // Simplificando
+                        pendingCount = weekParts.length;
                     } else if (gotGenerated) {
                         // Se mandou AUTO-GERAR, dependemos do banco (o optimistic state pode falhar), 
                         // então contamos o que sobrou no optimistic state ou evitamos afirmar que tudo está vazio
                         // O ideal: gerar semana retorna dados atualizados, mas como é complexo, 
                         // verificamos se sobrou algo "não designado" no estado atual ignorando a ação. 
                         // (Na verdade, GENERATE preenche quase tudo, CLEAR esvazia).
-                        const unassignableCount = weekParts.filter(p =>
-                            p.tipoParte === 'Cântico' || p.tipoParte === 'Oração' || p.tipoParte === 'Presidente da Reunião'
-                        ).length;
                         // Para simplificar, não cravamos "faltam X" logo após um auto-generate, pois a API já avisa "32 designações geradas".
                         pendingCount = -1; // Flag para pular a contagem exata no feedback do chat
 

@@ -14,7 +14,7 @@ import { prepareS140UnifiedData, renderS140ToElement } from './s140GeneratorUnif
 import { agentActionService, type AgentActionType, type ActionResult } from './agentActionService';
 import { api } from './api';
 import { workbookService } from './workbookService';
-import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
+import { HistoryStatus, type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 
 // ===== Configuração =====
 
@@ -430,6 +430,10 @@ export async function runVisualDiagnostic(
             duracao: parseInt(p.duracao) || 0, horaInicio: p.horaInicio, horaFim: p.horaFim,
             rawPublisherName: p.rawPublisherName, resolvedPublisherId: p.resolvedPublisherId,
             resolvedPublisherName: p.resolvedPublisherName,
+            status: HistoryStatus.VALIDATED,
+            importSource: 'JSON',
+            importBatchId: p.batch_id || 'visual-diagnostic',
+            createdAt: p.createdAt || new Date(0).toISOString(),
         }));
 
     const weekIds = [...new Set(parts.map(p => p.weekId))].sort();

@@ -1,6 +1,7 @@
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import type { WorkbookPart } from '../types';
+import { resolveAppUrl } from '../utils/appUrl';
 
 // Configurações de layout (baseadas no generate_s89_forms.py original)
 const POSITIONS = {
@@ -21,9 +22,7 @@ const FONT_SIZE = {
  * Gera o PDF do formulário S-89 preenchido
  */
 export async function generateS89(part: WorkbookPart, assistantName?: string): Promise<Uint8Array> {
-    const baseUrl = import.meta.env.BASE_URL || '/';
-    // Remove barra duplicada se existir
-    const path = `${baseUrl.replace(/\/$/, '')}/S-89_T.pdf`;
+    const path = resolveAppUrl('S-89_T.pdf');
 
     const templateBytes = await fetch(path).then(res => {
         if (!res.ok) throw new Error(`Não foi possível carregar o template em ${path}. Verifique se S-89_T.pdf está na pasta public.`);

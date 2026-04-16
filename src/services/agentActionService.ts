@@ -2,10 +2,11 @@ import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
 import { getPermissions, createPermissionGate } from './permissionService';
 
+import { api } from './api';
 import { generationService } from './generationService';
 import { workbookService } from './workbookService';
 import { undoService } from './undoService';
-import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
+import { getRankedCandidates, explainScoreForAgent, getRotationConfig, updateRotationConfig } from './unifiedRotationService';
 import { checkEligibility } from './eligibilityService';
 import { communicationService } from './communicationService';
 import { specialEventService } from './specialEventService';
@@ -288,7 +289,6 @@ export const agentActionService = {
                     }
 
                     try {
-                        const { api } = await import('./api');
                         const updatedPub = { ...pub, ...updates };
 
                         await api.updatePublisher(updatedPub);
@@ -325,7 +325,6 @@ export const agentActionService = {
                     }
 
                     try {
-                        const { api } = await import('./api');
                         // Merge: adicionar novas datas às existentes (sem duplicar)
                         const existingDates = pub.availability.exceptionDates || [];
                         const mergedDates = [...new Set([...existingDates, ...unavailableDates])];
@@ -366,9 +365,6 @@ export const agentActionService = {
                     }
 
                     try {
-                        const { api } = await import('./api');
-                        const { updateRotationConfig, getRotationConfig } = await import('./unifiedRotationService');
-
                         const currentGlobalConfig = getRotationConfig();
                         const mergedConfig = { ...currentGlobalConfig, ...settings };
 
@@ -802,7 +798,6 @@ export const agentActionService = {
                     }
 
                     try {
-                        const { communicationService } = await import('./communicationService');
                         await communicationService.notifyOverseerOfRefusal(targetPart, reason || 'Não informado via Agente');
 
                         return {

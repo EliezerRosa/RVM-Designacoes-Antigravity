@@ -10,7 +10,7 @@
  * - Diagnóstico estruturado: status, tempo, erro, dados retornados
  */
 
-import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
+import { HistoryStatus, type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 import { agentActionService, type AgentActionType, type AgentAction, type ActionResult } from './agentActionService';
 import { api } from './api';
 import { workbookService } from './workbookService';
@@ -104,6 +104,10 @@ async function loadLiveFixtures(): Promise<LiveFixtures> {
             rawPublisherName: p.rawPublisherName,
             resolvedPublisherId: p.resolvedPublisherId,
             resolvedPublisherName: p.resolvedPublisherName,
+            status: HistoryStatus.VALIDATED,
+            importSource: 'JSON',
+            importBatchId: p.batch_id || 'diagnostic',
+            createdAt: p.createdAt || new Date(0).toISOString(),
         }));
 
     const weekIds = [...new Set(parts.map(p => p.weekId))].sort();
@@ -270,7 +274,7 @@ const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
         };
     },
 
-    MANAGE_LOCAL_NEEDS: (fx) => ({
+    MANAGE_LOCAL_NEEDS: (_fx) => ({
         action: { type: 'MANAGE_LOCAL_NEEDS', params: { subAction: 'LIST' }, description: 'Teste: listar necessidades locais' },
         safe: true,
         buildScript: (_fx, result, error) => ({
@@ -359,7 +363,7 @@ const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
         }),
     }),
 
-    UNDO_LAST: (fx) => ({
+    UNDO_LAST: (_fx) => ({
         action: { type: 'UNDO_LAST', params: {}, description: 'Teste: desfazer última ação' },
         safe: true,
         buildScript: (_fx, result, error) => ({
@@ -546,6 +550,42 @@ const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
             resultadoObtido: error ? `ERRO: ${error}` : (result?.success ? `Prévia gerada. ${result?.message?.substring(0, 200)}` : `Falha: ${result?.message}`),
             diagnostico: error ? `Exceção ao consultar jw.org. Verifique se jwOrgService está acessível.` : (result?.success ? `Importação PREVIEW OK. Dados extraídos do jw.org sem alterar o banco local.` : `Importação falhou: ${result?.message}. Possível causa: semana indisponível no jw.org, erro de rede, ou parsing falhou.`),
             dadosUtilizados: { weekDate: '2026-04-06', modo: 'PREVIEW' },
+        }),
+    }),
+
+    MANAGE_WORKBOOK_PART: () => ({
+        action: {
+            type: 'MANAGE_WORKBOOK_PART',
+            params: { operation: 'view', partId: 'SKIP' },
+            description: 'Teste: gerenciamento de parte (skip seguro)',
+        },
+        safe: true,
+        skipIf: 'Ação potencialmente destrutiva — não executada automaticamente.',
+        buildScript: () => ({
+            cenario: 'Gerenciamento granular de uma parte da apostila.',
+            comandoSimulado: '"Gerencie esta parte"',
+            expectativa: 'N/A — teste pulado por segurança.',
+            resultadoObtido: 'SKIP.',
+            diagnostico: 'Caso coberto no registry para satisfazer o tipo, sem executar alterações reais.',
+            dadosUtilizados: { motivo: 'proteção de dados' },
+        }),
+    }),
+
+    MANAGE_WORKBOOK_WEEK: () => ({
+        action: {
+            type: 'MANAGE_WORKBOOK_WEEK',
+            params: { operation: 'view', weekId: 'SKIP' },
+            description: 'Teste: gerenciamento de semana (skip seguro)',
+        },
+        safe: true,
+        skipIf: 'Ação potencialmente destrutiva — não executada automaticamente.',
+        buildScript: () => ({
+            cenario: 'Gerenciamento de uma semana inteira da apostila.',
+            comandoSimulado: '"Gerencie esta semana"',
+            expectativa: 'N/A — teste pulado por segurança.',
+            resultadoObtido: 'SKIP.',
+            diagnostico: 'Caso coberto no registry para satisfazer o tipo, sem executar alterações reais.',
+            dadosUtilizados: { motivo: 'proteção de dados' },
         }),
     }),
 };

@@ -1,8 +1,15 @@
+import { api } from './api';
 import { supabase } from '../lib/supabase';
 import type { WorkbookPart, Publisher } from '../types';
 import { generateWhatsAppMessage } from './s89Generator';
 import { getModalidadeFromTipo } from '../constants/mappings';
 import { EnumModalidade } from '../types';
+import { checkEligibility } from './eligibilityService';
+import { loadCompletedParticipations } from './historyAdapter';
+import { EVENT_TEMPLATES, specialEventService } from './specialEventService';
+import { getRankedCandidates } from './unifiedRotationService';
+import { getAppBaseUrl } from '../utils/appUrl';
+import { workbookService } from './workbookService';
 
 export type NotificationType = 'S140' | 'S89' | 'ANNOUNCEMENT' | 'INDIVIDUAL';
 export type NotificationStatus = 'PREPARED' | 'SENT' | 'FAILED';
@@ -38,10 +45,7 @@ interface ConfirmationTokenResult {
 }
 
 function getPortalBaseUrl(): string {
-    const baseOrigin = window.location.origin;
-    const basePath = import.meta.env.BASE_URL || '/';
-    const normalizedPath = basePath.startsWith('/') ? basePath : `/${basePath}`;
-    return `${baseOrigin}${normalizedPath}`.replace(/\/+$/, '');
+    return getAppBaseUrl();
 }
 
 function getRealPartId(partId: string): string {
@@ -195,12 +199,10 @@ export const communicationService = {
 
         // Add special events notes
         try {
-            const { specialEventService } = await import('./specialEventService');
             const events = (await specialEventService.getEventsByWeek(weekId))
                 .filter(e => e.isApplied);
 
             if (events && events.length > 0) {
-                const { EVENT_TEMPLATES } = await import('./specialEventService');
                 const eventNotes: string[] = [];
 
                 let noteIndex = 1;
@@ -254,12 +256,6 @@ export const communicationService = {
 
         const publisherName = part.resolvedPublisherName || part.rawPublisherName;
 
-        // 1. Carregar dados necessários dinamicamente para evitar circular dependencies
-        const { api } = await import('./api');
-        const { loadCompletedParticipations } = await import('./historyAdapter');
-        const { getRankedCandidates } = await import('./unifiedRotationService');
-        const { checkEligibility } = await import('./eligibilityService');
-
         const publishers = await api.loadPublishers();
         const history = await loadCompletedParticipations();
 
@@ -284,8 +280,7 @@ export const communicationService = {
         const bestCandidate = ranked[0]?.publisher?.name || 'Não encontrado';
 
         // 4. Buscar parceiro (Titular/Ajudante) da mesma semana
-        const { workbookService: ws } = await import('./workbookService');
-        const weekParts = await ws.getPartsByWeekId(part.weekId);
+        const weekParts = await workbookService.getPartsByWeekId(part.weekId);
         const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
         const partNum = partNumMatch ? partNumMatch[1] : null;
 
@@ -332,10 +327,7 @@ export const communicationService = {
         alertMsg += `💡 *Sugestão de Substituto:* ${bestCandidate}\n`;
         alertMsg += `──────────────────\n\n`;
 
-        const baseOrigin = window.location.origin;
-        const basePath = import.meta.env.BASE_URL || '/';
-        const normalizedPath = basePath.startsWith('/') ? basePath : `/${basePath}`;
-        const baseUrl = `${baseOrigin}${normalizedPath}`.replace(/\/+$/, '');
+        const baseUrl = getAppBaseUrl();
 
         alertMsg += `👉 *Designar substituto:* ${baseUrl}/?admin=true&action=replace&partId=${part.id}\n\n`;
         alertMsg += `👤 *Responsável RVM:* Edmardo Queiroz (${srvmPhone})`;
@@ -463,12 +455,10 @@ export const communicationService = {
 
         // Buscar eventos especiais da semana para adicionar contexto
         try {
-            const { specialEventService } = await import('./specialEventService');
             const events = (await specialEventService.getEventsByWeek(part.weekId))
                 .filter(e => e.isApplied);
 
             if (events && events.length > 0) {
-                const { EVENT_TEMPLATES } = await import('./specialEventService');
                 const relevantNotes: string[] = [];
                 let noteIndex = 1;
                 for (const evt of events) {
