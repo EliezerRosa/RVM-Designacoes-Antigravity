@@ -10,15 +10,12 @@
  */
 
 import html2canvas from 'html2canvas';
+import { getAiProxyUrl } from '../lib/ai/clientProxy';
 import { prepareS140UnifiedData, renderS140ToElement } from './s140GeneratorUnified';
 import { agentActionService, type AgentActionType, type ActionResult } from './agentActionService';
 import { api } from './api';
 import { workbookService } from './workbookService';
 import { HistoryStatus, type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
-
-// ===== Configuração =====
-
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 // ===== Tipos =====
 
@@ -356,25 +353,11 @@ async function analyzeWithGeminiVision(imageBase64: string, prompt: string): Pro
         generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
     };
 
-    const hasLocalKey = !!GEMINI_API_KEY && GEMINI_API_KEY.length > 10;
-    let response: Response;
-
-    if (hasLocalKey) {
-        // Dev local: chama Gemini diretamente com a key
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-        });
-    } else {
-        // Produção (Vercel): usa o proxy /api/chat que injeta a key server-side
-        response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-        });
-    }
+    const response = await fetch(getAiProxyUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+    });
 
     if (!response.ok) {
         const errText = await response.text().catch(() => '');

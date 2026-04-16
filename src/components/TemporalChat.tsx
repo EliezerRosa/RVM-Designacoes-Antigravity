@@ -533,7 +533,7 @@ export default function TemporalChat({
             if (!isAgentConfigured()) {
                 const errorMsg: ChatMessage = {
                     role: 'assistant',
-                    content: '⚠️ API Key do Gemini não configurada. Configure VITE_GEMINI_API_KEY no arquivo .env.local',
+                    content: '⚠️ Serviço de IA indisponível no momento. Tente novamente em instantes.',
                     timestamp: new Date(),
                 };
                 await chatHistoryService.addMessage(sessionId, errorMsg);

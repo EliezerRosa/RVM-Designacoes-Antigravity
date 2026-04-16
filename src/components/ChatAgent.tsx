@@ -103,7 +103,7 @@ export function ChatAgent({ isOpen, onClose, publishers, parts, history = [] }: 
                 role: 'assistant',
                 content: configured
                     ? 'Olá! Sou o **Assistente RVM** 🤖\n\nPosso responder perguntas sobre publicadores, regras de elegibilidade, estatísticas e muito mais.\n\nComo posso ajudar?'
-                    : '⚠️ **API Key não configurada**\n\nPara usar o assistente, configure `VITE_GEMINI_API_KEY` no arquivo `.env.local` e reinicie o app.',
+                    : '⚠️ **Serviço de IA indisponível**\n\nO proxy do assistente não está acessível no momento.',
                 timestamp: new Date(),
             }]);
         }
