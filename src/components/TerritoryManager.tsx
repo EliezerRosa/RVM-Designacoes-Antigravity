@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { FiMap, FiEdit2, FiTrash2, FiExternalLink, FiPlus } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiExternalLink, FiPlus } from 'react-icons/fi';
 
 interface Neighborhood {
     id: string;

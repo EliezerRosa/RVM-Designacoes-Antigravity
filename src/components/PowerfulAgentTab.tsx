@@ -12,7 +12,6 @@ import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import S140PreviewCarousel from './S140PreviewCarousel';
 import TemporalChat from './TemporalChat';
 import ActionControlPanel from './ActionControlPanel';
-import { chatHistoryService } from '../services/chatHistoryService';
 import { specialEventService } from '../services/specialEventService';
 import type { SpecialEvent } from '../types';
 import { S89SelectionModal } from './S89SelectionModal';

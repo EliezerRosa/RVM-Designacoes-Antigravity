@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getModalidadeFromTipo } from '../constants/mappings';
 import { workbookService } from '../services/workbookService';
-import { communicationService } from '../services/communicationService';
-import type { WorkbookPart } from '../types';
-import { WorkbookStatus } from '../types';
+import { api } from '../services/api';
+import { EnumModalidade, WorkbookStatus, type WorkbookPart } from '../types';
 import { useAuth } from '../context/AuthContext';
 import './DesignationConfirmationPortal.css';
 
@@ -19,6 +19,17 @@ interface PortalAuthorizationResult {
     authenticated_email?: string;
     assigned_publisher_name?: string;
     token_status?: string;
+    response_status?: 'confirmed' | 'refused';
+    responded_at?: string;
+}
+
+interface PortalSubmitResult {
+    success?: boolean;
+    error?: string;
+    already_processed?: boolean;
+    response_status?: 'confirmed' | 'refused';
+    part_status?: string;
+    authenticated_email?: string;
 }
 
 export function DesignationConfirmationPortal({ partId, publisherId, token }: DesignationConfirmationPortalProps) {
@@ -112,6 +123,10 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
                     return;
                 }
 
+                if (authResult.response_status) {
+                    setAlreadyResponded(authResult.response_status);
+                }
+
                 setIsAuthorized(true);
                 await loadPart(cancelled);
             } catch (err) {
@@ -169,8 +184,6 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
                     // Verificar se é parte solo
                     let isValidPartner = !!partner;
                     if (partner) {
-                        const { getModalidadeFromTipo } = await import('../constants/mappings');
-                        const { EnumModalidade } = await import('../types');
                         const titularPart = found.funcao === 'Ajudante' ? partner : found;
                         const titularMod = titularPart.modalidade || getModalidadeFromTipo(titularPart.tipoParte, titularPart.section);
                         const soloModalidades = [EnumModalidade.DISCURSO_ESTUDANTE, EnumModalidade.LEITURA_ESTUDANTE];
@@ -182,7 +195,6 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
                     if (isValidPartner && partner) {
                         const partnerName = partner.resolvedPublisherName || partner.rawPublisherName || '';
                         // Buscar telefone do parceiro
-                        const { api } = await import('../services/api');
                         const publishers = await api.loadPublishers();
                         const partnerPub = publishers.find(pub => pub.name.trim() === partnerName.trim());
                         setPartnerInfo({
@@ -231,45 +243,34 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
 
         setIsSubmitting(true);
         try {
-            if (accept) {
-                // Confirmar
-                await workbookService.updatePart(partId, {
-                    status: WorkbookStatus.DESIGNADA // Ou status de confirmado
-                });
-
-                // Logar confirmação
-                await communicationService.logActivity({
-                    type: 'CONFIRMATION',
-                    part_id: partId,
-                    publisher_name: part?.resolvedPublisherName || part?.rawPublisherName,
-                    details: 'Confirmou participação via link portal'
-                });
-            } else {
-                // Recusar
-                await workbookService.rejectProposal(partId, reason);
-
-                if (part) {
-                    // Notificar Superintendente (Edmardo) via WhatsApp
-                    await communicationService.notifyOverseerOfRefusal(part, reason);
-
-                    // Logar recusa no activity_logs
-                    await communicationService.logActivity({
-                        type: 'REFUSAL',
-                        part_id: partId,
-                        publisher_name: part.resolvedPublisherName || part.rawPublisherName,
-                        details: reason
-                    });
-                }
-            }
-
-            const { error: consumeError } = await supabase.rpc('consume_confirmation_portal_token', {
+            const { data, error: submitError } = await supabase.rpc('submit_confirmation_portal_response', {
                 p_part_id: partId,
                 p_publisher_id: publisherId,
                 p_token: token,
+                p_accept: accept,
+                p_reason: accept ? null : reason.trim(),
             });
 
-            if (consumeError) {
-                console.warn('[Portal] Failed to mark confirmation token as used:', consumeError);
+            if (submitError) {
+                throw submitError;
+            }
+
+            const submitResult = (data && typeof data === 'object' && !Array.isArray(data)
+                ? data
+                : {}) as PortalSubmitResult;
+
+            if (!submitResult.success) {
+                throw new Error(submitResult.error || 'Falha ao processar sua resposta.');
+            }
+
+            if (submitResult.authenticated_email) {
+                setAuthenticatedEmail(submitResult.authenticated_email);
+            }
+
+            if (submitResult.already_processed && submitResult.response_status) {
+                setAlreadyResponded(submitResult.response_status);
+                await loadPart();
+                return;
             }
 
             setStatus('success');
@@ -355,6 +356,14 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
             <p>Sua resposta foi enviada com sucesso ao sistema RVM.</p>
             <p>{accept ? 'Obrigado por confirmar sua participação!' : 'Sentimos muito que não possa participar. O superintendente já foi notificado.'}</p>
             <button onClick={() => window.close()} className="btn-close">Fechar Janela</button>
+        </div>
+    );
+
+    if (status === 'error') return (
+        <div className="portal-container error">
+            <h2>⚠️ Não foi possível concluir</h2>
+            <p>Houve uma falha ao registrar sua resposta. Tente novamente com o mesmo link.</p>
+            <button onClick={() => setStatus('pending')} className="btn-submit">Tentar novamente</button>
         </div>
     );
 

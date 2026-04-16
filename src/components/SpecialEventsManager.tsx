@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
 import { supabase } from '../lib/supabase';
-import type { SpecialEvent, EventImpactAction, EventImpactOverride, ParticipationType, WorkbookPart } from '../types';
+import type { SpecialEvent, EventImpactOverride, WorkbookPart } from '../types';
 
 interface Props {
     availableWeeks: { weekId: string; display: string }[];
@@ -28,7 +28,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const [formTheme, setFormTheme] = useState('');
     const [formAssignee, setFormAssignee] = useState('');
     const [formAutoApply, setFormAutoApply] = useState(true);
-    const [targetParts, setTargetParts] = useState<Array<{ id: string; title: string; duration: string }>>([]);
 
     // Suporte a Impactos Granulares por Parte
     const [formGranularImpacts, setFormGranularImpacts] = useState<Record<string, { visual: boolean; cancel: boolean; reduceTime: boolean; minutes: number }>>({});
@@ -44,18 +43,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     const [formGlobalAffectedPartIds, setFormGlobalAffectedPartIds] = useState<string[]>([]);
 
     const templates = EVENT_TEMPLATES;
-
-    // Todas as ações de impacto disponíveis
-    const IMPACT_OPTIONS: { value: EventImpactAction; label: string }[] = [
-        { value: 'NO_IMPACT', label: 'Sem Impacto (informativo)' },
-        { value: 'REPLACE_PART', label: 'Cancelar Partes Específicas' },
-        { value: 'REPLACE_SECTION', label: 'Cancelar Seção Inteira' },
-        { value: 'TIME_ADJUSTMENT', label: 'Ajustar Tempo do EBC' },
-        { value: 'REDUCE_VIDA_CRISTA_TIME', label: 'Reduzir Tempo (Vida Cristã)' },
-        { value: 'ADD_PART', label: 'Adicionar Nova Parte' },
-        { value: 'CANCEL_WEEK', label: 'Cancelar Semana Inteira' },
-        { value: 'SC_VISIT_LOGIC', label: 'Visita do SC (lógica especial)' },
-    ];
 
     const loadEvents = useCallback(async () => {
         try {
@@ -78,7 +65,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
     // Carregar partes da semana diretamente do Supabase (fonte da verdade)
     useEffect(() => {
         if (!formWeekId) {
-            setTargetParts([]);
             setAllWeekParts([]);
             return;
         }
@@ -105,13 +91,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
 
                 setAllWeekParts(allParts);
 
-                const vidaParts = allParts.filter(p => {
-                    const sec = p.section.toLowerCase();
-                    const isVida = sec.includes('vida') || sec.includes('ministério') || sec.includes('ministerio');
-                    const isPresidency = p.tipoParte === 'Presidente' || p.tipoParte?.includes('Oração');
-                    return isVida && !isPresidency;
-                });
-                setTargetParts(vidaParts);
             } catch (err) {
                 console.error('[SpecialEvents] Erro ao buscar partes:', err);
             }
@@ -142,7 +121,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
         setFormTheme('');
         setFormAssignee('');
         setFormAutoApply(true);
-        setTargetParts([]);
         setEditingEvent(null);
         setShowForm(false);
         // Novos resets
@@ -517,7 +495,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {allWeekParts.map((p, idx) => {
+                                        {allWeekParts.map((p) => {
                                             const cfg = formGranularImpacts[p.id] || { visual: false, cancel: false, reduceTime: false, minutes: 5 };
                                             return (
                                                 <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>

@@ -5,12 +5,12 @@ import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './context/AuthContext'
 import * as pdfjsLib from 'pdfjs-dist';
+import { resolveAppUrl } from './utils/appUrl';
 
 // Configuração Global do Worker PDF (Antes de qualquer renderização)
 // Garante que o worker local seja usado em vez do CDN instável
-const baseUrl = import.meta.env.BASE_URL || '/';
 try {
-  const workerUrl = `${baseUrl.replace(/\/$/, '')}/pdf.worker.min.mjs`;
+  const workerUrl = resolveAppUrl('pdf.worker.min.mjs');
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
   console.log('[PDF.js] Worker configured:', workerUrl);
 } catch (e) {

@@ -28,6 +28,8 @@ interface AuthState {
   needs2FA: boolean;
 }
 
+type SessionSource = 'bootstrap' | 'INITIAL_SESSION' | 'SIGNED_IN' | 'TOKEN_REFRESHED' | 'USER_UPDATED';
+
 interface AuthContextType extends AuthState {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -143,24 +145,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Track loading state with ref for safety timeout (avoids stale closure)
-  const isLoadingRef = useRef(true);
-  useEffect(() => { isLoadingRef.current = state.isLoading; }, [state.isLoading]);
+  const processedSessionKeyRef = useRef<string | null>(null);
+  const loggedSessionKeyRef = useRef<string | null>(null);
 
-  // Prevent duplicate profile fetches: SIGNED_IN and INITIAL_SESSION fire in any order
-  const processedUserRef = useRef<string | null>(null);
+  const hydrateSession = useCallback(async (session: Session | null, source: SessionSource) => {
+    if (!session?.user) {
+      processedSessionKeyRef.current = null;
+      updateState(null, null, null);
+      return;
+    }
 
-  // Initialize session — rely on onAuthStateChange for all events
+    const sessionKey = `${session.user.id}:${session.access_token}`;
+
+    if (source === 'SIGNED_IN' && loggedSessionKeyRef.current !== sessionKey) {
+      loggedSessionKeyRef.current = sessionKey;
+      void logAuthEvent(session.user.id, session.user.email || '', 'login');
+    }
+
+    if (processedSessionKeyRef.current === sessionKey) {
+      console.log('[Auth] Skipping duplicate session hydrate for', session.user.email, source);
+      return;
+    }
+
+    processedSessionKeyRef.current = sessionKey;
+    const profile = await fetchProfile(session.user.id);
+    updateState(session.user, session, profile);
+  }, [fetchProfile, updateState]);
+
+  // Deterministic bootstrap: load current session once, then react to subsequent auth events.
   useEffect(() => {
     let mounted = true;
-
-    // Safety timeout: if still loading after 5s, force show login
-    const timeout = setTimeout(() => {
-      if (mounted && isLoadingRef.current) {
-        console.warn('[Auth] Safety timeout - forcing loading to false');
-        setState(prev => ({ ...prev, isLoading: false }));
-      }
-    }, 5000);
 
     // IMPORTANT: Do NOT await supabase queries inside this callback!
     // supabase-js v2.91+ awaits callbacks internally while holding navigator.locks.
@@ -171,48 +185,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[Auth] onAuthStateChange:', event, session?.user?.email);
 
       if (event === 'SIGNED_OUT') {
-        processedUserRef.current = null;
+        processedSessionKeyRef.current = null;
+        loggedSessionKeyRef.current = null;
         if (mounted) updateState(null, null, null);
         return;
       }
 
-      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
-        // Skip if we already processed this exact user (avoids double fetch)
-        if (processedUserRef.current === session.user.id) {
-          console.log('[Auth] Skipping duplicate event for', session.user.email);
-          return;
-        }
-        processedUserRef.current = session.user.id;
-
-        // Schedule outside auth lock to avoid deadlock
-        const user = session.user;
-        const ev = event;
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session) {
         setTimeout(async () => {
           if (!mounted) return;
-          const profile = await fetchProfile(user.id);
-          if (mounted) {
-            updateState(user, session, profile);
-            if (ev === 'SIGNED_IN') {
-              logAuthEvent(user.id, user.email || '', 'login');
-            }
-          }
-        }, 0);
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        const user = session.user;
-        setTimeout(async () => {
-          if (!mounted) return;
-          const profile = await fetchProfile(user.id);
-          if (mounted) updateState(user, session, profile);
+          await hydrateSession(session, event);
         }, 0);
       }
     });
 
+    void (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (error) {
+          console.error('[Auth] Failed to bootstrap session:', error);
+          updateState(null, null, null);
+          return;
+        }
+
+        await hydrateSession(data.session, 'bootstrap');
+      } catch (error) {
+        console.error('[Auth] Unexpected bootstrap error:', error);
+        if (mounted) {
+          updateState(null, null, null);
+        }
+      }
+    })();
+
     return () => {
       mounted = false;
-      clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [fetchProfile, updateState]);
+  }, [hydrateSession, updateState]);
 
   const signInWithGoogle = useCallback(async () => {
     // Preservar query params (ex: ?portal=confirm&id=...) para que o usuário
