@@ -141,7 +141,8 @@ export function generateWhatsAppMessage(
     partnerPhone?: string,
     isForAssistant: boolean = false,
     srvmName?: string,
-    srvmPhone?: string
+    srvmPhone?: string,
+    confirmationUrl?: string
 ): string {
     const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
     const salutation = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
@@ -231,20 +232,9 @@ export function generateWhatsAppMessage(
 
     msg += `\n─────────────\n`;
 
-    // Link de confirmação (Portal Público)
-    const baseOrigin = window.location.origin;
-    const basePath = import.meta.env.BASE_URL || '/';
-    // Garantir que não haja barras duplas entre origin e path, mas que path comece com /
-    const normalizedPath = basePath.startsWith('/') ? basePath : `/${basePath}`;
-    const baseUrl = `${baseOrigin}${normalizedPath}`.replace(/\/+$/, '');
-
-    // Portal de confirmação
-    // IMPORTANTE: part.id pode ser um ID virtual de UI (ex: "[uuid]-ajudante" ou "[uuid]-titular")
-    // gerado pelo S89SelectionModal para diferenciar cards na lista.
-    // O ID real no banco nunca contém esses sufixos — precisamos limpá-los antes de usar na URL.
-    const realPartId = part.id.replace(/-(titular|ajudante)$/, '');
-    const confirmUrl = `${baseUrl}/?portal=confirm&id=${realPartId}`;
-    msg += `\n👉 *Confirme sua participação aqui:* ${confirmUrl}\n`;
+    if (confirmationUrl) {
+        msg += `\n👉 *Confirme sua participação aqui:* ${confirmationUrl}\n`;
+    }
 
     msg += `\n*Por favor, confirme o recebimento desta mensagem.* 🙏\n`;
 

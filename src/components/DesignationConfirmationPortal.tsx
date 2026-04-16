@@ -4,19 +4,35 @@ import { workbookService } from '../services/workbookService';
 import { communicationService } from '../services/communicationService';
 import type { WorkbookPart } from '../types';
 import { WorkbookStatus } from '../types';
+import { useAuth } from '../context/AuthContext';
 import './DesignationConfirmationPortal.css';
 
 interface DesignationConfirmationPortalProps {
     partId: string;
+    publisherId: string;
+    token: string;
 }
 
-export function DesignationConfirmationPortal({ partId }: DesignationConfirmationPortalProps) {
+interface PortalAuthorizationResult {
+    authorized?: boolean;
+    reason?: string;
+    authenticated_email?: string;
+    assigned_publisher_name?: string;
+    token_status?: string;
+}
+
+export function DesignationConfirmationPortal({ partId, publisherId, token }: DesignationConfirmationPortalProps) {
+    const { user, profile, isLoading: authLoading, signInWithGoogle, signOut } = useAuth();
     const [part, setPart] = useState<WorkbookPart | null>(null);
     const [partnerInfo, setPartnerInfo] = useState<{ name: string; phone?: string; funcao: string } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending');
     const [alreadyResponded, setAlreadyResponded] = useState<'confirmed' | 'refused' | null>(null);
+    const [authError, setAuthError] = useState<string | null>(null);
+    const [authenticatedEmail, setAuthenticatedEmail] = useState<string | null>(null);
+    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [isSigningIn, setIsSigningIn] = useState(false);
 
     // Form state
     const [accept, setAccept] = useState<boolean | null>(null);
@@ -24,13 +40,104 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
-        loadPart();
-    }, [partId]);
+        let cancelled = false;
 
-    const loadPart = async () => {
+        const preparePortal = async () => {
+            if (authLoading) {
+                return;
+            }
+
+            if (!user) {
+                if (!cancelled) {
+                    setLoading(false);
+                    setError(null);
+                    setAuthError(null);
+                    setIsAuthorized(false);
+                    setAuthenticatedEmail(null);
+                    setPart(null);
+                    setPartnerInfo(null);
+                }
+                return;
+            }
+
+            if (!profile) {
+                if (!cancelled) {
+                    setLoading(false);
+                    setIsAuthorized(false);
+                    setAuthenticatedEmail(user.email || null);
+                    setAuthError('Seu login Google foi reconhecido, mas seu perfil ainda não está vinculado ao sistema.');
+                }
+                return;
+            }
+
+            try {
+                if (!cancelled) {
+                    setLoading(true);
+                    setError(null);
+                    setAuthError(null);
+                }
+
+                const { data, error: authRpcError } = await supabase.rpc('authorize_confirmation_portal', {
+                    p_part_id: partId,
+                    p_publisher_id: publisherId,
+                    p_token: token,
+                });
+
+                if (authRpcError) {
+                    throw authRpcError;
+                }
+
+                const authResult = (data && typeof data === 'object' && !Array.isArray(data)
+                    ? data
+                    : {}) as PortalAuthorizationResult;
+
+                if (cancelled) {
+                    return;
+                }
+
+                setAuthenticatedEmail(authResult.authenticated_email || profile.email || user.email || null);
+
+                if (!authResult.authorized) {
+                    setIsAuthorized(false);
+                    setLoading(false);
+                    setAuthError(
+                        authResult.reason === 'assignment_not_found'
+                            ? 'Designação não encontrada ou indisponível.'
+                            : authResult.reason === 'invalid_or_expired_token'
+                                ? 'Este link de confirmação é inválido ou expirou.'
+                                : authResult.reason === 'assignment_mismatch'
+                                    ? 'Este link não corresponde mais à designação original.'
+                            : 'Este login Google não está vinculado ao publicador designado para esta parte.'
+                    );
+                    return;
+                }
+
+                setIsAuthorized(true);
+                await loadPart(cancelled);
+            } catch (err) {
+                console.error('Erro ao preparar portal:', err);
+                if (!cancelled) {
+                    setIsAuthorized(false);
+                    setLoading(false);
+                    setAuthError('Falha ao validar seu acesso ao link de confirmação.');
+                }
+            }
+        };
+
+        preparePortal();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [authLoading, partId, profile, publisherId, token, user]);
+
+    const loadPart = async (cancelled = false) => {
         try {
-            setLoading(true);
             const found = await workbookService.getPartById(partId);
+
+            if (cancelled) {
+                return;
+            }
 
             if (!found) {
                 setError('Designação não encontrada ou expirada.');
@@ -90,15 +197,33 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
             }
         } catch (err) {
             console.error('Erro ao carregar designação:', err);
-            setError('Falha ao conectar com o servidor.');
+            if (!cancelled) {
+                setError('Falha ao conectar com o servidor.');
+            }
         } finally {
-            setLoading(false);
+            if (!cancelled) {
+                setLoading(false);
+            }
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setIsSigningIn(true);
+        setAuthError(null);
+        try {
+            await signInWithGoogle();
+        } catch (err) {
+            console.error('Erro ao iniciar login Google para o portal:', err);
+            const message = err instanceof Error ? err.message : 'Falha ao iniciar login Google.';
+            setAuthError(message);
+            setIsSigningIn(false);
         }
     };
 
     const handleSubmit = async () => {
         if (accept === null) return;
         if (alreadyResponded) return; // Proteção extra contra dupla submissão
+        if (!isAuthorized) return;
         if (accept === false && !reason.trim()) {
             alert('Por favor, informe o motivo da recusa.');
             return;
@@ -124,15 +249,6 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
                 await workbookService.rejectProposal(partId, reason);
 
                 if (part) {
-                    // Gravar em refusal_logs para auditoria persistente
-                    await supabase.from('refusal_logs').insert({
-                        part_id: partId,
-                        publisher_name: part.resolvedPublisherName || part.rawPublisherName || '',
-                        reason: reason,
-                        week_id: part.weekId,
-                        tipo_parte: part.tipoParte
-                    });
-
                     // Notificar Superintendente (Edmardo) via WhatsApp
                     await communicationService.notifyOverseerOfRefusal(part, reason);
 
@@ -145,6 +261,17 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
                     });
                 }
             }
+
+            const { error: consumeError } = await supabase.rpc('consume_confirmation_portal_token', {
+                p_part_id: partId,
+                p_publisher_id: publisherId,
+                p_token: token,
+            });
+
+            if (consumeError) {
+                console.warn('[Portal] Failed to mark confirmation token as used:', consumeError);
+            }
+
             setStatus('success');
         } catch (err) {
             console.error('Erro ao processar resposta:', err);
@@ -153,6 +280,51 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
             setIsSubmitting(false);
         }
     };
+
+    if (authLoading || (user && loading && !part && !authError && !error)) {
+        return <div className="portal-container"><div className="spinner"></div><p>Validando acesso...</p></div>;
+    }
+
+    if (!user) {
+        return (
+            <div className="portal-container">
+                <div className="portal-header">
+                    <h1>RVM Designações</h1>
+                    <p>Entre com Google para confirmar sua participação</p>
+                </div>
+
+                <div className="assignment-card" style={{ textAlign: 'center' }}>
+                    <p style={{ color: '#cbd5e1', lineHeight: 1.6, marginBottom: '1rem' }}>
+                        Este link exige login Google para identificar quem está respondendo, mas não exige verificação por WhatsApp.
+                    </p>
+                    {authError && <p style={{ color: '#fca5a5', marginBottom: '1rem' }}>{authError}</p>}
+                    <button
+                        className="btn-submit"
+                        onClick={handleGoogleLogin}
+                        disabled={isSigningIn}
+                    >
+                        {isSigningIn ? 'Redirecionando...' : 'Entrar com Google'}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!isAuthorized) {
+        return (
+            <div className="portal-container error">
+                <h2>🔒 Acesso não autorizado</h2>
+                <p>{authError || 'Este login Google não está autorizado a responder esta designação.'}</p>
+                {authenticatedEmail && <p>Conta logada: <strong>{authenticatedEmail}</strong></p>}
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginTop: '1rem' }}>
+                    <button onClick={handleGoogleLogin} className="btn-submit" disabled={isSigningIn}>
+                        {isSigningIn ? 'Redirecionando...' : 'Trocar conta Google'}
+                    </button>
+                    <button onClick={signOut} className="btn-close">Sair</button>
+                </div>
+            </div>
+        );
+    }
 
     if (loading) return <div className="portal-container"><div className="spinner"></div><p>Carregando dados...</p></div>;
     if (error) return <div className="portal-container error"><h2>⚠️ Ops!</h2><p>{error}</p></div>;
@@ -206,6 +378,7 @@ export function DesignationConfirmationPortal({ partId }: DesignationConfirmatio
             <div className="portal-header">
                 <h1>RVM Designações</h1>
                 <p>Confirme sua participação na reunião</p>
+                {authenticatedEmail && <p style={{ color: '#cbd5e1' }}>Conta identificada: <strong>{authenticatedEmail}</strong></p>}
             </div>
 
             <div className="assignment-card">
