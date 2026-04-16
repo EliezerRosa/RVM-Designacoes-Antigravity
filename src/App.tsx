@@ -37,11 +37,13 @@ function App() {
   const urlParams = new URLSearchParams(window.location.search);
   const portal = urlParams.get('portal');
   const portalPartId = urlParams.get('id') || urlParams.get('partId');
+  const portalPublisherId = urlParams.get('publisherId') || urlParams.get('publisher_id');
+  const portalToken = urlParams.get('token');
 
-  if (portal === 'confirm' && portalPartId) {
+  if (portal === 'confirm' && portalPartId && portalPublisherId && portalToken) {
     return (
       <div className="app portal-mode">
-        <DesignationConfirmationPortal partId={portalPartId} />
+        <DesignationConfirmationPortal partId={portalPartId} publisherId={portalPublisherId} token={portalToken} />
       </div>
     );
   }

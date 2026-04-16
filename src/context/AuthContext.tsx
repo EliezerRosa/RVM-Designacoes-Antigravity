@@ -2,6 +2,12 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+interface RpcResult {
+  success?: boolean;
+  error?: string;
+  phone?: string;
+}
+
 export interface Profile {
   id: string;
   email: string;
@@ -58,6 +64,13 @@ async function logAuthEvent(
   }
 }
 
+function getRpcResult(data: unknown): RpcResult {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return {};
+  }
+  return data as RpcResult;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -80,8 +93,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('[Auth] Error fetching profile:', error.message, error.code, error.hint, JSON.stringify(error));
       return null;
     }
-    console.log('[Auth] Profile fetched:', data ? `${data.email} (${data.role})` : 'NULL');
-    return data as Profile | null;
+
+    let profile = data as Profile | null;
+
+    if (profile && profile.role === 'publicador' && !profile.publisher_id) {
+      const { data: linkData, error: linkError } = await supabase.rpc('sync_profile_publisher_link');
+      if (linkError) {
+        console.warn('[Auth] Failed to sync publisher link:', linkError);
+      } else {
+        const linkResult = getRpcResult(linkData);
+        if (linkResult.success) {
+          const { data: refreshedProfile, error: refreshError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+
+          if (refreshError) {
+            console.warn('[Auth] Failed to refetch profile after publisher link sync:', refreshError);
+          } else {
+            profile = refreshedProfile as Profile | null;
+          }
+        }
+      }
+    }
+
+    console.log('[Auth] Profile fetched:', profile ? `${profile.email} (${profile.role})` : 'NULL');
+    return profile;
   }, []);
 
   const updateState = useCallback((user: User | null, session: Session | null, profile: Profile | null) => {
@@ -209,15 +247,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const code = String(100000 + Math.floor(Math.random() * 900000));
 
-    const { error } = await supabase.from('auth_requests').insert({
-      profile_id: state.user.id,
-      phone,
-      code,
-      status: 'pending',
+    const { data, error } = await supabase.rpc('create_whatsapp_auth_request', {
+      p_phone: phone,
+      p_code: code,
     });
 
     if (error) {
       console.error('[Auth] Error creating 2FA request:', error);
+      return { error: 'Falha ao solicitar código.' };
+    }
+
+    const result = getRpcResult(data);
+    if (!result.success) {
       return { error: 'Falha ao solicitar código.' };
     }
 
@@ -233,34 +274,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyWhatsAppCode = useCallback(async (code: string) => {
     if (!state.user) return { error: 'Não autenticado.' };
 
-    const { data: request, error } = await supabase
-      .from('auth_requests')
-      .select('*')
-      .eq('profile_id', state.user.id)
-      .eq('code', code.trim())
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc('verify_whatsapp_auth_code', {
+      p_code: code.trim(),
+    });
 
-    if (error || !request) {
+    if (error) {
+      console.error('[Auth] Error verifying 2FA code:', error);
       await logAuthEvent(state.user.id, state.user.email || '', '2fa_failed', { code });
-      return { error: 'Código inválido ou expirado.' };
+      return { error: 'Falha ao verificar o código.' };
     }
 
-    // Mark request as verified
-    await supabase.from('auth_requests').update({ status: 'verified' }).eq('id', request.id);
+    const result = getRpcResult(data);
+    if (!result.success) {
+      await logAuthEvent(state.user.id, state.user.email || '', '2fa_failed', { code });
+      return {
+        error: result.error === 'invalid_or_expired'
+          ? 'Código inválido ou expirado.'
+          : 'Falha ao verificar o código.',
+      };
+    }
 
-    // Update profile
-    await supabase.from('profiles').update({
-      whatsapp_verified: true,
-      phone: request.phone,
-    }).eq('id', state.user.id);
-
-    await logAuthEvent(state.user.id, state.user.email || '', '2fa_verified', { phone: request.phone });
+    await logAuthEvent(state.user.id, state.user.email || '', '2fa_verified', { phone: result.phone });
 
     // Refresh profile
     const profile = await fetchProfile(state.user.id);
+    if (!profile) {
+      return { error: 'Código validado, mas não foi possível recarregar seu perfil.' };
+    }
     updateState(state.user, state.session, profile);
 
     return { success: true };

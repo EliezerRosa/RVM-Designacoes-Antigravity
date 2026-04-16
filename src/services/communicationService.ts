@@ -30,6 +30,24 @@ export interface ActivityLogEntry {
     status?: string;
 }
 
+interface ConfirmationTokenResult {
+    success?: boolean;
+    token?: string;
+    expires_at?: string;
+    error?: string;
+}
+
+function getPortalBaseUrl(): string {
+    const baseOrigin = window.location.origin;
+    const basePath = import.meta.env.BASE_URL || '/';
+    const normalizedPath = basePath.startsWith('/') ? basePath : `/${basePath}`;
+    return `${baseOrigin}${normalizedPath}`.replace(/\/+$/, '');
+}
+
+function getRealPartId(partId: string): string {
+    return partId.replace(/-(titular|ajudante)$/, '');
+}
+
 export const communicationService = {
     /**
      * Registra uma nova mensagem no banco
@@ -123,6 +141,35 @@ export const communicationService = {
         }
 
         return data || [];
+    },
+
+    async createConfirmationPortalLink(partId: string, publisherId: string): Promise<string | null> {
+        const { data, error } = await supabase.rpc('create_confirmation_portal_token', {
+            p_part_id: partId,
+            p_publisher_id: publisherId,
+        });
+
+        if (error) {
+            console.error('[communicationService] Erro ao criar token do portal:', error);
+            return null;
+        }
+
+        const result = (data && typeof data === 'object' && !Array.isArray(data)
+            ? data
+            : {}) as ConfirmationTokenResult;
+
+        if (!result.success || !result.token) {
+            return null;
+        }
+
+        const baseUrl = getPortalBaseUrl();
+        const params = new URLSearchParams({
+            portal: 'confirm',
+            partId,
+            publisherId,
+            token: result.token,
+        });
+        return `${baseUrl}/?${params.toString()}`;
     },
 
     /**
@@ -306,6 +353,8 @@ export const communicationService = {
         const publisherName = (part.resolvedPublisherName || part.rawPublisherName || '').trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
+        const realPartId = getRealPartId(part.id);
+        const publisherId = part.resolvedPublisherId || pub?.id;
 
         // Verificar se a parte foi CANCELADA por evento
         if (part.status === 'CANCELADA' && (part as any).affectedByEventId) {
@@ -395,6 +444,22 @@ export const communicationService = {
             srvmName,
             srvmPhone
         );
+
+        if (publisherId) {
+            const confirmationUrl = await this.createConfirmationPortalLink(realPartId, publisherId);
+            if (confirmationUrl) {
+                content = generateWhatsAppMessage(
+                    part,
+                    recipientGender,
+                    partnerName,
+                    partnerPhone,
+                    isAjudante,
+                    srvmName,
+                    srvmPhone,
+                    confirmationUrl
+                );
+            }
+        }
 
         // Buscar eventos especiais da semana para adicionar contexto
         try {
