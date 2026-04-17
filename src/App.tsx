@@ -64,10 +64,26 @@ function App() {
   // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
   const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken } = getPortalParams();
 
-  if (portal === 'confirm' && portalPartId && portalPublisherId && portalToken) {
+  if (portal === 'confirm') {
+    if (portalPartId && portalPublisherId && portalToken) {
+      return (
+        <div className="app portal-mode">
+          <DesignationConfirmationPortal partId={portalPartId} publisherId={portalPublisherId} token={portalToken} />
+        </div>
+      );
+    }
+
     return (
-      <div className="app portal-mode">
-        <DesignationConfirmationPortal partId={portalPartId} publisherId={portalPublisherId} token={portalToken} />
+      <div className="app portal-mode" style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <div style={{ width: '100%', maxWidth: '560px', background: '#111827', border: '1px solid #334155', borderRadius: '16px', padding: '28px', color: '#e2e8f0', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)' }}>
+          <h2 style={{ margin: '0 0 12px 0', fontSize: '1.35rem' }}>Link de confirmação inválido</h2>
+          <p style={{ margin: '0 0 12px 0', color: '#cbd5e1', lineHeight: 1.6 }}>
+            Este link está incompleto ou é de um formato antigo que não é mais aceito.
+          </p>
+          <p style={{ margin: 0, color: '#94a3b8', lineHeight: 1.6 }}>
+            Solicite um novo link de confirmação gerado pela mensagem S-89 atualizada.
+          </p>
+        </div>
       </div>
     );
   }
