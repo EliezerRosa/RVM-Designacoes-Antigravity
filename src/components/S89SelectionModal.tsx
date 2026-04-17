@@ -241,6 +241,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
     // Helper to find publisher phone
     const getPublisher = (name?: string) => publishers.find(p => p.name === name);
+    const hasConfirmationLink = (message: string) => /portal=confirm/i.test(message) && /token=/i.test(message);
 
     const handleSend = async (part: WorkbookPart) => {
         setProcessingIds(prev => new Set(prev).add(part.id));
@@ -280,6 +281,19 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     setEditingMessages(prev => ({ ...prev, [part.id]: content }));
                 } catch (err) {
                     console.warn('[S89Modal] Mensagem gerada on-demand falhou:', err);
+                }
+            }
+
+            const canHaveConfirmationLink = Boolean(part.resolvedPublisherId || foundPublisher?.id);
+            if (message && canHaveConfirmationLink && !hasConfirmationLink(message)) {
+                try {
+                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts);
+                    if (hasConfirmationLink(content)) {
+                        message = content;
+                        setEditingMessages(prev => ({ ...prev, [part.id]: content }));
+                    }
+                } catch (err) {
+                    console.warn('[S89Modal] Regeração da mensagem com link falhou:', err);
                 }
             }
 
