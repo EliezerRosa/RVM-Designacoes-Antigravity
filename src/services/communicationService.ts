@@ -52,6 +52,36 @@ function getRealPartId(partId: string): string {
     return partId.replace(/-(titular|ajudante)$/, '');
 }
 
+async function ensureSupabaseSessionReady(): Promise<boolean> {
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+        console.error('[communicationService] Erro ao obter sessão atual:', error);
+        return false;
+    }
+
+    const session = data.session;
+    if (!session) {
+        return false;
+    }
+
+    const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
+    const needsRefresh = expiresAtMs > 0 && expiresAtMs <= Date.now() + 60_000;
+
+    if (!needsRefresh) {
+        return true;
+    }
+
+    const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
+
+    if (refreshError) {
+        console.error('[communicationService] Erro ao atualizar sessão antes de gerar link:', refreshError);
+        return false;
+    }
+
+    return Boolean(refreshedData.session);
+}
+
 export const communicationService = {
     /**
      * Registra uma nova mensagem no banco
@@ -148,10 +178,30 @@ export const communicationService = {
     },
 
     async createConfirmationPortalLink(partId: string, publisherId: string): Promise<string | null> {
-        const { data, error } = await supabase.rpc('create_confirmation_portal_token', {
+        await ensureSupabaseSessionReady();
+
+        let { data, error } = await supabase.rpc('create_confirmation_portal_token', {
             p_part_id: partId,
             p_publisher_id: publisherId,
         });
+
+        const rpcResult = (data && typeof data === 'object' && !Array.isArray(data)
+            ? data
+            : {}) as ConfirmationTokenResult;
+
+        if (!error && rpcResult.error === 'not_authenticated') {
+            const sessionReady = await ensureSupabaseSessionReady();
+
+            if (sessionReady) {
+                const retryResult = await supabase.rpc('create_confirmation_portal_token', {
+                    p_part_id: partId,
+                    p_publisher_id: publisherId,
+                });
+
+                data = retryResult.data;
+                error = retryResult.error;
+            }
+        }
 
         if (error) {
             console.error('[communicationService] Erro ao criar token do portal:', error);
@@ -161,6 +211,10 @@ export const communicationService = {
         const result = (data && typeof data === 'object' && !Array.isArray(data)
             ? data
             : {}) as ConfirmationTokenResult;
+
+        if (result.error) {
+            console.warn('[communicationService] Token do portal não gerado:', result.error, { partId, publisherId });
+        }
 
         if (!result.success || !result.token) {
             return null;
