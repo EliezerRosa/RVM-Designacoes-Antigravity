@@ -29,16 +29,40 @@ import { updateRotationConfig } from './services/unifiedRotationService'
 
 type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin' | 'communication'
 
+function getPortalParams(): { portal: string | null; partId: string | null; publisherId: string | null; token: string | null } {
+  const searchParams = new URLSearchParams(window.location.search)
+  const hashValue = window.location.hash || ''
+  const hashQueryIndex = hashValue.indexOf('?')
+  const hashParams = hashQueryIndex >= 0
+    ? new URLSearchParams(hashValue.slice(hashQueryIndex + 1))
+    : new URLSearchParams()
+
+  const getFirst = (...keys: string[]) => {
+    for (const key of keys) {
+      const fromSearch = searchParams.get(key)
+      if (fromSearch) return fromSearch
+
+      const fromHash = hashParams.get(key)
+      if (fromHash) return fromHash
+    }
+
+    return null
+  }
+
+  return {
+    portal: getFirst('portal'),
+    partId: getFirst('id', 'partId'),
+    publisherId: getFirst('publisherId', 'publisher_id'),
+    token: getFirst('token')
+  }
+}
+
 function App() {
   const { isAuthenticated, isLoading: authLoading, needs2FA, isAdmin, signOut, profile } = useAuth();
 
   // PORTAL ROUTING: links públicos de confirmação de designação
   // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
-  const urlParams = new URLSearchParams(window.location.search);
-  const portal = urlParams.get('portal');
-  const portalPartId = urlParams.get('id') || urlParams.get('partId');
-  const portalPublisherId = urlParams.get('publisherId') || urlParams.get('publisher_id');
-  const portalToken = urlParams.get('token');
+  const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken } = getPortalParams();
 
   if (portal === 'confirm' && portalPartId && portalPublisherId && portalToken) {
     return (
