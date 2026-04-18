@@ -3,6 +3,7 @@
  * Extraído de WorkbookManager.tsx (Fase 5B da Auditoria)
  */
 
+import React from 'react';
 import { type WorkbookPart, type Publisher } from '../types';
 import { downloadS140Unified } from '../services/s140GeneratorUnified';
 import { undoService } from '../services/undoService';

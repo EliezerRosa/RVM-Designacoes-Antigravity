@@ -4,7 +4,8 @@
  * COMPORTAMENTO: Click toggle (clique para abrir, clique novamente para fechar)
  */
 
-import { useState, useRef, useCallback, useEffect, type ReactNode, type CSSProperties } from 'react';
+import React, { useState, useRef, useCallback, useEffect, type ReactNode, type CSSProperties } from 'react';
+void React;
 
 interface TooltipProps {
     content: ReactNode;

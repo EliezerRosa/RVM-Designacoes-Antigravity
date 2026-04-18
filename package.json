@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --import tsx --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
     "type-check": "tsc -b",
     "build": "vite build",
     "build:full": "npm run type-check && npm run build",
@@ -39,7 +40,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/formidable": "^3.4.6",
+    "@types/jsdom": "^28.0.1",
     "@types/pdf-parse": "^1.1.5",
     "@vercel/node": "^5.5.16",
     "cross-fetch": "^4.1.0",
@@ -49,6 +53,7 @@
     "excalidraw-mcp": "^1.0.0",
     "gh-pages": "^6.3.0",
     "globals": "^16.5.0",
+    "jsdom": "^29.0.2",
     "typescript-eslint": "^8.46.4"
   }
 }

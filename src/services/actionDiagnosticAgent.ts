@@ -10,10 +10,12 @@
  * - Diagnóstico estruturado: status, tempo, erro, dados retornados
  */
 
-import { HistoryStatus, type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 import { agentActionService, type AgentActionType, type AgentAction, type ActionResult } from './agentActionService';
-import { api } from './api';
-import { workbookService } from './workbookService';
+import { workbookManagementService } from './workbookManagementService';
+import { publisherAvailabilityService } from './publisherAvailabilityService';
+import { workbookQueryService } from './workbookQueryService';
+import { publisherDirectoryService } from './publisherDirectoryService';
+import { createActionDiagnosticAgentSupport, type LiveFixtures } from './actionDiagnosticAgentCore';
 
 // ===== Tipos do Diagnóstico =====
 
@@ -55,74 +57,12 @@ export interface DiagnosticReport {
 
 // ===== Fixtures dinâmicas =====
 
-interface LiveFixtures {
-    publishers: Publisher[];
-    parts: WorkbookPart[];
-    history: HistoryRecord[];
-    firstWeekId: string | null;
-    firstPartId: string | null;
-    firstPublisherName: string | null;
-    firstPartWithAssignment: WorkbookPart | null;
-    firstPartWithoutAssignment: WorkbookPart | null;
-}
-
-async function loadLiveFixtures(): Promise<LiveFixtures> {
-    let publishers: Publisher[] = [];
-    let parts: WorkbookPart[] = [];
-
-    try {
-        publishers = await api.loadPublishers();
-    } catch (e) {
-        console.warn('[Diagnostic] Falha ao carregar publicadores:', e);
-    }
-
-    try {
-        parts = await workbookService.getAll();
-    } catch (e) {
-        console.warn('[Diagnostic] Falha ao carregar partes:', e);
-    }
-
-    // Converter partes em history records simplificados
-    const history: HistoryRecord[] = parts
-        .filter(p => p.resolvedPublisherName)
-        .map(p => ({
-            id: p.id,
-            weekId: p.weekId,
-            weekDisplay: p.weekDisplay,
-            date: p.date,
-            section: p.section,
-            tipoParte: p.tipoParte,
-            modalidade: p.modalidade,
-            tituloParte: p.tituloParte,
-            descricaoParte: p.descricaoParte,
-            detalhesParte: p.detalhesParte,
-            seq: p.seq,
-            funcao: p.funcao,
-            duracao: parseInt(p.duracao) || 0,
-            horaInicio: p.horaInicio,
-            horaFim: p.horaFim,
-            rawPublisherName: p.rawPublisherName,
-            resolvedPublisherId: p.resolvedPublisherId,
-            resolvedPublisherName: p.resolvedPublisherName,
-            status: HistoryStatus.VALIDATED,
-            importSource: 'JSON',
-            importBatchId: p.batch_id || 'diagnostic',
-            createdAt: p.createdAt || new Date(0).toISOString(),
-        }));
-
-    const weekIds = [...new Set(parts.map(p => p.weekId))].sort();
-
-    return {
-        publishers,
-        parts,
-        history,
-        firstWeekId: weekIds[0] || null,
-        firstPartId: parts[0]?.id || null,
-        firstPublisherName: publishers[0]?.name || null,
-        firstPartWithAssignment: parts.find(p => !!p.resolvedPublisherName) || null,
-        firstPartWithoutAssignment: parts.find(p => !p.resolvedPublisherName && p.tipoParte !== 'Cântico') || null,
-    };
-}
+const diagnosticSupport = createActionDiagnosticAgentSupport({
+    publisherDirectoryReader: publisherDirectoryService,
+    workbookReader: workbookQueryService,
+    workbookMutations: workbookManagementService,
+    publisherAvailabilityMutations: publisherAvailabilityService,
+});
 
 // ===== Mapa de Testes por Ação =====
 
@@ -317,12 +257,7 @@ const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
             safe: true,
             skipIf: (!target || !pubName) ? 'Sem parte vazia ou publicador para testar ASSIGN_PART' : null,
             rollback: async (result, _fx) => {
-                if (result.success && result.data?.partId) {
-                    await workbookService.updatePart(result.data.partId, {
-                        resolvedPublisherName: target?.resolvedPublisherName || '',
-                        status: target?.status || 'PENDENTE',
-                    });
-                }
+                await diagnosticSupport.rollbackAssignedPart(result, target);
             },
             buildScript: (_fx, result, error) => ({
                 cenario: `Parte vazia: "${target?.tituloParte || 'N/A'}" (${target?.tipoParte || '?'}, semana ${target?.weekId}). Publicador: "${pubName}". Status antes: "${target?.status || 'PENDENTE'}".`,
@@ -334,6 +269,62 @@ const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
             }),
         };
     },
+
+    APPROVE_PROPOSAL: () => ({
+        action: { type: 'APPROVE_PROPOSAL', params: { partId: 'SKIP' }, description: 'Teste: aprovar proposta (skip seguro)' },
+        safe: true,
+        skipIf: 'Ação semiautorizada com alteração de estado — coberta por teste específico do boundary/UI.',
+        buildScript: () => ({
+            cenario: 'APPROVE_PROPOSAL altera status real da parte.',
+            comandoSimulado: '"Aprove esta proposta"',
+            expectativa: 'N/A — skip por segurança.',
+            resultadoObtido: 'SKIP.',
+            diagnostico: 'Ação coberta por testes específicos de lifecycle e ApprovalPanel.',
+            dadosUtilizados: { motivo: 'protegido por testes específicos' },
+        }),
+    }),
+
+    REJECT_PROPOSAL: () => ({
+        action: { type: 'REJECT_PROPOSAL', params: { partId: 'SKIP', reason: 'diag' }, description: 'Teste: rejeitar proposta (skip seguro)' },
+        safe: true,
+        skipIf: 'Ação altera status real da parte — coberta por testes específicos.',
+        buildScript: () => ({
+            cenario: 'REJECT_PROPOSAL altera status da parte e registra motivo.',
+            comandoSimulado: '"Rejeite esta proposta"',
+            expectativa: 'N/A — skip por segurança.',
+            resultadoObtido: 'SKIP.',
+            diagnostico: 'Ação coberta por testes específicos de lifecycle.',
+            dadosUtilizados: { motivo: 'protegido por testes específicos' },
+        }),
+    }),
+
+    COMPLETE_PART: () => ({
+        action: { type: 'COMPLETE_PART', params: { partId: 'SKIP' }, description: 'Teste: concluir parte (skip seguro)' },
+        safe: true,
+        skipIf: 'Ação altera estado real da parte — coberta por testes específicos.',
+        buildScript: () => ({
+            cenario: 'COMPLETE_PART marca a parte como concluída.',
+            comandoSimulado: '"Conclua esta parte"',
+            expectativa: 'N/A — skip por segurança.',
+            resultadoObtido: 'SKIP.',
+            diagnostico: 'Ação coberta por testes específicos de lifecycle e UI.',
+            dadosUtilizados: { motivo: 'protegido por testes específicos' },
+        }),
+    }),
+
+    UNDO_COMPLETE_PART: () => ({
+        action: { type: 'UNDO_COMPLETE_PART', params: { partId: 'SKIP' }, description: 'Teste: desfazer conclusão (skip seguro)' },
+        safe: true,
+        skipIf: 'Ação altera estado real da parte — coberta por testes específicos.',
+        buildScript: () => ({
+            cenario: 'UNDO_COMPLETE_PART restaura uma parte concluída.',
+            comandoSimulado: '"Desfaça a conclusão desta parte"',
+            expectativa: 'N/A — skip por segurança.',
+            resultadoObtido: 'SKIP.',
+            diagnostico: 'Ação coberta por testes específicos de lifecycle e UI.',
+            dadosUtilizados: { motivo: 'protegido por testes específicos' },
+        }),
+    }),
 
     GENERATE_WEEK: (fx) => ({
         action: { type: 'GENERATE_WEEK', params: { weekId: fx.firstWeekId || '2026-04-06' }, description: 'Teste: gerar designações (SKIP em diagnóstico)' },
@@ -442,14 +433,7 @@ const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
             },
             safe: true,
             rollback: async (_result, fixtures) => {
-                const freshPub = fixtures.publishers.find(p => p.name === pub.name);
-                if (freshPub) {
-                    const cleaned = (freshPub.availability.exceptionDates || []).filter(d => d !== testDate);
-                    await api.updatePublisher({
-                        ...freshPub,
-                        availability: { ...freshPub.availability, exceptionDates: cleaned }
-                    });
-                }
+                await diagnosticSupport.rollbackAvailabilityDate(pub.name, fixtures.publishers, testDate);
             },
             buildScript: (_fx, result, error) => ({
                 cenario: `Publicador: "${pub.name}". Datas bloqueadas atuais: ${datesAntes}. Data de teste: ${testDate} (passado impossível — fácil de reverter).`,
@@ -601,7 +585,7 @@ export async function runDiagnostic(
     // 1. Carregar fixtures reais
     let fixtures: LiveFixtures;
     try {
-        fixtures = await loadLiveFixtures();
+        fixtures = await diagnosticSupport.loadLiveFixtures();
     } catch (e) {
         return {
             timestamp: new Date().toISOString(),

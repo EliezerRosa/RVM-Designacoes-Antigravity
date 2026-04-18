@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 import { checkEligibility, isElderOrMS, buildEligibilityContext } from '../services/eligibilityService';
 import { getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';

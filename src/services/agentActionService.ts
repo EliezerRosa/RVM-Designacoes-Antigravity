@@ -2,23 +2,30 @@ import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
 import { getPermissions, createPermissionGate } from './permissionService';
 
-import { api } from './api';
 import { generationService } from './generationService';
-import { workbookService } from './workbookService';
 import { undoService } from './undoService';
-import { getRankedCandidates, explainScoreForAgent, getRotationConfig, updateRotationConfig } from './unifiedRotationService';
+import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
 import { checkEligibility } from './eligibilityService';
 import { communicationService } from './communicationService';
-import { specialEventService } from './specialEventService';
 import { dataDiscoveryService } from './dataDiscoveryService';
 import { auditService } from './auditService';
 import { localNeedsService } from './localNeedsService';
 import { participationAnalyticsService } from './participationAnalyticsService';
 import { importWorkbookFromJwOrg, fetchWorkbookFromJwOrg, importMultipleWeeks } from './jwOrgService';
+import { publisherMutationService } from './publisherMutationService';
+import { publisherAvailabilityService } from './publisherAvailabilityService';
+import { workbookLifecycleService } from './workbookLifecycleService';
+import { engineConfigService } from './engineConfigService';
+import { workbookManagementService } from './workbookManagementService';
+import { specialEventManagementService } from './specialEventManagementService';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
     | 'ASSIGN_PART'
+    | 'APPROVE_PROPOSAL'
+    | 'REJECT_PROPOSAL'
+    | 'COMPLETE_PART'
+    | 'UNDO_COMPLETE_PART'
     | 'UNDO_LAST'
     | 'NAVIGATE_WEEK'
     | 'VIEW_S140'
@@ -229,6 +236,66 @@ export const agentActionService = {
                     };
                 }
 
+                case 'APPROVE_PROPOSAL': {
+                    const { partId, elderId } = action.params;
+                    if (!partId || !elderId) {
+                        return { success: false, message: 'Faltam parâmetros: partId e elderId.' };
+                    }
+
+                    const approvedPart = await workbookLifecycleService.approveProposal(partId, elderId);
+                    return {
+                        success: true,
+                        message: `Proposta aprovada para ${approvedPart.tipoParte}.`,
+                        data: { part: approvedPart },
+                        actionType: 'APPROVE_PROPOSAL'
+                    };
+                }
+
+                case 'REJECT_PROPOSAL': {
+                    const { partId, reason } = action.params;
+                    if (!partId || !reason) {
+                        return { success: false, message: 'Faltam parâmetros: partId e reason.' };
+                    }
+
+                    const rejectedPart = await workbookLifecycleService.rejectProposal(partId, reason);
+                    return {
+                        success: true,
+                        message: `Proposta rejeitada para ${rejectedPart.tipoParte}.`,
+                        data: { part: rejectedPart },
+                        actionType: 'REJECT_PROPOSAL'
+                    };
+                }
+
+                case 'COMPLETE_PART': {
+                    const { partId } = action.params;
+                    if (!partId) {
+                        return { success: false, message: 'Falta o parâmetro partId.' };
+                    }
+
+                    const completedPart = await workbookLifecycleService.completePart(partId);
+                    return {
+                        success: true,
+                        message: `Parte marcada como concluída${completedPart ? `: ${completedPart.tipoParte}` : ''}.`,
+                        data: { part: completedPart },
+                        actionType: 'COMPLETE_PART'
+                    };
+                }
+
+                case 'UNDO_COMPLETE_PART': {
+                    const { partId } = action.params;
+                    if (!partId) {
+                        return { success: false, message: 'Falta o parâmetro partId.' };
+                    }
+
+                    const restoredPart = await workbookLifecycleService.undoCompletePart(partId);
+                    return {
+                        success: true,
+                        message: `Conclusão desfeita para ${restoredPart.tipoParte}.`,
+                        data: { part: restoredPart },
+                        actionType: 'UNDO_COMPLETE_PART'
+                    };
+                }
+
                 case 'UNDO_LAST': {
                     const result = await undoService.undo();
                     return {
@@ -248,17 +315,7 @@ export const agentActionService = {
                     }
 
                     undoService.captureBatch(weekPartsToClean, `Agente: Limpar Semana ${clearWeekId}`);
-
-                    let clearedCount = 0;
-                    for (const p of weekPartsToClean) {
-                        if (p.resolvedPublisherName) {
-                            await workbookService.updatePart(p.id, {
-                                resolvedPublisherName: '',
-                                status: 'PENDENTE'
-                            });
-                            clearedCount++;
-                        }
-                    }
+                    const { clearedCount } = await workbookManagementService.clearWeek(weekPartsToClean);
 
                     return {
                         success: true,
@@ -290,21 +347,28 @@ export const agentActionService = {
 
                     try {
                         const updatedPub = { ...pub, ...updates };
-
-                        await api.updatePublisher(updatedPub);
+                        const mutationResult = await publisherMutationService.savePublisherWithPropagation(updatedPub, pub);
 
                         await auditService.logAction({
                             table_name: 'publishers',
                             operation: 'AGENT_INTENT',
-                            record_id: updatedPub.id,
-                            new_data: updatedPub,
+                            record_id: mutationResult.publisher.id,
+                            new_data: mutationResult.publisher,
                             description: `Agente atualizou publicador: ${action.description}`
                         });
 
+                        const propagationSummary = mutationResult.renamed
+                            ? ` Rename propagado para ${mutationResult.propagatedParts} parte(s).`
+                            : '';
+
                         return {
                             success: true,
-                            message: `**Atualização Concluída:** Os dados de **${pub.name}** foram alterados. Status: ${updates.isNotQualified ? '[INAPTO]' : '[APTO]'}. Motivo: ${updates.notQualifiedReason || 'N/A'}.`,
-                            data: updatedPub,
+                            message: `**Atualização Concluída:** Os dados de **${pub.name}** foram alterados. Status: ${updates.isNotQualified ? '[INAPTO]' : '[APTO]'}. Motivo: ${updates.notQualifiedReason || 'N/A'}.${propagationSummary}`,
+                            data: {
+                                publisher: mutationResult.publisher,
+                                propagatedParts: mutationResult.propagatedParts,
+                                renamed: mutationResult.renamed,
+                            },
                             actionType: 'UPDATE_PUBLISHER'
                         };
                     } catch (e) {
@@ -326,30 +390,20 @@ export const agentActionService = {
 
                     try {
                         // Merge: adicionar novas datas às existentes (sem duplicar)
-                        const existingDates = pub.availability.exceptionDates || [];
-                        const mergedDates = [...new Set([...existingDates, ...unavailableDates])];
-                        const updatedPub = {
-                            ...pub,
-                            availability: {
-                                ...pub.availability,
-                                exceptionDates: mergedDates
-                            }
-                        };
-
-                        await api.updatePublisher(updatedPub);
+                        const result = await publisherAvailabilityService.updateAvailability(pub, unavailableDates);
 
                         await auditService.logAction({
                             table_name: 'publishers',
                             operation: 'AGENT_INTENT',
-                            record_id: updatedPub.id,
-                            new_data: updatedPub,
+                            record_id: result.publisher.id,
+                            new_data: result.publisher,
                             description: `Agente bloqueou datas de disponibilidade: ${action.description}`
                         });
 
                         return {
                             success: true,
-                            message: `**Agenda Atualizada:** As datas **(${unavailableDates.join(', ')})** foram adicionadas às indisponibilidades de **${pub.name}** (total: ${mergedDates.length} datas bloqueadas).`,
-                            data: updatedPub,
+                            message: `**Agenda Atualizada:** As datas **(${unavailableDates.join(', ')})** foram adicionadas às indisponibilidades de **${pub.name}** (total: ${result.totalBlockedDates} datas bloqueadas).`,
+                            data: result.publisher,
                             actionType: 'UPDATE_AVAILABILITY'
                         };
                     } catch (e) {
@@ -365,25 +419,20 @@ export const agentActionService = {
                     }
 
                     try {
-                        const currentGlobalConfig = getRotationConfig();
-                        const mergedConfig = { ...currentGlobalConfig, ...settings };
-
-                        await api.setSetting('engine_config', mergedConfig);
+                        const result = await engineConfigService.updateEngineConfig(settings);
 
                         await auditService.logAction({
                             table_name: 'settings',
                             operation: 'AGENT_INTENT',
                             record_id: 'engine_config',
-                            new_data: mergedConfig,
+                            new_data: result.mergedConfig,
                             description: `Agente alterou regras do motor: ${action.description}`
                         });
-
-                        updateRotationConfig(settings);
 
                         return {
                             success: true,
                             message: `**Configurações do Motor Atualizadas:** As novas regras foram aplicadas com sucesso e persistidas no banco.`,
-                            data: settings,
+                            data: result.mergedConfig,
                             actionType: 'UPDATE_ENGINE_RULES'
                         };
                     } catch (e) {
@@ -527,39 +576,27 @@ export const agentActionService = {
                                 return { success: false, message: 'Faltam dados do evento (week, templateId).' };
                             }
 
-                            const newEvent = await specialEventService.createEvent(eventData);
-                            const weekParts = await workbookService.getAll({ weekId: eventData.week });
-                            const partIds = weekParts.map(p => p.id);
-
-                            if (partIds.length > 0) {
-                                const { affected } = await specialEventService.applyEventImpact(newEvent, partIds);
+                            const result = await specialEventManagementService.createAndApply(eventData);
+                            if (result.affected > 0) {
                                 return {
                                     success: true,
-                                    message: `**Evento Criado e Aplicado:** "${newEvent.theme || newEvent.templateId}" na semana ${eventData.week}. ${affected} partes foram impactadas.`,
-                                    data: { event: newEvent, affected },
+                                    message: `**Evento Criado e Aplicado:** "${result.event.theme || result.event.templateId}" na semana ${eventData.week}. ${result.affected} partes foram impactadas.`,
+                                    data: { event: result.event, affected: result.affected },
                                     actionType: 'MANAGE_SPECIAL_EVENT'
                                 };
                             }
 
                             return {
                                 success: true,
-                                message: `**Evento Criado:** "${newEvent.theme || newEvent.templateId}" para a semana ${eventData.week}. Nota: Nenhuma parte da apostila encontrada para esta semana para aplicar o impacto imediato.`,
-                                data: { event: newEvent, affected: 0 },
+                                message: `**Evento Criado:** "${result.event.theme || result.event.templateId}" para a semana ${eventData.week}. Nota: Nenhuma parte da apostila encontrada para esta semana para aplicar o impacto imediato.`,
+                                data: { event: result.event, affected: 0 },
                                 actionType: 'MANAGE_SPECIAL_EVENT'
                             };
                         }
 
                         if (subAction === 'DELETE') {
                             if (!eventId) return { success: false, message: 'Falta o ID do evento para deletar.' };
-
-                            const allEvents = await specialEventService.getAllEvents();
-                            const eventToDel = allEvents.find(e => e.id === eventId);
-
-                            if (eventToDel && eventToDel.isApplied) {
-                                await specialEventService.revertEventImpact(eventToDel);
-                            }
-
-                            await specialEventService.deleteEvent(eventId);
+                            await specialEventManagementService.deleteWithRevert(eventId);
                             return {
                                 success: true,
                                 message: `**Evento Removido:** O evento foi deletado e seus impactos na apostila foram revertidos.`,
@@ -1001,7 +1038,7 @@ export const agentActionService = {
                             return { success: false, message: 'Parâmetro partId é obrigatório.' };
                         }
 
-                        const part = await workbookService.getPartById(partId);
+                        const part = await workbookManagementService.getPart(partId);
                         if (!part) {
                             return { success: false, message: `Parte não encontrada: ${partId}` };
                         }
@@ -1020,7 +1057,7 @@ export const agentActionService = {
                                     return { success: false, message: 'Nenhum campo para atualizar.' };
                                 }
 
-                                const updated = await workbookService.updatePart(partId, updates);
+                                const updated = await workbookManagementService.updatePart(partId, updates);
                                 return {
                                     success: true,
                                     message: `✅ Parte "${part.tipoParte}" (seq ${part.seq}) atualizada.`,
@@ -1029,7 +1066,7 @@ export const agentActionService = {
                                 };
                             }
                             case 'DELETE': {
-                                await workbookService.deletePart(partId);
+                                await workbookManagementService.deletePart(partId);
                                 return {
                                     success: true,
                                     message: `✅ Parte "${part.tipoParte}" (seq ${part.seq}) excluída.`,
@@ -1037,7 +1074,7 @@ export const agentActionService = {
                                 };
                             }
                             case 'CANCEL': {
-                                const cancelled = await workbookService.updatePart(partId, { status: 'CANCELADA' as any, cancelReason: action.params.reason || 'Cancelada pelo agente' });
+                                const cancelled = await workbookManagementService.cancelPart(partId, action.params.reason || 'Cancelada pelo agente');
                                 return {
                                     success: true,
                                     message: `✅ Parte "${part.tipoParte}" marcada como CANCELADA.`,
@@ -1073,7 +1110,7 @@ export const agentActionService = {
 
                         switch (subAction) {
                             case 'LIST': {
-                                const weekParts = await workbookService.getPartsByWeekId(weekId);
+                                const weekParts = await workbookManagementService.listWeekParts(weekId);
                                 if (weekParts.length === 0) {
                                     return { success: true, message: `Nenhuma parte encontrada para semana ${weekId}.`, data: { parts: [] }, actionType: 'MANAGE_WORKBOOK_WEEK' };
                                 }
@@ -1089,23 +1126,19 @@ export const agentActionService = {
                                 };
                             }
                             case 'DELETE_WEEK': {
-                                const weekParts = await workbookService.getPartsByWeekId(weekId);
-                                if (weekParts.length === 0) {
+                                const result = await workbookManagementService.deleteWeek(weekId);
+                                if (result.parts.length === 0) {
                                     return { success: false, message: `Nenhuma parte encontrada para semana ${weekId}.` };
-                                }
-                                // Excluir todas as partes da semana
-                                for (const p of weekParts) {
-                                    await workbookService.deletePart(p.id);
                                 }
                                 return {
                                     success: true,
-                                    message: `✅ ${weekParts.length} partes da semana ${weekId} excluídas.`,
-                                    data: { deletedCount: weekParts.length },
+                                    message: `✅ ${result.deletedCount} partes da semana ${weekId} excluídas.`,
+                                    data: { deletedCount: result.deletedCount },
                                     actionType: 'MANAGE_WORKBOOK_WEEK'
                                 };
                             }
                             case 'CANCEL_WEEK': {
-                                await workbookService.updateWeekStatus(weekId, 'CANCELADA' as any, true);
+                                await workbookManagementService.cancelWeek(weekId);
                                 return {
                                     success: true,
                                     message: `✅ Todas as partes da semana ${weekId} marcadas como CANCELADA.`,
@@ -1113,7 +1146,7 @@ export const agentActionService = {
                                 };
                             }
                             case 'RESET_WEEK': {
-                                await workbookService.updateWeekStatus(weekId, 'PENDENTE' as any, true);
+                                await workbookManagementService.resetWeek(weekId);
                                 return {
                                     success: true,
                                     message: `✅ Semana ${weekId} resetada para PENDENTE (designações removidas).`,
@@ -1121,21 +1154,13 @@ export const agentActionService = {
                                 };
                             }
                             case 'REIMPORT': {
-                                // Excluir semana atual e reimportar do jw.org
-                                const existingParts = await workbookService.getPartsByWeekId(weekId);
-                                if (existingParts.length > 0) {
-                                    for (const p of existingParts) {
-                                        await workbookService.deletePart(p.id);
-                                    }
-                                }
-                                const weekDate = new Date(weekId + 'T12:00:00');
-                                const result = await importWorkbookFromJwOrg(weekDate);
+                                const result = await workbookManagementService.reimportWeek(weekId);
                                 return {
-                                    success: result.success,
-                                    message: result.success
-                                        ? `✅ Semana ${weekId} reimportada: ${existingParts.length} partes antigas excluídas, ${result.totalParts} novas importadas.`
-                                        : `Erro ao reimportar: ${result.error}`,
-                                    data: { deletedCount: existingParts.length, importedCount: result.totalParts },
+                                    success: result.importResult.success,
+                                    message: result.importResult.success
+                                        ? `✅ Semana ${weekId} reimportada: ${result.deletedCount} partes antigas excluídas, ${result.importResult.totalParts} novas importadas.`
+                                        : `Erro ao reimportar: ${result.importResult.error}`,
+                                    data: { deletedCount: result.deletedCount, importedCount: result.importResult.totalParts },
                                     actionType: 'MANAGE_WORKBOOK_WEEK'
                                 };
                             }

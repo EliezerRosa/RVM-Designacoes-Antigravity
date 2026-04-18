@@ -1,10 +1,18 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChatMessageBubble } from './ui/ChatMessageBubble';
+import { ChatActionChips } from './ui/ChatActionChips';
+import { IntentContextBar } from './ui/IntentContextBar';
+import { PostResponseActions } from './ui/PostResponseActions';
+import { SlashCommandMenu } from './ui/SlashCommandMenu';
+import { ProposalApprovalMicroUi } from './ui/ProposalApprovalMicroUi';
+import { AvailabilityUpdateMicroUi } from './ui/AvailabilityUpdateMicroUi';
+import { PublisherQuickEditMicroUi } from './ui/PublisherQuickEditMicroUi';
+import { PartCompletionMicroUi } from './ui/PartCompletionMicroUi';
 import { chatHistoryService } from '../services/chatHistoryService';
 import { askAgent, isAgentConfigured, getSuggestedQuestions } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
-import { agentActionService } from '../services/agentActionService';
+import { agentActionService, type AgentAction, type AgentActionType } from '../services/agentActionService';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import type { ActionResult } from '../services/agentActionService';
 import html2canvas from 'html2canvas';
@@ -14,6 +22,11 @@ import { specialEventService } from '../services/specialEventService';
 import { localNeedsService } from '../services/localNeedsService';
 import type { SpecialEventInput, LocalNeedsInput } from '../services/contextBuilder';
 import { supabase } from '../lib/supabase';
+import { createPermissionGate, getPermissions } from '../services/permissionService';
+import { useAuth } from '../context/AuthContext';
+import { publisherMutationService } from '../services/publisherMutationService';
+import { useTemporalChatSemanticContext } from '../hooks/useTemporalChatSemanticContext';
+import { useTemporalChatSemanticControls } from '../hooks/useTemporalChatSemanticControls';
 
 interface TemporalChatProps {
     publishers: Publisher[];
@@ -28,6 +41,7 @@ interface TemporalChatProps {
     isWorkbookLoading?: boolean;
     onRateLimitChange?: (remaining: number, max: number, refillInSeconds: number) => void;
     accessLevel?: 'elder' | 'publisher';
+    canSendZap?: boolean;
 }
 
 export default function TemporalChat({
@@ -41,8 +55,10 @@ export default function TemporalChat({
     initialCommand,
     isWorkbookLoading = false,
     onRateLimitChange,
-    accessLevel = 'publisher'
+    accessLevel = 'publisher',
+    canSendZap = false
 }: TemporalChatProps) {
+    const { profile } = useAuth();
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -65,6 +81,17 @@ export default function TemporalChat({
     // Voice Chat State
     const [isListening, setIsListening] = useState(false);
     const [speechError, setSpeechError] = useState<string | null>(null);
+    const [activeTopic, setActiveTopic] = useState('Exploração geral');
+    const [interactionStage, setInteractionStage] = useState('Consulta');
+    const [lastUserPrompt, setLastUserPrompt] = useState<string>('');
+    const [proposalBusyPartId, setProposalBusyPartId] = useState<string | null>(null);
+    const [proposalRejectFocusId, setProposalRejectFocusId] = useState<string | null>(null);
+    const [availabilityBusy, setAvailabilityBusy] = useState(false);
+    const [publisherEditBusy, setPublisherEditBusy] = useState(false);
+    const [completionBusyPartId, setCompletionBusyPartId] = useState<string | null>(null);
+
+    const permissionGate = useMemo(() => createPermissionGate(getPermissions()), [accessLevel, canSendZap]);
+    const allowedAgentActions = useMemo(() => permissionGate.getAllowedAgentActions(), [permissionGate]);
 
     // Initializer for Speech Recognition
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -238,6 +265,210 @@ export default function TemporalChat({
     // Context Data State
     const [specialEventsCtx, setSpecialEventsCtx] = useState<SpecialEventInput[]>([]);
     const [localNeedsCtx, setLocalNeedsCtx] = useState<LocalNeedsInput[]>([]);
+
+    const canExecute = (actionType: AgentActionType) => allowedAgentActions.includes(actionType);
+    const canSeeApprovalMicroUi = permissionGate.getAccessLevel() === 'elder';
+    const {
+        focusedPublisherId,
+        shouldShowAvailabilityMicroUi,
+        shouldShowPublisherEditMicroUi,
+        currentWeekProposals,
+        currentWeekCompletableParts,
+        currentWeekCompletedParts,
+    } = useTemporalChatSemanticContext({
+        publishers,
+        parts,
+        currentWeekId,
+        lastUserPrompt,
+        activeTopic,
+        canUpdateAvailability: canExecute('UPDATE_AVAILABILITY'),
+        canUpdatePublisher: canExecute('UPDATE_PUBLISHER'),
+        canSeeSensitiveData: permissionGate.canSeeSensitiveData(),
+        accessLevel: permissionGate.getAccessLevel(),
+    });
+
+    const appendAssistantMessage = async (content: string) => {
+        if (!sessionId) return;
+        const message: ChatMessage = {
+            role: 'assistant',
+            content,
+            timestamp: new Date()
+        };
+        await chatHistoryService.addMessage(sessionId, message);
+        setMessages(prev => [...prev, message]);
+    };
+
+    const executeDirectAction = async (action: AgentAction, nextTopic?: string) => {
+        if (isLoading) return;
+
+        setIsLoading(true);
+        setInteractionStage('Execução');
+        if (nextTopic) setActiveTopic(nextTopic);
+
+        try {
+            const fallbackHistory = parts.map(part => workbookPartToHistoryRecord(part));
+            const result = await agentActionService.executeAction(
+                action,
+                parts,
+                publishers,
+                historyRecords.length > 0 ? historyRecords : fallbackHistory,
+                currentWeekId
+            );
+
+            if (result.success && onAction) onAction(result);
+
+            if (result.success && result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId && onNavigateToWeek) {
+                onNavigateToWeek(result.data.weekId);
+            }
+
+            if (result.success && result.actionType === 'VIEW_S140' && currentWeekId) {
+                await handleShareS140(currentWeekId, true);
+            }
+
+            await appendAssistantMessage(result.success ? `✅ ${result.message}` : `⚠️ ${result.message}`);
+        } catch (error) {
+            await appendAssistantMessage(`❌ Erro ao executar ação direta: ${error instanceof Error ? error.message : 'Desconhecido'}`);
+            setInteractionStage('Erro');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleApproveProposal = async (partId: string) => {
+        if (!profile?.id) {
+            await appendAssistantMessage('⚠️ Não foi possível identificar o perfil autenticado para aprovar esta proposta.');
+            return;
+        }
+
+        setProposalBusyPartId(partId);
+        await executeDirectAction({
+            type: 'APPROVE_PROPOSAL',
+            params: { partId, elderId: profile.id },
+            description: 'Aprovando proposta de designação'
+        }, 'Aprovação de designações');
+        setProposalBusyPartId(null);
+    };
+
+    const handleRejectProposal = async (partId: string, reason: string) => {
+        setProposalBusyPartId(partId);
+        await executeDirectAction({
+            type: 'REJECT_PROPOSAL',
+            params: { partId, reason },
+            description: 'Rejeitando proposta de designação'
+        }, 'Aprovação de designações');
+        setProposalBusyPartId(null);
+        setProposalRejectFocusId(null);
+    };
+
+    const handleUpdateAvailability = async (publisherId: string, date: string) => {
+        const publisher = publishers.find(item => item.id === publisherId);
+        if (!publisher) {
+            await appendAssistantMessage('⚠️ Não foi possível localizar o publicador selecionado para atualizar a agenda.');
+            return;
+        }
+
+        setAvailabilityBusy(true);
+        await executeDirectAction({
+            type: 'UPDATE_AVAILABILITY',
+            params: {
+                publisherName: publisher.name,
+                unavailableDates: [date]
+            },
+            description: 'Atualizando indisponibilidade do publicador'
+        }, 'Publicadores e elegibilidade');
+        setAvailabilityBusy(false);
+    };
+
+    const handleQuickEditPublisher = async (publisherId: string, updates: Partial<Publisher>) => {
+        const publisher = publishers.find(item => item.id === publisherId);
+        if (!publisher) {
+            await appendAssistantMessage('⚠️ Não foi possível localizar o publicador selecionado para edição rápida.');
+            return;
+        }
+
+        setPublisherEditBusy(true);
+        setInteractionStage('Execução');
+        setActiveTopic('Publicadores e elegibilidade');
+        try {
+            const updatedPublisher = { ...publisher, ...updates };
+            const result = await publisherMutationService.savePublisherWithPropagation(updatedPublisher, publisher);
+            const summary = result.renamed
+                ? ` e o rename foi propagado para ${result.propagatedParts} parte(s)`
+                : '';
+
+            if (onAction) {
+                onAction({
+                    success: true,
+                    message: `Ficha principal de ${result.publisher.name} atualizada${summary}.`,
+                    data: {
+                        publisher: result.publisher,
+                        propagatedParts: result.propagatedParts,
+                        renamed: result.renamed,
+                    },
+                    actionType: 'UPDATE_PUBLISHER'
+                });
+            }
+
+            await appendAssistantMessage(`✅ Ficha principal de ${result.publisher.name} atualizada${summary}.`);
+        } catch (error) {
+            await appendAssistantMessage(`❌ Erro ao atualizar ficha principal: ${error instanceof Error ? error.message : 'Desconhecido'}`);
+        } finally {
+            setPublisherEditBusy(false);
+        }
+    };
+
+    const handlePreviewPublisherEdit = async (publisherId: string, updates: Partial<Publisher>) => {
+        const publisher = publishers.find(item => item.id === publisherId);
+        if (!publisher) {
+            throw new Error('Publicador não encontrado para preview.');
+        }
+
+        return publisherMutationService.previewSavePublisher({ ...publisher, ...updates }, publisher);
+    };
+
+    const handleCompletePart = async (partId: string) => {
+        setCompletionBusyPartId(partId);
+        await executeDirectAction({
+            type: 'COMPLETE_PART',
+            params: { partId },
+            description: 'Marcando parte como concluída'
+        }, 'Designações da semana');
+        setCompletionBusyPartId(null);
+    };
+
+    const handleUndoCompletePart = async (partId: string) => {
+        setCompletionBusyPartId(partId);
+        await executeDirectAction({
+            type: 'UNDO_COMPLETE_PART',
+            params: { partId },
+            description: 'Desfazendo conclusão da parte'
+        }, 'Designações da semana');
+        setCompletionBusyPartId(null);
+    };
+
+    const inferTopicFromText = (text: string): string => {
+        const normalized = text.toLowerCase();
+
+        if (normalized.includes('s-140')) return 'S-140 e visualização';
+        if (normalized.includes('s-89') || normalized.includes('whatsapp') || normalized.includes('zap')) return 'Comunicação';
+        if (normalized.includes('design') || normalized.includes('parte') || normalized.includes('semana')) return 'Designações da semana';
+        if (normalized.includes('publicador') || normalized.includes('irmão') || normalized.includes('irmã')) return 'Publicadores e elegibilidade';
+        if (normalized.includes('evento') || normalized.includes('necessidade local')) return 'Eventos e necessidades locais';
+        if (normalized.includes('histórico') || normalized.includes('anal')) return 'Histórico e analytics';
+
+        return 'Exploração geral';
+    };
+
+    const inferStageFromActions = (actionTypes: string[]): string => {
+        if (actionTypes.length === 0) return 'Consulta';
+        if (actionTypes.some(type => type === 'GENERATE_WEEK' || type === 'ASSIGN_PART' || type === 'CLEAR_WEEK' || type === 'UPDATE_PUBLISHER' || type === 'UPDATE_AVAILABILITY')) {
+            return 'Execução';
+        }
+        if (actionTypes.some(type => type === 'SIMULATE_ASSIGNMENT' || type === 'CHECK_SCORE' || type === 'GET_ANALYTICS' || type === 'FETCH_DATA')) {
+            return 'Análise';
+        }
+        return 'Preparação';
+    };
 
     // === REGISTRO DE PUBLICADORES (nome normalizado ↔ UUID) ===
     const normalizeStr = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -486,6 +717,12 @@ export default function TemporalChat({
         // Return only if no text AND no audio is present
         if ((!textToSend && !audioData) || !sessionId || isLoading) return;
 
+        if (textToSend) {
+            setLastUserPrompt(textToSend);
+            setActiveTopic(inferTopicFromText(textToSend));
+        }
+        setInteractionStage('Processando');
+
         const isPureAudio = audioData && !textToSend;
 
         // Para texto normal, mostrar mensagem do usuário imediatamente
@@ -623,6 +860,8 @@ export default function TemporalChat({
             }
 
             const cleanedContent = stripJsonBlocks(rawContent);
+            const actionTypes = (response.actions?.length ? response.actions : response.action ? [response.action] : []).map(action => action.type);
+            setInteractionStage(inferStageFromActions(actionTypes));
 
             if (cleanedContent.trim() !== '') {
                 const agentMsg: ChatMessage = {
@@ -790,6 +1029,7 @@ export default function TemporalChat({
                 };
                 await chatHistoryService.addMessage(sessionId, feedbackMsg);
                 setMessages(prev => [...prev, feedbackMsg]);
+                setInteractionStage(inferStageFromActions(results.map(result => result.actionType || '')));
             }
 
         } catch (error) {
@@ -800,6 +1040,7 @@ export default function TemporalChat({
             // Detect rate limit error and extract wait time (Find MAX wait time if multiple)
             const rateLimitMatches = [...errorMessage.matchAll(/Please retry in ([\d.]+)s/g)];
             if (rateLimitMatches.length > 0) {
+                setInteractionStage('Aguardando limite');
                 // Encontrar o maior tempo de espera sugerido entre todos os erros
                 const waitTimes = rateLimitMatches.map(m => parseFloat(m[1]));
                 const maxWait = Math.max(...waitTimes);
@@ -819,6 +1060,7 @@ export default function TemporalChat({
                 await chatHistoryService.addMessage(sessionId, rateLimitMsg);
                 setMessages(prev => [...prev, rateLimitMsg]);
             } else {
+                setInteractionStage('Erro');
                 const errorMsg: ChatMessage = {
                     role: 'assistant',
                     content: `❌ Erro ao processar mensagem: ${errorMessage}`,
@@ -833,6 +1075,32 @@ export default function TemporalChat({
             setTimeout(() => inputRef.current?.focus(), 50);
         }
     };
+
+    const { contextualChips, visibleSlashCommands, buildPostResponseActions } = useTemporalChatSemanticControls({
+        input,
+        setInput,
+        inputRef,
+        currentWeekId,
+        canSendZap,
+        canSeeApprovalMicroUi,
+        accessLevel,
+        currentWeekProposals,
+        currentWeekCompletableParts,
+        currentWeekCompletedParts,
+        shouldShowAvailabilityMicroUi,
+        shouldShowPublisherEditMicroUi,
+        messages,
+        lastUserPrompt,
+        canExecute,
+        sendMessage,
+        handleShareS140,
+        executeDirectAction,
+        handleApproveProposal,
+        handleCompletePart,
+        handleUndoCompletePart,
+        setProposalRejectFocusId,
+        setActiveTopic,
+    });
 
     const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
@@ -871,6 +1139,55 @@ export default function TemporalChat({
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
 
+            <IntentContextBar
+                currentWeekId={currentWeekId}
+                accessLevel={accessLevel}
+                activeTopic={activeTopic}
+                stage={interactionStage}
+            />
+
+            {canSeeApprovalMicroUi && currentWeekProposals.length > 0 && (canExecute('APPROVE_PROPOSAL') || canExecute('REJECT_PROPOSAL')) && (
+                <ProposalApprovalMicroUi
+                    proposals={currentWeekProposals}
+                    canApprove={canExecute('APPROVE_PROPOSAL')}
+                    canReject={canExecute('REJECT_PROPOSAL')}
+                    onApprove={handleApproveProposal}
+                    onReject={handleRejectProposal}
+                    busyPartId={proposalBusyPartId}
+                    focusedRejectPartId={proposalRejectFocusId}
+                />
+            )}
+
+            {shouldShowAvailabilityMicroUi && (
+                <AvailabilityUpdateMicroUi
+                    publishers={publishers}
+                    defaultPublisherId={focusedPublisherId}
+                    defaultDate={currentWeekId || new Date().toISOString().slice(0, 10)}
+                    busy={availabilityBusy}
+                    onConfirm={handleUpdateAvailability}
+                />
+            )}
+
+            {shouldShowPublisherEditMicroUi && (
+                <PublisherQuickEditMicroUi
+                    publishers={publishers}
+                    defaultPublisherId={focusedPublisherId}
+                    busy={publisherEditBusy}
+                    onPreview={handlePreviewPublisherEdit}
+                    onConfirm={handleQuickEditPublisher}
+                />
+            )}
+
+            <PartCompletionMicroUi
+                completableParts={currentWeekCompletableParts}
+                completedParts={currentWeekCompletedParts}
+                canComplete={canExecute('COMPLETE_PART')}
+                canUndo={canExecute('UNDO_COMPLETE_PART')}
+                busyPartId={completionBusyPartId}
+                onComplete={handleCompletePart}
+                onUndo={handleUndoCompletePart}
+            />
+
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
                 {messages.length === 0 && (
                     <div style={{ textAlign: 'center', color: '#9CA3AF', padding: '20px' }}>
@@ -901,16 +1218,20 @@ export default function TemporalChat({
                     </div>
                 )}
                 {messages.map((msg, idx) => (
-                    <ChatMessageBubble
-                        key={idx}
-                        role={msg.role === 'assistant' ? 'assistant' : 'user'}
-                        content={msg.content || '(sem conteúdo)'}
-                        timestamp={msg.timestamp ? new Date(msg.timestamp) : undefined}
-                        onShowMore={() => {
-                            setInput('continue');
-                            setTimeout(() => sendMessage(), 100);
-                        }}
-                    />
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'assistant' ? 'flex-start' : 'flex-end' }}>
+                        <ChatMessageBubble
+                            role={msg.role === 'assistant' ? 'assistant' : 'user'}
+                            content={msg.content || '(sem conteúdo)'}
+                            timestamp={msg.timestamp ? new Date(msg.timestamp) : undefined}
+                            onShowMore={() => {
+                                setInput('continue');
+                                setTimeout(() => sendMessage(), 100);
+                            }}
+                        />
+                        {msg.role === 'assistant' && (
+                            <PostResponseActions actions={buildPostResponseActions(msg, idx)} />
+                        )}
+                    </div>
                 ))}
                 {isLoading && (
                     <div style={{ marginBottom: '8px', color: '#9CA3AF' }}>
@@ -920,6 +1241,8 @@ export default function TemporalChat({
                 <div ref={messagesEndRef} />
             </div>
             {/* Pending actions panel removed - Actions are now direct or conversational */}
+
+            <ChatActionChips chips={contextualChips} />
 
             {/* v9.3: BatchSimulationPanel removed - Agent uses existing Workbook UI */}
 
@@ -1117,11 +1440,12 @@ export default function TemporalChat({
                     </div>
                 </div>
             )}
-            <div style={{ borderTop: '1px solid #E5E7EB', padding: '8px', display: 'flex', gap: '8px' }}>
+            <div style={{ borderTop: '1px solid #E5E7EB', padding: '8px', display: 'flex', gap: '8px', position: 'relative' }}>
+                <SlashCommandMenu commands={visibleSlashCommands} />
                 <input
                     ref={inputRef}
                     type="text"
-                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : (speechError ? speechError : (isListening ? "Ouvindo..." : "Digite sua mensagem..."))}
+                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : (speechError ? speechError : (isListening ? "Ouvindo..." : "Descreva sua intenção ou peça uma ação do sistema..."))}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKey}

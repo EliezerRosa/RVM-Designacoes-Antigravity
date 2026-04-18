@@ -20,6 +20,8 @@ import { WorkbookTable } from './WorkbookTable';
 import { PartEditModal } from './PartEditModal';
 import { api } from '../services/api';
 import { workbookService } from '../services/workbookService';
+import { workbookManagementService } from '../services/workbookManagementService';
+import { publisherMutationService } from '../services/publisherMutationService';
 import TerritoryManager from './TerritoryManager';
 import { WorkbookImportModal } from './WorkbookImportModal';
 
@@ -74,9 +76,9 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
     const handleSavePublisher = async (publisher: Publisher) => {
         try {
             if (editingPublisher) {
-                await api.updatePublisher(publisher);
+                await publisherMutationService.savePublisherWithPropagation(publisher, editingPublisher);
             } else {
-                await api.createPublisher(publisher);
+                await publisherMutationService.savePublisherWithPropagation(publisher);
             }
             setShowPublisherForm(false);
             setEditingPublisher(null);
@@ -103,7 +105,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                 updates.resolvedPublisherName = '';
             }
 
-            const updatedPart = await workbookService.updatePart(id, updates);
+            const updatedPart = await workbookManagementService.updatePart(id, updates);
 
             if (applyToWeek && updates.status && updatedPart.weekId) {
                 const clearPublisher = updates.status === 'PENDENTE';
@@ -122,7 +124,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
 
     const handlePublisherSelect = async (partId: string, _newId: string, newName: string) => {
         try {
-            await workbookService.updatePart(partId, {
+            await workbookManagementService.updatePart(partId, {
                 resolvedPublisherName: newName,
                 status: 'DESIGNADA'
             });

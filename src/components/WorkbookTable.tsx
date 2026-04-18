@@ -3,10 +3,12 @@
  * Extraído de WorkbookManager.tsx (Fase 5C da Auditoria)
  */
 
+import React from 'react';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
 import { getStatusConfig } from '../constants/status';
+void React;
 
 /** Cores por seção da reunião */
 const SECTION_COLORS: Record<string, string> = {

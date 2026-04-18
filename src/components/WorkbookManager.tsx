@@ -3,11 +3,14 @@
  * Componente principal para upload, CRUD e promoção de partes
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 
 import { workbookService, type WorkbookExcelRow } from '../services/workbookService';
+import { workbookManagementService } from '../services/workbookManagementService';
+import { workbookQueryService } from '../services/workbookQueryService';
+import { workbookImportService } from '../services/workbookImportService';
 import { generationService } from '../services/generationService';
 import { undoService } from '../services/undoService';
 
@@ -146,7 +149,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
     }) => {
         try {
             setLoading(true);
-            const data = await workbookService.getAll(filters);
+            const data = await workbookQueryService.getAllParts(filters);
             setParts(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao carregar partes');
@@ -167,7 +170,12 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
 
     useEffect(() => {
         // Carregar histórico completo para cooldown (12 meses) — apenas no mount
-        loadCompletedParticipations().then(setHistoryRecords);
+        loadCompletedParticipations()
+            .then(setHistoryRecords)
+            .catch(err => {
+                console.warn('[WorkbookManager] Falha ao carregar histórico:', err);
+                setHistoryRecords([]);
+            });
     }, []);
 
     // NEW: Handle initialPartId from URL action links
@@ -306,7 +314,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
 
             // Criar batch (upsert interno atualiza partes existentes)
             console.log('[WorkbookManager] 💾 Enviando para createBatch...');
-            const batch = await workbookService.createBatch(file.name, excelRows);
+            const batch = await workbookImportService.importBatch(file.name, excelRows);
             console.log('[WorkbookManager] ✅ Batch criado:', batch.id);
 
             setSuccessMessage(`✅ Importadas ${excelRows.length} partes de "${file.name}"`);
@@ -541,8 +549,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                 updates.resolvedPublisherName = ''; // Limpar publicador
             }
 
-            // 1. Atualizar a parte individual (Fluxo normal)
-            const updatedPart = await workbookService.updatePart(id, updates);
+            // 1. Atualizar a parte individual pelo boundary de gerenciamento
+            const updatedPart = await workbookManagementService.updatePart(id, updates);
 
             // 2. Se a flag applyToWeek estiver ativa, atualizar toda a semana
             if (applyToWeek && updates.status && updatedPart.weekId) {
@@ -824,7 +832,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
 
                                                 // 3. Atualizar a parte imediatamente
                                                 const newTitle = `Necessidades Locais: ${assignment.theme}`;
-                                                await workbookService.updatePart(targetPart.id, {
+                                                await workbookManagementService.updatePart(targetPart.id, {
                                                     tituloParte: newTitle,
                                                     resolvedPublisherName: assignment.assigneeName,
                                                     status: 'PROPOSTA'

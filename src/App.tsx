@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import './App.css'
-import type { Publisher, WorkbookPart } from './types'
+import type { HistoryRecord, Publisher, WorkbookPart } from './types'
 import PublisherList from './components/PublisherList'
 import PublisherForm from './components/PublisherForm'
 
@@ -10,6 +10,7 @@ import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 import { LoginPage } from './components/LoginPage'
 import { useAuth } from './context/AuthContext'
+import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
 import { usePermissions } from './hooks/usePermissions'
 
 // Lazy-loaded tabs (code splitting)
@@ -21,13 +22,9 @@ const TerritoryManager = lazy(() => import('./components/TerritoryManager'))
 const CommunicationTab = lazy(() => import('./components/CommunicationTab').then(m => ({ default: m.CommunicationTab })))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 
-import { workbookService } from './services/workbookService'
-import { loadCompletedParticipations } from './services/historyAdapter'
-import type { HistoryRecord } from './types'
-import { supabase } from './lib/supabase'
-import { updateRotationConfig } from './services/unifiedRotationService'
+import { publisherMutationService } from './services/publisherMutationService'
 
-type ActiveTab = 'workbook' | 'approvals' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin' | 'communication'
+type ActiveTab = AppActiveTab
 
 function getPortalParams(): { portal: string | null; partId: string | null; publisherId: string | null; token: string | null } {
   const searchParams = new URLSearchParams(window.location.search)
@@ -58,7 +55,7 @@ function getPortalParams(): { portal: string | null; partId: string | null; publ
 }
 
 function App() {
-  const { isAuthenticated, isLoading: authLoading, needs2FA, isAdmin, signOut, profile } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, needs2FA, signOut, profile } = useAuth();
 
   // PORTAL ROUTING: links públicos de confirmação de designação
   // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
@@ -104,10 +101,10 @@ function App() {
     return <LoginPage />;
   }
 
-  return <AuthenticatedApp isAdmin={isAdmin} onSignOut={signOut} userEmail={profile?.email || ''} />;
+  return <AuthenticatedApp onSignOut={signOut} userEmail={profile?.email || ''} />;
 }
 
-function AuthenticatedApp({ onSignOut, userEmail }: { isAdmin: boolean; onSignOut: () => void; userEmail: string }) {
+function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; userEmail: string }) {
   const { profile } = useAuth()
   const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
@@ -115,25 +112,28 @@ function AuthenticatedApp({ onSignOut, userEmail }: { isAdmin: boolean; onSignOu
     return 'workbook' // will be corrected after permissions load
   })
 
-  // Data State
-  const [publishers, setPublishers] = useState<Publisher[]>([])
-  const [workbookParts, setWorkbookParts] = useState<WorkbookPart[]>([])
-  const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([])
-
   // UI State
   const [showPublisherForm, setShowPublisherForm] = useState(false)
   const [showDuplicateChecker, setShowDuplicateChecker] = useState(false)
   const [editingPublisher, setEditingPublisher] = useState<Publisher | null>(null)
 
-  const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
-  const [isWorkbookLoading, setIsWorkbookLoading] = useState(false);
-
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_, setLastPartsRefresh] = useState(0);
   const [isChatAgentOpen, setIsChatAgentOpen] = useState(false)
+
+  const {
+    publishers,
+    setPublishers,
+    workbookParts,
+    historyRecords,
+    isLoading,
+    isWorkbookLoading,
+    refreshWorkbookParts,
+    refreshAllData,
+  } = useAuthenticatedAppData({
+    onInitialTabResolved: setActiveTab,
+    onCriticalError: setStatusMessage,
+  })
 
   // Redirect to 'agent' tab if current tab is not allowed after permissions load
   useEffect(() => {
@@ -156,155 +156,6 @@ function AuthenticatedApp({ onSignOut, userEmail }: { isAdmin: boolean; onSignOu
     }
   }
 
-  // Carregar dados iniciais e UI state
-  useEffect(() => {
-    async function loadData() {
-      setIsLoading(true)
-      try {
-        console.log("Loading data from Supabase...")
-
-        // Fetch data in parallel
-        const [pubs, savedTab, history, engineConfig] = await Promise.all([
-          api.loadPublishers().catch(err => {
-            console.warn("Failed to load publishers", err)
-            return [] as Publisher[];
-          }),
-          api.getSetting<ActiveTab>('activeTab', 'workbook').catch(() => 'workbook' as ActiveTab),
-          loadCompletedParticipations().catch(() => [] as HistoryRecord[]),
-          api.getSetting<any>('engine_config', null).catch(() => null)
-        ])
-
-        if (engineConfig) {
-          console.log('[App] Applying custom engine config from DB:', engineConfig);
-          updateRotationConfig(engineConfig);
-        }
-
-        setHistoryRecords(history);
-        setPublishers(pubs);
-        console.log(`[App] Loaded ${pubs.length} publishers from DB`)
-
-        // Validate saved tab
-        const validTabs: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'territories', 'backup', 'agent', 'admin']
-        setActiveTab(validTabs.includes(savedTab) ? savedTab : 'workbook')
-      } catch (error) {
-        console.error("Critical error loading data", error)
-        setStatusMessage("Erro crítico ao carregar dados.")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadData()
-  }, [])
-
-  // Realtime subscriptions + Polling fallback for multi-user sync
-  useEffect(() => {
-    console.log('[REALTIME] Setting up subscriptions...')
-    let pollingInterval: ReturnType<typeof setInterval> | null = null;
-
-    // Subscribe to publishers changes
-    const unsubPublishers = api.subscribeToPublishers((newPubs) => {
-      console.log(`[REALTIME] Publishers updated: ${newPubs.length}`)
-      setPublishers(newPubs)
-    })
-
-    // Polling fallback: Check every 30 seconds if realtime misses updates
-    // Uses a simple hash to detect ANY changes (count, name, gender, etc.)
-    const computeHash = (pubs: Publisher[]) =>
-      pubs.map(p => `${p.id}:${p.name}:${p.gender}:${p.condition}:${p.isServing}`).join('|');
-
-    let lastHash = computeHash(publishers);
-
-    const startPolling = () => {
-      pollingInterval = setInterval(async () => {
-        try {
-          const freshPubs = await api.loadPublishers();
-          const newHash = computeHash(freshPubs);
-
-          if (newHash !== lastHash) {
-            console.log(`[POLLING] Change detected, refreshing publishers...`);
-            lastHash = newHash;
-            setPublishers(freshPubs);
-          }
-        } catch (e) {
-          console.warn('[POLLING] Error checking publishers:', e);
-        }
-      }, 30000); // 30 seconds
-    };
-
-    startPolling();
-
-    // Cleanup on unmount
-    return () => {
-      console.log('[REALTIME] Cleaning up subscriptions...')
-      unsubPublishers()
-      if (pollingInterval) clearInterval(pollingInterval);
-    }
-  }, [])
-
-  // Realtime + Polling for workbook_parts (keeps parts in sync across tabs)
-  useEffect(() => {
-    console.log('[REALTIME] Setting up workbook_parts sync...');
-    let partsPollingInterval: ReturnType<typeof setInterval> | null = null;
-    let partsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let isPartsProcessing = false;
-
-    // Realtime subscription for workbook_parts
-    const partsChannel = supabase
-      .channel('parts-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'workbook_parts' },
-        async () => {
-          if (isPartsProcessing) return;
-          if (partsDebounceTimer) clearTimeout(partsDebounceTimer);
-          partsDebounceTimer = setTimeout(async () => {
-            try {
-              isPartsProcessing = true;
-              const freshParts = await workbookService.getAll(undefined, { forceRefresh: true });
-              setWorkbookParts(freshParts);
-            } catch (err) {
-              console.warn('[REALTIME] Failed to reload parts:', err);
-            } finally {
-              isPartsProcessing = false;
-            }
-          }, 3000); // 3s debounce (batch multiple part changes)
-        }
-      )
-      .subscribe();
-
-    // Polling fallback for parts (60 seconds)
-    let lastPartsHash = "INIT"; // Evita falso "change detected" no primeiro poll
-    const computePartsHash = (ps: WorkbookPart[]) =>
-      ps.length + ":" + ps.slice(0, 50).map(p => `${p.id}:${p.resolvedPublisherName || ""}:${p.status}`).join("|");
-
-    // Inicializar hash sem recarregar (usa dados existentes no cache)  
-    workbookService.getAll().then(ps => {
-      lastPartsHash = computePartsHash(ps);
-    }).catch(() => {});
-
-    partsPollingInterval = setInterval(async () => {
-      try {
-        // Buscar dados frescos sem invalidar cache de outros filtros
-        const freshParts = await workbookService.getAll(undefined, { forceRefresh: true });
-        const newHash = computePartsHash(freshParts);
-        if (newHash !== lastPartsHash) {
-          console.log('[POLLING] Parts change detected, refreshing...');
-          lastPartsHash = newHash;
-          setWorkbookParts(freshParts);
-        }
-      } catch (e) {
-        console.warn('[POLLING] Error checking parts:', e);
-      }
-    }, 60000); // 60 seconds (parts change infrequently)
-
-    return () => {
-      console.log('[REALTIME] Cleaning up parts sync...');
-      if (partsDebounceTimer) clearTimeout(partsDebounceTimer);
-      if (partsPollingInterval) clearInterval(partsPollingInterval);
-      supabase.removeChannel(partsChannel);
-    };
-  }, []);
-
   // Monitorar necessidade de WorkbookParts (S-140 / Agente)
   // Carrega apenas quando necessário para economizar recursos iniciais
   useEffect(() => {
@@ -314,34 +165,6 @@ function AuthenticatedApp({ onSignOut, userEmail }: { isAdmin: boolean; onSignOu
     }
   }, [isChatAgentOpen, activeTab, workbookParts.length, isWorkbookLoading]);
 
-  const refreshWorkbookParts = async () => {
-    if (isWorkbookLoading) return;
-
-    setIsWorkbookLoading(true);
-    try {
-      const data = await workbookService.getAll();
-      setWorkbookParts(data);
-      setLastPartsRefresh(Date.now());
-    } catch (err) {
-      console.error('[App] Error refreshing workbook parts:', err);
-    } finally {
-      setIsWorkbookLoading(false);
-    }
-  };
-
-  const refreshAllData = async () => {
-    try {
-      const [parts, pubs] = await Promise.all([
-        workbookService.getAll(),
-        api.loadPublishers()
-      ]);
-      setWorkbookParts(parts);
-      setPublishers(pubs);
-    } catch (err) {
-      console.warn('[App] Error refreshing all data:', err);
-    }
-  };
-
   // Load workbook parts when ChatAgent opens OR Agent tab is active
   // (handled by the needsParts useEffect above — only when parts are empty)
 
@@ -350,30 +173,16 @@ function AuthenticatedApp({ onSignOut, userEmail }: { isAdmin: boolean; onSignOu
     setStatusMessage("Salvando publicador...")
     try {
       if (editingPublisher) {
-        // Cap name changes for Phase 3.6
-        const oldName = editingPublisher.name;
-        const newName = publisher.name;
-
-        // Update existing
-        await api.updatePublisher(publisher)
-        setPublishers(prev => prev.map(p => p.id === publisher.id ? publisher : p))
-
-        // Phase 3.6: Propagate name changes to workbook parts
-        if (oldName !== newName) {
-          console.log(`[App] Propagating name change: ${oldName} -> ${newName}`);
-          setStatusMessage("Atualizando designações...");
-          const updatedCount = await workbookService.propagateNameChange(oldName, newName);
-          if (updatedCount > 0) {
-            console.log(`[App] Updated ${updatedCount} workbook parts`);
-          }
-        }
-
-        setStatusMessage("✅ Publicador atualizado")
+        const result = await publisherMutationService.savePublisherWithPropagation(publisher, editingPublisher)
+        setPublishers(prev => prev.map(p => p.id === publisher.id ? result.publisher : p))
+        setStatusMessage(result.renamed
+          ? `✅ Publicador atualizado (${result.propagatedParts} designações sincronizadas)`
+          : "✅ Publicador atualizado")
       } else {
         // Create new
         publisher.id = crypto.randomUUID()
-        await api.createPublisher(publisher)
-        setPublishers(prev => [...prev, publisher])
+        const result = await publisherMutationService.savePublisherWithPropagation(publisher)
+        setPublishers(prev => [...prev, result.publisher])
         setStatusMessage("✅ Publicador criado")
       }
       setShowPublisherForm(false)

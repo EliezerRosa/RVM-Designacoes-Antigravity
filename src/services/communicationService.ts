@@ -1,4 +1,3 @@
-import { api } from './api';
 import { supabase } from '../lib/supabase';
 import type { WorkbookPart, Publisher } from '../types';
 import { generateWhatsAppMessage } from './s89Generator';
@@ -6,10 +5,12 @@ import { getModalidadeFromTipo } from '../constants/mappings';
 import { EnumModalidade } from '../types';
 import { checkEligibility } from './eligibilityService';
 import { loadCompletedParticipations } from './historyAdapter';
-import { EVENT_TEMPLATES, specialEventService } from './specialEventService';
+import { EVENT_TEMPLATES } from './specialEventService';
 import { getRankedCandidates } from './unifiedRotationService';
 import { getAppBaseUrl } from '../utils/appUrl';
-import { workbookService } from './workbookService';
+import { workbookQueryService } from './workbookQueryService';
+import { publisherDirectoryService } from './publisherDirectoryService';
+import { specialEventQueryService } from './specialEventQueryService';
 
 export type NotificationType = 'S140' | 'S89' | 'ANNOUNCEMENT' | 'INDIVIDUAL';
 export type NotificationStatus = 'PREPARED' | 'SENT' | 'FAILED';
@@ -253,8 +254,7 @@ export const communicationService = {
 
         // Add special events notes
         try {
-            const events = (await specialEventService.getEventsByWeek(weekId))
-                .filter(e => e.isApplied);
+            const events = await specialEventQueryService.getAppliedWeekEvents(weekId);
 
             if (events && events.length > 0) {
                 const eventNotes: string[] = [];
@@ -310,7 +310,7 @@ export const communicationService = {
 
         const publisherName = part.resolvedPublisherName || part.rawPublisherName;
 
-        const publishers = await api.loadPublishers();
+        const publishers = await publisherDirectoryService.loadAllPublishers();
         const history = await loadCompletedParticipations();
 
         // 2. Encontrar o Ancião Edmardo Queiroz (Superintendente RVM)
@@ -334,7 +334,7 @@ export const communicationService = {
         const bestCandidate = ranked[0]?.publisher?.name || 'Não encontrado';
 
         // 4. Buscar parceiro (Titular/Ajudante) da mesma semana
-        const weekParts = await workbookService.getPartsByWeekId(part.weekId);
+        const weekParts = await workbookQueryService.getWeekParts(part.weekId);
         const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
         const partNum = partNumMatch ? partNumMatch[1] : null;
 
@@ -509,8 +509,7 @@ export const communicationService = {
 
         // Buscar eventos especiais da semana para adicionar contexto
         try {
-            const events = (await specialEventService.getEventsByWeek(part.weekId))
-                .filter(e => e.isApplied);
+            const events = await specialEventQueryService.getAppliedWeekEvents(part.weekId);
 
             if (events && events.length > 0) {
                 const relevantNotes: string[] = [];
