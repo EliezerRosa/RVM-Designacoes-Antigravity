@@ -13,13 +13,11 @@
  * - Notificação de mudanças (via retorno ou events)
  */
 
-import { workbookService } from './workbookService';
 import type { WorkbookPart } from '../types';
-import { api } from './api';
 import { checkEligibility } from './eligibilityService';
-import { getModalidadeFromTipo } from '../constants/mappings';
-import { EnumFuncao } from '../types';
-import { supabase } from '../lib/supabase';
+import { workbookAssignmentService } from './workbookAssignmentService';
+import { workbookLifecycleService } from './workbookLifecycleService';
+import { unifiedActionContextService } from './unifiedActionContextService';
 
 export type ActionSource = 'MANUAL' | 'AGENT' | 'BATCH' | 'AUTO_FILL';
 
@@ -32,7 +30,7 @@ export interface ActionResult {
 export const unifiedActionService = {
     /**
      * Tenta designar um publicador para uma parte.
-     * Wrapper central sobre workbookService.proposePublisher.
+    * Wrapper central sobre o boundary de atribuição da apostila.
      */
     async executeDesignation(
         partId: string,
@@ -46,20 +44,20 @@ export const unifiedActionService = {
         try {
             // 1. Resolver ID e Validação
             let resolvedId = publisherId;
+            let resolvedPublisher = null;
             if (!resolvedId && publisherName) {
-                const allPublishers = await api.loadPublishers();
-                const pub = allPublishers.find(p => p.name.trim().toLowerCase() === publisherName.trim().toLowerCase());
-                if (pub) {
-                    resolvedId = pub.id;
+                resolvedPublisher = await unifiedActionContextService.resolvePublisherByName(publisherName);
+                if (resolvedPublisher) {
+                    resolvedId = resolvedPublisher.id;
                 }
             }
 
             if (source === 'AGENT') {
-                await this.validateEligibility(partId, publisherName);
+                await this.validateEligibility(partId, publisherName, resolvedPublisher || undefined);
             }
 
-            // 2. Executar via WorkbookService (Camada de Dados)
-            const updatedPart = await workbookService.proposePublisher(partId, publisherName, resolvedId);
+            // 2. Executar via boundary de atribuição da apostila
+            const updatedPart = await workbookAssignmentService.assignPublisher(partId, publisherName, resolvedId);
 
             // 3. Log de Auditoria
             console.log(`[UnifiedAction] ✅ Sucesso: ${publisherName} designado para ${updatedPart.tituloParte} (${source})`);
@@ -85,7 +83,7 @@ export const unifiedActionService = {
         console.log(`[UnifiedAction] ↩️ Solicitação de Reversão:`, { partId, source, reason });
 
         try {
-            const updatedPart = await workbookService.rejectProposal(partId, reason);
+            const updatedPart = await workbookLifecycleService.rejectProposal(partId, reason);
             console.log(`[UnifiedAction] ✅ Revertido com sucesso: ${updatedPart.tituloParte}`);
             return { success: true, part: updatedPart };
         } catch (error) {
@@ -101,91 +99,14 @@ export const unifiedActionService = {
     // HELPERS DE VALIDAÇÃO
     // ========================================================================
 
-    async validateEligibility(partId: string, publisherName: string): Promise<void> {
-        // 0. Sanitize ID
-        const cleanPartId = partId.trim();
+    async validateEligibility(partId: string, publisherName: string, publisherOverride?: Awaited<ReturnType<typeof unifiedActionContextService.resolvePublisherByName>>): Promise<void> {
+        const { publisher, context } = await unifiedActionContextService.buildEligibilityContext(partId, publisherName, publisherOverride || undefined);
 
-        // 1. Buscar a parte (Raw DB fetch para performance e evitar dependências circulares complexas)
-        const { data: partData, error } = await supabase
-            .from('workbook_parts')
-            .select('week_id, seq, tipo_parte, modalidade, date, section, funcao, part_title')
-            .eq('id', cleanPartId)
-            .single();
-
-        if (error || !partData) {
-            console.error(`[UnifiedAction] Erro buscando parte ${cleanPartId}:`, error);
-            throw new Error(`Parte não encontrada: "${cleanPartId}". Detalhe: ${error?.message || 'Registro inexistente'}`);
-        }
-
-        // 2. Buscar Publicador
-        const allPublishers = await api.loadPublishers();
-        const publisher = allPublishers.find(p => p.name === publisherName);
-
-        if (!publisher) {
-            throw new Error(`Publicador não encontrado: "${publisherName}"`);
-        }
-
-        // 3. Preparar Contexto de Elegibilidade
-        const tipoParte = partData.tipo_parte || '';
-        const modalidade = partData.modalidade || getModalidadeFromTipo(tipoParte);
-        const funcao = partData.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
-        const isOracaoInicial = tipoParte.toLowerCase().includes('inicial');
-        const isPast = false; // Agente geralmente opera no presente/futuro
-
-        // Lógica de Gênero do Titular (se for ajudante)
-        let titularGender: 'brother' | 'sister' | undefined = undefined;
-
-        if (funcao === EnumFuncao.AJUDANTE) {
-            // FIX v9.0: Buscar titular usando fuzzy match no título (não confiar no SEQ)
-            // 1. Buscar todas as partes titulares da semana
-            const { data: weekTitulares } = await supabase
-                .from('workbook_parts')
-                .select('part_title, resolved_publisher_name')
-                .eq('week_id', partData.week_id)
-                .eq('funcao', 'Titular');
-
-            if (weekTitulares && weekTitulares.length > 0) {
-                // 2. Normalizar título da parte Ajudante atual 
-                // (Nota: partData pode não ter titulo_parte se não selecionamos acima, vamos garantir select)
-
-                // Heurística de match
-                // Precisamos do título da parte atual. Vamos garantir que o select inicial traga 'titulo_parte'
-                const currentTitle = partData.part_title || '';
-
-                const baseTitle = currentTitle
-                    .replace(/\s*-\s*Ajudante.*/i, '')
-                    .replace(/\(Ajudante\)/i, '')
-                    .trim()
-                    .toLowerCase();
-
-                // 3. Encontrar Titular correspondente (case insensitive contains)
-                const titularMatch = weekTitulares.find(t =>
-                    (t.part_title || '').toLowerCase().includes(baseTitle)
-                );
-
-                if (titularMatch?.resolved_publisher_name) {
-                    const titular = allPublishers.find(p => p.name.trim() === titularMatch.resolved_publisher_name.trim());
-                    if (titular) titularGender = titular.gender;
-
-                    console.log(`[UnifiedAction] Titular encontrado via fuzzy match: ${titularMatch.resolved_publisher_name} (${titularGender})`);
-                } else {
-                    console.warn(`[UnifiedAction] Titular NÃO encontrado para Ajudante: ${currentTitle} (Base: ${baseTitle})`);
-                }
-            }
-        }
-
-        // 4. Checar Regras da EligibilityService
         const result = checkEligibility(
             publisher,
-            modalidade as any, // Cast seguro, validado pelo service
-            funcao,
-            {
-                date: partData.date,
-                isOracaoInicial,
-                secao: partData.section,
-                isPastWeek: isPast,
-                titularGender
-            }
+            context.modalidade as any,
+            context.funcao,
+            context
         );
 
         if (!result.eligible) {

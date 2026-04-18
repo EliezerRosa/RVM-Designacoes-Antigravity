@@ -13,9 +13,9 @@ import html2canvas from 'html2canvas';
 import { getAiProxyUrl } from '../lib/ai/clientProxy';
 import { prepareS140UnifiedData, renderS140ToElement } from './s140GeneratorUnified';
 import { agentActionService, type AgentActionType, type ActionResult } from './agentActionService';
-import { api } from './api';
-import { workbookService } from './workbookService';
 import { HistoryStatus, type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
+import { publisherDirectoryService } from './publisherDirectoryService';
+import { workbookQueryService } from './workbookQueryService';
 
 // ===== Tipos =====
 
@@ -382,8 +382,8 @@ export async function runVisualDiagnostic(
 
     try {
         [publishers, parts] = await Promise.all([
-            api.loadPublishers(),
-            workbookService.getAll(),
+            publisherDirectoryService.loadAllPublishers(),
+            workbookQueryService.getAllParts(),
         ]);
     } catch (e) {
         return {

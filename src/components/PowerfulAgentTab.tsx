@@ -223,6 +223,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         isWorkbookLoading={isWorkbookLoading}
                         onRateLimitChange={(remaining, max, refillInSeconds) => setRateLimitInfo({ remaining, max, refillInSeconds })}
                         accessLevel={accessLevel}
+                        canSendZap={canSendZap}
                     />
                 </div>
 

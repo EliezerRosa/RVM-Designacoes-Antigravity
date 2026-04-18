@@ -11,7 +11,8 @@
 
 import html2pdf from 'html2pdf.js';
 import type { WorkbookPart, SpecialEvent, Publisher } from '../types';
-import { specialEventService, EVENT_TEMPLATES } from './specialEventService';
+import { EVENT_TEMPLATES } from './specialEventService';
+import { specialEventQueryService } from './specialEventQueryService';
 
 // Helper para resolver nome do publicador (ID -> Nome Atualizado -> Nome Cache -> Nome Bruto)
 function resolveName(part: WorkbookPart | undefined, publishers?: Publisher[]): string {
@@ -156,7 +157,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?:
     // Buscar eventos especiais da semana
     let events: SpecialEvent[] = [];
     try {
-        events = await specialEventService.getEventsByWeek(weekId);
+        events = await specialEventQueryService.getWeekEvents(weekId);
     } catch (err) {
         console.warn('[S140-Unified] Erro ao buscar eventos:', err);
     }

@@ -125,7 +125,7 @@ export async function loadPublisherParticipations(publisherName: string): Promis
 
 /**
  * Mapa interno para converter row do banco para WorkbookPart
- * Similar ao mapDbToWorkbookPart do workbookService
+ * Mantido local ao adapter para evitar acoplamento ao runtime da apostila
  */
 function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
     return {

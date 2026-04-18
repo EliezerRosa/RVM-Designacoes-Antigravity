@@ -1,0 +1,37 @@
+import { WorkbookStatus, type WorkbookPart } from '../types';
+
+export function buildWorkbookPart(overrides: Partial<WorkbookPart> = {}): WorkbookPart {
+    return {
+        id: 'part-1',
+        weekId: '2026-05-08',
+        weekDisplay: '08/05/2026',
+        date: '2026-05-08',
+        section: 'Tesouros da Palavra de Deus',
+        tipoParte: 'Joias Espirituais',
+        modalidade: 'Discurso de Ensino',
+        tituloParte: 'Tema 1',
+        descricaoParte: '',
+        detalhesParte: '',
+        seq: 1,
+        funcao: 'Titular',
+        duracao: '5',
+        horaInicio: '19:00',
+        horaFim: '19:05',
+        rawPublisherName: '',
+        resolvedPublisherName: '',
+        resolvedPublisherId: undefined,
+        status: WorkbookStatus.PENDENTE,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: undefined,
+        approvedById: undefined,
+        approvedAt: undefined,
+        rejectedReason: undefined,
+        completedAt: undefined,
+        cancelReason: undefined,
+        affectedByEventId: undefined,
+        pendingEventId: undefined,
+        createdByEventId: undefined,
+        originalDuration: undefined,
+        ...overrides,
+    };
+}

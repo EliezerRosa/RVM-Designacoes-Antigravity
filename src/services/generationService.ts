@@ -1,10 +1,10 @@
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao, EnumTipoParte } from '../types';
-import { workbookService } from './workbookService';
-import { localNeedsService } from './localNeedsService';
 import { loadCompletedParticipations } from './historyAdapter';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } from './eligibilityService';
 import { getRankedCandidates } from './unifiedRotationService';
+import { generationCommitService } from './generationCommitService';
+import { localNeedsService } from './localNeedsService';
 
 import { getModalidadeFromTipo, isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 
@@ -439,8 +439,8 @@ export const generationService = {
                     if (part.tipoParte === 'Necessidades Locais' && funcao === EnumFuncao.TITULAR) {
                         if (part.status === 'CANCELADA') continue;
 
-                        const specificPreassignment = localNeedsQueue.find(p => p.targetWeek === part.weekId);
-                        const nextFromQueue = localNeedsQueue.find(p => !p.targetWeek && !usedPreassignmentIds.has(p.id));
+                        const specificPreassignment = localNeedsQueue.find((preassignment) => preassignment.targetWeek === part.weekId);
+                        const nextFromQueue = localNeedsQueue.find((preassignment) => !preassignment.targetWeek && !usedPreassignmentIds.has(preassignment.id));
                         const preassignment = specificPreassignment || nextFromQueue;
 
                         if (preassignment) {
@@ -636,29 +636,13 @@ export const generationService = {
                 const preassignmentId = (part as any)._preassignmentId;
 
                 try {
-                    if (preassignmentId && localNeedsTheme) {
-                        await localNeedsService.assignToPart(preassignmentId, partId);
-                        await workbookService.updatePart(partId, { tituloParte: `Necessidades Locais: ${localNeedsTheme}` });
-                    }
-
-                    if (part) {
-                        if (pubInfo.id === 'CLEANUP' && pubInfo.name === '') {
-                            // SPECIAL CASE: Limpeza de parte não designável
-                            // Agora usamos NULL explicitamente para limpar o campo no banco
-                            // USAMOS CAST 'AS ANY' PARA FORÇAR NULL (Typescript não permite null em WorkbookPart, mas Supabase precisa)
-                            await workbookService.updatePart(partId, {
-                                resolvedPublisherName: null,      // LIMPA O CAMPO (requires types update)
-                                rawPublisherName: '',             // Limpa o raw name
-                                status: 'CONCLUIDA'               // Marca como concluída para não reprocessar
-                            } as any);
-                            // Log discreto
-                            console.log(`[GenerationService] Limpeza realizada em parte não designável: ${part?.tipoParte}`);
-                        } else if (part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
-                            await workbookService.proposePublisher(partId, pubInfo.name);
-                        } else {
-                            await workbookService.updatePart(partId, { resolvedPublisherName: pubInfo.name });
-                        }
-                    }
+                    await generationCommitService.commitGeneratedAssignment({
+                        partId,
+                        part,
+                        publisher: pubInfo,
+                        localNeedsTheme,
+                        preassignmentId,
+                    });
                     savedCount++;
                 } catch (e) {
                     console.error(`[GenerationService] Error saving part ${partId}:`, e);

@@ -49,5 +49,9 @@ npm install
 npm run dev
 ```
 
+## 📚 Documentação
+
+- [Manifesto Técnico do RVM Designações](docs/manifesto_tecnico_rvm_designacoes.md)
+
 ---
 *Desenvolvido para EliezerRosa como parte do projeto Antigravity.*

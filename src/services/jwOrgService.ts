@@ -4,9 +4,10 @@
  * Fluxo: data da semana → proxy Edge → HTML → parse → WorkbookExcelRow[]
  */
 
-import { workbookService, type WorkbookExcelRow } from './workbookService';
+import type { WorkbookExcelRow } from './workbookService';
 import { buildWorkbookParts } from './workbookPartsBuilder';
 import { validateWeekAgainstTemplate } from '../constants/s140Template';
+import { workbookImportService } from './workbookImportService';
 
 // ===== Constantes =====
 
@@ -478,8 +479,8 @@ export async function importWorkbookFromJwOrg(weekDate: Date): Promise<JwImportR
             };
         }
 
-        // Salvar via workbookService (mesmo caminho do upload Excel)
-        const batch = await workbookService.createBatch(
+        // Salvar via boundary de importação (mesmo caminho do upload Excel)
+        const batch = await workbookImportService.importBatch(
             `jw.org — ${result.weekDisplay}`,
             result.parts
         );

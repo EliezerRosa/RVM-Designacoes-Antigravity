@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { workbookService } from '../services/workbookService';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { type WorkbookPart, WorkbookStatus, type Publisher, EnumModalidade, EnumFuncao } from '../types';
+import { workbookLifecycleService } from '../services/workbookLifecycleService';
+import { workbookAssignmentService } from '../services/workbookAssignmentService';
+import { workbookOverviewQueryService } from '../services/workbookOverviewQueryService';
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
 import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
@@ -13,7 +15,9 @@ interface ApprovalPanelProps {
 }
 
 import { getStatusConfig, STATUS_CONFIG } from '../constants/status';
-import { sendS89ViaWhatsApp, copyS89ToClipboard } from '../services/s89Generator';
+
+const loadS89Generator = () => import('../services/s89Generator');
+void React;
 
 export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderName = 'Ancião', publishers = [] }: ApprovalPanelProps) {
     const [assignments, setAssignments] = useState<WorkbookPart[]>([]);
@@ -65,17 +69,17 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
             let data: WorkbookPart[];
 
             if (filter === 'unassigned') {
-                data = await workbookService.getByStatus(WorkbookStatus.PENDENTE);
+                data = await workbookOverviewQueryService.getPartsByStatus(WorkbookStatus.PENDENTE);
             } else if (filter === 'pending') {
-                data = await workbookService.getByStatus(WorkbookStatus.PROPOSTA);
+                data = await workbookOverviewQueryService.getPartsByStatus(WorkbookStatus.PROPOSTA);
             } else if (filter === 'approved') {
-                data = await workbookService.getByStatus([WorkbookStatus.APROVADA, WorkbookStatus.DESIGNADA]);
+                data = await workbookOverviewQueryService.getPartsByStatus([WorkbookStatus.APROVADA, WorkbookStatus.DESIGNADA]);
             } else if (filter === 'completed') {
-                data = await workbookService.getByStatus(WorkbookStatus.CONCLUIDA);
+                data = await workbookOverviewQueryService.getPartsByStatus(WorkbookStatus.CONCLUIDA);
             } else if (filter === 'cancelled') {
-                data = await workbookService.getByStatus(WorkbookStatus.CANCELADA);
+                data = await workbookOverviewQueryService.getPartsByStatus(WorkbookStatus.CANCELADA);
             } else {
-                data = await workbookService.getAll();
+                data = await workbookOverviewQueryService.getAllParts();
             }
 
             // Filtrar datas passadas no cliente (apenas para pending, unassigned e approved)
@@ -120,7 +124,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     // Load stats independent of filter
     const loadStats = useCallback(async () => {
         try {
-            const s = await workbookService.getFutureStats();
+            const s = await workbookOverviewQueryService.getFutureStats();
             setStats(s);
         } catch (err) {
             console.error('Erro ao carregar estatísticas:', err);
@@ -137,7 +141,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const handleApprove = async (id: string) => {
         setProcessingIds(prev => new Set(prev).add(id));
         try {
-            await workbookService.approveProposal(id, elderId);
+            await workbookLifecycleService.approveProposal(id, elderId);
             await loadAssignments();
             loadStats();
         } catch (err) {
@@ -157,7 +161,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
         setProcessingIds(prev => new Set(prev).add(id));
         try {
-            await workbookService.rejectProposal(id, rejectReason);
+            await workbookLifecycleService.rejectProposal(id, rejectReason);
             setRejectingId(null);
             setRejectReason('');
             await loadAssignments();
@@ -181,8 +185,8 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         setProcessingIds(prev => new Set(prev).add(partId));
 
         try {
-            // Atualiza o nome do publicador usando o método unificado (mantém status PROPOSTA e dispara triggers)
-            await workbookService.proposePublisher(partId, newName);
+            // Atualiza o nome do publicador usando o boundary de atribuição (mantém status PROPOSTA e dispara triggers)
+            await workbookAssignmentService.assignPublisher(partId, newName);
 
             // Recarrega lista
             await loadAssignments();
@@ -208,6 +212,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
         titularName?: string
     ) => {
         try {
+            const { copyS89ToClipboard, sendS89ViaWhatsApp } = await loadS89Generator();
             // 1. Tentar copiar imagem para clipboard (NOVO)
             const copied = await copyS89ToClipboard(part, assistantName);
             if (copied) {
@@ -241,7 +246,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
         setProcessingIds(prev => new Set(prev).add(id));
         try {
-            await workbookService.undoCompletion(id);
+            await workbookLifecycleService.undoCompletePart(id);
             await loadAssignments();
             loadStats();
         } catch (err) {
@@ -261,8 +266,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
 
         setProcessingIds(prev => new Set([...prev, ...ids]));
         try {
-            // Usar método de serviço dedicado para marcar como concluído
-            await workbookService.markAsCompleted(ids);
+            await workbookLifecycleService.completeParts(ids);
 
             alert(`✅ ${ids.length} partes marcadas como CONCLUÍDA na Apostila`);
             await loadAssignments();
