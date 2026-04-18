@@ -106,6 +106,8 @@ export function AdminDashboard() {
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
     const activeSubTabIndex = ADMIN_SUB_TABS.findIndex(tab => tab.id === activeSubTab);
+    const topModel = [...stats.byModel].sort((a, b) => b.value - a.value)[0]?.name || 'N/A';
+    const topLevel = [...stats.byLevel].sort((a, b) => b.value - a.value)[0]?.name || 'N/A';
 
     const goToAdjacentTab = (direction: -1 | 1) => {
         const nextIndex = activeSubTabIndex + direction;
@@ -224,7 +226,7 @@ export function AdminDashboard() {
                                         <div className="stat-card">
                                             <h3 className="stat-title">Top Model</h3>
                                             <p className="stat-value" style={{ fontSize: '1.5rem', marginTop: '12px' }}>
-                                                {stats.byModel.sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}
+                                                {topModel}
                                             </p>
                                             <p className="stat-description">Modelo mais utilizado pelo time</p>
                                         </div>
@@ -232,7 +234,7 @@ export function AdminDashboard() {
                                         <div className="stat-card">
                                             <h3 className="stat-title">Most Common Level</h3>
                                             <p className="stat-value" style={{ fontSize: '1.5rem', marginTop: '12px' }}>
-                                                {stats.byLevel.sort((a, b) => b.value - a.value)[0]?.name || 'N/A'}
+                                                {topLevel}
                                             </p>
                                             <p className="stat-description">Complexidade média das tarefas</p>
                                         </div>
