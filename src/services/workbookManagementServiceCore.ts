@@ -7,6 +7,7 @@ interface WorkbookManagementDependencies {
         deletePart: (partId: string) => Promise<void>;
         getPartsByWeekId: (weekId: string) => Promise<WorkbookPart[]>;
         updateWeekStatus: (weekId: string, status: WorkbookStatus, clearPublisher?: boolean) => Promise<void>;
+        batchClearParts?: (partIds: string[]) => Promise<number>;
     };
     importWeek?: (weekDate: Date) => Promise<{ success: boolean; error?: string; totalParts: number }>;
 }
@@ -37,19 +38,25 @@ export function createWorkbookManagementService(dependencies: WorkbookManagement
         },
 
         async clearWeek(weekParts: WorkbookPart[]) {
-            let clearedCount = 0;
+            const assignedParts = weekParts.filter(p => p.resolvedPublisherName);
+            if (assignedParts.length === 0) return { clearedCount: 0 };
 
-            for (const part of weekParts) {
-                if (part.resolvedPublisherName) {
-                    await dependencies.workbookClient.updatePart(part.id, {
-                        resolvedPublisherName: '',
-                        status: 'PENDENTE',
-                    });
-                    clearedCount++;
-                }
+            // Batch update: single DB call instead of N sequential calls
+            if (dependencies.workbookClient.batchClearParts) {
+                const clearedCount = await dependencies.workbookClient.batchClearParts(
+                    assignedParts.map(p => p.id)
+                );
+                return { clearedCount };
             }
 
-            return { clearedCount };
+            // Fallback: sequential (for tests or clients without batch)
+            for (const part of assignedParts) {
+                await dependencies.workbookClient.updatePart(part.id, {
+                    resolvedPublisherName: '',
+                    status: 'PENDENTE',
+                });
+            }
+            return { clearedCount: assignedParts.length };
         },
 
         async deleteWeek(weekId: string) {

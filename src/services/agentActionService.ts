@@ -32,6 +32,7 @@ export type AgentActionType =
     | 'SHARE_S140_WHATSAPP'
     | 'CHECK_SCORE'
     | 'CLEAR_WEEK'
+    | 'CLEAR_RANGE'
     | 'UPDATE_PUBLISHER'
     | 'UPDATE_AVAILABILITY'
     | 'UPDATE_ENGINE_RULES'
@@ -321,6 +322,38 @@ export const agentActionService = {
                         success: true,
                         message: `${clearedCount} designações removidas da semana ${clearWeekId}.`,
                         actionType: 'CLEAR_WEEK'
+                    };
+                }
+
+                case 'CLEAR_RANGE': {
+                    const { fromWeekId, toWeekId } = action.params;
+                    if (!fromWeekId || !toWeekId) return { success: false, message: 'Faltam parâmetros: fromWeekId e toWeekId.' };
+
+                    // Collect all week IDs in range
+                    const allWeekIds = [...new Set(parts.map(p => p.weekId))].sort();
+                    const rangeWeekIds = allWeekIds.filter(wid => wid >= fromWeekId && wid <= toWeekId);
+
+                    if (rangeWeekIds.length === 0) {
+                        return { success: false, message: `Nenhuma semana encontrada no intervalo ${fromWeekId} a ${toWeekId}.` };
+                    }
+
+                    const results: string[] = [];
+                    let totalCleared = 0;
+
+                    for (const weekId of rangeWeekIds) {
+                        const weekParts = parts.filter(p => p.weekId === weekId);
+                        if (weekParts.length === 0) continue;
+
+                        undoService.captureBatch(weekParts, `Agente: Limpar Semana ${weekId}`);
+                        const { clearedCount } = await workbookManagementService.clearWeek(weekParts);
+                        totalCleared += clearedCount;
+                        results.push(`${weekId}: ${clearedCount} removidas`);
+                    }
+
+                    return {
+                        success: true,
+                        message: `${totalCleared} designações removidas de ${rangeWeekIds.length} semanas (${fromWeekId} a ${toWeekId}).\n${results.map(r => `• ${r}`).join('\n')}`,
+                        actionType: 'CLEAR_RANGE'
                     };
                 }
 
