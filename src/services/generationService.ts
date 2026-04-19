@@ -1,5 +1,5 @@
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
-import { EnumModalidade, EnumFuncao, EnumTipoParte } from '../types';
+import { EnumModalidade, EnumFuncao, EnumTipoParte, HistoryStatus } from '../types';
 import { loadCompletedParticipations } from './historyAdapter';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } from './eligibilityService';
 import { getRankedCandidates } from './unifiedRotationService';
@@ -216,10 +216,32 @@ export const generationService = {
                 if (candidate) {
                     selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
                     totalWithPublisher++;
-                    // Não precisa adicionar a namesExcludedInWeek pois presidentes presidem a reunião toda, 
-                    // mas se presidentes puderem ter partes, deveriam ser adicionados? 
-                    // Na lógica original não adicionava para exclusão geral, mas vamos manter o padrão original.
-                    // (Na lógica original, getNextInRotation usa new Set(), então não checava colisão consigo mesmo aqui)
+
+                    // Intra-batch: Injeta como histórico sintético para que a próxima semana
+                    // veja esta presidência e não repita o mesmo ancião consecutivamente
+                    historyRecords.push({
+                        id: `synth-pres-${part.id}`,
+                        weekId: part.weekId,
+                        weekDisplay: part.weekDisplay,
+                        date: part.date,
+                        section: part.section,
+                        tipoParte: part.tipoParte,
+                        modalidade: part.modalidade || '',
+                        tituloParte: '',
+                        descricaoParte: '',
+                        detalhesParte: '',
+                        seq: part.seq,
+                        funcao: 'Titular',
+                        duracao: 0,
+                        horaInicio: '',
+                        horaFim: '',
+                        rawPublisherName: candidate.name,
+                        resolvedPublisherName: candidate.name,
+                        status: HistoryStatus.APPROVED,
+                        importSource: 'AUTO_INJECTED',
+                        importBatchId: '',
+                        createdAt: new Date().toISOString(),
+                    });
                 }
             }
 
@@ -610,6 +632,41 @@ export const generationService = {
                                 }
                             }
                         }
+                    }
+                }
+
+                // ===================================
+                // INTRA-BATCH HISTORY ACCUMULATION
+                // Injeta designações recém-geradas como histórico sintético
+                // para que a próxima semana do mesmo batch veja estas atribuições
+                // e não repita o mesmo publicador em semanas consecutivas.
+                // ===================================
+                for (const part of weekParts) {
+                    const selected = selectedPublisherByPart.get(part.id);
+                    if (selected && selected.name && selected.id !== 'CLEANUP') {
+                        historyRecords.push({
+                            id: `synth-${part.id}`,
+                            weekId: part.weekId,
+                            weekDisplay: part.weekDisplay,
+                            date: part.date,
+                            section: part.section,
+                            tipoParte: part.tipoParte,
+                            modalidade: part.modalidade || '',
+                            tituloParte: part.tituloParte || '',
+                            descricaoParte: part.descricaoParte || '',
+                            detalhesParte: part.detalhesParte || '',
+                            seq: part.seq,
+                            funcao: part.funcao as 'Titular' | 'Ajudante',
+                            duracao: parseInt(part.duracao) || 0,
+                            horaInicio: part.horaInicio || '',
+                            horaFim: part.horaFim || '',
+                            rawPublisherName: selected.name,
+                            resolvedPublisherName: selected.name,
+                            status: HistoryStatus.APPROVED,
+                            importSource: 'AUTO_INJECTED',
+                            importBatchId: '',
+                            createdAt: new Date().toISOString(),
+                        });
                     }
                 }
 

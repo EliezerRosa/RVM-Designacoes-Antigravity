@@ -37,9 +37,16 @@ export function getParticipationCategory(tipoParte: string, funcao: string = 'Ti
         return 'MAIN';
     }
 
-    // 3. IGNORADOS: Orações, NL, Cânticos, e partes secundárias da Presidência - NÃO CONTAM para bloqueio
-    if (lower.includes('oração') ||
-        lower.includes('oracao') ||
+    // 3. Oração Final conta como MAIN para rotação entre irmãos qualificados
+    if (lower.includes('oração final') || lower.includes('oracao final')) {
+        return 'MAIN';
+    }
+
+    // 4. IGNORADOS: Oração Inicial, NL, Cânticos, e partes secundárias da Presidência - NÃO CONTAM para bloqueio
+    if (lower.includes('oração inicial') ||
+        lower.includes('oracao inicial') ||
+        lower.includes('oração') && !lower.includes('final') ||
+        lower.includes('oracao') && !lower.includes('final') ||
         lower.includes('necessidades') ||
         lower.includes('cântico') ||
         lower.includes('cantico') ||
