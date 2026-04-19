@@ -12,13 +12,14 @@ export interface FloatingMicroUiItem {
 
 interface FloatingMicroUiHostProps {
     items: FloatingMicroUiItem[];
+    requestedOpenId?: string | null;
+    requestNonce?: number;
 }
 
-export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
+export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonce = 0 }: FloatingMicroUiHostProps) {
     const [modeById, setModeById] = useState<Record<string, 'open' | 'minimized' | 'closed'>>({});
     const previousIdsRef = useRef<string[]>([]);
     const itemIds = useMemo(() => items.map(item => item.id), [items]);
-    const [showClosedDock, setShowClosedDock] = useState(false);
 
     useEffect(() => {
         const previousIds = previousIdsRef.current;
@@ -48,6 +49,22 @@ export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
         previousIdsRef.current = itemIds;
     }, [itemIds]);
 
+    useEffect(() => {
+        if (!requestedOpenId || !itemIds.includes(requestedOpenId)) {
+            return;
+        }
+
+        setModeById(current => {
+            const next: Record<string, 'open' | 'minimized' | 'closed'> = {};
+
+            itemIds.forEach(id => {
+                next[id] = id === requestedOpenId ? 'open' : (current[id] === 'closed' ? 'closed' : 'minimized');
+            });
+
+            return { ...current, ...next };
+        });
+    }, [itemIds, requestNonce, requestedOpenId]);
+
     if (items.length === 0) return null;
 
     const openPanel = (targetId: string) => {
@@ -67,8 +84,6 @@ export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
     const closePanel = (targetId: string) => {
         setModeById(current => ({ ...current, [targetId]: 'closed' }));
     };
-
-    const closedItems = items.filter(item => (modeById[item.id] ?? 'minimized') === 'closed');
 
     return (
         <div style={{
@@ -191,40 +206,40 @@ export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
                                     <div style={{ fontSize: '11px', color: '#64748B' }}>{item.subtitle}</div>
                                 )}
                             </div>
-                            <button
-                                onClick={() => minimizePanel(item.id)}
-                                style={{
-                                    border: '1px solid #CBD5E1',
-                                    background: '#FFFFFF',
-                                    color: '#334155',
-                                    borderRadius: '999px',
-                                    padding: '6px 10px',
-                                    cursor: 'pointer',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    flexShrink: 0
-                                }}
-                                title="Minimizar"
-                            >
-                                Minimizar
-                            </button>
-                            <button
-                                onClick={() => closePanel(item.id)}
-                                style={{
-                                    border: '1px solid #E2E8F0',
-                                    background: '#FFFFFF',
-                                    color: '#475569',
-                                    width: '30px',
-                                    height: '30px',
-                                    borderRadius: '999px',
-                                    cursor: 'pointer',
-                                    fontWeight: 700,
-                                    flexShrink: 0
-                                }}
-                                title="Fechar"
-                            >
-                                ×
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                <button
+                                    onClick={() => minimizePanel(item.id)}
+                                    style={{
+                                        border: '1px solid #CBD5E1',
+                                        background: '#FFFFFF',
+                                        color: '#334155',
+                                        borderRadius: '999px',
+                                        padding: '6px 10px',
+                                        cursor: 'pointer',
+                                        fontSize: '11px',
+                                        fontWeight: 700
+                                    }}
+                                    title="Recolher"
+                                >
+                                    Recolher
+                                </button>
+                                <button
+                                    onClick={() => closePanel(item.id)}
+                                    style={{
+                                        border: '1px solid #E2E8F0',
+                                        background: '#FFFFFF',
+                                        color: '#475569',
+                                        width: '30px',
+                                        height: '30px',
+                                        borderRadius: '999px',
+                                        cursor: 'pointer',
+                                        fontWeight: 700
+                                    }}
+                                    title="Fechar"
+                                >
+                                    ×
+                                </button>
+                            </div>
                         </div>
 
                         <div style={{ overflowY: 'auto', paddingBottom: '4px' }}>
@@ -233,49 +248,6 @@ export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
                     </div>
                 );
             })}
-
-            {closedItems.length > 0 && (
-                <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                    <button
-                        onClick={() => setShowClosedDock(current => !current)}
-                        style={{
-                            border: '1px solid #CBD5E1',
-                            background: '#FFFFFF',
-                            color: '#334155',
-                            borderRadius: '999px',
-                            padding: '7px 12px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)'
-                        }}
-                    >
-                        {showClosedDock ? 'Ocultar fechadas' : `Fechadas (${closedItems.length})`}
-                    </button>
-                    {showClosedDock && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                            {closedItems.map(item => (
-                                <button
-                                    key={`closed-${item.id}`}
-                                    onClick={() => openPanel(item.id)}
-                                    style={{
-                                        border: `1px dashed ${item.accent}`,
-                                        background: 'rgba(255,255,255,0.98)',
-                                        color: '#334155',
-                                        borderRadius: '999px',
-                                        padding: '8px 12px',
-                                        cursor: 'pointer',
-                                        fontSize: '12px',
-                                        fontWeight: 700
-                                    }}
-                                >
-                                    Exibir {item.title}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     );
 }
