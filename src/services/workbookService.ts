@@ -214,6 +214,22 @@ export const workbookService = {
                 })
                 .eq('id', batch.id);
 
+            // REMOVER partes antigas antes de re-importar (evita órfãos com seq/funcao diferentes)
+            const weekIds = [...new Set(parts.map(p => p.weekId))];
+            console.log('[workbookService] 🗑️ Removendo partes antigas para re-import:', { batchId: batch.id, weekIds });
+            const { error: deleteError } = await supabase
+                .from('workbook_parts')
+                .delete()
+                .eq('batch_id', batch.id)
+                .in('week_id', weekIds);
+
+            if (deleteError) {
+                console.error('[workbookService] ❌ Erro ao remover partes antigas:', deleteError);
+                throw new Error(`Erro ao limpar partes antigas: ${deleteError.message}`);
+            }
+            console.log('[workbookService] ✅ Partes antigas removidas com sucesso');
+
+
         } else {
             // CRIAR novo batch
             console.log('[workbookService] 🆕 Criando novo batch');
