@@ -595,6 +595,40 @@ export interface S140ValidationResult {
   warnings: string[];
 }
 
+function allowsRepeatedOccurrence(part: { tipoParte: string; section: string; funcao: string }): boolean {
+  const tipo = part.tipoParte.toLowerCase().trim();
+  const section = part.section.toLowerCase().trim();
+
+  if (tipo.includes('cântico') || tipo.includes('cantico')) return true;
+
+  // "Elogios e Conselhos" é gerado artificialmente após cada parte de estudante.
+  if (tipo.includes('elogios e conselhos')) return true;
+
+  // No Ministério, títulos iguais podem aparecer legitimamente mais de uma vez na mesma semana.
+  if (
+    tipo.includes('iniciando conversas') ||
+    tipo.includes('cultivando o interesse') ||
+    tipo.includes('fazendo discípulos') ||
+    tipo.includes('fazendo discipulos') ||
+    tipo.includes('explicando suas crenças') ||
+    tipo.includes('explicando suas crencas') ||
+    tipo.includes('discurso de estudante') ||
+    tipo.includes('parte ministério') ||
+    tipo.includes('parte ministerio')
+  ) {
+    return true;
+  }
+
+  // Em Nossa Vida Cristã pode haver mais de uma parte variável na mesma semana.
+  if (section.includes('nossa vida cristã') || section.includes('nossa vida crista')) {
+    if (tipo.includes('parte vida cristã') || tipo.includes('parte vida crista')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Valida uma lista de partes contra o template S-140.
  * Checa: presença de partes obrigatórias, ordem de seções, partes duplicadas.
@@ -630,12 +664,10 @@ export function validateWeekAgainstTemplate(
     }
   }
 
-  // 3. Verificar partes duplicadas (mesmo tipoParte + funcao na mesma semana)
+  // 3. Verificar partes duplicadas apenas quando a repetição não é esperada.
   const seen = new Set<string>();
   for (const part of parts) {
-    // Cânticos e partes variáveis podem ter multiplos, não verificar duplicação
-    if (part.tipoParte.toLowerCase().includes('cântico') || 
-        part.tipoParte.toLowerCase().includes('cantico')) continue;
+    if (allowsRepeatedOccurrence(part)) continue;
     
     const key = `${part.tipoParte}|${part.funcao}`;
     if (seen.has(key)) {
