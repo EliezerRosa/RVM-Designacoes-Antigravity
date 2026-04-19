@@ -90,7 +90,7 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
             position: 'absolute',
             right: '12px',
             bottom: '116px',
-            zIndex: 25,
+            zIndex: 1000,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-end',
