@@ -9,6 +9,7 @@ import { AvailabilityUpdateMicroUi } from './ui/AvailabilityUpdateMicroUi';
 import { PublisherQuickEditMicroUi } from './ui/PublisherQuickEditMicroUi';
 import { PartCompletionMicroUi } from './ui/PartCompletionMicroUi';
 import { FloatingMicroUiHost } from './ui/FloatingMicroUiHost';
+import { FloatingPanelShell } from './ui/FloatingPanelShell';
 import { chatHistoryService } from '../services/chatHistoryService';
 import { askAgent, isAgentConfigured, getSuggestedQuestions } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
@@ -1314,166 +1315,62 @@ export default function TemporalChat({
 
             {/* v9.3: BatchSimulationPanel removed - Agent uses existing Workbook UI */}
 
-            {/* Share S-140 Modal */}
-            {shareModalOpen && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'rgba(0,0,0,0.8)',
-                        zIndex: 10000,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '20px', // Safe margin from edges
-                        boxSizing: 'border-box'
-                    }}
-                    onClick={() => setShareModalOpen(false)} // Close on overlay click
-                >
-                    <div
-                        style={{
-                            background: 'white',
-                            borderRadius: '12px',
-                            maxWidth: '500px',
-                            width: '100%',
-                            maxHeight: 'calc(100vh - 40px)', // Leave room for safe area
-                            display: 'flex',
-                            flexDirection: 'column',
-                            position: 'relative',
-                            overflow: 'hidden'
-                        }}
-                        onClick={e => e.stopPropagation()} // Prevent closing when clicking content
-                    >
-                        {/* Fixed Header with Back and Close buttons */}
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '16px 20px',
-                            borderBottom: '1px solid #E5E7EB',
-                            background: '#F9FAFB',
-                            flexShrink: 0
-                        }}>
-                            <button
-                                onClick={() => setShareModalOpen(false)}
-                                style={{
-                                    background: '#E5E7EB',
-                                    border: 'none',
-                                    padding: '8px 16px',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    color: '#374151',
-                                    fontWeight: '600',
-                                    fontSize: '14px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                }}
-                            >
-                                ← Voltar
-                            </button>
-                            <h3 style={{ margin: 0, color: '#065F46', fontSize: '16px', flex: 1, textAlign: 'center' }}>
-                                {isViewMode ? '[S-140]' : '[COMPARTILHAR]'}
-                            </h3>
-                            <button
-                                onClick={() => setShareModalOpen(false)}
-                                style={{
-                                    background: '#FEE2E2',
-                                    border: 'none',
-                                    width: '36px',
-                                    height: '36px',
-                                    borderRadius: '50%',
-                                    fontSize: '20px',
-                                    cursor: 'pointer',
-                                    color: '#DC2626',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                ×
-                            </button>
+            <FloatingPanelShell
+                id="share-s140-panel"
+                isOpen={shareModalOpen}
+                onClose={() => setShareModalOpen(false)}
+                resetKey={`${shareWeekId}-${isViewMode ? 'view' : 'share'}`}
+                title={isViewMode ? 'S-140' : 'Compartilhar S-140'}
+                subtitle={shareWeekId ? `Semana ${shareWeekId}` : 'Visualização e envio'}
+                accent={isViewMode ? '#065F46' : '#25D366'}
+                width="min(520px, calc(100vw - 48px))"
+                maxWidth="calc(100vw - 48px)"
+                maxHeight="min(82vh, 820px)"
+            >
+                <div style={{ padding: '20px', overflowY: 'auto' }}>
+                    {isGeneratingImage ? (
+                        <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔄</div>
+                            <div style={{ color: '#6B7280' }}>Gerando imagem...</div>
                         </div>
-
-                        {/* Scrollable Content */}
-                        <div style={{
-                            padding: '20px',
-                            overflowY: 'auto',
-                            flex: 1
-                        }}>
-                            {isGeneratingImage ? (
-                                <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔄</div>
-                                    <div style={{ color: '#6B7280' }}>Gerando imagem...</div>
-                                </div>
-                            ) : shareImageData ? (
-                                <div>
-                                    <img src={shareImageData} alt="S-140 Preview" style={{ width: '100%', borderRadius: '8px', border: '1px solid #eee', marginBottom: '15px' }} />
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <button
-                                            onClick={async () => {
-                                                try {
-                                                    const blob = await (await fetch(shareImageData)).blob();
-                                                    await navigator.clipboard.write([
-                                                        new ClipboardItem({ 'image/png': blob })
-                                                    ]);
-                                                    alert('Imagem copiada! Agora cole no WhatsApp.');
-                                                } catch (e) {
-                                                    alert('Erro ao copiar imagem. Tente baixar ou tirar print.');
-                                                }
-                                            }}
-                                            style={{ padding: '14px', background: '#F3F4F6', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                        >
-                                            📋 Copiar Imagem
-                                        </button>
-                                        <a
-                                            href={`https://wa.me/?text=Segue%20designações%20da%20semana%20${shareWeekId}%20(Cole%20a%20imagem)`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px' }}
-                                        >
-                                            💬 Abrir WhatsApp
-                                        </a>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={{ color: '#DC2626', textAlign: 'center', padding: '40px 20px', background: '#FEF2F2', borderRadius: '8px' }}>
-                                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
-                                    <div>Erro ao criar imagem. Tente novamente.</div>
-                                </div>
-                            )}
+                    ) : shareImageData ? (
+                        <div>
+                            <img src={shareImageData} alt="S-140 Preview" style={{ width: '100%', borderRadius: '8px', border: '1px solid #eee', marginBottom: '15px' }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const blob = await (await fetch(shareImageData)).blob();
+                                            await navigator.clipboard.write([
+                                                new ClipboardItem({ 'image/png': blob })
+                                            ]);
+                                            alert('Imagem copiada! Agora cole no WhatsApp.');
+                                        } catch (e) {
+                                            alert('Erro ao copiar imagem. Tente baixar ou tirar print.');
+                                        }
+                                    }}
+                                    style={{ padding: '14px', background: '#F3F4F6', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                >
+                                    📋 Copiar Imagem
+                                </button>
+                                <a
+                                    href={`https://wa.me/?text=Segue%20designações%20da%20semana%20${shareWeekId}%20(Cole%20a%20imagem)`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px' }}
+                                >
+                                    💬 Abrir WhatsApp
+                                </a>
+                            </div>
                         </div>
-
-                        {/* Fixed Footer with prominent Back button */}
-                        <div style={{
-                            padding: '16px 20px',
-                            borderTop: '1px solid #E5E7EB',
-                            background: '#F9FAFB',
-                            flexShrink: 0
-                        }}>
-                            <button
-                                onClick={() => setShareModalOpen(false)}
-                                style={{
-                                    width: '100%',
-                                    padding: '14px',
-                                    border: '2px solid #4F46E5',
-                                    borderRadius: '8px',
-                                    background: 'white',
-                                    color: '#4F46E5',
-                                    cursor: 'pointer',
-                                    fontWeight: '600',
-                                    fontSize: '15px'
-                                }}
-                            >
-                                ← Voltar ao Chat
-                            </button>
+                    ) : (
+                        <div style={{ color: '#DC2626', textAlign: 'center', padding: '40px 20px', background: '#FEF2F2', borderRadius: '8px' }}>
+                            <div style={{ fontSize: '32px', marginBottom: '10px' }}>⚠️</div>
+                            <div>Erro ao criar imagem. Tente novamente.</div>
                         </div>
-                    </div>
+                    )}
                 </div>
-            )}
+            </FloatingPanelShell>
 
             {rateLimitCountdown > 0 && (
                 <div style={{

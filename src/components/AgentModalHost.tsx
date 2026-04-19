@@ -24,6 +24,7 @@ import { workbookManagementService } from '../services/workbookManagementService
 import { publisherMutationService } from '../services/publisherMutationService';
 import TerritoryManager from './TerritoryManager';
 import { WorkbookImportModal } from './WorkbookImportModal';
+import { FloatingPanelShell } from './ui/FloatingPanelShell';
 
 export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | 'workbook_import' | null;
 
@@ -269,74 +270,21 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
     };
 
     return (
-        <div
-            style={{
-                position: 'fixed',
-                top: 0, left: 0, right: 0, bottom: 0,
-                background: 'rgba(0, 0, 0, 0.6)',
-                backdropFilter: 'blur(4px)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 9999,
-                padding: '20px'
-            }}
-            onClick={handleClose}
+        <FloatingPanelShell
+            id={`agent-modal-${modal}`}
+            isOpen={Boolean(modal)}
+            onClose={handleClose}
+            resetKey={`${modal}-${focusWeekId || ''}`}
+            title={getTitle()}
+            subtitle="Painel operacional do agente"
+            accent="#7C3AED"
+            width="min(900px, calc(100vw - 48px))"
+            maxWidth="calc(100vw - 48px)"
+            maxHeight="min(82vh, 860px)"
         >
-            <div
-                style={{
-                    background: 'var(--bg-primary, #fff)',
-                    borderRadius: '16px',
-                    width: '95%',
-                    maxWidth: '900px',
-                    maxHeight: '90vh',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                    border: '1px solid var(--border-color, #e5e7eb)',
-                    overflow: 'hidden'
-                }}
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '16px 24px',
-                    borderBottom: '1px solid var(--border-color, #e5e7eb)',
-                    background: 'var(--bg-secondary, #f9fafb)'
-                }}>
-                    <h2 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-primary, #111)' }}>
-                        {getTitle()}
-                    </h2>
-                    <button
-                        onClick={handleClose}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            fontSize: '24px',
-                            cursor: 'pointer',
-                            color: 'var(--text-muted, #6b7280)',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            lineHeight: 1
-                        }}
-                        title="Fechar"
-                    >
-                        ✕
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    padding: '24px'
-                }}>
-                    {renderContent()}
-                </div>
+            <div style={{ padding: '24px' }}>
+                {renderContent()}
             </div>
-        </div>
+        </FloatingPanelShell>
     );
 }
