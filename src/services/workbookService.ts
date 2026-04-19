@@ -557,6 +557,25 @@ export const workbookService = {
     },
 
     /**
+     * Batch clear: reseta múltiplas partes para PENDENTE em uma única chamada DB
+     */
+    async batchClearParts(partIds: string[]): Promise<number> {
+        if (partIds.length === 0) return 0;
+
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .update({
+                resolved_publisher_name: '',
+                status: 'PENDENTE',
+            })
+            .in('id', partIds)
+            .select('id');
+
+        if (error) throw new Error(`Erro ao limpar partes em batch: ${error.message}`);
+        return data?.length || 0;
+    },
+
+    /**
      * Atualiza uma parte
      */
     async updatePart(id: string, updates: Partial<WorkbookPart>): Promise<WorkbookPart> {

@@ -126,7 +126,8 @@ NUNCA confunda seções diferentes. "Primeira da Tesouros" ≠ "Primeira da Faç
 == REGRA LIMPAR A SEMANA / DESFAZER VÁRIAS ==
 Quando o usuário pedir para "limpar a semana", "remover todas as designações", ou "desfazer todas":
 1. **Limpeza Total da Semana:** Se a intenção for limpar TODAS as designações da Semana em Foco, use o comando \`CLEAR_WEEK\`. (Apenas 1 bloco JSON é necessário).
-2. **Limpeza Parcial/Específica:** Se o usuário especificar restrições (ex: "desfaça as designações das irmãs", "limpe todas exceto a do presidente") ou quiser desfazer ações muito específicas do histórico recente, emita MÚLTIPLOS \`ASSIGN_PART\` com \`publisherName: null\` para cada parte afetada de acordo com o contexto.
+2. **Limpeza de Múltiplas Semanas (intervalo):** Se o usuário pedir para limpar VÁRIAS semanas de uma vez (ex: "limpe de maio a julho"), use **UM ÚNICO** bloco \`CLEAR_RANGE\` com \`fromWeekId\` e \`toWeekId\`. NÃO emita múltiplos CLEAR_WEEK — use CLEAR_RANGE.
+3. **Limpeza Parcial/Específica:** Se o usuário especificar restrições (ex: "desfaça as designações das irmãs", "limpe todas exceto a do presidente") ou quiser desfazer ações muito específicas do histórico recente, emita MÚLTIPLOS \`ASSIGN_PART\` com \`publisherName: null\` para cada parte afetada de acordo com o contexto.
 
 AÇÕES E COMANDOS:
 Se o usuário pedir uma ação ou você precisar de dados extras, você DEVE incluir um bloco JSON no final da resposta.
@@ -189,6 +190,16 @@ Use para remover todas as designações de uma semana específica.
   "type": "CLEAR_WEEK",
   "params": { "weekId": "YYYY-MM-DD" },
   "description": "Limpando todas as designações da semana..."
+}
+\`\`\`
+
+5b. LIMPAR INTERVALO DE SEMANAS (PREFERIDO para múltiplas semanas):
+Use para remover designações de VÁRIAS semanas de uma vez. UM ÚNICO bloco JSON.
+\`\`\`json
+{
+  "type": "CLEAR_RANGE",
+  "params": { "fromWeekId": "YYYY-MM-DD", "toWeekId": "YYYY-MM-DD" },
+  "description": "Limpando designações de X até Y..."
 }
 \`\`\`
 
@@ -457,6 +468,7 @@ Para buscar por nome parcial: filters: { "name": "parcial" } (usa ilike).
 |---|---|---|
 | "designe a semana", "gere as designações", "preencha a semana", "designe", "gerar" | GERAR designações automáticas | GENERATE_WEEK |
 | "limpe a semana", "remova as designações", "apague tudo", "limpar", "desfazer tudo" | REMOVER todas designações | CLEAR_WEEK |
+| "limpe de maio a julho", "remova todas as designações de X até Y", "limpe várias semanas" | REMOVER designações de um INTERVALO | CLEAR_RANGE |
 | "edite a parte X", "mude o título", "altere a duração", "atualize a parte" | EDITAR parte individual | MANAGE_WORKBOOK_PART (UPDATE) |
 | "cancele a parte X", "essa parte não vai ter" | CANCELAR parte | MANAGE_WORKBOOK_PART (CANCEL) |
 | "exclua a parte X", "delete a parte" | EXCLUIR parte | MANAGE_WORKBOOK_PART (DELETE) |
