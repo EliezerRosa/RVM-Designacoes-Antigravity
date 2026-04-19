@@ -15,29 +15,30 @@ interface FloatingMicroUiHostProps {
 }
 
 export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
-    const [minimized, setMinimized] = useState<Record<string, boolean>>({});
+    const [modeById, setModeById] = useState<Record<string, 'open' | 'minimized' | 'closed'>>({});
     const previousIdsRef = useRef<string[]>([]);
     const itemIds = useMemo(() => items.map(item => item.id), [items]);
+    const [showClosedDock, setShowClosedDock] = useState(false);
 
     useEffect(() => {
         const previousIds = previousIdsRef.current;
         const newIds = itemIds.filter(id => !previousIds.includes(id));
 
-        setMinimized(current => {
-            const next: Record<string, boolean> = {};
+        setModeById(current => {
+            const next: Record<string, 'open' | 'minimized' | 'closed'> = {};
 
             itemIds.forEach(id => {
-                next[id] = current[id] ?? true;
+                next[id] = current[id] ?? 'minimized';
             });
 
             if (itemIds.length === 1 && previousIds.length === 0) {
-                next[itemIds[0]] = false;
+                next[itemIds[0]] = 'open';
             }
 
             if (newIds.length > 0) {
                 const focusId = newIds[newIds.length - 1];
                 itemIds.forEach(id => {
-                    next[id] = id !== focusId;
+                    next[id] = id === focusId ? 'open' : (next[id] === 'closed' ? 'closed' : 'minimized');
                 });
             }
 
@@ -50,18 +51,24 @@ export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
     if (items.length === 0) return null;
 
     const openPanel = (targetId: string) => {
-        setMinimized(current => {
-            const next: Record<string, boolean> = {};
+        setModeById(current => {
+            const next: Record<string, 'open' | 'minimized' | 'closed'> = {};
             items.forEach(item => {
-                next[item.id] = item.id !== targetId;
+                next[item.id] = item.id === targetId ? 'open' : (current[item.id] === 'closed' ? 'closed' : 'minimized');
             });
             return { ...current, ...next };
         });
     };
 
     const minimizePanel = (targetId: string) => {
-        setMinimized(current => ({ ...current, [targetId]: true }));
+        setModeById(current => ({ ...current, [targetId]: 'minimized' }));
     };
+
+    const closePanel = (targetId: string) => {
+        setModeById(current => ({ ...current, [targetId]: 'closed' }));
+    };
+
+    const closedItems = items.filter(item => (modeById[item.id] ?? 'minimized') === 'closed');
 
     return (
         <div style={{
@@ -77,39 +84,73 @@ export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
             maxWidth: 'min(380px, calc(100% - 24px))'
         }}>
             {items.map(item => {
-                const isMinimized = minimized[item.id] ?? true;
+                const mode = modeById[item.id] ?? 'minimized';
 
-                if (isMinimized) {
+                if (mode === 'closed') {
+                    return null;
+                }
+
+                if (mode === 'minimized') {
                     return (
-                        <button
+                        <div
                             key={item.id}
-                            onClick={() => openPanel(item.id)}
                             style={{
                                 pointerEvents: 'auto',
-                                border: `1px solid ${item.accent}`,
                                 background: '#FFFFFF',
-                                color: '#0F172A',
+                                border: `1px solid ${item.accent}`,
                                 borderRadius: '999px',
                                 padding: '8px 12px',
-                                cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
                                 boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)',
                                 maxWidth: '100%'
                             }}
-                            title={item.subtitle || item.title}
                         >
-                            <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: item.accent, flexShrink: 0 }} />
-                            <span style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {item.title}
-                            </span>
-                            {item.badge && (
-                                <span style={{ fontSize: '11px', color: '#475569', whiteSpace: 'nowrap' }}>
-                                    {item.badge}
+                            <button
+                                onClick={() => openPanel(item.id)}
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: '#0F172A',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: 0,
+                                    minWidth: 0
+                                }}
+                                title={item.subtitle || item.title}
+                            >
+                                <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: item.accent, flexShrink: 0 }} />
+                                <span style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {item.title}
                                 </span>
-                            )}
-                        </button>
+                                {item.badge && (
+                                    <span style={{ fontSize: '11px', color: '#475569', whiteSpace: 'nowrap' }}>
+                                        {item.badge}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => closePanel(item.id)}
+                                style={{
+                                    border: 'none',
+                                    background: '#F8FAFC',
+                                    color: '#475569',
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '999px',
+                                    cursor: 'pointer',
+                                    fontWeight: 700,
+                                    flexShrink: 0,
+                                    marginLeft: '4px'
+                                }}
+                                title="Fechar"
+                            >
+                                ×
+                            </button>
+                        </div>
                     );
                 }
 
@@ -167,6 +208,23 @@ export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
                             >
                                 Minimizar
                             </button>
+                            <button
+                                onClick={() => closePanel(item.id)}
+                                style={{
+                                    border: '1px solid #E2E8F0',
+                                    background: '#FFFFFF',
+                                    color: '#475569',
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '999px',
+                                    cursor: 'pointer',
+                                    fontWeight: 700,
+                                    flexShrink: 0
+                                }}
+                                title="Fechar"
+                            >
+                                ×
+                            </button>
                         </div>
 
                         <div style={{ overflowY: 'auto', paddingBottom: '4px' }}>
@@ -175,6 +233,49 @@ export function FloatingMicroUiHost({ items }: FloatingMicroUiHostProps) {
                     </div>
                 );
             })}
+
+            {closedItems.length > 0 && (
+                <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                    <button
+                        onClick={() => setShowClosedDock(current => !current)}
+                        style={{
+                            border: '1px solid #CBD5E1',
+                            background: '#FFFFFF',
+                            color: '#334155',
+                            borderRadius: '999px',
+                            padding: '7px 12px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)'
+                        }}
+                    >
+                        {showClosedDock ? 'Ocultar fechadas' : `Fechadas (${closedItems.length})`}
+                    </button>
+                    {showClosedDock && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                            {closedItems.map(item => (
+                                <button
+                                    key={`closed-${item.id}`}
+                                    onClick={() => openPanel(item.id)}
+                                    style={{
+                                        border: `1px dashed ${item.accent}`,
+                                        background: 'rgba(255,255,255,0.98)',
+                                        color: '#334155',
+                                        borderRadius: '999px',
+                                        padding: '8px 12px',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        fontWeight: 700
+                                    }}
+                                >
+                                    Exibir {item.title}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
