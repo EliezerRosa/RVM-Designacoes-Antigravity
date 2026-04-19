@@ -45,8 +45,8 @@ export function getRotationConfig() {
 export const EXCLUDED_STATS_PARTS = [
     "Cântico",
     "Cantico",
-    "Oração",
-    "Oracao",
+    "Oração Inicial",
+    "Oracao Inicial",
     "Necessidades",
     "Comentários iniciais",
     "Comentarios iniciais",
