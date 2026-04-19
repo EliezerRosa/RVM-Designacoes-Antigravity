@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 
 export interface FloatingMicroUiItem {
@@ -20,6 +21,29 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
     const [modeById, setModeById] = useState<Record<string, 'open' | 'minimized' | 'closed'>>({});
     const previousIdsRef = useRef<string[]>([]);
     const itemIds = useMemo(() => items.map(item => item.id), [items]);
+    const anchorRef = useRef<HTMLDivElement>(null);
+    const [anchorRect, setAnchorRect] = useState<{ right: number; bottom: number; width: number } | null>(null);
+
+    const updateRect = useCallback(() => {
+        const el = anchorRef.current?.parentElement;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setAnchorRect({
+            right: Math.max(12, window.innerWidth - rect.right + 12),
+            bottom: Math.max(60, window.innerHeight - rect.bottom + 60),
+            width: rect.width - 24,
+        });
+    }, []);
+
+    useLayoutEffect(() => {
+        updateRect();
+        const el = anchorRef.current?.parentElement;
+        if (!el) return;
+        const ro = new ResizeObserver(updateRect);
+        ro.observe(el);
+        window.addEventListener('resize', updateRect);
+        return () => { ro.disconnect(); window.removeEventListener('resize', updateRect); };
+    }, [updateRect]);
 
     useEffect(() => {
         const previousIds = previousIdsRef.current;
@@ -65,8 +89,6 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
         });
     }, [itemIds, requestNonce, requestedOpenId]);
 
-    if (items.length === 0) return null;
-
     const openPanel = (targetId: string) => {
         setModeById(current => {
             const next: Record<string, 'open' | 'minimized' | 'closed'> = {};
@@ -85,18 +107,20 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
         setModeById(current => ({ ...current, [targetId]: 'closed' }));
     };
 
-    return (
+    const hasVisibleItems = items.some(item => (modeById[item.id] ?? 'minimized') !== 'closed');
+
+    const panels = anchorRect && hasVisibleItems ? (
         <div style={{
-            position: 'absolute',
-            right: '12px',
-            bottom: '116px',
-            zIndex: 1000,
+            position: 'fixed',
+            right: `${anchorRect.right}px`,
+            bottom: `${anchorRect.bottom}px`,
+            zIndex: 10000,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-end',
             gap: '10px',
             pointerEvents: 'none',
-            maxWidth: 'min(380px, calc(100% - 24px))'
+            maxWidth: `min(380px, ${anchorRect.width}px)`
         }}>
             {items.map(item => {
                 const mode = modeById[item.id] ?? 'minimized';
@@ -176,7 +200,7 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
                             pointerEvents: 'auto',
                             width: 'min(380px, calc(100vw - 48px))',
                             maxWidth: '100%',
-                            maxHeight: 'min(65vh, 560px)',
+                            maxHeight: 'min(55vh, 480px)',
                             background: 'rgba(255, 255, 255, 0.98)',
                             backdropFilter: 'blur(10px)',
                             borderRadius: '18px',
@@ -194,19 +218,20 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
                             justifyContent: 'space-between',
                             alignItems: 'flex-start',
                             gap: '12px',
-                            background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)'
+                            background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)',
+                            flexShrink: 0
                         }}>
-                            <div style={{ minWidth: 0 }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: item.subtitle ? '4px' : 0 }}>
                                     <span style={{ width: '10px', height: '10px', borderRadius: '999px', background: item.accent, flexShrink: 0 }} />
-                                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>{item.title}</div>
-                                    {item.badge && <div style={{ fontSize: '11px', color: '#475569' }}>{item.badge}</div>}
+                                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
                                 </div>
+                                {item.badge && <div style={{ fontSize: '11px', color: '#475569', marginLeft: '18px' }}>{item.badge}</div>}
                                 {item.subtitle && (
-                                    <div style={{ fontSize: '11px', color: '#64748B' }}>{item.subtitle}</div>
+                                    <div style={{ fontSize: '11px', color: '#64748B', marginLeft: '18px' }}>{item.subtitle}</div>
                                 )}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                                 <button
                                     onClick={() => minimizePanel(item.id)}
                                     style={{
@@ -233,7 +258,8 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
                                         height: '30px',
                                         borderRadius: '999px',
                                         cursor: 'pointer',
-                                        fontWeight: 700
+                                        fontWeight: 700,
+                                        fontSize: '16px'
                                     }}
                                     title="Fechar"
                                 >
@@ -249,5 +275,12 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
                 );
             })}
         </div>
+    ) : null;
+
+    return (
+        <>
+            <div ref={anchorRef} style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', width: 0, height: 0 }} />
+            {panels && createPortal(panels, document.body)}
+        </>
     );
 }
