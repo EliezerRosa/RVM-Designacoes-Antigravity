@@ -736,10 +736,16 @@ export async function askAgent(
     }
 
     const gate = createPermissionGate(getPermissions());
+    const isAdmin = gate.isFullAdmin();
     const allowedActions = gate.getAllowedAgentActions();
-    if (allowedActions.length > 0) {
+
+    if (isAdmin) {
+      systemPrompt += `\n\nPERMISSÕES: Este usuário é ADMINISTRADOR com acesso TOTAL. Você pode executar QUALQUER ação disponível sem restrição, incluindo: ${allowedActions.join(', ')}. NUNCA diga que não tem permissão — o admin pode tudo.`;
+    } else if (allowedActions.length > 0) {
       systemPrompt += `\n\nAÇÕES PERMITIDAS PARA ESTE USUÁRIO:\nVocê SÓ pode executar as seguintes ações: ${allowedActions.join(', ')}.\nSe o usuário pedir algo fora dessas ações, informe que ele não tem permissão.`;
     }
+
+    console.log('[AgentService] System prompt permissions:', { isAdmin, accessLevel, actionsCount: allowedActions.length, hasImportWorkbook: allowedActions.includes('IMPORT_WORKBOOK') });
 
     const recentChat = chatHistory.slice(-15).map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
