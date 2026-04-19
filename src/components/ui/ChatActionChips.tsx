@@ -1,3 +1,5 @@
+import { useMemo, useState } from 'react';
+
 export interface ChatActionChipItem {
     id: string;
     label: string;
@@ -10,39 +12,74 @@ interface ChatActionChipsProps {
 }
 
 export function ChatActionChips({ chips }: ChatActionChipsProps) {
+    const [expanded, setExpanded] = useState(false);
+    const compactSummary = useMemo(() => {
+        if (chips.length === 0) return '';
+        const preview = chips.slice(0, 2).map(chip => chip.label).join(' • ');
+        return chips.length > 2 ? `${preview} • +${chips.length - 2}` : preview;
+    }, [chips]);
+
     if (chips.length === 0) return null;
 
     return (
         <div style={{
             display: 'flex',
-            gap: '8px',
-            overflowX: 'auto',
-            padding: '8px 10px',
+            flexDirection: 'column',
+            gap: '10px',
+            padding: '10px',
             borderTop: '1px solid #E5E7EB',
-            borderBottom: '1px solid #E5E7EB',
             background: '#F8FAFC',
-            scrollbarWidth: 'thin'
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6)'
         }}>
-            {chips.map(chip => (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Ações da conversa
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {compactSummary}
+                    </div>
+                </div>
                 <button
-                    key={chip.id}
-                    onClick={chip.onClick}
+                    onClick={() => setExpanded(current => !current)}
                     style={{
-                        flex: '0 0 auto',
-                        padding: '8px 12px',
+                        border: '1px solid #CBD5E1',
+                        background: '#FFFFFF',
+                        color: '#334155',
                         borderRadius: '999px',
-                        border: chip.tone === 'accent' ? '1px solid #C7D2FE' : '1px solid #D1D5DB',
-                        background: chip.tone === 'accent' ? '#EEF2FF' : '#FFFFFF',
-                        color: chip.tone === 'accent' ? '#3730A3' : '#374151',
+                        padding: '7px 12px',
                         fontSize: '12px',
-                        fontWeight: 600,
+                        fontWeight: 700,
                         cursor: 'pointer',
                         whiteSpace: 'nowrap'
                     }}
                 >
-                    {chip.label}
+                    {expanded ? 'Recolher' : `Abrir (${chips.length})`}
                 </button>
-            ))}
+            </div>
+
+            {expanded && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {chips.map(chip => (
+                        <button
+                            key={chip.id}
+                            onClick={chip.onClick}
+                            style={{
+                                padding: '8px 12px',
+                                borderRadius: '999px',
+                                border: chip.tone === 'accent' ? '1px solid #C7D2FE' : '1px solid #D1D5DB',
+                                background: chip.tone === 'accent' ? '#EEF2FF' : '#FFFFFF',
+                                color: chip.tone === 'accent' ? '#3730A3' : '#374151',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {chip.label}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

@@ -8,6 +8,7 @@ import { ProposalApprovalMicroUi } from './ui/ProposalApprovalMicroUi';
 import { AvailabilityUpdateMicroUi } from './ui/AvailabilityUpdateMicroUi';
 import { PublisherQuickEditMicroUi } from './ui/PublisherQuickEditMicroUi';
 import { PartCompletionMicroUi } from './ui/PartCompletionMicroUi';
+import { FloatingMicroUiHost } from './ui/FloatingMicroUiHost';
 import { chatHistoryService } from '../services/chatHistoryService';
 import { askAgent, isAgentConfigured, getSuggestedQuestions } from '../services/agentService';
 import type { ChatMessage } from '../services/agentService';
@@ -1102,6 +1103,113 @@ export default function TemporalChat({
         setActiveTopic,
     });
 
+    const floatingMicroUiItems = useMemo(() => {
+        const items = [];
+
+        if (canSeeApprovalMicroUi && currentWeekProposals.length > 0 && (canExecute('APPROVE_PROPOSAL') || canExecute('REJECT_PROPOSAL'))) {
+            items.push({
+                id: 'approval',
+                title: 'Aprovação de propostas',
+                subtitle: 'Preview e decisão da semana em foco',
+                badge: `${currentWeekProposals.length} pendente(s)`,
+                accent: '#F97316',
+                content: (
+                    <ProposalApprovalMicroUi
+                        proposals={currentWeekProposals}
+                        canApprove={canExecute('APPROVE_PROPOSAL')}
+                        canReject={canExecute('REJECT_PROPOSAL')}
+                        onApprove={handleApproveProposal}
+                        onReject={handleRejectProposal}
+                        busyPartId={proposalBusyPartId}
+                        focusedRejectPartId={proposalRejectFocusId}
+                    />
+                )
+            });
+        }
+
+        if (shouldShowAvailabilityMicroUi) {
+            items.push({
+                id: 'availability',
+                title: 'Bloquear data',
+                subtitle: 'Indisponibilidade do publicador em foco',
+                accent: '#0891B2',
+                content: (
+                    <AvailabilityUpdateMicroUi
+                        publishers={publishers}
+                        defaultPublisherId={focusedPublisherId}
+                        defaultDate={currentWeekId || new Date().toISOString().slice(0, 10)}
+                        busy={availabilityBusy}
+                        onConfirm={handleUpdateAvailability}
+                    />
+                )
+            });
+        }
+
+        if (shouldShowPublisherEditMicroUi) {
+            items.push({
+                id: 'publisher-edit',
+                title: 'Editar ficha',
+                subtitle: 'Ajuste rápido com preview curto',
+                accent: '#16A34A',
+                content: (
+                    <PublisherQuickEditMicroUi
+                        publishers={publishers}
+                        defaultPublisherId={focusedPublisherId}
+                        busy={publisherEditBusy}
+                        onPreview={handlePreviewPublisherEdit}
+                        onConfirm={handleQuickEditPublisher}
+                    />
+                )
+            });
+        }
+
+        if ((currentWeekCompletableParts.length > 0 || currentWeekCompletedParts.length > 0) && (canExecute('COMPLETE_PART') || canExecute('UNDO_COMPLETE_PART'))) {
+            items.push({
+                id: 'completion',
+                title: 'Concluir partes',
+                subtitle: 'Fechamento rápido da semana',
+                badge: currentWeekCompletableParts.length > 0 ? `${currentWeekCompletableParts.length} pronta(s)` : `${currentWeekCompletedParts.length} concluída(s)`,
+                accent: '#2563EB',
+                content: (
+                    <PartCompletionMicroUi
+                        completableParts={currentWeekCompletableParts}
+                        completedParts={currentWeekCompletedParts}
+                        canComplete={canExecute('COMPLETE_PART')}
+                        canUndo={canExecute('UNDO_COMPLETE_PART')}
+                        busyPartId={completionBusyPartId}
+                        onComplete={handleCompletePart}
+                        onUndo={handleUndoCompletePart}
+                    />
+                )
+            });
+        }
+
+        return items;
+    }, [
+        availabilityBusy,
+        canExecute,
+        canSeeApprovalMicroUi,
+        completionBusyPartId,
+        currentWeekCompletedParts,
+        currentWeekCompletableParts,
+        currentWeekId,
+        currentWeekProposals,
+        focusedPublisherId,
+        handleApproveProposal,
+        handleCompletePart,
+        handlePreviewPublisherEdit,
+        handleQuickEditPublisher,
+        handleRejectProposal,
+        handleUndoCompletePart,
+        handleUpdateAvailability,
+        proposalBusyPartId,
+        proposalRejectFocusId,
+        publisherEditBusy,
+        publishers,
+        shouldShowAvailabilityMicroUi,
+        shouldShowPublisherEditMicroUi
+    ]);
+
     const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -1137,7 +1245,7 @@ export default function TemporalChat({
     }, [sessionId, initialCommand, isLoading, isWorkbookLoading, parts.length, messages.length === 0, currentWeekId]);
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
             <IntentContextBar
                 currentWeekId={currentWeekId}
@@ -1146,47 +1254,7 @@ export default function TemporalChat({
                 stage={interactionStage}
             />
 
-            {canSeeApprovalMicroUi && currentWeekProposals.length > 0 && (canExecute('APPROVE_PROPOSAL') || canExecute('REJECT_PROPOSAL')) && (
-                <ProposalApprovalMicroUi
-                    proposals={currentWeekProposals}
-                    canApprove={canExecute('APPROVE_PROPOSAL')}
-                    canReject={canExecute('REJECT_PROPOSAL')}
-                    onApprove={handleApproveProposal}
-                    onReject={handleRejectProposal}
-                    busyPartId={proposalBusyPartId}
-                    focusedRejectPartId={proposalRejectFocusId}
-                />
-            )}
-
-            {shouldShowAvailabilityMicroUi && (
-                <AvailabilityUpdateMicroUi
-                    publishers={publishers}
-                    defaultPublisherId={focusedPublisherId}
-                    defaultDate={currentWeekId || new Date().toISOString().slice(0, 10)}
-                    busy={availabilityBusy}
-                    onConfirm={handleUpdateAvailability}
-                />
-            )}
-
-            {shouldShowPublisherEditMicroUi && (
-                <PublisherQuickEditMicroUi
-                    publishers={publishers}
-                    defaultPublisherId={focusedPublisherId}
-                    busy={publisherEditBusy}
-                    onPreview={handlePreviewPublisherEdit}
-                    onConfirm={handleQuickEditPublisher}
-                />
-            )}
-
-            <PartCompletionMicroUi
-                completableParts={currentWeekCompletableParts}
-                completedParts={currentWeekCompletedParts}
-                canComplete={canExecute('COMPLETE_PART')}
-                canUndo={canExecute('UNDO_COMPLETE_PART')}
-                busyPartId={completionBusyPartId}
-                onComplete={handleCompletePart}
-                onUndo={handleUndoCompletePart}
-            />
+            <FloatingMicroUiHost items={floatingMicroUiItems} />
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
                 {messages.length === 0 && (
@@ -1445,7 +1513,7 @@ export default function TemporalChat({
                 <input
                     ref={inputRef}
                     type="text"
-                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : (speechError ? speechError : (isListening ? "Ouvindo..." : "Descreva sua intenção ou peça uma ação do sistema..."))}
+                    placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : (speechError ? speechError : (isListening ? "Ouvindo..." : "Peça uma ação ou digite / para atalhos"))}
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKey}
