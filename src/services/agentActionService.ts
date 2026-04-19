@@ -1000,7 +1000,7 @@ export const agentActionService = {
 
                         if (weeksCount > 1) {
                             // Import múltiplas semanas
-                            const results = await importMultipleWeeks(weekDate, Math.min(weeksCount, 8));
+                            const results = await importMultipleWeeks(weekDate, weeksCount);
                             const successes = results.filter(r => r.success);
                             const failures = results.filter(r => !r.success);
                             let msg = `**Importação de ${results.length} semanas:**\n`;
