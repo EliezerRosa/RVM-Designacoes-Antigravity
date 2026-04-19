@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ChatMessageBubble } from './ui/ChatMessageBubble';
 import { ChatActionChips } from './ui/ChatActionChips';
 import { IntentContextBar } from './ui/IntentContextBar';
@@ -64,11 +64,26 @@ export default function TemporalChat({
     // ... existing hooks ...
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [input, setInput] = useState('');
+    const [input, setInputRaw] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const lastCommandRef = useRef<string | null>(null);
+
+    // Wrapper: syncs both React state AND DOM input element
+    const setInput = useCallback((val: string) => {
+        setInputRaw(val);
+        if (inputRef.current) inputRef.current.value = val;
+    }, []);
+
+    // Sync input ref → state only for slash commands (avoids full re-render on every keystroke)
+    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        // Only update state when typing slash commands (for the menu) or clearing
+        if (val.startsWith('/') || val === '' || input.startsWith('/')) {
+            setInputRaw(val);
+        }
+    }, [input]);
 
     // Share S-140 State
     const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -728,7 +743,7 @@ export default function TemporalChat({
     const sendMessage = async (overrideInput?: string, audioData?: { mimeType: string, data: string }) => {
         // Safety check: Ensure overrideInput is a string and not a PointerEvent or other object
         const finalOverride = typeof overrideInput === 'string' ? overrideInput : undefined;
-        const textToSend = finalOverride || input.trim();
+        const textToSend = finalOverride || inputRef.current?.value?.trim() || input.trim();
 
         // Return only if no text AND no audio is present
         if ((!textToSend && !audioData) || !sessionId || isLoading) return;
@@ -777,7 +792,10 @@ export default function TemporalChat({
             }
         }
 
-        if (!overrideInput) setInput('');
+        if (!overrideInput) {
+            setInputRaw('');
+            if (inputRef.current) inputRef.current.value = '';
+        }
         setIsLoading(true);
 
 
@@ -1288,7 +1306,7 @@ export default function TemporalChat({
                             {getSuggestedQuestions().map((q, i) => (
                                 <button
                                     key={i}
-                                    onClick={() => { setInput(q); setTimeout(() => sendMessage(q), 100); }}
+                                    onClick={() => { if (inputRef.current) inputRef.current.value = q; setTimeout(() => sendMessage(q), 100); }}
                                     style={{
                                         background: '#F3F4F6',
                                         border: '1px solid #E5E7EB',
@@ -1315,8 +1333,8 @@ export default function TemporalChat({
                             content={msg.content || '(sem conteúdo)'}
                             timestamp={msg.timestamp ? new Date(msg.timestamp) : undefined}
                             onShowMore={() => {
-                                setInput('continue');
-                                setTimeout(() => sendMessage(), 100);
+                                if (inputRef.current) inputRef.current.value = 'continue';
+                                setTimeout(() => sendMessage('continue'), 100);
                             }}
                         />
                         {msg.role === 'assistant' && (
@@ -1433,8 +1451,8 @@ export default function TemporalChat({
                     ref={inputRef}
                     type="text"
                     placeholder={rateLimitCountdown > 0 ? `Aguarde ${rateLimitCountdown}s...` : (speechError ? speechError : (isListening ? "Ouvindo..." : "Peça uma ação ou digite / para atalhos"))}
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
+                    defaultValue=""
+                    onChange={handleInputChange}
                     onKeyDown={handleKey}
                     disabled={isLoading || rateLimitCountdown > 0}
                     style={{
