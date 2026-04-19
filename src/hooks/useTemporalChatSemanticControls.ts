@@ -31,6 +31,10 @@ interface Params {
     handleUndoCompletePart: (partId: string) => Promise<void>;
     setProposalRejectFocusId: (partId: string | null) => void;
     setActiveTopic: (topic: string) => void;
+    openApprovalMicroUi: () => void;
+    openAvailabilityMicroUi: () => void;
+    openPublisherEditMicroUi: () => void;
+    openCompletionMicroUi: () => void;
 }
 
 export function useTemporalChatSemanticControls({
@@ -57,6 +61,10 @@ export function useTemporalChatSemanticControls({
     handleUndoCompletePart,
     setProposalRejectFocusId,
     setActiveTopic,
+    openApprovalMicroUi,
+    openAvailabilityMicroUi,
+    openPublisherEditMicroUi,
+    openCompletionMicroUi,
 }: Params) {
     const contextualChips = useMemo<ChatActionChipItem[]>(() => {
         const chips: ChatActionChipItem[] = [];
@@ -93,7 +101,7 @@ export function useTemporalChatSemanticControls({
             chips.push({
                 id: 'chip-proposals',
                 label: `Propostas (${currentWeekProposals.length})`,
-                onClick: () => sendMessage(`Mostre as propostas pendentes da semana ${currentWeekId} e prepare a aprovação ou rejeição.`),
+                onClick: openApprovalMicroUi,
                 tone: 'accent'
             });
         }
@@ -102,7 +110,7 @@ export function useTemporalChatSemanticControls({
             chips.push({
                 id: 'chip-availability',
                 label: 'Bloquear data',
-                onClick: () => setActiveTopic('Publicadores e elegibilidade')
+                onClick: openAvailabilityMicroUi
             });
         }
 
@@ -110,7 +118,7 @@ export function useTemporalChatSemanticControls({
             chips.push({
                 id: 'chip-publisher-edit',
                 label: 'Editar ficha',
-                onClick: () => setActiveTopic('Publicadores e elegibilidade'),
+                onClick: openPublisherEditMicroUi,
                 tone: 'accent'
             });
         }
@@ -119,7 +127,7 @@ export function useTemporalChatSemanticControls({
             chips.push({
                 id: 'chip-complete-part',
                 label: 'Concluir parte',
-                onClick: () => setActiveTopic('Designações da semana')
+                onClick: openCompletionMicroUi
             });
         }
 
@@ -153,7 +161,7 @@ export function useTemporalChatSemanticControls({
         }
 
         return chips;
-    }, [currentWeekId, canSendZap, currentWeekProposals, canSeeApprovalMicroUi, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, canExecute, sendMessage, handleShareS140, executeDirectAction, setActiveTopic]);
+    }, [currentWeekId, canSendZap, currentWeekProposals, canSeeApprovalMicroUi, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, canExecute, handleShareS140, executeDirectAction, openApprovalMicroUi, openAvailabilityMicroUi, openCompletionMicroUi, openPublisherEditMicroUi, sendMessage]);
 
     const slashCommands = useMemo(() => {
         const allCommands: Array<{
@@ -423,7 +431,7 @@ export function useTemporalChatSemanticControls({
                     label: 'Rever propostas',
                     onClick: () => {
                         setProposalRejectFocusId(currentWeekProposals[0].id);
-                        setActiveTopic('Aprovação de designações');
+                        openApprovalMicroUi();
                     },
                     variant: 'subtle'
                 });
@@ -433,7 +441,7 @@ export function useTemporalChatSemanticControls({
                 actions.push({
                     id: `availability-${idx}`,
                     label: 'Bloquear data',
-                    onClick: () => setActiveTopic('Publicadores e elegibilidade'),
+                    onClick: openAvailabilityMicroUi,
                     variant: 'subtle'
                 });
             }
@@ -442,7 +450,7 @@ export function useTemporalChatSemanticControls({
                 actions.push({
                     id: `publisher-edit-${idx}`,
                     label: 'Editar ficha',
-                    onClick: () => setActiveTopic('Publicadores e elegibilidade'),
+                    onClick: openPublisherEditMicroUi,
                     variant: 'subtle'
                 });
             }
@@ -511,7 +519,7 @@ export function useTemporalChatSemanticControls({
         }
 
         return actions;
-    }, [messages, setInput, currentWeekId, inputRef, lastUserPrompt, sendMessage, handleShareS140, currentWeekProposals, canExecute, handleApproveProposal, setProposalRejectFocusId, setActiveTopic, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, handleCompletePart, currentWeekCompletedParts, handleUndoCompletePart, executeDirectAction, canSendZap, accessLevel]);
+    }, [messages, setInput, currentWeekId, inputRef, lastUserPrompt, sendMessage, handleShareS140, currentWeekProposals, canExecute, handleApproveProposal, setProposalRejectFocusId, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, handleCompletePart, currentWeekCompletedParts, handleUndoCompletePart, executeDirectAction, canSendZap, accessLevel, openApprovalMicroUi, openAvailabilityMicroUi, openPublisherEditMicroUi]);
 
     return {
         contextualChips,

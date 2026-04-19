@@ -91,6 +91,7 @@ export default function TemporalChat({
     const [availabilityBusy, setAvailabilityBusy] = useState(false);
     const [publisherEditBusy, setPublisherEditBusy] = useState(false);
     const [completionBusyPartId, setCompletionBusyPartId] = useState<string | null>(null);
+    const [microUiOpenRequest, setMicroUiOpenRequest] = useState<{ id: string; nonce: number } | null>(null);
 
     const permissionGate = useMemo(() => createPermissionGate(getPermissions()), [accessLevel, canSendZap]);
     const allowedAgentActions = useMemo(() => permissionGate.getAllowedAgentActions(), [permissionGate]);
@@ -299,6 +300,19 @@ export default function TemporalChat({
         await chatHistoryService.addMessage(sessionId, message);
         setMessages(prev => [...prev, message]);
     };
+
+    const requestMicroUiOpen = (id: string, topic: string) => {
+        setActiveTopic(topic);
+        setMicroUiOpenRequest(current => ({
+            id,
+            nonce: (current?.nonce ?? 0) + 1,
+        }));
+    };
+
+    const openApprovalMicroUi = () => requestMicroUiOpen('approval', 'Aprovação de designações');
+    const openAvailabilityMicroUi = () => requestMicroUiOpen('availability', 'Publicadores e elegibilidade');
+    const openPublisherEditMicroUi = () => requestMicroUiOpen('publisher-edit', 'Publicadores e elegibilidade');
+    const openCompletionMicroUi = () => requestMicroUiOpen('completion', 'Designações da semana');
 
     const executeDirectAction = async (action: AgentAction, nextTopic?: string) => {
         if (isLoading) return;
@@ -1102,6 +1116,10 @@ export default function TemporalChat({
         handleUndoCompletePart,
         setProposalRejectFocusId,
         setActiveTopic,
+        openApprovalMicroUi,
+        openAvailabilityMicroUi,
+        openPublisherEditMicroUi,
+        openCompletionMicroUi,
     });
 
     const floatingMicroUiItems = useMemo(() => {
@@ -1255,7 +1273,11 @@ export default function TemporalChat({
                 stage={interactionStage}
             />
 
-            <FloatingMicroUiHost items={floatingMicroUiItems} />
+            <FloatingMicroUiHost
+                items={floatingMicroUiItems}
+                requestedOpenId={microUiOpenRequest?.id ?? null}
+                requestNonce={microUiOpenRequest?.nonce ?? 0}
+            />
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
                 {messages.length === 0 && (
