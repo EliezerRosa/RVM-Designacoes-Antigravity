@@ -32,7 +32,12 @@ export function getParticipationCategory(tipoParte: string, funcao: string = 'Ti
 
     const lower = tipoParte?.toLowerCase() || '';
 
-    // 2. IGNORADOS: Orações, NL, Cânticos, e partes secundárias da Presidência - NÃO CONTAM para bloqueio
+    // 2. Presidente conta como MAIN para bloqueio (garante rotação entre anciãos)
+    if (lower.includes('presidente')) {
+        return 'MAIN';
+    }
+
+    // 3. IGNORADOS: Orações, NL, Cânticos, e partes secundárias da Presidência - NÃO CONTAM para bloqueio
     if (lower.includes('oração') ||
         lower.includes('oracao') ||
         lower.includes('necessidades') ||
@@ -44,8 +49,7 @@ export function getParticipationCategory(tipoParte: string, funcao: string = 'Ti
         lower.includes('observações finais') ||
         lower.includes('observacoes finais') ||
         lower.includes('comentários finais') ||
-        lower.includes('comentarios finais') ||
-        lower.includes('presidente')) {
+        lower.includes('comentarios finais')) {
         return 'IGNORED';
     }
 

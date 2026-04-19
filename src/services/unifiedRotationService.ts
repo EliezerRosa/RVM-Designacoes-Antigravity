@@ -40,6 +40,8 @@ export function getRotationConfig() {
 }
 
 // Partes que não contam para estatísticas ou histórico do publicador
+// NOTA: "Presidente" foi REMOVIDO desta lista para que o scoring rastreie o histórico
+// de presidência e faça rotação adequada entre os anciãos elegíveis.
 export const EXCLUDED_STATS_PARTS = [
     "Cântico",
     "Cantico",
@@ -52,8 +54,7 @@ export const EXCLUDED_STATS_PARTS = [
     "Observações finais",
     "Observacoes finais",
     "Comentários finais",
-    "Comentarios finais",
-    "Presidente"
+    "Comentarios finais"
 ];
 
 // Helper to check exclusion
