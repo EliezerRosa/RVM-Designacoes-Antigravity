@@ -86,6 +86,107 @@ function getISOWeek(date: Date): { year: number; week: number } {
     return { year: d.getUTCFullYear(), week };
 }
 
+export function normalizeToWeekStart(date: Date): Date {
+    const normalized = new Date(date);
+    normalized.setHours(12, 0, 0, 0);
+    const day = normalized.getDay();
+    const diffToMonday = (day + 6) % 7;
+    normalized.setDate(normalized.getDate() - diffToMonday);
+    return normalized;
+}
+
+function formatWeekId(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatWeekDisplay(startDate: Date, endDate: Date): string {
+    const startMonthName = Object.keys(MESES).find(key => MESES[key] === startDate.getMonth() + 1) || '';
+    const endMonthName = Object.keys(MESES).find(key => MESES[key] === endDate.getMonth() + 1) || '';
+    const startMonth = startMonthName.charAt(0).toUpperCase() + startMonthName.slice(1);
+    const endMonth = endMonthName.charAt(0).toUpperCase() + endMonthName.slice(1);
+
+    if (startDate.getMonth() === endDate.getMonth()) {
+        return `${startDate.getDate()}-${endDate.getDate()} de ${startMonth}`;
+    }
+
+    return `${startDate.getDate()} de ${startMonth}-${endDate.getDate()} de ${endMonth}`;
+}
+
+export function extractWeekHeader(doc: Document, baseWeekDate: Date): { weekDisplay: string; weekId: string } {
+    const weekStart = normalizeToWeekStart(baseWeekDate);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    const fallback = {
+        weekDisplay: formatWeekDisplay(weekStart, weekEnd),
+        weekId: formatWeekId(weekStart),
+    };
+
+    const candidateTexts = new Set<string>();
+    doc.querySelectorAll('h1, h2, h3, h4, header, .title, .articleTitle').forEach(node => {
+        const text = (node.textContent || '').trim();
+        if (text) candidateTexts.add(text.replace(/\s+/g, ' '));
+    });
+
+    const bodyInnerText = (doc.body as HTMLElement | null)?.innerText || doc.body?.textContent || '';
+    bodyInnerText
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean)
+        .slice(0, 80)
+        .forEach(line => candidateTexts.add(line.replace(/\s+/g, ' ')));
+
+    const isHeaderNoise = (text: string) => {
+        const lower = text.toLowerCase();
+        return lower.includes('cântico') || lower.includes('cantico') || lower.includes('oração') || lower.includes('oracao') || lower.includes('comentários') || lower.includes('comentarios');
+    };
+
+    const sameMonthRegex = /^(\d{1,2})\s*[-–]\s*(\d{1,2})\s+(?:DE\s+)?([A-ZÇÃÉÍÓÚÂÊÎÔÛ]{3,})$/i;
+    const crossMonthRegex = /^(\d{1,2})\s+(?:DE\s+)?([A-ZÇÃÉÍÓÚÂÊÎÔÛ]{3,})\s*[-–]\s*(\d{1,2})\s+(?:DE\s+)?([A-ZÇÃÉÍÓÚÂÊÎÔÛ]{3,})$/i;
+
+    for (const candidate of candidateTexts) {
+        if (isHeaderNoise(candidate)) continue;
+
+        const normalized = candidate.toUpperCase().replace(/\s+/g, ' ').trim();
+        const sameMonthMatch = normalized.match(sameMonthRegex);
+        if (sameMonthMatch) {
+            const day1 = parseInt(sameMonthMatch[1], 10);
+            const day2 = parseInt(sameMonthMatch[2], 10);
+            const monthName = sameMonthMatch[3].toLowerCase();
+            const month = MESES_UPPER[sameMonthMatch[3].toUpperCase()] || MESES[monthName];
+            if (!month) continue;
+
+            const startDate = new Date(weekStart.getFullYear(), month - 1, day1, 12, 0, 0, 0);
+            const endDate = new Date(weekStart.getFullYear(), month - 1, day2, 12, 0, 0, 0);
+            return {
+                weekDisplay: formatWeekDisplay(startDate, endDate),
+                weekId: formatWeekId(weekStart),
+            };
+        }
+
+        const crossMonthMatch = normalized.match(crossMonthRegex);
+        if (crossMonthMatch) {
+            const day1 = parseInt(crossMonthMatch[1], 10);
+            const startMonthName = crossMonthMatch[2].toLowerCase();
+            const day2 = parseInt(crossMonthMatch[3], 10);
+            const endMonthName = crossMonthMatch[4].toLowerCase();
+            const startMonth = MESES_UPPER[crossMonthMatch[2].toUpperCase()] || MESES[startMonthName];
+            const endMonth = MESES_UPPER[crossMonthMatch[4].toUpperCase()] || MESES[endMonthName];
+            if (!startMonth || !endMonth) continue;
+
+            const startDate = new Date(weekStart.getFullYear(), startMonth - 1, day1, 12, 0, 0, 0);
+            const endYear = endMonth < startMonth ? weekStart.getFullYear() + 1 : weekStart.getFullYear();
+            const endDate = new Date(endYear, endMonth - 1, day2, 12, 0, 0, 0);
+            return {
+                weekDisplay: formatWeekDisplay(startDate, endDate),
+                weekId: formatWeekId(weekStart),
+            };
+        }
+    }
+
+    return fallback;
+}
+
 /** Formata minutos absolutos para HH:MM */
 function formatTime(minutes: number): string {
     const h = Math.floor(minutes / 60);
@@ -134,7 +235,8 @@ function classifyPartType(title: string, sectionKey: string, partNum: number): {
  * Busca o HTML da apostila de uma semana específica via proxy Edge
  */
 async function fetchWeekHtml(weekDate: Date): Promise<{ html: string; articleUrl: string }> {
-    const { year, week } = getISOWeek(weekDate);
+    const normalizedWeekDate = normalizeToWeekStart(weekDate);
+    const { year, week } = getISOWeek(normalizedWeekDate);
 
     const res = await fetch(`/api/fetch-workbook?year=${year}&week=${week}`);
     const data = await res.json();
@@ -178,31 +280,11 @@ async function fetchWeekHtml(weekDate: Date): Promise<{ html: string; articleUrl
 function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
+    const normalizedWeekDate = normalizeToWeekStart(weekDate);
 
-    // 1. Extrair header da semana: "16-22 DE MARÇO"
-    const bodyText = doc.body?.textContent || '';
-    const weekHeaderMatch = bodyText.match(
-        /(\d{1,2})\s*[-–]\s*(\d{1,2})\s+(?:DE\s+)?([A-ZÇÃÉÍÓÚÂÊÎÔÛ]{3,})/i
-    );
-
-    let weekDisplay = '';
-    let weekId = '';
-    const year = weekDate.getFullYear();
-
-    if (weekHeaderMatch) {
-        const day1 = parseInt(weekHeaderMatch[1]);
-        const day2 = parseInt(weekHeaderMatch[2]);
-        const monthName = weekHeaderMatch[3].toLowerCase();
-        const month = MESES_UPPER[weekHeaderMatch[3].toUpperCase()] || MESES[monthName] || (weekDate.getMonth() + 1);
-        weekDisplay = `${day1}-${day2} de ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`;
-        weekId = `${year}-${String(month).padStart(2, '0')}-${String(day1).padStart(2, '0')}`;
-    } else {
-        // Fallback from the date input
-        const m = weekDate.getMonth() + 1;
-        const d = weekDate.getDate();
-        weekId = `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        weekDisplay = weekId;
-    }
+    const bodyText = (doc.body as HTMLElement | null)?.innerText || doc.body?.textContent || '';
+    const { weekDisplay, weekId } = extractWeekHeader(doc, normalizedWeekDate);
+    const year = normalizedWeekDate.getFullYear();
 
     // 2. Extrair números dos 3 cânticos do texto completo
     //    Formato abertura: "Cântico 21 e oração"
@@ -457,8 +539,9 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
  * Busca e parseia a apostila de uma semana do jw.org
  */
 export async function fetchWorkbookFromJwOrg(weekDate: Date): Promise<JwFetchResult> {
-    const { html } = await fetchWeekHtml(weekDate);
-    return parseWorkbookHtml(html, weekDate);
+    const normalizedWeekDate = normalizeToWeekStart(weekDate);
+    const { html } = await fetchWeekHtml(normalizedWeekDate);
+    return parseWorkbookHtml(html, normalizedWeekDate);
 }
 
 /**
@@ -510,7 +593,7 @@ export async function importWorkbookFromJwOrg(weekDate: Date): Promise<JwImportR
  */
 export async function importMultipleWeeks(startDate: Date, count: number): Promise<JwImportResult[]> {
     const results: JwImportResult[] = [];
-    const d = new Date(startDate);
+    const d = normalizeToWeekStart(startDate);
 
     for (let i = 0; i < count; i++) {
         const result = await importWorkbookFromJwOrg(new Date(d));

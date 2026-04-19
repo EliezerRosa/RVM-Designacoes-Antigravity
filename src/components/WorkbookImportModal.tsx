@@ -57,7 +57,7 @@ export function WorkbookImportModal({ onDataChange }: Props) {
             const date = new Date(weekDate + 'T12:00:00');
 
             if (weeksCount > 1) {
-                const results = await importMultipleWeeks(date, Math.min(weeksCount, 8));
+                const results = await importMultipleWeeks(date, weeksCount);
                 const ok = results.filter(r => r.success);
                 const fail = results.filter(r => !r.success);
                 let msg = `Importação de ${results.length} semanas:\n`;
@@ -126,9 +126,12 @@ export function WorkbookImportModal({ onDataChange }: Props) {
                     <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
                         Semanas
                     </label>
-                    <select
+                    <input
+                        type="number"
+                        min={1}
+                        step={1}
                         value={weeksCount}
-                        onChange={e => setWeeksCount(Number(e.target.value))}
+                        onChange={e => setWeeksCount(Math.max(1, Number(e.target.value) || 1))}
                         disabled={loading}
                         style={{
                             width: '100%', padding: '8px 12px', borderRadius: '8px',
@@ -136,11 +139,7 @@ export function WorkbookImportModal({ onDataChange }: Props) {
                             background: 'var(--bg-primary, #fff)',
                             color: 'var(--text-primary, #111)', fontSize: '0.95rem'
                         }}
-                    >
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-                            <option key={n} value={n}>{n} {n === 1 ? 'semana' : 'semanas'}</option>
-                        ))}
-                    </select>
+                    />
                 </div>
 
                 <button

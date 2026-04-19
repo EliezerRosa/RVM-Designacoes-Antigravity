@@ -90,6 +90,14 @@ function isOracao(tipoParte: string): boolean {
     return tipoParte?.toLowerCase().includes('oração') || tipoParte?.toLowerCase().includes('oracao');
 }
 
+function formatDurationLabel(duration: number): string {
+    return duration > 0 ? ` (${duration} min)` : '';
+}
+
+function shouldShowEstimatedDuration(part: S140Part): boolean {
+    return part.duration > 0 && !part.isCantico && !part.isOracao;
+}
+
 
 
 // ============================================================================
@@ -225,7 +233,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?:
         if (isDiscursoSolo) return; // Não adicionar — parte não tem ajudante
 
         const name = resolveName(a, publishers);
-        ajudanteBySeq.set(seqNum, name || '(Pendente)');
+        ajudanteBySeq.set(seqNum, name || '');
     });
 
     // Preparar partes
@@ -330,13 +338,15 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
         const section = p.section || '';
         const matchedSection = sectionOrder.find(s => section.includes(s));
 
-        if (matchedSection) {
+        if (section.includes('Início da Reunião')) {
+            initialParts.push(p);
+        } else if (section.includes('Final da Reunião')) {
+            finalParts.push(p);
+        } else if (matchedSection) {
             if (!partsBySection.has(matchedSection)) {
                 partsBySection.set(matchedSection, []);
             }
             partsBySection.get(matchedSection)!.push(p);
-        } else if (p.seq <= 3 || p.isCantico && p.seq <= 5) {
-            initialParts.push(p);
         } else {
             finalParts.push(p);
         }
@@ -411,12 +421,15 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
 
         footerNotes = `
             <div style="
-                margin-top: 12px;
-                padding: 10px 14px;
+                margin-top: 16px;
+                margin-bottom: 4mm;
+                padding: 12px 14px 10px;
                 border-top: 2px solid #D1D5DB;
                 font-family: Calibri, sans-serif;
                 font-size: 10pt;
                 color: #6B7280;
+                break-inside: avoid;
+                page-break-inside: avoid;
             ">
                 <div style="font-weight: 600; margin-bottom: 4px; color: #374151; font-size: 10pt;">Notas:</div>
                 ${noteItems}
@@ -433,7 +446,8 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             ).join(', ');
             footnoteSup = `<span style="display: inline-block;">${markers}</span>`;
         }
-        return `${bullet}${part.title}${footnoteSup}`;
+        const durationLabel = shouldShowEstimatedDuration(part) ? formatDurationLabel(part.duration) : '';
+        return `${bullet}${part.title}${durationLabel}${footnoteSup}`;
     };
 
     // === PARTES INICIAIS ===
@@ -626,11 +640,11 @@ const S140_CSS = `
     }
     .s140-wrapper .container {
         width: 100%;
-        max-width: 200mm;
+        max-width: 188mm;
         margin: 0 auto;
-        padding: 3mm;
+        padding: 6mm 6mm 10mm;
         background: white; 
-        min-height: 290mm; /* Force A4 height */
+        min-height: 285mm;
     }
     .s140-wrapper .header-row {
         display: flex;
@@ -782,7 +796,7 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 
     try {
         const opt = {
-            margin: 0,
+            margin: [6, 6, 8, 6],
             filename: `S-140-Unified_${weekData.weekId}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
@@ -888,7 +902,7 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
             : weeksData[0]?.weekId || 'unknown';
 
         const opt = {
-            margin: 0,
+            margin: [6, 6, 8, 6],
             filename: `S-140-Unified_${weekRange}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {

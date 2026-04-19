@@ -349,7 +349,7 @@ Para importar múltiplas semanas seguidas:
 \`\`\`
 - weekDate: qualquer dia da semana desejada (o sistema encontra a segunda-feira automaticamente)
 - Use PREVIEW quando o usuário pedir para "ver" ou "buscar" antes de importar
-- Máximo de 8 semanas por vez
+- Suporta múltiplas semanas em sequência; não limite a 8 quando a apostila tiver mais semanas
 
 13. GERENCIAR PARTE DA APOSTILA (CRUD individual):
 Permite consultar, editar, cancelar ou excluir uma parte específica da apostila já importada.
