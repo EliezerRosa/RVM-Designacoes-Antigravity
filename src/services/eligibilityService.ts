@@ -31,8 +31,10 @@ export interface EligibilityContext {
     secao?: string;          // Seção da reunião (EnumSecao value)
     partTitle?: string;      // Título da parte (para regras específicas)
     isOracaoInicial?: boolean; // Se é oração inicial (requer canPreside)
+    isOracaoFinal?: boolean;   // Se é oração final (presidente bloqueado)
     isPastWeek?: boolean;    // Se é semana passada (não verifica disponibilidade)
     titularGender?: 'brother' | 'sister'; // Gênero do titular (para validar ajudante)
+    presidentName?: string;  // Nome do presidente da semana (para bloquear na oração final)
 }
 
 // Imports necessários para o helper (se ainda não importados)
@@ -47,9 +49,19 @@ export function buildEligibilityContext(
     weekParts: WorkbookPart[] = [],
     publishers: import('../types').Publisher[] // Usar namespace importado ou tipo direto
 ): EligibilityContext {
-    const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
+    const tipoLower = part.tipoParte.toLowerCase();
+    const isOracaoInicial = tipoLower.includes('inicial');
+    const isOracaoFinal = tipoLower.includes('final');
     const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
     const isPast = isPastWeekDate(part.date);
+
+    // Identificar presidente da semana
+    const presidentPart = weekParts.find(wp =>
+        wp.weekId === part.weekId &&
+        wp.tipoParte.toLowerCase().includes('presidente') &&
+        wp.resolvedPublisherName
+    );
+    const presidentName = presidentPart?.resolvedPublisherName;
 
     // Lógica de Gênero do Titular (se for ajudante)
     let titularGender: 'brother' | 'sister' | undefined = undefined;
@@ -114,9 +126,11 @@ export function buildEligibilityContext(
     return {
         date: part.date,
         isOracaoInicial,
+        isOracaoFinal,
         secao: part.section,
         isPastWeek: isPast,
-        titularGender
+        titularGender,
+        presidentName
     };
 }
 
@@ -223,6 +237,10 @@ export function checkEligibility(
             // Regra 7: Oração inicial requer canPreside
             if (context.isOracaoInicial && !publisher.privileges.canPreside) {
                 return { eligible: false, reason: 'Oração inicial requer privilégio de presidir' };
+            }
+            // Regra 8: Presidente não faz oração final (já faz a inicial)
+            if (context.isOracaoFinal && context.presidentName && publisher.name === context.presidentName) {
+                return { eligible: false, reason: 'Presidente da semana já faz a oração inicial' };
             }
             return { eligible: true };
 

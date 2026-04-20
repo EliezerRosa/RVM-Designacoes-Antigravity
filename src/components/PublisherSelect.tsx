@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
-import { checkEligibility, isElderOrMS, buildEligibilityContext } from '../services/eligibilityService';
+import { checkEligibility, isElderOrMS, buildEligibilityContext, isPastWeekDate } from '../services/eligibilityService';
 import { getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { calculateScore } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
@@ -449,6 +449,9 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         );
     };
 
+    // Detectar semana passada para indicador visual
+    const isPastWeek = useMemo(() => isPastWeekDate(part.date), [part.date]);
+
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <select
@@ -534,6 +537,28 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     {showUnmatchedName ? '!' : '?'}
                 </span>
             </Tooltip>
+            {isPastWeek && (
+                <Tooltip content={<div style={{ fontSize: '12px', padding: '4px' }}>📅 Semana passada — disponibilidade não verificada.<br/>A lista mostra todos os publicadores elegíveis, sem filtrar por indisponibilidade.</div>}>
+                    <span
+                        style={{
+                            cursor: 'help',
+                            background: 'rgba(234, 179, 8, 0.15)',
+                            color: '#ca8a04',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            flexShrink: 0,
+                            border: '1px solid rgba(234, 179, 8, 0.4)'
+                        }}
+                    >
+                        📅
+                    </span>
+                </Tooltip>
+            )}
         </div>
     );
 };
