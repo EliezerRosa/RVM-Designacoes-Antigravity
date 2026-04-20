@@ -38,7 +38,7 @@ export function createWorkbookManagementService(dependencies: WorkbookManagement
         },
 
         async clearWeek(weekParts: WorkbookPart[]) {
-            const assignedParts = weekParts.filter(p => p.resolvedPublisherName);
+            const assignedParts = weekParts.filter(p => p.resolvedPublisherName || p.resolvedPublisherId || p.rawPublisherName);
             if (assignedParts.length === 0) return { clearedCount: 0 };
 
             // Batch update: single DB call instead of N sequential calls
@@ -53,6 +53,8 @@ export function createWorkbookManagementService(dependencies: WorkbookManagement
             for (const part of assignedParts) {
                 await dependencies.workbookClient.updatePart(part.id, {
                     resolvedPublisherName: '',
+                    resolvedPublisherId: '',
+                    rawPublisherName: '',
                     status: 'PENDENTE',
                 });
             }

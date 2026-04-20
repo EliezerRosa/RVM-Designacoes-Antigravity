@@ -566,6 +566,8 @@ export const workbookService = {
             .from('workbook_parts')
             .update({
                 resolved_publisher_name: '',
+                resolved_publisher_id: null,
+                raw_publisher_name: '',
                 status: 'PENDENTE',
             })
             .in('id', partIds)

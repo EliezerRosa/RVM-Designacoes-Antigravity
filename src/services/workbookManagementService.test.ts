@@ -45,7 +45,7 @@ test('clearWeek resets only assigned parts to pending', async () => {
     assert.equal(result.clearedCount, 1);
     assert.deepEqual(updates, [{
         partId: 'week-part-1',
-        updates: { resolvedPublisherName: '', status: 'PENDENTE' },
+        updates: { resolvedPublisherName: '', resolvedPublisherId: '', rawPublisherName: '', status: 'PENDENTE' },
     }]);
 });
 
