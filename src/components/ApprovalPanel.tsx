@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { type WorkbookPart, WorkbookStatus, type Publisher, EnumModalidade, EnumFuncao } from '../types';
 import { workbookLifecycleService } from '../services/workbookLifecycleService';
 import { workbookAssignmentService } from '../services/workbookAssignmentService';
+import { unifiedActionService } from '../services/unifiedActionService';
 import { workbookOverviewQueryService } from '../services/workbookOverviewQueryService';
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
@@ -181,14 +182,20 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const handleUpdatePublisher = async (partId: string, _newId: string, newName: string) => {
         if (!partId) return;
 
-        // Optimistic UI update logic could be here, but let's stick to loading state for safety
         setProcessingIds(prev => new Set(prev).add(partId));
 
         try {
-            // Atualiza o nome do publicador usando o boundary de atribuição (mantém status PROPOSTA e dispara triggers)
-            await workbookAssignmentService.assignPublisher(partId, newName);
+            const result = await unifiedActionService.executeDesignation(partId, newName, 'MANUAL');
+            if (!result.success) {
+                setError(result.error || 'Erro ao atualizar publicador');
+                return;
+            }
+            if (result.warnings?.length) {
+                console.warn('[ApprovalPanel] Avisos:', result.warnings);
+                // Show warnings but don't block
+                setError(`Designação realizada com avisos: ${result.warnings.join('; ')}`);
+            }
 
-            // Recarrega lista
             await loadAssignments();
             loadStats();
 
