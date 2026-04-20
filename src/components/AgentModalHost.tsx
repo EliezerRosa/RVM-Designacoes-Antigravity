@@ -21,6 +21,7 @@ import { PartEditModal } from './PartEditModal';
 import { api } from '../services/api';
 import { workbookService } from '../services/workbookService';
 import { workbookManagementService } from '../services/workbookManagementService';
+import { unifiedActionService } from '../services/unifiedActionService';
 import { publisherMutationService } from '../services/publisherMutationService';
 import TerritoryManager from './TerritoryManager';
 import { WorkbookImportModal } from './WorkbookImportModal';
@@ -125,10 +126,15 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
 
     const handlePublisherSelect = async (partId: string, _newId: string, newName: string) => {
         try {
-            await workbookManagementService.updatePart(partId, {
-                resolvedPublisherName: newName,
-                status: 'DESIGNADA'
-            });
+            const result = await unifiedActionService.executeDesignation(partId, newName, 'MANUAL');
+            if (!result.success) {
+                alert(`Erro ao designar: ${result.error}`);
+                return;
+            }
+            if (result.warnings?.length) {
+                console.warn('[AgentModalHost] Avisos:', result.warnings);
+                alert(`Designação realizada com avisos:\n${result.warnings.join('\n')}`);
+            }
             if (onDataChange) onDataChange();
         } catch (error) {
             console.error('Erro ao designar publicador:', error);
