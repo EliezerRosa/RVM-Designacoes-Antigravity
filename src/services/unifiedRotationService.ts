@@ -156,10 +156,8 @@ export function calculateScore(
         details.specificAdjustments.push('Prioridade Irmã (Demo)');
     }
 
-    if (currentPresident && publisher.name === currentPresident && partType.toLowerCase().includes('oração final')) {
-        details.scoreAdjustment = -200;
-        details.specificAdjustments.push('Penalidade Presidente (Último Recurso)');
-    }
+    // Presidente na Oração Final: agora é bloqueio duro em eligibilityService (Regra 8)
+    // Penalidade soft removida — não é mais necessária
 
     // 5. Cooldown
     const blocked = isBlocked(publisher.name, history, referenceDate);
