@@ -461,6 +461,13 @@ A tabela publishers armazena dados em JSONB (coluna 'data'). Filtros como phone,
 Para buscar publicadores sem telefone: filters: { "phone": null }.
 Para buscar por nome parcial: filters: { "name": "parcial" } (usa ilike).
 
+== COLUNAS REAIS DAS TABELAS (use EXATAMENTE esses nomes nos filtros) ==
+workbook_parts: id, batch_id, week_id, section, part_number, title, duration, participant_name, assistant_name, resolved_publisher_name, resolved_publisher_id, hall, status, is_cancelled, created_at, updated_at
+workbook_batches: id, file_name, week_range, created_at
+special_events: id, week_id, event_type, title, participant_name, created_at
+NUNCA use nomes camelCase como fromWeekId ou toWeekId nos filtros de FETCH_DATA. Use snake_case: week_id.
+Para filtrar workbook_parts por semana, use: filters: { "week_id": "YYYY-MM-DD" }.
+
 == REGRA CRÍTICA DE DESAMBIGUAÇÃO DE COMANDOS ==
 ⚠️ ATENÇÃO MÁXIMA: Estes comandos têm significados OPOSTOS e NÃO podem ser confundidos:
 
