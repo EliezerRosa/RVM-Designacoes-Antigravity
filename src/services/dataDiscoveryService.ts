@@ -11,6 +11,31 @@ export interface QueryParams {
     order?: { column: string; ascending?: boolean };
 }
 
+/**
+ * Maps common LLM-hallucinated camelCase column names to real snake_case DB columns.
+ * Prevents "column X does not exist" errors from agent FETCH_DATA actions.
+ */
+const COLUMN_ALIASES: Record<string, Record<string, string>> = {
+    workbook_parts: {
+        fromWeekId: 'week_id', toWeekId: 'week_id', weekId: 'week_id', week: 'week_id',
+        batchId: 'batch_id', partNumber: 'part_number', participantName: 'participant_name',
+        assistantName: 'assistant_name', resolvedPublisherName: 'resolved_publisher_name',
+        resolvedPublisherId: 'resolved_publisher_id', isCancelled: 'is_cancelled',
+        createdAt: 'created_at', updatedAt: 'updated_at',
+    },
+    workbook_batches: {
+        fileName: 'file_name', weekRange: 'week_range', createdAt: 'created_at',
+    },
+    special_events: {
+        weekId: 'week_id', eventType: 'event_type', participantName: 'participant_name',
+        createdAt: 'created_at',
+    },
+};
+
+function resolveColumnName(table: string, column: string): string {
+    return COLUMN_ALIASES[table]?.[column] ?? column;
+}
+
 export const dataDiscoveryService = {
     /**
      * Consulta genérica para o Agente ter Visão Total
@@ -19,7 +44,8 @@ export const dataDiscoveryService = {
         let query = supabase.from(params.table).select(params.select || '*');
 
         if (params.filters) {
-            Object.entries(params.filters).forEach(([column, value]) => {
+            Object.entries(params.filters).forEach(([rawColumn, value]) => {
+                const column = resolveColumnName(params.table, rawColumn);
                 // Publishers table stores all fields inside a JSONB 'data' column
                 if (params.table === 'publishers' && column !== 'id') {
                     const jsonPath = `data->>${column}`;
