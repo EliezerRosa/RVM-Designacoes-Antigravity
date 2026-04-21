@@ -17,6 +17,7 @@ interface S89SelectionModalProps {
 
 export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishers }: S89SelectionModalProps) {
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+    const [processingReconfirmIds, setProcessingReconfirmIds] = useState<Set<string>>(new Set());
     const [isSharingS140, setIsSharingS140] = useState(false);
     const [s140HTML, setS140HTML] = useState<string>('');
     const [editingMessages, setEditingMessages] = useState<Record<string, string>>({});
@@ -357,6 +358,50 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     };
 
+    const handleSendReconfirmation = async (part: WorkbookPart) => {
+        setProcessingReconfirmIds(prev => new Set(prev).add(part.id));
+        try {
+            const publisherName = part.resolvedPublisherName || part.rawPublisherName;
+            const { content, phone } = await communicationService.prepareS89ReconfirmationMessage(part as any, publishers);
+
+            if (!content || !/https?:\/\//i.test(content)) {
+                alert('Não foi possível gerar o link de re-confirmação para esta designação.');
+                return;
+            }
+
+            await communicationService.logNotification({
+                type: 'S89',
+                recipient_name: publisherName,
+                recipient_phone: phone,
+                title: `S-89 Reconfirmação: ${part.tipoParte}`,
+                content,
+                status: 'SENT',
+                metadata: {
+                    weekId,
+                    partId: part.id,
+                    isReconfirmation: true
+                }
+            });
+
+            const url = communicationService.generateWhatsAppUrl(phone || '', content);
+            window.open(url, '_blank');
+
+            setLastMessages(prev => ({
+                ...prev,
+                [part.id]: { content, created_at: new Date().toISOString() }
+            }));
+        } catch (error) {
+            console.error('Erro ao enviar reconfirmação S-89:', error);
+            alert('Erro ao processar reconfirmação.');
+        } finally {
+            setProcessingReconfirmIds(prev => {
+                const next = new Set(prev);
+                next.delete(part.id);
+                return next;
+            });
+        }
+    };
+
     // --- S-140 SHARE LOGIC ---
     const handleShareS140 = async () => {
         if (!s140Ref.current) return;
@@ -495,6 +540,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     ) : (
                         validParts.map(part => {
                             const isProcessing = processingIds.has(part.id);
+                            const isProcessingReconfirm = processingReconfirmIds.has(part.id);
                             const lastSent = lastMessages[part.id];
                             return (
                                 <div key={part.id} style={{
@@ -537,18 +583,33 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                 {part.funcao === 'Ajudante' && <span style={{ marginLeft: '4px', background: '#E0E7FF', color: '#3730A3', padding: '1px 4px', borderRadius: '4px', fontSize: '0.9em' }}>Ajudante</span>}
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => handleSend(part)}
-                                            disabled={isProcessing}
-                                            style={{
-                                                background: '#25D366', color: 'white', border: 'none',
-                                                padding: '8px 12px', borderRadius: '6px', cursor: isProcessing ? 'wait' : 'pointer',
-                                                fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
-                                                opacity: isProcessing ? 0.7 : 1
-                                            }}
-                                        >
-                                            {isProcessing ? '⏳...' : 'Zap 📤'}
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                onClick={() => handleSendReconfirmation(part)}
+                                                disabled={isProcessingReconfirm}
+                                                style={{
+                                                    background: '#2563EB', color: 'white', border: 'none',
+                                                    padding: '8px 12px', borderRadius: '6px', cursor: isProcessingReconfirm ? 'wait' : 'pointer',
+                                                    fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                                    opacity: isProcessingReconfirm ? 0.7 : 1
+                                                }}
+                                                title="Envia apenas a 2ª chamada de reconfirmação"
+                                            >
+                                                {isProcessingReconfirm ? '⏳...' : 'Reconf. 🔁'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleSend(part)}
+                                                disabled={isProcessing}
+                                                style={{
+                                                    background: '#25D366', color: 'white', border: 'none',
+                                                    padding: '8px 12px', borderRadius: '6px', cursor: isProcessing ? 'wait' : 'pointer',
+                                                    fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                                    opacity: isProcessing ? 0.7 : 1
+                                                }}
+                                            >
+                                                {isProcessing ? '⏳...' : 'Zap 📤'}
+                                            </button>
+                                        </div>
                                     </div>
                                     <textarea
                                         value={editingMessages[part.id] || ''}

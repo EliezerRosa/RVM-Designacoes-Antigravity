@@ -596,6 +596,47 @@ export const communicationService = {
     },
 
     /**
+     * Prepara uma mensagem curta de reconfirmação (2ª chamada)
+     * Conteúdo mínimo: data, parte e link de reconfirmação
+     */
+    async prepareS89ReconfirmationMessage(part: WorkbookPart, publishers: Publisher[]): Promise<{ content: string, phone?: string }> {
+        const publisherName = (part.resolvedPublisherName || part.rawPublisherName || '').trim();
+        const pub = publishers.find(p => p.name.trim() === publisherName);
+        const realPartId = getRealPartId(part.id);
+        const publisherId = part.resolvedPublisherId || pub?.id;
+
+        let displayDate = part.date || part.weekId || '';
+        const dateParts = displayDate ? displayDate.split('-') : [];
+        if (dateParts.length === 3) {
+            const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+            const dayOfWeek = baseDate.getDay();
+            const daysToThursday = (4 - dayOfWeek + 7) % 7;
+            const thursdayDate = new Date(baseDate);
+            thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+
+            const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+            const day = thursdayDate.getDate();
+            const month = MESES[thursdayDate.getMonth()];
+            const year = thursdayDate.getFullYear();
+            displayDate = `quinta-feira, ${day} de ${month} de ${year}`;
+        }
+
+        const partLabel = part.tituloParte || part.tipoParte || '-';
+        let reconfirmationUrl = '';
+        if (publisherId) {
+            reconfirmationUrl = (await this.createConfirmationPortalLink(realPartId, publisherId)) || '';
+        }
+
+        const content = `Data: ${displayDate}\nParte: ${partLabel}\nLink de re-confirmação: ${reconfirmationUrl}`;
+
+        return {
+            content,
+            phone: pub?.phone
+        };
+    },
+
+    /**
      * Gera URL do WhatsApp
      */
     generateWhatsAppUrl(phone: string, message: string): string {
