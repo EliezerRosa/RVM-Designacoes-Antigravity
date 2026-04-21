@@ -399,9 +399,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         {assignedPublisher && (
                             <div>
                                 <div style={{
-                                    marginBottom: '6px',
+                                    marginBottom: '2px',
                                     borderBottom: '1px solid #E5E7EB',
-                                    paddingBottom: '4px',
+                                    paddingBottom: '2px',
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center'
@@ -456,25 +456,25 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         Carregando análise...
                                     </div>
                                 ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
 
                                         {/* Status rápido sem duplicar explicação */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px', flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', marginBottom: '0px', flexWrap: 'wrap' }}>
                                             <span style={{
-                                                fontSize: '11px',
+                                                fontSize: '9px',
                                                 fontWeight: 'bold',
                                                 background: eligibility?.eligible ? '#ECFDF5' : '#FEF2F2',
                                                 color: eligibility?.eligible ? '#059669' : '#DC2626',
-                                                padding: '2px 6px',
+                                                padding: '1px 4px',
                                                 borderRadius: '4px'
                                             }}>
                                                 {eligibility?.eligible ? '✓ Elegível' : '⚠️ Inelegível'}
                                             </span>
                                             <span style={{
-                                                fontSize: '11px',
+                                                fontSize: '9px',
                                                 background: cooldown?.isInCooldown ? '#FFFBEB' : '#ECFDF5',
                                                 color: cooldown?.isInCooldown ? '#B45309' : '#059669',
-                                                padding: '2px 6px',
+                                                padding: '1px 4px',
                                                 borderRadius: '4px'
                                             }}>
                                                 {cooldown?.isInCooldown ? '⏳ Intervalo recomendado ativo' : '✓ Intervalo ok'}
@@ -485,15 +485,15 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         {unifiedNarrative && (
                                             <div style={{
                                                 background: '#FFFFFF',
-                                                padding: '6px 8px',
+                                                padding: '4px 6px',
                                                 borderRadius: '6px',
-                                                fontSize: '11px',
+                                                fontSize: '10px',
                                                 color: '#334155',
                                                 borderLeft: `3px solid ${hasManualOverride ? '#F59E0B' : '#6366F1'}`,
-                                                lineHeight: '1.35',
+                                                lineHeight: '1.2',
                                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                             }}>
-                                                <div style={{ fontWeight: '600', marginBottom: '2px', color: hasManualOverride ? '#B45309' : '#475569' }}>
+                                                <div style={{ fontWeight: '600', marginBottom: '1px', color: hasManualOverride ? '#B45309' : '#475569' }}>
                                                     {hasManualOverride ? '✋ Explicação da Designação (com intervenção manual)' : '📋 Explicação da Designação'}
                                                 </div>
                                                 <div style={{ whiteSpace: 'normal' }}>
@@ -540,12 +540,12 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 background: '#F8FAFC',
                                                 border: '1px solid #E2E8F0',
                                                 borderRadius: '6px',
-                                                padding: '5px 8px',
-                                                fontSize: '10px',
+                                                padding: '3px 6px',
+                                                fontSize: '9px',
                                                 color: '#334155',
-                                                lineHeight: '1.3'
+                                                lineHeight: '1.15'
                                             }}>
-                                                <div style={{ fontWeight: 700, marginBottom: '2px', color: '#334155' }}>
+                                                <div style={{ fontWeight: 700, marginBottom: '1px', color: '#334155' }}>
                                                     Critérios usados na avaliação
                                                 </div>
                                                 <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> verifica atuação ativa, desqualificação, pedido de não participação, disponibilidade na data, restrição "só ajudante", permissões por seção (Tesouros/Ministério/Vida Cristã), compatibilidade de função (Titular/Ajudante), gênero/batismo e privilégios específicos da modalidade (presidir, orar, ensinar, dirigir/ler EBC, etc.).</div>
@@ -559,15 +559,15 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         {/* 3. Top 2 candidatos */}
                                         {topCandidates.length > 0 && (
                                             <div style={{
-                                                marginTop: '2px',
-                                                paddingTop: '4px',
+                                                marginTop: '1px',
+                                                paddingTop: '2px',
                                                 borderTop: '1px solid #F3F4F6',
-                                                fontSize: '10px',
+                                                fontSize: '9px',
                                                 color: '#475569'
                                             }}>
-                                                <div style={{ fontWeight: 700, marginBottom: '2px' }}>Mais indicados (Top 2)</div>
+                                                <div style={{ fontWeight: 700, marginBottom: '1px' }}>Mais indicados (Top 2)</div>
                                                 {topCandidates.map((item, idx) => (
-                                                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1px' }}>
+                                                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0px' }}>
                                                         <span>{idx + 1}. {item.name}</span>
                                                         <span style={{ fontWeight: 600 }}>Score {item.score}</span>
                                                     </div>
