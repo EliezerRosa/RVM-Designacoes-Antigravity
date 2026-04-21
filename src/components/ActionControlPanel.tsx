@@ -300,7 +300,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 {selectedPart ? (
                     <div style={sectionStyle}>
                         {/* Status e Título */}
-                        <div style={{ paddingBottom: '12px', borderBottom: '1px solid #E5E7EB', marginBottom: '12px' }}>
+                        <div style={{ paddingBottom: '6px', borderBottom: '1px solid #E5E7EB', marginBottom: '6px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                     <div style={{ ...labelStyle, marginBottom: '2px' }}>Status</div>
@@ -333,7 +333,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         </div>
 
                         {/* Publicador Designado */}
-                        <div style={{ paddingBottom: assignedPublisher ? '16px' : 0, borderBottom: assignedPublisher ? '1px solid #E5E7EB' : 'none', marginBottom: assignedPublisher ? '16px' : 0 }}>
+                        <div style={{ paddingBottom: assignedPublisher ? '8px' : 0, borderBottom: assignedPublisher ? '1px solid #E5E7EB' : 'none', marginBottom: assignedPublisher ? '8px' : 0 }}>
                             <div style={labelStyle}>Publicador Designado</div>
 
                             {/* Verificação de Parte Não Designável (Ex: Cântico) */}
@@ -342,17 +342,17 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                     (Não se aplica a esta parte)
                                 </div>
                             ) : (selectedPart.resolvedPublisherName || selectedPart.rawPublisherName) ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                                     <div style={{
-                                        width: '32px',
-                                        height: '32px',
+                                        width: '24px',
+                                        height: '24px',
                                         borderRadius: '50%',
                                         background: '#4F46E5',
                                         color: 'white',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontSize: '14px',
+                                        fontSize: '11px',
                                         fontWeight: '600',
                                     }}>
                                         {(selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || '?').charAt(0).toUpperCase()}
@@ -360,11 +360,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                     <div>
                                         <div style={valueStyle}>{selectedPart.resolvedPublisherName || selectedPart.rawPublisherName}</div>
                                         {assignedPublisher && (
-                                            <div style={{ fontSize: '11px', color: '#4B5563', marginTop: '2px', lineHeight: '1.4' }}>
+                                            <div style={{ fontSize: '10px', color: '#4B5563', marginTop: '1px', lineHeight: '1.25' }}>
                                                 <div style={{ fontWeight: '500', color: '#1F2937' }}>
                                                     {assignedPublisher.gender === 'brother' ? '👨' : '👩'} {assignedPublisher.condition} • {assignedPublisher.isBaptized ? 'Batizado' : 'Não Batizado'} • {assignedPublisher.ageGroup}
                                                 </div>
-                                                <div style={{ fontSize: '10px', color: '#6B7280', marginTop: '2px' }}>
+                                                <div style={{ fontSize: '9px', color: '#6B7280', marginTop: '1px' }}>
                                                     <strong>Privilégios:</strong> {[
                                                         assignedPublisher.privileges.canPreside && 'Presidente',
                                                         assignedPublisher.privileges.canGiveTalks && 'Orador',
@@ -375,15 +375,15 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 </div>
                                             </div>
                                         )}
-                                        <div style={{ marginTop: '8px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                        <div style={{ marginTop: '4px', display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                                             {assignedPublisher?.privilegesBySection?.canParticipateInTreasures && (
-                                                <span style={{ fontSize: '10px', background: '#F3F4F6', color: '#374151', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E5E7EB' }}>📖 Tesouros</span>
+                                                <span style={{ fontSize: '9px', background: '#F3F4F6', color: '#374151', padding: '1px 4px', borderRadius: '4px', border: '1px solid #E5E7EB' }}>📖 Tesouros</span>
                                             )}
                                             {assignedPublisher?.privilegesBySection?.canParticipateInMinistry && (
-                                                <span style={{ fontSize: '10px', background: '#FFFBEB', color: '#92400E', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>🌾 Ministério</span>
+                                                <span style={{ fontSize: '9px', background: '#FFFBEB', color: '#92400E', padding: '1px 4px', borderRadius: '4px', border: '1px solid #FDE68A' }}>🌾 Ministério</span>
                                             )}
                                             {assignedPublisher?.privilegesBySection?.canParticipateInLife && (
-                                                <span style={{ fontSize: '10px', background: '#FEF2F2', color: '#991B1B', padding: '2px 6px', borderRadius: '4px', border: '1px solid #FECACA' }}>❤️ Vida Cristã</span>
+                                                <span style={{ fontSize: '9px', background: '#FEF2F2', color: '#991B1B', padding: '1px 4px', borderRadius: '4px', border: '1px solid #FECACA' }}>❤️ Vida Cristã</span>
                                             )}
                                         </div>
                                     </div>
@@ -399,9 +399,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         {assignedPublisher && (
                             <div>
                                 <div style={{
-                                    marginBottom: '12px',
+                                    marginBottom: '6px',
                                     borderBottom: '1px solid #E5E7EB',
-                                    paddingBottom: '8px',
+                                    paddingBottom: '4px',
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center'
@@ -416,7 +416,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         )}
                                     </span>
                                     {scoreData && !isNonDesignatablePart(selectedPart?.tipoParte || '') && (
-                                        <span style={{ fontSize: '10px', color: '#6B7280', background: '#E5E7EB', padding: '2px 6px', borderRadius: '4px' }}>
+                                        <span style={{ fontSize: '9px', color: '#6B7280', background: '#E5E7EB', padding: '1px 4px', borderRadius: '4px' }}>
                                             Score: {scoreData.score}
                                         </span>
                                     )}
