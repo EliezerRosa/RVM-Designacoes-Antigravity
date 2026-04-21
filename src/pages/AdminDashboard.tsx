@@ -18,6 +18,8 @@ import { RULES_TEXT_VERSION } from '../services/contextBuilder.ts';
 import { ActionDiagnosticPanel } from '../components/admin/ActionDiagnosticPanel';
 import { AuthLogsPanel } from '../components/admin/AuthLogsPanel';
 import { PermissionManager } from '../components/admin/PermissionManager';
+import { PublisherFormLinkManager } from '../components/admin/PublisherFormLinkManager';
+import { useAuth } from '../context/AuthContext';
 
 interface SystemLog {
     id: string;
@@ -27,13 +29,14 @@ interface SystemLog {
     created_at: string;
 }
 
-type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions';
+type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'links';
 
 const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }> = [
     { id: 'overview', label: 'Visão Geral', eyebrow: 'Core' },
     { id: 'diagnostics', label: 'Diagnóstico', eyebrow: 'IA' },
     { id: 'auth', label: 'Autenticação', eyebrow: 'Segurança' },
     { id: 'permissions', label: 'Permissões', eyebrow: 'Controle' },
+    { id: 'links', label: 'Links de Form', eyebrow: 'Publicadores' },
 ];
 
 export function AdminDashboard() {
@@ -46,6 +49,7 @@ export function AdminDashboard() {
         byModel: [] as { name: string; value: number }[],
         byLevel: [] as { name: string; value: number }[]
     });
+    const { profile } = useAuth();
 
     useEffect(() => {
         fetchStats();
@@ -424,6 +428,17 @@ export function AdminDashboard() {
                                     </div>
                                     <div style={{ padding: '16px' }}>
                                         <PermissionManager />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Links de Form">
+                                <div className="table-card admin-panel-card">
+                                    <div className="table-header">
+                                        <h3>🔗 Links de Atualização de Publicadores</h3>
+                                    </div>
+                                    <div style={{ padding: '16px' }}>
+                                        <PublisherFormLinkManager adminEmail={profile?.email ?? undefined} />
                                     </div>
                                 </div>
                             </section>

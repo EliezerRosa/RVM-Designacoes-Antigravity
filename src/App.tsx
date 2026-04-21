@@ -23,6 +23,7 @@ const CommunicationTab = lazy(() => import('./components/CommunicationTab').then
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 
 import { publisherMutationService } from './services/publisherMutationService'
+import { PublisherStatusForm } from './components/PublisherStatusForm'
 
 type ActiveTab = AppActiveTab
 
@@ -81,6 +82,15 @@ function App() {
             Solicite um novo link de confirmação gerado pela mensagem S-89 atualizada.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // PORTAL: formulário de atualização de publicadores (acesso por token, sem login)
+  if (portal === 'publisher-form') {
+    return (
+      <div className="app portal-mode">
+        <PublisherStatusForm token={portalToken ?? undefined} />
       </div>
     );
   }
