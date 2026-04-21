@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord, SpecialEvent } from '../types';
 import { checkEligibility, buildEligibilityContext, type EligibilityResult } from '../services/eligibilityService';
 import { getBlockInfo, type CooldownInfo } from '../services/cooldownService';
-import { calculateScore, getRankedCandidates, generateNaturalLanguageExplanation, isStatPart, type RotationScore, type RankedCandidate } from '../services/unifiedRotationService';
+import { calculateScore, getRankedCandidates, isStatPart, type RotationScore } from '../services/unifiedRotationService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import { formatWeekFromDate } from '../utils/dateUtils';
@@ -42,8 +42,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     const [cooldown, setCooldown] = useState<CooldownInfo | null>(null);
     const [stats, setStats] = useState<PublisherStats | null>(null);
     const [scoreData, setScoreData] = useState<RotationScore | null>(null);
-    const [explanation, setExplanation] = useState<string | null>(null);
-    const [bestCandidate, setBestCandidate] = useState<{ name: string; explanation: string; score: number } | null>(null);
+    const [bestCandidate, setBestCandidate] = useState<{ name: string; score: number } | null>(null);
+    const [topCandidates, setTopCandidates] = useState<Array<{ name: string; score: number }>>([]);
     const [loading, setLoading] = useState(false);
     
     // Memoized impacts for the selected part
@@ -77,8 +77,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     setCooldown(null);
                     setStats(null);
                     setScoreData(null);
-                    setExplanation(null);
                     setBestCandidate(null);
+                    setTopCandidates([]);
                 }
                 return;
             }
@@ -103,12 +103,18 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 const ranked = getRankedCandidates(eligibleCandidates, selectedPart.tipoParte, allHistory);
                 const best = ranked.length > 0 ? ranked[0] : null;
 
+                if (isMounted) {
+                    setTopCandidates(
+                        ranked.slice(0, 2).map(item => ({
+                            name: item.publisher.name,
+                            score: item.scoreData.score
+                        }))
+                    );
+                }
+
                 if (best && isMounted) {
-                    // Pass reference date so explanation makes sense in context
-                    const bestExpl = generateNaturalLanguageExplanation(best, allHistory, new Date(selectedPart.date), selectedPart.tipoParte);
                     setBestCandidate({
                         name: best.publisher.name,
-                        explanation: bestExpl,
                         score: best.scoreData.score
                     });
                 } else if (isMounted) {
@@ -140,12 +146,6 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                         historyForCooldown, // Use filtered history
                         new Date()
                     );
-
-                    const currentCandidateObj: RankedCandidate = { publisher: assignedPublisher, scoreData: score };
-
-                    // NEW: Passamos a data da parte como referência temporal para que "Última designação"
-                    // seja relativa à semana que estamos vendo, não a hoje (evita que a própria semana apareça como passado)
-                    const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory, new Date(selectedPart.date), selectedPart.tipoParte);
 
                     const targetName = assignedPublisher.name.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
                     const currentPartDate = selectedPart.date;
@@ -179,14 +179,13 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                             nextDate: nextFutureDate,
                             totalAssignments: sameTypeHistory.length + 1
                         });
-                        setExplanation(natExpl);
                     }
                 } else if (isMounted) {
                     setEligibility(null);
                     setCooldown(null);
                     setScoreData(null);
                     setStats(null);
-                    setExplanation(null);
+                    setTopCandidates([]);
                 }
 
             } catch (error) {
@@ -263,6 +262,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
     const firstName = assignedPublisher?.name?.split(' ')[0] || 'O publicador';
     const hasManualOverride = !!(bestCandidate && assignedPublisher && scoreData && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > scoreData.score);
+    const isAssignedTopScored = !!(bestCandidate && assignedPublisher && bestCandidate.name === assignedPublisher.name);
 
     const unifiedNarrative = useMemo(() => {
         if (!assignedPublisher || !selectedPart || !scoreData) return null;
@@ -284,12 +284,14 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
         if (hasManualOverride && bestCandidate) {
             parts.push(`O sistema teria indicado ${bestCandidate.name} como mais adequado aos critérios abaixo, mas o SRVM optou por esta designação por decisão manual.`);
+        } else if (isAssignedTopScored) {
+            parts.push(`Neste caso, o designado também aparece como o melhor pontuado pelos critérios abaixo.`);
         } else {
             parts.push(`Pelos critérios abaixo, esta designação está coerente com o quadro atual.`);
         }
 
         return parts.join(' ');
-    }, [assignedPublisher, bestCandidate, cooldown, firstName, hasManualOverride, scoreData, selectedPart]);
+    }, [assignedPublisher, bestCandidate, cooldown, firstName, hasManualOverride, isAssignedTopScored, scoreData, selectedPart]);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -456,54 +458,28 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
-                                        {/* 1. Alertas de Bloqueio/Aviso (Prioridade Máxima) */}
-                                        {(!eligibility?.eligible || cooldown?.isInCooldown) ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                {!eligibility?.eligible && (
-                                                    <div style={{ fontSize: '11px', color: '#DC2626', background: '#FEF2F2', padding: '6px', borderRadius: '4px', border: '1px solid #FECACA' }}>
-                                                        <strong>🚫 Inelegível:</strong> {eligibility?.reason}
-                                                    </div>
-                                                )}
-                                                {cooldown?.isInCooldown && (
-                                                    <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
-                                                        <strong>⚠️ Período de descanso recomendado</strong>
-                                                        <div style={{ fontWeight: 'normal', marginTop: '4px' }}>
-                                                            {cooldown.weeksSinceLast >= 0
-                                                                ? `${assignedPublisher.name.split(' ')[0]} realizou "${cooldown.lastPartType}" na semana de ${cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')} — o recomendado é aguardar 3 semanas entre partes principais.`
-                                                                : `${assignedPublisher.name.split(' ')[0]} já tem "${cooldown.lastPartType}" agendada para a semana de ${cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')} — normalmente não se acumulam duas partes principais tão próximas.`
-                                                            }
-                                                        </div>
-                                                        <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 'normal', color: '#92400E' }}>
-                                                            O SRVM pode manter esta designação se assim julgar conveniente.
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            // Se tudo ok, mostra indicador discreto
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                                <span style={{ fontSize: '11px', color: '#059669', fontWeight: 'bold', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px' }}>
-                                                    ✓ Elegível
-                                                </span>
-                                                {!cooldown?.isInCooldown && (
-                                                    <span style={{ fontSize: '11px', color: '#059669', background: '#ECFDF5', padding: '2px 6px', borderRadius: '4px' }}>
-                                                        ✓ Descansado
-                                                    </span>
-                                                )}
-                                                {/* Exibir Disponibilidade */}
-                                                {assignedPublisher.availability && (
-                                                    <span style={{
-                                                        fontSize: '11px',
-                                                        color: assignedPublisher.availability.mode === 'always' ? '#059669' : '#B45309',
-                                                        background: assignedPublisher.availability.mode === 'always' ? '#ECFDF5' : '#FFFBEB',
-                                                        padding: '2px 6px',
-                                                        borderRadius: '4px'
-                                                    }}>
-                                                        {assignedPublisher.availability.mode === 'always' ? '📅 Disponível (Padrão)' : '📅 Disponibilidade Limitada'}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
+                                        {/* Status rápido sem duplicar explicação */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                            <span style={{
+                                                fontSize: '11px',
+                                                fontWeight: 'bold',
+                                                background: eligibility?.eligible ? '#ECFDF5' : '#FEF2F2',
+                                                color: eligibility?.eligible ? '#059669' : '#DC2626',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px'
+                                            }}>
+                                                {eligibility?.eligible ? '✓ Elegível' : '⚠️ Inelegível'}
+                                            </span>
+                                            <span style={{
+                                                fontSize: '11px',
+                                                background: cooldown?.isInCooldown ? '#FFFBEB' : '#ECFDF5',
+                                                color: cooldown?.isInCooldown ? '#B45309' : '#059669',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px'
+                                            }}>
+                                                {cooldown?.isInCooldown ? '⏳ Intervalo recomendado ativo' : '✓ Intervalo ok'}
+                                            </span>
+                                        </div>
 
                                         {/* 2. Explicação em Linguagem Natural (Texto Único) */}
                                         {unifiedNarrative && (
@@ -550,7 +526,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     <span>
                                                         {hasManualOverride && bestCandidate
                                                             ? `O sistema teria indicado ${bestCandidate.name} como mais adequado aos critérios abaixo, mas o SRVM optou por esta designação por decisão manual.`
-                                                            : 'Pelos critérios abaixo, esta designação está coerente com o quadro atual.'}
+                                                            : isAssignedTopScored
+                                                                ? 'Neste caso, o designado também aparece como o melhor pontuado pelos critérios abaixo.'
+                                                                : 'Pelos critérios abaixo, esta designação está coerente com o quadro atual.'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -570,7 +548,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 <div style={{ fontWeight: 700, marginBottom: '4px', color: '#334155' }}>
                                                     Critérios usados na avaliação
                                                 </div>
-                                                <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> valida sexo/condição/privilégios e função compatíveis com o tipo de parte.</div>
+                                                <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> verifica atuação ativa, desqualificação, pedido de não participação, disponibilidade na data, restrição "só ajudante", permissões por seção (Tesouros/Ministério/Vida Cristã), compatibilidade de função (Titular/Ajudante), gênero/batismo e privilégios específicos da modalidade (presidir, orar, ensinar, dirigir/ler EBC, etc.).</div>
                                                 <div><strong style={{ color: '#7C3AED' }}>Intervalo:</strong> verifica partes principais recentes (regra de 3 semanas).</div>
                                                 <div><strong style={{ color: '#0F766E' }}>Tempo desde última similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior prioridade.</div>
                                                 <div><strong style={{ color: '#B45309' }}>Frequência recente:</strong> muitas designações no período reduzem prioridade.</div>
@@ -578,28 +556,22 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             </div>
                                         )}
 
-                                        {/* 3. Dados Específicos de Apoio (Contexto Fino) */}
-                                        {stats && (
+                                        {/* 3. Top 2 candidatos */}
+                                        {topCandidates.length > 0 && (
                                             <div style={{
                                                 marginTop: '4px',
                                                 paddingTop: '8px',
                                                 borderTop: '1px solid #F3F4F6',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
                                                 fontSize: '10px',
-                                                color: '#6B7280'
+                                                color: '#475569'
                                             }}>
-                                                <div>
-                                                    <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '1px' }}>Última vez neste tipo de parte:</span>
-                                                    {stats.lastDate ? new Date(stats.lastDate).toLocaleDateString() : 'Nenhuma (Histórico)'}
-                                                </div>
-
-                                                {stats.nextDate && (
-                                                    <div style={{ textAlign: 'right', color: '#D97706' }}>
-                                                        <span style={{ display: 'block', fontWeight: 'bold', marginBottom: '1px' }}>Próxima Agendada:</span>
-                                                        {new Date(stats.nextDate).toLocaleDateString()}
+                                                <div style={{ fontWeight: 700, marginBottom: '4px' }}>Mais indicados (Top 2)</div>
+                                                {topCandidates.map((item, idx) => (
+                                                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                                        <span>{idx + 1}. {item.name}</span>
+                                                        <span style={{ fontWeight: 600 }}>Score {item.score}</span>
                                                     </div>
-                                                )}
+                                                ))}
                                             </div>
                                         )}
 
