@@ -456,10 +456,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         Carregando análise...
                                     </div>
                                 ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
 
                                         {/* Status rápido sem duplicar explicação */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px', flexWrap: 'wrap' }}>
                                             <span style={{
                                                 fontSize: '11px',
                                                 fontWeight: 'bold',
@@ -485,15 +485,15 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         {unifiedNarrative && (
                                             <div style={{
                                                 background: '#FFFFFF',
-                                                padding: '10px',
+                                                padding: '6px 8px',
                                                 borderRadius: '6px',
                                                 fontSize: '11px',
                                                 color: '#334155',
                                                 borderLeft: `3px solid ${hasManualOverride ? '#F59E0B' : '#6366F1'}`,
-                                                lineHeight: '1.5',
+                                                lineHeight: '1.35',
                                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                             }}>
-                                                <div style={{ fontWeight: '600', marginBottom: '6px', color: hasManualOverride ? '#B45309' : '#475569' }}>
+                                                <div style={{ fontWeight: '600', marginBottom: '2px', color: hasManualOverride ? '#B45309' : '#475569' }}>
                                                     {hasManualOverride ? '✋ Explicação da Designação (com intervenção manual)' : '📋 Explicação da Designação'}
                                                 </div>
                                                 <div style={{ whiteSpace: 'normal' }}>
@@ -540,12 +540,12 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 background: '#F8FAFC',
                                                 border: '1px solid #E2E8F0',
                                                 borderRadius: '6px',
-                                                padding: '8px 10px',
+                                                padding: '5px 8px',
                                                 fontSize: '10px',
                                                 color: '#334155',
-                                                lineHeight: '1.45'
+                                                lineHeight: '1.3'
                                             }}>
-                                                <div style={{ fontWeight: 700, marginBottom: '4px', color: '#334155' }}>
+                                                <div style={{ fontWeight: 700, marginBottom: '2px', color: '#334155' }}>
                                                     Critérios usados na avaliação
                                                 </div>
                                                 <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> verifica atuação ativa, desqualificação, pedido de não participação, disponibilidade na data, restrição "só ajudante", permissões por seção (Tesouros/Ministério/Vida Cristã), compatibilidade de função (Titular/Ajudante), gênero/batismo e privilégios específicos da modalidade (presidir, orar, ensinar, dirigir/ler EBC, etc.).</div>
@@ -559,15 +559,15 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         {/* 3. Top 2 candidatos */}
                                         {topCandidates.length > 0 && (
                                             <div style={{
-                                                marginTop: '4px',
-                                                paddingTop: '8px',
+                                                marginTop: '2px',
+                                                paddingTop: '4px',
                                                 borderTop: '1px solid #F3F4F6',
                                                 fontSize: '10px',
                                                 color: '#475569'
                                             }}>
-                                                <div style={{ fontWeight: 700, marginBottom: '4px' }}>Mais indicados (Top 2)</div>
+                                                <div style={{ fontWeight: 700, marginBottom: '2px' }}>Mais indicados (Top 2)</div>
                                                 {topCandidates.map((item, idx) => (
-                                                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1px' }}>
                                                         <span>{idx + 1}. {item.name}</span>
                                                         <span style={{ fontWeight: 600 }}>Score {item.score}</span>
                                                     </div>
