@@ -105,8 +105,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
                 if (best && isMounted) {
                     // Pass reference date so explanation makes sense in context
-                    const bestExpl = generateNaturalLanguageExplanation(best, allHistory, new Date(selectedPart.date));
-                                        const bestExpl = generateNaturalLanguageExplanation(best, allHistory, new Date(selectedPart.date), selectedPart.tipoParte);
+                    const bestExpl = generateNaturalLanguageExplanation(best, allHistory, new Date(selectedPart.date), selectedPart.tipoParte);
                     setBestCandidate({
                         name: best.publisher.name,
                         explanation: bestExpl,
@@ -146,7 +145,6 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
                     // NEW: Passamos a data da parte como referência temporal para que "Última designação"
                     // seja relativa à semana que estamos vendo, não a hoje (evita que a própria semana apareça como passado)
-                    const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory, new Date(selectedPart.date));
                     const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory, new Date(selectedPart.date), selectedPart.tipoParte);
 
                     const targetName = assignedPublisher.name.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -256,6 +254,42 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
         color: '#111827',
         fontWeight: '500',
     };
+
+    const formatDate = (value?: string | null) => {
+        if (!value) return '';
+        const safeDate = new Date(`${value}T12:00:00`);
+        return safeDate.toLocaleDateString('pt-BR');
+    };
+
+    const firstName = assignedPublisher?.name?.split(' ')[0] || 'O publicador';
+    const hasManualOverride = !!(bestCandidate && assignedPublisher && scoreData && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > scoreData.score);
+
+    const unifiedNarrative = useMemo(() => {
+        if (!assignedPublisher || !selectedPart || !scoreData) return null;
+
+        const parts: string[] = [];
+
+        if (cooldown?.isInCooldown) {
+            const weekOrDate = cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '') || formatDate(cooldown.lastDate);
+            parts.push(`${firstName} realizou "${cooldown.lastPartType}" na semana de ${weekOrDate}; o recomendado é aguardar 3 semanas entre partes principais.`);
+        }
+
+        if (scoreData.details.frequencyPenalty > 50) {
+            parts.push(`${firstName} participou bastante nos últimos 3 meses; isso reduz um pouco a prioridade geral.`);
+        } else if (scoreData.details.frequencyPenalty > 0) {
+            parts.push(`${firstName} teve algumas designações recentes; isso foi considerado no cálculo de prioridade.`);
+        } else {
+            parts.push(`${firstName} está com a agenda mais livre nos últimos 3 meses.`);
+        }
+
+        if (hasManualOverride && bestCandidate) {
+            parts.push(`O sistema teria indicado ${bestCandidate.name} como mais adequado aos critérios abaixo, mas o SRVM optou por esta designação por decisão manual.`);
+        } else {
+            parts.push(`Pelos critérios abaixo, esta designação está coerente com o quadro atual.`);
+        }
+
+        return parts.join(' ');
+    }, [assignedPublisher, bestCandidate, cooldown, firstName, hasManualOverride, scoreData, selectedPart]);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -471,32 +505,78 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             </div>
                                         )}
 
-                                        {/* 2. Explicação em Linguagem Natural (O Coração da Análise) */}
-                                        {explanation && (() => {
-                                            const isManualOverride = bestCandidate && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > (scoreData?.score || 0);
-                                            return (
-                                                <div style={{
-                                                    background: '#FFFFFF',
-                                                    padding: '10px',
-                                                    borderRadius: '6px',
-                                                    fontSize: '11px',
-                                                    color: '#334155',
-                                                    borderLeft: `3px solid ${isManualOverride ? '#F59E0B' : '#6366F1'}`,
-                                                    lineHeight: '1.4',
-                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                                }}>
-                                                    <div style={{ fontWeight: '600', marginBottom: '4px', color: isManualOverride ? '#B45309' : '#475569' }}>
-                                                        {isManualOverride ? '✋ Escolhido pelo SRVM:' : '📋 Situação no rodízio:'}
-                                                    </div>
-                                                    <div style={{ whiteSpace: 'pre-wrap' }}>{explanation}</div>
-                                                    {isManualOverride && (
-                                                        <div style={{ marginTop: '6px', fontSize: '10px', color: '#92400E', fontStyle: 'italic' }}>
-                                                            O sistema teria indicado {bestCandidate!.name} (pontuação {bestCandidate!.score} vs {scoreData?.score}), mas o SRVM optou por esta designação — o que é totalmente válido e reflete o julgamento pastoral.
-                                                        </div>
-                                                    )}
+                                        {/* 2. Explicação em Linguagem Natural (Texto Único) */}
+                                        {unifiedNarrative && (
+                                            <div style={{
+                                                background: '#FFFFFF',
+                                                padding: '10px',
+                                                borderRadius: '6px',
+                                                fontSize: '11px',
+                                                color: '#334155',
+                                                borderLeft: `3px solid ${hasManualOverride ? '#F59E0B' : '#6366F1'}`,
+                                                lineHeight: '1.5',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}>
+                                                <div style={{ fontWeight: '600', marginBottom: '6px', color: hasManualOverride ? '#B45309' : '#475569' }}>
+                                                    {hasManualOverride ? '✋ Explicação da Designação (com intervenção manual)' : '📋 Explicação da Designação'}
                                                 </div>
-                                            );
-                                        })()}
+                                                <div style={{ whiteSpace: 'normal' }}>
+                                                    {cooldown?.isInCooldown && (
+                                                        <span style={{ color: '#B45309', fontWeight: 600 }}>
+                                                            Intervalo recomendado:
+                                                        </span>
+                                                    )}{' '}
+                                                    {cooldown?.isInCooldown && (
+                                                        <span>
+                                                            {firstName} realizou "{cooldown.lastPartType}" na semana de {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}; o recomendado é aguardar 3 semanas entre partes principais.{" "}
+                                                        </span>
+                                                    )}
+
+                                                    <span style={{ color: '#1D4ED8', fontWeight: 600 }}>
+                                                        Frequência recente:
+                                                    </span>{' '}
+                                                    <span>
+                                                        {scoreData && scoreData.details.frequencyPenalty > 50
+                                                            ? `${firstName} participou bastante nos últimos 3 meses; isso reduz um pouco a prioridade geral.`
+                                                            : scoreData && scoreData.details.frequencyPenalty > 0
+                                                                ? `${firstName} teve algumas designações recentes; isso foi considerado no cálculo de prioridade.`
+                                                                : `${firstName} está com a agenda mais livre nos últimos 3 meses.`}
+                                                        {' '}
+                                                    </span>
+
+                                                    <span style={{ color: hasManualOverride ? '#B45309' : '#047857', fontWeight: 600 }}>
+                                                        {hasManualOverride ? 'Decisão final do SRVM:' : 'Conclusão do sistema:'}
+                                                    </span>{' '}
+                                                    <span>
+                                                        {hasManualOverride && bestCandidate
+                                                            ? `O sistema teria indicado ${bestCandidate.name} como mais adequado aos critérios abaixo, mas o SRVM optou por esta designação por decisão manual.`
+                                                            : 'Pelos critérios abaixo, esta designação está coerente com o quadro atual.'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 2.1 Critérios Técnicos (Resumo) */}
+                                        {scoreData && (
+                                            <div style={{
+                                                background: '#F8FAFC',
+                                                border: '1px solid #E2E8F0',
+                                                borderRadius: '6px',
+                                                padding: '8px 10px',
+                                                fontSize: '10px',
+                                                color: '#334155',
+                                                lineHeight: '1.45'
+                                            }}>
+                                                <div style={{ fontWeight: 700, marginBottom: '4px', color: '#334155' }}>
+                                                    Critérios usados na avaliação
+                                                </div>
+                                                <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> valida sexo/condição/privilégios e função compatíveis com o tipo de parte.</div>
+                                                <div><strong style={{ color: '#7C3AED' }}>Intervalo:</strong> verifica partes principais recentes (regra de 3 semanas).</div>
+                                                <div><strong style={{ color: '#0F766E' }}>Tempo desde última similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior prioridade.</div>
+                                                <div><strong style={{ color: '#B45309' }}>Frequência recente:</strong> muitas designações no período reduzem prioridade.</div>
+                                                <div><strong style={{ color: '#334155' }}>Pontuação final:</strong> {scoreData.score} (base + tempo - frequência - penalidades + bônus).</div>
+                                            </div>
+                                        )}
 
                                         {/* 3. Dados Específicos de Apoio (Contexto Fino) */}
                                         {stats && (
