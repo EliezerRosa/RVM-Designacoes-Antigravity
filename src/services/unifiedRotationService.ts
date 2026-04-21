@@ -222,10 +222,23 @@ export function generateNaturalLanguageExplanation(
     candidate: RankedCandidate,
     history: HistoryRecord[],
     referenceDate: Date = new Date()
+): string;
+export function generateNaturalLanguageExplanation(
+    candidate: RankedCandidate,
+    history: HistoryRecord[],
+    referenceDate: Date,
+    partType: string
+): string;
+export function generateNaturalLanguageExplanation(
+    candidate: RankedCandidate,
+    history: HistoryRecord[],
+    referenceDate: Date = new Date(),
+    partType?: string
 ): string {
     const { publisher, scoreData } = candidate;
     const { details, weeksSinceLast } = scoreData;
 
+    const firstName = publisher.name.split(' ')[0];
     const refDateStr = referenceDate.toISOString().split('T')[0];
 
     const allHistory = history
@@ -243,24 +256,27 @@ export function generateNaturalLanguageExplanation(
     });
 
     const datesText = recentDates.length > 0
-        ? `Últimas: ${recentDates.join(', ')}.`
-        : "Nenhuma participação recente.";
+        ? `Últimas participações: ${recentDates.join(', ')}.`
+        : `${firstName} não tem participações anteriores registradas.`;
 
+    // Frequência geral (agenda lotada ou livre)
     let narrative = "";
     if (details.frequencyPenalty > 50) {
-        narrative = "⚠️ Pontuação reduzida pois tem muitas designações recentes.";
+        narrative = `${firstName} participou bastante nos últimos 3 meses — muitas designações recentes reduzem um pouco a prioridade geral.`;
     } else if (details.frequencyPenalty > 0) {
-        narrative = "Prioridade levemente reduzida devido a outras designações recentes.";
+        narrative = `${firstName} teve algumas participações recentes, o que foi levado em conta no cálculo.`;
     } else {
-        narrative = "Está com a agenda geral livre.";
+        narrative = `${firstName} está com a agenda tranquila — sem muitas participações nos últimos meses.`;
     }
 
+    // Tempo específico nesta parte
+    const partLabel = partType ? `"${partType}"` : 'esta parte específica';
     if (weeksSinceLast > 20) {
-        narrative += " E faz muito tempo que não realiza esta parte específica.";
+        narrative += ` Além disso, há bastante tempo que não realiza ${partLabel}, o que aumenta a prioridade para ela.`;
     } else if (weeksSinceLast > 10) {
-        narrative += " E já faz um tempo desde a última vez nesta parte.";
-    } else {
-        narrative += " (Disponível).";
+        narrative += ` Já faz um tempo considerável desde a última vez em ${partLabel}.`;
+    } else if (weeksSinceLast <= 4 && weeksSinceLast >= 0) {
+        narrative += ` Realizou ${partLabel} recentemente.`;
     }
 
     return `${narrative}\n\n📅 ${datesText}`;

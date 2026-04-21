@@ -106,6 +106,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 if (best && isMounted) {
                     // Pass reference date so explanation makes sense in context
                     const bestExpl = generateNaturalLanguageExplanation(best, allHistory, new Date(selectedPart.date));
+                                        const bestExpl = generateNaturalLanguageExplanation(best, allHistory, new Date(selectedPart.date), selectedPart.tipoParte);
                     setBestCandidate({
                         name: best.publisher.name,
                         explanation: bestExpl,
@@ -146,6 +147,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     // NEW: Passamos a data da parte como referência temporal para que "Última designação"
                     // seja relativa à semana que estamos vendo, não a hoje (evita que a própria semana apareça como passado)
                     const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory, new Date(selectedPart.date));
+                    const natExpl = generateNaturalLanguageExplanation(currentCandidateObj, allHistory, new Date(selectedPart.date), selectedPart.tipoParte);
 
                     const targetName = assignedPublisher.name.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
                     const currentPartDate = selectedPart.date;
@@ -430,13 +432,15 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 )}
                                                 {cooldown?.isInCooldown && (
                                                     <div style={{ fontSize: '11px', color: '#B45309', background: '#FFFBEB', padding: '6px', borderRadius: '4px', border: '1px solid #FDE68A' }}>
-                                                        <strong>⚠️ Em Intervalo:</strong> {cooldown.weeksSinceLast >= 0
-                                                            ? <><strong>Participações Passadas:</strong> Realizou {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
-                                                            : <><strong>Designações Futuras:</strong> Designado para {cooldown.lastPartType} na {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}.</>
-
-                                                        }
+                                                        <strong>⚠️ Período de descanso recomendado</strong>
+                                                        <div style={{ fontWeight: 'normal', marginTop: '4px' }}>
+                                                            {cooldown.weeksSinceLast >= 0
+                                                                ? `${assignedPublisher.name.split(' ')[0]} realizou "${cooldown.lastPartType}" na semana de ${cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')} — o recomendado é aguardar 3 semanas entre partes principais.`
+                                                                : `${assignedPublisher.name.split(' ')[0]} já tem "${cooldown.lastPartType}" agendada para a semana de ${cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')} — normalmente não se acumulam duas partes principais tão próximas.`
+                                                            }
+                                                        </div>
                                                         <div style={{ marginTop: '4px', fontSize: '10px', fontWeight: 'normal', color: '#92400E' }}>
-                                                            (Convenção: Aguardar 3 semanas após partes principais. Pode ser ignorada manualmente.)
+                                                            O SRVM pode manter esta designação se assim julgar conveniente.
                                                         </div>
                                                     </div>
                                                 )}
@@ -468,23 +472,31 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         )}
 
                                         {/* 2. Explicação em Linguagem Natural (O Coração da Análise) */}
-                                        {explanation && (
-                                            <div style={{
-                                                background: '#FFFFFF',
-                                                padding: '10px',
-                                                borderRadius: '6px',
-                                                fontSize: '11px',
-                                                color: '#334155',
-                                                borderLeft: '3px solid #6366F1',
-                                                lineHeight: '1.4',
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                            }}>
-                                                <div style={{ fontWeight: '600', marginBottom: '4px', color: '#475569' }}>
-                                                    Análise do Sistema:
+                                        {explanation && (() => {
+                                            const isManualOverride = bestCandidate && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > (scoreData?.score || 0);
+                                            return (
+                                                <div style={{
+                                                    background: '#FFFFFF',
+                                                    padding: '10px',
+                                                    borderRadius: '6px',
+                                                    fontSize: '11px',
+                                                    color: '#334155',
+                                                    borderLeft: `3px solid ${isManualOverride ? '#F59E0B' : '#6366F1'}`,
+                                                    lineHeight: '1.4',
+                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                }}>
+                                                    <div style={{ fontWeight: '600', marginBottom: '4px', color: isManualOverride ? '#B45309' : '#475569' }}>
+                                                        {isManualOverride ? '✋ Escolhido pelo SRVM:' : '📋 Situação no rodízio:'}
+                                                    </div>
+                                                    <div style={{ whiteSpace: 'pre-wrap' }}>{explanation}</div>
+                                                    {isManualOverride && (
+                                                        <div style={{ marginTop: '6px', fontSize: '10px', color: '#92400E', fontStyle: 'italic' }}>
+                                                            O sistema teria indicado {bestCandidate!.name} (pontuação {bestCandidate!.score} vs {scoreData?.score}), mas o SRVM optou por esta designação — o que é totalmente válido e reflete o julgamento pastoral.
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div style={{ whiteSpace: 'pre-wrap' }}>{explanation}</div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
 
                                         {/* 3. Dados Específicos de Apoio (Contexto Fino) */}
                                         {stats && (
@@ -511,24 +523,6 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             </div>
                                         )}
 
-                                        {/* 4. Sugestão de Melhor Candidato (Se existir e for melhor) */}
-                                        {bestCandidate && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > (scoreData?.score || 0) && (
-                                            <div style={{
-                                                marginTop: '8px',
-                                                background: '#ECFDF5',
-                                                padding: '8px',
-                                                borderRadius: '6px',
-                                                fontSize: '11px',
-                                                border: '1px solid #A7F3D0'
-                                            }}>
-                                                <div style={{ color: '#047857', fontWeight: 'bold', marginBottom: '2px' }}>
-                                                    💡 Sugestão: {bestCandidate.name} (Score {bestCandidate.score})
-                                                </div>
-                                                <div style={{ color: '#065F46', fontSize: '10px' }}>
-                                                    {bestCandidate.explanation.split('\n')[0]} {/* Só a primeira linha da explicação */}
-                                                </div>
-                                            </div>
-                                        )}
 
                                     </div>
                                 )}
