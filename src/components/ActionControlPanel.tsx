@@ -486,10 +486,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 background: '#FFFFFF',
                                                 padding: '4px 6px',
                                                 borderRadius: '6px',
-                                                fontSize: '11px',
+                                                fontSize: '12px',
                                                 color: '#1E293B',
                                                 borderLeft: `3px solid ${hasManualOverride ? '#F59E0B' : '#6366F1'}`,
-                                                lineHeight: '1.3',
+                                                lineHeight: '1.4',
                                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                             }}>
                                                 <div style={{ fontWeight: '700', marginBottom: '1px', color: hasManualOverride ? '#92400E' : '#334155' }}>
@@ -533,16 +533,35 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             </div>
                                         )}
 
-                                        {/* 2.1 Critérios Técnicos (Resumo) */}
+                                        {/* 2.1 Top 2 candidatos */}
+                                        {topCandidates.length > 0 && (
+                                            <div style={{
+                                                marginTop: '1px',
+                                                paddingTop: '2px',
+                                                borderTop: '1px solid #F3F4F6',
+                                                fontSize: '10px',
+                                                color: '#475569'
+                                            }}>
+                                                <div style={{ fontWeight: 700, marginBottom: '1px', color: '#334155' }}>Mais indicados (Top 2)</div>
+                                                {topCandidates.map((item, idx) => (
+                                                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0px' }}>
+                                                        <span>{idx + 1}. {item.name}</span>
+                                                        <span style={{ fontWeight: 600 }}>Score {item.score}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* 2.2 Critérios Técnicos (Resumo) */}
                                         {scoreData && (
                                             <div style={{
                                                 background: '#F8FAFC',
                                                 border: '1px solid #E2E8F0',
                                                 borderRadius: '6px',
                                                 padding: '3px 6px',
-                                                fontSize: '10px',
+                                                fontSize: '11px',
                                                 color: '#1E293B',
-                                                lineHeight: '1.25'
+                                                lineHeight: '1.3'
                                             }}>
                                                 <div style={{ fontWeight: 700, marginBottom: '1px', color: '#334155' }}>
                                                     Critérios usados na avaliação
@@ -552,25 +571,6 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 <div><strong style={{ color: '#0F766E' }}>Tempo desde última similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior prioridade.</div>
                                                 <div><strong style={{ color: '#B45309' }}>Frequência recente:</strong> muitas designações no período reduzem prioridade.</div>
                                                 <div><strong style={{ color: '#334155' }}>Pontuação final:</strong> {scoreData.score} (base + tempo - frequência - penalidades + bônus).</div>
-                                            </div>
-                                        )}
-
-                                        {/* 3. Top 2 candidatos */}
-                                        {topCandidates.length > 0 && (
-                                            <div style={{
-                                                marginTop: '1px',
-                                                paddingTop: '2px',
-                                                borderTop: '1px solid #F3F4F6',
-                                                fontSize: '9px',
-                                                color: '#475569'
-                                            }}>
-                                                <div style={{ fontWeight: 700, marginBottom: '1px' }}>Mais indicados (Top 2)</div>
-                                                {topCandidates.map((item, idx) => (
-                                                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0px' }}>
-                                                        <span>{idx + 1}. {item.name}</span>
-                                                        <span style={{ fontWeight: 600 }}>Score {item.score}</span>
-                                                    </div>
-                                                ))}
                                             </div>
                                         )}
 
