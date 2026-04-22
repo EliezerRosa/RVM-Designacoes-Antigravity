@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord, SpecialEvent } from '../types';
 import { checkEligibility, buildEligibilityContext, type EligibilityResult } from '../services/eligibilityService';
-import { getBlockInfo, type CooldownInfo } from '../services/cooldownService';
+import { getBlockInfo, isBlocked, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, isStatPart, type RotationScore } from '../services/unifiedRotationService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
@@ -101,11 +101,16 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 );
 
                 const ranked = getRankedCandidates(eligibleCandidates, selectedPart.tipoParte, allHistory);
-                const best = ranked.length > 0 ? ranked[0] : null;
+                // Usar a mesma lógica do motor: pular candidatos em cooldown (isBlocked)
+                // usando a data da parte como referência, não hoje
+                const partDateStr = selectedPart.date || selectedPart.weekId || '';
+                const targetDate = partDateStr ? new Date(`${partDateStr}T12:00:00`) : new Date();
+                const rankedNonBlocked = ranked.filter(r => !isBlocked(r.publisher.name, allHistory, targetDate));
+                const best = rankedNonBlocked.length > 0 ? rankedNonBlocked[0] : null;
 
                 if (isMounted) {
                     setTopCandidates(
-                        ranked.slice(0, 2).map(item => ({
+                        rankedNonBlocked.slice(0, 2).map(item => ({
                             name: item.publisher.name,
                             score: item.scoreData.score
                         }))
