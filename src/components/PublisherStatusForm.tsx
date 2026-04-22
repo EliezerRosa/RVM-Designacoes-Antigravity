@@ -340,7 +340,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false }: PublisherS
                                         <th style={thStyle}>Leitor EBC</th>
                                         <th style={thStyle}>Dirigir EBC</th>
                                         <th style={thStyle}>Só Ajudante</th>
-                                    </>
+                                    </>}
                                     {section === 'sections' && <>
                                         <th style={thStyle}>📖 Tesouros</th>
                                         <th style={thStyle}>🌾 Ministério</th>

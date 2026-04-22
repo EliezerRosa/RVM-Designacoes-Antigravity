@@ -5,7 +5,8 @@ import { getPermissions, createPermissionGate } from './permissionService';
 import { generationService } from './generationService';
 import { undoService } from './undoService';
 import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
-import { checkEligibility } from './eligibilityService';
+import { checkEligibility, buildEligibilityContext } from './eligibilityService';
+import { EnumFuncao } from '../types';
 import { communicationService } from './communicationService';
 import { dataDiscoveryService } from './dataDiscoveryService';
 import { auditService } from './auditService';
@@ -198,7 +199,20 @@ export const agentActionService = {
                         'Revisita': 'Demonstração',
                     };
                     const resolvedModalidade = MODALIDADE_ALIASES[partType] || partType;
-                    const eligible = publishers.filter(p => checkEligibility(p, resolvedModalidade));
+
+                    // Idêntico ao Motor e ao Dropdown: usar contexto completo da parte
+                    const targetPart = parts.find(p =>
+                        (p.tipoParte === partType || p.tituloParte?.includes(partType)) &&
+                        (date ? p.weekId === date || p.date === date : true)
+                    );
+                    const weekParts = targetPart ? parts.filter(p => p.weekId === targetPart.weekId) : [];
+                    const eligCtx = targetPart
+                        ? buildEligibilityContext(targetPart, weekParts, publishers)
+                        : { date };
+
+                    const eligible = publishers.filter(p =>
+                        checkEligibility(p, resolvedModalidade as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, eligCtx).eligible
+                    );
 
                     if (eligible.length === 0) {
                         return { success: false, message: `Nenhum publicador elegível encontrado para ${partType}.` };

@@ -44,6 +44,7 @@ interface TemporalChatProps {
     onRateLimitChange?: (remaining: number, max: number, refillInSeconds: number) => void;
     accessLevel?: 'elder' | 'publisher';
     canSendZap?: boolean;
+    onPartFocus?: (partId: string) => void;
 }
 
 export default function TemporalChat({
@@ -58,7 +59,8 @@ export default function TemporalChat({
     isWorkbookLoading = false,
     onRateLimitChange,
     accessLevel = 'publisher',
-    canSendZap = false
+    canSendZap = false,
+    onPartFocus
 }: TemporalChatProps) {
     const { profile } = useAuth();
     // ... existing hooks ...
@@ -350,6 +352,11 @@ export default function TemporalChat({
 
             if (result.success && result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId && onNavigateToWeek) {
                 onNavigateToWeek(result.data.weekId);
+            }
+
+            // Sync painel direito
+            if (result.success && (result.actionType === 'ASSIGN_PART' || result.actionType === 'CHECK_SCORE') && result.data?.partId && onPartFocus) {
+                onPartFocus(result.data.partId);
             }
 
             if (result.success && result.actionType === 'VIEW_S140' && currentWeekId) {
@@ -970,11 +977,28 @@ export default function TemporalChat({
                     return;
                 }
 
+                // ATOMICIDADE: Colapsar remove + assign no mesmo partId em assign único
+                // Evita que a parte fique sem designação se a 2ª ação falhar
+                const collapsedActions = resolvedActions.reduce<AgentAction[]>((acc, action, idx) => {
+                    if (
+                        action.type === 'ASSIGN_PART' &&
+                        (action.params?.publisherName === null || action.params?.publisherName === undefined || action.params?.publisherName === '')
+                    ) {
+                        const next = resolvedActions[idx + 1];
+                        if (next?.type === 'ASSIGN_PART' && next.params?.partId === action.params?.partId && next.params?.publisherName) {
+                            // Próxima ação designa o mesmo part → pular o remove
+                            return acc;
+                        }
+                    }
+                    acc.push(action);
+                    return acc;
+                }, []);
+
                 // EXECUTE ALL ACTIONS SEQUENTIALLY
                 const history = parts.map(p => workbookPartToHistoryRecord(p));
                 const results: ActionResult[] = [];
 
-                for (const action of resolvedActions) {
+                for (const action of collapsedActions) {
                     const result = await agentActionService.executeAction(action, parts, publishers, history, currentWeekId);
                     results.push(result);
 
@@ -987,6 +1011,10 @@ export default function TemporalChat({
                     }
                     if (result.success && result.actionType === 'NAVIGATE_WEEK' && result.data?.weekId && onNavigateToWeek) {
                         onNavigateToWeek(result.data.weekId);
+                    }
+                    // Sync painel direito: foca a parte trabalhada pelo agente
+                    if (result.success && (result.actionType === 'ASSIGN_PART' || result.actionType === 'CHECK_SCORE') && result.data?.partId && onPartFocus) {
+                        onPartFocus(result.data.partId);
                     }
                 }
 
@@ -1095,13 +1123,21 @@ export default function TemporalChat({
                 setMessages(prev => [...prev, rateLimitMsg]);
             } else {
                 setInteractionStage('Erro');
+                const isTimeout = /504|timeout|FUNCTION_INVOCATION/i.test(errorMessage);
+                const isNetwork = /fetch|network|failed to fetch/i.test(errorMessage);
+                const friendlyMessage = isTimeout
+                    ? '⏱️ O servidor demorou demais para responder. Tente novamente — se o problema persistir, simplifique o pedido.'
+                    : isNetwork
+                    ? '🌐 Erro de conexão. Verifique sua internet e tente novamente.'
+                    : '❌ Erro inesperado. Tente novamente.';
                 const errorMsg: ChatMessage = {
                     role: 'assistant',
-                    content: `❌ Erro ao processar mensagem: ${errorMessage}`,
+                    content: friendlyMessage,
                     timestamp: new Date(),
                 };
                 await chatHistoryService.addMessage(sessionId, errorMsg);
                 setMessages(prev => [...prev, errorMsg]);
+                console.debug('[TemporalChat] Detalhe técnico do erro:', errorMessage);
             }
         } finally {
             setIsLoading(false);
