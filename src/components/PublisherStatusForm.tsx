@@ -334,12 +334,13 @@ export function PublisherStatusForm({ token, isAdminAccess = false }: PublisherS
                                     </>}
                                     {section === 'privileges' && <>
                                         <th style={thStyle}>Presidir</th>
-                                        <th style={thStyle}>Discurso</th>
+                                        <th style={thStyle}>Disc. Ensino</th>
+                                        <th style={thStyle}>Disc. Estudante</th>
                                         <th style={thStyle}>Oração</th>
                                         <th style={thStyle}>Leitor EBC</th>
                                         <th style={thStyle}>Dirigir EBC</th>
                                         <th style={thStyle}>Só Ajudante</th>
-                                    </>}
+                                    </>
                                     {section === 'sections' && <>
                                         <th style={thStyle}>📖 Tesouros</th>
                                         <th style={thStyle}>🌾 Ministério</th>
@@ -427,6 +428,13 @@ export function PublisherStatusForm({ token, isAdminAccess = false }: PublisherS
                                                         value={!!eff.privileges?.canGiveTalks}
                                                         onChange={v => setNested(pub.id, 'privileges', 'canGiveTalks', v)}
                                                         activeColor="#4F46E5"
+                                                    />
+                                                </td>
+                                                <td style={tdCenter}>
+                                                    <Toggle
+                                                        value={eff.privileges?.canGiveStudentTalks !== false}
+                                                        onChange={v => setNested(pub.id, 'privileges', 'canGiveStudentTalks', v)}
+                                                        activeColor="#6366F1"
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
