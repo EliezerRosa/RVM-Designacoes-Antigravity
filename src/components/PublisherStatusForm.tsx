@@ -10,7 +10,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
-import type { Publisher } from '../types';
+import type { Publisher, WorkbookPart } from '../types';
+import { findPublisherImpediments, type ImpedimentEntry } from '../services/publisherImpedimentService';
+import { PublisherImpedimentModal } from './PublisherImpedimentModal';
+import { workbookManagementService } from '../services/workbookManagementService';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
 export interface FormToken {
@@ -27,6 +30,8 @@ interface PublisherStatusFormProps {
     token?: string;
     /** Se true, pula validação de token (admin autenticado). */
     isAdminAccess?: boolean;
+    /** Loader de partes da apostila (para checar impedimentos em edicao de admin). */
+    partsLoader?: () => Promise<WorkbookPart[]>;
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -38,7 +43,7 @@ type PartialPublisher = Partial<Publisher> & {
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
-export function PublisherStatusForm({ token, isAdminAccess = false }: PublisherStatusFormProps) {
+export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader }: PublisherStatusFormProps) {
     const [validating, setValidating] = useState(!isAdminAccess);
     const [authorized, setAuthorized] = useState(isAdminAccess);
     const [tokenInfo, setTokenInfo] = useState<FormToken | null>(null);
@@ -49,6 +54,11 @@ export function PublisherStatusForm({ token, isAdminAccess = false }: PublisherS
     const [saving, setSaving] = useState(false);
     const [saveResult, setSaveResult] = useState<{ success: number; errors: string[] } | null>(null);
     const [search, setSearch] = useState('');
+    const [pendingImpediments, setPendingImpediments] = useState<{
+        impediments: ImpedimentEntry[];
+        publisherName: string;
+        proceedSave: () => Promise<void>;
+    } | null>(null);
 
     // ── Validate token ────────────────────────────────────────────────────
     useEffect(() => {
@@ -122,6 +132,31 @@ export function PublisherStatusForm({ token, isAdminAccess = false }: PublisherS
     // ── Save batch ────────────────────────────────────────────────────────
     const handleSave = async () => {
         if (changes.size === 0) return;
+
+        // Verificar impedimentos se admin e partsLoader fornecido
+        if (partsLoader && isAdminAccess) {
+            const allParts = await partsLoader();
+            const todayWeekId = new Date().toISOString().slice(0, 10);
+            for (const [id] of Array.from(changes.entries())) {
+                const original = publishers.find(p => p.id === id);
+                if (!original) continue;
+                const updated = getEffective(original);
+                const impediments = findPublisherImpediments(original, updated, allParts, publishers, todayWeekId);
+                if (impediments.length > 0) {
+                    setPendingImpediments({
+                        impediments,
+                        publisherName: original.name,
+                        proceedSave: async () => { setPendingImpediments(null); await doSave(); },
+                    });
+                    return;
+                }
+            }
+        }
+
+        await doSave();
+    };
+
+    const doSave = async () => {
         setSaving(true);
         setSaveResult(null);
 
@@ -529,6 +564,20 @@ export function PublisherStatusForm({ token, isAdminAccess = false }: PublisherS
                 )}
             </div>
         </div>
+        {pendingImpediments && (
+            <PublisherImpedimentModal
+                publisherName={pendingImpediments.publisherName}
+                impediments={pendingImpediments.impediments}
+                onConfirmAndCancel={async () => {
+                    for (const { part } of pendingImpediments.impediments) {
+                        try { await workbookManagementService.updatePart(part.id, { resolvedPublisherName: '', status: 'PENDENTE' }); } catch { /* melhor esforço */ }
+                    }
+                    await pendingImpediments.proceedSave();
+                }}
+                onSaveOnly={() => { pendingImpediments.proceedSave(); }}
+                onCancel={() => { setPendingImpediments(null); }}
+            />
+        )}
     );
 }
 

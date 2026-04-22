@@ -24,6 +24,9 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ 
 
 import { publisherMutationService } from './services/publisherMutationService'
 import { PublisherStatusForm } from './components/PublisherStatusForm'
+import { findPublisherImpediments, type ImpedimentEntry } from './services/publisherImpedimentService'
+import { PublisherImpedimentModal } from './components/PublisherImpedimentModal'
+import { workbookManagementService } from './services/workbookManagementService'
 
 type ActiveTab = AppActiveTab
 
@@ -126,6 +129,11 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
   const [showPublisherForm, setShowPublisherForm] = useState(false)
   const [showDuplicateChecker, setShowDuplicateChecker] = useState(false)
   const [editingPublisher, setEditingPublisher] = useState<Publisher | null>(null)
+  const [pendingImpediments, setPendingImpediments] = useState<{
+    publisher: Publisher;
+    impediments: ImpedimentEntry[];
+    proceedSave: () => Promise<void>;
+  } | null>(null)
 
   const [isSaving, setIsSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -179,6 +187,38 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
   // (handled by the needsParts useEffect above — only when parts are empty)
 
   const savePublisher = async (publisher: Publisher) => {
+    setIsSaving(true)
+    setStatusMessage("Salvando publicador...")
+
+    // Verificar se alterações causam impedimento em designações futuras
+    if (editingPublisher) {
+      const todayWeekId = new Date().toISOString().slice(0, 10);
+      const impediments = findPublisherImpediments(
+        editingPublisher,
+        publisher,
+        workbookParts,
+        publishers,
+        todayWeekId
+      );
+      if (impediments.length > 0) {
+        setIsSaving(false)
+        setStatusMessage(null)
+        setPendingImpediments({
+          publisher,
+          impediments,
+          proceedSave: async () => {
+            setPendingImpediments(null)
+            await doSavePublisher(publisher)
+          },
+        })
+        return
+      }
+    }
+
+    await doSavePublisher(publisher)
+  }
+
+  const doSavePublisher = async (publisher: Publisher) => {
     setIsSaving(true)
     setStatusMessage("Salvando publicador...")
     try {
@@ -501,6 +541,25 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
             setShowPublisherForm(false)
             setEditingPublisher(null)
           }}
+        />
+      )}
+
+      {/* Impediment confirmation modal */}
+      {pendingImpediments && (
+        <PublisherImpedimentModal
+          publisherName={pendingImpediments.publisher.name}
+          impediments={pendingImpediments.impediments}
+          onConfirmAndCancel={async () => {
+            // Cancelar designações afetadas
+            for (const { part } of pendingImpediments.impediments) {
+              try {
+                await workbookManagementService.updatePart(part.id, { resolvedPublisherName: '', status: 'PENDENTE' });
+              } catch { /* melhor esforço */ }
+            }
+            await pendingImpediments.proceedSave();
+          }}
+          onSaveOnly={() => { pendingImpediments.proceedSave(); }}
+          onCancel={() => { setPendingImpediments(null); setIsSaving(false); }}
         />
       )}
 

@@ -286,6 +286,9 @@ export interface WorkbookPart {
     pendingEventId?: string;        // Evento pendente que afetará esta parte
     createdByEventId?: string;      // Evento que criou esta parte (ADD_PART)
     originalDuration?: string;      // Duração original antes de ajuste
+
+    // Auditoria de designação
+    isManualOverride?: boolean;     // true = designado manualmente (dropdown ou agente explícito)
 }
 
 export interface WorkbookBatch {

@@ -5,7 +5,7 @@ export interface GeneratedPublisherSelection {
     name: string;
 }
 
-interface GenerationCommitDependencies {
+export interface GenerationCommitDependencies {
     localNeedsClient: {
         assignToPart: (preassignmentId: string, partId: string) => Promise<unknown>;
     };
@@ -13,7 +13,7 @@ interface GenerationCommitDependencies {
         updatePart: (partId: string, updates: Record<string, unknown>) => Promise<unknown>;
     };
     workbookAssignments: {
-        assignPublisher: (partId: string, publisherName: string, publisherId?: string) => Promise<unknown>;
+        assignPublisher: (partId: string, publisherName: string, publisherId?: string, isManual?: boolean) => Promise<unknown>;
     };
 }
 
@@ -49,7 +49,8 @@ export function createGenerationCommitService(dependencies: GenerationCommitDepe
             }
 
             if (part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
-                await dependencies.workbookAssignments.assignPublisher(partId, publisher.name, publisher.id);
+                // Gerado pelo motor automático: is_manual_override = false
+                await dependencies.workbookAssignments.assignPublisher(partId, publisher.name, publisher.id, false);
                 return { committed: true, mode: 'proposal' as const };
             }
 

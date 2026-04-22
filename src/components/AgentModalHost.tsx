@@ -23,6 +23,8 @@ import { workbookService } from '../services/workbookService';
 import { workbookManagementService } from '../services/workbookManagementService';
 import { unifiedActionService } from '../services/unifiedActionService';
 import { publisherMutationService } from '../services/publisherMutationService';
+import { findPublisherImpediments, type ImpedimentEntry } from '../services/publisherImpedimentService';
+import { PublisherImpedimentModal } from './PublisherImpedimentModal';
 import TerritoryManager from './TerritoryManager';
 import { WorkbookImportModal } from './WorkbookImportModal';
 import { FloatingPanelShell } from './ui/FloatingPanelShell';
@@ -43,6 +45,11 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
     // Publisher CRUD state
     const [editingPublisher, setEditingPublisher] = useState<Publisher | null>(null);
     const [showPublisherForm, setShowPublisherForm] = useState(false);
+    const [pendingImpediments, setPendingImpediments] = useState<{
+        publisher: Publisher;
+        impediments: ImpedimentEntry[];
+        proceedSave: () => Promise<void>;
+    } | null>(null);
 
     // Workbook CRUD state
     const [editingPart, setEditingPart] = useState<WorkbookPart | null>(null);
@@ -76,6 +83,26 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
     };
 
     const handleSavePublisher = async (publisher: Publisher) => {
+        if (editingPublisher) {
+            const allParts = Object.values(weekParts).flat();
+            const todayWeekId = new Date().toISOString().slice(0, 10);
+            const impediments = findPublisherImpediments(editingPublisher, publisher, allParts, publishers, todayWeekId);
+            if (impediments.length > 0) {
+                setPendingImpediments({
+                    publisher,
+                    impediments,
+                    proceedSave: async () => {
+                        setPendingImpediments(null);
+                        await doSavePublisher(publisher);
+                    },
+                });
+                return;
+            }
+        }
+        await doSavePublisher(publisher);
+    };
+
+    const doSavePublisher = async (publisher: Publisher) => {
         try {
             if (editingPublisher) {
                 await publisherMutationService.savePublisherWithPropagation(publisher, editingPublisher);
@@ -276,6 +303,23 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
     };
 
     return (
+        <>
+        {pendingImpediments && (
+            <PublisherImpedimentModal
+                publisherName={pendingImpediments.publisher.name}
+                impediments={pendingImpediments.impediments}
+                onConfirmAndCancel={async () => {
+                    for (const { part } of pendingImpediments.impediments) {
+                        try {
+                            await workbookManagementService.updatePart(part.id, { resolvedPublisherName: '', status: 'PENDENTE' });
+                        } catch { /* melhor esforço */ }
+                    }
+                    await pendingImpediments.proceedSave();
+                }}
+                onSaveOnly={() => { pendingImpediments.proceedSave(); }}
+                onCancel={() => { setPendingImpediments(null); }}
+            />
+        )}
         <FloatingPanelShell
             id={`agent-modal-${modal}`}
             isOpen={Boolean(modal)}
@@ -292,5 +336,6 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                 {renderContent()}
             </div>
         </FloatingPanelShell>
+        </>
     );
 }

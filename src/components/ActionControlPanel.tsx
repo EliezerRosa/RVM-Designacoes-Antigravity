@@ -266,7 +266,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     };
 
     const firstName = assignedPublisher?.name?.split(' ')[0] || 'O publicador';
-    const hasManualOverride = !!(bestCandidate && assignedPublisher && scoreData && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > scoreData.score);
+    // Intervenção manual real = parte marcada como is_manual_override E o escolhido não é o melhor candidato
+    // (se o usuário escolheu manualmente mas coincidiu com o melhor, não há motivo para alarme)
+    const isManuallyAssigned = selectedPart?.isManualOverride === true;
+    const hasManualOverride = !!(isManuallyAssigned && bestCandidate && assignedPublisher && scoreData && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > scoreData.score);
     const isAssignedTopScored = !!(bestCandidate && assignedPublisher && bestCandidate.name === assignedPublisher.name);
 
     const unifiedNarrative = useMemo(() => {
