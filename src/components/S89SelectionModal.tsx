@@ -6,6 +6,8 @@ import { copyS89ToClipboard } from '../services/s89Generator';
 import html2canvas from 'html2canvas';
 
 import { communicationService } from '../services/communicationService';
+import { api } from '../services/api';
+import type { AvailabilityToken } from './PublisherAvailabilityPortal';
 
 interface S89SelectionModalProps {
     isOpen: boolean;
@@ -22,6 +24,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [s140HTML, setS140HTML] = useState<string>('');
     const [editingMessages, setEditingMessages] = useState<Record<string, string>>({});
     const [lastMessages, setLastMessages] = useState<Record<string, any>>({});
+    const [availabilityTokens, setAvailabilityTokens] = useState<AvailabilityToken[]>([]);
+    const [insertingAvailability, setInsertingAvailability] = useState<Set<string>>(new Set());
     const s140Ref = useRef<HTMLDivElement>(null);
 
 
@@ -209,6 +213,59 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             setLastMessages(mapping);
         } catch (err) {
             console.error('Erro ao carregar histórico no modal:', err);
+        }
+    };
+
+    // Carrega tokens de disponibilidade ao abrir o modal
+    useEffect(() => {
+        if (!isOpen) return;
+        api.getSetting<AvailabilityToken[]>('availability_tokens', [])
+            .then(setAvailabilityTokens)
+            .catch(() => {/* não crítico */});
+    }, [isOpen]);
+
+    // Gera ou recupera token de disponibilidade para um publicador e insere o link na mensagem
+    const handleInsertAvailabilityLink = async (part: WorkbookPart) => {
+        const publisherName = (part as any).resolvedPublisherName || part.rawPublisherName;
+        const pub = publishers.find(p => p.name === publisherName);
+        if (!pub) { alert('Publicador não encontrado.'); return; }
+
+        setInsertingAvailability(prev => new Set(prev).add(part.id));
+        try {
+            let token = availabilityTokens.find(t => t.publisherId === pub.id && t.active);
+            if (!token) {
+                // Gera novo token
+                const arr = new Uint8Array(18);
+                crypto.getRandomValues(arr);
+                const newTok: AvailabilityToken = {
+                    token: Array.from(arr, b => b.toString(16).padStart(2, '0')).join(''),
+                    publisherId: pub.id,
+                    publisherName: pub.name,
+                    createdAt: new Date().toISOString(),
+                    createdBy: 'auto-s89',
+                    active: true,
+                };
+                const updated = [...availabilityTokens, newTok];
+                await api.setSetting('availability_tokens', updated);
+                setAvailabilityTokens(updated);
+                token = newTok;
+            }
+
+            const base = window.location.origin + window.location.pathname;
+            const url = `${base}?portal=availability&token=${token.token}`;
+            const line = `\n\n📅 Atualize sua disponibilidade:\n${url}`;
+
+            setEditingMessages(prev => {
+                const current = prev[part.id] || '';
+                // Evita duplicar se o link já estiver na mensagem
+                if (current.includes(token!.token)) return prev;
+                return { ...prev, [part.id]: current + line };
+            });
+        } catch (err) {
+            console.error('[S89Modal] Erro ao inserir link de disponibilidade:', err);
+            alert('Erro ao gerar link de disponibilidade.');
+        } finally {
+            setInsertingAvailability(prev => { const n = new Set(prev); n.delete(part.id); return n; });
         }
     };
 
@@ -584,6 +641,21 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                onClick={() => handleInsertAvailabilityLink(part)}
+                                                disabled={insertingAvailability.has(part.id)}
+                                                style={{
+                                                    background: '#7C3AED', color: 'white', border: 'none',
+                                                    padding: '8px 10px', borderRadius: '6px',
+                                                    cursor: insertingAvailability.has(part.id) ? 'wait' : 'pointer',
+                                                    fontWeight: '500', fontSize: '0.85em',
+                                                    opacity: insertingAvailability.has(part.id) ? 0.7 : 1,
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                                title="Gera/recupera link de disponibilidade do publicador e insere na mensagem"
+                                            >
+                                                {insertingAvailability.has(part.id) ? '⏳' : '📅'}
+                                            </button>
                                             <button
                                                 onClick={() => handleSendReconfirmation(part)}
                                                 disabled={isProcessingReconfirm}
