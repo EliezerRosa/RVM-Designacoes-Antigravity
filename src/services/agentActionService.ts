@@ -6,6 +6,7 @@ import { generationService } from './generationService';
 import { undoService } from './undoService';
 import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
 import { checkEligibility, buildEligibilityContext } from './eligibilityService';
+import { isBlocked } from './cooldownService';
 import { EnumFuncao } from '../types';
 import { communicationService } from './communicationService';
 import { dataDiscoveryService } from './dataDiscoveryService';
@@ -219,14 +220,25 @@ export const agentActionService = {
                     }
 
                     const ranked = getRankedCandidates(eligible, partType, history);
-                    const topList = ranked.slice(0, 10).map((cand, i) =>
-                        `${i + 1}. ${explainScoreForAgent(cand)}`
-                    ).join('\n');
+                    const refDateStr = date || new Date().toISOString().split('T')[0];
+                    const refDate = new Date(refDateStr + 'T12:00:00');
+                    const rankedWithCooldown = ranked.map(r => ({
+                        ...r,
+                        blocked: isBlocked(r.publisher.name, history, refDate)
+                    }));
+                    const sorted = [
+                        ...rankedWithCooldown.filter(r => !r.blocked),
+                        ...rankedWithCooldown.filter(r => r.blocked)
+                    ];
+                    const topList = sorted.slice(0, 10).map((cand, i) => {
+                        const tag = cand.blocked ? ' ⏸ (em cooldown)' : '';
+                        return `${i + 1}. ${explainScoreForAgent(cand)}${tag}`;
+                    }).join('\n');
 
                     return {
                         success: true,
                         message: `**Análise do Cérebro (Top 10):**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}`,
-                        data: ranked,
+                        data: sorted,
                         actionType: 'CHECK_SCORE'
                     };
                 }

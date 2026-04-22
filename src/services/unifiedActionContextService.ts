@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import { publisherDirectoryService } from './publisherDirectoryService';
 import { createUnifiedActionContextService } from './unifiedActionContextServiceCore';
 
-export const unifiedActionContextService = createUnifiedActionContextService({
+const _coreService = createUnifiedActionContextService({
     publisherDirectoryReader: publisherDirectoryService,
     partContextReader: {
         async getPartEligibilityRecord(partId: string) {
@@ -45,3 +45,25 @@ export const unifiedActionContextService = createUnifiedActionContextService({
         },
     },
 });
+
+export const unifiedActionContextService = {
+    ..._coreService,
+
+    /**
+     * Returns all resolved publisher names already assigned in a given week
+     * (excluding the part itself, if partId is provided).
+     */
+    async getWeekAssignedNames(weekId: string, excludePartId?: string): Promise<string[]> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .select('id, resolved_publisher_name')
+            .eq('week_id', weekId)
+            .not('resolved_publisher_name', 'is', null);
+
+        if (error || !data) return [];
+
+        return data
+            .filter(row => row.id !== excludePartId && row.resolved_publisher_name)
+            .map(row => row.resolved_publisher_name as string);
+    },
+};

@@ -617,7 +617,7 @@ export const generationService = {
                             // Genérico
                             const eligiblePublishers = publishers.filter(p => {
                                 if (namesExcludedInWeek.has(p.name)) return false;
-                                const r = checkEligibility(p, modalidade as any, funcao, { date: part.date, isPastWeek: isPast });
+                                const r = checkEligibility(p, modalidade as any, funcao, { date: part.date, isPastWeek: isPast, secao: part.section });
                                 return r.eligible;
                             });
                             if (eligiblePublishers.length > 0) {
