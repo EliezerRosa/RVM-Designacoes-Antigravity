@@ -84,6 +84,31 @@ export const unifiedActionService = {
                 warnings.push(cooldownError instanceof Error ? cooldownError.message : String(cooldownError));
             }
 
+            // 4. Same-week duplicate check (all sources)
+            try {
+                const partCtx = await unifiedActionContextService.buildEligibilityContext(partId, publisherName, resolvedPublisher || undefined).catch(() => null);
+                if (partCtx?.weekId) {
+                    const weekAssigned = await unifiedActionContextService.getWeekAssignedNames(
+                        partCtx.weekId,
+                        partId
+                    );
+                    const alreadyInWeek = weekAssigned.some(
+                        name => name.trim().toLowerCase() === publisherName.trim().toLowerCase()
+                    );
+                    if (alreadyInWeek) {
+                        const msg = `⚠️ ${publisherName} já tem outra designação nesta semana.`;
+                        if (source === 'BATCH') {
+                            throw new Error(msg);
+                        }
+                        warnings.push(msg);
+                        console.warn(`[UnifiedAction] ⚠️ Same-week duplicate (${source}): ${msg}`);
+                    }
+                }
+            } catch (dupeError) {
+                if (source === 'BATCH') throw dupeError;
+                // Non-blocking for MANUAL/AGENT if check itself fails
+            }
+
             // 4. Executar via boundary de atribuição da apostila
             // source MANUAL ou AGENT = intervenção humana explícita
             const isManual = source === 'MANUAL' || source === 'AGENT';

@@ -1,5 +1,6 @@
 import { getModalidadeFromTipo } from '../constants/mappings';
 import { EnumFuncao, type Publisher } from '../types';
+import { isPastWeekDate } from './eligibilityService';
 
 interface PartEligibilityRecord {
     weekId: string;
@@ -61,11 +62,21 @@ export function createUnifiedActionContextService(dependencies: UnifiedActionCon
             const modalidade = partData.modalidade || getModalidadeFromTipo(tipoParte);
             const funcao = partData.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
             const isOracaoInicial = tipoParte.toLowerCase().includes('inicial');
+            const isOracaoFinal = tipoParte.toLowerCase().includes('final');
+            const isPastWeek = isPastWeekDate(partData.date);
+
+            // Always query week titulares to find presidentName and titularGender
+            const weekTitulares = await dependencies.partContextReader.getWeekTitulares(partData.weekId);
+
+            // Find president of the week (for oração final blocking)
+            const presidentRecord = weekTitulares.find(t =>
+                (t.partTitle || '').toLowerCase().includes('presidente')
+            );
+            const presidentName = presidentRecord?.resolvedPublisherName || undefined;
 
             let titularGender: 'brother' | 'sister' | undefined;
 
             if (funcao === EnumFuncao.AJUDANTE) {
-                const weekTitulares = await dependencies.partContextReader.getWeekTitulares(partData.weekId);
                 const currentTitle = partData.partTitle || '';
                 const baseTitle = currentTitle
                     .replace(/\s*-\s*Ajudante.*/i, '')
@@ -89,14 +100,17 @@ export function createUnifiedActionContextService(dependencies: UnifiedActionCon
 
             return {
                 publisher,
+                weekId: partData.weekId,
                 context: {
                     modalidade,
                     funcao,
                     date: partData.date,
                     secao: partData.section,
                     isOracaoInicial,
-                    isPastWeek: false,
+                    isOracaoFinal,
+                    isPastWeek,
                     titularGender,
+                    presidentName,
                 },
             };
         },
