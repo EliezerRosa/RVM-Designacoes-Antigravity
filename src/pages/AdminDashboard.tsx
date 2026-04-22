@@ -30,7 +30,7 @@ interface SystemLog {
     created_at: string;
 }
 
-type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'links';
+type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'links' | 'availability';
 
 const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }> = [
     { id: 'overview', label: 'Visão Geral', eyebrow: 'Core' },
@@ -38,6 +38,7 @@ const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }>
     { id: 'auth', label: 'Autenticação', eyebrow: 'Segurança' },
     { id: 'permissions', label: 'Permissões', eyebrow: 'Controle' },
     { id: 'links', label: 'Links de Form', eyebrow: 'Publicadores' },
+    { id: 'availability', label: 'Disponibilidade', eyebrow: 'Links' },
 ];
 
 export function AdminDashboard() {
