@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Funcao, Publisher, PublisherPrivileges, PublisherPrivilegesBySection } from '../types'
+import { getWeekMondayId } from '../services/eligibilityService'
 
 interface PublisherFormProps {
     publisher: Publisher | null
@@ -397,17 +398,18 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                     type="button"
                                     onClick={() => {
                                         if (newExceptionDate) {
+                                            const weekId = getWeekMondayId(newExceptionDate);
                                             // Check for conflict with available dates
-                                            if (formData.availability.availableDates?.includes(newExceptionDate)) {
-                                                alert('⚠️ Esta data já está na lista de Disponíveis. Remova-a primeiro.');
+                                            if (formData.availability.availableDates?.some(d => getWeekMondayId(d) === weekId)) {
+                                                alert('⚠️ Esta semana já está na lista de Disponíveis. Remova-a primeiro.');
                                                 return;
                                             }
-                                            if (!formData.availability.exceptionDates.includes(newExceptionDate)) {
+                                            if (!formData.availability.exceptionDates.some(d => getWeekMondayId(d) === weekId)) {
                                                 setFormData(prev => ({
                                                     ...prev,
                                                     availability: {
                                                         ...prev.availability,
-                                                        exceptionDates: [...prev.availability.exceptionDates, newExceptionDate].sort()
+                                                        exceptionDates: [...prev.availability.exceptionDates, weekId].sort()
                                                     }
                                                 }));
                                                 setNewExceptionDate('');
@@ -443,7 +445,7 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                                 fontSize: '0.85rem',
                                             }}
                                         >
-                                            📅 {new Date(date + 'T00:00').toLocaleDateString('pt-BR')}
+                                            📅 Sem. {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -498,16 +500,17 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                     onClick={() => {
                                         if (newAvailableDate) {
                                             // Check for conflict with unavailable dates
-                                            if (formData.availability.exceptionDates.includes(newAvailableDate)) {
-                                                alert('⚠️ Esta data já está na lista de Indisponíveis. Remova-a primeiro.');
+                                            const weekId = getWeekMondayId(newAvailableDate);
+                                            if (formData.availability.exceptionDates.some(d => getWeekMondayId(d) === weekId)) {
+                                                alert('⚠️ Esta semana já está na lista de Indisponíveis. Remova-a primeiro.');
                                                 return;
                                             }
-                                            if (!formData.availability.availableDates?.includes(newAvailableDate)) {
+                                            if (!formData.availability.availableDates?.some(d => getWeekMondayId(d) === weekId)) {
                                                 setFormData(prev => ({
                                                     ...prev,
                                                     availability: {
                                                         ...prev.availability,
-                                                        availableDates: [...(prev.availability.availableDates || []), newAvailableDate].sort()
+                                                        availableDates: [...(prev.availability.availableDates || []), weekId].sort()
                                                     }
                                                 }));
                                                 setNewAvailableDate('');

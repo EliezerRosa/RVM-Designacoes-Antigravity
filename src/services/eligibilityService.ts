@@ -405,7 +405,6 @@ export function getEligibilityDetails(
 
 /**
  * Calcula a quinta-feira da semana a partir de uma data qualquer.
- * A reunião Vida e Ministério é na quinta-feira.
  * @param dateStr Data no formato YYYY-MM-DD
  * @returns Data da quinta-feira no formato YYYY-MM-DD
  */
@@ -419,7 +418,6 @@ export function getThursdayFromDate(dateStr: string): string {
     const thursdayDate = new Date(baseDate);
     thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
 
-    // Formatar como YYYY-MM-DD
     const year = thursdayDate.getFullYear();
     const month = String(thursdayDate.getMonth() + 1).padStart(2, '0');
     const day = String(thursdayDate.getDate()).padStart(2, '0');
@@ -428,21 +426,50 @@ export function getThursdayFromDate(dateStr: string): string {
 }
 
 /**
- * Verifica se o publicador está disponível numa data específica.
- * IMPORTANTE: Sempre compara com a QUINTA-FEIRA da semana, pois é o dia da reunião.
+ * Retorna o identificador canônico de semana: data da SEGUNDA-FEIRA da semana.
+ * Usado em exceptionDates / availableDates para que a disponibilidade seja
+ * independente do dia exato da reunião (que pode mudar por circunstâncias diversas).
+ * @param dateStr Qualquer data YYYY-MM-DD dentro da semana
+ * @returns Data da segunda-feira no formato YYYY-MM-DD
+ */
+export function getWeekMondayId(dateStr: string): string {
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    const day = d.getDay(); // 0=Dom, 1=Seg, …, 6=Sáb
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diffToMonday);
+
+    const year = monday.getFullYear();
+    const month = String(monday.getMonth() + 1).padStart(2, '0');
+    const mday = String(monday.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${mday}`;
+}
+
+/**
+ * Verifica se o publicador está disponível para a semana de uma data específica.
+ * Compara usando o identificador de semana (segunda-feira), garantindo que a
+ * disponibilidade não dependa do dia exato da reunião.
+ * Mantém compatibilidade retroativa com registros antigos baseados em quinta-feira.
  */
 function isAvailableOnDate(publisher: Publisher, date: string): boolean {
     const availability = publisher.availability;
 
-    // Converter para quinta-feira da semana
-    const thursdayDate = getThursdayFromDate(date);
+    const weekId = getWeekMondayId(date);
+    // Compatibilidade retroativa: dados antigos podem ter sido salvos como quinta-feira
+    const thursdayId = getThursdayFromDate(date);
 
     if (availability.mode === 'always') {
-        // Modo "sempre disponível" - verificar exceções negativas
-        return !availability.exceptionDates.includes(thursdayDate);
+        // Indisponível se a semana (ou o antigo ID quinta) estiver em exceptionDates
+        return !availability.exceptionDates.includes(weekId) &&
+               !availability.exceptionDates.includes(thursdayId);
     } else {
-        // Modo "nunca disponível" - verificar exceções positivas
-        return availability.availableDates.includes(thursdayDate);
+        // Disponível se a semana (ou o antigo ID quinta) estiver em availableDates
+        return availability.availableDates.includes(weekId) ||
+               availability.availableDates.includes(thursdayId);
     }
 }
 
