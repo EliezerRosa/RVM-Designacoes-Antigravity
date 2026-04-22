@@ -24,6 +24,7 @@ const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ 
 
 import { publisherMutationService } from './services/publisherMutationService'
 import { PublisherStatusForm } from './components/PublisherStatusForm'
+import { PublisherAvailabilityPortal } from './components/PublisherAvailabilityPortal'
 import { findPublisherImpediments, type ImpedimentEntry } from './services/publisherImpedimentService'
 import { PublisherImpedimentModal } from './components/PublisherImpedimentModal'
 import { workbookManagementService } from './services/workbookManagementService'
@@ -94,6 +95,15 @@ function App() {
     return (
       <div className="app portal-mode">
         <PublisherStatusForm token={portalToken ?? undefined} />
+      </div>
+    );
+  }
+
+  // PORTAL: disponibilidade individual do publicador (acesso por token, sem login)
+  if (portal === 'availability') {
+    return (
+      <div className="app portal-mode">
+        <PublisherAvailabilityPortal token={portalToken ?? undefined} />
       </div>
     );
   }

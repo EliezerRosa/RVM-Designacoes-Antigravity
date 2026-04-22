@@ -19,6 +19,7 @@ import { ActionDiagnosticPanel } from '../components/admin/ActionDiagnosticPanel
 import { AuthLogsPanel } from '../components/admin/AuthLogsPanel';
 import { PermissionManager } from '../components/admin/PermissionManager';
 import { PublisherFormLinkManager } from '../components/admin/PublisherFormLinkManager';
+import { AvailabilityLinkManager } from '../components/admin/AvailabilityLinkManager';
 import { useAuth } from '../context/AuthContext';
 
 interface SystemLog {
@@ -439,6 +440,17 @@ export function AdminDashboard() {
                                     </div>
                                     <div style={{ padding: '16px' }}>
                                         <PublisherFormLinkManager adminEmail={profile?.email ?? undefined} />
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Links de Disponibilidade">
+                                <div className="table-card admin-panel-card">
+                                    <div className="table-header">
+                                        <h3>📅 Links de Disponibilidade Individual</h3>
+                                    </div>
+                                    <div style={{ padding: '16px' }}>
+                                        <AvailabilityLinkManager adminEmail={profile?.email ?? undefined} />
                                     </div>
                                 </div>
                             </section>
