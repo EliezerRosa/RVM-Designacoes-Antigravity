@@ -179,5 +179,39 @@ export const api = {
 
         if (error) throw error;
     },
+
+    /**
+     * Loads workbook parts assigned to a specific publisher from today onwards.
+     * Used by the availability portal to detect impediments before saving.
+     */
+    async loadFutureWorkbookParts(publisherName: string, todayDate: string): Promise<import('../types').WorkbookPart[]> {
+        const { data, error } = await supabase
+            .from('workbook_parts')
+            .select('id, week_id, date, tipo_parte, part_title, modalidade, section, funcao, resolved_publisher_name, raw_publisher_name, status, seq, is_manual_override')
+            .gte('date', todayDate)
+            .ilike('resolved_publisher_name', publisherName)
+            .not('status', 'in', '(CONCLUIDA,CANCELADA)');
+
+        if (error) {
+            console.error('[API] loadFutureWorkbookParts error:', error);
+            return [];
+        }
+
+        return (data || []).map(row => ({
+            id: row.id,
+            weekId: row.week_id,
+            date: row.date,
+            tipoParte: row.tipo_parte,
+            partTitle: row.part_title,
+            modalidade: row.modalidade,
+            section: row.section,
+            funcao: row.funcao,
+            resolvedPublisherName: row.resolved_publisher_name,
+            rawPublisherName: row.raw_publisher_name,
+            status: row.status,
+            seq: row.seq,
+            isManualOverride: row.is_manual_override,
+        }));
+    },
 };
 

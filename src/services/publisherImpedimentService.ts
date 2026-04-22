@@ -48,6 +48,13 @@ function hasImpedimentCausingChange(old: Publisher, updated: Publisher): boolean
         os.vida_crista !== ns.vida_crista
     ) return true;
 
+    // Disponibilidade
+    const oa = old.availability || { mode: 'always', exceptionDates: [], availableDates: [] };
+    const na = updated.availability || { mode: 'always', exceptionDates: [], availableDates: [] };
+    if (oa.mode !== na.mode) return true;
+    if (JSON.stringify([...oa.exceptionDates].sort()) !== JSON.stringify([...na.exceptionDates].sort())) return true;
+    if (JSON.stringify([...oa.availableDates].sort()) !== JSON.stringify([...na.availableDates].sort())) return true;
+
     return false;
 }
 

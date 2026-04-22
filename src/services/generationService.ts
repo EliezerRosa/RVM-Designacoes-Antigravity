@@ -1,7 +1,7 @@
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao, EnumTipoParte, HistoryStatus } from '../types';
 import { loadCompletedParticipations } from './historyAdapter';
-import { checkEligibility, isPastWeekDate, getThursdayFromDate, isElderOrMS } from './eligibilityService';
+import { checkEligibility, isPastWeekDate, getThursdayFromDate, getWeekMondayId, isElderOrMS } from './eligibilityService';
 import { getRankedCandidates } from './unifiedRotationService';
 import { generationCommitService } from './generationCommitService';
 import { localNeedsService } from './localNeedsService';
@@ -193,6 +193,7 @@ export const generationService = {
 
             for (const part of presidenteParts) {
                 const thursdayDate = getThursdayFromDate(part.date);
+                const weekId = getWeekMondayId(part.date);
 
                 // Filtro de Elegibilidade + Disponibilidade
                 const eligibleCandidates = publishers.filter(p => {
@@ -200,8 +201,8 @@ export const generationService = {
                     if (!eligResult.eligible) return false;
 
                     const avail = p.availability;
-                    if (avail.mode === 'always') return !avail.exceptionDates.includes(thursdayDate);
-                    return avail.availableDates.includes(thursdayDate);
+                    if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
+                    return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
                 });
 
                 // Seleção via Scientific Score
@@ -310,6 +311,7 @@ export const generationService = {
 
                     for (const ensinoPart of ensinoParts) {
                         const thursdayDate = getThursdayFromDate(ensinoPart.date);
+                        const weekId = getWeekMondayId(ensinoPart.date);
                         // v8.5: Passar seção para garantir fallback correto (Vida Cristã vs Tesouros)
                         const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino, ensinoPart.section);
 
@@ -318,8 +320,8 @@ export const generationService = {
                             if (!eligResult.eligible) return false;
 
                             const avail = p.availability;
-                            if (avail.mode === 'always') return !avail.exceptionDates.includes(thursdayDate);
-                            return avail.availableDates.includes(thursdayDate);
+                            if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
+                            return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
                         };
 
                         let candidate: Publisher | null = null;
@@ -378,14 +380,15 @@ export const generationService = {
 
                 for (const estudantePart of estudanteParts) {
                     const thursdayDate = getThursdayFromDate(estudantePart.date);
+                    const weekId = getWeekMondayId(estudantePart.date);
                     const modalidadeCorreta = getModalidadeFromTipo(estudantePart.tipoParte);
 
                     const checkPubFilters = (p: Publisher) => {
                         const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, { date: estudantePart.date });
                         if (!eligResult.eligible) return false;
                         const avail = p.availability;
-                        if (avail.mode === 'always') return !avail.exceptionDates.includes(thursdayDate);
-                        return avail.availableDates.includes(thursdayDate);
+                        if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
+                        return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
                     };
 
                     const isDemonstracao = modalidadeCorreta === EnumModalidade.DEMONSTRACAO;
@@ -477,8 +480,7 @@ export const generationService = {
 
                     const isPast = isPastWeekDate(part.date);
                     const thursdayDate = getThursdayFromDate(part.date);
-
-                    // Ajudante
+                    const weekId = getWeekMondayId(part.date);
                     if (funcao === EnumFuncao.AJUDANTE) {
                         let titularGender: 'brother' | 'sister' | undefined = undefined;
                         // Tentativas de achar titular... (Simplificado para brevidade, mas mantendo lógica principal)
@@ -508,8 +510,8 @@ export const generationService = {
                             const eligResult = checkEligibility(p, modalidade as any, funcao, { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender: forceGender });
                             if (!eligResult.eligible) return false;
                             const avail = p.availability;
-                            if (avail.mode === 'always') return !avail.exceptionDates.includes(thursdayDate);
-                            return avail.availableDates.includes(thursdayDate);
+                            if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
+                            return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
                         };
 
                         let selectedPublisher: Publisher | null = null;
