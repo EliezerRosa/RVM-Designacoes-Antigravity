@@ -90,6 +90,8 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         pendingEventId: (row.pending_event_id as string) || undefined,
         createdByEventId: (row.created_by_event_id as string) || undefined,
         originalDuration: (row.original_duration as string) || undefined,
+        // Auditoria de designação
+        isManualOverride: (row.is_manual_override as boolean) ?? false,
     };
 }
 
@@ -810,7 +812,7 @@ export const workbookService = {
      * Propõe um publicador para uma parte (atualiza status e publicador)
      * Usa apenas resolved_publisher_name (resolved_publisher_id é UUID e publishers usam IDs numéricos)
      */
-    async proposePublisher(partId: string, publisherName: string, publisherId?: string): Promise<WorkbookPart> {
+    async proposePublisher(partId: string, publisherName: string, publisherId?: string, isManual = false): Promise<WorkbookPart> {
         // Se remover o publicador, status volta para PENDENTE
         const status = (publisherName || publisherId) ? WorkbookStatus.PROPOSTA : WorkbookStatus.PENDENTE;
 
@@ -820,6 +822,7 @@ export const workbookService = {
                 status: status,
                 resolved_publisher_id: publisherId || null,
                 resolved_publisher_name: publisherName || null,
+                is_manual_override: isManual,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', partId)

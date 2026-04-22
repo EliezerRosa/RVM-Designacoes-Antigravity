@@ -499,6 +499,7 @@ export type Database = {
           tipo_parte: string
           updated_at: string | null
           week_display: string
+          is_manual_override: boolean
           week_id: string
           year: number | null
         }
@@ -534,6 +535,7 @@ export type Database = {
           tipo_parte: string
           updated_at?: string | null
           week_display: string
+          is_manual_override?: boolean
           week_id: string
           year?: number | null
         }
@@ -569,6 +571,7 @@ export type Database = {
           tipo_parte?: string
           updated_at?: string | null
           week_display?: string
+          is_manual_override?: boolean
           week_id?: string
           year?: number | null
         }

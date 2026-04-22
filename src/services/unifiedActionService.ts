@@ -85,7 +85,9 @@ export const unifiedActionService = {
             }
 
             // 4. Executar via boundary de atribuição da apostila
-            const updatedPart = await workbookAssignmentService.assignPublisher(partId, publisherName, resolvedId);
+            // source MANUAL ou AGENT = intervenção humana explícita
+            const isManual = source === 'MANUAL' || source === 'AGENT';
+            const updatedPart = await workbookAssignmentService.assignPublisher(partId, publisherName, resolvedId, isManual);
 
             // 5. Log de Auditoria
             const warnSuffix = warnings.length > 0 ? ` [${warnings.length} aviso(s)]` : '';
