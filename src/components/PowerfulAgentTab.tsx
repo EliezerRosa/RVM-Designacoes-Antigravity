@@ -224,6 +224,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         onRateLimitChange={(remaining, max, refillInSeconds) => setRateLimitInfo({ remaining, max, refillInSeconds })}
                         accessLevel={accessLevel}
                         canSendZap={canSendZap}
+                        onPartFocus={setSelectedPartId}
                     />
                 </div>
 
