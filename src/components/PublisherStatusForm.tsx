@@ -217,6 +217,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
 
     // ── Main form ────────────────────────────────────────────────────────
     return (
+        <>
         <div style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'system-ui, sans-serif' }}>
             {/* Header */}
             <div style={{
@@ -578,6 +579,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                 onCancel={() => { setPendingImpediments(null); }}
             />
         )}
+        </>
     );
 }
 
