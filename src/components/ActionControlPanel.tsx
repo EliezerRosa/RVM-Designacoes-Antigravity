@@ -110,7 +110,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
                 if (isMounted) {
                     setTopCandidates(
-                        rankedNonBlocked.slice(0, 2).map(item => ({
+                        rankedNonBlocked.slice(0, 3).map(item => ({
                             name: item.publisher.name,
                             score: item.scoreData.score
                         }))
@@ -293,9 +293,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
         if (hasManualOverride && bestCandidate) {
             parts.push(`O sistema teria indicado ${bestCandidate.name} como mais adequado aos critérios abaixo, mas o SRVM optou por esta designação por decisão manual.`);
         } else if (isAssignedTopScored) {
-            parts.push(`Neste caso, o designado também aparece como o melhor pontuado pelos critérios abaixo.`);
+            parts.push(`Esta designação corresponde ao candidato de maior pontuação disponível — nenhum outro pontuou acima no contexto atual.`);
         } else {
-            parts.push(`Pelos critérios abaixo, esta designação está coerente com o quadro atual.`);
+            parts.push(`Pelos critérios abaixo, esta designação está coerente com o quadro atual. Os candidatos mais pontuados estão listados abaixo como alternativas.`);
         }
 
         return parts.join(' ');
@@ -528,37 +528,44 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     </span>
 
                                                     <span style={{ color: hasManualOverride ? '#B45309' : '#047857', fontWeight: 600 }}>
-                                                        {hasManualOverride ? 'Decisão final do SRVM:' : 'Conclusão do sistema:'}
+                                                        {hasManualOverride ? 'Decisão final do SRVM:' : isAssignedTopScored ? 'Conclusão do sistema:' : 'Conclusão do sistema:'}
                                                     </span>{' '}
                                                     <span>
                                                         {hasManualOverride && bestCandidate
                                                             ? `O sistema teria indicado ${bestCandidate.name} como mais adequado aos critérios abaixo, mas o SRVM optou por esta designação por decisão manual.`
                                                             : isAssignedTopScored
-                                                                ? 'Neste caso, o designado também aparece como o melhor pontuado pelos critérios abaixo.'
-                                                                : 'Pelos critérios abaixo, esta designação está coerente com o quadro atual.'}
+                                                                ? 'Esta designação corresponde ao candidato de maior pontuação disponível — nenhum outro pontuou acima no contexto atual.'
+                                                                : 'Pelos critérios abaixo, esta designação está coerente com o quadro atual. Os candidatos mais pontuados estão listados abaixo como alternativas.'}
                                                     </span>
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* 2.1 Top 2 candidatos */}
-                                        {topCandidates.length > 0 && (
-                                            <div style={{
-                                                marginTop: '1px',
-                                                paddingTop: '2px',
-                                                borderTop: '1px solid #F3F4F6',
-                                                fontSize: '10px',
-                                                color: '#475569'
-                                            }}>
-                                                <div style={{ fontWeight: 700, marginBottom: '1px', color: '#334155' }}>Mais indicados (Top 2)</div>
-                                                {topCandidates.map((item, idx) => (
-                                                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0px' }}>
-                                                        <span>{idx + 1}. {item.name}</span>
-                                                        <span style={{ fontWeight: 600 }}>Score {item.score}</span>
+                                        {/* 2.1 Próximas alternativas disponíveis (excluindo o designado) */}
+                                        {(() => {
+                                            const assignedName = assignedPublisher?.name;
+                                            const alternatives = topCandidates.filter(c => c.name !== assignedName).slice(0, 2);
+                                            if (alternatives.length === 0) return null;
+                                            return (
+                                                <div style={{
+                                                    marginTop: '1px',
+                                                    paddingTop: '4px',
+                                                    borderTop: '1px solid #F3F4F6',
+                                                    fontSize: '10px',
+                                                    color: '#475569'
+                                                }}>
+                                                    <div style={{ fontWeight: 700, marginBottom: '2px', color: '#334155' }}>
+                                                        {isAssignedTopScored ? '👥 Próximas opções (se o top fosse indisponível)' : '⚠️ Candidatos mais pontuados'}
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                    {alternatives.map((item, idx) => (
+                                                        <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1px', padding: '1px 0' }}>
+                                                            <span style={{ color: isAssignedTopScored ? '#6B7280' : '#DC2626' }}>{idx + 2}. {item.name}</span>
+                                                            <span style={{ fontWeight: 600, color: isAssignedTopScored ? '#6B7280' : '#B91C1C' }}>Score {item.score}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })()}
 
                                         {/* 2.2 Critérios Técnicos (Resumo) */}
                                         {scoreData && (
