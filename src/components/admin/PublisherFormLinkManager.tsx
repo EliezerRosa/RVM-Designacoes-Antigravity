@@ -39,6 +39,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const [newLabel, setNewLabel] = useState('');
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
+    const [csMembers, setCsMembers] = useState<Publisher[]>([]);
 
     // ── Modais NL + Eventos (lazy data) ──────────────────────────────────
     const [showLocalNeeds, setShowLocalNeeds] = useState(false);
@@ -87,12 +88,21 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
         setShowEvents(true);
     };
 
-    // ── Load stored tokens ────────────────────────────────────────────────
+    // ── Load stored tokens + membros da CS (para ZAP por membro) ────────────
     useEffect(() => {
         (async () => {
             try {
-                const stored = await api.getSetting<FormToken[]>('publisher_form_tokens', []);
+                const [stored, pubs] = await Promise.all([
+                    api.getSetting<FormToken[]>('publisher_form_tokens', []),
+                    api.loadPublishers(),
+                ]);
                 setTokens(stored);
+                const cs = pubs.filter(p =>
+                    p.funcao === 'Coordenador do Corpo de Anciãos'
+                    || p.funcao === 'Secretário'
+                    || p.funcao === 'Superintendente de Serviço'
+                );
+                setCsMembers(cs);
             } catch (err) {
                 console.error('[LinkManager] Load error:', err);
             } finally {
@@ -338,6 +348,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                             onRevoke={() => handleRevoke(t.token)}
                             onDelete={() => handleDelete(t.token)}
                             buildUrl={buildFormUrl}
+                            csMembers={csMembers}
                         />
                     ))}
 
@@ -357,6 +368,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                                     onReactivate={() => handleReactivate(t.token)}
                                     onDelete={() => handleDelete(t.token)}
                                     buildUrl={buildFormUrl}
+                                    csMembers={csMembers}
                                     revoked
                                 />
                             ))}
@@ -406,6 +418,7 @@ function TokenRow({
     onReactivate,
     onDelete,
     buildUrl,
+    csMembers,
     revoked = false,
 }: {
     token: FormToken;
@@ -415,6 +428,7 @@ function TokenRow({
     onReactivate?: () => void;
     onDelete: () => void;
     buildUrl: (t: string) => string;
+    csMembers: Publisher[];
     revoked?: boolean;
 }) {
     const url = buildUrl(token.token);
@@ -460,17 +474,40 @@ function TokenRow({
                             >
                                 {copied ? '✅ Copiado!' : '📋 Copiar URL'}
                             </button>
-                            <button
-                                onClick={() => {
-                                    const msg = `Olá! Segue o link de acesso à *Comissão de Serviço* (atualização de publicadores, Necessidades Locais e Eventos Especiais):\n\n${url}\n\nEste link é pessoal e intransferível — não compartilhe.`;
-                                    const waUrl = communicationService.generateWhatsAppUrl('', msg);
-                                    window.open(waUrl, '_blank', 'noopener,noreferrer');
-                                }}
-                                title="Enviar este link à Comissão de Serviço via WhatsApp"
-                                style={btnStyle('#25D366')}
-                            >
-                                💬 ZAP‑Link‑CS
-                            </button>
+                            {csMembers.map(m => {
+                                const hasPhone = !!m.phone && m.phone.trim().length >= 8;
+                                const shortRole = m.funcao === 'Coordenador do Corpo de Anciãos'
+                                    ? 'Coord.'
+                                    : m.funcao === 'Secretário'
+                                        ? 'Secr.'
+                                        : m.funcao === 'Superintendente de Serviço'
+                                            ? 'SupServ.'
+                                            : '';
+                                const firstName = m.name.split(' ')[0];
+                                return (
+                                    <button
+                                        key={m.id}
+                                        disabled={!hasPhone}
+                                        onClick={() => {
+                                            if (!hasPhone) return;
+                                            const msg = `Olá, ${m.name}! 🙏\n\nSegue o link de acesso à *Comissão de Serviço* (atualização de publicadores, Necessidades Locais e Eventos Especiais):\n\n${url}\n\nLink: *${token.label}*\nEste link é da CS — não compartilhe fora da comissão.`;
+                                            const waUrl = communicationService.generateWhatsAppUrl(m.phone, msg);
+                                            window.open(waUrl, '_blank', 'noopener,noreferrer');
+                                        }}
+                                        title={hasPhone
+                                            ? `Enviar para ${m.name} (${m.funcao}) via WhatsApp — ${m.phone}`
+                                            : `${m.name} não tem telefone cadastrado. Cadastre o telefone em Publicadores para habilitar este envio.`}
+                                        style={{ ...btnStyle(hasPhone ? '#25D366' : '#94A3B8'), opacity: hasPhone ? 1 : 0.55, cursor: hasPhone ? 'pointer' : 'not-allowed' }}
+                                    >
+                                        💬 {shortRole} {firstName}
+                                    </button>
+                                );
+                            })}
+                            {csMembers.length === 0 && (
+                                <span style={{ fontSize: '11px', color: '#94A3B8', alignSelf: 'center' }} title="Defina Coordenador, Secretário e Superintendente de Serviço em Publicadores para habilitar envios diretos.">
+                                    ⚠️ CS não cadastrada
+                                </span>
+                            )}
                             <button onClick={onRevoke} style={btnStyle('#F59E0B')}>
                                 🔒 Revogar
                             </button>
