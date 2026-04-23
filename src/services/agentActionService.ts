@@ -34,6 +34,7 @@ export type AgentActionType =
     | 'VIEW_S140'
     | 'SHARE_S140_WHATSAPP'
     | 'CHECK_SCORE'
+    | 'EXPLAIN_PART'
     | 'CLEAR_WEEK'
     | 'CLEAR_RANGE'
     | 'UPDATE_PUBLISHER'
@@ -242,6 +243,75 @@ export const agentActionService = {
                         message: `**Análise do Cérebro (Top 10):**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}`,
                         data: sorted,
                         actionType: 'CHECK_SCORE'
+                    };
+                }
+
+                case 'EXPLAIN_PART': {
+                    // Mesma fonte (eligibilityService + cooldownService + unifiedRotationService) usada
+                    // pela coluna "Controle & Explicações" (ActionControlPanel). Garante consistência.
+                    const { partId, partType: ptHint, weekId: wHint, publisherName } = action.params;
+                    const targetPart = partId
+                        ? parts.find(p => p.id === partId)
+                        : parts.find(p =>
+                            (ptHint ? (p.tipoParte === ptHint || p.tituloParte?.includes(ptHint)) : false)
+                            && (wHint ? p.weekId === wHint : true)
+                        );
+                    if (!targetPart) {
+                        return { success: false, message: 'Parte não encontrada para explicação.' };
+                    }
+                    const weekParts = parts.filter(p => p.weekId === targetPart.weekId);
+                    const eligCtx = buildEligibilityContext(targetPart, weekParts, publishers);
+                    const partType = targetPart.tipoParte || targetPart.tituloParte || '';
+
+                    // Filtra elegíveis pelo MESMO critério do motor.
+                    const eligibleList = publishers.filter(p =>
+                        checkEligibility(p, partType as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, eligCtx).eligible
+                    );
+                    const ranked = getRankedCandidates(eligibleList, partType, history);
+                    const refDate = new Date((targetPart.date || targetPart.weekId) + 'T12:00:00');
+                    const rankedWithCooldown = ranked.map(r => ({ ...r, blocked: isBlocked(r.publisher.name, history, refDate) }));
+                    const sorted = [
+                        ...rankedWithCooldown.filter(r => !r.blocked),
+                        ...rankedWithCooldown.filter(r => r.blocked),
+                    ];
+
+                    const assignedName = targetPart.resolvedPublisherName || '';
+                    const assignedPub = assignedName ? publishers.find(p => p.name === assignedName) : null;
+                    const focusName = publisherName || assignedName;
+                    const focusPub = focusName ? publishers.find(p => p.name === focusName) : null;
+
+                    const lines: string[] = [];
+                    lines.push(`**Explicação oficial (mesma fonte do painel “Controle & Explicações”):**`);
+                    lines.push(`Parte: *${targetPart.tituloParte || partType}* — Semana ${targetPart.weekId}`);
+                    if (assignedPub) {
+                        const elig = checkEligibility(assignedPub, partType as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, eligCtx);
+                        const assignedRanked = sorted.find(r => r.publisher.id === assignedPub.id);
+                        lines.push(`\nDesignado atual: **${assignedPub.name}** — Elegível: ${elig.eligible ? 'sim' : `não (${elig.reason})`}`);
+                        if (assignedRanked) {
+                            lines.push(`Score: ${assignedRanked.scoreData.score} — ${assignedRanked.scoreData.explanation}`);
+                        }
+                    } else {
+                        lines.push(`\nDesignado atual: — (vago)`);
+                    }
+
+                    if (focusPub && (!assignedPub || focusPub.id !== assignedPub.id)) {
+                        const elig = checkEligibility(focusPub, partType as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, eligCtx);
+                        const fr = sorted.find(r => r.publisher.id === focusPub.id);
+                        lines.push(`\nFoco: **${focusPub.name}** — Elegível: ${elig.eligible ? 'sim' : `não (${elig.reason})`}`);
+                        if (fr) lines.push(`Score: ${fr.scoreData.score} — ${fr.scoreData.explanation}`);
+                    }
+
+                    lines.push(`\n**Top 5 candidatos pelo motor:**`);
+                    sorted.slice(0, 5).forEach((c, i) => {
+                        const tag = c.blocked ? ' ⏸ (cooldown)' : '';
+                        lines.push(`${i + 1}. ${explainScoreForAgent(c)}${tag}`);
+                    });
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { partId: targetPart.id, sorted, assignedName, focusName },
+                        actionType: 'EXPLAIN_PART',
                     };
                 }
 

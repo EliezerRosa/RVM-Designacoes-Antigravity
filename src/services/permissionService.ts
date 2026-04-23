@@ -92,7 +92,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const FALLBACK_PERMISSIONS: ResolvedPermissions = {
     tabs: new Set<ActiveTab>(['agent']),
-    agentActions: new Set(['CHECK_SCORE', 'FETCH_DATA', 'GET_ANALYTICS', 'NAVIGATE_WEEK', 'VIEW_S140', 'SHOW_MODAL']),
+    agentActions: new Set(['CHECK_SCORE', 'EXPLAIN_PART', 'FETCH_DATA', 'GET_ANALYTICS', 'NAVIGATE_WEEK', 'VIEW_S140', 'SHOW_MODAL']),
     blockedActions: new Set(),
     dataAccessLevel: 'self',
     canSeeSensitiveData: false,
@@ -107,7 +107,7 @@ const FULL_ADMIN_PERMISSIONS: ResolvedPermissions = {
     tabs: new Set<ActiveTab>(ALL_TABS),
     agentActions: new Set<string>([
         'GENERATE_WEEK', 'ASSIGN_PART', 'APPROVE_PROPOSAL', 'REJECT_PROPOSAL', 'COMPLETE_PART', 'UNDO_COMPLETE_PART', 'UNDO_LAST', 'NAVIGATE_WEEK', 'VIEW_S140',
-        'SHARE_S140_WHATSAPP', 'CHECK_SCORE', 'CLEAR_WEEK', 'UPDATE_PUBLISHER',
+        'SHARE_S140_WHATSAPP', 'CHECK_SCORE', 'EXPLAIN_PART', 'CLEAR_WEEK', 'UPDATE_PUBLISHER',
         'UPDATE_AVAILABILITY', 'UPDATE_ENGINE_RULES', 'MANAGE_SPECIAL_EVENT',
         'SEND_S140', 'SEND_S89', 'FETCH_DATA', 'SIMULATE_ASSIGNMENT',
         'NOTIFY_REFUSAL', 'SHOW_MODAL', 'MANAGE_LOCAL_NEEDS', 'GET_ANALYTICS',
