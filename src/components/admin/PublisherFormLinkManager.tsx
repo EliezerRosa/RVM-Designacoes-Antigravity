@@ -16,6 +16,7 @@ import type { FormToken } from '../PublisherStatusForm';
 import { PublisherStatusForm } from '../PublisherStatusForm';
 import { LocalNeedsQueue } from '../LocalNeedsQueue';
 import { SpecialEventsManager } from '../SpecialEventsManager';
+import { communicationService } from '../../services/communicationService';
 import type { Publisher } from '../../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -450,7 +451,7 @@ function TokenRow({
                         </div>
                     )}
                 </div>
-                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: '6px', flexShrink: 0, flexWrap: 'wrap' }}>
                     {!revoked && (
                         <>
                             <button
@@ -458,6 +459,17 @@ function TokenRow({
                                 style={btnStyle(copied ? '#10B981' : '#4F46E5')}
                             >
                                 {copied ? '✅ Copiado!' : '📋 Copiar URL'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const msg = `Olá! Segue o link de acesso à *Comissão de Serviço* (atualização de publicadores, Necessidades Locais e Eventos Especiais):\n\n${url}\n\nEste link é pessoal e intransferível — não compartilhe.`;
+                                    const waUrl = communicationService.generateWhatsAppUrl('', msg);
+                                    window.open(waUrl, '_blank', 'noopener,noreferrer');
+                                }}
+                                title="Enviar este link à Comissão de Serviço via WhatsApp"
+                                style={btnStyle('#25D366')}
+                            >
+                                💬 ZAP‑Link‑CS
                             </button>
                             <button onClick={onRevoke} style={btnStyle('#F59E0B')}>
                                 🔒 Revogar
