@@ -215,8 +215,15 @@ export const agentActionService = {
                         ? buildEligibilityContext(targetPart, weekParts, publishers)
                         : { date };
 
+                    // FONTE ÚNICA: usar a MODALIDADE da parte (mesmo critério do painel
+                    // "Controle & Explicações"). Sem isso, o tipoParte (ex: "Iniciando conversas")
+                    // chega no switch como modalidade desconhecida e ninguém fica elegível.
+                    const elegModalidade = (targetPart?.modalidade as Parameters<typeof checkEligibility>[1])
+                        || (resolvedModalidade as Parameters<typeof checkEligibility>[1]);
+                    const elegFuncao = (targetPart?.funcao as Parameters<typeof checkEligibility>[2]) || EnumFuncao.TITULAR;
+
                     const eligible = publishers.filter(p =>
-                        checkEligibility(p, resolvedModalidade as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, eligCtx).eligible
+                        checkEligibility(p, elegModalidade, elegFuncao, eligCtx).eligible
                     );
 
                     if (eligible.length === 0) {
@@ -263,10 +270,14 @@ export const agentActionService = {
                     const weekParts = parts.filter(p => p.weekId === targetPart.weekId);
                     const eligCtx = buildEligibilityContext(targetPart, weekParts, publishers);
                     const partType = targetPart.tipoParte || targetPart.tituloParte || '';
+                    // FONTE ÚNICA: usar modalidade/função reais da parte (mesmo critério do
+                    // painel "Controle & Explicações").
+                    const elegModalidade = targetPart.modalidade as Parameters<typeof checkEligibility>[1];
+                    const elegFuncao = (targetPart.funcao as Parameters<typeof checkEligibility>[2]) || EnumFuncao.TITULAR;
 
                     // Filtra elegíveis pelo MESMO critério do motor.
                     const eligibleList = publishers.filter(p =>
-                        checkEligibility(p, partType as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, eligCtx).eligible
+                        checkEligibility(p, elegModalidade, elegFuncao, eligCtx).eligible
                     );
                     const ranked = getRankedCandidates(eligibleList, partType, history);
                     const refDate = new Date((targetPart.date || targetPart.weekId) + 'T12:00:00');
@@ -285,7 +296,7 @@ export const agentActionService = {
                     lines.push(`**Explicação oficial (mesma fonte do painel “Controle & Explicações”):**`);
                     lines.push(`Parte: *${targetPart.tituloParte || partType}* — Semana ${targetPart.weekId}`);
                     if (assignedPub) {
-                        const elig = checkEligibility(assignedPub, partType as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, eligCtx);
+                        const elig = checkEligibility(assignedPub, elegModalidade, elegFuncao, eligCtx);
                         const assignedRanked = sorted.find(r => r.publisher.id === assignedPub.id);
                         lines.push(`\nDesignado atual: **${assignedPub.name}** — Elegível: ${elig.eligible ? 'sim' : `não (${elig.reason})`}`);
                         if (assignedRanked) {
@@ -296,7 +307,7 @@ export const agentActionService = {
                     }
 
                     if (focusPub && (!assignedPub || focusPub.id !== assignedPub.id)) {
-                        const elig = checkEligibility(focusPub, partType as Parameters<typeof checkEligibility>[1], EnumFuncao.TITULAR, eligCtx);
+                        const elig = checkEligibility(focusPub, elegModalidade, elegFuncao, eligCtx);
                         const fr = sorted.find(r => r.publisher.id === focusPub.id);
                         lines.push(`\nFoco: **${focusPub.name}** — Elegível: ${elig.eligible ? 'sim' : `não (${elig.reason})`}`);
                         if (fr) lines.push(`Score: ${fr.scoreData.score} — ${fr.scoreData.explanation}`);
