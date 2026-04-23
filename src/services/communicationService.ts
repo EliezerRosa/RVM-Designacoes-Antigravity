@@ -297,7 +297,7 @@ export const communicationService = {
         }
 
         text += `📜 *Acesse o programa completo anexo.* ⬆️\n\n`;
-        text += `_“E esteja sobre nós a benevolência de Jeová, nosso Deus; sim, torna próspero o trabalho de nossas mãos.”_ (Salmo 90:17) ✨`;
+        text += `_"E esteja sobre nós a benevolência de Jeová, nosso Deus; sim, torna próspero o trabalho de nossas mãos."_ (Salmo 90:17) ✨`;
 
         return text;
     },
