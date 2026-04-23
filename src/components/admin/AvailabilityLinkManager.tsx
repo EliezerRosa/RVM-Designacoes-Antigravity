@@ -359,21 +359,26 @@ function AvailabilityTokenRow({
                                 🔗 Abrir
                             </a>
                             <button
+                                disabled={!(phone && phone.trim().length >= 8)}
                                 onClick={() => {
+                                    if (!(phone && phone.trim().length >= 8)) return;
                                     const msg = `Olá, ${token.publisherName}! 🙏\n\nSegue seu link *pessoal* para informar sua disponibilidade nas próximas semanas:\n\n${url}\n\nÉ rápido — só marcar os dias em que você poderá participar. Obrigado!`;
                                     const waUrl = communicationService.generateWhatsAppUrl(phone, msg);
                                     window.open(waUrl, '_blank', 'noopener,noreferrer');
                                 }}
-                                title={phone ? `Enviar via WhatsApp para ${phone}` : 'Enviar via WhatsApp (este publicador não tem telefone cadastrado — escolha o destinatário no WhatsApp)'}
+                                title={(phone && phone.trim().length >= 8)
+                                    ? `Enviar para ${token.publisherName} via WhatsApp — ${phone}`
+                                    : `${token.publisherName} não tem telefone cadastrado. Cadastre o telefone em Publicadores para habilitar este envio.`}
                                 style={{
-                                    background: '#25D366',
+                                    background: (phone && phone.trim().length >= 8) ? '#25D366' : '#94A3B8',
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: '5px',
                                     padding: '4px 10px',
                                     fontSize: '11px',
                                     fontWeight: 600,
-                                    cursor: 'pointer',
+                                    cursor: (phone && phone.trim().length >= 8) ? 'pointer' : 'not-allowed',
+                                    opacity: (phone && phone.trim().length >= 8) ? 1 : 0.55,
                                     whiteSpace: 'nowrap',
                                 }}
                             >
