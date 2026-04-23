@@ -247,9 +247,12 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
                         <option value="">Todas as semanas</option>
                         {uniqueWeeks.map(w => {
                             const cleanDisplay = w.weekDisplay.replace(/\bde\s+/gi, '').replace(/\s+/g, ' ').trim();
+                            const yearLabel = w.year && w.year > 0
+                                ? w.year
+                                : (w.weekId ? w.weekId.split('-')[0] : '');
                             return (
                                 <option key={w.weekId} value={w.weekId}>
-                                    {w.year} | {cleanDisplay}
+                                    {yearLabel} | {cleanDisplay}
                                 </option>
                             );
                         })}
