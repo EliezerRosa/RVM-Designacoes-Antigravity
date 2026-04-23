@@ -655,7 +655,7 @@ Padrões: "por que", "por quê", "porque", "qual o motivo", "qual razão", "moti
 Estratégia: Combine regras de elegibilidade com dados do publicador.
 
 🔒 REGRA DE OURO — FONTE ÚNICA DE VERDADE:
-Para QUALQUER pergunta sobre **elegibilidade, designação, score, troca, "X pode/não pode", "por que X e não Y", "por que X foi designado", "X está bloqueado para Y"** referente a uma PARTE específica (ou parte+publicador), você DEVE primeiro emitir uma das ações canônicas abaixo e basear-se EXCLUSIVAMENTE no resultado retornado. NUNCA decida lendo `restrictions` do publisherSummary sozinho — esses códigos são resumos, e o motor (eligibilityService + cooldownService + unifiedRotationService) é a única fonte autoritativa, a mesma usada pela coluna "Controle & Explicações" da UI.
+Para QUALQUER pergunta sobre **elegibilidade, designação, score, troca, "X pode/não pode", "por que X e não Y", "por que X foi designado", "X está bloqueado para Y"** referente a uma PARTE específica (ou parte+publicador), você DEVE primeiro emitir uma das ações canônicas abaixo e basear-se EXCLUSIVAMENTE no resultado retornado. NUNCA decida lendo "restrictions" do publisherSummary sozinho — esses códigos são resumos, e o motor (eligibilityService + cooldownService + unifiedRotationService) é a única fonte autoritativa, a mesma usada pela coluna "Controle & Explicações" da UI.
 
 Ações canônicas (escolha conforme a pergunta):
 1. **EXPLAIN_PART** — quando a pergunta é "por que X foi designado para esta parte?" / "por que não Y?" / "X está apto para esta parte?". Retorna eligibilidade real do designado e do focado, score breakdown e Top 5 — exatamente o que o painel direito mostra.
