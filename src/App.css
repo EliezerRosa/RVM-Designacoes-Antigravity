@@ -630,9 +630,25 @@ body {
   flex-direction: column;
 }
 
+/* Modais, forms, micro-UIs e relatórios exibidos pelo agente nunca devem
+   ter rolagem horizontal — o conteúdo precisa quebrar/encolher.
+   Aplicado tanto aos pop-overs flutuantes quanto ao conteúdo inline do chat. */
+.agent-tab-col-content,
+.agent-tab-col-content * {
+  min-width: 0;
+}
+.agent-tab-col-content {
+  overflow-x: hidden;
+}
+.agent-tab-col-content table {
+  table-layout: fixed;
+  word-break: break-word;
+}
+
 /* ============================================
    Responsive
    ============================================ */
+
 
 @media (max-width: 1024px) {
   .hide-on-mobile-strict {
