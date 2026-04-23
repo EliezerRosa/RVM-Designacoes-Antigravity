@@ -1013,7 +1013,7 @@ export default function TemporalChat({
                         onNavigateToWeek(result.data.weekId);
                     }
                     // Sync painel direito: foca a parte trabalhada pelo agente
-                    if (result.success && (result.actionType === 'ASSIGN_PART' || result.actionType === 'CHECK_SCORE') && result.data?.partId && onPartFocus) {
+                    if (result.success && (result.actionType === 'ASSIGN_PART' || result.actionType === 'CHECK_SCORE' || result.actionType === 'EXPLAIN_PART') && result.data?.partId && onPartFocus) {
                         onPartFocus(result.data.partId);
                     }
                 }
@@ -1027,7 +1027,7 @@ export default function TemporalChat({
                     // Single action: show result directly
                     const r = results[0];
                     feedbackContent = r.success
-                        ? (r.actionType === 'CHECK_SCORE' ? r.message : `✅ ${r.message}`)
+                        ? (r.actionType === 'CHECK_SCORE' || r.actionType === 'EXPLAIN_PART' ? r.message : `✅ ${r.message}`)
                         : `⚠️ Não foi possível realizar a ação: ${r.message}`;
                 } else {
                     // Multiple actions: show summary + details
