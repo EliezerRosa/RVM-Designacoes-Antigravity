@@ -18,6 +18,7 @@ import { S89SelectionModal } from './S89SelectionModal';
 import type { ActionResult } from '../services/agentActionService';
 import { CostMonitor } from './admin/CostMonitor';
 import AgentModalHost from './AgentModalHost';
+import { isManuallyAssignable } from '../constants/s140Template';
 import type { AgentModalType } from './AgentModalHost';
 
 interface Props {
@@ -298,14 +299,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     {/* Lista de Partes — 40% */}
                     {(() => {
                         const currentPartsForList = weekParts[currentWeekId || ''] || [];
-                        const isDesignatable = (tp: string) => {
-                            const t = tp.toLowerCase();
-                            if (t.includes('cântico') || t.includes('cantico')) return false;
-                            if (t.includes('comentários iniciais') || t.includes('comentarios iniciais')) return false;
-                            if (t.includes('comentários finais') || t.includes('comentarios finais')) return false;
-                            if (t.includes('elogios') || t.includes('conselhos')) return false;
-                            return true;
-                        };
+                        const isDesignatable = (tp: string) => isManuallyAssignable(tp);
                         const sections = ['Início da Reunião', 'Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã', 'Final da Reunião'];
                         return (
                             <div style={{
