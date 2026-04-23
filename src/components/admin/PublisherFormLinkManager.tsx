@@ -11,8 +11,12 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { supabase } from '../../lib/supabase';
 import type { FormToken } from '../PublisherStatusForm';
 import { PublisherStatusForm } from '../PublisherStatusForm';
+import { LocalNeedsQueue } from '../LocalNeedsQueue';
+import { SpecialEventsManager } from '../SpecialEventsManager';
+import type { Publisher } from '../../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function generateToken(): string {
@@ -34,6 +38,53 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const [newLabel, setNewLabel] = useState('');
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
+
+    // ── Modais NL + Eventos (lazy data) ──────────────────────────────────
+    const [showLocalNeeds, setShowLocalNeeds] = useState(false);
+    const [showEvents, setShowEvents] = useState(false);
+    const [modalPublishers, setModalPublishers] = useState<Publisher[] | null>(null);
+    const [modalWeeks, setModalWeeks] = useState<{ weekId: string; display: string }[] | null>(null);
+    const [modalDataLoading, setModalDataLoading] = useState(false);
+    const [modalDataError, setModalDataError] = useState<string | null>(null);
+
+    const ensureModalData = async () => {
+        if (modalPublishers && modalWeeks) return;
+        setModalDataLoading(true);
+        setModalDataError(null);
+        try {
+            // Carrega publicadores (para LocalNeedsQueue) e semanas disponíveis (para ambos)
+            const [pubs, weeksRes] = await Promise.all([
+                api.loadPublishers(),
+                supabase
+                    .from('workbook_parts')
+                    .select('week_id, date')
+                    .order('week_id', { ascending: true }),
+            ]);
+            setModalPublishers(pubs);
+
+            const seen = new Map<string, string>();
+            for (const row of (weeksRes.data || []) as Array<{ week_id: string; date: string | null }>) {
+                if (!row.week_id || seen.has(row.week_id)) continue;
+                const year = row.date ? new Date(row.date).getFullYear() : '';
+                seen.set(row.week_id, year ? `${row.week_id} (${year})` : row.week_id);
+            }
+            setModalWeeks(Array.from(seen.entries()).map(([weekId, display]) => ({ weekId, display })));
+        } catch (err) {
+            console.error('[LinkManager] Erro carregando dados para modais NL/Eventos:', err);
+            setModalDataError(err instanceof Error ? err.message : 'Erro ao carregar dados.');
+        } finally {
+            setModalDataLoading(false);
+        }
+    };
+
+    const openLocalNeeds = async () => {
+        await ensureModalData();
+        setShowLocalNeeds(true);
+    };
+    const openEvents = async () => {
+        await ensureModalData();
+        setShowEvents(true);
+    };
 
     // ── Load stored tokens ────────────────────────────────────────────────
     useEffect(() => {
@@ -149,22 +200,66 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                         O admin sempre tem acesso direto abaixo.
                     </p>
                 </div>
-                <button
-                    onClick={() => setShowForm(true)}
-                    style={{
-                        background: '#4F46E5',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '8px 16px',
-                        fontWeight: 600,
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                    }}
-                >
-                    📋 Abrir Formulário (Admin)
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={() => setShowForm(true)}
+                        style={{
+                            background: '#4F46E5',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        📋 Abrir Formulário (Admin)
+                    </button>
+                    <button
+                        onClick={openLocalNeeds}
+                        disabled={modalDataLoading}
+                        title="Gerenciar a fila de Necessidades Locais (CRUD completo da congregação)"
+                        style={{
+                            background: '#F59E0B',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            cursor: modalDataLoading ? 'wait' : 'pointer',
+                            opacity: modalDataLoading ? 0.7 : 1,
+                        }}
+                    >
+                        📋 Necessidades Locais
+                    </button>
+                    <button
+                        onClick={openEvents}
+                        disabled={modalDataLoading}
+                        title="Gerenciar Eventos Especiais (visitas, assembleias, congressos…)"
+                        style={{
+                            background: '#8B5CF6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            cursor: modalDataLoading ? 'wait' : 'pointer',
+                            opacity: modalDataLoading ? 0.7 : 1,
+                        }}
+                    >
+                        🎉 Eventos Especiais
+                    </button>
+                </div>
             </div>
+
+            {modalDataError && (
+                <div style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', borderRadius: '6px', padding: '8px 12px', marginBottom: '12px', fontSize: '12px' }}>
+                    ⚠️ {modalDataError}
+                </div>
+            )}
 
             {/* Generate new token */}
             <div style={{
@@ -264,6 +359,35 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                         </>
                     )}
                 </>
+            )}
+
+            {/* ── Modal: Necessidades Locais ─────────────────────────────── */}
+            {showLocalNeeds && modalPublishers && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', zIndex: 9000,
+                }}>
+                    <LocalNeedsQueue
+                        publishers={modalPublishers.map(p => ({ id: p.id, name: p.name, condition: p.condition as string }))}
+                        availableWeeks={modalWeeks ?? []}
+                        onClose={() => setShowLocalNeeds(false)}
+                    />
+                </div>
+            )}
+
+            {/* ── Modal: Eventos Especiais ───────────────────────────────── */}
+            {showEvents && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', zIndex: 9000,
+                }}>
+                    <SpecialEventsManager
+                        availableWeeks={modalWeeks ?? []}
+                        onClose={() => setShowEvents(false)}
+                    />
+                </div>
             )}
         </div>
     );
