@@ -649,7 +649,7 @@ Estratégia: Combine regras de elegibilidade com dados do publicador.
 - **BloqMinisterio** → bloqueia APENAS a seção **"Faça Seu Melhor no Ministério"** (Iniciando Conversas, Cultivando o Interesse, Fazendo Discípulos, Discurso de Estudante, etc.).
 - **BloqVida** → bloqueia APENAS a seção **"Nossa Vida Cristã"** (Necessidades Locais, Estudo Bíblico de Congregação, partes de Vida Cristã).
 
-REGRA ANTI-ALUCINAÇÃO: Antes de afirmar que um bloqueio impede uma parte, IDENTIFIQUE a seção da parte (use o campo `section` da parte ou olhe em qual seção da Semana em Foco ela aparece) e CRUZE com o glossário acima. Se o código de bloqueio não corresponde à seção da parte, o publicador NÃO está bloqueado para essa parte por esse motivo. Procure outra causa (gênero, qualificação, indisponibilidade, cooldown) ou diga que está elegível.
+REGRA ANTI-ALUCINAÇÃO: Antes de afirmar que um bloqueio impede uma parte, IDENTIFIQUE a seção da parte (use o campo "section" da parte ou olhe em qual seção da Semana em Foco ela aparece) e CRUZE com o glossário acima. Se o código de bloqueio não corresponde à seção da parte, o publicador NÃO está bloqueado para essa parte por esse motivo. Procure outra causa (gênero, qualificação, indisponibilidade, cooldown) ou diga que está elegível.
 
 - "Por que X não pode fazer Leitura?" → Leitura está em Tesouros. Verifique: é irmã? (irmãs não fazem Leitura). Tem BloqTesouros? É inapto? Está indisponível?
 - "Por que X não pode fazer Iniciando Conversas?" → Iniciando Conversas está em Faça Seu Melhor no Ministério. Verifique BloqMinisterio (NÃO BloqVida). Verifique cooldown, gênero do par, disponibilidade.
