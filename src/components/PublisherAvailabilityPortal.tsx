@@ -1,12 +1,12 @@
-﻿/**
- * PublisherAvailabilityPortal â€” Self-service portal for individual publishers
+/**
+ * PublisherAvailabilityPortal — Self-service portal for individual publishers
  * to manage their own 2-month availability calendar by WEEK.
  *
  * Access via: ?portal=availability&token=<tok>
  * Token key in app_settings: 'availability_tokens'
  *
  * 3-state click cycle per week:
- *   default (grey/neutral) â†’ green (disponÃ­vel) â†’ red (indisponÃ­vel) â†’ default
+ *   default (grey/neutral) → green (disponível) → red (indisponível) → default
  *
  * Availability is stored as week IDs (YYYY-MM-DD of Monday of the week), so it
  * is independent of which day the meeting actually falls on.
@@ -25,7 +25,7 @@ import { workbookManagementService } from '../services/workbookManagementService
 import { PublisherImpedimentModal } from './PublisherImpedimentModal';
 import type { Publisher } from '../types';
 
-// â”€â”€ Token structure (stored in app_settings key 'availability_tokens') â”€â”€â”€â”€â”€
+// ── Token structure (stored in app_settings key 'availability_tokens') ─────
 export interface AvailabilityToken {
     token: string;
     publisherId: string;
@@ -35,11 +35,11 @@ export interface AvailabilityToken {
     active: boolean;
 }
 
-// â”€â”€ Week state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Week state ────────────────────────────────────────────────────────────────
 type WeekState = 'default' | 'green' | 'red';
 const CYCLE: Record<WeekState, WeekState> = { default: 'green', green: 'red', red: 'default' };
 
-// â”€â”€ Date helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Date helpers ─────────────────────────────────────────────────────────────
 function toYMD(d: Date): string {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -54,7 +54,7 @@ function addDays(dateStr: string, n: number): string {
 }
 
 function formatPtBR(dateStr: string): string {
-    // YYYY-MM-DD â†’ DD/MM
+    // YYYY-MM-DD → DD/MM
     const [, m, d] = dateStr.split('-');
     return `${d}/${m}`;
 }
@@ -80,7 +80,7 @@ function getUpcomingWeeks(today: string): { weekId: string; endDate: string }[] 
     return weeks;
 }
 
-// â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Sub-components ────────────────────────────────────────────────────────────
 function LoadingScreen() {
     return (
         <div style={{
@@ -92,7 +92,7 @@ function LoadingScreen() {
             fontFamily: 'system-ui, sans-serif',
         }}>
             <div style={{ textAlign: 'center', color: '#94A3B8' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>â³</div>
+                <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>⏳</div>
                 <p style={{ margin: 0 }}>Verificando acesso...</p>
             </div>
         </div>
@@ -119,20 +119,20 @@ function UnauthorizedScreen() {
                 textAlign: 'center',
                 color: '#E2E8F0',
             }}>
-                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>ðŸ”’</div>
+                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🔒</div>
                 <h2 style={{ margin: '0 0 12px', fontSize: '1.25rem', fontWeight: 700 }}>
-                    Link invÃ¡lido ou expirado
+                    Link inválido ou expirado
                 </h2>
                 <p style={{ margin: 0, color: '#94A3B8', lineHeight: 1.6, fontSize: '14px' }}>
-                    Este link de disponibilidade nÃ£o Ã© vÃ¡lido ou foi revogado.
-                    Entre em contato com o responsÃ¡vel pelas designaÃ§Ãµes para obter um novo link.
+                    Este link de disponibilidade não é válido ou foi revogado.
+                    Entre em contato com o responsável pelas designações para obter um novo link.
                 </p>
             </div>
         </div>
     );
 }
 
-// â”€â”€ Main Portal Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Main Portal Component ─────────────────────────────────────────────────────
 interface PublisherAvailabilityPortalProps {
     token?: string;
 }
@@ -151,7 +151,7 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
     const today = toYMD(new Date());
     const weeks = getUpcomingWeeks(today);
 
-    // â”€â”€ Load and validate token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Load and validate token ───────────────────────────────────────────
     useEffect(() => {
         if (!token) { setStatus('unauthorized'); return; }
 
@@ -172,13 +172,13 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                 if (pub.availability) {
                     const { mode, exceptionDates = [], availableDates = [] } = pub.availability;
                     if (mode === 'always') {
-                        // Each stored exception = indisponÃ­vel (red)
+                        // Each stored exception = indisponível (red)
                         exceptionDates.forEach(d => {
                             const wid = getWeekMondayId(d); // normalise old Thursday IDs too
                             if (weeks.some(w => w.weekId === wid)) initial.set(wid, 'red');
                         });
                     } else {
-                        // Each stored available = disponÃ­vel (green)
+                        // Each stored available = disponível (green)
                         availableDates.forEach(d => {
                             const wid = getWeekMondayId(d);
                             if (weeks.some(w => w.weekId === wid)) initial.set(wid, 'green');
@@ -195,7 +195,7 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token]);
 
-    // â”€â”€ Toggle week state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Toggle week state ─────────────────────────────────────────────────
     const handleToggle = useCallback((weekId: string) => {
         setWeekStates(prev => {
             const next = new Map(prev);
@@ -210,7 +210,7 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
         });
     }, []);
 
-    // â”€â”€ Build updated publisher object from current week states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Build updated publisher object from current week states ───────────
     const buildUpdatedPublisher = useCallback((pub: Publisher): Publisher => {
         const mode = pub.availability?.mode ?? 'always';
         const redWeeks = Array.from(weekStates.entries()).filter(([, s]) => s === 'red').map(([d]) => d);
@@ -242,7 +242,7 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
         };
     }, [weekStates, weeks]);
 
-    // â”€â”€ Save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Save ──────────────────────────────────────────────────────────────
     const handleSave = async () => {
         if (!publisher) return;
         setStatus('saving');
@@ -288,11 +288,11 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
         setTimeout(() => setStatus('ready'), 3000);
     };
 
-    // â”€â”€ Summary counts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Summary counts ────────────────────────────────────────────────────
     const redCount = Array.from(weekStates.values()).filter(s => s === 'red').length;
     const greenCount = Array.from(weekStates.values()).filter(s => s === 'green').length;
 
-    // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Render ────────────────────────────────────────────────────────────
     if (status === 'validating') return <LoadingScreen />;
     if (status === 'unauthorized') return <UnauthorizedScreen />;
 
@@ -308,7 +308,7 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
 
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>ðŸ“…</div>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>📅</div>
                     <h1 style={{
                         color: '#F1F5F9',
                         fontSize: '1.35rem',
@@ -322,16 +322,16 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                         {publisher?.name}
                     </div>
                     <div style={{ color: '#64748B', fontSize: '12px', marginTop: '8px', lineHeight: 1.6 }}>
-                        Toque nas semanas para informar sua disponibilidade nos prÃ³ximos dois meses.
+                        Toque nas semanas para informar sua disponibilidade nos próximos dois meses.
                     </div>
                 </div>
 
                 {/* Legend */}
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '24px', flexWrap: 'wrap' }}>
                     {([
-                        { color: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', label: 'PadrÃ£o' },
-                        { color: 'rgba(21,128,61,0.85)', border: 'none', label: 'âœ“ DisponÃ­vel' },
-                        { color: 'rgba(185,28,28,0.85)', border: 'none', label: 'âœ— IndisponÃ­vel' },
+                        { color: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', label: 'Padrão' },
+                        { color: 'rgba(21,128,61,0.85)', border: 'none', label: '✓ Disponível' },
+                        { color: 'rgba(185,28,28,0.85)', border: 'none', label: '✗ Indisponível' },
                     ] as { color: string; border: string; label: string }[]).map(item => (
                         <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94A3B8', fontSize: '12px' }}>
                             <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: item.color, border: item.border, flexShrink: 0 }} />
@@ -355,12 +355,12 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                             bg = 'rgba(21,128,61,0.2)';
                             borderColor = '#15803D';
                             textColor = '#4ADE80';
-                            stateLabel = 'âœ“ DisponÃ­vel';
+                            stateLabel = '✓ Disponível';
                         } else if (state === 'red') {
                             bg = 'rgba(185,28,28,0.2)';
                             borderColor = '#B91C1C';
                             textColor = '#F87171';
-                            stateLabel = 'âœ— IndisponÃ­vel';
+                            stateLabel = '✗ Indisponível';
                         }
 
                         return (
@@ -396,7 +396,7 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                                     minWidth: '80px',
                                     textAlign: 'right',
                                 }}>
-                                    {!isPast && (stateLabel || 'PadrÃ£o')}
+                                    {!isPast && (stateLabel || 'Padrão')}
                                 </span>
                             </div>
                         );
@@ -418,12 +418,12 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                     }}>
                         {greenCount > 0 && (
                             <span style={{ color: '#4ADE80', fontSize: '13px', fontWeight: 600 }}>
-                                âœ“ {greenCount} semana{greenCount !== 1 ? 's' : ''} confirmada{greenCount !== 1 ? 's' : ''}
+                                ✓ {greenCount} semana{greenCount !== 1 ? 's' : ''} confirmada{greenCount !== 1 ? 's' : ''}
                             </span>
                         )}
                         {redCount > 0 && (
                             <span style={{ color: '#F87171', fontSize: '13px', fontWeight: 600 }}>
-                                âœ— {redCount} semana{redCount !== 1 ? 's' : ''} indisponÃ­vel{redCount !== 1 ? 'eis' : ''}
+                                ✗ {redCount} semana{redCount !== 1 ? 's' : ''} indisponível{redCount !== 1 ? 'eis' : ''}
                             </span>
                         )}
                     </div>
@@ -451,20 +451,20 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                         }}
                     >
                         {status === 'saving'
-                            ? 'â³ Salvando...'
+                            ? '⏳ Salvando...'
                             : status === 'saved'
-                                ? 'âœ… Salvo com sucesso!'
-                                : 'ðŸ’¾ Salvar disponibilidade'}
+                                ? '✅ Salvo com sucesso!'
+                                : '💾 Salvar disponibilidade'}
                     </button>
 
                     {status === 'saved' && (
                         <p style={{ color: '#4ADE80', fontSize: '13px', margin: '10px 0 0' }}>
-                            Suas preferÃªncias foram registradas e jÃ¡ estÃ£o ativas.
+                            Suas preferências foram registradas e já estão ativas.
                         </p>
                     )}
 
                     <p style={{ color: '#475569', fontSize: '11px', marginTop: '16px' }}>
-                        As alteraÃ§Ãµes afetam apenas as designaÃ§Ãµes desta congregaÃ§Ã£o.
+                        As alterações afetam apenas as designações desta congregação.
                     </p>
                 </div>
             </div>
@@ -479,7 +479,7 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                     for (const { part } of pendingImpediments.impediments) {
                         try {
                             await workbookManagementService.updatePart(part.id, { resolvedPublisherName: '', status: 'PENDENTE' });
-                        } catch { /* melhor esforÃ§o */ }
+                        } catch { /* melhor esforço */ }
                     }
                     await pendingImpediments.proceedSave();
                 }}
