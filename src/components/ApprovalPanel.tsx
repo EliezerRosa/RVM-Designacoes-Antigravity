@@ -7,6 +7,7 @@ import { workbookOverviewQueryService } from '../services/workbookOverviewQueryS
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
 import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
+import { isManuallyAssignable } from '../constants/s140Template';
 import { usePersistedState } from '../hooks/usePersistedState';
 
 interface ApprovalPanelProps {
@@ -101,6 +102,10 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                 const d = parseDate(p.date);
                 return d >= monday;
             });
+
+            // Esconder partes automáticas / não-designáveis (cânticos, orações,
+            // comentários do presidente etc.) — nunca são aprovadas/rejeitadas/concluídas pelo usuário.
+            data = data.filter(p => isManuallyAssignable(p.tipoParte));
 
             // Ordenar por data
             data.sort((a, b) => {

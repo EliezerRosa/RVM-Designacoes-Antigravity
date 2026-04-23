@@ -69,6 +69,7 @@ export default function TemporalChat({
     const [input, setInputRaw] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const chatRootRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const lastCommandRef = useRef<string | null>(null);
 
@@ -672,6 +673,24 @@ export default function TemporalChat({
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // Scroll to bottom when the chat column becomes visible (mobile snap-scroll
+    // entre colunas, ou retorno ao tab "agent" no desktop).
+    useEffect(() => {
+        const root = chatRootRef.current;
+        if (!root || typeof IntersectionObserver === 'undefined') return;
+        const observer = new IntersectionObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                    requestAnimationFrame(() => {
+                        messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+                    });
+                }
+            }
+        }, { threshold: [0.5] });
+        observer.observe(root);
+        return () => observer.disconnect();
+    }, []);
 
     // Timer to update UI for local rate limit (every second)
     useEffect(() => {
@@ -1318,7 +1337,7 @@ export default function TemporalChat({
     }, [sessionId, initialCommand, isLoading, isWorkbookLoading, parts.length, messages.length === 0, currentWeekId]);
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        <div ref={chatRootRef} style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
             <IntentContextBar
                 currentWeekId={currentWeekId}

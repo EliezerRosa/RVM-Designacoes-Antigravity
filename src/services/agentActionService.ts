@@ -21,6 +21,7 @@ import { engineConfigService } from './engineConfigService';
 import { workbookManagementService } from './workbookManagementService';
 import { specialEventManagementService } from './specialEventManagementService';
 import { permissionPolicyService } from './permissionPolicyService';
+import { isManuallyAssignable } from '../constants/s140Template';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -341,6 +342,11 @@ export const agentActionService = {
                         return { success: false, message: 'Faltam parâmetros: partId e elderId.' };
                     }
 
+                    const proposalPart = parts.find(p => p.id === partId);
+                    if (proposalPart && !isManuallyAssignable(proposalPart.tipoParte)) {
+                        return { success: false, message: `"${proposalPart.tituloParte || proposalPart.tipoParte}" é uma parte automática/não-designável; não passa por aprovação.` };
+                    }
+
                     const approvedPart = await workbookLifecycleService.approveProposal(partId, elderId);
                     return {
                         success: true,
@@ -369,6 +375,11 @@ export const agentActionService = {
                     const { partId } = action.params;
                     if (!partId) {
                         return { success: false, message: 'Falta o parâmetro partId.' };
+                    }
+
+                    const completePartCheck = parts.find(p => p.id === partId);
+                    if (completePartCheck && !isManuallyAssignable(completePartCheck.tipoParte)) {
+                        return { success: false, message: `"${completePartCheck.tituloParte || completePartCheck.tipoParte}" é automática/não-designável; não requer marcação de conclusão.` };
                     }
 
                     const completedPart = await workbookLifecycleService.completePart(partId);
@@ -755,6 +766,9 @@ export const agentActionService = {
                     if (!simPart) {
                         return { success: false, message: `Parte não encontrada para simulação (ID: ${simPartId})` };
                     }
+                    if (!isManuallyAssignable(simPart.tipoParte)) {
+                        return { success: false, message: `"${simPart.tituloParte || simPart.tipoParte}" é uma parte automática/não-designável; não pode ser simulada.` };
+                    }
                     const simPub = publishers.find(p => p.name.toLowerCase().includes((simPubName || '').toLowerCase().trim()));
                     if (!simPub && simPubName) {
                         return { success: false, message: `Publicador '${simPubName}' não encontrado para simulação.` };
@@ -827,6 +841,10 @@ export const agentActionService = {
 
                     if (!targetPart) {
                         return { success: false, message: `Parte não encontrada (ID: ${partId} | Nome: ${partName})` };
+                    }
+
+                    if (!isManuallyAssignable(targetPart.tipoParte)) {
+                        return { success: false, message: `"${targetPart.tituloParte || targetPart.tipoParte}" é uma parte automática/não-designável (ex.: cânticos, orações, comentários do presidente). Não pode ser designada manualmente.` };
                     }
 
                     // === RESOLUÇÃO DE PUBLICADOR (UUID-first) ===
