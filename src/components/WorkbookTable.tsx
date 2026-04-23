@@ -118,7 +118,11 @@ export function WorkbookTable({
                                 title={isPast ? '📅 Semana passada' : ''}
                             >
                                 <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>
-                                    <div style={{ fontSize: '10px', color: '#6B7280', marginBottom: '2px' }}>{part.year}</div>
+                                    <div style={{ fontSize: '10px', color: '#6B7280', marginBottom: '2px' }}>
+                                        {part.year
+                                            || (part.date ? new Date(part.date).getFullYear() : '')
+                                            || (part.weekId ? part.weekId.split('-')[0] : '')}
+                                    </div>
                                     <div>{part.weekDisplay}</div>
                                 </td>
                                 <td style={{ padding: '4px', fontSize: '11px', color: '#374151', fontWeight: '500' }}>{part.section}</td>
