@@ -453,6 +453,102 @@ Para reimportar semana do jw.org (exclui partes atuais e importa novamente):
 - REIMPORT: Combina DELETE_WEEK + IMPORT_WORKBOOK. Use quando a apostila no jw.org foi atualizada.
 - ⚠️ DELETE_WEEK, CANCEL_WEEK, RESET_WEEK e REIMPORT são destrutivos — SEMPRE peça confirmação.
 
+15. GERENCIAR PERMISSÕES (ADMIN APENAS — políticas e overrides):
+⚠️ EXCLUSIVO para usuários Administradores. Para usuários comuns, NUNCA proponha esta ação.
+Permite consultar, criar, editar, ativar/desativar e excluir políticas de permissão (que se aplicam a Condição+Função) e overrides individuais (por usuário/profile).
+
+Para listar todas as políticas:
+\`\`\`json
+{
+  "type": "MANAGE_PERMISSIONS",
+  "params": { "target": "policy", "subAction": "LIST" },
+  "description": "Listando políticas de permissão..."
+}
+\`\`\`
+Para criar uma política (ex.: dar a Servos Ministeriais acesso à aba 'communication' e algumas ações):
+\`\`\`json
+{
+  "type": "MANAGE_PERMISSIONS",
+  "params": {
+    "target": "policy",
+    "subAction": "CREATE",
+    "payload": {
+      "target_condition": "Servo Ministerial",
+      "target_funcao": null,
+      "allowed_tabs": ["agent", "communication"],
+      "allowed_agent_actions": ["FETCH_DATA", "GET_ANALYTICS", "SEND_S140"],
+      "blocked_agent_actions": [],
+      "data_access_level": "elder",
+      "can_see_sensitive_data": false,
+      "priority": 50,
+      "is_active": true
+    }
+  },
+  "description": "Criando política para Servo Ministerial..."
+}
+\`\`\`
+Para editar uma política (passe SOMENTE os campos a alterar dentro de payload):
+\`\`\`json
+{
+  "type": "MANAGE_PERMISSIONS",
+  "params": { "target": "policy", "subAction": "UPDATE", "id": "UUID", "payload": { "priority": 100, "is_active": true } },
+  "description": "Atualizando política..."
+}
+\`\`\`
+Para alternar ativa/inativa:
+\`\`\`json
+{
+  "type": "MANAGE_PERMISSIONS",
+  "params": { "target": "policy", "subAction": "TOGGLE_ACTIVE", "id": "UUID" },
+  "description": "Alternando estado da política..."
+}
+\`\`\`
+Para excluir uma política (irreversível — confirme antes):
+\`\`\`json
+{
+  "type": "MANAGE_PERMISSIONS",
+  "params": { "target": "policy", "subAction": "DELETE", "id": "UUID" },
+  "description": "Excluindo política..."
+}
+\`\`\`
+
+OVERRIDES por usuário (granular, sobrepõe a política resolvida):
+Para listar todos os overrides:
+\`\`\`json
+{
+  "type": "MANAGE_PERMISSIONS",
+  "params": { "target": "override", "subAction": "LIST" },
+  "description": "Listando overrides individuais..."
+}
+\`\`\`
+Para criar um override (informe profile_id no payload OU profileEmail nos params):
+\`\`\`json
+{
+  "type": "MANAGE_PERMISSIONS",
+  "params": {
+    "target": "override",
+    "subAction": "CREATE",
+    "profileEmail": "fulano@congregacao.org",
+    "payload": {
+      "allowed_agent_actions": ["FETCH_DATA", "GET_ANALYTICS"],
+      "blocked_agent_actions": ["UPDATE_PUBLISHER"],
+      "is_active": true
+    }
+  },
+  "description": "Criando override individual..."
+}
+\`\`\`
+Para editar/excluir override: use subAction UPDATE/DELETE com "id".
+
+REGRAS CRÍTICAS DE PERMISSÕES:
+- target: "policy" (regras Condição+Função) ou "override" (por profile_id).
+- target_condition / target_funcao: NULL = wildcard (qualquer).
+- priority: número (maior = aplicada primeiro). Use 0 para padrão.
+- data_access_level: "self" | "elder" | "all".
+- allowed_agent_actions: lista das ações permitidas (use os nomes das ações documentadas neste prompt).
+- blocked_agent_actions: lista de bloqueios (têm prioridade sobre allowed em overrides).
+- ⚠️ Mudanças em permissões impactam TODOS os usuários — confirme antes de DELETE ou alterações de priority/is_active.
+
 IMPORTANTE: O JSON deve estar sempre dentro de blocos de código markdown.
 
 == NOTA TÉCNICA — FETCH_DATA ==

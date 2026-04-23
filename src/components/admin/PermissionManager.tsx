@@ -60,16 +60,26 @@ const ALL_ACTIONS = [
     'SEND_S140', 'SEND_S89', 'FETCH_DATA', 'SIMULATE_ASSIGNMENT',
     'NOTIFY_REFUSAL', 'SHOW_MODAL', 'MANAGE_LOCAL_NEEDS', 'GET_ANALYTICS',
     'IMPORT_WORKBOOK', 'MANAGE_WORKBOOK_PART', 'MANAGE_WORKBOOK_WEEK',
+    'MANAGE_PERMISSIONS',
 ] as const;
 
 const CONDITIONS = ['Ancião', 'Servo Ministerial', 'Publicador'];
-const FUNCOES = [
+const FUNCOES_ANCIAO = [
     'Coordenador do Corpo de Anciãos',
     'Secretário',
     'Superintendente de Serviço',
     'Superintendente da Reunião Vida e Ministério',
     'Ajudante do Superintendente da Reunião Vida e Ministério',
 ];
+const FUNCOES_SERVO = [
+    'Ajudante do Superintendente da Reunião Vida e Ministério',
+];
+function getFuncoesForCondition(condition: string | null): string[] {
+    if (condition === 'Ancião') return FUNCOES_ANCIAO;
+    if (condition === 'Servo Ministerial') return FUNCOES_SERVO;
+    if (!condition) return FUNCOES_ANCIAO; // wildcard: mostra superset
+    return [];
+}
 
 const DATA_ACCESS_LEVELS = ['all', 'filtered', 'self'] as const;
 
@@ -555,7 +565,17 @@ function PolicyEditor({ policy, onSave, onCancel }: {
                     <label style={labelStyle}>Condição</label>
                     <select
                         value={form.target_condition || ''}
-                        onChange={e => setForm({ ...form, target_condition: e.target.value || null })}
+                        onChange={e => {
+                            const newCondition = e.target.value || null;
+                            // Se a função atual não for válida para a nova condição, limpa-a
+                            const validFuncoes = getFuncoesForCondition(newCondition);
+                            const funcaoStillValid = !form.target_funcao || validFuncoes.includes(form.target_funcao);
+                            setForm({
+                                ...form,
+                                target_condition: newCondition,
+                                target_funcao: funcaoStillValid ? form.target_funcao : null,
+                            });
+                        }}
                         style={selectStyle}
                     >
                         <option value="">* Qualquer</option>
@@ -568,9 +588,11 @@ function PolicyEditor({ policy, onSave, onCancel }: {
                         value={form.target_funcao || ''}
                         onChange={e => setForm({ ...form, target_funcao: e.target.value || null })}
                         style={selectStyle}
+                        disabled={form.target_condition === 'Publicador'}
+                        title={form.target_condition === 'Publicador' ? 'Publicador não possui função no corpo' : ''}
                     >
                         <option value="">* Qualquer</option>
-                        {FUNCOES.map(f => <option key={f} value={f}>{f}</option>)}
+                        {getFuncoesForCondition(form.target_condition).map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
                 </div>
                 <div>

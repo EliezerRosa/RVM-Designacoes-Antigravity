@@ -102,6 +102,7 @@ const FULL_ADMIN_PERMISSIONS: ResolvedPermissions = {
         'SEND_S140', 'SEND_S89', 'FETCH_DATA', 'SIMULATE_ASSIGNMENT',
         'NOTIFY_REFUSAL', 'SHOW_MODAL', 'MANAGE_LOCAL_NEEDS', 'GET_ANALYTICS',
         'IMPORT_WORKBOOK', 'MANAGE_WORKBOOK_PART', 'MANAGE_WORKBOOK_WEEK',
+        'MANAGE_PERMISSIONS',
     ]),
     blockedActions: new Set(),
     dataAccessLevel: 'all',

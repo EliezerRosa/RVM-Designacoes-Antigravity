@@ -160,6 +160,27 @@ export function useTemporalChatSemanticControls({
             });
         }
 
+        if (canExecute('MANAGE_PERMISSIONS')) {
+            chips.push({
+                id: 'chip-list-policies',
+                label: 'Políticas',
+                onClick: () => void executeDirectAction({
+                    type: 'MANAGE_PERMISSIONS',
+                    params: { target: 'policy', subAction: 'LIST' },
+                    description: 'Listando políticas de permissão'
+                }, 'Permissões e visibilidade')
+            });
+            chips.push({
+                id: 'chip-list-overrides',
+                label: 'Overrides',
+                onClick: () => void executeDirectAction({
+                    type: 'MANAGE_PERMISSIONS',
+                    params: { target: 'override', subAction: 'LIST' },
+                    description: 'Listando overrides de permissão'
+                }, 'Permissões e visibilidade')
+            });
+        }
+
         return chips;
     }, [currentWeekId, canSendZap, currentWeekProposals, canSeeApprovalMicroUi, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, canExecute, handleShareS140, executeDirectAction, openApprovalMicroUi, openAvailabilityMicroUi, openCompletionMicroUi, openPublisherEditMicroUi, sendMessage]);
 
@@ -352,6 +373,44 @@ export function useTemporalChatSemanticControls({
                         params: {},
                         description: 'Desfazendo última ação'
                     }, 'Recuperação e ajuste');
+                }
+            },
+            {
+                id: 'cmd-listar-politicas',
+                command: '/listar-politicas',
+                description: '[Admin] Lista todas as políticas de permissão',
+                requiredAction: 'MANAGE_PERMISSIONS',
+                onSelect: () => {
+                    setInput('');
+                    void executeDirectAction({
+                        type: 'MANAGE_PERMISSIONS',
+                        params: { target: 'policy', subAction: 'LIST' },
+                        description: 'Listando políticas de permissão'
+                    }, 'Permissões e visibilidade');
+                }
+            },
+            {
+                id: 'cmd-listar-overrides',
+                command: '/listar-overrides',
+                description: '[Admin] Lista todos os overrides individuais de permissão',
+                requiredAction: 'MANAGE_PERMISSIONS',
+                onSelect: () => {
+                    setInput('');
+                    void executeDirectAction({
+                        type: 'MANAGE_PERMISSIONS',
+                        params: { target: 'override', subAction: 'LIST' },
+                        description: 'Listando overrides individuais'
+                    }, 'Permissões e visibilidade');
+                }
+            },
+            {
+                id: 'cmd-criar-politica',
+                command: '/criar-politica',
+                description: '[Admin] Inicia a criação de uma nova política de permissão',
+                requiredAction: 'MANAGE_PERMISSIONS',
+                onSelect: () => {
+                    setInput('Crie uma nova política de permissão. Pergunte: condição-alvo, função-alvo, abas permitidas, ações permitidas, prioridade. Ao final, monte o JSON MANAGE_PERMISSIONS.');
+                    inputRef.current?.focus();
                 }
             }
         ];
