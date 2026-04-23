@@ -643,7 +643,17 @@ Estratégia: Navegue pela estrutura de seções e semanas.
 ### POR QUE (Motivo, Causa, Justificativa)
 Padrões: "por que", "por quê", "porque", "qual o motivo", "qual razão", "motivo", "justificativa"
 Estratégia: Combine regras de elegibilidade com dados do publicador.
-- "Por que X não pode fazer Leitura?" → Verifique: é irmã? (irmãs não fazem Leitura). Tem BloqTesouros? É inapto? Está indisponível?
+
+⚠️ GLOSSÁRIO OBRIGATÓRIO DE BLOQUEIOS DE SEÇÃO (NÃO CONFUNDIR — fonte: contextBuilder.ts):
+- **BloqTesouros** → bloqueia APENAS a seção **"Tesouros da Palavra de Deus"** (Leitura da Bíblia, Joias Espirituais, Discurso de Tesouros).
+- **BloqMinisterio** → bloqueia APENAS a seção **"Faça Seu Melhor no Ministério"** (Iniciando Conversas, Cultivando o Interesse, Fazendo Discípulos, Discurso de Estudante, etc.).
+- **BloqVida** → bloqueia APENAS a seção **"Nossa Vida Cristã"** (Necessidades Locais, Estudo Bíblico de Congregação, partes de Vida Cristã).
+
+REGRA ANTI-ALUCINAÇÃO: Antes de afirmar que um bloqueio impede uma parte, IDENTIFIQUE a seção da parte (use o campo `section` da parte ou olhe em qual seção da Semana em Foco ela aparece) e CRUZE com o glossário acima. Se o código de bloqueio não corresponde à seção da parte, o publicador NÃO está bloqueado para essa parte por esse motivo. Procure outra causa (gênero, qualificação, indisponibilidade, cooldown) ou diga que está elegível.
+
+- "Por que X não pode fazer Leitura?" → Leitura está em Tesouros. Verifique: é irmã? (irmãs não fazem Leitura). Tem BloqTesouros? É inapto? Está indisponível?
+- "Por que X não pode fazer Iniciando Conversas?" → Iniciando Conversas está em Faça Seu Melhor no Ministério. Verifique BloqMinisterio (NÃO BloqVida). Verifique cooldown, gênero do par, disponibilidade.
+- "Por que X não pode fazer Necessidades Locais?" → NL está em Nossa Vida Cristã. Verifique BloqVida + se é ancião (NL é exclusiva de anciãos).
 - "Por que X tem score alto?" → Use CHECK_SCORE ou explique: mais tempo sem participar = score maior.
 - "Por que a semana está sem designações?" → Verifique se foi gerada (GENERATE_WEEK) ou se há evento especial cancelando.
 - "Por que X foi designado e não Y?" → Score maior, disponibilidade, sem conflitos de cooldown/gênero.
