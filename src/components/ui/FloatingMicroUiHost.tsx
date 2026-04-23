@@ -23,6 +23,7 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
     const itemIds = useMemo(() => items.map(item => item.id), [items]);
     const anchorRef = useRef<HTMLDivElement>(null);
     const [anchorRect, setAnchorRect] = useState<{ right: number; bottom: number; width: number } | null>(null);
+    const [isAnchorVisible, setIsAnchorVisible] = useState(true);
 
     const updateRect = useCallback(() => {
         const el = anchorRef.current?.parentElement;
@@ -44,6 +45,33 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
         window.addEventListener('resize', updateRect);
         return () => { ro.disconnect(); window.removeEventListener('resize', updateRect); };
     }, [updateRect]);
+
+    // Esconde os painéis quando a coluna do chat-agente não está visível (snap-scroll mobile entre colunas).
+    // Reexibe automaticamente ao voltar.
+    useEffect(() => {
+        const el = anchorRef.current?.parentElement;
+        if (!el || typeof IntersectionObserver === 'undefined') return;
+        const io = new IntersectionObserver(
+            entries => {
+                const entry = entries[0];
+                if (!entry) return;
+                // Considera visível se ao menos 35% da coluna do chat está dentro do viewport.
+                setIsAnchorVisible(entry.isIntersecting && entry.intersectionRatio >= 0.35);
+            },
+            { threshold: [0, 0.35, 0.6, 1] }
+        );
+        io.observe(el);
+        // Também monitora scroll horizontal do container pai (snap-scroll do agent-tab-container).
+        const scrollParent = el.closest('.agent-tab-container');
+        const onScroll = () => {
+            const rect = el.getBoundingClientRect();
+            const visibleW = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
+            const ratio = visibleW > 0 ? visibleW / Math.max(1, rect.width) : 0;
+            setIsAnchorVisible(ratio >= 0.35);
+        };
+        scrollParent?.addEventListener('scroll', onScroll, { passive: true });
+        return () => { io.disconnect(); scrollParent?.removeEventListener('scroll', onScroll); };
+    }, []);
 
     useEffect(() => {
         const previousIds = previousIdsRef.current;
@@ -115,7 +143,7 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
             right: `${anchorRect.right}px`,
             bottom: `${anchorRect.bottom}px`,
             zIndex: 10000,
-            display: 'flex',
+            display: isAnchorVisible ? 'flex' : 'none',
             flexDirection: 'column',
             alignItems: 'flex-end',
             gap: '10px',
@@ -268,7 +296,7 @@ export function FloatingMicroUiHost({ items, requestedOpenId = null, requestNonc
                             </div>
                         </div>
 
-                        <div style={{ overflowY: 'auto', paddingBottom: '4px' }}>
+                        <div style={{ overflowY: 'auto', overflowX: 'hidden', paddingBottom: '4px', maxWidth: '100%', wordBreak: 'break-word' }}>
                             {item.content}
                         </div>
                     </div>
