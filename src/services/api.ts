@@ -114,6 +114,55 @@ export const api = {
         return publisher;
     },
 
+    /**
+     * Submit availability changes from the public portal using a token-based RPC.
+     * Bypasses RLS via SECURITY DEFINER function in Supabase, which validates the
+     * token against app_settings.availability_tokens before writing to publishers.
+     */
+    async submitPublisherAvailability(
+        token: string,
+        availability: Publisher['availability']
+    ): Promise<{ success: boolean; error?: string; publisherId?: string }> {
+        const { data, error } = await supabase.rpc('submit_publisher_availability', {
+            p_token: token,
+            p_availability: availability ?? {},
+        });
+
+        if (error) {
+            console.error('[API] submitPublisherAvailability RPC error:', error);
+            return { success: false, error: error.message };
+        }
+
+        const result = (data ?? {}) as { success?: boolean; error?: string; publisherId?: string };
+        if (!result.success) {
+            console.warn('[API] submitPublisherAvailability rejected:', result.error);
+        }
+        return {
+            success: !!result.success,
+            error: result.error,
+            publisherId: result.publisherId,
+        };
+    },
+
+    /**
+     * Loads a single publisher fresh from DB by id (no cache). Used by the
+     * availability portal to confirm persistence after save and to always show
+     * the most recent server state on link open.
+     */
+    async loadPublisherById(publisherId: string): Promise<Publisher | null> {
+        const { data, error } = await supabase
+            .from('publishers')
+            .select('id, data')
+            .eq('id', publisherId)
+            .maybeSingle();
+
+        if (error) {
+            console.error('[API] loadPublisherById error:', error);
+            return null;
+        }
+        return (data?.data as Publisher) ?? null;
+    },
+
     // ===== REALTIME SUBSCRIPTIONS =====
     subscribeToPublishers(onUpdate: (publishers: Publisher[]) => void): () => void {
         console.log('[REALTIME] Subscribing to publishers changes...');

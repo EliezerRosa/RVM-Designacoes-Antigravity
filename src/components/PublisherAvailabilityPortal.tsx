@@ -165,25 +165,24 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                 const pub = publishers.find(p => p.id === found.publisherId);
                 if (!pub) { setStatus('unauthorized'); return; }
 
-                setPublisher(pub);
+                // Always fetch the freshest single-row state by id to avoid any
+                // staleness from caches or in-flight realtime updates.
+                const fresh = await api.loadPublisherById(found.publisherId) ?? pub;
+                setPublisher(fresh);
 
-                // Derive initial week states from existing availability
+                // Derive initial week states from BOTH stored lists, independent
+                // of mode, so the portal always reflects what is in the DB.
                 const initial = new Map<string, WeekState>();
-                if (pub.availability) {
-                    const { mode, exceptionDates = [], availableDates = [] } = pub.availability;
-                    if (mode === 'always') {
-                        // Each stored exception = indisponível (red)
-                        exceptionDates.forEach(d => {
-                            const wid = getWeekMondayId(d); // normalise old Thursday IDs too
-                            if (weeks.some(w => w.weekId === wid)) initial.set(wid, 'red');
-                        });
-                    } else {
-                        // Each stored available = disponível (green)
-                        availableDates.forEach(d => {
-                            const wid = getWeekMondayId(d);
-                            if (weeks.some(w => w.weekId === wid)) initial.set(wid, 'green');
-                        });
-                    }
+                if (fresh.availability) {
+                    const { exceptionDates = [], availableDates = [] } = fresh.availability;
+                    exceptionDates.forEach(d => {
+                        const wid = getWeekMondayId(d);
+                        if (weeks.some(w => w.weekId === wid)) initial.set(wid, 'red');
+                    });
+                    availableDates.forEach(d => {
+                        const wid = getWeekMondayId(d);
+                        if (weeks.some(w => w.weekId === wid)) initial.set(wid, 'green');
+                    });
                 }
                 setWeekStates(initial);
                 setStatus('ready');
@@ -216,9 +215,9 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
         const redWeeks = Array.from(weekStates.entries()).filter(([, s]) => s === 'red').map(([d]) => d);
         const greenWeeks = Array.from(weekStates.entries()).filter(([, s]) => s === 'green').map(([d]) => d);
 
-        // For mode='always': exceptionDates = red weeks.
-        //   Keep exceptions from OUTSIDE our 2-month window so we don't wipe old data.
-        // For mode='never': availableDates = green weeks. Same logic for outside-window.
+        // Persist BOTH lists regardless of mode so the user's intent in this
+        // window is never silently dropped. Keep entries from OUTSIDE the
+        // current 2-month window untouched.
         const outsideWindowExceptions = (pub.availability?.exceptionDates ?? []).filter(d => {
             const wid = getWeekMondayId(d);
             return !weeks.some(w => w.weekId === wid);
@@ -232,12 +231,8 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
             ...pub,
             availability: {
                 mode,
-                exceptionDates: mode === 'always'
-                    ? [...outsideWindowExceptions, ...redWeeks].sort()
-                    : (pub.availability?.exceptionDates ?? []),
-                availableDates: mode === 'never'
-                    ? [...outsideWindowAvailables, ...greenWeeks].sort()
-                    : (pub.availability?.availableDates ?? []),
+                exceptionDates: [...outsideWindowExceptions, ...redWeeks].sort(),
+                availableDates: [...outsideWindowAvailables, ...greenWeeks].sort(),
             },
         };
     }, [weekStates, weeks]);
@@ -282,8 +277,27 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
     };
 
     const doSave = async (updated: Publisher) => {
-        await api.updatePublisher(updated);
-        setPublisher(updated);
+        if (!token) {
+            alert('Token ausente. Recarregue o link e tente novamente.');
+            setStatus('ready');
+            return;
+        }
+
+        // Use the SECURITY DEFINER RPC so the write is authoritative even when
+        // RLS on publishers blocks anonymous direct upserts.
+        const result = await api.submitPublisherAvailability(token, updated.availability);
+
+        if (!result.success) {
+            console.error('[AvailabilityPortal] RPC rejected save:', result.error);
+            setStatus('ready');
+            alert(`Não foi possível salvar: ${result.error ?? 'erro desconhecido'}`);
+            return;
+        }
+
+        // Confirm by reloading from DB so what the user sees matches what was persisted.
+        const refreshed = await api.loadPublisherById(updated.id);
+        if (refreshed) setPublisher(refreshed);
+
         setStatus('saved');
         setTimeout(() => setStatus('ready'), 3000);
     };
