@@ -19,17 +19,20 @@ import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { SpecialEventsManager } from './SpecialEventsManager';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
-export type FormTokenRole = 'publisher' | 'service_committee';
 export interface FormToken {
     token: string;
     label: string;
     createdAt: string;
     createdBy: string;
     active: boolean;
-    /** Define se o destinatário do link é publicador comum ou membro da Comissão de Serviço (CCA/SEC/SS).
-     *  Tokens 'service_committee' ganham acesso aos módulos de Necessidades Locais e Eventos Especiais. */
-    role?: FormTokenRole;
 }
+
+/**
+ * Todo link gerado em "Publicadores — Links de Form" é destinado à Comissão de Serviço
+ * (CCA / SEC / SS) + Admin. Por isso ganha acesso aos módulos de Necessidades Locais
+ * e Eventos Especiais. Links de Disponibilidade (outro card no admin) é que são
+ * restritos a publicadores comuns.
+ */
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 interface PublisherStatusFormProps {
@@ -74,7 +77,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
     const [modalDataLoading, setModalDataLoading] = useState(false);
     const [modalDataError, setModalDataError] = useState<string | null>(null);
 
-    const canManageCommittee = isAdminAccess || tokenInfo?.role === 'service_committee';
+    const canManageCommittee = authorized;
 
     const ensureWeeks = async () => {
         if (modalWeeks) return;
