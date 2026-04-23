@@ -10,18 +10,25 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
+import { supabase } from '../lib/supabase';
 import type { Publisher, WorkbookPart } from '../types';
 import { findPublisherImpediments, type ImpedimentEntry } from '../services/publisherImpedimentService';
 import { PublisherImpedimentModal } from './PublisherImpedimentModal';
 import { workbookManagementService } from '../services/workbookManagementService';
+import { LocalNeedsQueue } from './LocalNeedsQueue';
+import { SpecialEventsManager } from './SpecialEventsManager';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
+export type FormTokenRole = 'publisher' | 'service_committee';
 export interface FormToken {
     token: string;
     label: string;
     createdAt: string;
     createdBy: string;
     active: boolean;
+    /** Define se o destinatário do link é publicador comum ou membro da Comissão de Serviço (CCA/SEC/SS).
+     *  Tokens 'service_committee' ganham acesso aos módulos de Necessidades Locais e Eventos Especiais. */
+    role?: FormTokenRole;
 }
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -59,6 +66,43 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
         publisherName: string;
         proceedSave: () => Promise<void>;
     } | null>(null);
+
+    // ── Modais NL + Eventos (Admin OU token de Comissão de Serviço) ─────────────────
+    const [showLocalNeeds, setShowLocalNeeds] = useState(false);
+    const [showEvents, setShowEvents] = useState(false);
+    const [modalWeeks, setModalWeeks] = useState<{ weekId: string; display: string }[] | null>(null);
+    const [modalDataLoading, setModalDataLoading] = useState(false);
+    const [modalDataError, setModalDataError] = useState<string | null>(null);
+
+    const canManageCommittee = isAdminAccess || tokenInfo?.role === 'service_committee';
+
+    const ensureWeeks = async () => {
+        if (modalWeeks) return;
+        setModalDataLoading(true);
+        setModalDataError(null);
+        try {
+            const { data, error } = await supabase
+                .from('workbook_parts')
+                .select('week_id, date')
+                .order('week_id', { ascending: true });
+            if (error) throw error;
+            const seen = new Map<string, string>();
+            for (const row of (data || []) as Array<{ week_id: string; date: string | null }>) {
+                if (!row.week_id || seen.has(row.week_id)) continue;
+                const year = row.date ? new Date(row.date).getFullYear() : '';
+                seen.set(row.week_id, year ? `${row.week_id} (${year})` : row.week_id);
+            }
+            setModalWeeks(Array.from(seen.entries()).map(([weekId, display]) => ({ weekId, display })));
+        } catch (err) {
+            console.error('[PublisherStatusForm] Erro carregando semanas para NL/Eventos:', err);
+            setModalDataError(err instanceof Error ? err.message : 'Erro ao carregar dados.');
+        } finally {
+            setModalDataLoading(false);
+        }
+    };
+
+    const openLocalNeeds = async () => { await ensureWeeks(); setShowLocalNeeds(true); };
+    const openEvents = async () => { await ensureWeeks(); setShowEvents(true); };
 
     // ── Validate token ────────────────────────────────────────────────────
     useEffect(() => {
@@ -242,7 +286,37 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                         <div style={{ fontSize: '11px', color: '#10B981', marginTop: '2px' }}>Acesso de Administrador</div>
                     )}
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {canManageCommittee && (
+                        <>
+                            <button
+                                onClick={openLocalNeeds}
+                                disabled={modalDataLoading}
+                                title="Gerenciar fila de Necessidades Locais"
+                                style={{
+                                    background: '#F59E0B', color: 'white', border: 'none',
+                                    borderRadius: '8px', padding: '8px 14px', fontWeight: 600,
+                                    fontSize: '13px', cursor: modalDataLoading ? 'wait' : 'pointer',
+                                    opacity: modalDataLoading ? 0.7 : 1,
+                                }}
+                            >
+                                📋 Necessidades Locais
+                            </button>
+                            <button
+                                onClick={openEvents}
+                                disabled={modalDataLoading}
+                                title="Gerenciar Eventos Especiais"
+                                style={{
+                                    background: '#8B5CF6', color: 'white', border: 'none',
+                                    borderRadius: '8px', padding: '8px 14px', fontWeight: 600,
+                                    fontSize: '13px', cursor: modalDataLoading ? 'wait' : 'pointer',
+                                    opacity: modalDataLoading ? 0.7 : 1,
+                                }}
+                            >
+                                🎉 Eventos Especiais
+                            </button>
+                        </>
+                    )}
                     {changedCount > 0 && (
                         <span style={{
                             background: '#F59E0B',
@@ -290,6 +364,12 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                     {saveResult.errors.length === 0
                         ? `✅ ${saveResult.success} publicador(es) atualizado(s) com sucesso!`
                         : `⚠️ ${saveResult.success} salvo(s), ${saveResult.errors.length} com erro: ${saveResult.errors.join(', ')}`}
+                </div>
+            )}
+
+            {modalDataError && canManageCommittee && (
+                <div style={{ background: '#FEE2E2', color: '#991B1B', padding: '8px 20px', fontSize: '12px', fontWeight: 600 }}>
+                    ⚠️ {modalDataError}
                 </div>
             )}
 
@@ -578,6 +658,33 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                 onSaveOnly={() => { pendingImpediments.proceedSave(); }}
                 onCancel={() => { setPendingImpediments(null); }}
             />
+        )}
+
+        {showLocalNeeds && canManageCommittee && (
+            <div style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(0,0,0,0.5)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', zIndex: 9000,
+            }}>
+                <LocalNeedsQueue
+                    publishers={publishers.map(p => ({ id: p.id, name: p.name, condition: p.condition as string }))}
+                    availableWeeks={modalWeeks ?? []}
+                    onClose={() => setShowLocalNeeds(false)}
+                />
+            </div>
+        )}
+
+        {showEvents && canManageCommittee && (
+            <div style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'rgba(0,0,0,0.5)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', zIndex: 9000,
+            }}>
+                <SpecialEventsManager
+                    availableWeeks={modalWeeks ?? []}
+                    onClose={() => setShowEvents(false)}
+                />
+            </div>
         )}
         </>
     );

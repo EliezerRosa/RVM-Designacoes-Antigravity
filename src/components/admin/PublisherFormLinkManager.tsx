@@ -12,7 +12,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { supabase } from '../../lib/supabase';
-import type { FormToken } from '../PublisherStatusForm';
+import type { FormToken, FormTokenRole } from '../PublisherStatusForm';
 import { PublisherStatusForm } from '../PublisherStatusForm';
 import { LocalNeedsQueue } from '../LocalNeedsQueue';
 import { SpecialEventsManager } from '../SpecialEventsManager';
@@ -36,6 +36,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [newLabel, setNewLabel] = useState('');
+    const [newRole, setNewRole] = useState<FormTokenRole>('publisher');
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
 
@@ -116,9 +117,11 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                 createdAt: new Date().toISOString(),
                 createdBy: adminEmail || 'admin',
                 active: true,
+                role: newRole,
             };
             await persist([...tokens, newToken]);
             setNewLabel('');
+            setNewRole('publisher');
         } catch (err) {
             console.error('[LinkManager] Generate error:', err);
         } finally {
@@ -290,6 +293,22 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                             background: 'white',
                         }}
                     />
+                    <select
+                        value={newRole}
+                        onChange={e => setNewRole(e.target.value as FormTokenRole)}
+                        title="Define o nível de acesso do destinatário deste link"
+                        style={{
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '7px',
+                            padding: '8px 10px',
+                            fontSize: '13px',
+                            background: 'white',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <option value="publisher">👤 Publicador (apenas atualização)</option>
+                        <option value="service_committee">🛡️ Comissão de Serviço (+ NL e Eventos)</option>
+                    </select>
                     <button
                         onClick={handleGenerate}
                         disabled={!newLabel.trim() || saving}
@@ -426,8 +445,16 @@ function TokenRow({
         }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: revoked ? '#94A3B8' : '#1E293B', marginBottom: '3px' }}>
-                        {revoked ? '🚫 ' : '🔗 '}{token.label}
+                    <div style={{ fontWeight: 700, color: revoked ? '#94A3B8' : '#1E293B', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>{revoked ? '🚫 ' : '🔗 '}{token.label}</span>
+                        {token.role === 'service_committee' && (
+                            <span style={{
+                                background: '#EDE9FE', color: '#5B21B6', border: '1px solid #C4B5FD',
+                                borderRadius: '999px', padding: '1px 8px', fontSize: '10px', fontWeight: 700,
+                            }}>
+                                🛡️ Comissão de Serviço
+                            </span>
+                        )}
                     </div>
                     <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '6px' }}>
                         Criado por <strong>{token.createdBy}</strong> em {new Date(token.createdAt).toLocaleString('pt-BR')}
