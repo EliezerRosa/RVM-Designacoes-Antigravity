@@ -395,7 +395,14 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
         const weeksMap = new Map<string, { weekId: string; weekDisplay: string; year: number }>();
         parts.forEach(p => {
             if (!weeksMap.has(p.weekId)) {
-                weeksMap.set(p.weekId, { weekId: p.weekId, weekDisplay: p.weekDisplay, year: p.year || 0 });
+                const fallbackYear = p.date
+                    ? new Date(p.date).getFullYear()
+                    : (p.weekId ? parseInt(p.weekId.split('-')[0], 10) : 0);
+                weeksMap.set(p.weekId, {
+                    weekId: p.weekId,
+                    weekDisplay: p.weekDisplay,
+                    year: p.year || fallbackYear || 0,
+                });
             }
         });
         return Array.from(weeksMap.values()).sort((a, b) => a.weekId.localeCompare(b.weekId));
