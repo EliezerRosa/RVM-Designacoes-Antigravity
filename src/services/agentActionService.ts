@@ -20,6 +20,7 @@ import { workbookLifecycleService } from './workbookLifecycleService';
 import { engineConfigService } from './engineConfigService';
 import { workbookManagementService } from './workbookManagementService';
 import { specialEventManagementService } from './specialEventManagementService';
+import { permissionPolicyService } from './permissionPolicyService';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -49,7 +50,8 @@ export type AgentActionType =
     | 'GET_ANALYTICS'
     | 'IMPORT_WORKBOOK'
     | 'MANAGE_WORKBOOK_PART'
-    | 'MANAGE_WORKBOOK_WEEK';
+    | 'MANAGE_WORKBOOK_WEEK'
+    | 'MANAGE_PERMISSIONS';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -1229,6 +1231,211 @@ export const agentActionService = {
                     } catch (e: any) {
                         console.error('[AgentAction] MANAGE_WORKBOOK_WEEK error:', e);
                         return { success: false, message: `Erro ao gerenciar semana: ${e?.message || 'Desconhecido'}` };
+                    }
+                }
+
+                case 'MANAGE_PERMISSIONS': {
+                    // Defesa em profundidade: somente Admin pode gerenciar permissões via chat
+                    if (!gate.isFullAdmin()) {
+                        return { success: false, message: 'Apenas o Administrador pode gerenciar políticas e overrides de permissões.' };
+                    }
+
+                    const { target, subAction, id, profileEmail, payload } = action.params || {};
+                    const t = String(target || '').toLowerCase();
+                    const sub = String(subAction || '').toUpperCase();
+
+                    try {
+                        // ===== POLICIES =====
+                        if (t === 'policy' || t === 'policies') {
+                            switch (sub) {
+                                case 'LIST': {
+                                    const list = await permissionPolicyService.listPolicies();
+                                    const summary = list.map(p =>
+                                        `• [${p.is_active ? 'ativa' : 'inativa'}] (#${p.priority}) ${p.target_condition || '*'} / ${p.target_funcao || '*'} → tabs:[${p.allowed_tabs.join(',') || '∅'}] actions:[${p.allowed_agent_actions.length}] blocked:[${p.blocked_agent_actions.length}] data:${p.data_access_level}${p.can_see_sensitive_data ? ' +sensitive' : ''}  · id=${p.id}`
+                                    ).join('\n');
+                                    return {
+                                        success: true,
+                                        message: `**Políticas de Permissão (${list.length}):**\n${summary || '(nenhuma política cadastrada)'}`,
+                                        data: { policies: list },
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                case 'GET': {
+                                    if (!id) return { success: false, message: 'Falta o id da política.' };
+                                    const p = await permissionPolicyService.getPolicy(id);
+                                    if (!p) return { success: false, message: `Política ${id} não encontrada.` };
+                                    return { success: true, message: `Política ${id} obtida.`, data: { policy: p }, actionType: 'MANAGE_PERMISSIONS' };
+                                }
+                                case 'CREATE': {
+                                    if (!payload || typeof payload !== 'object') return { success: false, message: 'Falta o payload da política.' };
+                                    const created = await permissionPolicyService.createPolicy(payload);
+                                    await auditService.logAction({
+                                        table_name: 'permission_policies',
+                                        record_id: created.id,
+                                        operation: 'AGENT_INTENT',
+                                        new_data: created as any,
+                                        description: `CREATE policy ${created.target_condition || '*'}/${created.target_funcao || '*'}`
+                                    });
+                                    return {
+                                        success: true,
+                                        message: `**Política criada** (id=${created.id}, prio=${created.priority}) — alvo: ${created.target_condition || '*'} / ${created.target_funcao || '*'}.`,
+                                        data: { policy: created },
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                case 'UPDATE': {
+                                    if (!id) return { success: false, message: 'Falta o id da política.' };
+                                    if (!payload || typeof payload !== 'object') return { success: false, message: 'Falta o payload com alterações.' };
+                                    const before = await permissionPolicyService.getPolicy(id);
+                                    if (!before) return { success: false, message: `Política ${id} não encontrada.` };
+                                    const updated = await permissionPolicyService.updatePolicy(id, payload);
+                                    await auditService.logAction({
+                                        table_name: 'permission_policies',
+                                        record_id: id,
+                                        operation: 'AGENT_INTENT',
+                                        new_data: { before, after: updated } as any,
+                                        description: 'UPDATE policy'
+                                    });
+                                    return {
+                                        success: true,
+                                        message: `**Política atualizada** (id=${id}).`,
+                                        data: { policy: updated },
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                case 'DELETE': {
+                                    if (!id) return { success: false, message: 'Falta o id da política.' };
+                                    const before = await permissionPolicyService.getPolicy(id);
+                                    if (!before) return { success: false, message: `Política ${id} não encontrada.` };
+                                    await permissionPolicyService.deletePolicy(id);
+                                    await auditService.logAction({
+                                        table_name: 'permission_policies',
+                                        record_id: id,
+                                        operation: 'AGENT_INTENT',
+                                        new_data: { deleted: before } as any,
+                                        description: 'DELETE policy'
+                                    });
+                                    return {
+                                        success: true,
+                                        message: `**Política removida** (id=${id}).`,
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                case 'TOGGLE_ACTIVE':
+                                case 'TOGGLE': {
+                                    if (!id) return { success: false, message: 'Falta o id da política.' };
+                                    const updated = await permissionPolicyService.togglePolicy(id);
+                                    await auditService.logAction({
+                                        table_name: 'permission_policies',
+                                        record_id: id,
+                                        operation: 'AGENT_INTENT',
+                                        new_data: { is_active: updated.is_active } as any,
+                                        description: `TOGGLE policy → ${updated.is_active ? 'ATIVA' : 'INATIVA'}`
+                                    });
+                                    return {
+                                        success: true,
+                                        message: `Política ${id} agora está **${updated.is_active ? 'ATIVA' : 'INATIVA'}**.`,
+                                        data: { policy: updated },
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                default:
+                                    return { success: false, message: `subAction inválida para policies: "${sub}". Use LIST, GET, CREATE, UPDATE, DELETE ou TOGGLE_ACTIVE.` };
+                            }
+                        }
+
+                        // ===== OVERRIDES =====
+                        if (t === 'override' || t === 'overrides') {
+                            switch (sub) {
+                                case 'LIST': {
+                                    const list = await permissionPolicyService.listOverrides();
+                                    const summary = list.map(o =>
+                                        `• [${o.is_active ? 'ativo' : 'inativo'}] profile=${o.profile_id} tabs:[${(o.allowed_tabs || []).join(',') || '—'}] +actions:[${(o.allowed_agent_actions || []).length}] −actions:[${(o.blocked_agent_actions || []).length}] data:${o.data_access_level || '—'} · id=${o.id}`
+                                    ).join('\n');
+                                    return {
+                                        success: true,
+                                        message: `**Overrides de Permissão (${list.length}):**\n${summary || '(nenhum override cadastrado)'}`,
+                                        data: { overrides: list },
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                case 'GET': {
+                                    if (!id) return { success: false, message: 'Falta o id do override.' };
+                                    const o = await permissionPolicyService.getOverride(id);
+                                    if (!o) return { success: false, message: `Override ${id} não encontrado.` };
+                                    return { success: true, message: `Override ${id} obtido.`, data: { override: o }, actionType: 'MANAGE_PERMISSIONS' };
+                                }
+                                case 'CREATE': {
+                                    if (!payload || typeof payload !== 'object') return { success: false, message: 'Falta o payload do override.' };
+                                    let profileId: string | undefined = payload.profile_id;
+                                    if (!profileId && profileEmail) {
+                                        const prof = await permissionPolicyService.findProfileByEmail(String(profileEmail));
+                                        if (!prof) return { success: false, message: `Perfil com email "${profileEmail}" não encontrado.` };
+                                        profileId = prof.id;
+                                    }
+                                    if (!profileId) return { success: false, message: 'Forneça profile_id no payload ou profileEmail no params.' };
+                                    const created = await permissionPolicyService.createOverride({ ...payload, profile_id: profileId });
+                                    await auditService.logAction({
+                                        table_name: 'user_permission_overrides',
+                                        record_id: created.id,
+                                        operation: 'AGENT_INTENT',
+                                        new_data: created as any,
+                                        description: `CREATE override for ${profileId}`
+                                    });
+                                    return {
+                                        success: true,
+                                        message: `**Override criado** para profile_id=${profileId} (id=${created.id}).`,
+                                        data: { override: created },
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                case 'UPDATE': {
+                                    if (!id) return { success: false, message: 'Falta o id do override.' };
+                                    if (!payload || typeof payload !== 'object') return { success: false, message: 'Falta o payload com alterações.' };
+                                    const before = await permissionPolicyService.getOverride(id);
+                                    if (!before) return { success: false, message: `Override ${id} não encontrado.` };
+                                    const updated = await permissionPolicyService.updateOverride(id, payload);
+                                    await auditService.logAction({
+                                        table_name: 'user_permission_overrides',
+                                        record_id: id,
+                                        operation: 'AGENT_INTENT',
+                                        new_data: { before, after: updated } as any,
+                                        description: 'UPDATE override'
+                                    });
+                                    return {
+                                        success: true,
+                                        message: `**Override atualizado** (id=${id}).`,
+                                        data: { override: updated },
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                case 'DELETE': {
+                                    if (!id) return { success: false, message: 'Falta o id do override.' };
+                                    const before = await permissionPolicyService.getOverride(id);
+                                    if (!before) return { success: false, message: `Override ${id} não encontrado.` };
+                                    await permissionPolicyService.deleteOverride(id);
+                                    await auditService.logAction({
+                                        table_name: 'user_permission_overrides',
+                                        record_id: id,
+                                        operation: 'AGENT_INTENT',
+                                        new_data: { deleted: before } as any,
+                                        description: 'DELETE override'
+                                    });
+                                    return {
+                                        success: true,
+                                        message: `**Override removido** (id=${id}).`,
+                                        actionType: 'MANAGE_PERMISSIONS'
+                                    };
+                                }
+                                default:
+                                    return { success: false, message: `subAction inválida para overrides: "${sub}". Use LIST, GET, CREATE, UPDATE ou DELETE.` };
+                            }
+                        }
+
+                        return { success: false, message: `target inválido: "${target}". Use "policy" ou "override".` };
+                    } catch (e: any) {
+                        console.error('[AgentAction] MANAGE_PERMISSIONS error:', e);
+                        return { success: false, message: `Erro ao gerenciar permissões: ${e?.message || 'Desconhecido'}` };
                     }
                 }
 
