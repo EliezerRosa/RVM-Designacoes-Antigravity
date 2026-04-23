@@ -78,6 +78,16 @@ interface PermissionOverride {
 
 const ALL_TABS: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication'];
 
+/**
+ * Ações do agent-chat que correspondem a funcionalidades exclusivas da aba Admin.
+ * Mesmo que apareçam em allowed_agent_actions de uma policy/override (por engano),
+ * não-admins jamais conseguem executá-las (`canAgentAction` retorna false).
+ * Mantenha sincronizado com a aba Admin (`AdminDashboard`) e seus sub-painéis.
+ */
+export const ADMIN_ONLY_ACTIONS: ReadonlySet<AgentActionType> = new Set<AgentActionType>([
+    'MANAGE_PERMISSIONS',
+]);
+
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const FALLBACK_PERMISSIONS: ResolvedPermissions = {
@@ -314,6 +324,9 @@ export function createPermissionGate(perms: ResolvedPermissions): PermissionGate
 
         canAgentAction(action: AgentActionType): boolean {
             if (perms.isAdmin) return true;
+            // Hard-gate: ações da aba Admin nunca são concedidas a não-admins,
+            // mesmo que listadas em policy/override.
+            if (ADMIN_ONLY_ACTIONS.has(action)) return false;
             if (perms.blockedActions.has(action)) return false;
             return perms.agentActions.has(action);
         },
@@ -336,7 +349,8 @@ export function createPermissionGate(perms: ResolvedPermissions): PermissionGate
                 return [...perms.agentActions] as AgentActionType[];
             }
             return [...perms.agentActions]
-                .filter(a => !perms.blockedActions.has(a)) as AgentActionType[];
+                .filter(a => !perms.blockedActions.has(a))
+                .filter(a => !ADMIN_ONLY_ACTIONS.has(a as AgentActionType)) as AgentActionType[];
         },
 
         isFullAdmin(): boolean {

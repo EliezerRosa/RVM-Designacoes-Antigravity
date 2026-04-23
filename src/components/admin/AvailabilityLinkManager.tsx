@@ -12,6 +12,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { communicationService } from '../../services/communicationService';
 import type { Publisher } from '../../types';
 import type { AvailabilityToken } from '../PublisherAvailabilityPortal';
 
@@ -216,16 +217,20 @@ export function AvailabilityLinkManager({ adminEmail }: { adminEmail?: string })
                         </div>
                     )}
 
-                    {activeTokens.map(t => (
-                        <AvailabilityTokenRow
-                            key={t.token}
-                            token={t}
-                            copied={copiedToken === t.token}
-                            onCopy={() => handleCopy(t.token)}
-                            onRevoke={() => handleRevoke(t.token)}
-                            onDelete={() => handleDelete(t.token)}
-                        />
-                    ))}
+                    {activeTokens.map(t => {
+                        const pub = publishers.find(p => p.id === t.publisherId);
+                        return (
+                            <AvailabilityTokenRow
+                                key={t.token}
+                                token={t}
+                                phone={pub?.phone ?? ''}
+                                copied={copiedToken === t.token}
+                                onCopy={() => handleCopy(t.token)}
+                                onRevoke={() => handleRevoke(t.token)}
+                                onDelete={() => handleDelete(t.token)}
+                            />
+                        );
+                    })}
 
                     {/* Revoked tokens */}
                     {revokedTokens.length > 0 && (
@@ -244,6 +249,7 @@ export function AvailabilityLinkManager({ adminEmail }: { adminEmail?: string })
                                 <AvailabilityTokenRow
                                     key={t.token}
                                     token={t}
+                                    phone=""
                                     copied={false}
                                     onCopy={() => {}}
                                     onRevoke={() => {}}
@@ -263,6 +269,7 @@ export function AvailabilityLinkManager({ adminEmail }: { adminEmail?: string })
 // ─── Token Row ────────────────────────────────────────────────────────────────
 function AvailabilityTokenRow({
     token,
+    phone,
     copied,
     onCopy,
     onRevoke,
@@ -271,6 +278,7 @@ function AvailabilityTokenRow({
     revoked = false,
 }: {
     token: AvailabilityToken;
+    phone: string;
     copied: boolean;
     onCopy: () => void;
     onRevoke: () => void;
@@ -350,6 +358,27 @@ function AvailabilityTokenRow({
                             >
                                 🔗 Abrir
                             </a>
+                            <button
+                                onClick={() => {
+                                    const msg = `Olá, ${token.publisherName}! 🙏\n\nSegue seu link *pessoal* para informar sua disponibilidade nas próximas semanas:\n\n${url}\n\nÉ rápido — só marcar os dias em que você poderá participar. Obrigado!`;
+                                    const waUrl = communicationService.generateWhatsAppUrl(phone, msg);
+                                    window.open(waUrl, '_blank', 'noopener,noreferrer');
+                                }}
+                                title={phone ? `Enviar via WhatsApp para ${phone}` : 'Enviar via WhatsApp (este publicador não tem telefone cadastrado — escolha o destinatário no WhatsApp)'}
+                                style={{
+                                    background: '#25D366',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '5px',
+                                    padding: '4px 10px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                💬 ZAP‑Link‑Pub
+                            </button>
                             <button
                                 onClick={onRevoke}
                                 style={{
