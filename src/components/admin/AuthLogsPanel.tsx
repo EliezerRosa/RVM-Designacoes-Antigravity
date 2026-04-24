@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
+import { ProfileLinksPanel } from './ProfileLinksPanel';
 
 interface AuthLog {
   id: string;
@@ -34,7 +35,7 @@ interface AuthRequest {
   profiles?: { email: string; full_name: string | null };
 }
 
-type TabType = 'auth_logs' | 'transactions' | '2fa_requests';
+type TabType = 'auth_logs' | 'transactions' | '2fa_requests' | 'links';
 
 export function AuthLogsPanel() {
   const [activeTab, setActiveTab] = useState<TabType>('auth_logs');
@@ -44,6 +45,7 @@ export function AuthLogsPanel() {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
+    if (activeTab === 'links') return;
     setIsLoading(true);
     try {
       if (activeTab === 'auth_logs') {
@@ -105,6 +107,7 @@ export function AuthLogsPanel() {
           { key: 'auth_logs', label: '🔐 Logins/Logouts' },
           { key: 'transactions', label: '📋 Transações' },
           { key: '2fa_requests', label: '📱 Solicitações 2FA' },
+          { key: 'links', label: '🔗 Vínculos' },
         ] as { key: TabType; label: string }[]).map(t => (
           <button
             key={t.key}
@@ -137,6 +140,8 @@ export function AuthLogsPanel() {
 
       {isLoading ? (
         <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>Carregando...</div>
+      ) : activeTab === 'links' ? (
+        <ProfileLinksPanel />
       ) : activeTab === 'auth_logs' ? (
         <table style={tableStyle}>
           <thead>
