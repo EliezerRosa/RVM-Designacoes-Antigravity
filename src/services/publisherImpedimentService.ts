@@ -48,12 +48,16 @@ function hasImpedimentCausingChange(old: Publisher, updated: Publisher): boolean
         os.vida_crista !== ns.vida_crista
     ) return true;
 
-    // Disponibilidade
+    // Disponibilidade (defensivo: dados legados podem não ter availableDates/exceptionDates)
     const oa = old.availability || { mode: 'always', exceptionDates: [], availableDates: [] };
     const na = updated.availability || { mode: 'always', exceptionDates: [], availableDates: [] };
     if (oa.mode !== na.mode) return true;
-    if (JSON.stringify([...oa.exceptionDates].sort()) !== JSON.stringify([...na.exceptionDates].sort())) return true;
-    if (JSON.stringify([...oa.availableDates].sort()) !== JSON.stringify([...na.availableDates].sort())) return true;
+    const oaExc = Array.isArray(oa.exceptionDates) ? oa.exceptionDates : [];
+    const naExc = Array.isArray(na.exceptionDates) ? na.exceptionDates : [];
+    const oaAv = Array.isArray(oa.availableDates) ? oa.availableDates : [];
+    const naAv = Array.isArray(na.availableDates) ? na.availableDates : [];
+    if (JSON.stringify([...oaExc].sort()) !== JSON.stringify([...naExc].sort())) return true;
+    if (JSON.stringify([...oaAv].sort()) !== JSON.stringify([...naAv].sort())) return true;
 
     return false;
 }

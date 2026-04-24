@@ -202,26 +202,31 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
 
     // Verificar se alterações causam impedimento em designações futuras
     if (editingPublisher) {
-      const todayWeekId = new Date().toISOString().slice(0, 10);
-      const impediments = findPublisherImpediments(
-        editingPublisher,
-        publisher,
-        workbookParts,
-        publishers,
-        todayWeekId
-      );
-      if (impediments.length > 0) {
-        setIsSaving(false)
-        setStatusMessage(null)
-        setPendingImpediments({
+      try {
+        const todayWeekId = new Date().toISOString().slice(0, 10);
+        const impediments = findPublisherImpediments(
+          editingPublisher,
           publisher,
-          impediments,
-          proceedSave: async () => {
-            setPendingImpediments(null)
-            await doSavePublisher(publisher)
-          },
-        })
-        return
+          workbookParts,
+          publishers,
+          todayWeekId
+        );
+        if (impediments.length > 0) {
+          setIsSaving(false)
+          setStatusMessage(null)
+          setPendingImpediments({
+            publisher,
+            impediments,
+            proceedSave: async () => {
+              setPendingImpediments(null)
+              await doSavePublisher(publisher)
+            },
+          })
+          return
+        }
+      } catch (err) {
+        // Não bloquear o save por falha na verificação de impedimentos (dados legados etc.)
+        console.warn('[savePublisher] findPublisherImpediments falhou, prosseguindo com save:', err)
       }
     }
 
