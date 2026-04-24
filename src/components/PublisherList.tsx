@@ -347,6 +347,7 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
 
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
                             {publisher.phone && <div>📱 {publisher.phone}</div>}
+                            {publisher.email && <div title="E-mail Google vinculado">✉️ {publisher.email}</div>}
 
                             {/* Status and Info Badges Container */}
                             <div style={{ marginTop: 'var(--spacing-sm)', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
