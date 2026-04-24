@@ -28,11 +28,13 @@ interface TransactionLog {
 interface AuthRequest {
   id: string;
   profile_id: string;
+  profile_email: string | null;
+  profile_full_name: string | null;
   phone: string;
   code: string | null;
   status: string;
   created_at: string;
-  profiles?: { email: string; full_name: string | null };
+  expires_at: string | null;
 }
 
 type TabType = 'auth_logs' | 'transactions' | '2fa_requests' | 'links';
@@ -49,26 +51,17 @@ export function AuthLogsPanel() {
     setIsLoading(true);
     try {
       if (activeTab === 'auth_logs') {
-        const { data } = await supabase
-          .from('auth_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(100);
-        setAuthLogs(data || []);
+        const { data, error } = await supabase.rpc('admin_list_auth_logs', { p_limit: 200 });
+        if (error) console.error('[AuthLogsPanel] auth_logs:', error);
+        setAuthLogs((data as AuthLog[]) || []);
       } else if (activeTab === 'transactions') {
-        const { data } = await supabase
-          .from('transaction_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(100);
-        setTransactions(data || []);
+        const { data, error } = await supabase.rpc('admin_list_transaction_logs', { p_limit: 200 });
+        if (error) console.error('[AuthLogsPanel] transactions:', error);
+        setTransactions((data as TransactionLog[]) || []);
       } else {
-        const { data } = await supabase
-          .from('auth_requests')
-          .select('*, profiles(email, full_name)')
-          .order('created_at', { ascending: false })
-          .limit(50);
-        setAuthRequests(data || []);
+        const { data, error } = await supabase.rpc('admin_list_auth_requests', { p_limit: 100 });
+        if (error) console.error('[AuthLogsPanel] auth_requests:', error);
+        setAuthRequests((data as AuthRequest[]) || []);
       }
     } catch (e) {
       console.error('[AuthLogsPanel] Error:', e);
@@ -213,7 +206,7 @@ export function AuthLogsPanel() {
             ) : authRequests.map(req => (
               <tr key={req.id}>
                 <td style={tdStyle}>{formatDate(req.created_at)}</td>
-                <td style={tdStyle}>{req.profiles?.email || '—'}</td>
+                <td style={tdStyle}>{req.profile_email || '—'}</td>
                 <td style={tdStyle}>{req.phone}</td>
                 <td style={{ ...tdStyle, fontFamily: 'monospace', letterSpacing: '0.15em' }}>{req.code || '—'}</td>
                 <td style={tdStyle}>
