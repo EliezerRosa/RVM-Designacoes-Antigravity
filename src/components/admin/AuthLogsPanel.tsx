@@ -92,7 +92,7 @@ export function AuthLogsPanel() {
 
   return (
     <div style={{ padding: '1rem' }}>
-      <h3 style={{ color: '#f1f5f9', marginBottom: '1rem' }}>🔐 Histórico de Autenticação & Transações</h3>
+      <h3 style={{ color: '#1e293b', marginBottom: '1rem' }}>🔐 Histórico de Autenticação & Transações</h3>
 
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -108,9 +108,9 @@ export function AuthLogsPanel() {
             style={{
               padding: '0.5rem 1rem',
               borderRadius: '0.5rem',
-              border: activeTab === t.key ? 'none' : '1px solid #475569',
+              border: activeTab === t.key ? 'none' : '1px solid #cbd5e1',
               background: activeTab === t.key ? '#3b82f6' : 'transparent',
-              color: activeTab === t.key ? '#fff' : '#94a3b8',
+              color: activeTab === t.key ? '#fff' : '#475569',
               cursor: 'pointer',
               fontSize: '0.825rem',
               fontWeight: 600,
@@ -123,7 +123,7 @@ export function AuthLogsPanel() {
           onClick={fetchData}
           style={{
             marginLeft: 'auto', padding: '0.5rem 1rem', borderRadius: '0.5rem',
-            border: '1px solid #475569', background: 'transparent', color: '#94a3b8',
+            border: '1px solid #cbd5e1', background: 'transparent', color: '#475569',
             cursor: 'pointer', fontSize: '0.825rem',
           }}
         >
@@ -132,7 +132,7 @@ export function AuthLogsPanel() {
       </div>
 
       {isLoading ? (
-        <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>Carregando...</div>
+        <div style={{ textAlign: 'center', color: '#475569', padding: '2rem' }}>Carregando...</div>
       ) : activeTab === 'links' ? (
         <ProfileLinksPanel />
       ) : activeTab === 'auth_logs' ? (
@@ -239,8 +239,8 @@ const tableStyle: React.CSSProperties = {
 const thStyle: React.CSSProperties = {
   textAlign: 'left',
   padding: '0.6rem 0.75rem',
-  color: '#94a3b8',
-  borderBottom: '1px solid #334155',
+  color: '#475569',
+  borderBottom: '1px solid #cbd5e1',
   fontWeight: 700,
   fontSize: '0.75rem',
   textTransform: 'uppercase',
@@ -249,6 +249,6 @@ const thStyle: React.CSSProperties = {
 
 const tdStyle: React.CSSProperties = {
   padding: '0.6rem 0.75rem',
-  color: '#e2e8f0',
-  borderBottom: '1px solid #1e293b',
+  color: '#1e293b',
+  borderBottom: '1px solid #e2e8f0',
 };

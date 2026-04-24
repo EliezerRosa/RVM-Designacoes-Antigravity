@@ -116,13 +116,13 @@ export function ProfileLinksPanel() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                 <button
                     onClick={() => setFilter('all')}
-                    style={{ ...btnStyle, background: filter === 'all' ? '#3b82f6' : 'transparent', color: filter === 'all' ? '#fff' : '#94a3b8' }}
+                    style={{ ...btnStyle, background: filter === 'all' ? '#3b82f6' : 'transparent', color: filter === 'all' ? '#fff' : '#475569' }}
                 >
                     Todos ({links.length})
                 </button>
                 <button
                     onClick={() => setFilter('unlinked')}
-                    style={{ ...btnStyle, background: filter === 'unlinked' ? '#f59e0b' : 'transparent', color: filter === 'unlinked' ? '#fff' : '#94a3b8' }}
+                    style={{ ...btnStyle, background: filter === 'unlinked' ? '#f59e0b' : 'transparent', color: filter === 'unlinked' ? '#fff' : '#475569' }}
                 >
                     ⚠️ Sem vínculo ({links.filter(l => !l.publisher_id && l.role === 'publicador').length})
                 </button>
@@ -130,7 +130,7 @@ export function ProfileLinksPanel() {
             </div>
 
             {loading ? (
-                <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>Carregando…</div>
+                <div style={{ textAlign: 'center', color: '#475569', padding: '2rem' }}>Carregando…</div>
             ) : (
                 <table style={tableStyle}>
                     <thead>
@@ -145,7 +145,7 @@ export function ProfileLinksPanel() {
                     </thead>
                     <tbody>
                         {visible.length === 0 ? (
-                            <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: '#64748b' }}>Nenhum registro.</td></tr>
+                            <tr><td colSpan={6} style={{ ...tdStyle, textAlign: 'center', color: '#94a3b8' }}>Nenhum registro.</td></tr>
                         ) : visible.map(l => (
                             <tr key={l.profile_id}>
                                 <td style={tdStyle}>{l.email}</td>
@@ -164,11 +164,11 @@ export function ProfileLinksPanel() {
                                             <strong>{l.publisher_name || '?'}</strong>
                                             <span style={{ color: '#64748b', fontSize: '0.75rem' }}> (id {l.publisher_id})</span>
                                             {l.publisher_email && l.publisher_email !== l.email && (
-                                                <span title="Email do publicador difere do email do Google" style={{ marginLeft: 4, color: '#f59e0b' }}>⚠️</span>
+                                                <span title="Email do publicador difere do email do Google" style={{ marginLeft: 4, color: '#d97706' }}>⚠️</span>
                                             )}
                                         </span>
                                     ) : (
-                                        <span style={{ color: '#f59e0b' }}>(sem vínculo)</span>
+                                        <span style={{ color: '#d97706', fontWeight: 600 }}>(sem vínculo)</span>
                                     )}
                                 </td>
                                 <td style={tdStyle}>
@@ -177,13 +177,13 @@ export function ProfileLinksPanel() {
                                             <button
                                                 disabled={busyProfile === l.profile_id}
                                                 onClick={() => handleUnlink(l.profile_id, l.email)}
-                                                style={{ ...actionBtnStyle, background: '#7f1d1d' }}
+                                                style={{ ...actionBtnStyle, background: '#dc2626' }}
                                             >Desvincular</button>
                                         ) : (
                                             <button
                                                 disabled={busyProfile === l.profile_id}
                                                 onClick={() => handleLink(l.profile_id, l.email)}
-                                                style={{ ...actionBtnStyle, background: '#065f46' }}
+                                                style={{ ...actionBtnStyle, background: '#059669' }}
                                             >Vincular…</button>
                                         )
                                     )}
@@ -202,14 +202,14 @@ export function ProfileLinksPanel() {
 
 const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: '0.825rem' };
 const thStyle: React.CSSProperties = {
-    textAlign: 'left', padding: '0.6rem 0.75rem', color: '#94a3b8',
-    borderBottom: '1px solid #334155', fontWeight: 700, fontSize: '0.75rem',
+    textAlign: 'left', padding: '0.6rem 0.75rem', color: '#475569',
+    borderBottom: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.75rem',
     textTransform: 'uppercase', letterSpacing: '0.05em',
 };
-const tdStyle: React.CSSProperties = { padding: '0.6rem 0.75rem', color: '#e2e8f0', borderBottom: '1px solid #1e293b' };
+const tdStyle: React.CSSProperties = { padding: '0.6rem 0.75rem', color: '#1e293b', borderBottom: '1px solid #e2e8f0' };
 const btnStyle: React.CSSProperties = {
-    padding: '0.4rem 0.85rem', borderRadius: '0.5rem', border: '1px solid #475569',
-    background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+    padding: '0.4rem 0.85rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1',
+    background: 'transparent', color: '#475569', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
 };
 const actionBtnStyle: React.CSSProperties = {
     padding: '0.3rem 0.7rem', borderRadius: '0.4rem', border: 'none',
