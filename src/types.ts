@@ -45,6 +45,7 @@ export interface Publisher {
     condition: Condition;
     funcao: Funcao;
     phone: string;
+    email?: string;                    // E-mail Google vinculado (preenchido no 1º login OK; usado para autorizar portais)
     isBaptized: boolean;
     isServing: boolean;
     ageGroup: AgeGroup;
