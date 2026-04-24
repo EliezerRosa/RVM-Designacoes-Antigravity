@@ -31,6 +31,7 @@ const emptyPublisher: Publisher = {
     condition: 'Publicador',
     funcao: null,
     phone: '',
+    email: '',
     isBaptized: false,
     isServing: true,
     ageGroup: 'Adulto',
@@ -224,6 +225,18 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                     value={formData.phone}
                                     onChange={handleChange}
                                     placeholder="(27) 99999-9999"
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label>E-mail (Google)</label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formData.email || ''}
+                                    onChange={handleChange}
+                                    placeholder="exemplo@gmail.com"
+                                    title="E-mail usado pelo publicador para login Google. Vincula o usuário ao registro nos portais (confirmação, disponibilidade)."
                                 />
                             </div>
 
