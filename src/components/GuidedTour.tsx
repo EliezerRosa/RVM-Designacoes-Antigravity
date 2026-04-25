@@ -253,9 +253,14 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
                 .driver-overlay { z-index: 2147483600 !important; }
                 .driver-popover { z-index: 2147483601 !important; }
                 .driver-active-element { z-index: 2147483599 !important; }
+                /* driver.js aplica pointer-events:none em .driver-active *.
+                   Forçamos auto no nosso painel (portal no body). */
+                .gt-tour-controls,
+                .gt-tour-controls * { pointer-events: auto !important; }
             `}</style>
 
             <div
+                className="gt-tour-controls"
                 style={{
                     position: 'fixed',
                     bottom: '20px',
