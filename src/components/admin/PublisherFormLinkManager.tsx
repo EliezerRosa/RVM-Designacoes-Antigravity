@@ -101,6 +101,8 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                     p.funcao === 'Coordenador do Corpo de Anciãos'
                     || p.funcao === 'Secretário'
                     || p.funcao === 'Superintendente de Serviço'
+                    || p.funcao === 'Superintendente da Reunião Vida e Ministério'
+                    || p.funcao === 'Ajudante do Superintendente da Reunião Vida e Ministério'
                 );
                 setCsMembers(cs);
             } catch (err) {
@@ -482,7 +484,11 @@ function TokenRow({
                                         ? 'Secr.'
                                         : m.funcao === 'Superintendente de Serviço'
                                             ? 'SupServ.'
-                                            : '';
+                                            : m.funcao === 'Superintendente da Reunião Vida e Ministério'
+                                                ? 'SRVM'
+                                                : m.funcao === 'Ajudante do Superintendente da Reunião Vida e Ministério'
+                                                    ? 'Aj SRVM'
+                                                    : '';
                                 const firstName = m.name.split(' ')[0];
                                 return (
                                     <button
@@ -504,8 +510,8 @@ function TokenRow({
                                 );
                             })}
                             {csMembers.length === 0 && (
-                                <span style={{ fontSize: '11px', color: '#94A3B8', alignSelf: 'center' }} title="Defina Coordenador, Secretário e Superintendente de Serviço em Publicadores para habilitar envios diretos.">
-                                    ⚠️ CS não cadastrada
+                                <span style={{ fontSize: '11px', color: '#94A3B8', alignSelf: 'center' }} title="Defina Coordenador, Secretário, Superintendente de Serviço, SRVM e Aj SRVM em Publicadores para habilitar envios diretos.">
+                                    ⚠️ CS / RVM não cadastrados
                                 </span>
                             )}
                             <button onClick={onRevoke} style={btnStyle('#F59E0B')}>
