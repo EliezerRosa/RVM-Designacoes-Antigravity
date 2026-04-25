@@ -64,12 +64,15 @@ type DbRow = {
 
 function rowToToken(r: DbRow): FormToken {
     return {
+        id: r.id,
         token: r.token,
         label: r.label,
         role: r.role || 'CCA',
         createdAt: r.created_at,
         createdBy: r.created_by_email || 'admin',
         active: r.revoked_at === null && (!r.expires_at || new Date(r.expires_at) > new Date()),
+        lastUsedAt: r.last_used_at,
+        useCount: r.use_count,
     };
 }
 
@@ -612,6 +615,30 @@ function TokenRow({
     revoked?: boolean;
 }) {
     const url = buildUrl(token.token);
+    const [showLog, setShowLog] = useState(false);
+    const [logEntries, setLogEntries] = useState<Array<{ id: string; used_at: string; user_publisher_id: string | null; user_publisher_name: string | null; user_agent: string | null }> | null>(null);
+    const [logLoading, setLogLoading] = useState(false);
+
+    const toggleLog = async () => {
+        if (showLog) { setShowLog(false); return; }
+        setShowLog(true);
+        if (logEntries !== null || !token.id) return;
+        setLogLoading(true);
+        try {
+            const { data, error } = await supabase.rpc('list_publisher_form_token_uses', {
+                p_token_id: token.id,
+                p_limit: 50,
+            });
+            if (error) {
+                console.error('[TokenRow] log error:', error);
+                setLogEntries([]);
+            } else {
+                setLogEntries((data as Array<{ id: string; used_at: string; user_publisher_id: string | null; user_publisher_name: string | null; user_agent: string | null }>) || []);
+            }
+        } finally {
+            setLogLoading(false);
+        }
+    };
 
     return (
         <div style={{
@@ -641,6 +668,14 @@ function TokenRow({
                     <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '6px' }}>
                         Criado por <strong>{token.createdBy}</strong> em {new Date(token.createdAt).toLocaleString('pt-BR')}
                     </div>
+                    {(token.useCount ?? 0) > 0 && (
+                        <div style={{ fontSize: '11px', color: '#475569', marginBottom: '6px' }}>
+                            📊 <strong>{token.useCount}</strong> uso{(token.useCount ?? 0) === 1 ? '' : 's'}
+                            {token.lastUsedAt && (
+                                <> · último em {new Date(token.lastUsedAt).toLocaleString('pt-BR')}</>
+                            )}
+                        </div>
+                    )}
                     {!revoked && (
                         <div style={{
                             background: '#EFF6FF',
@@ -689,7 +724,10 @@ function TokenRow({
                                         disabled={!hasPhone}
                                         onClick={() => {
                                             if (!hasPhone) return;
-                                            const msg = `Olá, ${m.name}! 🙏\n\nSegue o link de acesso à *Comissão de Serviço* (atualização de publicadores, Necessidades Locais e Eventos Especiais):\n\n${url}\n\nLink: *${token.label}*\nEste link é da CS — não compartilhe fora da comissão.`;
+                                            // URL personalizada com hint de identidade do destinatário (?u=<id>)
+                                            // — gravado no log de uso server-side para auditoria.
+                                            const personalUrl = `${url}${url.includes('?') ? '&' : '?'}u=${encodeURIComponent(m.id)}`;
+                                            const msg = `Olá, ${m.name}! 🙏\n\nSegue o link de acesso à *Comissão de Serviço* (atualização de publicadores, Necessidades Locais e Eventos Especiais):\n\n${personalUrl}\n\nLink: *${token.label}*\nEste link é da CS — não compartilhe fora da comissão.`;
                                             const waUrl = communicationService.generateWhatsAppUrl(m.phone, msg);
                                             window.open(waUrl, '_blank', 'noopener,noreferrer');
                                         }}
@@ -707,10 +745,20 @@ function TokenRow({
                                     ⚠️ CS / RVM não cadastrados
                                 </span>
                             )}
+                            {token.id && (
+                                <button onClick={toggleLog} style={btnStyle(showLog ? '#0EA5E9' : '#64748B')}>
+                                    📊 {showLog ? 'Ocultar log' : 'Ver log'}
+                                </button>
+                            )}
                             <button onClick={onRevoke} style={btnStyle('#F59E0B')}>
                                 🔒 Revogar
                             </button>
                         </>
+                    )}
+                    {revoked && token.id && (
+                        <button onClick={toggleLog} style={btnStyle(showLog ? '#0EA5E9' : '#64748B')}>
+                            📊 {showLog ? 'Ocultar log' : 'Ver log'}
+                        </button>
                     )}
                     {revoked && onReactivate && (
                         <button onClick={onReactivate} style={btnStyle('#10B981')}>
@@ -722,6 +770,40 @@ function TokenRow({
                     </button>
                 </div>
             </div>
+            {showLog && (
+                <div style={{
+                    marginTop: '10px',
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                }}>
+                    <div style={{ fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                        Histórico de uso ({logEntries?.length ?? 0})
+                    </div>
+                    {logLoading && <div style={{ color: '#64748B' }}>Carregando…</div>}
+                    {!logLoading && (logEntries?.length ?? 0) === 0 && (
+                        <div style={{ color: '#94A3B8', fontStyle: 'italic' }}>
+                            Nenhum acesso identificado. Apenas links enviados via "💬 ZAP" capturam o nome do destinatário.
+                        </div>
+                    )}
+                    {!logLoading && (logEntries?.length ?? 0) > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {logEntries!.map(e => (
+                                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '4px 0', borderBottom: '1px dashed #E2E8F0' }}>
+                                    <span style={{ fontWeight: 600, color: '#1E293B' }}>
+                                        {e.user_publisher_name || <em style={{ color: '#94A3B8' }}>(sem identificação)</em>}
+                                    </span>
+                                    <span style={{ color: '#64748B', whiteSpace: 'nowrap' }}>
+                                        {new Date(e.used_at).toLocaleString('pt-BR')}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
