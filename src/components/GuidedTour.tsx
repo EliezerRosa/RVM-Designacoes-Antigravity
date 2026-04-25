@@ -250,11 +250,18 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
                 .gt-tour-badge--view { background: #FEF3C7; color: #92400E; }
                 .gt-tour-progress { font-size: 11px; color: #94a3b8; margin-top: 6px; }
                 .driver-popover-arrow { display: none !important; }
+                /* CR\u00cdTICO: o overlay SVG do driver.js intercepta TODOS os cliques
+                   no viewport (inclusive sobre o nosso painel portalizado).
+                   Desligamos pointer-events no overlay e re-habilitamos no popover.
+                   Perdemos "click-no-fundo-fecha", que de qualquer forma j\u00e1 t\u00ednhamos
+                   substitu\u00eddo pelos bot\u00f5es do painel. */
+                .driver-overlay,
+                .driver-overlay * { pointer-events: none !important; }
                 .driver-overlay { z-index: 2147483600 !important; }
+                .driver-popover,
+                .driver-popover * { pointer-events: auto !important; }
                 .driver-popover { z-index: 2147483601 !important; }
                 .driver-active-element { z-index: 2147483599 !important; }
-                /* driver.js aplica pointer-events:none em .driver-active *.
-                   Forçamos auto no nosso painel (portal no body). */
                 .gt-tour-controls,
                 .gt-tour-controls * { pointer-events: auto !important; }
             `}</style>
