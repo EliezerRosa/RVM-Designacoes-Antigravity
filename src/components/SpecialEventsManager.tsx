@@ -83,6 +83,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     // Auto-abre tutorial do formulário na 1ª vez que abre 'Novo Evento'
     useEffect(() => {
         if (!showForm) return;
+        // Fecha o tour do modal antes de abrir o do formulário (evita 2 painéis sobrepostos)
+        setShowTour(false);
         try {
             const seen = localStorage.getItem(tourSeenKey('events_form', role));
             if (!seen) {
@@ -457,7 +459,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         </button>
                     )}
                     <button
-                        onClick={() => setShowTour(true)}
+                        onClick={() => { setShowFormTour(false); setShowTour(true); }}
                         title="Ver tutorial guiado deste modal"
                         data-tour="ev-help"
                         style={{
@@ -500,7 +502,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         </h4>
                         <button
                             type="button"
-                            onClick={() => setShowFormTour(true)}
+                            onClick={() => { setShowTour(false); setShowFormTour(true); }}
                             title="Tutorial guiado deste formulário"
                             data-tour="evf-help"
                             style={{ ...btnStyle('#0EA5E9'), padding: '4px 10px', fontSize: '12px' }}
