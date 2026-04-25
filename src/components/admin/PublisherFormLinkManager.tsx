@@ -12,12 +12,34 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { supabase } from '../../lib/supabase';
-import type { FormToken } from '../PublisherStatusForm';
+import type { FormToken, PublisherFormRole } from '../PublisherStatusForm';
 import { PublisherStatusForm } from '../PublisherStatusForm';
 import { LocalNeedsQueue } from '../LocalNeedsQueue';
 import { SpecialEventsManager } from '../SpecialEventsManager';
 import { communicationService } from '../../services/communicationService';
 import type { Publisher } from '../../types';
+
+// ── Role mapping ─────────────────────────────────────────────────────────────
+const ROLE_LABEL: Record<PublisherFormRole, string> = {
+    CCA: 'CCA — Coordenador',
+    SEC: 'SEC — Secretário',
+    SS: 'SS — Sup. de Serviço',
+    SRVM: 'SRVM',
+    AjSRVM: 'Aj SRVM',
+};
+const ROLE_BG: Record<PublisherFormRole, string> = {
+    CCA: '#7C3AED', SEC: '#0EA5E9', SS: '#10B981', SRVM: '#F97316', AjSRVM: '#FBBF24',
+};
+function funcaoToRole(funcao?: string): PublisherFormRole | null {
+    switch (funcao) {
+        case 'Coordenador do Corpo de Anciãos': return 'CCA';
+        case 'Secretário': return 'SEC';
+        case 'Superintendente de Serviço': return 'SS';
+        case 'Superintendente da Reunião Vida e Ministério': return 'SRVM';
+        case 'Ajudante do Superintendente da Reunião Vida e Ministério': return 'AjSRVM';
+        default: return null;
+    }
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function generateToken(): string {
@@ -37,6 +59,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [newLabel, setNewLabel] = useState('');
+    const [newRole, setNewRole] = useState<PublisherFormRole>('CCA');
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
     const [csMembers, setCsMembers] = useState<Publisher[]>([]);
@@ -129,6 +152,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                 createdAt: new Date().toISOString(),
                 createdBy: adminEmail || 'admin',
                 active: true,
+                role: newRole,
             };
             await persist([...tokens, newToken]);
             setNewLabel('');
@@ -320,6 +344,29 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                         {saving ? 'Gerando...' : '🔑 Gerar Link'}
                     </button>
                 </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>Papel do destinatário:</label>
+                    <select
+                        value={newRole}
+                        onChange={e => setNewRole(e.target.value as PublisherFormRole)}
+                        style={{
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '7px',
+                            padding: '6px 10px',
+                            fontSize: '12px',
+                            background: 'white',
+                            color: '#1E293B',
+                            outline: 'none',
+                        }}
+                    >
+                        {(Object.keys(ROLE_LABEL) as PublisherFormRole[]).map(r => (
+                            <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                        ))}
+                    </select>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>
+                        Define as permissões dentro do formulário (CRUD vs. somente leitura por seção).
+                    </span>
+                </div>
                 <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#7C3AED', fontWeight: 600 }}>
                     🛡️ Todo link gerado aqui é destinado à <strong>Comissão de Serviço</strong> (Coordenador, Secretário, Superintendente de Serviço) e dá acesso a Necessidades Locais e Eventos Especiais.
                 </p>
@@ -446,8 +493,19 @@ function TokenRow({
         }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: revoked ? '#94A3B8' : '#1E293B', marginBottom: '3px' }}>
-                        {revoked ? '🚫 ' : '🔗 '}{token.label}
+                    <div style={{ fontWeight: 700, color: revoked ? '#94A3B8' : '#1E293B', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>{revoked ? '🚫 ' : '🔗 '}{token.label}</span>
+                        {token.role && (
+                            <span style={{
+                                background: ROLE_BG[token.role],
+                                color: 'white',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '999px',
+                                letterSpacing: '0.03em',
+                            }}>{token.role}</span>
+                        )}
                     </div>
                     <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '6px' }}>
                         Criado por <strong>{token.createdBy}</strong> em {new Date(token.createdAt).toLocaleString('pt-BR')}
@@ -477,6 +535,10 @@ function TokenRow({
                                 {copied ? '✅ Copiado!' : '📋 Copiar URL'}
                             </button>
                             {csMembers.map(m => {
+                                const memberRole = funcaoToRole(m.funcao);
+                                // Só mostra o botão do membro cujo cargo bate com o papel do token
+                                // (ou todos, para tokens legados sem role).
+                                if (token.role && memberRole !== token.role) return null;
                                 const hasPhone = !!m.phone && m.phone.trim().length >= 8;
                                 const shortRole = m.funcao === 'Coordenador do Corpo de Anciãos'
                                     ? 'Coord.'
