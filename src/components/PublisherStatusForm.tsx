@@ -762,6 +762,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                     availableWeeks={modalWeeks ?? []}
                     onClose={() => setShowLocalNeeds(false)}
                     readOnly={!canManageNLEvents}
+                    role={role}
                 />
             </div>
         )}
@@ -776,6 +777,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                     availableWeeks={modalWeeks ?? []}
                     onClose={() => setShowEvents(false)}
                     readOnly={!canManageNLEvents}
+                    role={role}
                 />
             </div>
         )}

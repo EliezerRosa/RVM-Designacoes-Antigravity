@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { localNeedsService, type LocalNeedsPreassignment } from '../services/localNeedsService';
+import { GuidedTour, tourSeenKey, type TourStep } from './GuidedTour';
 
 interface Props {
     publishers: { id: string; name: string; condition: string }[];
@@ -13,9 +14,11 @@ interface Props {
     onClose?: () => void;
     /** Se true, esconde formulário e botões de mutação (somente leitura). */
     readOnly?: boolean;
+    /** Papel do usuário para badge edit/view no tutorial. Default 'admin'. */
+    role?: string;
 }
 
-export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onManualAssignment, readOnly = false }: Props) {
+export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onManualAssignment, readOnly = false, role = 'admin' }: Props) {
     const [queue, setQueue] = useState<LocalNeedsPreassignment[]>([]);
     const [history, setHistory] = useState<LocalNeedsPreassignment[]>([]);
     const [loading, setLoading] = useState(false);
@@ -26,6 +29,9 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
     const [newTheme, setNewTheme] = useState('');
     const [newAssignee, setNewAssignee] = useState('');
     const [newTargetWeek, setNewTargetWeek] = useState('');  // Semana alvo (opcional)
+
+    // Tutorial
+    const [showTour, setShowTour] = useState(false);
 
     // Filtrar apenas Anciãos (regra: somente Anciãos podem fazer Necessidades Locais)
     // Alinhado com eligibilityService.ts linha 214-223
@@ -52,6 +58,17 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
     useEffect(() => {
         loadQueue();
     }, [loadQueue]);
+
+    // Auto-abre tutorial na 1ª visita por papel
+    useEffect(() => {
+        try {
+            const seen = localStorage.getItem(tourSeenKey('localneeds', role));
+            if (!seen) {
+                const t = setTimeout(() => setShowTour(true), 500);
+                return () => clearTimeout(t);
+            }
+        } catch { /* ignore */ }
+    }, [role]);
 
     const handleAdd = async () => {
         if (!newTheme.trim() || !newAssignee.trim()) {
@@ -175,20 +192,34 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
     });
 
     return (
-        <div style={containerStyle}>
+        <div style={containerStyle} data-tour-root="localneeds">
             {/* Header */}
             <div style={headerStyle}>
-                <h3 style={{ margin: 0, color: '#1F2937' }}>
+                <h3 style={{ margin: 0, color: '#1F2937' }} data-tour="nl-title">
                     📋 Fila de Necessidades Locais
                 </h3>
-                {onClose && (
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <button
-                        onClick={onClose}
-                        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '20px' }}
+                        onClick={() => setShowTour(true)}
+                        title="Ver tutorial guiado deste modal"
+                        data-tour="nl-help"
+                        style={{
+                            border: 'none', background: '#0EA5E9', color: 'white',
+                            cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                            borderRadius: '6px', padding: '4px 10px',
+                        }}
                     >
-                        ✕
+                        ❓ Tutorial
                     </button>
-                )}
+                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '20px' }}
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Erro */}
@@ -201,7 +232,7 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
 
             {/* Formulário de Adição (oculto em modo somente leitura) */}
             {!readOnly && (
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <div data-tour="nl-form" style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <input
                     type="text"
                     placeholder="Tema da Necessidade Local"
@@ -273,7 +304,7 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
             )}
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            <div data-tour="nl-tabs" style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                 <button
                     onClick={() => setShowHistory(false)}
                     style={{
@@ -376,7 +407,7 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
             )}
 
             {/* Info */}
-            <div style={{
+            <div data-tour="nl-info" style={{
                 marginTop: '16px',
                 padding: '12px',
                 background: '#EFF6FF',
@@ -387,6 +418,53 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
                 💡 <strong>Como funciona:</strong> Ao clicar em "Gerar" no WorkbookManager, partes de "Necessidades Locais"
                 futuras usarão automaticamente os itens desta fila, na ordem definida.
             </div>
+
+            <GuidedTour
+                open={showTour}
+                onClose={() => {
+                    setShowTour(false);
+                    try { localStorage.setItem(tourSeenKey('localneeds', role), '1'); } catch { /* ignore */ }
+                }}
+                role={role}
+                contextLabel="Necessidades Locais"
+                steps={NL_STEPS(readOnly)}
+            />
         </div>
     );
+}
+
+// ─── Tutorial steps ─────────────────────────────────────────────────────────
+function NL_STEPS(readOnly: boolean): TourStep[] {
+    return [
+        {
+            title: 'Necessidades Locais 📋',
+            body: 'Esta é a fila de pré-designações de Necessidades Locais — temas que serão automaticamente atribuídos quando você gerar uma nova programação. Vou te mostrar cada parte em poucos passos.',
+        },
+        {
+            selector: '[data-tour="nl-title"]',
+            title: 'Cabeçalho do modal',
+            body: 'Identifica que você está no gerenciador da fila. O X fecha o modal; o botão de interrogação reabre este tutorial sempre que precisar.',
+        },
+        {
+            selector: '[data-tour="nl-form"]',
+            title: 'Adicionar pré-designação',
+            body: 'Preencha o tema, escolha o ancião responsável e, opcionalmente, uma semana específica. Sem semana, o item entra no fim da fila e será atribuído na próxima geração. Apenas CCA e SEC podem editar; demais papéis veem o modal em modo leitura.',
+            editorRoles: readOnly ? [] : ['admin', 'CCA', 'SEC'],
+        },
+        {
+            selector: '[data-tour="nl-tabs"]',
+            title: 'Fila e Histórico',
+            body: 'Alterne entre a fila pendente e o histórico de itens já atribuídos. O contador entre parênteses mostra a quantidade em cada lista.',
+        },
+        {
+            title: 'Reordenar e remover',
+            body: 'Na fila pendente, use as setas para mudar a ordem (apenas CCA e SEC) — o primeiro item será atribuído na próxima geração. O ícone de lixeira remove o item.',
+            editorRoles: ['admin', 'CCA', 'SEC'],
+        },
+        {
+            selector: '[data-tour="nl-info"]',
+            title: 'Integração com a programação',
+            body: 'Quando o WorkbookManager gerar uma nova semana, partes de Necessidades Locais usarão automaticamente os itens desta fila, na ordem definida. Pronto, é só isso!',
+        },
+    ];
 }
