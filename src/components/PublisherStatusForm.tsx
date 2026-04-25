@@ -37,6 +37,8 @@ import { VideoTutorialModal } from './VideoTutorialModal';
 export type PublisherFormRole = 'CCA' | 'SEC' | 'SS' | 'SRVM' | 'AjSRVM';
 
 export interface FormToken {
+    /** UUID na tabela publisher_form_tokens (opcional p/ compat com legado). */
+    id?: string;
     token: string;
     label: string;
     createdAt: string;
@@ -44,6 +46,10 @@ export interface FormToken {
     active: boolean;
     /** Papel do destinatário (define permissões dentro do form). */
     role?: PublisherFormRole;
+    /** Última vez que a RPC validou esse token (preenchido pelo admin). */
+    lastUsedAt?: string | null;
+    /** Total de validações bem-sucedidas (preenchido pelo admin). */
+    useCount?: number;
 }
 
 /**
@@ -152,14 +158,25 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
     // (SECURITY DEFINER) que vive no Supabase. A tabela `publisher_form_tokens`
     // tem RLS — clients anônimos NÃO conseguem ler tokens; só receber a
     // resposta verificada pelo servidor. Mesmo padrão do confirm portal.
+    //
+    // Quando o link é enviado por ZAP a partir do admin, a URL inclui `&u=<id>`
+    // identificando o publicador destinatário. Esse hint é passado à RPC, que
+    // resolve o nome via `publishers.id` server-side e grava no log de uso —
+    // dá uma trilha de auditoria razoável (não-prova: publisher_id no link
+    // pode ser editado, mas só pra outro id válido).
     useEffect(() => {
         if (isAdminAccess) return;
         if (!token) { setValidating(false); return; }
 
         (async () => {
             try {
+                // Lê o hint de identidade da URL (?u=<publisher_id>)
+                const userHint = new URLSearchParams(window.location.search).get('u') || null;
                 const { data, error } = await supabase.rpc('authorize_publisher_form_token', {
                     p_token: token,
+                    p_user_publisher_id: userHint,
+                    p_user_publisher_name: null,
+                    p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 300) : null,
                 });
                 if (error) {
                     console.error('[PublisherStatusForm] RPC error:', error);
