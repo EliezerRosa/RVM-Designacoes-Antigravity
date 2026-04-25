@@ -17,6 +17,7 @@ import { PublisherImpedimentModal } from './PublisherImpedimentModal';
 import { workbookManagementService } from '../services/workbookManagementService';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { SpecialEventsManager } from './SpecialEventsManager';
+import { PublisherFormTutorial, tutorialSeenKey } from './PublisherFormTutorial';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
 /**
@@ -90,6 +91,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
     // ── Modais NL + Eventos (Admin OU token de Comissão de Serviço) ─────────────────
     const [showLocalNeeds, setShowLocalNeeds] = useState(false);
     const [showEvents, setShowEvents] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
     const [modalWeeks, setModalWeeks] = useState<{ weekId: string; display: string }[] | null>(null);
     const [modalDataLoading, setModalDataLoading] = useState(false);
     const [modalDataError, setModalDataError] = useState<string | null>(null);
@@ -170,6 +172,20 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
             .catch(err => console.error('[PublisherStatusForm] Load error:', err))
             .finally(() => setLoading(false));
     }, [authorized]);
+
+    // ── Auto-open tutorial na 1ª visita por papel ───────────────────────────
+    useEffect(() => {
+        if (!authorized) return;
+        // Aguarda o tokenInfo carregar antes de decidir (admin: imediato).
+        if (!isAdminAccess && !tokenInfo) return;
+        try {
+            const seen = localStorage.getItem(tutorialSeenKey(role));
+            if (!seen) {
+                const t = setTimeout(() => setShowTutorial(true), 600);
+                return () => clearTimeout(t);
+            }
+        } catch { /* ignore */ }
+    }, [authorized, tokenInfo, isAdminAccess, role]);
 
     // ── Change tracking ───────────────────────────────────────────────────
     const setField = useCallback((id: string, field: keyof Publisher, value: unknown) => {
@@ -320,7 +336,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                             Link: <strong style={{ color: '#60A5FA' }}>{tokenInfo.label}</strong>
                             &nbsp;·&nbsp;gerado em {new Date(tokenInfo.createdAt).toLocaleDateString('pt-BR')}
                             {tokenInfo.role && (
-                                <>&nbsp;·&nbsp;<strong style={{ color: '#FBBF24' }}>Papel: {tokenInfo.role}</strong></>
+                                <>&nbsp;·&nbsp;<strong data-tour="role-badge" style={{ color: '#FBBF24' }}>Papel: {tokenInfo.role}</strong></>
                             )}
                         </div>
                     )}
@@ -329,11 +345,24 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={() => setShowTutorial(true)}
+                        title="Ver tutorial guiado deste formulário"
+                        data-tour="btn-tutorial"
+                        style={{
+                            background: '#0EA5E9', color: 'white', border: 'none',
+                            borderRadius: '8px', padding: '8px 12px', fontWeight: 600,
+                            fontSize: '13px', cursor: 'pointer',
+                        }}
+                    >
+                        ❓ Tutorial
+                    </button>
                     {canManageCommittee && (
                         <>
                             <button
                                 onClick={openLocalNeeds}
                                 disabled={modalDataLoading}
+                                data-tour="btn-localneeds"
                                 title={canManageNLEvents
                                     ? 'Gerenciar fila de Necessidades Locais'
                                     : 'Visualizar fila de Necessidades Locais (somente leitura)'}
@@ -349,6 +378,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                             <button
                                 onClick={openEvents}
                                 disabled={modalDataLoading}
+                                data-tour="btn-events"
                                 title={canManageNLEvents
                                     ? 'Gerenciar Eventos Especiais'
                                     : 'Visualizar Eventos Especiais (somente leitura)'}
@@ -378,6 +408,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                     <button
                         onClick={handleSave}
                         disabled={changedCount === 0 || saving}
+                        data-tour="btn-save"
                         style={{
                             background: changedCount > 0 && !saving ? '#4F46E5' : '#334155',
                             color: 'white',
@@ -427,6 +458,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                         placeholder="🔍 Filtrar publicador..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
+                        data-tour="search"
                         style={{
                             border: '1px solid #CBD5E1',
                             borderRadius: '8px',
@@ -436,7 +468,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                             outline: 'none',
                         }}
                     />
-                    <div style={{ display: 'flex', background: '#E2E8F0', borderRadius: '8px', padding: '2px' }}>
+                    <div data-tour="tabs" style={{ display: 'flex', background: '#E2E8F0', borderRadius: '8px', padding: '2px' }}>
                         {(
                             [
                                 { id: 'status' as FormSection, label: '🔴 Status de Participação' },
@@ -488,12 +520,12 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                 <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #CBD5E1' }}>
                                     <th style={thStyle}>Publicador</th>
                                     {section === 'status' && <>
-                                        <th style={thStyle}>Em Serviço</th>
-                                        <th style={thStyle}>Não Apto</th>
+                                        <th style={thStyle} data-tour="col-isServing">Em Serviço</th>
+                                        <th style={thStyle} data-tour="col-notQualified">Não Apto</th>
                                         <th style={{ ...thStyle, minWidth: '140px' }}>Motivo (Não Apto)</th>
-                                        <th style={thStyle}>Pediu Não Participar</th>
+                                        <th style={thStyle} data-tour="col-noParticip">Pediu Não Participar</th>
                                         <th style={{ ...thStyle, minWidth: '140px' }}>Motivo (Não Participar)</th>
-                                        <th style={thStyle}>Só Ajudante</th>
+                                        <th style={thStyle} data-tour="col-helperOnly">Só Ajudante</th>
                                     </>}
                                     {section === 'privileges' && <>
                                         <th style={thStyle}>Presidir</th>
@@ -747,6 +779,16 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                 />
             </div>
         )}
+
+        <PublisherFormTutorial
+            role={role}
+            open={showTutorial}
+            onClose={() => {
+                setShowTutorial(false);
+                try { localStorage.setItem(tutorialSeenKey(role), '1'); } catch { /* ignore */ }
+            }}
+            onRequireSection={(s) => setSection(s)}
+        />
         </>
     );
 }
