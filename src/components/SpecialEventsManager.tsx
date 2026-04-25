@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
 import { supabase } from '../lib/supabase';
 import type { SpecialEvent, EventImpactOverride, WorkbookPart } from '../types';
+import { GuidedTour, tourSeenKey, type TourStep } from './GuidedTour';
 
 interface Props {
     availableWeeks: { weekId: string; display: string }[];
@@ -15,14 +16,19 @@ interface Props {
     workbookParts?: WorkbookPart[];  // Mantido para compatibilidade, mas não usado
     /** Se true, esconde formulário e botões de mutação (somente leitura). */
     readOnly?: boolean;
+    /** Papel do usuário para badge edit/view no tutorial. Default 'admin'. */
+    role?: string;
 }
 
-export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false }: Props) {
+export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false, role = 'admin' }: Props) {
     const [events, setEvents] = useState<SpecialEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
     const [editingEvent, setEditingEvent] = useState<SpecialEvent | null>(null);
+
+    // Tutorial
+    const [showTour, setShowTour] = useState(false);
 
     // Form state
     const [formTemplateId, setFormTemplateId] = useState('');
@@ -61,6 +67,17 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     useEffect(() => {
         loadEvents();
     }, [loadEvents]);
+
+    // Auto-abre tutorial na 1ª visita por papel
+    useEffect(() => {
+        try {
+            const seen = localStorage.getItem(tourSeenKey('events', role));
+            if (!seen) {
+                const t = setTimeout(() => setShowTour(true), 500);
+                return () => clearTimeout(t);
+            }
+        } catch { /* ignore */ }
+    }, [role]);
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
@@ -410,21 +427,34 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     };
 
     return (
-        <div style={containerStyle}>
+        <div style={containerStyle} data-tour-root="events">
             {/* Header */}
             <div style={headerStyle}>
-                <h3 style={{ margin: 0, color: '#1F2937' }}>
+                <h3 style={{ margin: 0, color: '#1F2937' }} data-tour="ev-title">
                     📅 Eventos Especiais
                 </h3>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     {!showForm && !readOnly && (
                         <button
                             onClick={() => setShowForm(true)}
+                            data-tour="ev-new"
                             style={{ ...btnStyle('#059669'), padding: '6px 12px' }}
                         >
                             ➕ Novo Evento
                         </button>
                     )}
+                    <button
+                        onClick={() => setShowTour(true)}
+                        title="Ver tutorial guiado deste modal"
+                        data-tour="ev-help"
+                        style={{
+                            border: 'none', background: '#0EA5E9', color: 'white',
+                            cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                            borderRadius: '6px', padding: '6px 10px',
+                        }}
+                    >
+                        ❓ Tutorial
+                    </button>
                     <button
                         onClick={onClose}
                         style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '20px' }}
@@ -762,7 +792,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
             )}
 
             {/* Info */}
-            <div style={{
+            <div data-tour="ev-info" style={{
                 marginTop: '16px',
                 padding: '12px',
                 background: '#FEF3C7',
@@ -773,6 +803,53 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 💡 <strong>Como funciona:</strong> Eventos afetam partes da apostila (cancelando, ajustando tempo, etc.).
                 Clique em "Aplicar" para efetivar o impacto. O motor de designação ignora partes canceladas.
             </div>
+
+            <GuidedTour
+                open={showTour}
+                onClose={() => {
+                    setShowTour(false);
+                    try { localStorage.setItem(tourSeenKey('events', role), '1'); } catch { /* ignore */ }
+                }}
+                role={role}
+                contextLabel="Eventos Especiais"
+                steps={EV_STEPS(readOnly)}
+            />
         </div>
     );
+}
+
+// ─── Tutorial steps ─────────────────────────────────────────────────────────
+function EV_STEPS(readOnly: boolean): TourStep[] {
+    return [
+        {
+            title: 'Eventos Especiais 📅',
+            body: 'Aqui você cadastra eventos que afetam semanas da apostila — assembleias, visitas do Superintendente de Circuito, congressos, etc. Vou te mostrar como funciona em poucos passos.',
+        },
+        {
+            selector: '[data-tour="ev-title"]',
+            title: 'Cabeçalho do modal',
+            body: 'Identifica o gerenciador. O X fecha; o botão de interrogação reabre este tutorial sempre que precisar.',
+        },
+        {
+            selector: '[data-tour="ev-new"]',
+            title: 'Criar novo evento',
+            body: 'Abre o formulário com modelos prontos (Visita do SC, Assembleia, Congresso etc.). Apenas CCA e SEC podem criar; demais papéis veem o modal em modo leitura.',
+            editorRoles: readOnly ? [] : ['admin', 'CCA', 'SEC'],
+        },
+        {
+            title: 'Modelos e impactos',
+            body: 'Cada modelo já vem com sugestões de partes a cancelar ou reduzir. Você pode marcar manualmente quais partes daquela semana sofrerão impacto — visual (badge), cancelamento ou redução de tempo.',
+            editorRoles: ['admin', 'CCA', 'SEC'],
+        },
+        {
+            title: 'Lista de eventos',
+            body: 'Cada cartão mostra um evento cadastrado, com a semana afetada, o tipo e o status (pendente ou aplicado). CCA/SEC podem aplicar, reverter, editar e excluir; demais papéis apenas visualizam.',
+            editorRoles: ['admin', 'CCA', 'SEC'],
+        },
+        {
+            selector: '[data-tour="ev-info"]',
+            title: 'Aplicar para efetivar',
+            body: 'O evento só passa a influenciar a programação após você clicar em Aplicar. Reverter desfaz o impacto. O motor de designação ignora partes canceladas. Pronto, é só isso!',
+        },
+    ];
 }
