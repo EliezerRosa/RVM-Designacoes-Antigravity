@@ -92,6 +92,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
     const [showLocalNeeds, setShowLocalNeeds] = useState(false);
     const [showEvents, setShowEvents] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
+    const [showVideoTutorial, setShowVideoTutorial] = useState(false);
     const [modalWeeks, setModalWeeks] = useState<{ weekId: string; display: string }[] | null>(null);
     const [modalDataLoading, setModalDataLoading] = useState(false);
     const [modalDataError, setModalDataError] = useState<string | null>(null);
@@ -356,6 +357,17 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                         }}
                     >
                         ❓ Tutorial
+                    </button>
+                    <button
+                        onClick={() => setShowVideoTutorial(true)}
+                        title="Assistir vídeo-tutorial completo"
+                        style={{
+                            background: '#7C3AED', color: 'white', border: 'none',
+                            borderRadius: '8px', padding: '8px 12px', fontWeight: 600,
+                            fontSize: '13px', cursor: 'pointer',
+                        }}
+                    >
+                        🎬 Vídeo-tutorial
                     </button>
                     {canManageCommittee && (
                         <>
@@ -791,6 +803,52 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
             }}
             onRequireSection={(s) => setSection(s)}
         />
+
+        {showVideoTutorial && (
+            <div
+                onClick={() => setShowVideoTutorial(false)}
+                style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.85)', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', zIndex: 9500,
+                    padding: '20px',
+                }}
+            >
+                <div
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                        background: '#0F172A', borderRadius: '12px',
+                        padding: '16px', maxWidth: '1100px', width: '100%',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', color: 'white' }}>
+                        <div style={{ fontWeight: 700, fontSize: '15px' }}>🎬 Vídeo-tutorial completo</div>
+                        <button
+                            onClick={() => setShowVideoTutorial(false)}
+                            style={{
+                                background: '#EF4444', color: 'white', border: 'none',
+                                borderRadius: '6px', padding: '6px 12px', fontSize: '12px',
+                                fontWeight: 600, cursor: 'pointer',
+                            }}
+                        >✕ Fechar</button>
+                    </div>
+                    <video
+                        src="/tutorial_completo.mp4"
+                        controls
+                        autoPlay
+                        style={{ width: '100%', borderRadius: '8px', display: 'block', background: '#000' }}
+                    >
+                        Seu navegador não suporta vídeo HTML5. <a href="/tutorial_completo.mp4" style={{ color: '#60A5FA' }}>Baixar o vídeo</a>.
+                    </video>
+                    <div style={{ marginTop: '10px', fontSize: '12px', color: '#94A3B8' }}>
+                        Cobre os três tutoriais guiados: Status do Publicador, Necessidades Locais e Eventos Especiais.
+                        &nbsp;·&nbsp;
+                        <a href="/tutorial_completo.mp4" download style={{ color: '#60A5FA' }}>Baixar MP4</a>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     );
 }
