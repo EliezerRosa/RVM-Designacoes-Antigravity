@@ -24,6 +24,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { driver, type Driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 
@@ -213,7 +214,9 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
     const isFirst = stepIndex === 0;
     const isLast = stepIndex === steps.length - 1;
 
-    return (
+    // Renderizamos via portal direto no <body> para escapar do stacking context
+    // do modal pai (que poderia esconder o painel atrás do overlay do driver.js).
+    const ui = (
         <>
             <style>{`
                 .gt-tour-popover {
@@ -222,7 +225,7 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
                     border-radius: 12px !important;
                     box-shadow: 0 10px 40px rgba(15, 23, 42, 0.35) !important;
                     max-width: 420px !important;
-                    z-index: 100001 !important;
+                    z-index: 2147483602 !important;
                 }
                 .gt-tour-popover .driver-popover-title {
                     font-size: 16px !important;
@@ -247,7 +250,9 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
                 .gt-tour-badge--view { background: #FEF3C7; color: #92400E; }
                 .gt-tour-progress { font-size: 11px; color: #94a3b8; margin-top: 6px; }
                 .driver-popover-arrow { display: none !important; }
-                .driver-overlay { z-index: 99998 !important; }
+                .driver-overlay { z-index: 2147483600 !important; }
+                .driver-popover { z-index: 2147483601 !important; }
+                .driver-active-element { z-index: 2147483599 !important; }
             `}</style>
 
             <div
@@ -264,7 +269,7 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',
-                    zIndex: 100002,
+                    zIndex: 2147483603,
                     fontSize: '13px',
                     fontFamily: 'system-ui, sans-serif',
                     flexWrap: 'wrap',
@@ -301,6 +306,9 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
             </div>
         </>
     );
+
+    if (typeof document === 'undefined') return ui;
+    return createPortal(ui, document.body);
 }
 
 // ─── Helpers públicos ───────────────────────────────────────────────────────
