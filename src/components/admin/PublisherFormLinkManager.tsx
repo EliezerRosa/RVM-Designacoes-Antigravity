@@ -208,8 +208,18 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     // ── Admin quick-open form ─────────────────────────────────────────────
     if (showForm) {
         return (
-            <div>
-                <div style={{ padding: '8px 16px', background: '#F1F5F9', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: '#FFFFFF',
+                    zIndex: 9000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'auto',
+                }}
+            >
+                <div style={{ padding: '8px 16px', background: '#F1F5F9', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: '8px', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1 }}>
                     <button
                         onClick={() => setShowForm(false)}
                         style={{ background: '#4F46E5', color: 'white', border: 'none', borderRadius: '6px', padding: '5px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
@@ -218,7 +228,9 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                     </button>
                     <span style={{ fontSize: '12px', color: '#64748B' }}>Modo administrador — todas as alterações são salvas diretamente.</span>
                 </div>
-                <PublisherStatusForm isAdminAccess />
+                <div style={{ flex: 1, minHeight: 0 }}>
+                    <PublisherStatusForm isAdminAccess />
+                </div>
             </div>
         );
     }
