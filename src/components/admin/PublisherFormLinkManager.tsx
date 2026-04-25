@@ -16,6 +16,7 @@ import type { FormToken, PublisherFormRole } from '../PublisherStatusForm';
 import { PublisherStatusForm } from '../PublisherStatusForm';
 import { LocalNeedsQueue } from '../LocalNeedsQueue';
 import { SpecialEventsManager } from '../SpecialEventsManager';
+import { VideoTutorialModal } from '../VideoTutorialModal';
 import { communicationService } from '../../services/communicationService';
 import type { Publisher } from '../../types';
 
