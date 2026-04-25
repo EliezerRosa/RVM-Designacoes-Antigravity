@@ -19,12 +19,29 @@ import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { SpecialEventsManager } from './SpecialEventsManager';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
+/**
+ * Papel do destinatário do link.
+ *  - CCA: Coordenador do Corpo de Anciãos    → CRUD total
+ *  - SEC: Secretário                         → CRUD total
+ *  - SS:  Superintendente de Serviço         → somente leitura
+ *  - SRVM: Superintendente da Reunião VM     → CRUD em "Pediu Não Participar",
+ *                                              "Motivo Não Participar" e "Só Ajudante";
+ *                                              somente leitura no resto
+ *  - AjSRVM: Ajudante do SRVM                → idem SRVM
+ *
+ * Tokens antigos (sem `role`) são tratados como "CCA" (acesso total) para
+ * manter compatibilidade.
+ */
+export type PublisherFormRole = 'CCA' | 'SEC' | 'SS' | 'SRVM' | 'AjSRVM';
+
 export interface FormToken {
     token: string;
     label: string;
     createdAt: string;
     createdBy: string;
     active: boolean;
+    /** Papel do destinatário (define permissões dentro do form). */
+    role?: PublisherFormRole;
 }
 
 /**
@@ -78,6 +95,24 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
     const [modalDataError, setModalDataError] = useState<string | null>(null);
 
     const canManageCommittee = authorized;
+
+    // ── Permissões por papel ──────────────────────────────────────────────
+    // Token sem role (legado) ⇒ tratado como CCA (acesso total).
+    const role: PublisherFormRole | 'admin' = isAdminAccess
+        ? 'admin'
+        : (tokenInfo?.role ?? 'CCA');
+    const isFullEditor = role === 'admin' || role === 'CCA' || role === 'SEC';
+    const isRvmEditor = role === 'SRVM' || role === 'AjSRVM';
+    /** Edita "Pediu Não Participar", "Motivo Não Participar" e "Só Ajudante". */
+    const canEditNonParticip = isFullEditor || isRvmEditor;
+    /** Edita "Em Serviço", "Não Apto" e "Motivo Não Apto". */
+    const canEditOtherStatus = isFullEditor;
+    /** Edita aba de Privilégios. */
+    const canEditPrivileges = isFullEditor;
+    /** Edita aba "Por Seção". */
+    const canEditSections = isFullEditor;
+    /** Pode CRUD em Necessidades Locais e Eventos Especiais (senão é só leitura). */
+    const canManageNLEvents = isFullEditor;
 
     const ensureWeeks = async () => {
         if (modalWeeks) return;
@@ -283,6 +318,9 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                         <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
                             Link: <strong style={{ color: '#60A5FA' }}>{tokenInfo.label}</strong>
                             &nbsp;·&nbsp;gerado em {new Date(tokenInfo.createdAt).toLocaleDateString('pt-BR')}
+                            {tokenInfo.role && (
+                                <>&nbsp;·&nbsp;<strong style={{ color: '#FBBF24' }}>Papel: {tokenInfo.role}</strong></>
+                            )}
                         </div>
                     )}
                     {isAdminAccess && !tokenInfo && (
@@ -295,7 +333,9 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                             <button
                                 onClick={openLocalNeeds}
                                 disabled={modalDataLoading}
-                                title="Gerenciar fila de Necessidades Locais"
+                                title={canManageNLEvents
+                                    ? 'Gerenciar fila de Necessidades Locais'
+                                    : 'Visualizar fila de Necessidades Locais (somente leitura)'}
                                 style={{
                                     background: '#F59E0B', color: 'white', border: 'none',
                                     borderRadius: '8px', padding: '8px 14px', fontWeight: 600,
@@ -308,7 +348,9 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                             <button
                                 onClick={openEvents}
                                 disabled={modalDataLoading}
-                                title="Gerenciar Eventos Especiais"
+                                title={canManageNLEvents
+                                    ? 'Gerenciar Eventos Especiais'
+                                    : 'Visualizar Eventos Especiais (somente leitura)'}
                                 style={{
                                     background: '#8B5CF6', color: 'white', border: 'none',
                                     borderRadius: '8px', padding: '8px 14px', fontWeight: 600,
@@ -450,6 +492,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                         <th style={{ ...thStyle, minWidth: '140px' }}>Motivo (Não Apto)</th>
                                         <th style={thStyle}>Pediu Não Participar</th>
                                         <th style={{ ...thStyle, minWidth: '140px' }}>Motivo (Não Participar)</th>
+                                        <th style={thStyle}>Só Ajudante</th>
                                     </>}
                                     {section === 'privileges' && <>
                                         <th style={thStyle}>Presidir</th>
@@ -458,7 +501,6 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                         <th style={thStyle}>Oração</th>
                                         <th style={thStyle}>Leitor EBC</th>
                                         <th style={thStyle}>Dirigir EBC</th>
-                                        <th style={thStyle}>Só Ajudante</th>
                                     </>}
                                     {section === 'sections' && <>
                                         <th style={thStyle}>📖 Tesouros</th>
@@ -495,6 +537,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={eff.isServing !== false}
                                                         onChange={v => setField(pub.id, 'isServing', v)}
                                                         activeColor="#10B981"
+                                                        disabled={!canEditOtherStatus}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -502,6 +545,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.isNotQualified}
                                                         onChange={v => setField(pub.id, 'isNotQualified', v)}
                                                         activeColor="#EF4444"
+                                                        disabled={!canEditOtherStatus}
                                                     />
                                                 </td>
                                                 <td style={tdStyle}>
@@ -510,8 +554,8 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         placeholder="Motivo..."
                                                         value={eff.notQualifiedReason || ''}
                                                         onChange={e => setField(pub.id, 'notQualifiedReason', e.target.value)}
-                                                        disabled={!eff.isNotQualified}
-                                                        style={reasonInputStyle(!eff.isNotQualified)}
+                                                        disabled={!canEditOtherStatus || !eff.isNotQualified}
+                                                        style={reasonInputStyle(!canEditOtherStatus || !eff.isNotQualified)}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -519,6 +563,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.requestedNoParticipation}
                                                         onChange={v => setField(pub.id, 'requestedNoParticipation', v)}
                                                         activeColor="#F59E0B"
+                                                        disabled={!canEditNonParticip}
                                                     />
                                                 </td>
                                                 <td style={tdStyle}>
@@ -527,8 +572,16 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         placeholder="Motivo..."
                                                         value={eff.noParticipationReason || ''}
                                                         onChange={e => setField(pub.id, 'noParticipationReason', e.target.value)}
-                                                        disabled={!eff.requestedNoParticipation}
-                                                        style={reasonInputStyle(!eff.requestedNoParticipation)}
+                                                        disabled={!canEditNonParticip || !eff.requestedNoParticipation}
+                                                        style={reasonInputStyle(!canEditNonParticip || !eff.requestedNoParticipation)}
+                                                    />
+                                                </td>
+                                                <td style={tdCenter}>
+                                                    <Toggle
+                                                        value={!!eff.isHelperOnly}
+                                                        onChange={v => setField(pub.id, 'isHelperOnly', v)}
+                                                        activeColor="#F59E0B"
+                                                        disabled={!canEditNonParticip}
                                                     />
                                                 </td>
                                             </>}
@@ -540,6 +593,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.privileges?.canPreside}
                                                         onChange={v => setNested(pub.id, 'privileges', 'canPreside', v)}
                                                         activeColor="#4F46E5"
+                                                        disabled={!canEditPrivileges}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -547,6 +601,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.privileges?.canGiveTalks}
                                                         onChange={v => setNested(pub.id, 'privileges', 'canGiveTalks', v)}
                                                         activeColor="#4F46E5"
+                                                        disabled={!canEditPrivileges}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -554,6 +609,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={eff.privileges?.canGiveStudentTalks !== false}
                                                         onChange={v => setNested(pub.id, 'privileges', 'canGiveStudentTalks', v)}
                                                         activeColor="#6366F1"
+                                                        disabled={!canEditPrivileges}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -561,6 +617,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.privileges?.canPray}
                                                         onChange={v => setNested(pub.id, 'privileges', 'canPray', v)}
                                                         activeColor="#4F46E5"
+                                                        disabled={!canEditPrivileges}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -568,6 +625,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.privileges?.canReadCBS}
                                                         onChange={v => setNested(pub.id, 'privileges', 'canReadCBS', v)}
                                                         activeColor="#4F46E5"
+                                                        disabled={!canEditPrivileges}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -575,13 +633,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.privileges?.canConductCBS}
                                                         onChange={v => setNested(pub.id, 'privileges', 'canConductCBS', v)}
                                                         activeColor="#4F46E5"
-                                                    />
-                                                </td>
-                                                <td style={tdCenter}>
-                                                    <Toggle
-                                                        value={!!eff.isHelperOnly}
-                                                        onChange={v => setField(pub.id, 'isHelperOnly', v)}
-                                                        activeColor="#F59E0B"
+                                                        disabled={!canEditPrivileges}
                                                     />
                                                 </td>
                                             </>}
@@ -593,6 +645,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.privilegesBySection?.canParticipateInTreasures}
                                                         onChange={v => setNested(pub.id, 'privilegesBySection', 'canParticipateInTreasures', v)}
                                                         activeColor="#374151"
+                                                        disabled={!canEditSections}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -600,6 +653,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.privilegesBySection?.canParticipateInMinistry}
                                                         onChange={v => setNested(pub.id, 'privilegesBySection', 'canParticipateInMinistry', v)}
                                                         activeColor="#92400E"
+                                                        disabled={!canEditSections}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>
@@ -607,6 +661,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                                                         value={!!eff.privilegesBySection?.canParticipateInLife}
                                                         onChange={v => setNested(pub.id, 'privilegesBySection', 'canParticipateInLife', v)}
                                                         activeColor="#991B1B"
+                                                        disabled={!canEditSections}
                                                     />
                                                 </td>
                                             </>}
@@ -673,6 +728,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                     publishers={publishers.map(p => ({ id: p.id, name: p.name, condition: p.condition as string }))}
                     availableWeeks={modalWeeks ?? []}
                     onClose={() => setShowLocalNeeds(false)}
+                    readOnly={!canManageNLEvents}
                 />
             </div>
         )}
@@ -686,6 +742,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                 <SpecialEventsManager
                     availableWeeks={modalWeeks ?? []}
                     onClose={() => setShowEvents(false)}
+                    readOnly={!canManageNLEvents}
                 />
             </div>
         )}
@@ -698,26 +755,32 @@ function Toggle({
     value,
     onChange,
     activeColor = '#4F46E5',
+    disabled = false,
 }: {
     value: boolean;
     onChange: (v: boolean) => void;
     activeColor?: string;
+    disabled?: boolean;
 }) {
     return (
         <button
-            onClick={() => onChange(!value)}
+            onClick={() => { if (!disabled) onChange(!value); }}
+            disabled={disabled}
             style={{
                 width: '36px',
                 height: '20px',
                 borderRadius: '10px',
                 border: 'none',
                 background: value ? activeColor : '#CBD5E1',
-                cursor: 'pointer',
+                cursor: disabled ? 'not-allowed' : 'pointer',
                 position: 'relative',
                 transition: 'background 0.2s',
                 flexShrink: 0,
+                opacity: disabled ? 0.55 : 1,
             }}
-            title={value ? 'Ativo — clique para desativar' : 'Inativo — clique para ativar'}
+            title={disabled
+                ? 'Somente leitura — você não tem permissão para alterar este campo.'
+                : (value ? 'Ativo — clique para desativar' : 'Inativo — clique para ativar')}
         >
             <span style={{
                 position: 'absolute',

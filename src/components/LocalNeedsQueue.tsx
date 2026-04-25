@@ -11,9 +11,11 @@ interface Props {
     availableWeeks?: { weekId: string; display: string }[];  // Semanas disponíveis para seleção
     onManualAssignment?: (assignment: LocalNeedsPreassignment) => Promise<void>;
     onClose?: () => void;
+    /** Se true, esconde formulário e botões de mutação (somente leitura). */
+    readOnly?: boolean;
 }
 
-export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onManualAssignment }: Props) {
+export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onManualAssignment, readOnly = false }: Props) {
     const [queue, setQueue] = useState<LocalNeedsPreassignment[]>([]);
     const [history, setHistory] = useState<LocalNeedsPreassignment[]>([]);
     const [loading, setLoading] = useState(false);
@@ -197,7 +199,8 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
                 </div>
             )}
 
-            {/* Formulário de Adição */}
+            {/* Formulário de Adição (oculto em modo somente leitura) */}
+            {!readOnly && (
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <input
                     type="text"
@@ -261,6 +264,13 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
                     ➕
                 </button>
             </div>
+            )}
+
+            {readOnly && (
+                <div style={{ padding: '8px 12px', background: '#FEF3C7', color: '#92400E', borderRadius: '6px', marginBottom: '12px', fontSize: '12px', fontWeight: 600 }}>
+                    👁️ Modo somente leitura — você não tem permissão para alterar a fila.
+                </div>
+            )}
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
@@ -318,6 +328,7 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '4px' }}>
+                                {!readOnly && (<>
                                 <button
                                     onClick={() => handleMoveUp(item.id, item.orderPosition)}
                                     disabled={index === 0}
@@ -338,6 +349,7 @@ export function LocalNeedsQueue({ publishers, availableWeeks = [], onClose, onMa
                                 >
                                     🗑️
                                 </button>
+                                </>)}
                             </div>
                         </div>
                     ))

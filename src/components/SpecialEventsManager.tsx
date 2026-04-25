@@ -13,9 +13,11 @@ interface Props {
     onClose: () => void;
     onEventApplied?: () => void;  // Callback para recarregar partes
     workbookParts?: WorkbookPart[];  // Mantido para compatibilidade, mas não usado
+    /** Se true, esconde formulário e botões de mutação (somente leitura). */
+    readOnly?: boolean;
 }
 
-export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }: Props) {
+export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false }: Props) {
     const [events, setEvents] = useState<SpecialEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -415,7 +417,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                     📅 Eventos Especiais
                 </h3>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    {!showForm && (
+                    {!showForm && !readOnly && (
                         <button
                             onClick={() => setShowForm(true)}
                             style={{ ...btnStyle('#059669'), padding: '6px 12px' }}
@@ -437,6 +439,12 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                 <div style={{ padding: '8px', background: '#FEE2E2', color: '#B91C1C', borderRadius: '6px', marginBottom: '12px' }}>
                     {error}
                     <button onClick={() => setError(null)} style={{ float: 'right', border: 'none', background: 'none' }}>✕</button>
+                </div>
+            )}
+
+            {readOnly && (
+                <div style={{ padding: '8px 12px', background: '#FEF3C7', color: '#92400E', borderRadius: '6px', marginBottom: '12px', fontSize: '12px', fontWeight: 600 }}>
+                    👁️ Modo somente leitura — você não tem permissão para alterar eventos.
                 </div>
             )}
 
@@ -730,21 +738,24 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied }
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            {!event.isApplied ? (
+                            {!readOnly && !event.isApplied && (
                                 <button onClick={() => handleApply(event)} style={btnStyle('#059669')} title="Aplicar impacto">
                                     ▶️ Aplicar
                                 </button>
-                            ) : (
+                            )}
+                            {!readOnly && event.isApplied && (
                                 <button onClick={() => handleRevert(event)} style={btnStyle('#F59E0B')} title="Reverter impacto">
                                     ↩️ Reverter
                                 </button>
                             )}
+                            {!readOnly && (<>
                             <button onClick={() => handleEdit(event)} style={btnStyle('#3B82F6')} title="Editar">
                                 ✏️
                             </button>
                             <button onClick={() => handleDelete(event)} style={btnStyle('#EF4444')} title="Excluir">
                                 🗑️
                             </button>
+                            </>)}
                         </div>
                     </div>
                 ))
