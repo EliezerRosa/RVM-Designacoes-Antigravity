@@ -148,15 +148,37 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
     const openEvents = async () => { await ensureWeeks(); setShowEvents(true); };
 
     // ── Validate token ────────────────────────────────────────────────────
+    // A validação acontece via RPC `authorize_publisher_form_token`
+    // (SECURITY DEFINER) que vive no Supabase. A tabela `publisher_form_tokens`
+    // tem RLS — clients anônimos NÃO conseguem ler tokens; só receber a
+    // resposta verificada pelo servidor. Mesmo padrão do confirm portal.
     useEffect(() => {
         if (isAdminAccess) return;
         if (!token) { setValidating(false); return; }
 
         (async () => {
             try {
-                const tokens = await api.getSetting<FormToken[]>('publisher_form_tokens', []);
-                const found = tokens.find(t => t.token === token && t.active);
-                if (found) { setAuthorized(true); setTokenInfo(found); }
+                const { data, error } = await supabase.rpc('authorize_publisher_form_token', {
+                    p_token: token,
+                });
+                if (error) {
+                    console.error('[PublisherStatusForm] RPC error:', error);
+                    return;
+                }
+                const result = data as { authorized?: boolean; reason?: string; token?: string; label?: string; role?: PublisherFormRole; created_at?: string };
+                if (result?.authorized) {
+                    setAuthorized(true);
+                    setTokenInfo({
+                        token: result.token || token,
+                        label: result.label || '',
+                        role: result.role,
+                        createdAt: result.created_at || new Date().toISOString(),
+                        createdBy: '',
+                        active: true,
+                    });
+                } else if (result?.reason) {
+                    console.warn('[PublisherStatusForm] Token rejeitado:', result.reason);
+                }
             } catch (err) {
                 console.error('[PublisherStatusForm] Token validation error:', err);
             } finally {

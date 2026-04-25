@@ -43,15 +43,34 @@ function funcaoToRole(funcao?: string): PublisherFormRole | null {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function generateToken(): string {
-    const arr = new Uint8Array(18);
-    crypto.getRandomValues(arr);
-    return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-}
-
 function buildFormUrl(token: string): string {
     const base = window.location.origin + window.location.pathname;
     return `${base}?portal=publisher-form&token=${token}`;
+}
+
+// Linha do banco -> shape FormToken usado pela UI
+type DbRow = {
+    id: string;
+    token: string;
+    label: string;
+    role: PublisherFormRole | null;
+    created_at: string;
+    created_by_email: string | null;
+    expires_at: string | null;
+    revoked_at: string | null;
+    last_used_at: string | null;
+    use_count: number;
+};
+
+function rowToToken(r: DbRow): FormToken {
+    return {
+        token: r.token,
+        label: r.label,
+        role: r.role || 'CCA',
+        createdAt: r.created_at,
+        createdBy: r.created_by_email || 'admin',
+        active: r.revoked_at === null && (!r.expires_at || new Date(r.expires_at) > new Date()),
+    };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -117,11 +136,19 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     useEffect(() => {
         (async () => {
             try {
-                const [stored, pubs] = await Promise.all([
-                    api.getSetting<FormToken[]>('publisher_form_tokens', []),
+                const [tokensRes, pubs] = await Promise.all([
+                    supabase
+                        .from('publisher_form_tokens')
+                        .select('id, token, label, role, created_at, created_by_email, expires_at, revoked_at, last_used_at, use_count')
+                        .order('created_at', { ascending: false }),
                     api.loadPublishers(),
                 ]);
-                setTokens(stored);
+                if (tokensRes.error) {
+                    console.error('[LinkManager] Load tokens error:', tokensRes.error);
+                    setTokens([]);
+                } else {
+                    setTokens((tokensRes.data as DbRow[]).map(rowToToken));
+                }
                 const cs = pubs.filter(p =>
                     p.funcao === 'Coordenador do Corpo de Anciãos'
                     || p.funcao === 'Secretário'
@@ -138,9 +165,16 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
         })();
     }, []);
 
-    const persist = async (next: FormToken[]) => {
-        await api.setSetting('publisher_form_tokens', next);
-        setTokens(next);
+    const reloadTokens = async () => {
+        const { data, error } = await supabase
+            .from('publisher_form_tokens')
+            .select('id, token, label, role, created_at, created_by_email, expires_at, revoked_at, last_used_at, use_count')
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error('[LinkManager] Reload error:', error);
+            return;
+        }
+        setTokens((data as DbRow[]).map(rowToToken));
     };
 
     // ── Generate new token ────────────────────────────────────────────────
@@ -148,18 +182,19 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
         if (!newLabel.trim()) return;
         setSaving(true);
         try {
-            const newToken: FormToken = {
-                token: generateToken(),
-                label: newLabel.trim(),
-                createdAt: new Date().toISOString(),
-                createdBy: adminEmail || 'admin',
-                active: true,
-                role: newRole,
-            };
-            await persist([...tokens, newToken]);
+            const { error } = await supabase
+                .from('publisher_form_tokens')
+                .insert({
+                    label: newLabel.trim(),
+                    role: newRole,
+                    created_by_email: adminEmail || 'admin',
+                });
+            if (error) throw error;
             setNewLabel('');
+            await reloadTokens();
         } catch (err) {
             console.error('[LinkManager] Generate error:', err);
+            alert('Erro ao gerar link. Verifique se você tem permissão de admin.');
         } finally {
             setSaving(false);
         }
@@ -169,7 +204,12 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const handleRevoke = async (token: string) => {
         if (!confirm('Revogar este link? Quem tiver o link não conseguirá mais acessar.')) return;
         try {
-            await persist(tokens.map(t => t.token === token ? { ...t, active: false } : t));
+            const { error } = await supabase
+                .from('publisher_form_tokens')
+                .update({ revoked_at: new Date().toISOString() })
+                .eq('token', token);
+            if (error) throw error;
+            await reloadTokens();
         } catch (err) {
             console.error('[LinkManager] Revoke error:', err);
         }
@@ -178,7 +218,12 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     // ── Re-activate token ─────────────────────────────────────────────────
     const handleReactivate = async (token: string) => {
         try {
-            await persist(tokens.map(t => t.token === token ? { ...t, active: true } : t));
+            const { error } = await supabase
+                .from('publisher_form_tokens')
+                .update({ revoked_at: null, revoked_by_profile_id: null })
+                .eq('token', token);
+            if (error) throw error;
+            await reloadTokens();
         } catch (err) {
             console.error('[LinkManager] Reactivate error:', err);
         }
@@ -188,7 +233,12 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const handleDelete = async (token: string) => {
         if (!confirm('Excluir permanentemente este link?')) return;
         try {
-            await persist(tokens.filter(t => t.token !== token));
+            const { error } = await supabase
+                .from('publisher_form_tokens')
+                .delete()
+                .eq('token', token);
+            if (error) throw error;
+            await reloadTokens();
         } catch (err) {
             console.error('[LinkManager] Delete error:', err);
         }
