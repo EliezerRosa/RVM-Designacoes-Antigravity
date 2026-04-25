@@ -463,7 +463,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                 </div>
             )}
 
-            <div style={{ padding: '16px 20px', maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ padding: '16px 20px', width: '100%', margin: '0 auto' }}>
                 {/* Controls */}
                 <div style={{ display: 'flex', gap: '12px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <input
