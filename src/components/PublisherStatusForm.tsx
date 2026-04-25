@@ -103,8 +103,9 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
         : (tokenInfo?.role ?? 'CCA');
     const isFullEditor = role === 'admin' || role === 'CCA' || role === 'SEC';
     const isRvmEditor = role === 'SRVM' || role === 'AjSRVM';
-    /** Edita "Pediu Não Participar", "Motivo Não Participar" e "Só Ajudante". */
-    const canEditNonParticip = isFullEditor || isRvmEditor;
+    /** Edita "Pediu Não Participar", "Motivo Não Participar" e "Só Ajudante".
+     *  Por regra: APENAS SRVM e Aj SRVM (e admin). CCA/SEC apenas visualizam. */
+    const canEditNonParticip = role === 'admin' || isRvmEditor;
     /** Edita "Em Serviço", "Não Apto" e "Motivo Não Apto". */
     const canEditOtherStatus = isFullEditor;
     /** Edita aba de Privilégios. */
