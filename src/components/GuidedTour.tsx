@@ -68,6 +68,8 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
     const [muted, setMuted] = useState(false);
     const [paused, setPaused] = useState(false);
     const driverRef = useRef<Driver | null>(null);
+    const stepsRef = useRef(steps);
+    useEffect(() => { stepsRef.current = steps; }, [steps]);
 
     // Garante voices carregadas
     useEffect(() => {
@@ -97,7 +99,12 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
         setPaused(false);
     }, []);
 
-    // Lifecycle
+    // Lifecycle — só depende de `open`. onClose/stopSpeaking s\u00e3o lidos via ref
+    // para evitar re-cria\u00e7\u00e3o do driver (e reset de stepIndex) quando o pai
+    // re-renderiza (ex.: requireSetup mudando state externo).
+    const onCloseRef = useRef(onClose);
+    useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
     useEffect(() => {
         if (!open) {
             driverRef.current?.destroy();
@@ -112,7 +119,7 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
             stagePadding: 6,
             stageRadius: 10,
             disableActiveInteraction: true,
-            onCloseClick: () => { onClose(); },
+            onCloseClick: () => { onCloseRef.current(); },
             popoverClass: 'gt-tour-popover',
         });
         setStepIndex(0);
@@ -121,13 +128,15 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
             driverRef.current = null;
             stopSpeaking();
         };
-    }, [open, onClose, stopSpeaking]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
-    // Renderiza passo
+    // Renderiza passo (lê steps via ref para não re-criar a cada render do pai)
     const renderStep = useCallback((idx: number) => {
         const d = driverRef.current;
         if (!d) return;
-        const step = steps[idx];
+        const stepsLocal = stepsRef.current;
+        const step = stepsLocal[idx];
         if (!step) return;
         if (step.requireSetup) {
             try { step.requireSetup(); } catch { /* ignore */ }
@@ -144,7 +153,7 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
             <div class="gt-tour-body">${step.body}</div>
             ${badge}
             <div class="gt-tour-progress">
-                ${contextLabel ? `<em>${contextLabel}</em> · ` : ''}Passo ${idx + 1} de ${steps.length}
+                ${contextLabel ? `<em>${contextLabel}</em> · ` : ''}Passo ${idx + 1} de ${stepsLocal.length}
             </div>
         `;
 
@@ -164,7 +173,7 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
             }
             speak(`${step.title}. ${step.body}`);
         }, delay);
-    }, [steps, role, contextLabel, speak]);
+    }, [role, contextLabel, speak]);
 
     useEffect(() => {
         if (!open) return;
@@ -175,15 +184,15 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
     useEffect(() => {
         if (!open) return;
         const handler = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') { onClose(); }
-            else if (e.key === 'ArrowRight') { setStepIndex(i => Math.min(i + 1, steps.length - 1)); }
+            if (e.key === 'Escape') { onCloseRef.current(); }
+            else if (e.key === 'ArrowRight') { setStepIndex(i => Math.min(i + 1, stepsRef.current.length - 1)); }
             else if (e.key === 'ArrowLeft') { setStepIndex(i => Math.max(i - 1, 0)); }
             else if (e.code === 'Space') { e.preventDefault(); togglePause(); }
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, steps.length]);
+    }, [open]);
 
     const togglePause = () => {
         if (typeof window === 'undefined' || !window.speechSynthesis) return;
@@ -197,14 +206,14 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
     };
 
     const replay = () => {
-        const step = steps[stepIndex];
+        const step = stepsRef.current[stepIndex];
         if (step) speak(`${step.title}. ${step.body}`);
     };
 
     // Re-narra ao trocar velocidade/mute
     useEffect(() => {
         if (!open) return;
-        const step = steps[stepIndex];
+        const step = stepsRef.current[stepIndex];
         if (step) speak(`${step.title}. ${step.body}`);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rate, muted]);
