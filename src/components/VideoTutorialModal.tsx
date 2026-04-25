@@ -83,28 +83,44 @@ export function VideoTutorialModal({ onClose, src = '/tutorial_completo.mp4' }: 
                 ref={containerRef}
                 onClick={e => e.stopPropagation()}
                 style={{
-                    background: '#0F172A', borderRadius: isFullscreen ? 0 : '12px',
-                    padding: '16px', maxWidth: '1280px', width: '100%',
-                    boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
-                    display: 'flex', flexDirection: 'column', gap: '10px',
+                    background: '#0F172A', borderRadius: isFullscreen ? 0 : '14px',
+                    padding: '18px', maxWidth: '1280px', width: '100%',
+                    boxShadow: '0 25px 70px rgba(0,0,0,0.7)',
+                    display: 'flex', flexDirection: 'column', gap: '14px',
                 }}
             >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'white', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '15px' }}>
+                <div
+                    style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        color: 'white', flexWrap: 'wrap', gap: '12px',
+                        background: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+                        border: '1px solid #334155',
+                        borderRadius: '12px', padding: '12px 16px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+                    }}
+                >
+                    <div style={{ fontWeight: 700, fontSize: '17px', letterSpacing: '0.2px' }}>
                         🎬 Vídeo-tutorial completo
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '11px', color: '#94A3B8', marginRight: '4px' }}>Velocidade:</span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '13px', color: '#CBD5E1', marginRight: '6px', fontWeight: 600 }}>
+                            Velocidade:
+                        </span>
                         {SPEEDS.map(s => (
                             <button
                                 key={s}
                                 onClick={() => setSpeed(s)}
                                 style={{
-                                    background: speed === s ? '#0EA5E9' : '#1E293B',
-                                    color: 'white', border: '1px solid #334155',
-                                    borderRadius: '6px', padding: '4px 10px',
-                                    fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                                    minWidth: '38px',
+                                    background: speed === s
+                                        ? 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)'
+                                        : '#1E293B',
+                                    color: 'white',
+                                    border: speed === s ? '1px solid #38BDF8' : '1px solid #475569',
+                                    borderRadius: '8px', padding: '7px 14px',
+                                    fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                                    minWidth: '46px',
+                                    boxShadow: speed === s ? '0 2px 8px rgba(14,165,233,0.5)' : 'none',
+                                    transition: 'all 0.15s',
                                 }}
                             >
                                 {s}×
@@ -114,10 +130,12 @@ export function VideoTutorialModal({ onClose, src = '/tutorial_completo.mp4' }: 
                             onClick={toggleFs}
                             title={isFullscreen ? 'Sair de tela cheia' : 'Tela cheia'}
                             style={{
-                                background: '#7C3AED', color: 'white', border: 'none',
-                                borderRadius: '6px', padding: '4px 10px',
-                                fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                                marginLeft: '6px',
+                                background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+                                color: 'white', border: '1px solid #8B5CF6',
+                                borderRadius: '8px', padding: '7px 14px',
+                                fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                                marginLeft: '8px',
+                                boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
                             }}
                         >
                             {isFullscreen ? '🗗 Restaurar' : '⛶ Maximizar'}
@@ -125,9 +143,11 @@ export function VideoTutorialModal({ onClose, src = '/tutorial_completo.mp4' }: 
                         <button
                             onClick={onClose}
                             style={{
-                                background: '#EF4444', color: 'white', border: 'none',
-                                borderRadius: '6px', padding: '4px 12px',
-                                fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                                background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)',
+                                color: 'white', border: '1px solid #F87171',
+                                borderRadius: '8px', padding: '7px 16px',
+                                fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                                boxShadow: '0 2px 8px rgba(239,68,68,0.4)',
                             }}
                         >
                             ✕ Fechar
@@ -144,15 +164,16 @@ export function VideoTutorialModal({ onClose, src = '/tutorial_completo.mp4' }: 
                     onContextMenu={e => e.preventDefault()}
                     style={{
                         width: '100%',
-                        height: isFullscreen ? 'calc(100vh - 90px)' : 'auto',
-                        maxHeight: '85vh',
-                        borderRadius: '8px', display: 'block', background: '#000',
+                        height: isFullscreen ? 'calc(100vh - 130px)' : 'auto',
+                        maxHeight: '82vh',
+                        borderRadius: '10px', display: 'block', background: '#000',
                         objectFit: 'contain',
+                        border: '1px solid #1E293B',
                     }}
                 >
                     Seu navegador não suporta vídeo HTML5.
                 </video>
-                <div style={{ fontSize: '11px', color: '#94A3B8', textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', color: '#94A3B8', textAlign: 'center', fontWeight: 500 }}>
                     Cobre os três tutoriais guiados: Status do Publicador, Necessidades Locais e Eventos Especiais.
                 </div>
             </div>
