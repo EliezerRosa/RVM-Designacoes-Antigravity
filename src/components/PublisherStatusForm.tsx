@@ -319,7 +319,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
     // ── Main form ────────────────────────────────────────────────────────
     return (
         <>
-        <div style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ minHeight: '100vh', width: '100%', flex: 1, background: '#F8FAFC', fontFamily: 'system-ui, sans-serif' }}>
             {/* Header */}
             <div style={{
                 background: '#1E293B',

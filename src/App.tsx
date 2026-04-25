@@ -93,7 +93,7 @@ function App() {
   // PORTAL: formulário de atualização de publicadores (acesso por token, sem login)
   if (portal === 'publisher-form') {
     return (
-      <div className="app portal-mode">
+      <div className="app portal-mode" style={{ padding: 0, display: 'block', background: '#F8FAFC' }}>
         <PublisherStatusForm token={portalToken ?? undefined} />
       </div>
     );
