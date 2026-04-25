@@ -3,7 +3,7 @@
  * Modal com CRUD completo para eventos que impactam semanas da apostila
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
 import { supabase } from '../lib/supabase';
 import type { SpecialEvent, EventImpactOverride, WorkbookPart } from '../types';
@@ -30,6 +30,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     // Tutorial
     const [showTour, setShowTour] = useState(false);
     const [showFormTour, setShowFormTour] = useState(false);
+    // Rastreia o que o tutorial pré-selecionou (para desfazer ao fechar)
+    const tourSampleRef = useRef<{ template: boolean; week: boolean }>({ template: false, week: false });
 
     // Form state
     const [formTemplateId, setFormTemplateId] = useState('');
@@ -847,6 +849,10 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 open={showFormTour}
                 onClose={() => {
                     setShowFormTour(false);
+                    // Desfaz pré-seleções que o tutorial fez ("volta fechando")
+                    if (tourSampleRef.current.week) { setFormWeekId(''); }
+                    if (tourSampleRef.current.template) { setFormTemplateId(''); }
+                    tourSampleRef.current = { template: false, week: false };
                     try { localStorage.setItem(tourSeenKey('events_form', role), '1'); } catch { /* ignore */ }
                 }}
                 role={role}
@@ -854,7 +860,18 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 steps={EV_FORM_STEPS({
                     readOnly,
                     ensureFormOpen: () => setShowForm(true),
-                    setSampleTemplate: () => { if (!formTemplateId) setFormTemplateId(templates[0]?.id || ''); },
+                    setSampleTemplate: () => {
+                        if (!formTemplateId) {
+                            setFormTemplateId(templates[0]?.id || '');
+                            tourSampleRef.current.template = true;
+                        }
+                    },
+                    setSampleWeek: () => {
+                        if (!formWeekId && availableWeeks.length > 0) {
+                            setFormWeekId(availableWeeks[0].weekId);
+                            tourSampleRef.current.week = true;
+                        }
+                    },
                     currentTemplateId: formTemplateId,
                     hasWeek: !!formWeekId,
                     hasParts: allWeekParts.length > 0,
@@ -905,11 +922,12 @@ function EV_FORM_STEPS(opts: {
     readOnly: boolean;
     ensureFormOpen: () => void;
     setSampleTemplate: () => void;
+    setSampleWeek: () => void;
     currentTemplateId: string;
     hasWeek: boolean;
     hasParts: boolean;
 }): TourStep[] {
-    const { readOnly, ensureFormOpen, setSampleTemplate, currentTemplateId, hasWeek, hasParts } = opts;
+    const { readOnly, ensureFormOpen, setSampleTemplate, setSampleWeek, currentTemplateId, hasWeek, hasParts } = opts;
     const editorRoles = readOnly ? [] : ['admin', 'CCA', 'SEC'];
     const isAnuncio = currentTemplateId === 'anuncio' || currentTemplateId === 'notificacao';
     return [
@@ -950,10 +968,10 @@ function EV_FORM_STEPS(opts: {
             selector: '[data-tour="evf-granular"]',
             title: '3️⃣ Impactos por Parte (granular)',
             body: hasWeek && hasParts
-                ? 'Esta tabela só aparece depois de escolher a semana. Cada linha é uma parte real daquela semana — você decide o que acontece com ela individualmente. Esta é a diferença para versões antigas: antes era "tudo ou nada"; agora cada parte tem comportamento próprio.'
+                ? 'Esta tabela só aparece depois de escolher a semana. Cada linha é uma parte real daquela semana — você decide o que acontece com ela individualmente. Esta é a diferença para versões antigas: antes era "tudo ou nada"; agora cada parte tem comportamento próprio. (Para a demo, pré-selecionei uma semana; ela será limpa ao fechar o tutorial.)'
                 : 'Esta seção só aparece DEPOIS de escolher a Semana Alvo. Selecione uma semana no passo anterior e a tabela com todas as partes daquela semana será montada aqui.',
             editorRoles,
-            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); setSampleWeek(); },
         },
         ...(hasWeek && hasParts ? [{
             selector: '[data-tour="evf-granular-table"]' as string,
