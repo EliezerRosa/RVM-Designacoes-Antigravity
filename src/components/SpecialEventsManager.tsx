@@ -29,6 +29,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
     // Tutorial
     const [showTour, setShowTour] = useState(false);
+    const [showFormTour, setShowFormTour] = useState(false);
 
     // Form state
     const [formTemplateId, setFormTemplateId] = useState('');
@@ -78,6 +79,18 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
             }
         } catch { /* ignore */ }
     }, [role]);
+
+    // Auto-abre tutorial do formulário na 1ª vez que abre 'Novo Evento'
+    useEffect(() => {
+        if (!showForm) return;
+        try {
+            const seen = localStorage.getItem(tourSeenKey('events_form', role));
+            if (!seen) {
+                const t = setTimeout(() => setShowFormTour(true), 400);
+                return () => clearTimeout(t);
+            }
+        } catch { /* ignore */ }
+    }, [showForm, role]);
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
@@ -480,13 +493,25 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
             {/* Form */}
             {showForm && (
-                <div style={{ background: '#F9FAFB', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
-                    <h4 style={{ margin: '0 0 12px 0', color: '#374151' }}>
-                        {editingEvent ? 'Editar Evento' : 'Novo Evento'}
-                    </h4>
+                <div data-tour="evf-root" style={{ background: '#F9FAFB', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h4 data-tour="evf-title" style={{ margin: 0, color: '#374151' }}>
+                            {editingEvent ? 'Editar Evento' : 'Novo Evento'}
+                        </h4>
+                        <button
+                            type="button"
+                            onClick={() => setShowFormTour(true)}
+                            title="Tutorial guiado deste formulário"
+                            data-tour="evf-help"
+                            style={{ ...btnStyle('#0EA5E9'), padding: '4px 10px', fontSize: '12px' }}
+                        >
+                            ❓ Tutorial do Formulário
+                        </button>
+                    </div>
 
                     <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>Tipo de Evento</label>
                     <select
+                        data-tour="evf-template"
                         value={formTemplateId}
                         onChange={e => setFormTemplateId(e.target.value)}
                         style={inputStyle}
@@ -498,13 +523,14 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                     </select>
 
                     {selectedTemplate && (
-                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px', padding: '8px', background: '#E5E7EB', borderRadius: '4px' }}>
+                        <div data-tour="evf-template-desc" style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px', padding: '8px', background: '#E5E7EB', borderRadius: '4px' }}>
                             {selectedTemplate.description}
                         </div>
                     )}
 
                     <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>Semana Alvo</label>
                     <select
+                        data-tour="evf-week"
                         value={formWeekId}
                         onChange={e => setFormWeekId(e.target.value)}
                         style={inputStyle}
@@ -517,13 +543,13 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
                     {/* NOVA SEÇÃO: IMPACTOS POR PARTE (Modelagem Granular) */}
                     {formWeekId && allWeekParts.length > 0 && (
-                        <div style={{ marginTop: '16px', borderTop: '1px solid #E5E7EB', paddingTop: '16px', marginBottom: '16px' }}>
+                        <div data-tour="evf-granular" style={{ marginTop: '16px', borderTop: '1px solid #E5E7EB', paddingTop: '16px', marginBottom: '16px' }}>
                             <label style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937', display: 'block', marginBottom: '12px' }}>
                                 Configuração de Impactos por Parte
                             </label>
 
                             <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <table data-tour="evf-granular-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                                     <thead style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
                                         <tr>
                                             <th style={{ textAlign: 'left', padding: '8px', width: '40%', color: '#374151' }}>Parte</th>
@@ -586,7 +612,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
                     {/* SEÇÃO GLOBAL: VÍNCULO VISUAL (*¹) - Sempre disponível se houver partes */}
                     {allWeekParts.length > 0 && (
-                        <div style={{ marginTop: '16px', background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                        <div data-tour="evf-visual-link" style={{ marginTop: '16px', background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#92400E', display: 'block', marginBottom: '4px' }}>
                                 📌 Vínculo Visual (*¹)
                             </label>
@@ -629,7 +655,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         </>
                     )}
 
-                    <>
+                    <div data-tour="evf-observation">
                         <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>Observação (Opcional)</label>
                         <input
                             type="text"
@@ -638,7 +664,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                             placeholder="Informação adicional para a Pauta"
                             style={inputStyle}
                         />
-                    </>
+                    </div>
 
                     {selectedTemplate?.defaults.requiresAssignee && (
                         <>
@@ -655,7 +681,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
                     {/* Campos de Conteúdo/Referência/Links (Anúncio/Notificação) */}
                     {(formTemplateId === 'anuncio' || formTemplateId === 'notificacao') && (
-                        <>
+                        <div data-tour="evf-content-block">
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
                                 {formTemplateId === 'anuncio' ? '📢 Conteúdo do Anúncio' : '🔔 Conteúdo da Notificação'}
                             </label>
@@ -686,11 +712,11 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                 rows={2}
                                 style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }}
                             />
-                        </>
+                        </div>
                     )}
 
                     {/* Opção de Auto-Aplicar */}
-                    <div style={{
+                    <div data-tour="evf-autoapply" style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
@@ -719,7 +745,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         </label>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <div data-tour="evf-actions" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                         <button onClick={resetForm} style={btnStyle('#6B7280')}>
                             Cancelar
                         </button>
@@ -814,6 +840,24 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 contextLabel="Eventos Especiais"
                 steps={EV_STEPS(readOnly)}
             />
+
+            <GuidedTour
+                open={showFormTour}
+                onClose={() => {
+                    setShowFormTour(false);
+                    try { localStorage.setItem(tourSeenKey('events_form', role), '1'); } catch { /* ignore */ }
+                }}
+                role={role}
+                contextLabel="Formulário de Evento"
+                steps={EV_FORM_STEPS({
+                    readOnly,
+                    ensureFormOpen: () => setShowForm(true),
+                    setSampleTemplate: () => { if (!formTemplateId) setFormTemplateId(templates[0]?.id || ''); },
+                    currentTemplateId: formTemplateId,
+                    hasWeek: !!formWeekId,
+                    hasParts: allWeekParts.length > 0,
+                })}
+            />
         </div>
     );
 }
@@ -850,6 +894,113 @@ function EV_STEPS(readOnly: boolean): TourStep[] {
             selector: '[data-tour="ev-info"]',
             title: 'Aplicar para efetivar',
             body: 'O evento só passa a influenciar a programação após você clicar em Aplicar. Reverter desfaz o impacto. O motor de designação ignora partes canceladas. Pronto, é só isso!',
+        },
+    ];
+}
+
+// ─── Tutorial steps do FORMULÁRIO "Novo Evento" ────────────────────────────
+function EV_FORM_STEPS(opts: {
+    readOnly: boolean;
+    ensureFormOpen: () => void;
+    setSampleTemplate: () => void;
+    currentTemplateId: string;
+    hasWeek: boolean;
+    hasParts: boolean;
+}): TourStep[] {
+    const { readOnly, ensureFormOpen, setSampleTemplate, currentTemplateId, hasWeek, hasParts } = opts;
+    const editorRoles = readOnly ? [] : ['admin', 'CCA', 'SEC'];
+    const isAnuncio = currentTemplateId === 'anuncio' || currentTemplateId === 'notificacao';
+    return [
+        {
+            title: 'Tutorial do formulário "Novo Evento" ✨',
+            body: 'Este formulário é o coração do gerenciador: cada campo aqui muda o comportamento do motor de designação, do PDF e do WhatsApp. Vou explicar passo a passo o impacto de cada opção. Use ← → para navegar.',
+            requireSetup: () => ensureFormOpen(),
+        },
+        {
+            selector: '[data-tour="evf-title"]',
+            title: 'Modo de edição',
+            body: 'O título alterna entre "Novo Evento" e "Editar Evento". Editar um evento já APLICADO não desfaz o impacto antigo automaticamente — você precisa Reverter, editar e Aplicar de novo. Em modo leitura, este formulário nem aparece.',
+            editorRoles,
+            requireSetup: () => ensureFormOpen(),
+        },
+        {
+            selector: '[data-tour="evf-template"]',
+            title: '1️⃣ Tipo de Evento (modelo)',
+            body: 'Escolher o modelo é o passo mais importante. Cada modelo carrega defaults: quais partes costumam ser canceladas, se exige tema/responsável, se mostra campos de conteúdo (Anúncio/Notificação). Trocar o modelo NÃO apaga o que você já marcou nas partes — ele apenas pré-popula sugestões na 1ª escolha.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        {
+            selector: '[data-tour="evf-template-desc"]',
+            title: 'Descrição do modelo',
+            body: 'Aparece logo abaixo da seleção e descreve o efeito típico do modelo (ex.: "Visita do SC substitui partes 5–7 por discurso de serviço"). Use isso para confirmar que escolheu o modelo certo antes de avançar.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        {
+            selector: '[data-tour="evf-week"]',
+            title: '2️⃣ Semana Alvo',
+            body: 'Define EXATAMENTE qual semana receberá o impacto. Só aparecem semanas já existentes no Workbook. Trocar a semana recarrega a tabela de partes abaixo — então os impactos granulares são re-mapeados pelos IDs daquela semana específica.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        {
+            selector: '[data-tour="evf-granular"]',
+            title: '3️⃣ Impactos por Parte (granular)',
+            body: hasWeek && hasParts
+                ? 'Esta tabela só aparece depois de escolher a semana. Cada linha é uma parte real daquela semana — você decide o que acontece com ela individualmente. Esta é a diferença para versões antigas: antes era "tudo ou nada"; agora cada parte tem comportamento próprio.'
+                : 'Esta seção só aparece DEPOIS de escolher a Semana Alvo. Selecione uma semana no passo anterior e a tabela com todas as partes daquela semana será montada aqui.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        ...(hasWeek && hasParts ? [{
+            selector: '[data-tour="evf-granular-table"]' as string,
+            title: 'Colunas da tabela — entenda a diferença',
+            body: '• **Vínculo (*¹)**: marca a parte com o badge visual no PDF/WhatsApp, mas NÃO cancela. Útil para chamar atenção ("nesta semana, fale sobre X").\n• **Cancelar**: remove a parte da designação. O motor pula essa parte; nenhum publicador é designado. Marcar Cancelar ativa o vínculo automaticamente.\n• **Tempo (- min)**: reduz a duração da parte. Útil para comprimir a reunião sem cancelar (ex.: cortar 5 min de uma parte de 10).\n\nCancelar e Reduzir Tempo são MUTUAMENTE EXCLUSIVOS — se cancelar, o número some.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        } as TourStep] : []),
+        {
+            selector: '[data-tour="evf-visual-link"]',
+            title: '4️⃣ Vínculo Visual global (*¹)',
+            body: hasParts
+                ? 'Diferente da coluna Vínculo da tabela (que afeta UMA parte por vez), aqui você seleciona TODAS as partes que devem exibir o marcador (*¹) no rodapé do PDF e na mensagem do WhatsApp. Use isto para destacar partes que estão correlacionadas ao evento — mesmo as não canceladas.'
+                : 'Esta caixa amarela aparece quando há partes na semana selecionada. Ela permite marcar quais partes mostrarão o badge visual (*¹) no PDF e WhatsApp.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        {
+            selector: '[data-tour="evf-observation"]',
+            title: '5️⃣ Observação',
+            body: 'Texto livre que aparece na Pauta. Use para detalhes que o publicador precisa saber ("trazer cadeiras extras", "evento começa 19h em vez de 19h30"). Não afeta a designação, só a comunicação.',
+            editorRoles,
+            requireSetup: () => ensureFormOpen(),
+        },
+        ...(isAnuncio ? [{
+            selector: '[data-tour="evf-content-block"]' as string,
+            title: '6️⃣ Conteúdo / Referência / Links (Anúncio e Notificação)',
+            body: '• **Conteúdo**: o texto principal que será lido/enviado.\n• **Referência**: origem oficial (ex.: "Carta de 15/03 do Corpo Governante"). Aparece em itálico abaixo do conteúdo.\n• **Links**: um por linha. Convertidos em links clicáveis no WhatsApp e botões no PDF.\n\nEstes campos só aparecem para os modelos Anúncio e Notificação.',
+            editorRoles,
+            requireSetup: () => ensureFormOpen(),
+        } as TourStep] : []),
+        {
+            selector: '[data-tour="evf-autoapply"]',
+            title: '7️⃣ Auto-Aplicar (decisão crítica)',
+            body: '**MARCADO (verde)**: ao salvar, o impacto é APLICADO IMEDIATAMENTE. As partes canceladas saem da designação e o PDF/WhatsApp já refletem isso. Use quando tem certeza.\n\n**DESMARCADO (amarelo)**: o evento fica PENDENTE. Aparece na lista com badge "📅" mas não afeta nada até você clicar em "▶️ Aplicar". Use para revisar antes de efetivar.',
+            editorRoles,
+            requireSetup: () => ensureFormOpen(),
+        },
+        {
+            selector: '[data-tour="evf-actions"]',
+            title: '8️⃣ Salvar ou Cancelar',
+            body: '**Cancelar**: descarta tudo e fecha o formulário (sem confirmação — cuidado!).\n**Salvar**: persiste no Supabase. Se Auto-Aplicar estiver ligado, também executa o impacto. Se houver erro de validação (semana ou tipo faltando), uma mensagem aparece em vermelho no topo do modal.',
+            editorRoles,
+            requireSetup: () => ensureFormOpen(),
+        },
+        {
+            title: 'Pronto! 🎉',
+            body: 'Resumo do fluxo: Tipo → Semana → Impactos por parte → Vínculo visual → Observação → (Conteúdo) → Auto-Aplicar → Salvar. Lembre: você pode editar e reverter eventos depois. O tutorial reabre pelo botão ❓ no cabeçalho do formulário.',
+            editorRoles,
         },
     ];
 }
