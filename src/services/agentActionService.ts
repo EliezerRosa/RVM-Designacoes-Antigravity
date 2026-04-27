@@ -5,7 +5,7 @@ import { getPermissions, createPermissionGate } from './permissionService';
 import { generationService } from './generationService';
 import { undoService } from './undoService';
 import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
-import { checkEligibility, buildEligibilityContext } from './eligibilityService';
+import { checkEligibility, buildEligibilityContext, getCompatiblePartTypes } from './eligibilityService';
 import { isBlocked } from './cooldownService';
 import { EnumFuncao } from '../types';
 import { communicationService } from './communicationService';
@@ -238,22 +238,21 @@ export const agentActionService = {
                     };
                     const resolvedModalidade = MODALIDADE_ALIASES[partType] || partType;
 
-                    // Lookup tolerante (case-insensitive, contains bidirecional) para
-                    // achar uma parte representativa que sirva de contexto.
-                    const norm = (s: any) => String(s || '').toLowerCase().trim();
+                    // Lookup tolerante (case-insensitive, normaliza diacríticos, contains
+                    // bidirecional) para achar uma parte representativa que sirva de contexto.
+                    // Prefere match EXATO em tipoParte > tituloParte > modalidade > fuzzy.
+                    const norm = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
                     const ptNorm = norm(partType);
-                    const targetPart = parts.find(p => {
-                        const dateMatch = date ? p.weekId === date || p.date === date : true;
-                        if (!dateMatch) return false;
-                        const tipo = norm(p.tipoParte);
-                        const titulo = norm(p.tituloParte);
-                        const mod = norm(p.modalidade);
-                        return tipo === ptNorm
-                            || titulo === ptNorm
-                            || mod === norm(resolvedModalidade)
-                            || tipo.includes(ptNorm) || ptNorm.includes(tipo)
-                            || titulo.includes(ptNorm);
-                    });
+                    const modNorm = norm(resolvedModalidade);
+                    const sameWeek = parts.filter(p => date ? p.weekId === date || p.date === date : true);
+                    const targetPart =
+                        sameWeek.find(p => norm(p.tipoParte) === ptNorm)
+                        || sameWeek.find(p => norm(p.tituloParte) === ptNorm)
+                        || sameWeek.find(p => norm(p.modalidade) === modNorm)
+                        || sameWeek.find(p => {
+                            const tipo = norm(p.tipoParte); const titulo = norm(p.tituloParte);
+                            return tipo.includes(ptNorm) || ptNorm.includes(tipo) || titulo.includes(ptNorm);
+                        });
                     const weekParts = targetPart ? parts.filter(p => p.weekId === targetPart.weekId) : [];
                     const eligCtx = targetPart
                         ? buildEligibilityContext(targetPart, weekParts, publishers)
@@ -282,7 +281,20 @@ export const agentActionService = {
                     const historyForScoring = targetPart
                         ? history.filter(h => h.weekId !== targetPart.weekId)
                         : history;
-                    const ranked = getRankedCandidates(eligible, partType, historyForScoring, undefined, refDate);
+                    // CRÍTICO: usar tipoParte CANÔNICO da modalidade para scoring.
+                    // calculateScore filtra `specificHistory` por igualdade case-insensitive
+                    // de tipoParte. Se passarmos nome informal ("Presidência"), "Orção"
+                    // ou diacrítico errado ("Jóias"), o filtro fica vazio/colidido e o
+                    // score infla/deflaciona artificialmente.
+                    //
+                    // Preferência: (1) exato no targetPart se bate com user; (2) primeiro
+                    // tipoParte compatível da modalidade resolvida; (3) fallback ao input.
+                    const compatibleTipos = getCompatiblePartTypes(elegModalidade as any);
+                    const userMatchesTarget = targetPart && norm(targetPart.tipoParte) === ptNorm;
+                    const scoringPartType = userMatchesTarget
+                        ? targetPart!.tipoParte
+                        : (compatibleTipos[0] || targetPart?.tipoParte || partType);
+                    const ranked = getRankedCandidates(eligible, scoringPartType, historyForScoring, undefined, refDate);
                     const rankedWithCooldown = ranked.map(r => ({
                         ...r,
                         blocked: isBlocked(r.publisher.name, historyForScoring, refDate)
