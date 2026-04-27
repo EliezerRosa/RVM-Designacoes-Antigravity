@@ -13,7 +13,7 @@
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 import { getRankedCandidates, explainScoreForAgent } from '../src/services/unifiedRotationService';
-import { checkEligibility, buildEligibilityContext } from '../src/services/eligibilityService';
+import { checkEligibility, buildEligibilityContext, getCompatiblePartTypes } from '../src/services/eligibilityService';
 import { isBlocked } from '../src/services/cooldownService';
 import { EnumFuncao } from '../src/types';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../src/types';
@@ -162,17 +162,18 @@ async function main() {
         };
         const resolvedModalidade = MODALIDADE_ALIASES[PART_OVERRIDE] || PART_OVERRIDE;
 
-        const norm = (s: any) => String(s || '').toLowerCase().trim();
+        const norm = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
         const ptNorm = norm(PART_OVERRIDE);
-        const targetPart = allParts.find(p => {
-            const dateMatch = p.weekId === TARGET_WEEK || p.date === TARGET_WEEK;
-            if (!dateMatch) return false;
-            const tipo = norm(p.tipoParte);
-            const titulo = norm(p.tituloParte);
-            const mod = norm(p.modalidade);
-            return tipo === ptNorm || titulo === ptNorm || mod === norm(resolvedModalidade)
-                || tipo.includes(ptNorm) || ptNorm.includes(tipo) || titulo.includes(ptNorm);
-        });
+        const modNorm = norm(resolvedModalidade);
+        const sameWeek = allParts.filter(p => p.weekId === TARGET_WEEK || p.date === TARGET_WEEK);
+        const targetPart =
+            sameWeek.find(p => norm(p.tipoParte) === ptNorm)
+            || sameWeek.find(p => norm(p.tituloParte) === ptNorm)
+            || sameWeek.find(p => norm(p.modalidade) === modNorm)
+            || sameWeek.find(p => {
+                const tipo = norm(p.tipoParte); const titulo = norm(p.tituloParte);
+                return tipo.includes(ptNorm) || ptNorm.includes(tipo) || titulo.includes(ptNorm);
+            });
         const weekPartsCtx = targetPart ? allParts.filter(p => p.weekId === targetPart.weekId) : [];
         const eligCtx = targetPart ? buildEligibilityContext(targetPart, weekPartsCtx, publishers) : { date: TARGET_WEEK };
         const elegModalidade = (targetPart?.modalidade as any) || (resolvedModalidade as any);
@@ -192,7 +193,13 @@ async function main() {
 
         const refDate = new Date(TARGET_WEEK + 'T12:00:00');
         const historyForScoring = targetPart ? history.filter(h => h.weekId !== targetPart.weekId) : history;
-        const ranked = getRankedCandidates(eligible, PART_OVERRIDE, historyForScoring, undefined, refDate);
+        const compatibleTipos = getCompatiblePartTypes(elegModalidade as any);
+        const userMatchesTarget = !!targetPart && norm(targetPart.tipoParte) === ptNorm;
+        const scoringPartType = userMatchesTarget
+            ? targetPart!.tipoParte
+            : (compatibleTipos[0] || targetPart?.tipoParte || PART_OVERRIDE);
+        console.log(c.dim(`[scoring] partType="${scoringPartType}" (canonical from modalidade=${elegModalidade})`));
+        const ranked = getRankedCandidates(eligible, scoringPartType, historyForScoring, undefined, refDate);
         const rankedWithCooldown = ranked.map(r => ({
             ...r, blocked: isBlocked(r.publisher.name, historyForScoring, refDate)
         }));
