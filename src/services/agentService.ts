@@ -704,7 +704,12 @@ Ações canônicas (escolha conforme a pergunta):
    Se não tiver partId, use { "partType": "Iniciando conversas", "weekId": "YYYY-MM-DD", "publisherName": "..." }.
 
 2. **CHECK_SCORE** — quando a pergunta é "quem é o melhor para tipo de parte X?" / "ranking de candidatos para Y".
-3. **SIMULATE_ASSIGNMENT** — quando a pergunta é hipotética: "e se eu colocar X em Y?".
+3. **EXPLAIN_SCORE** — quando a pergunta é sobre o SCORE de UM publicador específico ("por que X tem score Y?", "por que X está bloqueado/em cooldown?", "por que X tem score negativo?"). Retorna aritmética literal (Base+TimeBonus−FreqPenalty−Cooldown=Score), janela de cooldown materializada e a lista exata das participações MAIN que dispararam o bloqueio. **Esta é a fonte oficial — nunca calcule score nem janelas de cooldown de cabeça**.
+   \`\`\`json
+   { "type": "EXPLAIN_SCORE", "params": { "publisherName": "Nome", "weekId": "YYYY-MM-DD", "partType": "Presidente" }, "description": "Consultando o motor para explicar o score..." }
+   \`\`\`
+   Apenas \`publisherName\` é obrigatório. Se omitir \`weekId\`/\`partType\`, o motor usa a próxima designação do publicador.
+4. **SIMULATE_ASSIGNMENT** — quando a pergunta é hipotética: "e se eu colocar X em Y?".
 
 Depois de emitir a ação, **NÃO duplique o conteúdo no texto** — a UI já renderizará a resposta da fonte oficial. Apenas confirme em uma frase curta o que foi consultado.
 
@@ -713,12 +718,12 @@ Depois de emitir a ação, **NÃO duplique o conteúdo no texto** — a UI já r
 - **BloqMinisterio** → bloqueia APENAS "Faça Seu Melhor no Ministério".
 - **BloqVida** → bloqueia APENAS "Nossa Vida Cristã".
 
-REGRA ANTI-ALUCINAÇÃO: se você não chamou EXPLAIN_PART/CHECK_SCORE/SIMULATE_ASSIGNMENT antes de afirmar elegibilidade, sua resposta está errada por construção. Reescreva emitindo a ação primeiro.
+REGRA ANTI-ALUCINAÇÃO: se você não chamou EXPLAIN_PART/EXPLAIN_SCORE/CHECK_SCORE/SIMULATE_ASSIGNMENT antes de afirmar elegibilidade, score, cooldown ou aritmética, sua resposta está errada por construção. Reescreva emitindo a ação primeiro.
 
 - "Por que X não pode fazer Leitura?" → emita EXPLAIN_PART com a parte de Leitura da semana e publisherName=X.
 - "Por que X foi designado e não Y?" → emita EXPLAIN_PART com a parte e publisherName=Y.
 - "X está bloqueado para Iniciando Conversas?" → emita EXPLAIN_PART; o motor responde com base na seção real (FSMM = BloqMinisterio).
-- "Por que X tem score alto?" → CHECK_SCORE para o tipo de parte ou EXPLAIN_PART se houver parte específica.
+- "Por que X tem score alto?" / "Por que X tem score negativo?" / "Por que X está em cooldown?" → emita **EXPLAIN_SCORE** com publisherName + weekId. NÃO calcule score, janela de cooldown ou liste participações MAIN você mesmo — o motor faz isso. Apenas reapresente o resultado oficial em prosa amigável (sem alterar números, datas nem inverter a aritmética).
 - "Por que a semana está sem designações?" → Verifique se foi gerada (GENERATE_WEEK) ou se há evento especial cancelando.
 
 ### COM QUEM (Pares, Relações, Associações)
