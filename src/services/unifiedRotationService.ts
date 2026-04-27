@@ -111,22 +111,46 @@ export function calculateScore(
         scoreAdjustment: 0
     };
 
-    // 1. Separar Histórico: GERAL (Penalty) vs ESPECÍFICO (Time Bonus)
-    // FRONTEIRA TEMPORAL: ignorar participações POSTERIORES à referenceDate.
-    // Sem isso, ao editar uma semana intermediária de um lote já gerado (ex.: semana
-    // 5 de um bimestre), as designações futuras das semanas 6–8 contaminariam
-    // weeksSinceLast (via Math.abs) e a Frequency Penalty (sem upper bound).
+    // 1. Separar Histórico em duas visões temporais distintas:
+    //
+    //    a) PASSADO ESTRITO  → para Time Bonus ("há quanto tempo NÃO participa").
+    //       Só faz sentido olhar pra trás; futuro nunca "reseta" ausência.
+    //
+    //    b) JANELA SIMÉTRICA → para Frequency Penalty.
+    //       Carga real do publicador no contexto da rotação inclui designações
+    //       JÁ MARCADAS para o futuro. Quem tem 3 partes pré-designadas nas
+    //       próximas semanas NÃO é candidato neutro para uma substituição.
+    //
+    //    Em ambos os casos, excluir SOMENTE a própria data sendo avaliada
+    //    (caso a designação atual já esteja no histórico passado).
     const refDateStrForFilter = referenceDate.toISOString().split('T')[0];
-    const generalHistory = history
-        .filter(h =>
-            (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
-            isStatPart(h.tipoParte || h.funcao) &&
-            (h.date || '') < refDateStrForFilter
-        )
+
+    const isMine = (h: HistoryRecord) =>
+        (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
+        isStatPart(h.tipoParte || h.funcao);
+
+    // PASSADO ESTRITO (Time Bonus): h.date < refDate
+    const pastHistory = history
+        .filter(h => isMine(h) && (h.date || '') < refDateStrForFilter)
         .sort((a, b) => b.date.localeCompare(a.date));
 
-    // Histórico Específico: Apenas desta modalidade/tipo
-    const specificHistory = generalHistory.filter(h => {
+    // JANELA SIMÉTRICA ±12 semanas (Frequency Penalty): exclui só a própria data
+    const windowStart = new Date(referenceDate);
+    windowStart.setDate(windowStart.getDate() - (12 * 7));
+    const windowEnd = new Date(referenceDate);
+    windowEnd.setDate(windowEnd.getDate() + (12 * 7));
+    const windowStartStr = windowStart.toISOString().split('T')[0];
+    const windowEndStr = windowEnd.toISOString().split('T')[0];
+
+    const windowHistory = history.filter(h => {
+        if (!isMine(h)) return false;
+        const d = h.date || '';
+        if (!d || d === refDateStrForFilter) return false;
+        return d >= windowStartStr && d <= windowEndStr;
+    });
+
+    // Histórico Específico: Apenas desta modalidade/tipo, SÓ PASSADO (Time Bonus)
+    const specificHistory = pastHistory.filter(h => {
         if (!partType) return true;
         const pType = partType.toLowerCase();
         const hType = (h.tipoParte || '').toLowerCase();
@@ -140,7 +164,8 @@ export function calculateScore(
 
     if (lastParticipation) {
         const lastDate = new Date(lastParticipation.date);
-        const diffTime = Math.abs(referenceDate.getTime() - lastDate.getTime());
+        // Garantido > 0 porque pastHistory já é estritamente anterior a refDate.
+        const diffTime = referenceDate.getTime() - lastDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         weeksSinceLast = Math.floor(diffDays / 7);
     }
@@ -149,15 +174,11 @@ export function calculateScore(
         weeksSinceLast = CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS;
     }
 
-    // 2. CÁLCULO CIENTÍFICO: Tempo (Exponencial)
+    // 2. CÁLCULO CIENTÍFICO: Tempo (Exponencial) — só passado importa
     details.timeBonus = Math.round(Math.pow(weeksSinceLast, CURRENT_SCORING_CONFIG.TIME_POWER) * CURRENT_SCORING_CONFIG.TIME_FACTOR);
 
-    // 3. Calcular Penalidade de Frequência (12 semanas)
-    const recentCutoff = new Date(referenceDate);
-    recentCutoff.setDate(recentCutoff.getDate() - (12 * 7));
-    const recentDateStr = recentCutoff.toISOString().split('T')[0];
-
-    const recentCount = generalHistory.filter(h => h.date >= recentDateStr).length;
+    // 3. Penalidade de Frequência: carga na janela ±12 semanas (passado E futuro)
+    const recentCount = windowHistory.length;
     details.frequencyPenalty = recentCount * CURRENT_SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
 
     // 4. Bônus de Função
