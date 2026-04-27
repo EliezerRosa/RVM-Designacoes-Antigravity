@@ -230,12 +230,18 @@ export const agentActionService = {
                         return { success: false, message: `Nenhum publicador elegível encontrado para ${partType}.` };
                     }
 
-                    const ranked = getRankedCandidates(eligible, partType, history);
-                    const refDateStr = date || new Date().toISOString().split('T')[0];
+                    // FONTE ÚNICA com ActionControlPanel: filtra histórico da semana corrente
+                    // (evita loop: a designação atual influenciar o próprio score) e usa a
+                    // data da parte como referenceDate (não "hoje").
+                    const refDateStr = (targetPart?.date || targetPart?.weekId || date) || new Date().toISOString().split('T')[0];
                     const refDate = new Date(refDateStr + 'T12:00:00');
+                    const historyForScoring = targetPart
+                        ? history.filter(h => h.weekId !== targetPart.weekId)
+                        : history;
+                    const ranked = getRankedCandidates(eligible, partType, historyForScoring, undefined, refDate);
                     const rankedWithCooldown = ranked.map(r => ({
                         ...r,
-                        blocked: isBlocked(r.publisher.name, history, refDate)
+                        blocked: isBlocked(r.publisher.name, historyForScoring, refDate)
                     }));
                     const sorted = [
                         ...rankedWithCooldown.filter(r => !r.blocked),
@@ -279,9 +285,11 @@ export const agentActionService = {
                     const eligibleList = publishers.filter(p =>
                         checkEligibility(p, elegModalidade, elegFuncao, eligCtx).eligible
                     );
-                    const ranked = getRankedCandidates(eligibleList, partType, history);
                     const refDate = new Date((targetPart.date || targetPart.weekId) + 'T12:00:00');
-                    const rankedWithCooldown = ranked.map(r => ({ ...r, blocked: isBlocked(r.publisher.name, history, refDate) }));
+                    // Mesma filtragem do ActionControlPanel: ignora a semana atual no histórico
+                    const historyForScoring = history.filter(h => h.weekId !== targetPart.weekId);
+                    const ranked = getRankedCandidates(eligibleList, partType, historyForScoring, undefined, refDate);
+                    const rankedWithCooldown = ranked.map(r => ({ ...r, blocked: isBlocked(r.publisher.name, historyForScoring, refDate) }));
                     const sorted = [
                         ...rankedWithCooldown.filter(r => !r.blocked),
                         ...rankedWithCooldown.filter(r => r.blocked),

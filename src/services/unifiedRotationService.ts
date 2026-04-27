@@ -198,10 +198,11 @@ export function getRankedCandidates(
     candidates: Publisher[],
     partType: string,
     history: HistoryRecord[],
-    currentPresident?: string
+    currentPresident?: string,
+    referenceDate?: Date
 ): RankedCandidate[] {
     const ranked = candidates.map(pub => {
-        const scoreData = calculateScore(pub, partType, history, undefined, currentPresident);
+        const scoreData = calculateScore(pub, partType, history, referenceDate, currentPresident);
         return { publisher: pub, scoreData };
     });
 
