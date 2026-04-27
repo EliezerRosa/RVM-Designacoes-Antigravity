@@ -94,16 +94,19 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             const currentPresidentPart = weekParts?.find(wp => wp.tipoParte.toLowerCase().includes('presidente') && wp.resolvedPublisherName);
             const currentPresident = currentPresidentPart?.resolvedPublisherName;
 
+            // FONTE ÚNICA com ActionControlPanel/agentActionService:
+            // filtrar a semana corrente do histórico antes de calcular score (evita
+            // loop em que a própria designação desta semana zera weeksSinceLast e
+            // dispara o cooldown máximo).
+            const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
+
             // Calcular prioridade usando o NOVO serviço centralizado (Restored Unified Service)
-            const scoreData = calculateScore(p, part.tipoParte, historyRecords, referenceDate, currentPresident);
+            const scoreData = calculateScore(p, part.tipoParte, historyForCooldown, referenceDate, currentPresident);
             // Compatibilidade com código legado que espera apenas um número
             const priority = scoreData.score;
 
             // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
             // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
-            // v9.5: Filtrar histórico para excluir a semana ATUAL do cálculo de cooldown
-            // (Evita que a designação desta semana, se já salva, acione o aviso "Designado para...")
-            const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
             const cooldownInfo = getBlockInfo(p.name, historyForCooldown, referenceDate);
 
             // v8.1: Prioridade para irmãs em demonstrações
@@ -420,7 +423,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         fontSize: '0.8em',
                         color: '#9ca3af'
                     }}>
-                        📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords, referenceDate, currentPresident).explanation}
+                        📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords.filter(h => h.weekId !== part.weekId), referenceDate, currentPresident).explanation}
                     </div>
                 )}
 

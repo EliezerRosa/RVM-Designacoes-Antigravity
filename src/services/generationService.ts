@@ -205,13 +205,15 @@ export const generationService = {
                     return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
                 });
 
-                // Seleção via Scientific Score
-                const ranked = getRankedCandidates(eligibleCandidates, 'Presidente', historyRecords);
+                // Seleção via Scientific Score (mesma fonte do painel/agente:
+                // filtra a semana corrente do histórico + usa data da parte como referência)
+                const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
+                const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
+                const ranked = getRankedCandidates(eligibleCandidates, 'Presidente', historyForRanking, undefined, safeThursdayDate);
 
                 // v10: Pegar o primeiro NÃO bloqueado
                 // CORRECTION O: Use target date (thursdayDate)
-                const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                const candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, safeThursdayDate))?.publisher
+                const candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate))?.publisher
                     || (ranked.length > 0 ? ranked[0].publisher : null); // Fallback se todos bloqueados
 
                 if (candidate) {
@@ -329,13 +331,13 @@ export const generationService = {
 
                         // Helper para selecionar o primeiro DISPONÍVEL da lista ranqueada
                         const pickTopRanked = (pubs: Publisher[]) => {
-                            const ranked = getRankedCandidates(pubs, tipoEnsino, historyRecords);
-                            // v10: Encontrar o primeiro que NÃO está excluído NEM bloqueado
-                            // CORRECTION O: Use target date (thursdayDate) instead of today for cooldown check
+                            // Mesma fonte do painel/agente: filtrar semana corrente + refDate
                             const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
+                            const historyForRanking = historyRecords.filter(h => h.weekId !== ensinoPart.weekId);
+                            const ranked = getRankedCandidates(pubs, tipoEnsino, historyForRanking, undefined, safeThursdayDate);
                             return ranked.find(r =>
                                 !namesExcludedInWeek.has(r.publisher.name) &&
-                                !isBlocked(r.publisher.name, historyRecords, safeThursdayDate)
+                                !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate)
                             )?.publisher || null;
                         };
 
@@ -396,13 +398,13 @@ export const generationService = {
 
                     // Helper para selecionar o primeiro DISPONÍVEL da lista ranqueada
                     const pickTopRanked = (pubs: Publisher[]) => {
-                        const ranked = getRankedCandidates(pubs, estudantePart.tipoParte, historyRecords);
-                        // v10: NÃO excluído NEM bloqueado
-                        // CORRECTION O: Use target date (thursdayDate) instead of today for cooldown check
+                        // Mesma fonte do painel/agente
                         const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
+                        const historyForRanking = historyRecords.filter(h => h.weekId !== estudantePart.weekId);
+                        const ranked = getRankedCandidates(pubs, estudantePart.tipoParte, historyForRanking, undefined, safeThursdayDate);
                         return ranked.find(r =>
                             !namesExcludedInWeek.has(r.publisher.name) &&
-                            !isBlocked(r.publisher.name, historyRecords, safeThursdayDate)
+                            !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate)
                         )?.publisher || null;
                     };
 
@@ -517,15 +519,13 @@ export const generationService = {
                         let selectedPublisher: Publisher | null = null;
 
                         const pickTopRanked = (pubs: Publisher[], type: string) => {
-                            const ranked = getRankedCandidates(pubs, type, historyRecords);
-                            // v10: Evitar repetição + cooldown
-                            // CORRECTION O: Use target date (thursdayDate) instead of today
-                            // Note: Helper doesn't have access to thursdayDate unless passed or captured from scope.
-                            // pickTopRanked IS defined inside the loop scope where thursdayDate exists!
+                            // Mesma fonte do painel/agente
                             const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
+                            const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
+                            const ranked = getRankedCandidates(pubs, type, historyForRanking, undefined, safeThursdayDate);
                             return ranked.find(r =>
                                 !namesExcludedInWeek.has(r.publisher.name) &&
-                                !isBlocked(r.publisher.name, historyRecords, safeThursdayDate)
+                                !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate)
                             )?.publisher || null;
                         };
 
@@ -577,11 +577,11 @@ export const generationService = {
                                 p.name !== presidenteDaSemana
                             );
                             if (group1.length > 0) {
-                                const ranked = getRankedCandidates(group1, 'Oração Final', historyRecords);
-                                // v10: Preferir não-bloqueados, fallback para bloqueados
-                                // CORRECTION O: Use target date (thursdayDate)
+                                // Mesma fonte do painel/agente
                                 const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                                candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, safeThursdayDate))?.publisher
+                                const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
+                                const ranked = getRankedCandidates(group1, 'Oração Final', historyForRanking, undefined, safeThursdayDate);
+                                candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate))?.publisher
                                     || ranked[0]?.publisher || null;
                             }
 
@@ -592,10 +592,10 @@ export const generationService = {
                                     p.name !== presidenteDaSemana
                                 );
                                 if (group2.length > 0) {
-                                    const ranked = getRankedCandidates(group2, 'Oração Final', historyRecords);
-                                    // CORRECTION O: Use target date (thursdayDate)
                                     const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                                    candidate = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, safeThursdayDate))?.publisher
+                                    const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
+                                    const ranked = getRankedCandidates(group2, 'Oração Final', historyForRanking, undefined, safeThursdayDate);
+                                    candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate))?.publisher
                                         || ranked[0]?.publisher || null;
                                 }
                             }
@@ -621,11 +621,11 @@ export const generationService = {
                                 return r.eligible;
                             });
                             if (eligiblePublishers.length > 0) {
-                                // v10: Usar ranking + cooldown (antes usava [0] sem ranking!)
-                                // CORRECTION O: Use target date (thursdayDate)
-                                const ranked = getRankedCandidates(eligiblePublishers, part.tipoParte, historyRecords);
+                                // Mesma fonte do painel/agente: filtrar semana corrente + refDate
                                 const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                                const p = ranked.find(r => !isBlocked(r.publisher.name, historyRecords, safeThursdayDate))?.publisher
+                                const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
+                                const ranked = getRankedCandidates(eligiblePublishers, part.tipoParte, historyForRanking, undefined, safeThursdayDate);
+                                const p = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate))?.publisher
                                     || ranked[0]?.publisher;
                                 if (p) {
                                     selectedPublisherByPart.set(part.id, { id: p.id, name: p.name });
