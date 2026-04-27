@@ -330,7 +330,11 @@ export const communicationService = {
             return res.eligible;
         });
 
-        const ranked = getRankedCandidates(eligible, part.modalidade, history);
+        // Mesma fonte do painel/agente: filtrar a semana corrente do histórico
+        // e usar a data da parte como referenceDate (não "hoje").
+        const refDate = new Date(((part.date || part.weekId) as string) + 'T12:00:00');
+        const historyForRanking = history.filter(h => h.weekId !== part.weekId);
+        const ranked = getRankedCandidates(eligible, part.modalidade, historyForRanking, undefined, refDate);
         const bestCandidate = ranked[0]?.publisher?.name || 'Não encontrado';
 
         // 4. Buscar parceiro (Titular/Ajudante) da mesma semana
