@@ -112,10 +112,16 @@ export function calculateScore(
     };
 
     // 1. Separar Histórico: GERAL (Penalty) vs ESPECÍFICO (Time Bonus)
+    // FRONTEIRA TEMPORAL: ignorar participações POSTERIORES à referenceDate.
+    // Sem isso, ao editar uma semana intermediária de um lote já gerado (ex.: semana
+    // 5 de um bimestre), as designações futuras das semanas 6–8 contaminariam
+    // weeksSinceLast (via Math.abs) e a Frequency Penalty (sem upper bound).
+    const refDateStrForFilter = referenceDate.toISOString().split('T')[0];
     const generalHistory = history
         .filter(h =>
             (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
-            isStatPart(h.tipoParte || h.funcao)
+            isStatPart(h.tipoParte || h.funcao) &&
+            (h.date || '') < refDateStrForFilter
         )
         .sort((a, b) => b.date.localeCompare(a.date));
 
