@@ -210,8 +210,26 @@ export const localNeedsService = {
     /**
      * Busca pré-designação para uma semana específica
      * Prioridade: target_week específico > próximo da fila (sem target_week)
+     *
+     * Hardening (interação Eventos Especiais): se a parte de "Necessidades Locais"
+     * desta semana estiver CANCELADA (ex.: visita do SC), nenhuma pré-designação
+     * é retornada — a fila não deve ser consumida contra um slot inexistente.
      */
     async getForWeek(weekId: string): Promise<LocalNeedsPreassignment | null> {
+        // 0. Verificar se existe parte NL ativa (não CANCELADA) nesta semana
+        const { data: nlParts, error: partErr } = await supabase
+            .from('workbook_parts')
+            .select('status')
+            .eq('week_id', weekId)
+            .eq('tipo_parte', 'Necessidades Locais');
+
+        if (partErr) throw new Error(`Erro ao verificar parte NL: ${partErr.message}`);
+
+        const hasActiveNlPart = (nlParts || []).some(p => p.status !== 'CANCELADA');
+        if (!hasActiveNlPart) {
+            return null;
+        }
+
         // 1. Primeiro, buscar pré-designação específica para esta semana
         const { data: specific, error: specificError } = await supabase
             .from('local_needs_preassignments')
