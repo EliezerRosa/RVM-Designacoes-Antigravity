@@ -100,12 +100,13 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     checkEligibility(p, selectedPart.modalidade as any, selectedPart.funcao as any, eligibilityCtx).eligible
                 );
 
-                const ranked = getRankedCandidates(eligibleCandidates, selectedPart.tipoParte, allHistory);
-                // Usar a mesma lógica do motor: pular candidatos em cooldown (isBlocked)
-                // usando a data da parte como referência, não hoje
+                // Usar a data da parte como referência (não hoje) e filtrar histórico
+                // da semana atual — mesma fonte usada pelo agente (CHECK_SCORE/EXPLAIN_PART)
                 const partDateStr = selectedPart.date || selectedPart.weekId || '';
                 const targetDate = partDateStr ? new Date(`${partDateStr}T12:00:00`) : new Date();
-                const rankedNonBlocked = ranked.filter(r => !isBlocked(r.publisher.name, allHistory, targetDate));
+                const historyForRanking = allHistory.filter(h => h.weekId !== selectedPart.weekId);
+                const ranked = getRankedCandidates(eligibleCandidates, selectedPart.tipoParte, historyForRanking, undefined, targetDate);
+                const rankedNonBlocked = ranked.filter(r => !isBlocked(r.publisher.name, historyForRanking, targetDate));
                 const best = rankedNonBlocked.length > 0 ? rankedNonBlocked[0] : null;
 
                 if (isMounted) {
@@ -142,14 +143,14 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     const cdInfo = getBlockInfo(
                         assignedPublisher.name,
                         historyForCooldown, // Use filtered history
-                        new Date()
+                        targetDate
                     );
 
                     const score = calculateScore(
                         assignedPublisher,
                         selectedPart.tipoParte,
                         historyForCooldown, // Use filtered history
-                        new Date()
+                        targetDate
                     );
 
                     const targetName = assignedPublisher.name.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
