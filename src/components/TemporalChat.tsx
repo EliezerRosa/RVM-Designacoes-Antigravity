@@ -788,6 +788,7 @@ export default function TemporalChat({
                 role: 'user',
                 content: textToSend,
                 timestamp: new Date(),
+                weekId: currentWeekId,
             };
             await chatHistoryService.addMessage(sessionId, userMsg);
             setMessages(prev => [...prev, userMsg]);
@@ -847,7 +848,7 @@ export default function TemporalChat({
                 publishers,
                 parts,
                 historyRecords, // Passar histórico completo injetado
-                messages, // chatHistory
+                messages, // chatHistory (mensagens já carregam weekId no momento da criação)
                 accessLevel, // accessLevel
                 specialEventsCtx, // specialEvents
                 localNeedsCtx, // localNeeds
@@ -885,6 +886,7 @@ export default function TemporalChat({
                     role: 'user',
                     content: `🎤 ${transcribedText}`,
                     timestamp: new Date(),
+                    weekId: currentWeekId,
                 };
                 // Substituir a msg temporária "Processando..." pela transcrição real
                 setMessages(prev => {
@@ -905,6 +907,7 @@ export default function TemporalChat({
                     role: 'user',
                     content: '🎤 (comando de voz)',
                     timestamp: new Date(),
+                    weekId: currentWeekId,
                 };
                 setMessages(prev => {
                     const updated = [...prev];
@@ -928,6 +931,7 @@ export default function TemporalChat({
                     role: 'assistant',
                     content: cleanedContent,
                     timestamp: new Date(),
+                    weekId: currentWeekId,
                 };
 
                 await chatHistoryService.addMessage(sessionId, agentMsg);
