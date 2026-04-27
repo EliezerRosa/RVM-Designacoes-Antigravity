@@ -4,9 +4,9 @@ import { getPermissions, createPermissionGate } from './permissionService';
 
 import { generationService } from './generationService';
 import { undoService } from './undoService';
-import { getRankedCandidates, explainScoreForAgent } from './unifiedRotationService';
+import { getRankedCandidates, explainScoreForAgent, calculateScore } from './unifiedRotationService';
 import { checkEligibility, buildEligibilityContext, getCompatiblePartTypes } from './eligibilityService';
-import { isBlocked } from './cooldownService';
+import { isBlocked, getParticipationCategory, COOLDOWN_WEEKS, COOLDOWN_WEEKS_HELPER } from './cooldownService';
 import { EnumFuncao } from '../types';
 import { communicationService } from './communicationService';
 import { dataDiscoveryService } from './dataDiscoveryService';
@@ -35,6 +35,7 @@ export type AgentActionType =
     | 'VIEW_S140'
     | 'SHARE_S140_WHATSAPP'
     | 'CHECK_SCORE'
+    | 'EXPLAIN_SCORE'
     | 'EXPLAIN_PART'
     | 'CLEAR_WEEK'
     | 'CLEAR_RANGE'
@@ -313,6 +314,136 @@ export const agentActionService = {
                         message: `**Análise do Cérebro (Top 10):**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}`,
                         data: sorted,
                         actionType: 'CHECK_SCORE'
+                    };
+                }
+
+                case 'EXPLAIN_SCORE': {
+                    // Determinístico: explica POR QUE um publicador tem o score X numa parte/semana,
+                    // com aritmética literal (Base + TimeBonus - FreqPenalty - Cooldown) e a janela
+                    // de cooldown materializada (lista de participações MAIN nas últimas N semanas).
+                    // Substitui o LLM como fonte de verdade para "por que X tem score Y / está bloqueado".
+                    const { publisherName, partType: ptHint, weekId: wHint, partId } = action.params;
+
+                    const norm = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const pubNorm = norm(publisherName);
+                    const publisher = publishers.find(p => norm(p.name) === pubNorm)
+                        || publishers.find(p => norm(p.name).includes(pubNorm) || pubNorm.includes(norm(p.name)));
+                    if (!publisher) {
+                        return { success: false, message: `Publicador "${publisherName}" não encontrado.`, actionType: 'EXPLAIN_SCORE' };
+                    }
+
+                    // Resolver targetPart: (1) partId; (2) partType+weekId; (3) designação atual do publicador na semana indicada; (4) próxima designação dele.
+                    let targetPart: WorkbookPart | undefined;
+                    if (partId) {
+                        targetPart = parts.find(p => p.id === partId);
+                    } else if (ptHint && wHint) {
+                        const ptN = norm(ptHint);
+                        targetPart = parts.find(p => p.weekId === wHint && (norm(p.tipoParte) === ptN || norm(p.tituloParte) === ptN || norm(p.tipoParte).includes(ptN)));
+                    } else if (wHint) {
+                        targetPart = parts.find(p => p.weekId === wHint && (p.resolvedPublisherName === publisher.name || p.rawPublisherName === publisher.name));
+                    } else if (ptHint) {
+                        const ptN = norm(ptHint);
+                        targetPart = parts.find(p => norm(p.tipoParte) === ptN || norm(p.tipoParte).includes(ptN));
+                    }
+                    // Fallback: próxima designação do publicador a partir de hoje
+                    if (!targetPart) {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const futureAssigned = parts
+                            .filter(p => (p.resolvedPublisherName === publisher.name || p.rawPublisherName === publisher.name) && (p.date || p.weekId) >= todayStr)
+                            .sort((a, b) => (a.date || a.weekId).localeCompare(b.date || b.weekId));
+                        targetPart = futureAssigned[0];
+                    }
+
+                    if (!targetPart) {
+                        return { success: false, message: `Não consegui localizar a parte para calcular o score de ${publisher.name}. Forneça partType + weekId ou partId.`, actionType: 'EXPLAIN_SCORE' };
+                    }
+
+                    const refDateStr = (targetPart.date || targetPart.weekId);
+                    const refDate = new Date(refDateStr + 'T12:00:00');
+                    // Mesma filtragem que CHECK_SCORE/EXPLAIN_PART: ignora a semana corrente para evitar loop
+                    const historyForScoring = history.filter(h => h.weekId !== targetPart!.weekId);
+
+                    // tipoParte canônico para scoring
+                    const elegModalidade = targetPart.modalidade as any;
+                    const compatibleTipos = getCompatiblePartTypes(elegModalidade);
+                    const scoringPartType = (compatibleTipos[0] || targetPart.tipoParte || ptHint || '');
+
+                    const sd = calculateScore(publisher, scoringPartType, historyForScoring, refDate);
+                    const blocked = isBlocked(publisher.name, historyForScoring, refDate);
+                    const isHelperPart = (targetPart.funcao || '').toLowerCase() === 'ajudante';
+                    const cooldownWeeks = isHelperPart ? COOLDOWN_WEEKS_HELPER : COOLDOWN_WEEKS;
+
+                    // Janela de cooldown
+                    const windowEnd = new Date(refDate);
+                    const windowStart = new Date(refDate);
+                    windowStart.setDate(windowStart.getDate() - cooldownWeeks * 7);
+                    const wStartStr = windowStart.toISOString().split('T')[0];
+                    const wEndStr = windowEnd.toISOString().split('T')[0];
+
+                    // Participações MAIN do publicador dentro da janela
+                    const mainInWindow = historyForScoring.filter(h => {
+                        const isThis = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
+                        if (!isThis) return false;
+                        if (!h.date || h.date < wStartStr || h.date >= wEndStr) return false;
+                        const cat = getParticipationCategory(h.tipoParte || '', h.funcao || '');
+                        return cat === 'MAIN';
+                    }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+                    // Participações nas últimas 12 semanas (para Frequency Penalty)
+                    const freqWindowStart = new Date(refDate);
+                    freqWindowStart.setDate(freqWindowStart.getDate() - 12 * 7);
+                    const freqStartStr = freqWindowStart.toISOString().split('T')[0];
+                    const freqCount = historyForScoring.filter(h => {
+                        const isThis = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
+                        if (!isThis) return false;
+                        if (!h.date || h.date < freqStartStr || h.date >= wEndStr) return false;
+                        const cat = getParticipationCategory(h.tipoParte || '', h.funcao || '');
+                        return cat === 'MAIN';
+                    }).length;
+
+                    const fmtDate = (s: string) => {
+                        try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; }
+                    };
+
+                    const lines: string[] = [];
+                    lines.push(`**Score determinístico (motor oficial — sem LLM):**`);
+                    lines.push(`Publicador: **${publisher.name}**`);
+                    lines.push(`Parte: *${targetPart.tituloParte || targetPart.tipoParte}* — Semana ${targetPart.weekId}`);
+                    lines.push(`Tipo de parte usado para scoring: \`${scoringPartType}\``);
+                    lines.push('');
+                    lines.push(`**Aritmética literal:**`);
+                    lines.push(`\`${sd.details.base} (Base) + ${sd.details.timeBonus} (Time Bonus) − ${sd.details.frequencyPenalty} (Frequency Penalty) ${sd.details.roleBonus !== 0 ? `+ ${sd.details.roleBonus} (Bônus função) ` : ''}− ${sd.details.cooldownPenalty} (Cooldown) = **${sd.score}**\``);
+                    lines.push('');
+                    lines.push(`**Time Bonus** (semanas desde a última vez nesta MESMA parte): ${sd.weeksSinceLast} semana(s) → ${sd.details.timeBonus} pts.`);
+                    if (sd.lastDate) lines.push(`Última vez em "${scoringPartType}": ${fmtDate(sd.lastDate)}.`);
+                    lines.push('');
+                    lines.push(`**Frequency Penalty** (12 semanas, MAIN): ${freqCount} participação(ões) × 20 = ${sd.details.frequencyPenalty} pts.`);
+                    lines.push('');
+                    lines.push(`**Cooldown** (regra GLOBAL POR PUBLICADOR, ${cooldownWeeks} semanas, universal — não varia por parte):`);
+                    lines.push(`Janela: ${fmtDate(wStartStr)} → ${fmtDate(wEndStr)}.`);
+                    if (blocked) {
+                        lines.push(`Status: **BLOQUEADO** (-${sd.details.cooldownPenalty}).`);
+                        if (mainInWindow.length > 0) {
+                            lines.push(`Participações MAIN que dispararam o bloqueio:`);
+                            mainInWindow.forEach(h => {
+                                lines.push(`  • ${fmtDate(h.date)} — ${h.tipoParte || h.tituloParte} (${h.funcao || 'Titular'})`);
+                            });
+                        } else {
+                            lines.push(`⚠️ Inconsistência: cooldown ativo mas nenhuma participação MAIN encontrada na janela. Verifique o histórico.`);
+                        }
+                    } else {
+                        lines.push(`Status: livre (sem participação MAIN na janela).`);
+                    }
+                    if (sd.details.specificAdjustments.length > 0) {
+                        lines.push('');
+                        lines.push(`Ajustes específicos: ${sd.details.specificAdjustments.join(', ')}.`);
+                    }
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { publisher: publisher.name, partId: targetPart.id, score: sd.score, breakdown: sd.details, mainInWindow, blocked, cooldownWeeks, windowStart: wStartStr, windowEnd: wEndStr },
+                        actionType: 'EXPLAIN_SCORE',
                     };
                 }
 
