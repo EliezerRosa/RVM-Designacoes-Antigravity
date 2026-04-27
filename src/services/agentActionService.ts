@@ -193,23 +193,67 @@ export const agentActionService = {
                 case 'CHECK_SCORE': {
                     const { partType, date } = action.params;
                     // Mapeamento defensivo: o agente de IA pode enviar nomes informais
+                    // (ex: "Presidente da Reunião" em vez do tipoParte oficial "Presidente",
+                    // ou nomes de modalidade direto como "Aconselhamento").
+                    // Aliases cobrem TANTO tipoParte quanto modalidade já resolvida.
                     const MODALIDADE_ALIASES: Record<string, string> = {
+                        // Presidência
+                        'Presidente': 'Presidência',
+                        'Presidente da Reunião': 'Presidência',
+                        'Presidente da Reuniao': 'Presidência',
+                        'Comentários Iniciais': 'Presidência',
+                        'Comentarios Iniciais': 'Presidência',
+                        'Comentários Finais': 'Presidência',
+                        'Comentarios Finais': 'Presidência',
+                        // Oração
+                        'Oração': 'Oração',
+                        'Oração Inicial': 'Oração',
+                        'Oração Final': 'Oração',
+                        // Discurso de Ensino
+                        'Discurso na Tesouros': 'Discurso de Ensino',
+                        'Discurso Tesouros': 'Discurso de Ensino',
+                        'Joias Espirituais': 'Discurso de Ensino',
+                        'Parte na Vida Cristã': 'Discurso de Ensino',
+                        // Aconselhamento
+                        'Elogios e Conselhos': 'Aconselhamento',
+                        // Estudante / Demonstração
                         'Leitura da Bíblia': 'Leitura de Estudante',
                         'Leitura': 'Leitura de Estudante',
+                        'Iniciando Conversas': 'Demonstração',
+                        'Cultivando o Interesse': 'Demonstração',
+                        'Fazendo Discípulos': 'Demonstração',
+                        'Iniciando Conversas (Ajudante)': 'Demonstração',
+                        'Cultivando o Interesse (Ajudante)': 'Demonstração',
+                        'Fazendo Discípulos (Ajudante)': 'Demonstração',
                         'Discurso': 'Discurso de Estudante',
-                        'Demonstração': 'Demonstração',
-                        'Oração': 'Oração',
                         'Estudo Bíblico': 'Demonstração',
                         'Primeira Conversa': 'Demonstração',
                         'Revisita': 'Demonstração',
+                        // EBC / Necessidades
+                        'Dirigente do EBC': 'Dirigente de EBC',
+                        'Dirigente EBC': 'Dirigente de EBC',
+                        'Leitor do EBC': 'Leitor de EBC',
+                        'Leitor EBC': 'Leitor de EBC',
+                        'Necessidades Locais': 'Necessidades Locais',
                     };
                     const resolvedModalidade = MODALIDADE_ALIASES[partType] || partType;
 
-                    // Idêntico ao Motor e ao Dropdown: usar contexto completo da parte
-                    const targetPart = parts.find(p =>
-                        (p.tipoParte === partType || p.tituloParte?.includes(partType)) &&
-                        (date ? p.weekId === date || p.date === date : true)
-                    );
+                    // Lookup tolerante (case-insensitive, contains bidirecional) para
+                    // achar uma parte representativa que sirva de contexto.
+                    const norm = (s: any) => String(s || '').toLowerCase().trim();
+                    const ptNorm = norm(partType);
+                    const targetPart = parts.find(p => {
+                        const dateMatch = date ? p.weekId === date || p.date === date : true;
+                        if (!dateMatch) return false;
+                        const tipo = norm(p.tipoParte);
+                        const titulo = norm(p.tituloParte);
+                        const mod = norm(p.modalidade);
+                        return tipo === ptNorm
+                            || titulo === ptNorm
+                            || mod === norm(resolvedModalidade)
+                            || tipo.includes(ptNorm) || ptNorm.includes(tipo)
+                            || titulo.includes(ptNorm);
+                    });
                     const weekParts = targetPart ? parts.filter(p => p.weekId === targetPart.weekId) : [];
                     const eligCtx = targetPart
                         ? buildEligibilityContext(targetPart, weekParts, publishers)
@@ -227,7 +271,7 @@ export const agentActionService = {
                     );
 
                     if (eligible.length === 0) {
-                        return { success: false, message: `Nenhum publicador elegível encontrado para ${partType}.` };
+                        return { success: false, message: `Nenhum publicador elegível encontrado para ${partType} (modalidade resolvida: ${elegModalidade}).` };
                     }
 
                     // FONTE ÚNICA com ActionControlPanel: filtra histórico da semana corrente
