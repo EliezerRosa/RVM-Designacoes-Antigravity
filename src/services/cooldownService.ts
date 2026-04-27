@@ -111,19 +111,17 @@ export function isBlocked(
     history: HistoryRecord[],
     today: Date = new Date()
 ): boolean {
-    // FRONTEIRA TEMPORAL: ao avaliar bloqueio para uma data específica (ex.: semana
-    // futura sendo reajustada), ignorar participações POSTERIORES à `today`. Sem isso,
-    // designações futuras já gravadas (ex.: bimestre pré-gerado) tornariam o cálculo
-    // (today − mostRecent) negativo → `< COOLDOWN_WEEKS` falso-positivo → bloqueio fantasma.
+    // FRONTEIRA TEMPORAL SIMÉTRICA: o cooldown é um GAP MÍNIMO entre participações
+    // MAIN. O gap é absoluto — uma designação MAIN na semana N+1 bloqueia tanto
+    // a semana N quanto a semana N+2 se estiverem dentro do cooldown.
+    // Excluímos APENAS a própria data sendo avaliada (caso a designação atual já
+    // esteja no histórico). Designações futuras já gravadas DEVEM bloquear.
     const todayStr = today.toISOString().split('T')[0];
-    // Filtrar histórico do publicador - apenas partes MAIN (não orações, não ajudante)
-    // E apenas participações até a data de referência (passado ou hoje).
     const relevantHistory = history.filter(h => {
         const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
         if (!isThisPublisher) return false;
-        if ((h.date || '') >= todayStr) return false; // Ignora futuro/presente
+        if ((h.date || '') === todayStr) return false; // exclui só a própria data
 
-        // Só contar partes MAIN para bloqueio
         const category = getParticipationCategory(h.tipoParte || '', h.funcao || '');
         return category === 'MAIN';
     });
@@ -132,18 +130,20 @@ export function isBlocked(
         return false; // Nunca participou em partes MAIN, não está bloqueado
     }
 
-    // Encontrar a participação mais recente
-    const dates = relevantHistory.map(h => new Date(h.date || '').getTime());
-    const mostRecent = Math.max(...dates, 0);
-
-    if (mostRecent === 0) {
-        return false; // Datas inválidas
+    // Gap mínimo absoluto entre `today` e qualquer participação MAIN (passada OU futura)
+    const todayMs = today.getTime();
+    let minDays = Number.POSITIVE_INFINITY;
+    for (const h of relevantHistory) {
+        const t = new Date(h.date || '').getTime();
+        if (isNaN(t)) continue;
+        const d = Math.floor(Math.abs(todayMs - t) / (1000 * 60 * 60 * 24));
+        if (d < minDays) minDays = d;
     }
 
-    const daysSinceLast = Math.floor((today.getTime() - mostRecent) / (1000 * 60 * 60 * 24));
-    const weeksSinceLast = Math.floor(daysSinceLast / 7);
+    if (!isFinite(minDays)) return false; // Datas inválidas
 
-    return weeksSinceLast < COOLDOWN_WEEKS;
+    const weeksSinceClosest = Math.floor(minDays / 7);
+    return weeksSinceClosest < COOLDOWN_WEEKS;
 }
 
 export function getBlockInfo(
@@ -151,24 +151,24 @@ export function getBlockInfo(
     history: HistoryRecord[],
     today: Date = new Date()
 ): CooldownInfo | null {
-    // FRONTEIRA TEMPORAL: mesma regra do isBlocked — ignorar futuro relativo a `today`.
+    // FRONTEIRA TEMPORAL SIMÉTRICA (mesma do isBlocked): considera passado E futuro,
+    // excluindo apenas a própria data sendo avaliada. Ordena pela PROXIMIDADE absoluta
+    // a `today` para retornar o evento MAIN mais próximo (passado ou futuro).
     const todayStr = today.toISOString().split('T')[0];
-    // Filtrar histórico do publicador - apenas partes MAIN
+    const todayMs = today.getTime();
     const relevantHistory = history.filter(h => {
         const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
         if (!isThisPublisher) return false;
-        if ((h.date || '') >= todayStr) return false;
+        if ((h.date || '') === todayStr) return false;
 
         const category = getParticipationCategory(h.tipoParte || '', h.funcao || '');
         return category === 'MAIN';
     }).sort((a, b) => {
-        const dateA = new Date(a.date || '');
-        const dateB = new Date(b.date || '');
-        const timeDiff = dateB.getTime() - dateA.getTime(); // Mais recente primeiro
+        const dA = Math.abs(todayMs - new Date(a.date || '').getTime());
+        const dB = Math.abs(todayMs - new Date(b.date || '').getTime());
+        if (dA !== dB) return dA - dB; // mais próximo primeiro
 
-        if (timeDiff !== 0) return timeDiff;
-
-        // v9.7: Desempate por Prioridade (Ex: Presidente > Comentários)
+        // Desempate por Prioridade (Ex: Presidente > Comentários)
         return getPartPriority(b) - getPartPriority(a);
     });
 
@@ -176,18 +176,18 @@ export function getBlockInfo(
         return null; // Nunca participou
     }
 
-    const lastRecord = relevantHistory[0];
-    const lastDate = new Date(lastRecord.date || '');
-    const daysSinceLast = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-    const weeksSinceLast = Math.floor(daysSinceLast / 7);
+    const closestRecord = relevantHistory[0];
+    const closestDate = new Date(closestRecord.date || '');
+    const daysGap = Math.floor(Math.abs(todayMs - closestDate.getTime()) / (1000 * 60 * 60 * 24));
+    const weeksSinceLast = Math.floor(daysGap / 7);
 
     return {
         isInCooldown: weeksSinceLast < COOLDOWN_WEEKS,
         weeksSinceLast,
         cooldownRemaining: Math.max(0, COOLDOWN_WEEKS - weeksSinceLast),
-        lastPartType: lastRecord.tipoParte || lastRecord.tituloParte || '',
-        lastDate: lastRecord.date || '',
-        weekDisplay: lastRecord.weekDisplay || '' // Novo campo
+        lastPartType: closestRecord.tipoParte || closestRecord.tituloParte || '',
+        lastDate: closestRecord.date || '',
+        weekDisplay: closestRecord.weekDisplay || ''
     };
 }
 
