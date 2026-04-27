@@ -25,6 +25,9 @@ export interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
+    /** Semana focada quando a mensagem foi trocada. Usado para evitar
+     * contaminar o contexto de uma nova semana com chat antigo de outra. */
+    weekId?: string;
 }
 
 export interface AgentResponse {
@@ -58,6 +61,32 @@ Você opera com DOIS contextos simultâneos:
 2. **CONVERSA IMEDIATA**: O histórico do chat. Se o usuário menciona um nome, uma parte ou uma ação sem especificar semana, combine o histórico de chat com a Semana em Foco para resolver a ambiguidade.
 
 ⚠️ NUNCA pergunte "em quais partes?" ou "de qual semana?" quando a resposta está visível na Semana em Foco ou na conversa recente. Consulte o contexto primeiro.
+
+== DESAMBIGUAÇÃO DE FOCO (quando houver dúvida real) ==
+Toda pergunta tem 0 ou mais "focos": **semana**, **parte** (tipo de designação) e **pessoa** (publicador). Antes de responder:
+1. Tente RESOLVER o foco a partir do contexto + Semana em Foco + chat recente.
+2. Se a pergunta for ANALÍTICA (ex.: "porque o score é negativo?", "por que está em cooldown?", "quando ele participou pela última vez?") e ficar AMBÍGUA porque pode se referir a múltiplos alvos plausíveis (ex.: várias partes onde a pessoa aparece, várias pessoas com nome parecido, ou pessoa sem semana clara), **PERGUNTE UMA ÚNICA VEZ** indicando explicitamente os eixos:
+   - "Para esclarecer, você quer focar em: (a) **uma semana específica** (qual?), (b) **um tipo de parte** específico (qual?), (c) **uma pessoa** específica (qual?), ou uma combinação destes?"
+3. Não pergunte se o foco é evidente. Não pergunte mais de uma vez na mesma rodada. Se o usuário não responder o foco, assuma o mais provável e DIGA explicitamente a suposição feita.
+4. Para perguntas de AÇÃO (designar, gerar, limpar, notificar), NÃO pergunte foco — assuma a Semana em Foco.
+
+== GLOSSÁRIO DE SCORE / ROTAÇÃO (verdade do código) ==
+Quando explicar score, cooldown ou rotação, use EXATAMENTE estes nomes e valores. NUNCA confunda "cooldown" com "frequencyPenalty":
+
+| Componente | Janela | Valor | Função |
+|---|---|---|---|
+| **Base Score** | — | +100 | ponto de partida |
+| **Time Bonus** | até 52 semanas | +round(weeks^1.5 × 8) | recompensa tempo sem participar daquela parte específica |
+| **Frequency Penalty** | últimas **12 semanas (~3 meses)** | −20 por participação MAIN | desincentiva sobrecarga recente |
+| **Cooldown (BLOQUEIO)** | últimas **3 semanas** (2 para Ajudante) | **−1500** (bloqueio efetivo) | impede reuso imediato; REGRA DURA |
+| **Sister Demo Bonus** | — | +50 | irmã em parte de demonstração |
+
+Fórmula final: \`score = 100 + timeBonus − frequencyPenalty + roleBonus + scoreAdjustment − cooldownPenalty\`
+
+Regras estritas ao explicar:
+- Cooldown = **3 semanas**, NÃO 3 meses. "3 meses" se refere apenas à janela da Frequency Penalty.
+- Se o cooldown estiver ativo (−1500), cite a participação MAIN específica nas últimas 3 semanas que o disparou. Se não houver participação nessa janela, o cooldown NÃO deveria estar ativo — sinalize possível inconsistência.
+- Sempre mostre a aritmética: \`100 + X − Y − 1500 = Z\`.
 
 == MODAIS CRUD ==
 Para abrir um modal de gerenciamento visual, use SHOW_MODAL.
@@ -849,6 +878,44 @@ function detectContextNeeds(question: string): ContextOptions {
     return options;
 }
 
+/**
+ * Heurística: a pergunta é ANALÍTICA/EXPLICATIVA (não uma ação)?
+ * Quando true, o foco visual (Semana em Foco) NÃO deve ser tratado como
+ * "agora" implícito — pode ser ambígua quanto a semana/parte/pessoa.
+ */
+function isAnalyticalQuestion(question: string): boolean {
+    const q = question.toLowerCase();
+    const analyticalMarkers = [
+        'porque', 'por que', 'por quê', 'porquê',
+        'como funciona', 'como é calculad', 'como calcul',
+        'explique', 'explica ', 'explicar',
+        'o que é', 'o que são', 'o que significa',
+        'qual a razão', 'qual o motivo', 'motivo',
+        'score', 'pontuação', 'cooldown', 'penalidade', 'frequency',
+        'compare', 'comparação', 'diferença entre',
+        'analise', 'análise', 'avalie', 'avaliação'
+    ];
+    return analyticalMarkers.some(m => q.includes(m));
+}
+
+/**
+ * Heurística: pergunta é uma AÇÃO direta (designar, gerar, limpar, etc.)
+ * — nestas, focusWeekId deve ser tratado como "esta semana".
+ */
+function isActionQuestion(question: string): boolean {
+    const q = question.toLowerCase();
+    const actionMarkers = [
+        'designe', 'designa', 'atribua', 'atribuir',
+        'gere', 'gerar ', 'gera ',
+        'limpe', 'limpar', 'desfaça', 'desfazer', 'remova',
+        'troque', 'trocar', 'substitua', 'substituir',
+        'notifique', 'notificar', 'envie', 'enviar',
+        'aprove', 'aprovar', 'rejeite', 'rejeitar',
+        'abra ', 'mostre ', 'abrir', 'mostrar'
+    ];
+    return actionMarkers.some(m => q.includes(m));
+}
+
 export async function askAgent(
     question: string,
     publishers: Publisher[],
@@ -869,6 +936,13 @@ export async function askAgent(
     const contextOptions = audioData
       ? { includePublishers: true, includeRules: true, includeSchedule: true, includeHistory: true, includeSpecialEvents: true }
       : detectContextNeeds(question);
+
+    // Heurísticas de intenção (apenas para texto; áudio sempre tratado como genérico)
+    const analytical = !audioData && isAnalyticalQuestion(question);
+    const action = !audioData && isActionQuestion(question);
+
+    // focusWeekId é SEMPRE passado ao contextBuilder (para o agente saber qual semana o usuário olha),
+    // mas o tratamento muda no system prompt dependendo da intenção.
     const context = buildAgentContext(publishers, parts, history, specialEvents, localNeeds, contextOptions, focusWeekId);
     const contextText = formatContextForPrompt(context);
     const rulesText = contextOptions.includeRules ? getEligibilityRulesText() : '';
@@ -884,6 +958,13 @@ export async function askAgent(
       systemPrompt += SYSTEM_PROMPT_PUBLISHER_ADDON;
     }
 
+    // Nota de intenção: ajusta como o agente deve interpretar a Semana em Foco
+    if (analytical && !action) {
+      systemPrompt += `\n\nINTENÇÃO DETECTADA: ANALÍTICA/EXPLICATIVA. A "Semana em Foco" é apenas a tela visualizada pelo usuário — NÃO assuma que a pergunta é sobre essa semana. Se a pergunta for ambígua quanto a semana/parte/pessoa, aplique a regra DESAMBIGUAÇÃO DE FOCO antes de responder. Ao explicar score/cooldown, siga estritamente o GLOSSÁRIO DE SCORE / ROTAÇÃO.`;
+    } else if (action) {
+      systemPrompt += `\n\nINTENÇÃO DETECTADA: AÇÃO. A "Semana em Foco" é o alvo padrão da ação se o usuário não especificar outra. Não pergunte "qual semana?" — use a Semana em Foco.`;
+    }
+
     const gate = createPermissionGate(getPermissions());
     const isAdmin = gate.isFullAdmin();
     const allowedActions = gate.getAllowedAgentActions();
@@ -896,7 +977,13 @@ export async function askAgent(
 
     console.log('[AgentService] System prompt permissions:', { isAdmin, accessLevel, actionsCount: allowedActions.length, hasImportWorkbook: allowedActions.includes('IMPORT_WORKBOOK') });
 
-    const recentChat = chatHistory.slice(-15).map(msg => ({
+    // Filtrar memória de chat: se há focusWeekId, mantém apenas mensagens da MESMA
+    // semana (ou sem weekId — backward compat). Evita contaminação entre semanas.
+    const scopedChat = focusWeekId
+      ? chatHistory.filter(m => !m.weekId || m.weekId === focusWeekId)
+      : chatHistory;
+
+    const recentChat = scopedChat.slice(-15).map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }],
     }));
