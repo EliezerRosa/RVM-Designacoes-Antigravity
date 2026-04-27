@@ -111,10 +111,17 @@ export function isBlocked(
     history: HistoryRecord[],
     today: Date = new Date()
 ): boolean {
+    // FRONTEIRA TEMPORAL: ao avaliar bloqueio para uma data específica (ex.: semana
+    // futura sendo reajustada), ignorar participações POSTERIORES à `today`. Sem isso,
+    // designações futuras já gravadas (ex.: bimestre pré-gerado) tornariam o cálculo
+    // (today − mostRecent) negativo → `< COOLDOWN_WEEKS` falso-positivo → bloqueio fantasma.
+    const todayStr = today.toISOString().split('T')[0];
     // Filtrar histórico do publicador - apenas partes MAIN (não orações, não ajudante)
+    // E apenas participações até a data de referência (passado ou hoje).
     const relevantHistory = history.filter(h => {
         const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
         if (!isThisPublisher) return false;
+        if ((h.date || '') >= todayStr) return false; // Ignora futuro/presente
 
         // Só contar partes MAIN para bloqueio
         const category = getParticipationCategory(h.tipoParte || '', h.funcao || '');
@@ -144,10 +151,13 @@ export function getBlockInfo(
     history: HistoryRecord[],
     today: Date = new Date()
 ): CooldownInfo | null {
+    // FRONTEIRA TEMPORAL: mesma regra do isBlocked — ignorar futuro relativo a `today`.
+    const todayStr = today.toISOString().split('T')[0];
     // Filtrar histórico do publicador - apenas partes MAIN
     const relevantHistory = history.filter(h => {
         const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
         if (!isThisPublisher) return false;
+        if ((h.date || '') >= todayStr) return false;
 
         const category = getParticipationCategory(h.tipoParte || '', h.funcao || '');
         return category === 'MAIN';
