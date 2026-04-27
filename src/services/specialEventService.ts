@@ -420,6 +420,7 @@ export const specialEventService = {
                                     .in('id', idsToCancel);
                                 if (error) throw error;
                                 totalAffected += count || 0;
+                                // Liberação de pré-designações NL: feita no hardening pós-loop.
                             }
                         }
                     }
@@ -508,6 +509,27 @@ export const specialEventService = {
                 case 'REASSIGN_PART':
                     break;
             }
+        }
+
+        // Hardening universal (CANCEL_SECTION, CANCEL_WEEK, SC_VISIT_LOGIC):
+        // liberar pré-designações de Necessidades Locais cujas partes ficaram CANCELADAS
+        // por este evento, devolvendo-as à fila para semanas futuras com NL ativa.
+        try {
+            const { data: cancelledNlParts } = await supabase
+                .from('workbook_parts')
+                .select('id')
+                .eq('affected_by_event_id', event.id)
+                .eq('status', 'CANCELADA')
+                .eq('tipo_parte', 'Necessidades Locais');
+            const nlIds = (cancelledNlParts || []).map(p => p.id);
+            if (nlIds.length > 0) {
+                await supabase
+                    .from('local_needs_preassignments')
+                    .update({ assigned_to_part_id: null, assigned_at: null })
+                    .in('assigned_to_part_id', nlIds);
+            }
+        } catch (e) {
+            console.warn('[specialEventService] Falha ao liberar pré-designações NL pós-cancelamento:', e);
         }
 
         // Marcar evento como aplicado
