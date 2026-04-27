@@ -39,15 +39,20 @@ export function getRotationConfig() {
     return { ...CURRENT_SCORING_CONFIG };
 }
 
-// Partes que não contam para estatísticas ou histórico do publicador
-// NOTA: "Presidente" foi REMOVIDO desta lista para que o scoring rastreie o histórico
-// de presidência e faça rotação adequada entre os anciãos elegíveis.
+// Partes que não contam para estatísticas ou histórico do publicador.
+// Critério: apenas partes auto-atribuídas ao Presidente (cascata de quem já foi
+// escolhido para presidir) e cânticos (não são designação pessoal).
+// NOTAS:
+// - "Presidente" NÃO está aqui: o scoring rastreia histórico de presidência
+//   para rotação adequada entre anciãos elegíveis.
+// - "Necessidades Locais" NÃO está aqui: embora seja designada à parte (fora do
+//   algoritmo de rotação, na criação de eventos), DEVE pesar no histórico/score
+//   geral do publicador para influenciar designações de outras partes.
 export const EXCLUDED_STATS_PARTS = [
     "Cântico",
     "Cantico",
     "Oração Inicial",
     "Oracao Inicial",
-    "Necessidades",
     "Comentários iniciais",
     "Comentarios iniciais",
     "Elogios e conselhos",
