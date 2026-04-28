@@ -1,334 +1,249 @@
-/* ============================================
-   ChatDrawerShell — drawers laterais do Chat
-   ============================================
-   Layout em CSS Grid de 5 colunas (rail-L | panel-L | chat | panel-R | rail-R).
-   Drawers fechados ocupam apenas a largura do trilho (~28px).
-   Conversa empurrada (push) ocupa o que sobra; conversa colapsada vira trilho próprio.
-*/
+/* ChatDrawerShell — overlay drawers laterais */
 
 .chat-drawer-shell {
     position: relative;
-    display: grid;
-    grid-template-columns:
-        var(--chat-shell-rail-w, 0px)
-        var(--chat-shell-left-w, 0fr)
-        1fr
-        var(--chat-shell-right-w, 0fr)
-        var(--chat-shell-rail-w, 0px);
     width: 100%;
     height: 100%;
-    min-height: 0;
     overflow: hidden;
-    background: var(--bg-secondary);
+    display: block;
 }
 
-/* Variáveis dinâmicas controladas por data-attrs */
-.chat-drawer-shell[data-left-open='true'] {
-    --chat-shell-left-w: minmax(220px, 320px);
+/* Conversa: sempre full-width, ignora drawers (overlay) */
+.chat-drawer-shell__chat {
+    position: absolute;
+    inset: 0;
+    /* Reserva 24px nas bordas internas para os trilhos não cobrirem o conteúdo */
+    padding-left: 26px;
+    padding-right: 26px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
-.chat-drawer-shell[data-right-open='true'] {
-    --chat-shell-right-w: minmax(260px, 380px);
-}
-
-/* Trilhos sempre presentes quando há painel correspondente */
+/* Trilhos finos sempre visíveis nas bordas */
 .chat-drawer-shell__rail {
-    --chat-shell-rail-w: 28px;
-    width: 28px;
-    height: 100%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 24px;
+    background: rgba(120, 120, 140, 0.08);
     border: none;
-    background: transparent;
-    color: var(--text-secondary, #6B7280);
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    color: #c0c0d0;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    z-index: 5;
+    transition: background 0.15s ease, color 0.15s ease;
     padding: 12px 0;
-    position: relative;
-    transition: background-color 120ms ease, color 120ms ease;
-    border-left: 1px solid transparent;
-    border-right: 1px solid transparent;
     font-size: 11px;
 }
 
 .chat-drawer-shell__rail:hover {
-    background: rgba(99, 102, 241, 0.08);
-    color: var(--text-primary, #111827);
+    background: rgba(99, 102, 241, 0.18);
+    color: #fff;
 }
 
-.chat-drawer-shell__rail--left {
-    border-right: 1px solid var(--border-color, #E5E7EB);
-}
+.chat-drawer-shell__rail--left { left: 0; }
+.chat-drawer-shell__rail--right { right: 0; }
 
-.chat-drawer-shell__rail--right {
-    border-left: 1px solid var(--border-color, #E5E7EB);
-}
-
-.chat-drawer-shell__rail-arrow {
-    font-size: 12px;
-    opacity: 0.7;
+.chat-drawer-shell__rail[aria-expanded='true'] {
+    background: rgba(99, 102, 241, 0.28);
+    color: #fff;
 }
 
 .chat-drawer-shell__rail-icon {
-    font-size: 16px;
+    font-size: 14px;
+    line-height: 1;
 }
 
-/* Label rotacionado verticalmente */
 .chat-drawer-shell__rail-label {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    font-size: 10px;
-    letter-spacing: 0.04em;
     text-transform: uppercase;
-    opacity: 0.65;
-    white-space: nowrap;
+    letter-spacing: 1.5px;
+    font-size: 10px;
+    font-weight: 600;
+    opacity: 0.9;
 }
 
-/* Badge numérico Slack-style */
+/* Badge Slack-style */
 .chat-drawer-shell__badge {
     position: absolute;
     top: 6px;
-    background: #DC2626; /* red-600 */
+    background: #ef4444;
     color: #fff;
+    border-radius: 999px;
     font-size: 10px;
-    line-height: 1;
     font-weight: 700;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 9px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 0 2px var(--bg-secondary, #fff);
-    pointer-events: none;
-    animation: chat-shell-badge-pop 280ms ease-out;
+    box-shadow: 0 0 0 2px #1f1f2e;
+    animation: chat-drawer-pop 0.25s ease-out;
 }
 
-.chat-drawer-shell__rail--left .chat-drawer-shell__badge {
-    right: -6px;
+.chat-drawer-shell__rail--left .chat-drawer-shell__badge { left: 4px; }
+.chat-drawer-shell__rail--right .chat-drawer-shell__badge { right: 4px; }
+
+@keyframes chat-drawer-pop {
+    0% { transform: scale(0); }
+    70% { transform: scale(1.2); }
+    100% { transform: scale(1); }
 }
 
-.chat-drawer-shell__rail--right .chat-drawer-shell__badge {
-    left: -6px;
-}
-
-@keyframes chat-shell-badge-pop {
-    0% {
-        transform: scale(0.4);
-        opacity: 0;
-    }
-    100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
-
-/* Painéis abertos */
+/* Painel overlay */
 .chat-drawer-shell__panel {
-    height: 100%;
-    min-height: 0;
-    background: var(--bg-secondary, #fff);
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: clamp(260px, 60%, 380px);
+    background: #1f1f2e;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+    z-index: 10;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    animation: chat-shell-panel-in 180ms ease-out;
+    animation: chat-drawer-slide 0.18s ease-out;
 }
 
 .chat-drawer-shell__panel--left {
-    border-right: 1px solid var(--border-color, #E5E7EB);
+    left: 24px; /* depois do trilho */
+    animation-name: chat-drawer-slide-left;
 }
 
 .chat-drawer-shell__panel--right {
-    border-left: 1px solid var(--border-color, #E5E7EB);
+    right: 24px;
+    animation-name: chat-drawer-slide-right;
 }
 
-@keyframes chat-shell-panel-in {
-    from {
-        opacity: 0.4;
-    }
-    to {
-        opacity: 1;
-    }
+@keyframes chat-drawer-slide-left {
+    from { transform: translateX(-12px); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
 }
 
-.chat-drawer-shell__panel-header {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-color, #E5E7EB);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-primary, #111827);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    background: rgba(0, 0, 0, 0.02);
+@keyframes chat-drawer-slide-right {
+    from { transform: translateX(12px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
 }
 
 .chat-drawer-shell__panel-close {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: var(--text-secondary, #6B7280);
-    font-size: 14px;
-    line-height: 1;
-    padding: 4px 6px;
-    border-radius: 4px;
-}
-
-.chat-drawer-shell__panel-close:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: var(--text-primary, #111827);
-}
-
-.chat-drawer-shell__panel-body {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 12px;
-    min-height: 0;
-}
-
-/* Conversa (pane central) */
-.chat-drawer-shell__pane {
-    position: relative;
-    height: 100%;
-    min-height: 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--bg-secondary, #fff);
-}
-
-.chat-drawer-shell__pane--expanded {
-    /* default */
-}
-
-.chat-drawer-shell__pane--pushed {
-    /* sem mudança especial; grid 1fr cuida do encolhimento */
-}
-
-/* Quando colapsada, vira trilho clicável de retorno */
-.chat-drawer-shell__pane--collapsed {
-    width: 36px;
-    flex: 0 0 36px;
-    background: rgba(99, 102, 241, 0.06);
-    border-left: 1px solid var(--border-color, #E5E7EB);
-    border-right: 1px solid var(--border-color, #E5E7EB);
-}
-
-.chat-drawer-shell[data-chat-mode='collapsed'] {
-    grid-template-columns:
-        var(--chat-shell-rail-w, 0px)
-        var(--chat-shell-left-w, 0fr) 36px
-        var(--chat-shell-right-w, 0fr)
-        var(--chat-shell-rail-w, 0px);
-}
-
-/* Tip de retorno à conversa */
-.chat-drawer-shell__chat-tip {
-    width: 100%;
-    height: 100%;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 16px 0;
-    color: var(--text-secondary, #4B5563);
-    transition: background-color 120ms ease, color 120ms ease;
-}
-
-.chat-drawer-shell__chat-tip:hover {
-    background: rgba(99, 102, 241, 0.12);
-    color: var(--text-primary, #111827);
-}
-
-.chat-drawer-shell__chat-tip-icon {
-    font-size: 22px;
-}
-
-.chat-drawer-shell__chat-tip-label {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 11px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.chat-drawer-shell__chat-tip-hint {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 9px;
-    opacity: 0.6;
-    white-space: nowrap;
-}
-
-/* Botão flutuante para compactar conversa quando empurrada */
-.chat-drawer-shell__compact-btn {
     position: absolute;
     top: 6px;
     right: 8px;
-    z-index: 5;
-    background: rgba(255, 255, 255, 0.85);
-    border: 1px solid var(--border-color, #E5E7EB);
-    color: var(--text-secondary, #6B7280);
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 12px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 18px;
     cursor: pointer;
-    backdrop-filter: blur(2px);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    transition: background-color 120ms ease, color 120ms ease;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
 }
 
-.chat-drawer-shell__compact-btn:hover {
-    background: #fff;
-    color: var(--text-primary, #111827);
+.chat-drawer-shell__panel-close:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
 }
 
-/* Em mobile: drawers ocupam toda a coluna como overlay flutuante */
-@media (max-width: 1024px) {
-    .chat-drawer-shell[data-left-open='true'],
-    .chat-drawer-shell[data-right-open='true'] {
-        --chat-shell-left-w: 0fr;
-        --chat-shell-right-w: 0fr;
+/* Stack vertical dentro do painel — 1 ou 2 seções */
+.chat-drawer-shell__panel-stack {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.chat-drawer-shell__panel-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.chat-drawer-shell__panel-section:first-child {
+    border-top: none;
+}
+
+.chat-drawer-shell__panel-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 36px 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #d1d5db;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(255, 255, 255, 0.02);
+    flex: 0 0 auto;
+}
+
+.chat-drawer-shell__section-badge {
+    margin-left: auto;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 999px;
+    font-size: 10px;
+    padding: 1px 6px;
+    font-weight: 700;
+    text-transform: none;
+}
+
+.chat-drawer-shell__panel-section-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 14px 14px;
+    color: #e5e7eb;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Tema claro (caso o ambiente use light) */
+@media (prefers-color-scheme: light) {
+    .chat-drawer-shell__rail {
+        background: rgba(0, 0, 0, 0.04);
+        color: #4b5563;
+        border-color: rgba(0, 0, 0, 0.06);
     }
-
+    .chat-drawer-shell__rail:hover {
+        background: rgba(99, 102, 241, 0.12);
+        color: #1f2937;
+    }
     .chat-drawer-shell__panel {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        z-index: 20;
-        width: min(86%, 320px);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+        background: #ffffff;
+        border-color: rgba(0, 0, 0, 0.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
     }
-
-    .chat-drawer-shell__panel--left {
-        left: 28px;
+    .chat-drawer-shell__panel-section-header {
+        background: rgba(0, 0, 0, 0.02);
+        color: #374151;
     }
-
-    .chat-drawer-shell__panel--right {
-        right: 28px;
+    .chat-drawer-shell__panel-section-body {
+        color: #1f2937;
     }
-
-    /* Em mobile, conversa nunca colapsa: prefere overlay */
-    .chat-drawer-shell__pane--collapsed {
-        width: auto;
-        flex: 1;
+    .chat-drawer-shell__panel-close {
+        color: #6b7280;
     }
-
-    .chat-drawer-shell[data-chat-mode='collapsed'] {
-        grid-template-columns:
-            var(--chat-shell-rail-w, 0px) 0fr 1fr 0fr
-            var(--chat-shell-rail-w, 0px);
+    .chat-drawer-shell__panel-close:hover {
+        background: rgba(0, 0, 0, 0.06);
+        color: #111827;
+    }
+    .chat-drawer-shell__badge {
+        box-shadow: 0 0 0 2px #ffffff;
     }
 }
