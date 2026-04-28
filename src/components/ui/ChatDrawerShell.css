@@ -1,0 +1,334 @@
+/* ============================================
+   ChatDrawerShell — drawers laterais do Chat
+   ============================================
+   Layout em CSS Grid de 5 colunas (rail-L | panel-L | chat | panel-R | rail-R).
+   Drawers fechados ocupam apenas a largura do trilho (~28px).
+   Conversa empurrada (push) ocupa o que sobra; conversa colapsada vira trilho próprio.
+*/
+
+.chat-drawer-shell {
+    position: relative;
+    display: grid;
+    grid-template-columns:
+        var(--chat-shell-rail-w, 0px)
+        var(--chat-shell-left-w, 0fr)
+        1fr
+        var(--chat-shell-right-w, 0fr)
+        var(--chat-shell-rail-w, 0px);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+/* Variáveis dinâmicas controladas por data-attrs */
+.chat-drawer-shell[data-left-open='true'] {
+    --chat-shell-left-w: minmax(220px, 320px);
+}
+
+.chat-drawer-shell[data-right-open='true'] {
+    --chat-shell-right-w: minmax(260px, 380px);
+}
+
+/* Trilhos sempre presentes quando há painel correspondente */
+.chat-drawer-shell__rail {
+    --chat-shell-rail-w: 28px;
+    width: 28px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #6B7280);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 0;
+    position: relative;
+    transition: background-color 120ms ease, color 120ms ease;
+    border-left: 1px solid transparent;
+    border-right: 1px solid transparent;
+    font-size: 11px;
+}
+
+.chat-drawer-shell__rail:hover {
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--text-primary, #111827);
+}
+
+.chat-drawer-shell__rail--left {
+    border-right: 1px solid var(--border-color, #E5E7EB);
+}
+
+.chat-drawer-shell__rail--right {
+    border-left: 1px solid var(--border-color, #E5E7EB);
+}
+
+.chat-drawer-shell__rail-arrow {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.chat-drawer-shell__rail-icon {
+    font-size: 16px;
+}
+
+/* Label rotacionado verticalmente */
+.chat-drawer-shell__rail-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.65;
+    white-space: nowrap;
+}
+
+/* Badge numérico Slack-style */
+.chat-drawer-shell__badge {
+    position: absolute;
+    top: 6px;
+    background: #DC2626; /* red-600 */
+    color: #fff;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px var(--bg-secondary, #fff);
+    pointer-events: none;
+    animation: chat-shell-badge-pop 280ms ease-out;
+}
+
+.chat-drawer-shell__rail--left .chat-drawer-shell__badge {
+    right: -6px;
+}
+
+.chat-drawer-shell__rail--right .chat-drawer-shell__badge {
+    left: -6px;
+}
+
+@keyframes chat-shell-badge-pop {
+    0% {
+        transform: scale(0.4);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Painéis abertos */
+.chat-drawer-shell__panel {
+    height: 100%;
+    min-height: 0;
+    background: var(--bg-secondary, #fff);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: chat-shell-panel-in 180ms ease-out;
+}
+
+.chat-drawer-shell__panel--left {
+    border-right: 1px solid var(--border-color, #E5E7EB);
+}
+
+.chat-drawer-shell__panel--right {
+    border-left: 1px solid var(--border-color, #E5E7EB);
+}
+
+@keyframes chat-shell-panel-in {
+    from {
+        opacity: 0.4;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.chat-drawer-shell__panel-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color, #E5E7EB);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.chat-drawer-shell__panel-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary, #6B7280);
+    font-size: 14px;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+
+.chat-drawer-shell__panel-close:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text-primary, #111827);
+}
+
+.chat-drawer-shell__panel-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px;
+    min-height: 0;
+}
+
+/* Conversa (pane central) */
+.chat-drawer-shell__pane {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-secondary, #fff);
+}
+
+.chat-drawer-shell__pane--expanded {
+    /* default */
+}
+
+.chat-drawer-shell__pane--pushed {
+    /* sem mudança especial; grid 1fr cuida do encolhimento */
+}
+
+/* Quando colapsada, vira trilho clicável de retorno */
+.chat-drawer-shell__pane--collapsed {
+    width: 36px;
+    flex: 0 0 36px;
+    background: rgba(99, 102, 241, 0.06);
+    border-left: 1px solid var(--border-color, #E5E7EB);
+    border-right: 1px solid var(--border-color, #E5E7EB);
+}
+
+.chat-drawer-shell[data-chat-mode='collapsed'] {
+    grid-template-columns:
+        var(--chat-shell-rail-w, 0px)
+        var(--chat-shell-left-w, 0fr) 36px
+        var(--chat-shell-right-w, 0fr)
+        var(--chat-shell-rail-w, 0px);
+}
+
+/* Tip de retorno à conversa */
+.chat-drawer-shell__chat-tip {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 0;
+    color: var(--text-secondary, #4B5563);
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+.chat-drawer-shell__chat-tip:hover {
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--text-primary, #111827);
+}
+
+.chat-drawer-shell__chat-tip-icon {
+    font-size: 22px;
+}
+
+.chat-drawer-shell__chat-tip-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.chat-drawer-shell__chat-tip-hint {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 9px;
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+/* Botão flutuante para compactar conversa quando empurrada */
+.chat-drawer-shell__compact-btn {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    z-index: 5;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--border-color, #E5E7EB);
+    color: var(--text-secondary, #6B7280);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    backdrop-filter: blur(2px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+.chat-drawer-shell__compact-btn:hover {
+    background: #fff;
+    color: var(--text-primary, #111827);
+}
+
+/* Em mobile: drawers ocupam toda a coluna como overlay flutuante */
+@media (max-width: 1024px) {
+    .chat-drawer-shell[data-left-open='true'],
+    .chat-drawer-shell[data-right-open='true'] {
+        --chat-shell-left-w: 0fr;
+        --chat-shell-right-w: 0fr;
+    }
+
+    .chat-drawer-shell__panel {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        z-index: 20;
+        width: min(86%, 320px);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    .chat-drawer-shell__panel--left {
+        left: 28px;
+    }
+
+    .chat-drawer-shell__panel--right {
+        right: 28px;
+    }
+
+    /* Em mobile, conversa nunca colapsa: prefere overlay */
+    .chat-drawer-shell__pane--collapsed {
+        width: auto;
+        flex: 1;
+    }
+
+    .chat-drawer-shell[data-chat-mode='collapsed'] {
+        grid-template-columns:
+            var(--chat-shell-rail-w, 0px) 0fr 1fr 0fr
+            var(--chat-shell-rail-w, 0px);
+    }
+}
