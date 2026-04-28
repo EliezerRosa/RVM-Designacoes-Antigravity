@@ -20,6 +20,8 @@ import { CostMonitor } from './admin/CostMonitor';
 import AgentModalHost from './AgentModalHost';
 import { isManuallyAssignable } from '../constants/s140Template';
 import type { AgentModalType } from './AgentModalHost';
+import { ChatDrawerShell } from './ui/ChatDrawerShell';
+import './ui/ChatDrawerShell.css';
 
 interface Props {
     publishers: Publisher[];
@@ -211,22 +213,59 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         ⚡ Pro Reference
                     </span>)}
                 </div>
-                <div className="agent-tab-col-content">
-                    <TemporalChat
-                        publishers={publishers}
-                        parts={parts}
-                        historyRecords={historyRecords} // Passar histórico completo
-                        onAction={handleAgentAction}
-                        onNavigateToWeek={handleCarouselNavigation}
-                        onModelChange={setActiveModel}
-                        currentWeekId={currentWeekId || undefined}
-                        initialCommand={initialCommand}
-                        isWorkbookLoading={isWorkbookLoading}
-                        onRateLimitChange={(remaining, max, refillInSeconds) => setRateLimitInfo({ remaining, max, refillInSeconds })}
-                        accessLevel={accessLevel}
-                        canSendZap={canSendZap}
-                        onPartFocus={setSelectedPartId}
-                    />
+                <div className="agent-tab-col-content" style={{ padding: 0 }}>
+                    <ChatDrawerShell
+                        leftTitle="Ações Sugeridas"
+                        leftIcon="💡"
+                        leftBadgeCount={0}
+                        leftContent={
+                            <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: 1.5 }}>
+                                <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#374151' }}>
+                                    Em breve nesta área:
+                                </p>
+                                <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                                    <li>Ações inferidas da última resposta do agente.</li>
+                                    <li>Ações de continuidade da conversa.</li>
+                                </ul>
+                                <p style={{ margin: '12px 0 0 0', fontSize: '11px', opacity: 0.8 }}>
+                                    O agente <strong>sugere</strong>, você decide. Atalho: <kbd>Ctrl+[</kbd>
+                                </p>
+                            </div>
+                        }
+                        rightTitle="Detalhes"
+                        rightIcon="📋"
+                        rightBadgeCount={0}
+                        rightContent={
+                            <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: 1.5 }}>
+                                <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#374151' }}>
+                                    Em breve nesta área:
+                                </p>
+                                <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                                    <li>Relatórios longos (abertos via card-âncora na conversa).</li>
+                                    <li>Micro-UIs ativas (uma por vez).</li>
+                                </ul>
+                                <p style={{ margin: '12px 0 0 0', fontSize: '11px', opacity: 0.8 }}>
+                                    Atalho: <kbd>Ctrl+]</kbd> · <kbd>Esc</kbd> fecha
+                                </p>
+                            </div>
+                        }
+                    >
+                        <TemporalChat
+                            publishers={publishers}
+                            parts={parts}
+                            historyRecords={historyRecords} // Passar histórico completo
+                            onAction={handleAgentAction}
+                            onNavigateToWeek={handleCarouselNavigation}
+                            onModelChange={setActiveModel}
+                            currentWeekId={currentWeekId || undefined}
+                            initialCommand={initialCommand}
+                            isWorkbookLoading={isWorkbookLoading}
+                            onRateLimitChange={(remaining, max, refillInSeconds) => setRateLimitInfo({ remaining, max, refillInSeconds })}
+                            accessLevel={accessLevel}
+                            canSendZap={canSendZap}
+                            onPartFocus={setSelectedPartId}
+                        />
+                    </ChatDrawerShell>
                 </div>
 
                 {/* Modal de Custos IA */}
