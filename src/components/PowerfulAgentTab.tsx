@@ -215,40 +215,51 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 </div>
                 <div className="agent-tab-col-content" style={{ padding: 0 }}>
                     <ChatDrawerShell
-                        leftTitle="Ações Sugeridas"
-                        leftIcon="💡"
-                        leftBadgeCount={0}
-                        leftContent={
-                            <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: 1.5 }}>
-                                <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#374151' }}>
-                                    Em breve nesta área:
-                                </p>
-                                <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                                    <li>Ações inferidas da última resposta do agente.</li>
-                                    <li>Ações de continuidade da conversa.</li>
-                                </ul>
-                                <p style={{ margin: '12px 0 0 0', fontSize: '11px', opacity: 0.8 }}>
-                                    O agente <strong>sugere</strong>, você decide. Atalho: <kbd>Ctrl+[</kbd>
-                                </p>
-                            </div>
-                        }
-                        rightTitle="Detalhes"
-                        rightIcon="📋"
-                        rightBadgeCount={0}
-                        rightContent={
-                            <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: 1.5 }}>
-                                <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#374151' }}>
-                                    Em breve nesta área:
-                                </p>
-                                <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                                    <li>Relatórios longos (abertos via card-âncora na conversa).</li>
-                                    <li>Micro-UIs ativas (uma por vez).</li>
-                                </ul>
-                                <p style={{ margin: '12px 0 0 0', fontSize: '11px', opacity: 0.8 }}>
-                                    Atalho: <kbd>Ctrl+]</kbd> · <kbd>Esc</kbd> fecha
-                                </p>
-                            </div>
-                        }
+                        leftRailLabel="Ações"
+                        leftRailIcon="💡"
+                        leftSlots={[
+                            {
+                                id: 'suggested-actions',
+                                title: 'Ações Sugeridas',
+                                icon: '💡',
+                                content: (
+                                    <div style={{ fontSize: '12px', lineHeight: 1.5, opacity: 0.85 }}>
+                                        <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>Em breve:</p>
+                                        <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                                            <li>Ações inferidas da última resposta do agente.</li>
+                                            <li>Ações de continuidade da conversa.</li>
+                                        </ul>
+                                        <p style={{ margin: '12px 0 0 0', fontSize: '11px', opacity: 0.7 }}>
+                                            Atalho: <kbd>Ctrl+[</kbd>
+                                        </p>
+                                    </div>
+                                ),
+                            },
+                        ]}
+                        rightRailLabel="Detalhes"
+                        rightRailIcon="📋"
+                        rightSlots={[
+                            {
+                                id: 'reports',
+                                title: 'Relatórios',
+                                icon: '📊',
+                                content: (
+                                    <div style={{ fontSize: '12px', opacity: 0.85 }}>
+                                        Relatórios longos do agente serão abertos aqui via card-âncora na conversa.
+                                    </div>
+                                ),
+                            },
+                            {
+                                id: 'micro-ui',
+                                title: 'Micro-UI Ativa',
+                                icon: '🧩',
+                                content: (
+                                    <div style={{ fontSize: '12px', opacity: 0.85 }}>
+                                        Edição rápida (publicador, disponibilidade, conclusão de parte) aparecerá aqui sob demanda. Atalho: <kbd>Ctrl+]</kbd>
+                                    </div>
+                                ),
+                            },
+                        ]}
                     >
                         <TemporalChat
                             publishers={publishers}

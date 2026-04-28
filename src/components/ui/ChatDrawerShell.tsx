@@ -1,234 +1,159 @@
 /**
- * ChatDrawerShell — Shell de drawers laterais para o Chat (Coluna 2 do PowerfulAgentTab).
+ * ChatDrawerShell — Overlay drawers laterais para o Chat (Coluna 2).
  *
  * Filosofia IDD:
- *  - Agente NUNCA abre drawer/micro-UI sozinho. Apenas SUGERE.
- *  - Sugestão pendente = badge numérico (Slack-style) na borda do drawer fechado.
- *  - Usuário decide abrir; ao abrir, conversa é EMPURRADA (push).
- *  - Quando conversa fica muito estreita (< 320px efetivos), ela própria se RETRAI
- *    para um trilho lateral com 1 dica de retorno. Reabre por click/tap, ou
- *    automaticamente quando o drawer é fechado.
- *
- * Estados:
- *  - drawer fechado (collapsed)
- *  - drawer aberto + conversa empurrada (open, conversa visível)
- *  - drawer aberto + conversa retraída (open, conversa em trilho com tip de retorno)
- *
- * Persistência: estado de cada drawer em localStorage.
- * Atalhos: Ctrl+[ alterna esquerdo, Ctrl+] alterna direito, Esc fecha qualquer aberto.
+ *  - Conversa SEMPRE visível em largura plena (drawers são OVERLAY, não push).
+ *  - Apenas UM painel aberto por vez (mutuamente exclusivos: abrir esquerdo
+ *    fecha o direito e vice-versa).
+ *  - Trilhos finos sempre visíveis nas bordas internas da coluna do chat.
+ *  - Badge numérico Slack-style sinaliza sugestões pendentes quando fechado.
+ *  - Esc fecha o aberto. Ctrl+[ alterna esquerdo, Ctrl+] alterna direito.
+ *  - Cada lado pode receber UM ou DOIS "tipos" de conteúdo (slots empilhados
+ *    verticalmente dentro do painel) — a divisão em coluna vertical acontece
+ *    DENTRO do mesmo overlay.
  */
 
-import { useEffect, useState, useCallback, useRef, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 
 export type DrawerSide = 'left' | 'right';
+
+/** Slot de conteúdo para um drawer (1 ou 2 por lado, empilhados verticalmente). */
+export interface DrawerSlot {
+    /** ID único do slot (para chave de render). */
+    id: string;
+    /** Título curto (header do bloco). */
+    title: string;
+    /** Ícone curto. */
+    icon?: string;
+    /** Conteúdo. */
+    content: ReactNode;
+    /** Badge numérico (sugestões pendentes). */
+    badgeCount?: number;
+}
 
 export interface ChatDrawerShellProps {
     /** Conteúdo principal (a conversa do chat). */
     children: ReactNode;
 
-    /** Conteúdo do drawer esquerdo. Quando null, o trilho não é exibido. */
-    leftContent?: ReactNode | null;
-    /** Título curto do drawer esquerdo (ex.: "Ações Sugeridas"). */
-    leftTitle?: string;
-    /** Ícone do drawer esquerdo (ex.: "💡"). */
-    leftIcon?: string;
-    /** Nº de sugestões pendentes no esquerdo (badge Slack-style quando fechado). */
-    leftBadgeCount?: number;
+    /** Slots do drawer esquerdo (1 ou 2). Vazio/null = trilho oculto. */
+    leftSlots?: DrawerSlot[] | null;
+    /** Rótulo curto para o trilho esquerdo (default: "Ações"). */
+    leftRailLabel?: string;
+    /** Ícone do trilho esquerdo (default: "💡"). */
+    leftRailIcon?: string;
 
-    /** Conteúdo do drawer direito (micro-UIs ativas, relatórios). */
-    rightContent?: ReactNode | null;
-    rightTitle?: string;
-    rightIcon?: string;
-    rightBadgeCount?: number;
+    /** Slots do drawer direito (1 ou 2). */
+    rightSlots?: DrawerSlot[] | null;
+    rightRailLabel?: string;
+    rightRailIcon?: string;
 
-    /** Chave para persistir estado em localStorage (default: 'rvm_chat_drawer'). */
+    /** Chave de persistência em localStorage. */
     storageKey?: string;
 }
 
-type ChatPaneMode = 'expanded' | 'pushed' | 'collapsed';
+type OpenSide = DrawerSide | null;
 
-// ---------- helpers de persistência ----------
-
-function readStored(storageKey: string): { left: boolean; right: boolean } {
+function readStored(key: string): OpenSide {
     try {
-        const raw = localStorage.getItem(storageKey);
-        if (!raw) return { left: false, right: false };
-        const parsed = JSON.parse(raw);
-        return {
-            left: !!parsed.left,
-            right: !!parsed.right,
-        };
-    } catch {
-        return { left: false, right: false };
-    }
+        const raw = localStorage.getItem(key);
+        if (raw === 'left' || raw === 'right') return raw;
+    } catch { /* ignore */ }
+    return null;
 }
 
-function writeStored(storageKey: string, state: { left: boolean; right: boolean }) {
+function writeStored(key: string, val: OpenSide) {
     try {
-        localStorage.setItem(storageKey, JSON.stringify(state));
-    } catch {
-        /* ignore */
-    }
+        if (val === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, val);
+    } catch { /* ignore */ }
 }
-
-// ---------- componente ----------
 
 export function ChatDrawerShell({
     children,
-    leftContent = null,
-    leftTitle = 'Ações Sugeridas',
-    leftIcon = '💡',
-    leftBadgeCount = 0,
-    rightContent = null,
-    rightTitle = 'Detalhes',
-    rightIcon = '📋',
-    rightBadgeCount = 0,
-    storageKey = 'rvm_chat_drawer',
+    leftSlots = null,
+    leftRailLabel = 'Ações',
+    leftRailIcon = '💡',
+    rightSlots = null,
+    rightRailLabel = 'Detalhes',
+    rightRailIcon = '📋',
+    storageKey = 'rvm_chat_drawer_open',
 }: ChatDrawerShellProps) {
-    const initial = readStored(storageKey);
-    const [leftOpen, setLeftOpen] = useState(initial.left);
-    const [rightOpen, setRightOpen] = useState(initial.right);
+    const [open, setOpen] = useState<OpenSide>(() => readStored(storageKey));
 
-    // Conversa retraída sob demanda do usuário (quando se sente apertada).
-    // Inicia sempre como 'pushed' (visível) ao abrir um drawer; usuário pode
-    // clicar no botão "compactar conversa" para virar 'collapsed'.
-    const [chatPaneMode, setChatPaneMode] = useState<ChatPaneMode>('expanded');
-
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    // Persistir estado dos drawers
     useEffect(() => {
-        writeStored(storageKey, { left: leftOpen, right: rightOpen });
-    }, [leftOpen, rightOpen, storageKey]);
+        writeStored(storageKey, open);
+    }, [open, storageKey]);
 
-    // Recalcula modo da conversa quando drawers mudam
-    useEffect(() => {
-        if (!leftOpen && !rightOpen) {
-            setChatPaneMode('expanded');
-        } else if (chatPaneMode === 'collapsed') {
-            // mantém colapsada se usuário escolheu
-        } else {
-            setChatPaneMode('pushed');
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [leftOpen, rightOpen]);
+    const toggle = useCallback((side: DrawerSide) => {
+        setOpen(prev => (prev === side ? null : side));
+    }, []);
 
-    // Atalhos de teclado
+    const close = useCallback(() => setOpen(null), []);
+
+    // Atalhos
     useEffect(() => {
         function onKey(e: KeyboardEvent) {
-            if (!(e.ctrlKey || e.metaKey)) {
-                if (e.key === 'Escape') {
-                    if (rightOpen) setRightOpen(false);
-                    else if (leftOpen) setLeftOpen(false);
-                }
+            if (e.key === 'Escape' && open !== null) {
+                e.preventDefault();
+                close();
                 return;
             }
+            if (!(e.ctrlKey || e.metaKey)) return;
             if (e.key === '[') {
                 e.preventDefault();
-                setLeftOpen(v => !v);
+                toggle('left');
             } else if (e.key === ']') {
                 e.preventDefault();
-                setRightOpen(v => !v);
+                toggle('right');
             }
         }
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [leftOpen, rightOpen]);
+    }, [open, toggle, close]);
 
-    const toggleSide = useCallback((side: DrawerSide) => {
-        if (side === 'left') setLeftOpen(v => !v);
-        else setRightOpen(v => !v);
-    }, []);
+    const showLeft = !!(leftSlots && leftSlots.length > 0);
+    const showRight = !!(rightSlots && rightSlots.length > 0);
 
-    // Restaurar conversa do estado 'collapsed'
-    const restoreChat = useCallback(() => {
-        setChatPaneMode(leftOpen || rightOpen ? 'pushed' : 'expanded');
-    }, [leftOpen, rightOpen]);
-
-    // Compactar conversa (trilho)
-    const collapseChat = useCallback(() => {
-        if (leftOpen || rightOpen) setChatPaneMode('collapsed');
-    }, [leftOpen, rightOpen]);
-
-    const showLeftRail = leftContent !== null;
-    const showRightRail = rightContent !== null;
+    const leftBadge = (leftSlots ?? []).reduce((s, x) => s + (x.badgeCount ?? 0), 0);
+    const rightBadge = (rightSlots ?? []).reduce((s, x) => s + (x.badgeCount ?? 0), 0);
 
     return (
-        <div
-            ref={containerRef}
-            className="chat-drawer-shell"
-            data-left-open={leftOpen ? 'true' : 'false'}
-            data-right-open={rightOpen ? 'true' : 'false'}
-            data-chat-mode={chatPaneMode}
-        >
-            {/* Trilho esquerdo (sempre visível quando há conteúdo) */}
-            {showLeftRail && (
+        <div className="chat-drawer-shell" data-open={open ?? 'none'}>
+            {/* Conversa — sempre full-width */}
+            <div className="chat-drawer-shell__chat">{children}</div>
+
+            {/* Trilho esquerdo (sempre visível) */}
+            {showLeft && (
                 <DrawerRail
                     side="left"
-                    open={leftOpen}
-                    title={leftTitle}
-                    icon={leftIcon}
-                    badgeCount={leftBadgeCount}
-                    onToggle={() => toggleSide('left')}
+                    open={open === 'left'}
+                    label={leftRailLabel}
+                    icon={leftRailIcon}
+                    badgeCount={leftBadge}
+                    onToggle={() => toggle('left')}
                 />
-            )}
-
-            {/* Drawer esquerdo */}
-            {showLeftRail && leftOpen && (
-                <DrawerPanel
-                    side="left"
-                    title={leftTitle}
-                    icon={leftIcon}
-                    onClose={() => toggleSide('left')}
-                >
-                    {leftContent}
-                </DrawerPanel>
-            )}
-
-            {/* Conversa */}
-            <div className={`chat-drawer-shell__pane chat-drawer-shell__pane--${chatPaneMode}`}>
-                {chatPaneMode === 'collapsed' ? (
-                    <CollapsedChatTip onRestore={restoreChat} />
-                ) : (
-                    <>
-                        {/* Botão flutuante para compactar quando empurrada */}
-                        {chatPaneMode === 'pushed' && (
-                            <button
-                                type="button"
-                                className="chat-drawer-shell__compact-btn"
-                                title="Compactar conversa para focar no painel lateral"
-                                onClick={collapseChat}
-                            >
-                                ⇲ compactar conversa
-                            </button>
-                        )}
-                        {children}
-                    </>
-                )}
-            </div>
-
-            {/* Drawer direito */}
-            {showRightRail && rightOpen && (
-                <DrawerPanel
-                    side="right"
-                    title={rightTitle}
-                    icon={rightIcon}
-                    onClose={() => toggleSide('right')}
-                >
-                    {rightContent}
-                </DrawerPanel>
             )}
 
             {/* Trilho direito */}
-            {showRightRail && (
+            {showRight && (
                 <DrawerRail
                     side="right"
-                    open={rightOpen}
-                    title={rightTitle}
-                    icon={rightIcon}
-                    badgeCount={rightBadgeCount}
-                    onToggle={() => toggleSide('right')}
+                    open={open === 'right'}
+                    label={rightRailLabel}
+                    icon={rightRailIcon}
+                    badgeCount={rightBadge}
+                    onToggle={() => toggle('right')}
                 />
+            )}
+
+            {/* Painel overlay esquerdo */}
+            {showLeft && open === 'left' && (
+                <DrawerPanel side="left" slots={leftSlots!} onClose={close} />
+            )}
+
+            {/* Painel overlay direito */}
+            {showRight && open === 'right' && (
+                <DrawerPanel side="right" slots={rightSlots!} onClose={close} />
             )}
         </div>
     );
@@ -239,32 +164,29 @@ export function ChatDrawerShell({
 interface DrawerRailProps {
     side: DrawerSide;
     open: boolean;
-    title: string;
+    label: string;
     icon: string;
     badgeCount: number;
     onToggle: () => void;
 }
 
-function DrawerRail({ side, open, title, icon, badgeCount, onToggle }: DrawerRailProps) {
-    const arrow = side === 'left' ? (open ? '◀' : '▶') : open ? '▶' : '◀';
-    const ariaLabel = open
-        ? `Fechar painel ${title.toLowerCase()}`
+function DrawerRail({ side, open, label, icon, badgeCount, onToggle }: DrawerRailProps) {
+    const aria = open
+        ? `Fechar painel ${label.toLowerCase()}`
         : badgeCount > 0
-        ? `Abrir painel ${title.toLowerCase()} (${badgeCount} nova${badgeCount > 1 ? 's' : ''} sugest${badgeCount > 1 ? 'ões' : 'ão'})`
-        : `Abrir painel ${title.toLowerCase()}`;
-
+            ? `Abrir painel ${label.toLowerCase()} (${badgeCount} pendente${badgeCount > 1 ? 's' : ''})`
+            : `Abrir painel ${label.toLowerCase()}`;
     return (
         <button
             type="button"
             className={`chat-drawer-shell__rail chat-drawer-shell__rail--${side}`}
             onClick={onToggle}
-            title={ariaLabel}
-            aria-label={ariaLabel}
+            title={aria}
+            aria-label={aria}
             aria-expanded={open}
         >
-            <span className="chat-drawer-shell__rail-arrow">{arrow}</span>
             <span className="chat-drawer-shell__rail-icon">{icon}</span>
-            <span className="chat-drawer-shell__rail-label">{title}</span>
+            <span className="chat-drawer-shell__rail-label">{label}</span>
             {!open && badgeCount > 0 && (
                 <span className="chat-drawer-shell__badge" aria-hidden="true">
                     {badgeCount > 99 ? '99+' : badgeCount}
@@ -276,51 +198,53 @@ function DrawerRail({ side, open, title, icon, badgeCount, onToggle }: DrawerRai
 
 interface DrawerPanelProps {
     side: DrawerSide;
-    title: string;
-    icon: string;
+    slots: DrawerSlot[];
     onClose: () => void;
-    children: ReactNode;
 }
 
-function DrawerPanel({ side, title, icon, onClose, children }: DrawerPanelProps) {
+function DrawerPanel({ side, slots, onClose }: DrawerPanelProps) {
     return (
         <aside
             className={`chat-drawer-shell__panel chat-drawer-shell__panel--${side}`}
             role="complementary"
-            aria-label={title}
         >
-            <header className="chat-drawer-shell__panel-header">
-                <span>
-                    {icon} {title}
-                </span>
-                <button
-                    type="button"
-                    className="chat-drawer-shell__panel-close"
-                    onClick={onClose}
-                    title="Fechar painel"
-                    aria-label="Fechar painel"
-                >
-                    ✕
-                </button>
-            </header>
-            <div className="chat-drawer-shell__panel-body">{children}</div>
+            <button
+                type="button"
+                className="chat-drawer-shell__panel-close"
+                onClick={onClose}
+                title="Fechar (Esc)"
+                aria-label="Fechar painel"
+            >
+                ×
+            </button>
+            <div className="chat-drawer-shell__panel-stack">
+                {slots.map((slot, idx) => (
+                    <section
+                        key={slot.id}
+                        className="chat-drawer-shell__panel-section"
+                        style={
+                            // Quando há 2 slots, dividem o espaço em 50/50.
+                            // Quando há 1, ocupa tudo (flex:1).
+                            slots.length > 1 ? { flex: '1 1 0', minHeight: 0 } : { flex: '1 1 auto', minHeight: 0 }
+                        }
+                        data-section-index={idx}
+                    >
+                        <header className="chat-drawer-shell__panel-section-header">
+                            {slot.icon && <span>{slot.icon}</span>}
+                            <span>{slot.title}</span>
+                            {(slot.badgeCount ?? 0) > 0 && (
+                                <span className="chat-drawer-shell__section-badge">
+                                    {slot.badgeCount}
+                                </span>
+                            )}
+                        </header>
+                        <div className="chat-drawer-shell__panel-section-body">
+                            {slot.content}
+                        </div>
+                    </section>
+                ))}
+            </div>
         </aside>
-    );
-}
-
-function CollapsedChatTip({ onRestore }: { onRestore: () => void }) {
-    return (
-        <button
-            type="button"
-            className="chat-drawer-shell__chat-tip"
-            onClick={onRestore}
-            title="Voltar à conversa"
-            aria-label="Voltar à conversa"
-        >
-            <span className="chat-drawer-shell__chat-tip-icon">💬</span>
-            <span className="chat-drawer-shell__chat-tip-label">voltar à conversa</span>
-            <span className="chat-drawer-shell__chat-tip-hint">click ou Esc</span>
-        </button>
     );
 }
 
