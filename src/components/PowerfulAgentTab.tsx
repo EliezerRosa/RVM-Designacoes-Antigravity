@@ -240,22 +240,15 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         rightRailIcon="📋"
                         rightSlots={[
                             {
-                                id: 'reports',
-                                title: 'Relatórios',
-                                icon: '📊',
-                                content: (
-                                    <div style={{ fontSize: '12px', opacity: 0.85 }}>
-                                        Relatórios longos do agente serão abertos aqui via card-âncora na conversa.
-                                    </div>
-                                ),
-                            },
-                            {
                                 id: 'micro-ui',
                                 title: 'Micro-UI Ativa',
                                 icon: '🧩',
                                 content: (
                                     <div style={{ fontSize: '12px', opacity: 0.85 }}>
-                                        Edição rápida (publicador, disponibilidade, conclusão de parte) aparecerá aqui sob demanda. Atalho: <kbd>Ctrl+]</kbd>
+                                        Edição rápida sob demanda (publicador, disponibilidade, conclusão de parte) aparecerá aqui.
+                                        <p style={{ margin: '12px 0 0 0', fontSize: '11px', opacity: 0.7 }}>
+                                            Respostas/relatórios longos do agente abrem como <strong>modal à parte</strong>, não aqui. Atalho: <kbd>Ctrl+]</kbd>
+                                        </p>
                                     </div>
                                 ),
                             },
