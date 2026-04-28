@@ -173,17 +173,34 @@ export const unifiedActionService = {
     /**
      * Verifica cooldown: publicador está bloqueado por participação recente?
      * Retorna string de aviso se em cooldown, null se ok.
+     *
+     * IMPORTANTE: usa a data da PARTE sendo designada como referenceDate (não `new Date()`).
+     * Isso garante que designações futuras já gravadas (ex.: bimestre pré-gerado) sejam
+     * avaliadas pela mesma fronteira temporal simétrica do motor (commit cd147a9).
      */
-    async checkCooldown(_partId: string, publisherName: string): Promise<string | null> {
+    async checkCooldown(partId: string, publisherName: string): Promise<string | null> {
         try {
             // Buscar histórico do publicador diretamente do DB
             const history = await loadPublisherParticipations(publisherName);
             if (history.length === 0) return null;
 
-            const blocked = isBlocked(publisherName, history);
+            // Resolver data da parte sendo designada (fallback: hoje)
+            let referenceDate: Date = new Date();
+            try {
+                const partCtx = await unifiedActionContextService.buildEligibilityContext(partId, publisherName).catch(() => null);
+                const partDate = (partCtx?.context as any)?.date;
+                if (partDate) {
+                    const parsed = new Date(`${partDate}T12:00:00`);
+                    if (!isNaN(parsed.getTime())) referenceDate = parsed;
+                }
+            } catch {
+                // mantém referenceDate = hoje
+            }
+
+            const blocked = isBlocked(publisherName, history, referenceDate);
             if (!blocked) return null;
 
-            const info = getBlockInfo(publisherName, history);
+            const info = getBlockInfo(publisherName, history, referenceDate);
             if (!info) return `⚠️ ${publisherName} está em cooldown (participação recente).`;
 
             return `⚠️ ${publisherName} está em cooldown: última parte "${info.lastPartType}" na semana ${info.weekDisplay}. Faltam ${info.cooldownRemaining} semana(s).`;
