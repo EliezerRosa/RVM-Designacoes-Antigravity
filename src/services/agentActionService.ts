@@ -1116,7 +1116,11 @@ export const agentActionService = {
                     }
 
                     if (!actionResult.success) {
-                        return { success: false, message: actionResult.error || 'Erro na designação' };
+                        const errMsg = actionResult.error || 'Erro na designação';
+                        return {
+                            success: false,
+                            message: `❌ Designação NÃO efetivada para "${targetPart.tituloParte || targetPart.tipoParte}". Motivo: ${errMsg}`
+                        };
                     }
 
                     if (resolvedName) {
@@ -1132,10 +1136,39 @@ export const agentActionService = {
                         }
                     }
 
+                    // POST-VERIFY: refetch a parte do banco e confirma que o nome bate.
+                    // Evita que o agente narre sucesso quando o write silenciosamente
+                    // não persistiu (race condition, RLS, etc.).
+                    let persistedName: string | null = null;
+                    try {
+                        const { supabase } = await import('../lib/supabase');
+                        const { data: row } = await supabase
+                            .from('workbook_parts')
+                            .select('resolved_publisher_name, status')
+                            .eq('id', targetPart.id)
+                            .maybeSingle();
+                        persistedName = row?.resolved_publisher_name || null;
+                        if (resolvedName && persistedName !== resolvedName) {
+                            console.warn(`[ASSIGN_PART] Post-verify mismatch: esperado="${resolvedName}" persistido="${persistedName}"`);
+                            return {
+                                success: false,
+                                message: `⚠️ Designação reportou sucesso mas o banco mostra "${persistedName || '(vazio)'}" em vez de "${resolvedName}". Verifique a parte manualmente.`
+                            };
+                        }
+                    } catch (verifyErr) {
+                        console.warn('[ASSIGN_PART] Post-verify falhou (não bloqueante):', verifyErr);
+                    }
+
+                    const warnsText = actionResult.warnings && actionResult.warnings.length > 0
+                        ? ` (avisos: ${actionResult.warnings.join('; ')})`
+                        : '';
+
                     return {
                         success: true,
-                        message: resolvedName ? `Parte atribuída a ${resolvedName}` : 'Designação removida.',
-                        data: { partId: targetPart.id, assignedTo: resolvedName },
+                        message: resolvedName
+                            ? `✅ Designação efetivada: "${targetPart.tituloParte || targetPart.tipoParte}" → ${resolvedName}${warnsText}`
+                            : '✅ Designação removida.',
+                        data: { partId: targetPart.id, assignedTo: resolvedName, persistedName },
                         actionType: 'ASSIGN_PART'
                     };
                 }
