@@ -13,22 +13,24 @@ const MODEL_STRATEGY = {
     // LOW: Tarefas rápidas (High Efficiency)
     LOW: [
         'gemini-2.0-flash-lite',  // Ultra fast (New)
-        'gemini-2.0-flash',       // Fast Standard, often free
-        'gemini-2.0-flash-lite-001' // Fallback
+        'gemini-2.0-flash'        // Fast Standard, often free
     ],
     // MEDIUM: Raciocínio padrão (Standard)
     MEDIUM: [
         'gemini-2.0-flash',       // Standard Workhorse
-        'gemini-2.5-flash',       // Next-Gen Speed
-        'gemini-2.0-flash-001'    // Fallback
+        'gemini-2.5-flash'        // Next-Gen Speed
     ],
     // HIGH: Arquitetura & Raciocínio (High Intellect, Low Cost)
     HIGH: [
         'gemini-2.0-flash-thinking-exp-01-21', // Reasoning Model (Deep Think) - Free/Low Cost
-        'gemini-2.0-flash-thinking-exp',       // Alias
         'gemini-2.0-flash'                     // Fallback to standard 2.0
     ]
 };
+
+// Vercel Edge runtime tem limite de 25s wall-clock; reservamos 22s para o loop
+// e 18s por modelo individual (com Abort) para não estourar e devolver 504 genérico.
+const PER_MODEL_TIMEOUT_MS = 18_000;
+const GLOBAL_BUDGET_MS = 22_000;
 
 type ThinkingLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -122,11 +124,23 @@ export default async function handler(request: Request) {
         }
 
         let lastStatus = 500;
-        // Loop de Tentativas (Circuit Breaker)
+        // Loop de Tentativas (Circuit Breaker) com budget global
         let lastError = null;
         const errorTrace: string[] = [];
+        const startedAt = Date.now();
 
         for (const model of modelsToTry) {
+            const elapsed = Date.now() - startedAt;
+            const remaining = GLOBAL_BUDGET_MS - elapsed;
+            if (remaining <= 2_000) {
+                errorTrace.push(`[${model}]: skipped (global budget exhausted, elapsed=${elapsed}ms)`);
+                console.warn(`[Proxy] Pulando ${model}: orçamento global esgotado (${elapsed}ms).`);
+                break;
+            }
+            const perModelTimeout = Math.min(PER_MODEL_TIMEOUT_MS, remaining - 500);
+            const abortController = new AbortController();
+            const abortTimer = setTimeout(() => abortController.abort(), perModelTimeout);
+
             try {
                 // console.log(`[Proxy] Tentando modelo: ${model}...`); // Verbose off
                 const url = `${BASE_URL}/${model}:generateContent?key=${apiKey}`;
@@ -134,7 +148,9 @@ export default async function handler(request: Request) {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body),
+                    signal: abortController.signal,
                 });
+                clearTimeout(abortTimer);
 
                 // Se sucesso (200), retorna imediatamente
                 if (response.ok) {
@@ -226,7 +242,11 @@ export default async function handler(request: Request) {
                 // Se for retryable, o loop continua para o próximo modelo...
 
             } catch (networkError) {
-                const netMsg = `[${model}]: Network Error - ${networkError}`;
+                clearTimeout(abortTimer);
+                const isAbort = (networkError as Error)?.name === 'AbortError';
+                const netMsg = isAbort
+                    ? `[${model}]: Aborted after ${perModelTimeout}ms (per-model timeout)`
+                    : `[${model}]: Network Error - ${networkError}`;
                 console.error(netMsg);
                 errorTrace.push(netMsg);
             }
@@ -259,12 +279,20 @@ export default async function handler(request: Request) {
             }
         }
 
+        // Se a falha foi puramente por timeout (Abort) ou esgotamento de budget,
+        // retornamos 503 Service Unavailable com mensagem clara — evita o 504 genérico
+        // do Vercel Edge runtime.
+        const allTimedOut = errorTrace.length > 0 &&
+            errorTrace.every(t => t.includes('Aborted') || t.includes('budget exhausted'));
+        const finalStatus = allTimedOut ? 503 : (lastStatus || 500);
+        const friendly = allTimedOut
+            ? '⏱️ A IA demorou demais para responder. Tente novamente em alguns segundos ou reduza o escopo da pergunta.'
+            : `⚠️ Ocorreu um erro técnico na comunicação com a IA. Detalhes: ${errorTrace.join(' | ')}`;
+
         return new Response(JSON.stringify({
-            error: {
-                message: `⚠️ Ocorreu um erro técnico na comunicação com a IA. Detalhes: ${errorTrace.join(' | ')}`
-            }
+            error: { message: friendly, trace: errorTrace }
         }), {
-            status: lastStatus || 500,
+            status: finalStatus,
             headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
 
