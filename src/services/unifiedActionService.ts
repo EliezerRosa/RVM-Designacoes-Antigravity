@@ -105,17 +105,21 @@ export const unifiedActionService = {
                         name => name.trim().toLowerCase() === publisherName.trim().toLowerCase()
                     );
                     if (alreadyInWeek) {
-                        const msg = `⚠️ ${publisherName} já tem outra designação nesta semana.`;
-                        if (source === 'BATCH') {
+                        const msg = `⛔ ${publisherName} já tem outra designação nesta semana.`;
+                        // Decisão 2026-04-29: same-week duplicate é HARD-BLOCK para
+                        // AGENT/BATCH/AUTO_FILL. Só MANUAL (dropdown da Apostila pelo
+                        // Admin) recebe warn e segue. Razão: agente não deve sobrecarregar
+                        // o mesmo publicador na semana sem intervenção humana explícita.
+                        if (source !== 'MANUAL') {
                             throw new Error(msg);
                         }
                         warnings.push(msg);
-                        console.warn(`[UnifiedAction] ⚠️ Same-week duplicate (${source}): ${msg}`);
+                        console.warn(`[UnifiedAction] ⚠️ Same-week duplicate (${source}, MANUAL pass-through): ${msg}`);
                     }
                 }
             } catch (dupeError) {
-                if (source === 'BATCH') throw dupeError;
-                // Non-blocking for MANUAL/AGENT if check itself fails
+                if (source !== 'MANUAL') throw dupeError;
+                // Non-blocking only for MANUAL if check itself fails
             }
 
             // 4. Executar via boundary de atribuição da apostila

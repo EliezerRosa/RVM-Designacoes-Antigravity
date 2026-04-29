@@ -9,21 +9,33 @@ export const config = {
 
 // Modelo de Estratégia (Resilience Architecture)
 // Duplicado de src/lib/ai/types.ts para garantir independência da Serverless Function
+//
+// 2026-04-29: Diversificação anti-429.
+//  - Pools de quota distintos por modelo (flash vs pro vs lite vs 1.5).
+//    Se 2.0-flash bate 429, 2.5-flash e 1.5-flash provavelmente ainda têm quota.
+//  - Modelos "pro" só ajudam se a API key tiver billing habilitado em AI Studio
+//    (Tier 1+). Sem billing, dão 429 também — mas o loop pula adiante.
+//  - 2.5-pro / 1.5-pro são fallbacks "premium" — o usuário com billing ganha
+//    qualidade superior e quota muito maior; sem billing, custo zero (são
+//    pulados rápido pelo Abort).
 const MODEL_STRATEGY = {
     // LOW: Tarefas rápidas (High Efficiency)
     LOW: [
-        'gemini-2.0-flash-lite',  // Ultra fast (New)
-        'gemini-2.0-flash'        // Fast Standard, often free
+        'gemini-2.0-flash-lite',  // Ultra fast, free pool
+        'gemini-2.5-flash',       // Next-gen flash, pool independente
+        'gemini-1.5-flash'        // Pool legacy, último recurso free
     ],
     // MEDIUM: Raciocínio padrão (Standard)
     MEDIUM: [
-        'gemini-2.0-flash',       // Standard Workhorse
-        'gemini-2.5-flash'        // Next-Gen Speed
+        'gemini-2.5-flash',       // Workhorse atual, pool independente
+        'gemini-2.0-flash',       // Pool free clássico
+        'gemini-1.5-pro'          // Pool Pro legacy (precisa billing p/ quota alta)
     ],
-    // HIGH: Arquitetura & Raciocínio (High Intellect, Low Cost)
+    // HIGH: Arquitetura & Raciocínio
     HIGH: [
-        'gemini-2.0-flash-thinking-exp-01-21', // Reasoning Model (Deep Think) - Free/Low Cost
-        'gemini-2.0-flash'                     // Fallback to standard 2.0
+        'gemini-2.5-pro',                       // Top-tier raciocínio (billing recomendado)
+        'gemini-2.0-flash-thinking-exp-01-21',  // Deep Think experimental
+        'gemini-1.5-pro'                        // Fallback Pro estável
     ]
 };
 
@@ -284,10 +296,25 @@ export default async function handler(request: Request) {
         // do Vercel Edge runtime.
         const allTimedOut = errorTrace.length > 0 &&
             errorTrace.every(t => t.includes('Aborted') || t.includes('budget exhausted'));
-        const finalStatus = allTimedOut ? 503 : (lastStatus || 500);
-        const friendly = allTimedOut
-            ? '⏱️ A IA demorou demais para responder. Tente novamente em alguns segundos ou reduza o escopo da pergunta.'
-            : `⚠️ Ocorreu um erro técnico na comunicação com a IA. Detalhes: ${errorTrace.join(' | ')}`;
+        // 2026-04-29: detectar quota Gemini esgotada em TODOS os modelos da chain.
+        // Sinal: cada entrada do trace contém "429" ou "Resource exhausted" ou "quota".
+        const allQuotaExhausted = errorTrace.length > 0 &&
+            errorTrace.every(t => t.includes('429') || /resource exhausted|quota/i.test(t));
+
+        let finalStatus: number;
+        let friendly: string;
+        if (allTimedOut) {
+            finalStatus = 503;
+            friendly = '⏱️ A IA demorou demais para responder. Tente novamente em alguns segundos ou reduza o escopo da pergunta.';
+        } else if (allQuotaExhausted) {
+            finalStatus = 429;
+            friendly = '🚦 Cota da IA esgotada (todos os modelos da chain bateram 429). '
+                + 'Aguarde alguns minutos ou habilite billing na sua API key do Google AI Studio '
+                + '(https://aistudio.google.com/apikey) para liberar quota Tier 1+.';
+        } else {
+            finalStatus = lastStatus || 500;
+            friendly = `⚠️ Ocorreu um erro técnico na comunicação com a IA. Detalhes: ${errorTrace.join(' | ')}`;
+        }
 
         return new Response(JSON.stringify({
             error: { message: friendly, trace: errorTrace }
