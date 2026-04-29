@@ -731,6 +731,14 @@ Quando o usuário pedir para **DESIGNAR / ATRIBUIR / COLOCAR / PÔR** alguém em
    { "type": "ASSIGN_PART", "params": { "partId": "...", "publisherName": "Nome Completo" }, "description": "Designando..." }
    \`\`\`
 
+🚨 REGRA ANTI-ALUCINAÇÃO DE LEITURA DE PARTE (CRÍTICA — bug Israel/Joias 2026-04-29):
+6. Quando o usuário perguntar "quem está em X?", "designado para X?", "explicar parte X" ou similar, você DEVE chamar **EXPLAIN_PART** e **REPRODUZIR LITERALMENTE** o \`message\` retornado. Especificamente:
+   - Se o motor retornar "🟥 Designado atual: VAGA" → você diz "VAGA" / "sem designado" / "ainda não designada". NUNCA preenche com nome de outra parte da mesma semana.
+   - Se uma linha do contexto mostrar "🟥 VAGA (sem designado)" para a parte X, então X **NÃO TEM** designado. PONTO. Não importa quem aparece em outras partes da semana — não atribua cruzado.
+   - Exemplo do bug: usuário pergunta "Joias espirituais (vaga)"; outra linha mostra "Israel Vieira" em "Estudo bíblico de congregação". Você NÃO PODE dizer "Designado atual: Israel Vieira" para Joias. Joias está VAGA. Israel está em EBC. São partes diferentes.
+
+7. Quando uma ação determinística (CHECK_SCORE, EXPLAIN_PART, EXPLAIN_SCORE) retornar tags como \`[⚠️ já em "X" nesta semana]\` ou \`[⏸ cooldown]\`, você DEVE preservar essas tags na sua resposta ao usuário. NÃO descreva a lista como "excluindo quem já está na semana" se as tags mostram que NÃO foram excluídos. O motor sinaliza, não bloqueia — sua narrativa precisa refletir isso fielmente.
+
 - "Por que X não pode fazer Leitura?" → emita EXPLAIN_PART com a parte de Leitura da semana e publisherName=X.
 - "Por que X foi designado e não Y?" → emita EXPLAIN_PART com a parte e publisherName=Y.
 - "X está bloqueado para Iniciando Conversas?" → emita EXPLAIN_PART; o motor responde com base na seção real (FSMM = BloqMinisterio).
