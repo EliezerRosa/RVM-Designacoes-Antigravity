@@ -57,7 +57,16 @@ export const unifiedActionService = {
 
             const warnings: string[] = [];
 
-            // 2. Eligibility check (all sources)
+            // 2a. HARD RULES (block all sources, even MANUAL/AGENT) — regras estruturais inegociáveis.
+            //     Hoje: Necessidades Locais é exclusivo para Anciãos.
+            //     Estas regras NÃO podem ser bypassadas por warn fallthrough.
+            try {
+                await this.validateHardRules(partId, publisherName, resolvedPublisher || undefined);
+            } catch (hardError) {
+                throw hardError; // Bloqueio absoluto, qualquer fonte
+            }
+
+            // 2b. Eligibility check (all sources)
             try {
                 await this.validateEligibility(partId, publisherName, resolvedPublisher || undefined);
             } catch (eligError) {
@@ -167,6 +176,30 @@ export const unifiedActionService = {
 
         if (!result.eligible) {
             throw new Error(`[Safety Block] Publicador Inelegível: ${result.reason}`);
+        }
+    },
+
+    /**
+     * Regras estruturais que NUNCA podem ser bypassadas (nem por MANUAL/AGENT).
+     * Diferente de validateEligibility, qualquer violação aqui é bloqueio absoluto.
+     *
+     * Regras atuais:
+     *  - Necessidades Locais: somente Anciãos podem ser designados.
+     */
+    async validateHardRules(partId: string, publisherName: string, publisherOverride?: Awaited<ReturnType<typeof unifiedActionContextService.resolvePublisherByName>>): Promise<void> {
+        const { publisher, context } = await unifiedActionContextService.buildEligibilityContext(partId, publisherName, publisherOverride || undefined);
+
+        const modalidade = (context.modalidade || '').toString();
+        const isNecessidadesLocais = modalidade === 'Necessidades Locais';
+
+        if (isNecessidadesLocais) {
+            const cond = (publisher.condition || '').toString();
+            const isAnciao = cond === 'Ancião' || cond === 'Anciao';
+            if (!isAnciao) {
+                throw new Error(
+                    `[Hard Rule] "Necessidades Locais" é exclusivo para Anciãos. ${publisher.name} (${cond || 'sem condição'}) não pode ser designado.`
+                );
+            }
         }
     },
 
