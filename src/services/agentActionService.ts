@@ -304,15 +304,32 @@ export const agentActionService = {
                         ...rankedWithCooldown.filter(r => !r.blocked),
                         ...rankedWithCooldown.filter(r => r.blocked)
                     ];
+                    // FIX B (2026-04-29): tag determinística "já está em outra parte da semana".
+                    // Antes o LLM inventava o rótulo "(excluindo quem já está na semana)" sem
+                    // qualquer filtro; agora o código informa explicitamente quem está ocupado.
+                    const inWeekMap = new Map<string, string>(); // publisherName -> partTitle
+                    if (targetPart) {
+                        for (const wp of weekParts) {
+                            if (wp.id === targetPart.id) continue;
+                            const n = wp.resolvedPublisherName || wp.rawPublisherName;
+                            if (n && !inWeekMap.has(n)) {
+                                inWeekMap.set(n, wp.tituloParte || wp.tipoParte);
+                            }
+                        }
+                    }
                     const topList = sorted.slice(0, 10).map((cand, i) => {
-                        const tag = cand.blocked ? ' ⏸ (em cooldown)' : '';
-                        return `${i + 1}. ${explainScoreForAgent(cand)}${tag}`;
+                        const tags: string[] = [];
+                        if (cand.blocked) tags.push('⏸ em cooldown');
+                        const otherPart = inWeekMap.get(cand.publisher.name);
+                        if (otherPart) tags.push(`⚠️ já em "${otherPart}" nesta semana`);
+                        const tagStr = tags.length ? ` ${tags.map(t => `[${t}]`).join(' ')}` : '';
+                        return `${i + 1}. ${explainScoreForAgent(cand)}${tagStr}`;
                     }).join('\n');
 
                     return {
                         success: true,
-                        message: `**Análise do Cérebro (Top 10):**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}`,
-                        data: sorted,
+                        message: `**Análise do Cérebro (Top 10) — fonte: motor determinístico:**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}\n\nℹ️ Tags são informativas. Designações na mesma semana NÃO são bloqueadas, mas devem ser justificadas.`,
+                        data: { sorted, alreadyInWeek: Object.fromEntries(inWeekMap) },
                         actionType: 'CHECK_SCORE'
                     };
                 }
@@ -487,6 +504,17 @@ export const agentActionService = {
                     const focusName = publisherName || assignedName;
                     const focusPub = focusName ? publishers.find(p => p.name === focusName) : null;
 
+                    // FIX B (2026-04-29): mapa determinístico de quem já está em outra parte
+                    // da MESMA semana, para taggear o Top sem depender do LLM "lembrar".
+                    const inWeekMap = new Map<string, string>();
+                    for (const wp of weekParts) {
+                        if (wp.id === targetPart.id) continue;
+                        const n = wp.resolvedPublisherName || wp.rawPublisherName;
+                        if (n && !inWeekMap.has(n)) {
+                            inWeekMap.set(n, wp.tituloParte || wp.tipoParte);
+                        }
+                    }
+
                     const lines: string[] = [];
                     lines.push(`**Explicação oficial (mesma fonte do painel “Controle & Explicações”):**`);
                     lines.push(`Parte: *${targetPart.tituloParte || partType}* — Semana ${targetPart.weekId}`);
@@ -498,7 +526,9 @@ export const agentActionService = {
                             lines.push(`Score: ${assignedRanked.scoreData.score} — ${assignedRanked.scoreData.explanation}`);
                         }
                     } else {
-                        lines.push(`\nDesignado atual: — (vago)`);
+                        // FIX A (2026-04-29): label inequívoco. Antes "— (vago)" era ambíguo;
+                        // o LLM podia narrar que outro nome da semana "estava" nessa parte.
+                        lines.push(`\n🟥 **Designado atual: VAGA (parte SEM designado no banco de dados).** NÃO atribua nenhum nome a esta parte com base em outras linhas da semana.`);
                     }
 
                     if (focusPub && (!assignedPub || focusPub.id !== assignedPub.id)) {
@@ -508,16 +538,21 @@ export const agentActionService = {
                         if (fr) lines.push(`Score: ${fr.scoreData.score} — ${fr.scoreData.explanation}`);
                     }
 
-                    lines.push(`\n**Top 5 candidatos pelo motor:**`);
+                    lines.push(`\n**Top 5 candidatos pelo motor (fonte determinística):**`);
                     sorted.slice(0, 5).forEach((c, i) => {
-                        const tag = c.blocked ? ' ⏸ (cooldown)' : '';
-                        lines.push(`${i + 1}. ${explainScoreForAgent(c)}${tag}`);
+                        const tags: string[] = [];
+                        if (c.blocked) tags.push('⏸ cooldown');
+                        const otherPart = inWeekMap.get(c.publisher.name);
+                        if (otherPart) tags.push(`⚠️ já em "${otherPart}" nesta semana`);
+                        const tagStr = tags.length ? ` ${tags.map(t => `[${t}]`).join(' ')}` : '';
+                        lines.push(`${i + 1}. ${explainScoreForAgent(c)}${tagStr}`);
                     });
+                    lines.push(`\nℹ️ Designações na mesma semana NÃO são bloqueadas pelo motor (apenas sinalizadas). Se precisar designar alguém com tag ⚠️, considere se é apropriado.`);
 
                     return {
                         success: true,
                         message: lines.join('\n'),
-                        data: { partId: targetPart.id, sorted, assignedName, focusName },
+                        data: { partId: targetPart.id, sorted, assignedName, focusName, alreadyInWeek: Object.fromEntries(inWeekMap) },
                         actionType: 'EXPLAIN_PART',
                     };
                 }
