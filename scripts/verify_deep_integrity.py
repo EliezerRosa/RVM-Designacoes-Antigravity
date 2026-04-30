@@ -1,10 +1,11 @@
+import os
 import json
 import openpyxl
 from supabase import create_client, Client
 
 # Setup
 SUPABASE_URL = 'https://pevstuyzlewvjidjkmea.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBldnN0dXl6bGV3dmppZGprbWVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NzczNTYsImV4cCI6MjA4MTM1MzM1Nn0.myYaq8rshNyB2aGTas2f1IzsQVv_rihOGL2v8EPl-x0'
+SUPABASE_KEY = os.getenv('SUPABASE_ANON_KEY', '')
 JSON_PATH = r"c:\Antigravity - RVM Designações\backup_rvm_2026-01-05.json"
 XLSX_PATH = r"c:\Antigravity - RVM Designações\backup_rvm_2026-01-05.xlsx"
 

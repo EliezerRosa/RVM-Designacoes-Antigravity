@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 // Usar variáveis de ambiente do sistema
 const supabase = createClient(
     process.env.VITE_SUPABASE_URL || 'https://pevstuyzlewvjidjkmea.supabase.co',
-    process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBldnN0dXl6bGV3dmppZGprbWVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NzczNTYsImV4cCI6MjA4MTM1MzM1Nn0.myYaq8rshNyB2aGTas2f1IzsQVv_rihOGL2v8EPl-x0'
+    process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
 );
 
 interface Publisher {

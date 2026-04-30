@@ -1,3 +1,4 @@
+import os
 import json
 
 JSON_PATH = r"c:\Antigravity - RVM Designações\backup_rvm_2026-01-05.json"

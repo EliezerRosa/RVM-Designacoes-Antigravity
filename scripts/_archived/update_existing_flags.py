@@ -1,3 +1,4 @@
+import os
 """
 Script para atualizar flags de publicadores existentes no initialPublishers.ts
 """

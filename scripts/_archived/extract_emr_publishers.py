@@ -1,3 +1,4 @@
+import os
 """
 Script para extrair nomes do PDF 'EMR Material - Fernando out 2015.pdf'
 e identificar quais não estão na lista de publicadores iniciais.

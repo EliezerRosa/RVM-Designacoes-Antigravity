@@ -1,3 +1,4 @@
+import os
 """
 Script V2 para corrigir nomes concatenados no importedHistory.ts
 Usa heurísticas inteligentes: nomes brasileiros tipicamente têm 2-3 palavras.
