@@ -1,3 +1,4 @@
+import os
 """
 Script para migrar publicadores usando requests diretamente.
 """

@@ -3,7 +3,7 @@ import { writeFileSync } from 'fs';
 
 const sb = createClient(
     'https://pevstuyzlewvjidjkmea.supabase.co',
-    'sb_publishable_SObnBXFPKyoPO7-b4ldeqg_i2gpKOrv'
+    process.env.VITE_SUPABASE_ANON_KEY || ''
 );
 
 async function main() {

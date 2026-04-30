@@ -1,3 +1,4 @@
+import os
 """
 Script para adicionar publicadores que estão nas categorias especiais do EMR PDF:
 - NÃO APTOS OU NÃO ASSISTEM REUNIÃO

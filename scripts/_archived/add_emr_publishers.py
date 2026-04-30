@@ -1,3 +1,4 @@
+import os
 """
 Script para adicionar novos publicadores do EMR ao initialPublishers.ts
 """

@@ -1,3 +1,4 @@
+import os
 """
 Script corrigido para adicionar flags de status nos publicadores.
 Adiciona as flags APÓS a linha "aliases: []," e ANTES do fechamento "},".

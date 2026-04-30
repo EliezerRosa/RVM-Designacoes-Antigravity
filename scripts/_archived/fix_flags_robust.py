@@ -1,3 +1,4 @@
+import os
 """
 Script robusto para adicionar flags aos publicadores existentes.
 Funciona adicionando as propriedades diretamente nos objetos JSON.

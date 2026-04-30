@@ -1,3 +1,4 @@
+import os
 """
 Script para extrair status/condição dos cabeçalhos do EMR PDF e atualizar publishers.
 """

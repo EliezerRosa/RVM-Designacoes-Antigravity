@@ -1,3 +1,4 @@
+import os
 """
 Script para extrair telefones do texto do EMR PDF e atualizar initialPublishers.ts
 """

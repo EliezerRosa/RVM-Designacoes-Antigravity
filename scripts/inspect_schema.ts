@@ -3,7 +3,7 @@ import fs from 'fs';
 
 // Credentials found in scripts/migrate_fix_year.ts
 const supabaseUrl = 'https://pevstuyzlewvjidjkmea.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBldnN0dXl6bGV3dmppZGprbWVhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTc3NzM1NiwiZXhwIjoyMDgxMzUzMzU2fQ.N-vb7L0PVsMoLh1pu495g3XkTY8AqNhgyWuK6U4Awn4'; // SERVICE_ROLE_KEY
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''; // SERVICE_ROLE_KEY
 
 console.log('Using discovered credentials...');
 

@@ -1,8 +1,9 @@
+import os
 import requests
 from collections import defaultdict
 
 SUPABASE_URL = 'https://pevstuyzlewvjidjkmea.supabase.co'
-SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBldnN0dXl6bGV3dmppZGprbWVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3NzczNTYsImV4cCI6MjA4MTM1MzM1Nn0.myYaq8rshNyB2aGTas2f1IzsQVv_rihOGL2v8EPl-x0'
+SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY', '')
 
 week_id = '2026-01-05'
 url = f'{SUPABASE_URL}/rest/v1/workbook_parts?select=seq,funcao,tipo_parte,resolved_publisher_name,raw_publisher_name&week_id=eq.{week_id}&limit=100'
