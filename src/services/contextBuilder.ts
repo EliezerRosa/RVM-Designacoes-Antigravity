@@ -6,7 +6,7 @@
 
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getEligibilityStats } from './eligibilityService';
-import { calculateScore, ROTATION_CONFIG, isStatPart } from './unifiedRotationService';
+import { calculateScore, getRankedCandidates, ROTATION_CONFIG, isStatPart } from './unifiedRotationService';
 import { AGENT_CONTEXT_WEEKS, AGENT_HISTORY_LOOKBACK_WEEKS, AGENT_LIST_LOOKBACK_WEEKS } from '../constants/config';
 
 export const RULES_TEXT_VERSION = '2024-01-27.01'; // v8.3 - Elegibilidade no contexto
@@ -131,6 +131,24 @@ export interface AgentContext {
 
     // NOVO: Sugestões de Prioridade (Pré-calculadas)
     priorityCandidates: string[];
+
+    // NOVO (#3 do pacote 2026-04-30): Ranking PRÉ-COMPUTADO por parte pendente.
+    // Para cada parte sem designado, lista os top-K candidatos com score, weeksSinceLast
+    // e marcação se está no pool empatado no topo. Permite ao agente RATIFICAR a escolha
+    // determinística em vez de inferir elegibilidade no zero (que se mostrou pior que aleatório).
+    rankedByPart: Array<{
+        partId: string;
+        weekDisplay: string;
+        section: string;
+        tipoParte: string;
+        funcao: string;
+        topCandidates: Array<{
+            name: string;
+            score: number;
+            weeksSinceLast: number;
+            isInTopPool: boolean;
+        }>;
+    }>;
 
     // Data atual
     currentDate: string;
@@ -435,6 +453,31 @@ export function buildAgentContext(
         .slice(0, 20) // Top 20
         .map(res => `${res.name} (Score ${res.score}): ${res.explanation}`);
 
+    // RANKING POR PARTE PENDENTE (#3 do pacote 2026-04-30).
+    // Top-5 candidatos por parte sem designado, com score específico do tipoParte.
+    // Custo: O(parts × publishers × log publishers); aceitável até ~50 partes.
+    const TOP_K = 5;
+    const rankedByPart = pendingParts.slice(0, 30).map(part => {
+        const refDate = part.date ? new Date(part.date + 'T12:00:00') : new Date();
+        const histForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
+        const ranked = getRankedCandidates(activePublishers, part.tipoParte, histForRanking, undefined, refDate);
+        const top = ranked.slice(0, TOP_K);
+        const topScore = top.length > 0 ? top[0].scoreData.score : 0;
+        return {
+            partId: part.id,
+            weekDisplay: part.weekDisplay,
+            section: part.section,
+            tipoParte: part.tipoParte,
+            funcao: part.funcao,
+            topCandidates: top.map(r => ({
+                name: r.publisher.name,
+                score: r.scoreData.score,
+                weeksSinceLast: r.scoreData.weeksSinceLast,
+                isInTopPool: r.scoreData.score === topScore,
+            })),
+        };
+    });
+
     return {
         totalPublishers: publishers.length,
         activePublishers: activePublishers.length,
@@ -449,6 +492,7 @@ export function buildAgentContext(
         localNeedsQueue,
         participationAnalytics,
         priorityCandidates: priorityList,
+        rankedByPart,
         currentDate: new Date().toISOString().split('T')[0],
     };
 }
