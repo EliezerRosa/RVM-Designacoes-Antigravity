@@ -290,6 +290,11 @@ export interface WorkbookPart {
 
     // Auditoria de designação
     isManualOverride?: boolean;     // true = designado manualmente (dropdown ou agente explícito)
+
+    // Pool de empate (#4 do pacote 2026-04-30): nomes dos candidatos com score IDÊNTICO ao escolhido
+    // pelo motor (incluindo o próprio). Permite UI mostrar "alternativas equivalentes" e usuário
+    // trocar sem viés alfabético. Campo derivado a cada geração; não é persistido isoladamente.
+    tiedAlternatives?: string[];
 }
 
 export interface WorkbookBatch {

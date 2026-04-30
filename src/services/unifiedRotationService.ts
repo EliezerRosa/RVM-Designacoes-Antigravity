@@ -224,7 +224,17 @@ export function calculateScore(
 }
 
 /**
- * Retorna lista de candidatos classificada por pontuação (Score)
+ * Retorna lista de candidatos classificada por pontuação (Score).
+ *
+ * Critério de desempate (quando dois candidatos têm score idêntico):
+ *   1) maior weeksSinceLast (já refletido no score, mas reforça em caso de empate por teto da fórmula)
+ *   2) maior tempo desde QUALQUER participação histórica (inclui partes não-rotacionadas) —
+ *      garante que quem está mais "esquecido" globalmente venha primeiro
+ *   3) ordem alfabética (estabilidade determinística final)
+ *
+ * Motivação: quando vários candidatos atingem o teto da fórmula (≥52 semanas para o tipo),
+ * o desempate alfabético é arbitrário e gera viés sistêmico (sempre os mesmos primeiros nomes).
+ * Ver /memories/session/pacote-melhorias-rotacao-2026-04-30.md.
  */
 export function getRankedCandidates(
     candidates: Publisher[],
@@ -233,15 +243,38 @@ export function getRankedCandidates(
     currentPresident?: string,
     referenceDate?: Date
 ): RankedCandidate[] {
+    const refStr = (referenceDate ?? new Date()).toISOString().split('T')[0];
+
+    // Pré-computa última data de QUALQUER participação histórica por nome.
+    // Mais tempo sem participação => menor lastAnyDate (string ISO) => deve vir primeiro.
+    const lastAnyDateByName = new Map<string, string>();
+    for (const h of history) {
+        if (h.date >= refStr) continue; // só passado
+        const nm = h.resolvedPublisherName || h.rawPublisherName;
+        if (!nm) continue;
+        const prev = lastAnyDateByName.get(nm);
+        if (!prev || h.date > prev) lastAnyDateByName.set(nm, h.date);
+    }
+
     const ranked = candidates.map(pub => {
         const scoreData = calculateScore(pub, partType, history, referenceDate, currentPresident);
         return { publisher: pub, scoreData };
     });
 
     return ranked.sort((a, b) => {
+        // 1) score (descending)
         if (b.scoreData.score !== a.scoreData.score) {
             return b.scoreData.score - a.scoreData.score;
         }
+        // 2) weeksSinceLast da modalidade (descending) — quem está mais tempo parado NA modalidade vem primeiro
+        const wa = a.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
+        const wb = b.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
+        if (wb !== wa) return wb - wa;
+        // 3) última participação em QUALQUER parte (ascending — data mais antiga primeiro = mais esquecido)
+        const da = lastAnyDateByName.get(a.publisher.name) ?? '';
+        const db = lastAnyDateByName.get(b.publisher.name) ?? '';
+        if (da !== db) return da.localeCompare(db);
+        // 4) fallback alfabético (estável)
         return a.publisher.name.localeCompare(b.publisher.name);
     });
 }

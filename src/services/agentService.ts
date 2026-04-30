@@ -784,6 +784,23 @@ Estratégia: Filtre e ordene dados do contexto, apresente em TABELA Markdown.
 - "Mostre quem está bloqueado" → Filtre restrictions inclui "Bloq".
 - "Ranking de participação" → participationAnalytics.mostActive + leastActive.
 
+### DESIGNAR / SUGERIR PUBLICADOR PARA UMA PARTE PENDENTE — REGRA CRÍTICA (#3 do pacote 2026-04-30)
+Use SEMPRE \`context.rankedByPart\` quando precisar designar, sugerir ou justificar a escolha
+de um publicador para uma parte pendente. Esse ranking JÁ APLICA a fórmula determinística
+oficial (score = base + tempo^1.5 × fator − penalidades − cooldown), específica do tipoParte.
+
+REGRA DE OURO: Você NÃO infere elegibilidade do zero. Você RATIFICA o ranking pré-computado.
+- A escolha padrão é o PRIMEIRO candidato com \`isInTopPool=true\` cujo nome ainda não foi usado
+  em outra parte da MESMA semana (evitar dupla designação).
+- Se houver vários candidatos com \`isInTopPool=true\` (empate no topo), explique que são
+  EQUIVALENTES e ofereça os 2-3 primeiros como alternativas igualmente válidas.
+- Só desvie do top-pool se houver razão explícita do usuário ou restrição visível
+  (parente, gênero, indisponibilidade) — e EXPLIQUE a razão.
+- NUNCA escolha um candidato fora do top-3 do \`topCandidates\` sem justificar tecnicamente.
+
+Histórico documentado: agentes que ignoram o ranking e escolhem "por intuição" acertam
+~10% das vezes (pior que aleatório, conforme teste 2026-07-06). Use o ranking.
+
 ### HIPOTÉTICAS / SIMULAÇÕES
 Padrões: "e se", "seria possível", "posso", "daria para", "funciona se", "simular"
 Estratégia: Use SIMULATE_ASSIGNMENT ou raciocínio sobre regras.
