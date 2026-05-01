@@ -178,7 +178,21 @@ export function generateWhatsAppMessage(
     const room = part.modalidade?.toLowerCase().includes('b') ? 'SALA B 🏛️' : 'SALÃO PRINCIPAL 🏟️';
     const time = part.horaInicio ? ` às *${part.horaInicio}*` : '';
 
-    let msg = `Olá *${salutation} ${studentName}*! 👋\n\n`;
+    let msg = `Olá *${salutation} ${studentName}*! 👋\n`;
+    // Determinar função em destaque (logo abaixo da saudação)
+    let highlightFunction = 'TITULAR';
+    if (isForAssistant) {
+        highlightFunction = (part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc'))
+            ? 'LEITOR'
+            : 'AJUDANTE';
+    } else if (part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc')) {
+        highlightFunction = 'DIRIGENTE';
+    } else if (part.tipoParte?.toLowerCase().includes('presidente')) {
+        highlightFunction = 'PRESIDENTE';
+    } else if (part.tipoParte?.toLowerCase().includes('oração')) {
+        highlightFunction = 'ORAÇÃO';
+    }
+    msg += `*SUA FUNÇÃO: ${highlightFunction}*\n\n`;
     if (isSubstitution) {
         msg += `🔄 *PEDIDO DE SUBSTITUIÇÃO*\n`;
         msg += `_Esta parte foi reatribuída a você. Pedimos a gentileza de avaliar e responder o quanto antes._\n\n`;
@@ -237,7 +251,7 @@ export function generateWhatsAppMessage(
     msg += `\n─────────────\n`;
 
     if (confirmationUrl) {
-        msg += `\n👉 *Confirme sua participação aqui:* ${confirmationUrl}\n`;
+        msg += `\n👉 *CLIQUE AQUI PARA CONFIRMAR SE PODERÁ OU NÃO*\n${confirmationUrl}\n`;
     }
 
     msg += `\n*Por favor, confirme o recebimento desta mensagem.* 🙏\n`;
