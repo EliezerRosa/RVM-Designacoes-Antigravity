@@ -7,7 +7,18 @@ import html2canvas from 'html2canvas';
 
 import { communicationService } from '../services/communicationService';
 import { api } from '../services/api';
+import { supabase } from '../lib/supabase';
 import type { AvailabilityToken } from './PublisherAvailabilityPortal';
+
+/** Type for confirmation status per part (item 4). */
+type PartConfirmationStatus = {
+    response: 'accepted' | 'declined';
+    respondedAt: string;
+};
+
+/** Send-history entry per part (item 1). */
+type SendKind = 'inicial' | 'reconf' | 'substituicao';
+type SendEntry = { sentAt: string; kind: SendKind };
 
 interface S89SelectionModalProps {
     isOpen: boolean;
@@ -21,14 +32,20 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [processingReconfirmIds, setProcessingReconfirmIds] = useState<Set<string>>(new Set());
     const [isSharingS140, setIsSharingS140] = useState(false);
+    const [isSharingStatus, setIsSharingStatus] = useState(false);
     const [s140HTML, setS140HTML] = useState<string>('');
     const [editingMessages, setEditingMessages] = useState<Record<string, string>>({});
     const [lastMessages, setLastMessages] = useState<Record<string, any>>({});
+    /** Item 1: full per-part send history (most recent first). */
+    const [sendHistory, setSendHistory] = useState<Record<string, SendEntry[]>>({});
+    /** Item 4: confirmation statuses by part_id. */
+    const [confirmationStatuses, setConfirmationStatuses] = useState<Record<string, PartConfirmationStatus>>({});
     const [availabilityTokens, setAvailabilityTokens] = useState<AvailabilityToken[]>([]);
     const [insertingAvailability, setInsertingAvailability] = useState<Set<string>>(new Set());
     /** Per-card flag: when true, message is rendered as substitution request. */
     const [substitutionIds, setSubstitutionIds] = useState<Set<string>>(new Set());
     const s140Ref = useRef<HTMLDivElement>(null);
+    const statusRef = useRef<HTMLDivElement>(null);
 
 
     // Helper function must be declared before use
@@ -180,6 +197,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     useEffect(() => {
         if (isOpen) {
             loadHistory();
+            loadConfirmationStatuses();
         }
     }, [isOpen, weekId, weekParts, publishers]);
 
@@ -205,16 +223,60 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
     const loadHistory = async () => {
         try {
-            const history = await communicationService.getHistory(100);
+            const history = await communicationService.getHistory(500);
             const mapping: Record<string, any> = {};
+            const allEntries: Record<string, SendEntry[]> = {};
+            // history is ordered by created_at DESC
             history.forEach(h => {
-                if (h.metadata?.partId) {
-                    mapping[h.metadata.partId] = h;
-                }
+                const partId = h.metadata?.partId;
+                if (!partId) return;
+                if (!mapping[partId]) mapping[partId] = h;
+                let kind: SendKind = 'inicial';
+                if (h.metadata?.isReconfirmation) kind = 'reconf';
+                else if (h.metadata?.isSubstitution) kind = 'substituicao';
+                if (!allEntries[partId]) allEntries[partId] = [];
+                allEntries[partId].push({ sentAt: h.created_at as string, kind });
             });
             setLastMessages(mapping);
+            setSendHistory(allEntries);
         } catch (err) {
             console.error('Erro ao carregar histórico no modal:', err);
+        }
+    };
+
+    /** Item 4: load latest portal response per part for current week. */
+    const loadConfirmationStatuses = async () => {
+        try {
+            const partIds = weekParts.map(p => p.id).filter(Boolean);
+            if (partIds.length === 0) return;
+            // Tokens for these parts → then their latest response.
+            const { data: tokens, error: tokErr } = await supabase
+                .from('confirmation_portal_tokens')
+                .select('id, part_id')
+                .in('part_id', partIds);
+            if (tokErr || !tokens) return;
+            const tokenIds = tokens.map((t: any) => t.id);
+            if (tokenIds.length === 0) return;
+            const { data: responses, error: respErr } = await supabase
+                .from('confirmation_portal_responses')
+                .select('token_id, response, created_at')
+                .in('token_id', tokenIds)
+                .order('created_at', { ascending: false });
+            if (respErr || !responses) return;
+            const tokToPart = new Map<string, string>();
+            tokens.forEach((t: any) => tokToPart.set(t.id, t.part_id));
+            const map: Record<string, PartConfirmationStatus> = {};
+            for (const r of responses as any[]) {
+                const pid = tokToPart.get(r.token_id);
+                if (!pid || map[pid]) continue; // keep latest only
+                const resp = (r.response || '').toLowerCase();
+                if (resp === 'accepted' || resp === 'declined') {
+                    map[pid] = { response: resp, respondedAt: r.created_at };
+                }
+            }
+            setConfirmationStatuses(map);
+        } catch (err) {
+            console.warn('[S89Modal] Falha ao carregar respostas do portal:', err);
         }
     };
 
@@ -391,7 +453,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 metadata: {
                     weekId,
                     partId: part.id,
-                    isStudent: isStudent
+                    isStudent: isStudent,
+                    isSubstitution: substitutionIds.has(part.id)
                 }
             });
 
@@ -400,10 +463,16 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             window.open(url, '_blank');
 
             // Atualizar histórico local para o UI
+            const nowIso = new Date().toISOString();
             setLastMessages(prev => ({
                 ...prev,
-                [part.id]: { content: message, created_at: new Date().toISOString() }
+                [part.id]: { content: message, created_at: nowIso }
             }));
+            setSendHistory(prev => {
+                const arr = prev[part.id] ? [...prev[part.id]] : [];
+                arr.unshift({ sentAt: nowIso, kind: substitutionIds.has(part.id) ? 'substituicao' : 'inicial' });
+                return { ...prev, [part.id]: arr };
+            });
 
         } catch (error) {
             console.error('Erro ao enviar S-89:', error);
@@ -445,10 +514,16 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const url = communicationService.generateWhatsAppUrl(phone || '', content);
             window.open(url, '_blank');
 
+            const nowIso = new Date().toISOString();
             setLastMessages(prev => ({
                 ...prev,
-                [part.id]: { content, created_at: new Date().toISOString() }
+                [part.id]: { content, created_at: nowIso }
             }));
+            setSendHistory(prev => {
+                const arr = prev[part.id] ? [...prev[part.id]] : [];
+                arr.unshift({ sentAt: nowIso, kind: 'reconf' });
+                return { ...prev, [part.id]: arr };
+            });
         } catch (error) {
             console.error('Erro ao enviar reconfirmação S-89:', error);
             alert('Erro ao processar reconfirmação.');
@@ -524,6 +599,43 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     };
 
+    // --- Item 4: STATUS BOARD SHARE LOGIC ---
+    const handleShareStatusBoard = async () => {
+        if (!statusRef.current) return;
+        setIsSharingStatus(true);
+        try {
+            // Recarregar respostas para snapshot atualizado
+            await loadConfirmationStatuses();
+            // pequena espera para o React aplicar o setState antes do html2canvas
+            await new Promise(r => setTimeout(r, 80));
+            const canvas = await html2canvas(statusRef.current, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                logging: false,
+            });
+            const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+            if (!blob) throw new Error('Falha ao gerar imagem do status board');
+
+            if (navigator.clipboard && navigator.clipboard.write) {
+                await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                const message = `Status atual das designações da semana ${weekId} (cole a imagem aqui).`;
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`, '_blank');
+            } else {
+                // Fallback: download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `status-${weekId}.png`; a.click();
+                URL.revokeObjectURL(url);
+            }
+        } catch (err) {
+            console.error('Erro ao compartilhar status board:', err);
+            alert('Erro ao gerar imagem do status.');
+        } finally {
+            setIsSharingStatus(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -559,6 +671,91 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     dangerouslySetInnerHTML={{ __html: s140HTML }}
                 />
 
+                {/* Item 4: Status Board Hidden Render Container */}
+                <div
+                    ref={statusRef}
+                    style={{
+                        position: 'absolute',
+                        top: '-9999px',
+                        left: '-9999px',
+                        width: '900px',
+                        background: 'white',
+                        padding: '24px',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        color: '#111827'
+                    }}
+                >
+                    <div style={{ borderBottom: '3px solid #0EA5E9', paddingBottom: 8, marginBottom: 12 }}>
+                        <h2 style={{ margin: 0, fontSize: 22, color: '#0C4A6E' }}>📊 Status das Designações — Semana {weekId}</h2>
+                        <div style={{ fontSize: 12, color: '#6B7280' }}>
+                            Snapshot gerado em {new Date().toLocaleString('pt-BR')}
+                        </div>
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                            <tr style={{ background: '#F1F5F9' }}>
+                                <th style={{ textAlign: 'left', padding: '8px', border: '1px solid #CBD5E1' }}>Parte</th>
+                                <th style={{ textAlign: 'left', padding: '8px', border: '1px solid #CBD5E1' }}>Publicador</th>
+                                <th style={{ textAlign: 'center', padding: '8px', border: '1px solid #CBD5E1', width: 150 }}>Status</th>
+                                <th style={{ textAlign: 'left', padding: '8px', border: '1px solid #CBD5E1', width: 170 }}>Última msg-zap</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {validParts.map(part => {
+                                const status = confirmationStatuses[part.id];
+                                const isSubst = substitutionIds.has(part.id);
+                                const last = lastMessages[part.id];
+                                let stampLabel = '— pendente —';
+                                let stampBg = '#E5E7EB';
+                                let stampFg = '#374151';
+                                if (isSubst) {
+                                    stampLabel = '🔄 SUBSTITUIÇÃO';
+                                    stampBg = '#F59E0B'; stampFg = 'white';
+                                } else if (status?.response === 'accepted') {
+                                    stampLabel = '✓ ACEITA';
+                                    stampBg = '#10B981'; stampFg = 'white';
+                                } else if (status?.response === 'declined') {
+                                    stampLabel = '✗ REJEITADA';
+                                    stampBg = '#EF4444'; stampFg = 'white';
+                                }
+                                const lastWhen = last?.created_at
+                                    ? new Date(last.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                                    : '—';
+                                return (
+                                    <tr key={part.id}>
+                                        <td style={{ padding: '8px', border: '1px solid #CBD5E1' }}>
+                                            <strong>{part.tipoParte}</strong>
+                                            {part.tituloParte && <div style={{ fontSize: 11, color: '#6B7280' }}>{part.tituloParte}</div>}
+                                        </td>
+                                        <td style={{ padding: '8px', border: '1px solid #CBD5E1' }}>
+                                            {part.resolvedPublisherName || part.rawPublisherName || '—'}
+                                            {part.funcao === 'Ajudante' && <span style={{ marginLeft: 4, fontSize: 10, color: '#3730A3' }}>(Ajud.)</span>}
+                                        </td>
+                                        <td style={{ padding: '8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+                                            <span style={{
+                                                background: stampBg, color: stampFg,
+                                                padding: '4px 10px', borderRadius: 14,
+                                                fontWeight: 700, fontSize: 12, letterSpacing: 0.4,
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {stampLabel}
+                                            </span>
+                                            {status?.respondedAt && (
+                                                <div style={{ fontSize: 10, color: '#6B7280', marginTop: 2 }}>
+                                                    Resp: {new Date(status.respondedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '8px', border: '1px solid #CBD5E1', fontSize: 12 }}>
+                                            {lastWhen}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
                 {/* List */}
                 <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
@@ -574,19 +771,34 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                 Programação completa da semana
                             </div>
                         </div>
-                        <button
-                            onClick={handleShareS140}
-                            disabled={isSharingS140}
-                            style={{
-                                background: '#059669', color: 'white', border: 'none',
-                                padding: '8px 12px', borderRadius: '6px', cursor: isSharingS140 ? 'wait' : 'pointer',
-                                fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
-                                opacity: isSharingS140 ? 0.7 : 1
-                            }}
-                            title="Copia a imagem do S-140 e abre o WhatsApp Web"
-                        >
-                            {isSharingS140 ? '⏳...' : 'ZapWeb 🌐'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                onClick={handleShareS140}
+                                disabled={isSharingS140}
+                                style={{
+                                    background: '#059669', color: 'white', border: 'none',
+                                    padding: '8px 12px', borderRadius: '6px', cursor: isSharingS140 ? 'wait' : 'pointer',
+                                    fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                    opacity: isSharingS140 ? 0.7 : 1
+                                }}
+                                title="Copia a imagem do S-140 e abre o WhatsApp Web"
+                            >
+                                {isSharingS140 ? '⏳...' : 'ZapWeb 🌐'}
+                            </button>
+                            <button
+                                onClick={handleShareStatusBoard}
+                                disabled={isSharingStatus}
+                                style={{
+                                    background: '#0EA5E9', color: 'white', border: 'none',
+                                    padding: '8px 12px', borderRadius: '6px', cursor: isSharingStatus ? 'wait' : 'pointer',
+                                    fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                    opacity: isSharingStatus ? 0.7 : 1
+                                }}
+                                title="Imagem da grade carimbada (ACEITA/REJEITADA/SUBSTITUIÇÃO + última msg)"
+                            >
+                                {isSharingStatus ? '⏳...' : 'Status 📊'}
+                            </button>
+                        </div>
                     </div>
 
                     <div style={{ height: '1px', background: '#E5E7EB', margin: '4px 0 8px 0' }} />
@@ -641,6 +853,49 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                 👤 {part.resolvedPublisherName || part.rawPublisherName}
                                                 {part.funcao === 'Ajudante' && <span style={{ marginLeft: '4px', background: '#E0E7FF', color: '#3730A3', padding: '1px 4px', borderRadius: '4px', fontSize: '0.9em' }}>Ajudante</span>}
                                             </div>
+                                            {/* Item 1: send-history list */}
+                                            {sendHistory[part.id] && sendHistory[part.id].length > 0 && (
+                                                <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                    {sendHistory[part.id].slice(0, 6).map((entry, idx) => {
+                                                        const label = entry.kind === 'reconf' ? 'Re-conf' : entry.kind === 'substituicao' ? 'Substituição' : '1ª';
+                                                        const bg = entry.kind === 'reconf' ? '#DBEAFE' : entry.kind === 'substituicao' ? '#FEF3C7' : '#D1FAE5';
+                                                        const fg = entry.kind === 'reconf' ? '#1E40AF' : entry.kind === 'substituicao' ? '#92400E' : '#065F46';
+                                                        const when = new Date(entry.sentAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                                                        return (
+                                                            <span
+                                                                key={idx}
+                                                                style={{
+                                                                    fontSize: '10px',
+                                                                    background: bg, color: fg,
+                                                                    padding: '2px 6px', borderRadius: '4px',
+                                                                    fontWeight: 600
+                                                                }}
+                                                                title={`${label} \u00b7 ${when}`}
+                                                            >
+                                                                {label} · {when}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                    {sendHistory[part.id].length > 6 && (
+                                                        <span style={{ fontSize: '10px', color: '#6B7280' }}>
+                                                            +{sendHistory[part.id].length - 6}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {/* Item 4 mini: status badge no card também */}
+                                            {confirmationStatuses[part.id] && (
+                                                <div style={{ marginTop: '4px' }}>
+                                                    <span style={{
+                                                        fontSize: '11px',
+                                                        background: confirmationStatuses[part.id].response === 'accepted' ? '#10B981' : '#EF4444',
+                                                        color: 'white', padding: '2px 8px', borderRadius: '12px',
+                                                        fontWeight: 700, letterSpacing: '0.03em'
+                                                    }}>
+                                                        {confirmationStatuses[part.id].response === 'accepted' ? '✓ ACEITA' : '✗ REJEITADA'}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <button
