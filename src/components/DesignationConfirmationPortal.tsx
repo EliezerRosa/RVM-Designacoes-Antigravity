@@ -21,6 +21,10 @@ interface PortalAuthorizationResult {
     token_status?: string;
     response_status?: 'confirmed' | 'refused';
     responded_at?: string;
+    /** HOTFIX 2026-05-01: classificador de identidade (substitui rejeição). */
+    match_type?: 'strict' | 'admin' | 'delegated' | 'unverified';
+    /** HOTFIX 2026-05-01: aviso não-bloqueante. */
+    warning?: 'identity_not_verified' | null;
 }
 
 interface PortalSubmitResult {
@@ -44,6 +48,9 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
     const [authenticatedEmail, setAuthenticatedEmail] = useState<string | null>(null);
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [isSigningIn, setIsSigningIn] = useState(false);
+    const [matchType, setMatchType] = useState<PortalAuthorizationResult['match_type']>(undefined);
+    const [identityWarning, setIdentityWarning] = useState<string | null>(null);
+    const [assignedPublisherName, setAssignedPublisherName] = useState<string | null>(null);
 
     // Form state
     const [accept, setAccept] = useState<boolean | null>(null);
@@ -126,6 +133,14 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
                 if (authResult.response_status) {
                     setAlreadyResponded(authResult.response_status);
                 }
+
+                setMatchType(authResult.match_type);
+                setAssignedPublisherName(authResult.assigned_publisher_name || null);
+                setIdentityWarning(
+                    authResult.warning === 'identity_not_verified'
+                        ? 'Sua conta Google não está vinculada ao publicador designado. Sua resposta será registrada e poderá ser revisada pela administração.'
+                        : null
+                );
 
                 setIsAuthorized(true);
                 await loadPart(cancelled);
@@ -389,6 +404,30 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
                 <p>Confirme sua participação na reunião</p>
                 {authenticatedEmail && <p style={{ color: '#cbd5e1' }}>Conta identificada: <strong>{authenticatedEmail}</strong></p>}
             </div>
+
+            {identityWarning && (
+                <div
+                    role="alert"
+                    style={{
+                        background: '#fef3c7',
+                        border: '1px solid #f59e0b',
+                        color: '#78350f',
+                        padding: '12px 16px',
+                        borderRadius: 8,
+                        margin: '12px 0',
+                        fontSize: 14,
+                        lineHeight: 1.4,
+                    }}
+                >
+                    <strong>⚠️ Identidade não verificada</strong>
+                    <div style={{ marginTop: 4 }}>
+                        {identityWarning}
+                        {assignedPublisherName && (
+                            <> Publicador designado: <strong>{assignedPublisherName}</strong>.</>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <div className="assignment-card">
                 <div className="card-item">

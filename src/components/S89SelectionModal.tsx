@@ -26,6 +26,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [lastMessages, setLastMessages] = useState<Record<string, any>>({});
     const [availabilityTokens, setAvailabilityTokens] = useState<AvailabilityToken[]>([]);
     const [insertingAvailability, setInsertingAvailability] = useState<Set<string>>(new Set());
+    /** Per-card flag: when true, message is rendered as substitution request. */
+    const [substitutionIds, setSubstitutionIds] = useState<Set<string>>(new Set());
     const s140Ref = useRef<HTMLDivElement>(null);
 
 
@@ -189,7 +191,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const edits: Record<string, string> = {};
             for (const p of validParts) {
                 try {
-                    const { content } = await communicationService.prepareS89Message(p, publishers, weekParts);
+                    const { content } = await communicationService.prepareS89Message(p, publishers, weekParts, { isSubstitution: substitutionIds.has(p.id) });
                     edits[p.id] = content;
                 } catch (err) {
                     console.warn('[S89Modal] Falha ao gerar mensagem para', p.id, err);
@@ -334,7 +336,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             // Gerar on-demand se ainda não estiver pronta
             if (!message) {
                 try {
-                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts);
+                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: substitutionIds.has(part.id) });
                     message = content;
                     setEditingMessages(prev => ({ ...prev, [part.id]: content }));
                 } catch (err) {
@@ -345,7 +347,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const canHaveConfirmationLink = Boolean(part.resolvedPublisherId || foundPublisher?.id);
             if (message && canHaveConfirmationLink && !hasConfirmationLink(message)) {
                 try {
-                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts);
+                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: substitutionIds.has(part.id) });
                     if (hasConfirmationLink(content)) {
                         message = content;
                         setEditingMessages(prev => ({ ...prev, [part.id]: content }));
@@ -641,6 +643,36 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                onClick={async () => {
+                                                    const willEnable = !substitutionIds.has(part.id);
+                                                    setSubstitutionIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (willEnable) next.add(part.id); else next.delete(part.id);
+                                                        return next;
+                                                    });
+                                                    // Regenerar mensagem refletindo o novo estado
+                                                    try {
+                                                        const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: willEnable });
+                                                        setEditingMessages(prev => ({ ...prev, [part.id]: content }));
+                                                    } catch (err) {
+                                                        console.warn('[S89Modal] Falha ao regerar mensagem com flag substituição:', err);
+                                                    }
+                                                }}
+                                                style={{
+                                                    background: substitutionIds.has(part.id) ? '#F59E0B' : '#FFFBEB',
+                                                    color: substitutionIds.has(part.id) ? 'white' : '#92400E',
+                                                    border: '1px solid #F59E0B',
+                                                    padding: '8px 10px', borderRadius: '6px', cursor: 'pointer',
+                                                    fontWeight: '600', fontSize: '0.85em',
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                                title={substitutionIds.has(part.id)
+                                                    ? 'Marcado como pedido de substituição (clique para desmarcar)'
+                                                    : 'Marcar como pedido de substituição (mensagem incluirá aviso)'}
+                                            >
+                                                {substitutionIds.has(part.id) ? '🔄 Substituição' : '🔄'}
+                                            </button>
                                             <button
                                                 onClick={() => handleInsertAvailabilityLink(part)}
                                                 disabled={insertingAvailability.has(part.id)}
