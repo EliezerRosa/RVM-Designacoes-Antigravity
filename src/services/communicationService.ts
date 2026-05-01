@@ -399,7 +399,7 @@ export const communicationService = {
      * Prepara a mensagem S-89 individual
      * Inclui contexto de excepcionalidades (eventos especiais) quando aplicável
      */
-    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = []): Promise<{ content: string, phone?: string }> {
+    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = [], options: { isSubstitution?: boolean } = {}): Promise<{ content: string, phone?: string }> {
         const publisherName = (part.resolvedPublisherName || part.rawPublisherName || '').trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
@@ -492,7 +492,9 @@ export const communicationService = {
             partnerPhone,
             isAjudante,
             srvmName,
-            srvmPhone
+            srvmPhone,
+            undefined,
+            options.isSubstitution
         );
 
         if (publisherId) {
@@ -506,7 +508,8 @@ export const communicationService = {
                     isAjudante,
                     srvmName,
                     srvmPhone,
-                    confirmationUrl
+                    confirmationUrl,
+                    options.isSubstitution
                 );
             }
         }

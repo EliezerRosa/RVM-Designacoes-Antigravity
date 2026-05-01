@@ -141,7 +141,8 @@ export function generateWhatsAppMessage(
     isForAssistant: boolean = false,
     srvmName?: string,
     srvmPhone?: string,
-    confirmationUrl?: string
+    confirmationUrl?: string,
+    isSubstitution: boolean = false
 ): string {
     const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
     const salutation = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
@@ -178,6 +179,10 @@ export function generateWhatsAppMessage(
     const time = part.horaInicio ? ` às *${part.horaInicio}*` : '';
 
     let msg = `Olá *${salutation} ${studentName}*! 👋\n\n`;
+    if (isSubstitution) {
+        msg += `🔄 *PEDIDO DE SUBSTITUIÇÃO*\n`;
+        msg += `_Esta parte foi reatribuída a você. Pedimos a gentileza de avaliar e responder o quanto antes._\n\n`;
+    }
     msg += `Aqui está sua designação para a reunião de *${displayDate}*:\n\n`;
     msg += `─────────────\n`;
 
