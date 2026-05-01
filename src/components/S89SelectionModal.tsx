@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 
 import type { WorkbookPart, Publisher } from '../types';
-import { WorkbookStatus } from '../types';
 
 import { copyS89ToClipboard } from '../services/s89Generator';
 import html2canvas from 'html2canvas';
 
 import { communicationService } from '../services/communicationService';
 import { api } from '../services/api';
-import { workbookService } from '../services/workbookService';
+import { supabase } from '../lib/supabase';
 import type { AvailabilityToken } from './PublisherAvailabilityPortal';
 
 /** Type for confirmation status per part (item 4). */
@@ -246,29 +245,29 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     };
 
     /**
-     * Item 4: derive confirmation status from part.status (source of truth).
-     * Portal RPC `submit_confirmation_portal_response` updates the assignment status:
-     *   DESIGNADA / CONCLUIDA → ACEITA
-     *   REJEITADA / CANCELADA → REJEITADA
-     * Anything else → pendente (no response yet).
-     * Reloads parts from API so we get fresh status (the modal's `weekParts` prop may be stale).
+     * Item 4: load latest portal response per part for current week.
+     * Uses RPC `get_portal_responses_for_week` (SECURITY DEFINER) because confirmation_portal_*
+     * tables have RLS enabled with no SELECT policy. Portal RPC stores 'confirmed'/'refused'.
      */
     const loadConfirmationStatuses = async () => {
         try {
-            const fresh = await workbookService.getPartsByWeekId(weekId).catch(() => null);
-            const source = (fresh && Array.isArray(fresh) && fresh.length > 0) ? fresh : weekParts;
+            const { data, error } = await supabase.rpc('get_portal_responses_for_week', { p_week_id: weekId });
+            if (error) {
+                console.warn('[S89Modal] RPC get_portal_responses_for_week falhou:', error);
+                return;
+            }
             const map: Record<string, PartConfirmationStatus> = {};
-            for (const p of source as WorkbookPart[]) {
-                const st = (p as any).status as WorkbookStatus | undefined;
-                if (st === WorkbookStatus.DESIGNADA || st === WorkbookStatus.CONCLUIDA) {
-                    map[p.id] = { response: 'accepted', respondedAt: (p as any).updatedAt || (p as any).statusUpdatedAt || new Date().toISOString() };
-                } else if (st === WorkbookStatus.REJEITADA || st === WorkbookStatus.CANCELADA) {
-                    map[p.id] = { response: 'declined', respondedAt: (p as any).updatedAt || (p as any).statusUpdatedAt || new Date().toISOString() };
+            for (const row of (data || []) as any[]) {
+                const resp = (row.response || '').toLowerCase();
+                if (resp === 'confirmed') {
+                    map[row.part_id] = { response: 'accepted', respondedAt: row.responded_at };
+                } else if (resp === 'refused') {
+                    map[row.part_id] = { response: 'declined', respondedAt: row.responded_at };
                 }
             }
             setConfirmationStatuses(map);
         } catch (err) {
-            console.warn('[S89Modal] Falha ao derivar status do portal:', err);
+            console.warn('[S89Modal] Falha ao carregar respostas do portal:', err);
         }
     };
 
