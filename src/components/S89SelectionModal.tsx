@@ -706,14 +706,20 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                         </thead>
                         <tbody>
                             {validParts.map(part => {
+                                // REGRA AUTORITATIVA: part.status manda.
+                                //   DESIGNADA  → ACEITA
+                                //   REJEITADA  → REJEITADA
+                                //   senão      → AGUARDANDO (se já enviou) / — não enviado —
+                                // portal_response só é usado para preencher respondedAt quando coincide.
                                 const portal = confirmationStatuses[part.id];
-                                // Fallback: status DESIGNADA na parte = ACEITA implícita pelo pub atual
-                                // (admin pode marcar manualmente, ou portal pode ter aceito sem registrar resposta).
-                                const status: PartConfirmationStatus | undefined = portal
-                                    ? portal
-                                    : (part.status === 'DESIGNADA'
-                                        ? { response: 'accepted', respondedAt: undefined as any }
-                                        : undefined);
+                                let status: PartConfirmationStatus | undefined;
+                                if (part.status === 'DESIGNADA') {
+                                    status = { response: 'accepted', respondedAt: portal?.respondedAt };
+                                } else if (part.status === 'REJEITADA') {
+                                    status = { response: 'declined', respondedAt: portal?.respondedAt };
+                                } else {
+                                    status = undefined;
+                                }
                                 const isSubst = substitutionIds.has(part.id);
                                 const last = lastMessages[part.id];
                                 const wasSent = !!last;
@@ -909,15 +915,16 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                     )}
                                                 </div>
                                             )}
-                                            {/* Item 4 mini: status badge no card também (+ SUBST se aplicável).
-                                                Fallback: part.status === 'DESIGNADA' implica ACEITA pelo pub atual. */}
+                                            {/* Item 4 mini: status badge no card (+ SUBST se aplicável).
+                                                REGRA: part.status manda. DESIGNADA→ACEITA; REJEITADA→REJEITADA. */}
                                             {(() => {
                                                 const portal = confirmationStatuses[part.id];
-                                                const effective: PartConfirmationStatus | undefined = portal
-                                                    ? portal
-                                                    : (part.status === 'DESIGNADA'
-                                                        ? { response: 'accepted', respondedAt: undefined as any }
-                                                        : undefined);
+                                                let effective: PartConfirmationStatus | undefined;
+                                                if (part.status === 'DESIGNADA') {
+                                                    effective = { response: 'accepted', respondedAt: portal?.respondedAt };
+                                                } else if (part.status === 'REJEITADA') {
+                                                    effective = { response: 'declined', respondedAt: portal?.respondedAt };
+                                                }
                                                 const showBlock = !!effective || substitutionIds.has(part.id);
                                                 if (!showBlock) return null;
                                                 return (
