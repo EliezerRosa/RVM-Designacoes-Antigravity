@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 
 import type { WorkbookPart, Publisher } from '../types';
+import { WorkbookStatus } from '../types';
 
 import { copyS89ToClipboard } from '../services/s89Generator';
 import html2canvas from 'html2canvas';
 
 import { communicationService } from '../services/communicationService';
 import { api } from '../services/api';
-import { supabase } from '../lib/supabase';
+import { workbookService } from '../services/workbookService';
 import type { AvailabilityToken } from './PublisherAvailabilityPortal';
 
 /** Type for confirmation status per part (item 4). */
@@ -244,39 +245,30 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     };
 
-    /** Item 4: load latest portal response per part for current week. */
+    /**
+     * Item 4: derive confirmation status from part.status (source of truth).
+     * Portal RPC `submit_confirmation_portal_response` updates the assignment status:
+     *   DESIGNADA / CONCLUIDA → ACEITA
+     *   REJEITADA / CANCELADA → REJEITADA
+     * Anything else → pendente (no response yet).
+     * Reloads parts from API so we get fresh status (the modal's `weekParts` prop may be stale).
+     */
     const loadConfirmationStatuses = async () => {
         try {
-            const partIds = weekParts.map(p => p.id).filter(Boolean);
-            if (partIds.length === 0) return;
-            // Tokens for these parts → then their latest response.
-            const { data: tokens, error: tokErr } = await supabase
-                .from('confirmation_portal_tokens')
-                .select('id, part_id')
-                .in('part_id', partIds);
-            if (tokErr || !tokens) return;
-            const tokenIds = tokens.map((t: any) => t.id);
-            if (tokenIds.length === 0) return;
-            const { data: responses, error: respErr } = await supabase
-                .from('confirmation_portal_responses')
-                .select('token_id, response, created_at')
-                .in('token_id', tokenIds)
-                .order('created_at', { ascending: false });
-            if (respErr || !responses) return;
-            const tokToPart = new Map<string, string>();
-            tokens.forEach((t: any) => tokToPart.set(t.id, t.part_id));
+            const fresh = await workbookService.getPartsByWeekId(weekId).catch(() => null);
+            const source = (fresh && Array.isArray(fresh) && fresh.length > 0) ? fresh : weekParts;
             const map: Record<string, PartConfirmationStatus> = {};
-            for (const r of responses as any[]) {
-                const pid = tokToPart.get(r.token_id);
-                if (!pid || map[pid]) continue; // keep latest only
-                const resp = (r.response || '').toLowerCase();
-                if (resp === 'accepted' || resp === 'declined') {
-                    map[pid] = { response: resp, respondedAt: r.created_at };
+            for (const p of source as WorkbookPart[]) {
+                const st = (p as any).status as WorkbookStatus | undefined;
+                if (st === WorkbookStatus.DESIGNADA || st === WorkbookStatus.CONCLUIDA) {
+                    map[p.id] = { response: 'accepted', respondedAt: (p as any).updatedAt || (p as any).statusUpdatedAt || new Date().toISOString() };
+                } else if (st === WorkbookStatus.REJEITADA || st === WorkbookStatus.CANCELADA) {
+                    map[p.id] = { response: 'declined', respondedAt: (p as any).updatedAt || (p as any).statusUpdatedAt || new Date().toISOString() };
                 }
             }
             setConfirmationStatuses(map);
         } catch (err) {
-            console.warn('[S89Modal] Falha ao carregar respostas do portal:', err);
+            console.warn('[S89Modal] Falha ao derivar status do portal:', err);
         }
     };
 
@@ -705,9 +697,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                 const status = confirmationStatuses[part.id];
                                 const isSubst = substitutionIds.has(part.id);
                                 const last = lastMessages[part.id];
-                                let stampLabel = '— pendente —';
-                                let stampBg = '#E5E7EB';
-                                let stampFg = '#374151';
+                                const wasSent = !!last;
+                                let stampLabel = wasSent ? '⏳ AGUARDANDO' : '— não enviado —';
+                                let stampBg = wasSent ? '#FEF3C7' : '#E5E7EB';
+                                let stampFg = wasSent ? '#92400E' : '#374151';
                                 if (isSubst) {
                                     stampLabel = '🔄 SUBSTITUIÇÃO';
                                     stampBg = '#F59E0B'; stampFg = 'white';
