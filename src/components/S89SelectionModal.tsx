@@ -226,11 +226,18 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const history = await communicationService.getHistory(500);
             const mapping: Record<string, any> = {};
             const allEntries: Record<string, SendEntry[]> = {};
+            // Rehydrate substitution flag from persisted notifications metadata.
+            // Rule: most-recent send for the part wins; if it was a substitution, the part
+            // is currently in substitution mode (the publisher being asked is a stand-in).
+            const recentSubst = new Set<string>();
             // history is ordered by created_at DESC
             history.forEach(h => {
                 const partId = h.metadata?.partId;
                 if (!partId) return;
-                if (!mapping[partId]) mapping[partId] = h;
+                if (!mapping[partId]) {
+                    mapping[partId] = h;
+                    if (h.metadata?.isSubstitution) recentSubst.add(partId);
+                }
                 let kind: SendKind = 'inicial';
                 if (h.metadata?.isReconfirmation) kind = 'reconf';
                 else if (h.metadata?.isSubstitution) kind = 'substituicao';
@@ -239,6 +246,12 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             });
             setLastMessages(mapping);
             setSendHistory(allEntries);
+            // Merge rehydrated substitution flags with any flags toggled in the current session.
+            setSubstitutionIds(prev => {
+                const merged = new Set(prev);
+                recentSubst.forEach(id => merged.add(id));
+                return merged;
+            });
         } catch (err) {
             console.error('Erro ao carregar histórico no modal:', err);
         }
@@ -697,19 +710,21 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                 const isSubst = substitutionIds.has(part.id);
                                 const last = lastMessages[part.id];
                                 const wasSent = !!last;
-                                let stampLabel = wasSent ? '⏳ AGUARDANDO' : '— não enviado —';
-                                let stampBg = wasSent ? '#FEF3C7' : '#E5E7EB';
-                                let stampFg = wasSent ? '#92400E' : '#374151';
-                                if (isSubst) {
-                                    stampLabel = '🔄 SUBSTITUIÇÃO';
-                                    stampBg = '#F59E0B'; stampFg = 'white';
-                                } else if (status?.response === 'accepted') {
-                                    stampLabel = '✓ ACEITA';
-                                    stampBg = '#10B981'; stampFg = 'white';
+
+                                // Response stamp (independente da substituição)
+                                let respLabel: string | null = null;
+                                let respBg = '#FEF3C7';
+                                let respFg = '#92400E';
+                                if (status?.response === 'accepted') {
+                                    respLabel = '✓ ACEITA'; respBg = '#10B981'; respFg = 'white';
                                 } else if (status?.response === 'declined') {
-                                    stampLabel = '✗ REJEITADA';
-                                    stampBg = '#EF4444'; stampFg = 'white';
+                                    respLabel = '✗ REJEITADA'; respBg = '#EF4444'; respFg = 'white';
+                                } else if (wasSent) {
+                                    respLabel = '⏳ AGUARDANDO'; respBg = '#FEF3C7'; respFg = '#92400E';
+                                } else {
+                                    respLabel = '— não enviado —'; respBg = '#E5E7EB'; respFg = '#374151';
                                 }
+
                                 const lastWhen = last?.created_at
                                     ? new Date(last.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
                                     : '—';
@@ -724,19 +739,31 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                             {part.funcao === 'Ajudante' && <span style={{ marginLeft: 4, fontSize: 10, color: '#3730A3' }}>(Ajud.)</span>}
                                         </td>
                                         <td style={{ padding: '8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
-                                            <span style={{
-                                                background: stampBg, color: stampFg,
-                                                padding: '4px 10px', borderRadius: 14,
-                                                fontWeight: 700, fontSize: 12, letterSpacing: 0.4,
-                                                whiteSpace: 'nowrap'
-                                            }}>
-                                                {stampLabel}
-                                            </span>
-                                            {status?.respondedAt && (
-                                                <div style={{ fontSize: 10, color: '#6B7280', marginTop: 2 }}>
-                                                    Resp: {new Date(status.respondedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                                </div>
-                                            )}
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                                {isSubst && (
+                                                    <span style={{
+                                                        background: '#F59E0B', color: 'white',
+                                                        padding: '3px 8px', borderRadius: 12,
+                                                        fontWeight: 700, fontSize: 11, letterSpacing: 0.4,
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        🔄 SUBSTITUIÇÃO
+                                                    </span>
+                                                )}
+                                                <span style={{
+                                                    background: respBg, color: respFg,
+                                                    padding: '4px 10px', borderRadius: 14,
+                                                    fontWeight: 700, fontSize: 12, letterSpacing: 0.4,
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    {respLabel}
+                                                </span>
+                                                {status?.respondedAt && (
+                                                    <div style={{ fontSize: 10, color: '#6B7280' }}>
+                                                        Resp: {new Date(status.respondedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td style={{ padding: '8px', border: '1px solid #CBD5E1', fontSize: 12 }}>
                                             {lastWhen}
@@ -875,9 +902,20 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                     )}
                                                 </div>
                                             )}
-                                            {/* Item 4 mini: status badge no card também */}
-                                            {confirmationStatuses[part.id] && (
-                                                <div style={{ marginTop: '4px' }}>
+                                            {/* Item 4 mini: status badge no card também (+ SUBST se aplicável) */}
+                                            {(confirmationStatuses[part.id] || substitutionIds.has(part.id)) && (
+                                                <div style={{ marginTop: '4px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                                    {substitutionIds.has(part.id) && (
+                                                        <span style={{
+                                                            fontSize: '11px',
+                                                            background: '#F59E0B',
+                                                            color: 'white', padding: '2px 8px', borderRadius: '12px',
+                                                            fontWeight: 700, letterSpacing: '0.03em'
+                                                        }}>
+                                                            🔄 SUBST
+                                                        </span>
+                                                    )}
+                                                    {confirmationStatuses[part.id] && (
                                                     <span style={{
                                                         fontSize: '11px',
                                                         background: confirmationStatuses[part.id].response === 'accepted' ? '#10B981' : '#EF4444',
@@ -886,6 +924,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                     }}>
                                                         {confirmationStatuses[part.id].response === 'accepted' ? '✓ ACEITA' : '✗ REJEITADA'}
                                                     </span>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
