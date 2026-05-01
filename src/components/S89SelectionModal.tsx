@@ -706,7 +706,14 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                         </thead>
                         <tbody>
                             {validParts.map(part => {
-                                const status = confirmationStatuses[part.id];
+                                const portal = confirmationStatuses[part.id];
+                                // Fallback: status DESIGNADA na parte = ACEITA implícita pelo pub atual
+                                // (admin pode marcar manualmente, ou portal pode ter aceito sem registrar resposta).
+                                const status: PartConfirmationStatus | undefined = portal
+                                    ? portal
+                                    : (part.status === 'DESIGNADA'
+                                        ? { response: 'accepted', respondedAt: undefined as any }
+                                        : undefined);
                                 const isSubst = substitutionIds.has(part.id);
                                 const last = lastMessages[part.id];
                                 const wasSent = !!last;
@@ -902,8 +909,18 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                     )}
                                                 </div>
                                             )}
-                                            {/* Item 4 mini: status badge no card também (+ SUBST se aplicável) */}
-                                            {(confirmationStatuses[part.id] || substitutionIds.has(part.id)) && (
+                                            {/* Item 4 mini: status badge no card também (+ SUBST se aplicável).
+                                                Fallback: part.status === 'DESIGNADA' implica ACEITA pelo pub atual. */}
+                                            {(() => {
+                                                const portal = confirmationStatuses[part.id];
+                                                const effective: PartConfirmationStatus | undefined = portal
+                                                    ? portal
+                                                    : (part.status === 'DESIGNADA'
+                                                        ? { response: 'accepted', respondedAt: undefined as any }
+                                                        : undefined);
+                                                const showBlock = !!effective || substitutionIds.has(part.id);
+                                                if (!showBlock) return null;
+                                                return (
                                                 <div style={{ marginTop: '4px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                                     {substitutionIds.has(part.id) && (
                                                         <span style={{
@@ -915,18 +932,19 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                             🔄 SUBST
                                                         </span>
                                                     )}
-                                                    {confirmationStatuses[part.id] && (
+                                                    {effective && (
                                                     <span style={{
                                                         fontSize: '11px',
-                                                        background: confirmationStatuses[part.id].response === 'accepted' ? '#10B981' : '#EF4444',
+                                                        background: effective.response === 'accepted' ? '#10B981' : '#EF4444',
                                                         color: 'white', padding: '2px 8px', borderRadius: '12px',
                                                         fontWeight: 700, letterSpacing: '0.03em'
                                                     }}>
-                                                        {confirmationStatuses[part.id].response === 'accepted' ? '✓ ACEITA' : '✗ REJEITADA'}
+                                                        {effective.response === 'accepted' ? '✓ ACEITA' : '✗ REJEITADA'}
                                                     </span>
                                                     )}
                                                 </div>
-                                            )}
+                                                );
+                                            })()}
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <button
