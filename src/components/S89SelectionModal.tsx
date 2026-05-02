@@ -44,6 +44,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [insertingAvailability, setInsertingAvailability] = useState<Set<string>>(new Set());
     /** Per-card flag: when true, message is rendered as substitution request. */
     const [substitutionIds, setSubstitutionIds] = useState<Set<string>>(new Set());
+    /** Override do dia da reunião (apenas para a mensagem). 0=dom..6=sáb. Default=4 (qui). */
+    const [meetingDayOfWeek, setMeetingDayOfWeek] = useState<number>(4);
     const s140Ref = useRef<HTMLDivElement>(null);
     const statusRef = useRef<HTMLDivElement>(null);
 
@@ -201,6 +203,23 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     }, [isOpen, weekId, weekParts, publishers]);
 
+    // Realtime: refresh quando notifications ou portal_responses mudam externamente
+    useEffect(() => {
+        if (!isOpen) return;
+        const ch = supabase
+            .channel(`s89-modal-${weekId}`)
+            .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'notifications' }, () => {
+                console.log('[S89Modal] realtime: notifications changed -> reload history');
+                loadHistory();
+            })
+            .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'confirmation_portal_responses' }, () => {
+                console.log('[S89Modal] realtime: portal_responses changed -> reload statuses');
+                loadConfirmationStatuses();
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(ch); };
+    }, [isOpen, weekId]);
+
     // Re-gerar mensagens sempre que validParts mudar (garante cobertura das novas cards)
     useEffect(() => {
         if (!isOpen || validParts.length === 0) return;
@@ -209,7 +228,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const edits: Record<string, string> = {};
             for (const p of validParts) {
                 try {
-                    const { content } = await communicationService.prepareS89Message(p, publishers, weekParts, { isSubstitution: substitutionIds.has(p.id) });
+                    const { content } = await communicationService.prepareS89Message(p, publishers, weekParts, { isSubstitution: substitutionIds.has(p.id), meetingDayOfWeek });
                     edits[p.id] = content;
                 } catch (err) {
                     console.warn('[S89Modal] Falha ao gerar mensagem para', p.id, err);
@@ -219,7 +238,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
         generateMessages();
         return () => { mounted = false; };
-    }, [validParts]);
+    }, [validParts, meetingDayOfWeek]);
 
     const loadHistory = async () => {
         try {
@@ -402,7 +421,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             // Gerar on-demand se ainda não estiver pronta
             if (!message) {
                 try {
-                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: substitutionIds.has(part.id) });
+                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek });
                     message = content;
                     setEditingMessages(prev => ({ ...prev, [part.id]: content }));
                 } catch (err) {
@@ -413,7 +432,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const canHaveConfirmationLink = Boolean(part.resolvedPublisherId || foundPublisher?.id);
             if (message && canHaveConfirmationLink && !hasConfirmationLink(message)) {
                 try {
-                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: substitutionIds.has(part.id) });
+                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek });
                     if (hasConfirmationLink(content)) {
                         message = content;
                         setEditingMessages(prev => ({ ...prev, [part.id]: content }));
@@ -791,6 +810,31 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 {/* List */}
                 <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
+                    {/* Seletor de dia da reunião (apenas na mensagem; não altera workbook) */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 12px', borderRadius: '8px',
+                        background: '#FEF3C7', border: '1px solid #FDE68A'
+                    }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>📅 Dia da reunião na mensagem:</span>
+                        <select
+                            value={meetingDayOfWeek}
+                            onChange={e => setMeetingDayOfWeek(parseInt(e.target.value))}
+                            style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #D97706', fontSize: 13 }}
+                        >
+                            <option value={0}>Domingo</option>
+                            <option value={1}>Segunda-feira</option>
+                            <option value={2}>Terça-feira</option>
+                            <option value={3}>Quarta-feira</option>
+                            <option value={4}>Quinta-feira (padrão)</option>
+                            <option value={5}>Sexta-feira</option>
+                            <option value={6}>Sábado</option>
+                        </select>
+                        <span style={{ fontSize: 11, color: '#92400E', fontStyle: 'italic' }}>
+                            (Aplica só nesta mensagem; não altera a apostila)
+                        </span>
+                    </div>
+
                     {/* S-140 Action Row */}
                     <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -964,7 +1008,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                     });
                                                     // Regenerar mensagem refletindo o novo estado
                                                     try {
-                                                        const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: willEnable });
+                                                        const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: willEnable, meetingDayOfWeek });
                                                         setEditingMessages(prev => ({ ...prev, [part.id]: content }));
                                                     } catch (err) {
                                                         console.warn('[S89Modal] Falha ao regerar mensagem com flag substituição:', err);

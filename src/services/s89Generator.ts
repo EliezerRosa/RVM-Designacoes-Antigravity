@@ -142,27 +142,30 @@ export function generateWhatsAppMessage(
     srvmName?: string,
     srvmPhone?: string,
     confirmationUrl?: string,
-    isSubstitution: boolean = false
+    isSubstitution: boolean = false,
+    meetingDayOfWeek?: number
 ): string {
     const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
     const salutation = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
 
-    // Calcular quinta-feira da semana (igual ao S-89)
+    // Calcular dia-alvo da reunião (default = quinta = 4). Override apenas para a mensagem.
     let displayDate = part.date || part.weekId || '';
     const dateParts = displayDate ? displayDate.split('-') : [];
     if (dateParts.length === 3) {
         const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
         const dayOfWeek = baseDate.getDay();
-        const daysToThursday = (4 - dayOfWeek + 7) % 7;
-        const thursdayDate = new Date(baseDate);
-        thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+        const targetDow = (typeof meetingDayOfWeek === 'number' && meetingDayOfWeek >= 0 && meetingDayOfWeek <= 6) ? meetingDayOfWeek : 4;
+        const daysToTarget = (targetDow - dayOfWeek + 7) % 7;
+        const targetDate = new Date(baseDate);
+        targetDate.setDate(targetDate.getDate() + daysToTarget);
 
         const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
             'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-        const day = thursdayDate.getDate();
-        const month = MESES[thursdayDate.getMonth()];
-        const year = thursdayDate.getFullYear();
-        displayDate = `quinta-feira, ${day} de ${month} de ${year}`;
+        const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+        const day = targetDate.getDate();
+        const month = MESES[targetDate.getMonth()];
+        const year = targetDate.getFullYear();
+        displayDate = `${DIAS[targetDate.getDay()]}, ${day} de ${month} de ${year}`;
     }
 
     let emoji = '📅';
