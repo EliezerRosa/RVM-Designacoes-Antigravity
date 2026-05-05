@@ -1,37 +1,36 @@
 import { useState } from 'react';
 import {
-    useAvailabilityNotifications,
-    type AvailabilityChangeNotification,
-} from '../../hooks/useAvailabilityNotifications';
+    useConfirmationNotifications,
+    type ConfirmationChangeNotification,
+} from '../../hooks/useConfirmationNotifications';
 import { reassignParts } from '../../services/reassignmentService';
 import { ChangeNotificationsBanner } from './ChangeNotificationsBanner';
 import type { Publisher, WorkbookPart } from '../../types';
 
-interface AvailabilityChangesBannerProps {
+interface ConfirmationRefusalsBannerProps {
     publishers: Publisher[];
     workbookParts: WorkbookPart[];
     onPartsRefresh?: () => Promise<void> | void;
-    /** Compacto: pílula com contador (header/chat). */
     compact?: boolean;
-    /** Esconde se vazio (default true). */
     hideWhenEmpty?: boolean;
 }
 
 /**
- * Wrapper especializado: une useAvailabilityNotifications + reassignParts +
- * ChangeNotificationsBanner. Mantém retrocompat com chamadas existentes.
+ * Banner que exibe confirmações/recusas vindas do Confirmation Portal.
+ * - Recusa: severidade crítica; part já foi marcada needs_reassignment + status PENDENTE pela RPC.
+ * - Botão "Reatribuir agora" roda o motor para a part afetada (mesmo helper de availability).
  */
-export function AvailabilityChangesBanner({
+export function ConfirmationRefusalsBanner({
     publishers,
     workbookParts,
     onPartsRefresh,
     compact = false,
     hideWhenEmpty = true,
-}: AvailabilityChangesBannerProps) {
-    const { notifications, pendingCount, criticalCount, dismiss } = useAvailabilityNotifications();
+}: ConfirmationRefusalsBannerProps) {
+    const { notifications, pendingCount, criticalCount, dismiss } = useConfirmationNotifications();
     const [reassigningId, setReassigningId] = useState<number | null>(null);
 
-    const handleReassign = async (n: AvailabilityChangeNotification) => {
+    const handleReassign = async (n: ConfirmationChangeNotification) => {
         if (n.affected_part_ids.length === 0) return;
         setReassigningId(n.id);
         try {
@@ -42,7 +41,7 @@ export function AvailabilityChangesBanner({
                 : `Reatribuição parcial — verifique avisos: ${result.warnings.join('; ')}`;
             alert(msg);
         } catch (err) {
-            console.error('[AvailabilityChangesBanner] reassign error:', err);
+            console.error('[ConfirmationRefusalsBanner] reassign error:', err);
             alert('Falha na reatribuição automática. Acesse o S-140 para ajuste manual.');
         } finally {
             setReassigningId(null);
@@ -57,7 +56,7 @@ export function AvailabilityChangesBanner({
             dismiss={dismiss}
             onReassign={handleReassign}
             reassigningId={reassigningId}
-            title="Mudanças de disponibilidade"
+            title="Confirmações / Recusas via portal"
             compact={compact}
             hideWhenEmpty={hideWhenEmpty}
         />
