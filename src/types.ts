@@ -38,6 +38,18 @@ export interface PublisherAvailability {
     availableDates: string[];    // Datas Disponíveis (quando mode='never', são as exceções positivas)
 }
 
+/**
+ * Cache de autoria da última atualização de availability — gravado pela RPC
+ * apply_availability_change_internal em publishers.data.availabilityMeta.
+ * Usado pelas UIs para mostrar "Atualizado em <data> por <autor>" sem JOIN.
+ */
+export interface AvailabilityMeta {
+    updatedAt: string;             // ISO UTC
+    updatedBy: string;             // "Admin: João" | "Agente" | "Publicador (auto): Maria"
+    updatedById?: string | null;   // auth.uid() quando disponível
+    source: 'admin_app' | 'admin_agent' | 'publisher_portal' | 'system' | 'import';
+}
+
 export interface Publisher {
     id: string;
     name: string;
@@ -55,6 +67,7 @@ export interface Publisher {
     privileges: PublisherPrivileges;
     privilegesBySection: PublisherPrivilegesBySection;
     availability: PublisherAvailability;
+    availabilityMeta?: AvailabilityMeta; // populado pelo backend após mudança
     aliases: string[];
     // Status flags from EMR categories
     isNotQualified?: boolean;          // Não apto para participar

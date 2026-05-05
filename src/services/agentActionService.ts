@@ -16,6 +16,7 @@ import { participationAnalyticsService } from './participationAnalyticsService';
 import { importWorkbookFromJwOrg, fetchWorkbookFromJwOrg, importMultipleWeeks } from './jwOrgService';
 import { publisherMutationService } from './publisherMutationService';
 import { publisherAvailabilityService } from './publisherAvailabilityService';
+import { withAvailabilityAuthor } from './availabilityAuthor';
 import { workbookLifecycleService } from './workbookLifecycleService';
 import { engineConfigService } from './engineConfigService';
 import { workbookManagementService } from './workbookManagementService';
@@ -772,8 +773,13 @@ export const agentActionService = {
                     }
 
                     try {
-                        // Merge: adicionar novas datas às existentes (sem duplicar)
-                        const result = await publisherAvailabilityService.updateAvailability(pub, unavailableDates);
+                        // Merge: adicionar novas datas às existentes (sem duplicar) — sob o
+                        // contexto de autoria 'admin_agent' para que availability_history
+                        // registre o Agente como autor da mudança.
+                        const result = await withAvailabilityAuthor(
+                            { source: 'admin_agent', authorLabel: 'Agente', authorId: null },
+                            () => publisherAvailabilityService.updateAvailability(pub, unavailableDates),
+                        );
 
                         await auditService.logAction({
                             table_name: 'publishers',

@@ -391,6 +391,20 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                         <h4 style={{ marginBottom: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)', color: 'var(--info-500)' }}>
                             📅 Disponibilidade
                         </h4>
+                        {formData.availabilityMeta && (
+                            <div style={{
+                                fontSize: '12px',
+                                color: 'var(--text-secondary)',
+                                marginBottom: 'var(--spacing-sm)',
+                                padding: '6px 10px',
+                                background: 'rgba(59,130,246,0.08)',
+                                borderLeft: '3px solid #3b82f6',
+                                borderRadius: '4px',
+                            }}>
+                                Atualizado em {new Date(formData.availabilityMeta.updatedAt).toLocaleString('pt-BR')} por <strong>{formData.availabilityMeta.updatedBy}</strong>
+                                {formData.availabilityMeta.source && ` · origem: ${formData.availabilityMeta.source}`}
+                            </div>
+                        )}
                         <div className="form-group">
                             <label className="form-label">Datas Indisponíveis</label>
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>

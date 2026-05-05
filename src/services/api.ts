@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Publisher } from '../types';
+import { getAvailabilityAuthor, availabilityChanged } from './availabilityAuthor';
 
 // ============================================================================
 // API Service - Full Supabase Persistence
@@ -101,17 +102,69 @@ export const api = {
 
     async updatePublisher(publisher: Publisher): Promise<Publisher> {
         console.log(`[API] Updating publisher: ${publisher.name}`);
+
+        // 1) Snapshot prévio para detectar mudança de availability.
+        const { data: prevRow } = await supabase
+            .from('publishers')
+            .select('data')
+            .eq('id', publisher.id)
+            .maybeSingle();
+        const prev = (prevRow?.data as Publisher | undefined) ?? null;
+        const availChanged = availabilityChanged(prev?.availability, publisher.availability);
+
+        // 2) Upsert padrão dos demais campos.
         const row = { id: publisher.id, data: publisher };
         const { error } = await supabase
             .from('publishers')
             .upsert(row, { onConflict: 'id' });
-
         if (error) {
             console.error('Error updating publisher:', error);
             throw error;
         }
-        console.log(`[API] Publisher ${publisher.name} updated successfully`);
+
+        // 3) Se availability mudou, registra via RPC (history + meta + notif + flags).
+        if (availChanged) {
+            try {
+                await this.recordAvailabilityChange(publisher.id, publisher.availability);
+            } catch (e) {
+                // Não bloqueia o save: log apenas. Usuário será alertado pelo realtime
+                // se a RPC tiver êxito posterior; aqui é último recurso.
+                console.warn('[API] recordAvailabilityChange falhou:', e);
+            }
+        }
+
+        console.log(`[API] Publisher ${publisher.name} updated successfully (availChanged=${availChanged})`);
         return publisher;
+    },
+
+    /**
+     * Registra mudança de availability via RPC SECURITY DEFINER.
+     * Usa o author atual do `availabilityAuthor` singleton (admin/agente).
+     * Detecta conflitos com workbook_parts atuais/futuros e cria notificação.
+     */
+    async recordAvailabilityChange(
+        publisherId: string,
+        newAvailability: Publisher['availability'] | undefined | null,
+    ): Promise<{ success: boolean; affectedPartCount?: number; severity?: string; error?: string }> {
+        const author = getAvailabilityAuthor();
+        const { data, error } = await supabase.rpc('record_availability_change', {
+            p_publisher_id: publisherId,
+            p_new_availability: newAvailability ?? {},
+            p_source: author.source,
+            p_author_label: author.authorLabel,
+            p_author_id: author.authorId ?? null,
+        });
+        if (error) {
+            console.error('[API] recordAvailabilityChange RPC error:', error);
+            return { success: false, error: error.message };
+        }
+        const result = (data ?? {}) as { success?: boolean; affectedPartCount?: number; severity?: string; error?: string };
+        return {
+            success: !!result.success,
+            affectedPartCount: result.affectedPartCount,
+            severity: result.severity,
+            error: result.error,
+        };
     },
 
     /**
@@ -122,10 +175,13 @@ export const api = {
     async submitPublisherAvailability(
         token: string,
         availability: Publisher['availability']
-    ): Promise<{ success: boolean; error?: string; publisherId?: string }> {
+    ): Promise<{ success: boolean; error?: string; publisherId?: string; affectedPartCount?: number }> {
+        const ua = typeof navigator !== 'undefined' ? navigator.userAgent : null;
         const { data, error } = await supabase.rpc('submit_publisher_availability', {
             p_token: token,
             p_availability: availability ?? {},
+            p_user_agent: ua,
+            p_ip_hint: null,
         });
 
         if (error) {
@@ -133,7 +189,7 @@ export const api = {
             return { success: false, error: error.message };
         }
 
-        const result = (data ?? {}) as { success?: boolean; error?: string; publisherId?: string };
+        const result = (data ?? {}) as { success?: boolean; error?: string; publisherId?: string; affectedPartCount?: number };
         if (!result.success) {
             console.warn('[API] submitPublisherAvailability rejected:', result.error);
         }
@@ -141,6 +197,7 @@ export const api = {
             success: !!result.success,
             error: result.error,
             publisherId: result.publisherId,
+            affectedPartCount: result.affectedPartCount,
         };
     },
 
