@@ -5,6 +5,8 @@ import PublisherList from './components/PublisherList'
 import PublisherForm from './components/PublisherForm'
 
 import { api } from './services/api'
+import { setAvailabilityAuthor } from './services/availabilityAuthor'
+import { AvailabilityChangesBanner } from './components/admin/AvailabilityChangesBanner'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
@@ -130,6 +132,20 @@ function App() {
 function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; userEmail: string }) {
   const { profile } = useAuth()
   const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
+
+  // Sincroniza singleton de autoria de availability quando o perfil muda.
+  // Garante que toda mudança de availability a partir do app admin grave o autor correto.
+  useEffect(() => {
+    if (profile) {
+      const label = profile.full_name?.trim() || profile.email || 'Admin';
+      setAvailabilityAuthor({
+        source: 'admin_app',
+        authorLabel: `Admin: ${label}`,
+        authorId: profile.id,
+      });
+    }
+  }, [profile]);
+
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     // Non-admins default to 'agent' tab if they can't see 'workbook'
     return 'workbook' // will be corrected after permissions load
@@ -541,6 +557,11 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           {/* Admin Dashboard */}
           {activeTab === 'admin' && (
             <div className="admin-container">
+              <AvailabilityChangesBanner
+                publishers={publishers}
+                workbookParts={workbookParts}
+                onPartsRefresh={refreshWorkbookParts}
+              />
               <AdminDashboard />
             </div>
           )}

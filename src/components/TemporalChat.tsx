@@ -29,6 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import { publisherMutationService } from '../services/publisherMutationService';
 import { useTemporalChatSemanticContext } from '../hooks/useTemporalChatSemanticContext';
 import { useTemporalChatSemanticControls } from '../hooks/useTemporalChatSemanticControls';
+import { AvailabilityChangesBanner } from './admin/AvailabilityChangesBanner';
 
 interface TemporalChatProps {
     publishers: Publisher[];
@@ -1349,6 +1350,14 @@ export default function TemporalChat({
                 activeTopic={activeTopic}
                 stage={interactionStage}
             />
+
+            <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 50 }}>
+                <AvailabilityChangesBanner
+                    publishers={publishers}
+                    workbookParts={parts}
+                    compact
+                />
+            </div>
 
             <FloatingMicroUiHost
                 items={floatingMicroUiItems}

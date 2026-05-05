@@ -338,6 +338,20 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                     <div style={{ color: '#64748B', fontSize: '12px', marginTop: '8px', lineHeight: 1.6 }}>
                         Toque nas semanas para informar sua disponibilidade nos próximos dois meses.
                     </div>
+                    {publisher?.availabilityMeta && (
+                        <div style={{
+                            marginTop: '10px',
+                            fontSize: '11px',
+                            color: '#94A3B8',
+                            background: 'rgba(99,102,241,0.10)',
+                            border: '1px solid rgba(99,102,241,0.25)',
+                            borderRadius: '6px',
+                            padding: '6px 10px',
+                            display: 'inline-block',
+                        }}>
+                            Última atualização: {new Date(publisher.availabilityMeta.updatedAt).toLocaleString('pt-BR')} — por {publisher.availabilityMeta.updatedBy}
+                        </div>
+                    )}
                 </div>
 
                 {/* Legend */}

@@ -9,6 +9,7 @@ import { communicationService } from '../services/communicationService';
 import { api } from '../services/api';
 import { supabase } from '../lib/supabase';
 import type { AvailabilityToken } from './PublisherAvailabilityPortal';
+import { AvailabilityChangesBanner } from './admin/AvailabilityChangesBanner';
 
 /** Type for confirmation status per part (item 4). */
 type PartConfirmationStatus = {
@@ -809,6 +810,11 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
                 {/* List */}
                 <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                    <AvailabilityChangesBanner
+                        publishers={publishers}
+                        workbookParts={weekParts}
+                    />
 
                     {/* Seletor de dia da reunião (apenas na mensagem; não altera workbook) */}
                     <div style={{
