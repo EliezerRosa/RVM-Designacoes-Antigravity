@@ -13,6 +13,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { communicationService } from '../../services/communicationService';
+import { recordLinkTokenEvent } from '../../services/linkTokenAuditService';
 import type { Publisher } from '../../types';
 import type { AvailabilityToken } from '../PublisherAvailabilityPortal';
 
@@ -77,6 +78,14 @@ export function AvailabilityLinkManager({ adminEmail }: { adminEmail?: string })
                 active: true,
             };
             await persist([...tokens, newToken]);
+            await recordLinkTokenEvent({
+                domain: 'availability',
+                token: newToken.token,
+                action: 'created',
+                actorLabel: adminEmail || 'admin',
+                publisherId: pub.id,
+                publisherName: pub.name,
+            });
             setSelectedPublisherId('');
         } catch (err) {
             console.error('[AvailabilityLinkManager] Generate error:', err);
@@ -89,7 +98,16 @@ export function AvailabilityLinkManager({ adminEmail }: { adminEmail?: string })
     const handleRevoke = async (token: string) => {
         if (!confirm('Revogar este link? O publicador não conseguirá mais acessar com este link.')) return;
         try {
+            const target = tokens.find(t => t.token === token);
             await persist(tokens.map(t => t.token === token ? { ...t, active: false } : t));
+            await recordLinkTokenEvent({
+                domain: 'availability',
+                token,
+                action: 'revoked',
+                actorLabel: adminEmail || 'admin',
+                publisherId: target?.publisherId,
+                publisherName: target?.publisherName,
+            });
         } catch (err) {
             console.error('[AvailabilityLinkManager] Revoke error:', err);
         }
@@ -98,7 +116,16 @@ export function AvailabilityLinkManager({ adminEmail }: { adminEmail?: string })
     // ── Re-activate ───────────────────────────────────────────────────────
     const handleReactivate = async (token: string) => {
         try {
+            const target = tokens.find(t => t.token === token);
             await persist(tokens.map(t => t.token === token ? { ...t, active: true } : t));
+            await recordLinkTokenEvent({
+                domain: 'availability',
+                token,
+                action: 'reactivated',
+                actorLabel: adminEmail || 'admin',
+                publisherId: target?.publisherId,
+                publisherName: target?.publisherName,
+            });
         } catch (err) {
             console.error('[AvailabilityLinkManager] Reactivate error:', err);
         }
@@ -108,7 +135,16 @@ export function AvailabilityLinkManager({ adminEmail }: { adminEmail?: string })
     const handleDelete = async (token: string) => {
         if (!confirm('Excluir permanentemente este link?')) return;
         try {
+            const target = tokens.find(t => t.token === token);
             await persist(tokens.filter(t => t.token !== token));
+            await recordLinkTokenEvent({
+                domain: 'availability',
+                token,
+                action: 'deleted',
+                actorLabel: adminEmail || 'admin',
+                publisherId: target?.publisherId,
+                publisherName: target?.publisherName,
+            });
         } catch (err) {
             console.error('[AvailabilityLinkManager] Delete error:', err);
         }
