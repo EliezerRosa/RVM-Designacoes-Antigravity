@@ -7,6 +7,7 @@ import PublisherForm from './components/PublisherForm'
 import { api } from './services/api'
 import { setAvailabilityAuthor } from './services/availabilityAuthor'
 import { AvailabilityChangesBanner } from './components/admin/AvailabilityChangesBanner'
+import { ConfirmationRefusalsBanner } from './components/admin/ConfirmationRefusalsBanner'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
@@ -558,6 +559,11 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           {activeTab === 'admin' && (
             <div className="admin-container">
               <AvailabilityChangesBanner
+                publishers={publishers}
+                workbookParts={workbookParts}
+                onPartsRefresh={refreshWorkbookParts}
+              />
+              <ConfirmationRefusalsBanner
                 publishers={publishers}
                 workbookParts={workbookParts}
                 onPartsRefresh={refreshWorkbookParts}
