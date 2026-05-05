@@ -18,6 +18,7 @@ import { LocalNeedsQueue } from '../LocalNeedsQueue';
 import { SpecialEventsManager } from '../SpecialEventsManager';
 import { VideoTutorialModal } from '../VideoTutorialModal';
 import { communicationService } from '../../services/communicationService';
+import { recordLinkTokenEvent } from '../../services/linkTokenAuditService';
 import type { Publisher } from '../../types';
 
 // ── Role mapping ─────────────────────────────────────────────────────────────
@@ -185,14 +186,27 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
         if (!newLabel.trim()) return;
         setSaving(true);
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('publisher_form_tokens')
                 .insert({
                     label: newLabel.trim(),
                     role: newRole,
                     created_by_email: adminEmail || 'admin',
-                });
+                })
+                .select('token')
+                .single();
             if (error) throw error;
+            const generatedToken = (data as { token?: string } | null)?.token;
+            if (generatedToken) {
+                await recordLinkTokenEvent({
+                    domain: 'publisher_form',
+                    token: generatedToken,
+                    action: 'created',
+                    actorLabel: adminEmail || 'admin',
+                    label: newLabel.trim(),
+                    role: newRole,
+                });
+            }
             setNewLabel('');
             await reloadTokens();
         } catch (err) {
@@ -207,11 +221,20 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const handleRevoke = async (token: string) => {
         if (!confirm('Revogar este link? Quem tiver o link não conseguirá mais acessar.')) return;
         try {
+            const target = tokens.find(t => t.token === token);
             const { error } = await supabase
                 .from('publisher_form_tokens')
                 .update({ revoked_at: new Date().toISOString() })
                 .eq('token', token);
             if (error) throw error;
+            await recordLinkTokenEvent({
+                domain: 'publisher_form',
+                token,
+                action: 'revoked',
+                actorLabel: adminEmail || 'admin',
+                label: target?.label,
+                role: target?.role,
+            });
             await reloadTokens();
         } catch (err) {
             console.error('[LinkManager] Revoke error:', err);
@@ -221,11 +244,20 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     // ── Re-activate token ─────────────────────────────────────────────────
     const handleReactivate = async (token: string) => {
         try {
+            const target = tokens.find(t => t.token === token);
             const { error } = await supabase
                 .from('publisher_form_tokens')
                 .update({ revoked_at: null, revoked_by_profile_id: null })
                 .eq('token', token);
             if (error) throw error;
+            await recordLinkTokenEvent({
+                domain: 'publisher_form',
+                token,
+                action: 'reactivated',
+                actorLabel: adminEmail || 'admin',
+                label: target?.label,
+                role: target?.role,
+            });
             await reloadTokens();
         } catch (err) {
             console.error('[LinkManager] Reactivate error:', err);
@@ -236,11 +268,20 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const handleDelete = async (token: string) => {
         if (!confirm('Excluir permanentemente este link?')) return;
         try {
+            const target = tokens.find(t => t.token === token);
             const { error } = await supabase
                 .from('publisher_form_tokens')
                 .delete()
                 .eq('token', token);
             if (error) throw error;
+            await recordLinkTokenEvent({
+                domain: 'publisher_form',
+                token,
+                action: 'deleted',
+                actorLabel: adminEmail || 'admin',
+                label: target?.label,
+                role: target?.role,
+            });
             await reloadTokens();
         } catch (err) {
             console.error('[LinkManager] Delete error:', err);
