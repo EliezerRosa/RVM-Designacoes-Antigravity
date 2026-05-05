@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Publisher } from '../types';
 import { getAvailabilityAuthor, availabilityChanged } from './availabilityAuthor';
+import { getProfileAuthor, profileChanged } from './profileAuthor';
 
 // ============================================================================
 // API Service - Full Supabase Persistence
@@ -111,6 +112,7 @@ export const api = {
             .maybeSingle();
         const prev = (prevRow?.data as Publisher | undefined) ?? null;
         const availChanged = availabilityChanged(prev?.availability, publisher.availability);
+        const profChanged = profileChanged(prev, publisher);
 
         // 2) Upsert padrão dos demais campos.
         const row = { id: publisher.id, data: publisher };
@@ -133,8 +135,53 @@ export const api = {
             }
         }
 
-        console.log(`[API] Publisher ${publisher.name} updated successfully (availChanged=${availChanged})`);
+        // 4) Se perfil estrutural mudou (privilégios, gênero, restrições, etc.),
+        //    registra via RPC dedicada (history + notification para banner admin).
+        if (profChanged) {
+            try {
+                await this.recordPublisherProfileChange(publisher.id, prev, publisher);
+            } catch (e) {
+                console.warn('[API] recordPublisherProfileChange falhou:', e);
+            }
+        }
+
+        console.log(`[API] Publisher ${publisher.name} updated (avail=${availChanged}, profile=${profChanged})`);
         return publisher;
+    },
+
+    /**
+     * Registra mudança de perfil de publicador via RPC SECURITY DEFINER.
+     * Usa o author atual do `profileAuthor` singleton (admin / portal token).
+     */
+    async recordPublisherProfileChange(
+        publisherId: string,
+        prev: Publisher | null,
+        next: Publisher,
+    ): Promise<{ success: boolean; severity?: string; changedFields?: string[]; error?: string }> {
+        const author = getProfileAuthor();
+        const ua = typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 300) : null;
+        const { data, error } = await supabase.rpc('record_publisher_profile_change', {
+            p_publisher_id: publisherId,
+            p_prev_data: (prev as unknown) ?? {},
+            p_new_data: (next as unknown) ?? {},
+            p_source: author.source,
+            p_author_label: author.authorLabel,
+            p_author_id: author.authorId ?? null,
+            p_token: author.token ?? null,
+            p_ip: null,
+            p_ua: ua,
+        });
+        if (error) {
+            console.error('[API] recordPublisherProfileChange RPC error:', error);
+            return { success: false, error: error.message };
+        }
+        const result = (data ?? {}) as { success?: boolean; severity?: string; changedFields?: string[]; error?: string };
+        return {
+            success: !!result.success,
+            severity: result.severity,
+            changedFields: result.changedFields,
+            error: result.error,
+        };
     },
 
     /**

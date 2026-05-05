@@ -8,6 +8,7 @@ import { api } from './services/api'
 import { setAvailabilityAuthor } from './services/availabilityAuthor'
 import { AvailabilityChangesBanner } from './components/admin/AvailabilityChangesBanner'
 import { ConfirmationRefusalsBanner } from './components/admin/ConfirmationRefusalsBanner'
+import { PublisherProfileChangesBanner } from './components/admin/PublisherProfileChangesBanner'
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
@@ -568,6 +569,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
                 workbookParts={workbookParts}
                 onPartsRefresh={refreshWorkbookParts}
               />
+              <PublisherProfileChangesBanner />
               <AdminDashboard />
             </div>
           )}

@@ -15,6 +15,7 @@ import type { Publisher, WorkbookPart } from '../types';
 import { findPublisherImpediments, type ImpedimentEntry } from '../services/publisherImpedimentService';
 import { PublisherImpedimentModal } from './PublisherImpedimentModal';
 import { workbookManagementService } from '../services/workbookManagementService';
+import { setProfileAuthor } from '../services/profileAuthor';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { SpecialEventsManager } from './SpecialEventsManager';
 import { PublisherFormTutorial, tutorialSeenKey } from './PublisherFormTutorial';
@@ -213,6 +214,25 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
             .catch(err => console.error('[PublisherStatusForm] Load error:', err))
             .finally(() => setLoading(false));
     }, [authorized]);
+
+    // ── Set profile author (audit context) ────────────────────────────────
+    // Admin: 'admin_app' (default já cobre). Portal: usa role+label do token.
+    useEffect(() => {
+        if (!authorized) return;
+        if (isAdminAccess) {
+            setProfileAuthor({ source: 'admin_app', authorLabel: 'Admin', authorId: null, token: null });
+            return;
+        }
+        if (!tokenInfo) return;
+        const roleLbl = tokenInfo.role ?? 'CCA';
+        const tail = tokenInfo.label ? `: ${tokenInfo.label}` : '';
+        setProfileAuthor({
+            source: 'publisher_form_portal',
+            authorLabel: `${roleLbl} (portal)${tail}`,
+            authorId: null,
+            token: tokenInfo.token,
+        });
+    }, [authorized, isAdminAccess, tokenInfo]);
 
     // ── Auto-open tutorial na 1ª visita por papel ───────────────────────────
     useEffect(() => {
