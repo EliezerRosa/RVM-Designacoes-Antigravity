@@ -30,6 +30,8 @@ export interface EligibilityContext {
     date?: string;           // Data da reunião (para verificar disponibilidade)
     secao?: string;          // Seção da reunião (EnumSecao value)
     partTitle?: string;      // Título da parte (para regras específicas)
+    partDescription?: string; // Descrição/orientação da parte
+    partDetails?: string;     // Detalhes adicionais da parte
     isOracaoInicial?: boolean; // Se é oração inicial (requer canPreside)
     isOracaoFinal?: boolean;   // Se é oração final (presidente bloqueado)
     isPastWeek?: boolean;    // Se é semana passada (não verifica disponibilidade)
@@ -125,6 +127,9 @@ export function buildEligibilityContext(
 
     return {
         date: part.date,
+        partTitle: part.tituloParte,
+        partDescription: part.descricaoParte,
+        partDetails: part.detalhesParte,
         isOracaoInicial,
         isOracaoFinal,
         secao: part.section,
@@ -137,6 +142,80 @@ export function buildEligibilityContext(
 export interface EligibilityResult {
     eligible: boolean;
     reason?: string;
+}
+
+interface ParsedTextualConstraints {
+    requiredGender?: 'brother' | 'sister';
+    allowedConditions?: Array<'elder' | 'ministerial'>;
+    requiredFuncao?: string;
+    mustBeBaptized?: boolean;
+}
+
+function normalizeText(input: string): string {
+    return input
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+}
+
+function normalizeFuncao(funcao: string | null | undefined): string {
+    return normalizeText(funcao || '').replace(/\s+/g, ' ').trim();
+}
+
+function parseTextualConstraints(context: EligibilityContext): ParsedTextualConstraints {
+    const source = [context.partTitle, context.partDescription, context.partDetails]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+    if (!source) return {};
+
+    const text = normalizeText(source).replace(/\s+/g, ' ');
+    const constraints: ParsedTextualConstraints = {};
+
+    // Gênero explícito no enunciado da parte
+    const asksSister = /\b(irma|irmas)\b/.test(text);
+    const asksBrother = /\b(irmao|irmaos)\b/.test(text);
+    if (asksSister && !asksBrother) constraints.requiredGender = 'sister';
+    if (asksBrother && !asksSister) constraints.requiredGender = 'brother';
+
+    // Condição explícita
+    const hasElder = /\b(anciao|anciao|anciaos|anciaos)\b/.test(text);
+    const hasMinisterial = /\bservo ministerial\b|\bservos ministeriais\b|\bsm\b/.test(text);
+    if (hasElder || hasMinisterial) {
+        constraints.allowedConditions = [];
+        if (hasElder) constraints.allowedConditions.push('elder');
+        if (hasMinisterial) constraints.allowedConditions.push('ministerial');
+    }
+
+    // Função específica (quando o texto exige "pelo ...")
+    const funcaoPatterns: Array<{ pattern: RegExp; normalized: string }> = [
+        { pattern: /coordenador do corpo de anciaos/, normalized: normalizeFuncao('Coordenador do Corpo de Anciãos') },
+        { pattern: /secretario/, normalized: normalizeFuncao('Secretário') },
+        { pattern: /superintendente de servico/, normalized: normalizeFuncao('Superintendente de Serviço') },
+        { pattern: /superintendente da reuniao vida e ministerio/, normalized: normalizeFuncao('Superintendente da Reunião Vida e Ministério') },
+        { pattern: /ajudante do superintendente da reuniao vida e ministerio/, normalized: normalizeFuncao('Ajudante do Superintendente da Reunião Vida e Ministério') },
+    ];
+    for (const item of funcaoPatterns) {
+        if (item.pattern.test(text)) {
+            constraints.requiredFuncao = item.normalized;
+            break;
+        }
+    }
+
+    // Batismo explícito no texto
+    if (/\bbatizad[oa]s?\b/.test(text)) {
+        constraints.mustBeBaptized = true;
+    }
+
+    return constraints;
+}
+
+function mapPublisherCondition(condition: string): 'elder' | 'ministerial' | 'other' {
+    const normalized = normalizeText(condition || '');
+    if (normalized === 'anciao' || normalized === 'anciao') return 'elder';
+    if (normalized === 'servo ministerial') return 'ministerial';
+    return 'other';
 }
 
 /**
@@ -162,6 +241,8 @@ export function checkEligibility(
     funcao: Funcao = EnumFuncao.TITULAR,
     context: EligibilityContext = {}
 ): EligibilityResult {
+
+    const textualConstraints = parseTextualConstraints(context);
 
     // ===== FILTROS GLOBAIS (Regras 1-3) =====
 
@@ -204,6 +285,37 @@ export function checkEligibility(
         if (secao === EnumSecao.VIDA_CRISTA && !publisher.privilegesBySection.canParticipateInLife) {
             return { eligible: false, reason: 'Publicador não pode participar em Vida Cristã' };
         }
+    }
+
+    // Regras extraídas do texto da parte (descrição/orientação da apostila)
+    if (textualConstraints.requiredGender && publisher.gender !== textualConstraints.requiredGender) {
+        return {
+            eligible: false,
+            reason: textualConstraints.requiredGender === 'sister'
+                ? 'Descrição da parte exige irmã'
+                : 'Descrição da parte exige irmão'
+        };
+    }
+
+    if (textualConstraints.allowedConditions && textualConstraints.allowedConditions.length > 0) {
+        const pubCond = mapPublisherCondition(publisher.condition || '');
+        if (!textualConstraints.allowedConditions.includes(pubCond as 'elder' | 'ministerial')) {
+            const label = textualConstraints.allowedConditions.length > 1
+                ? 'Ancião/Servo Ministerial'
+                : (textualConstraints.allowedConditions[0] === 'elder' ? 'Ancião' : 'Servo Ministerial');
+            return { eligible: false, reason: `Descrição da parte exige ${label}` };
+        }
+    }
+
+    if (textualConstraints.requiredFuncao) {
+        const pubFuncao = normalizeFuncao(publisher.funcao);
+        if (!pubFuncao || pubFuncao !== textualConstraints.requiredFuncao) {
+            return { eligible: false, reason: 'Descrição da parte exige função específica' };
+        }
+    }
+
+    if (textualConstraints.mustBeBaptized && !publisher.isBaptized) {
+        return { eligible: false, reason: 'Descrição da parte exige batizado' };
     }
 
     // ===== REGRAS DE AJUDANTE =====
