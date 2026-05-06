@@ -28,6 +28,7 @@ import { PublisherImpedimentModal } from './PublisherImpedimentModal';
 import TerritoryManager from './TerritoryManager';
 import { WorkbookImportModal } from './WorkbookImportModal';
 import { FloatingPanelShell } from './ui/FloatingPanelShell';
+import { getTodayWeekIdLocal } from '../utils/dateUtils';
 
 export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | 'workbook_import' | null;
 
@@ -85,7 +86,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
     const handleSavePublisher = async (publisher: Publisher) => {
         if (editingPublisher) {
             const allParts = Object.values(weekParts).flat();
-            const todayWeekId = new Date().toISOString().slice(0, 10);
+            const todayWeekId = getTodayWeekIdLocal();
             const impediments = findPublisherImpediments(editingPublisher, publisher, allParts, publishers, todayWeekId);
             if (impediments.length > 0) {
                 setPendingImpediments({

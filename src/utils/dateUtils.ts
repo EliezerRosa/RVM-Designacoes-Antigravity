@@ -2,6 +2,38 @@
  * Utilitários para manipulação de datas no RVM Designações
  */
 
+export function toLocalISODate(date: Date = new Date()): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+export function getTodayWeekIdLocal(now: Date = new Date()): string {
+    const localToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = localToday.getDay(); // 0=Dom, 1=Seg, …, 6=Sáb
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(localToday);
+    monday.setDate(localToday.getDate() + diffToMonday);
+    return toLocalISODate(monday);
+}
+
+export function isOnOrAfterToday(dateStr: string, now: Date = new Date()): boolean {
+    if (!dateStr) return false;
+
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return false;
+
+    const y = Number(parts[0]);
+    const m = Number(parts[1]);
+    const d = Number(parts[2]);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+
+    const candidate = new Date(y, m - 1, d);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return candidate >= today;
+}
+
 export function formatWeekFromDate(dateStr: string): string {
     if (!dateStr) return '';
 

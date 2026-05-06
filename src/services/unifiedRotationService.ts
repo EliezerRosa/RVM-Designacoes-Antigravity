@@ -8,6 +8,7 @@
 
 import type { Publisher, HistoryRecord } from '../types';
 import { isBlocked } from './cooldownService';
+import { toLocalISODate } from '../utils/dateUtils';
 
 // ===== CONFIGURAÇÃO DE PESOS (DINÂMICA) =====
 let CURRENT_SCORING_CONFIG = {
@@ -243,7 +244,7 @@ export function getRankedCandidates(
     currentPresident?: string,
     referenceDate?: Date
 ): RankedCandidate[] {
-    const refStr = (referenceDate ?? new Date()).toISOString().split('T')[0];
+    const refStr = toLocalISODate(referenceDate ?? new Date());
 
     // Pré-computa última data de QUALQUER participação histórica por nome.
     // Mais tempo sem participação => menor lastAnyDate (string ISO) => deve vir primeiro.

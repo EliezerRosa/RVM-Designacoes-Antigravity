@@ -20,6 +20,7 @@ import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { SpecialEventsManager } from './SpecialEventsManager';
 import { PublisherFormTutorial, tutorialSeenKey } from './PublisherFormTutorial';
 import { VideoTutorialModal } from './VideoTutorialModal';
+import { getTodayWeekIdLocal } from '../utils/dateUtils';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
 /**
@@ -296,7 +297,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
         // Verificar impedimentos se admin e partsLoader fornecido
         if (partsLoader && isAdminAccess) {
             const allParts = await partsLoader();
-            const todayWeekId = new Date().toISOString().slice(0, 10);
+            const todayWeekId = getTodayWeekIdLocal();
             for (const [id] of Array.from(changes.entries())) {
                 const original = publishers.find(p => p.id === id);
                 if (!original) continue;

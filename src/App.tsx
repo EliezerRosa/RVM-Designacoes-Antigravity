@@ -32,6 +32,7 @@ import { PublisherAvailabilityPortal } from './components/PublisherAvailabilityP
 import { findPublisherImpediments, type ImpedimentEntry } from './services/publisherImpedimentService'
 import { reflectPublisherImpediments } from './services/publisherPrivilegeReflectionService'
 import { PublisherImpedimentModal } from './components/PublisherImpedimentModal'
+import { getTodayWeekIdLocal } from './utils/dateUtils'
 
 type ActiveTab = AppActiveTab
 
@@ -221,7 +222,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
     // Verificar se alterações causam impedimento em designações futuras
     if (editingPublisher) {
       try {
-        const todayWeekId = new Date().toISOString().slice(0, 10);
+        const todayWeekId = getTodayWeekIdLocal();
         const impediments = findPublisherImpediments(
           editingPublisher,
           publisher,
