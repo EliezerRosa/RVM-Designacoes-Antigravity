@@ -13,6 +13,7 @@ interface ConfirmationRefusalsBannerProps {
     onPartsRefresh?: () => Promise<void> | void;
     compact?: boolean;
     hideWhenEmpty?: boolean;
+    tone?: 'dark' | 'light';
 }
 
 /**
@@ -26,6 +27,7 @@ export function ConfirmationRefusalsBanner({
     onPartsRefresh,
     compact = false,
     hideWhenEmpty = true,
+    tone = 'dark',
 }: ConfirmationRefusalsBannerProps) {
     const { notifications, pendingCount, criticalCount, dismiss } = useConfirmationNotifications();
     const [reassigningId, setReassigningId] = useState<number | null>(null);
@@ -59,6 +61,7 @@ export function ConfirmationRefusalsBanner({
             title="Confirmações / Recusas via portal"
             compact={compact}
             hideWhenEmpty={hideWhenEmpty}
+            tone={tone}
         />
     );
 }

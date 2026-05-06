@@ -15,6 +15,8 @@ interface AvailabilityChangesBannerProps {
     compact?: boolean;
     /** Esconde se vazio (default true). */
     hideWhenEmpty?: boolean;
+    /** Tom visual do banner para contraste em fundo escuro/claro. */
+    tone?: 'dark' | 'light';
 }
 
 /**
@@ -27,6 +29,7 @@ export function AvailabilityChangesBanner({
     onPartsRefresh,
     compact = false,
     hideWhenEmpty = true,
+    tone = 'dark',
 }: AvailabilityChangesBannerProps) {
     const { notifications, pendingCount, criticalCount, dismiss } = useAvailabilityNotifications();
     const [reassigningId, setReassigningId] = useState<number | null>(null);
@@ -60,6 +63,7 @@ export function AvailabilityChangesBanner({
             title="Mudanças de disponibilidade"
             compact={compact}
             hideWhenEmpty={hideWhenEmpty}
+            tone={tone}
         />
     );
 }

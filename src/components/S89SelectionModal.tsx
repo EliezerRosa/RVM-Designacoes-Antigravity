@@ -815,11 +815,13 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     <AvailabilityChangesBanner
                         publishers={publishers}
                         workbookParts={weekParts}
+                        tone="light"
                     />
 
                     <ConfirmationRefusalsBanner
                         publishers={publishers}
                         workbookParts={weekParts}
+                        tone="light"
                     />
 
                     {/* Seletor de dia da reunião (apenas na mensagem; não altera workbook) */}
