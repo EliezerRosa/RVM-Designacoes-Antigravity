@@ -30,6 +30,8 @@ export interface ChangeNotificationsBannerProps<T extends BaseChangeNotification
     compact?: boolean;
     /** Esconde se não há nenhuma notificação (default true). */
     hideWhenEmpty?: boolean;
+    /** Tom visual do banner para contraste em fundo escuro/claro. */
+    tone?: 'dark' | 'light';
 }
 
 /**
@@ -51,6 +53,7 @@ export function ChangeNotificationsBanner<T extends BaseChangeNotification>({
     title = 'Mudanças pendentes',
     compact = false,
     hideWhenEmpty = true,
+    tone = 'dark',
 }: ChangeNotificationsBannerProps<T>) {
     const [expanded, setExpanded] = useState(!compact);
 
@@ -102,18 +105,18 @@ export function ChangeNotificationsBanner<T extends BaseChangeNotification>({
                             background: style.bg,
                             borderLeft: `4px solid ${style.border}`,
                             borderRadius: '8px',
-                            padding: '12px 16px',
+                            padding: tone === 'light' ? '10px 12px' : '12px 16px',
                             display: 'flex',
                             alignItems: 'flex-start',
                             gap: '12px',
                         }}
                     >
-                        <span style={{ fontSize: '20px' }}>{style.icon}</span>
+                        <span style={{ fontSize: tone === 'light' ? '16px' : '20px' }}>{style.icon}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 600, color: '#e2e8f0', marginBottom: '4px' }}>
+                            <div style={{ fontWeight: 600, color: tone === 'light' ? '#111827' : '#e2e8f0', marginBottom: '4px' }}>
                                 {n.summary}
                             </div>
-                            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                            <div style={{ fontSize: '12px', color: tone === 'light' ? '#475569' : '#94a3b8' }}>
                                 Origem: <strong>{n.author_label}</strong> · {formatDate(n.created_at)}
                                 {n.affected_part_count > 0 && ` · ${n.affected_part_count} designação(ões) marcada(s) como needs_reassignment`}
                             </div>
@@ -143,9 +146,9 @@ export function ChangeNotificationsBanner<T extends BaseChangeNotification>({
                                 type="button"
                                 onClick={() => { void dismiss(n.id); }}
                                 style={{
-                                    background: 'rgba(255,255,255,0.08)',
-                                    color: '#cbd5e1',
-                                    border: '1px solid rgba(255,255,255,0.12)',
+                                    background: tone === 'light' ? '#F8FAFC' : 'rgba(255,255,255,0.08)',
+                                    color: tone === 'light' ? '#334155' : '#cbd5e1',
+                                    border: tone === 'light' ? '1px solid #CBD5E1' : '1px solid rgba(255,255,255,0.12)',
                                     borderRadius: '6px',
                                     padding: '6px 12px',
                                     fontSize: '12px',
