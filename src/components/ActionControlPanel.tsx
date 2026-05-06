@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord, SpecialEvent } from '../types';
-import { checkEligibility, buildEligibilityContext, type EligibilityResult } from '../services/eligibilityService';
+import { checkEligibility, buildEligibilityContext, getTextualConstraintSummary, type EligibilityResult } from '../services/eligibilityService';
 import { getBlockInfo, isBlocked, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, getRankedCandidates, isStatPart, type RotationScore } from '../services/unifiedRotationService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
@@ -24,6 +24,13 @@ interface PublisherStats {
     lastGeneralDate?: string | null; // NEW: Última participação em QUALQUER parte (excluindo orações/leitura bíblia se não contar)
     nextDate?: string | null; // NEW
     totalAssignments: number;
+}
+
+interface CandidatePanelItem {
+    name: string;
+    score: number;
+    lastDate: string | null;
+    cooldownInfo: CooldownInfo | null;
 }
 
 function compareIsoDates(a?: string | null, b?: string | null): number {
@@ -50,8 +57,23 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     const [stats, setStats] = useState<PublisherStats | null>(null);
     const [scoreData, setScoreData] = useState<RotationScore | null>(null);
     const [bestCandidate, setBestCandidate] = useState<{ name: string; score: number } | null>(null);
-    const [topCandidates, setTopCandidates] = useState<Array<{ name: string; score: number }>>([]);
+    const [topCandidates, setTopCandidates] = useState<CandidatePanelItem[]>([]);
     const [loading, setLoading] = useState(false);
+
+    const weekParts = useMemo(
+        () => (selectedPart ? parts.filter(p => p.weekId === selectedPart.weekId) : []),
+        [parts, selectedPart]
+    );
+
+    const eligibilityCtx = useMemo(
+        () => (selectedPart ? buildEligibilityContext(selectedPart, weekParts, publishers) : undefined),
+        [selectedPart, weekParts, publishers]
+    );
+
+    const textualConstraintSummary = useMemo(
+        () => (eligibilityCtx ? getTextualConstraintSummary(eligibilityCtx) : { active: false, labels: [] }),
+        [eligibilityCtx]
+    );
     
     // Memoized impacts for the selected part
     const partImpacts = useMemo(() => {
@@ -99,8 +121,13 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     : parts.map(workbookPartToHistoryRecord);
 
                 // Criar o contexto usando o builder oficial (resolve gênero do titular)
-                const weekParts = parts.filter(p => p.weekId === selectedPart.weekId);
-                const eligibilityCtx = buildEligibilityContext(selectedPart, weekParts, publishers);
+                if (!eligibilityCtx) {
+                    if (isMounted) {
+                        setTopCandidates([]);
+                        setBestCandidate(null);
+                    }
+                    return;
+                }
 
                 // 1. Calcular o MELHOR CANDIDATO (Top Recommendation)
                 const eligibleCandidates = publishers.filter(p =>
@@ -118,9 +145,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
                 if (isMounted) {
                     setTopCandidates(
-                        rankedNonBlocked.slice(0, 3).map(item => ({
+                        ranked.slice(0, 4).map(item => ({
                             name: item.publisher.name,
-                            score: item.scoreData.score
+                            score: item.scoreData.score,
+                            lastDate: item.scoreData.lastDate || null,
+                            cooldownInfo: getBlockInfo(item.publisher.name, historyForRanking, targetDate)
                         }))
                     );
                 }
@@ -212,7 +241,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
         return () => { isMounted = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedPart?.id, selectedPart?.resolvedPublisherName, selectedPart?.rawPublisherName, assignedPublisher?.name, parts.length, publishers.length]); // Stabilize deps
+    }, [selectedPart?.id, selectedPart?.resolvedPublisherName, selectedPart?.rawPublisherName, assignedPublisher?.name, parts.length, publishers.length, eligibilityCtx]); // Stabilize deps
 
 
     // Estilo para badges de status
@@ -279,6 +308,25 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     const isManuallyAssigned = selectedPart?.isManualOverride === true;
     const hasManualOverride = !!(isManuallyAssigned && bestCandidate && assignedPublisher && scoreData && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > scoreData.score);
     const isAssignedTopScored = !!(bestCandidate && assignedPublisher && bestCandidate.name === assignedPublisher.name);
+
+    const formatCandidateContext = (candidate: CandidatePanelItem) => {
+        const cooldownInfo = candidate.cooldownInfo;
+        if (cooldownInfo?.isInCooldown) {
+            const targetRef = selectedPart?.date || selectedPart?.weekId || null;
+            const lastRef = cooldownInfo.lastDate || null;
+            const relation = compareIsoDates(lastRef, targetRef);
+            const when = cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '') || formatDate(cooldownInfo.lastDate);
+            return relation >= 0
+                ? `já está designado para ${cooldownInfo.lastPartType} na semana de ${when}`
+                : `fez ${cooldownInfo.lastPartType} na semana de ${when}`;
+        }
+
+        if (candidate.lastDate) {
+            return `última parte similar em ${formatDate(candidate.lastDate)}`;
+        }
+
+        return 'sem histórico semelhante recente';
+    };
 
     const unifiedNarrative = useMemo(() => {
         if (!assignedPublisher || !selectedPart || !scoreData) return null;
@@ -502,7 +550,47 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                             }}>
                                                 {cooldown?.isInCooldown ? '⏳ Intervalo recomendado ativo' : '✓ Intervalo ok'}
                                             </span>
+                                            {textualConstraintSummary.active && (
+                                                <span style={{
+                                                    fontSize: '9px',
+                                                    fontWeight: 'bold',
+                                                    background: '#F5F3FF',
+                                                    color: '#6D28D9',
+                                                    padding: '1px 4px',
+                                                    borderRadius: '4px'
+                                                }}>
+                                                    🟣 Regra textual ativa
+                                                </span>
+                                            )}
                                         </div>
+
+                                        {textualConstraintSummary.active && (
+                                            <div style={{
+                                                background: '#FAF5FF',
+                                                border: '1px solid #DDD6FE',
+                                                color: '#5B21B6',
+                                                borderRadius: '6px',
+                                                padding: '4px 6px',
+                                                fontSize: '11px',
+                                                lineHeight: '1.35'
+                                            }}>
+                                                Esta parte traz uma orientação textual ativa: {textualConstraintSummary.labels.join(', ')}.
+                                            </div>
+                                        )}
+
+                                        {eligibility && !eligibility.eligible && eligibility.reason && (
+                                            <div style={{
+                                                background: '#FEF2F2',
+                                                border: '1px solid #FECACA',
+                                                color: '#991B1B',
+                                                borderRadius: '6px',
+                                                padding: '4px 6px',
+                                                fontSize: '11px',
+                                                lineHeight: '1.35'
+                                            }}>
+                                                No contexto atual, {firstName.toLowerCase()} não está elegível para esta parte: {eligibility.reason}.
+                                            </div>
+                                        )}
 
                                         {/* 2. Explicação em Linguagem Natural (Texto Único) */}
                                         {unifiedNarrative && (
@@ -520,6 +608,17 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     {hasManualOverride ? '✋ Explicação da Designação (com intervenção manual)' : '📋 Explicação da Designação'}
                                                 </div>
                                                 <div style={{ whiteSpace: 'normal' }}>
+                                                    {textualConstraintSummary.active && (
+                                                        <>
+                                                            <span style={{ color: '#7C3AED', fontWeight: 600 }}>
+                                                                Regra textual:
+                                                            </span>{' '}
+                                                            <span>
+                                                                Esta parte pede explicitamente que quem a fizer {textualConstraintSummary.labels.join(', ')}. {' '}
+                                                            </span>
+                                                        </>
+                                                    )}
+
                                                     {cooldown?.isInCooldown && (
                                                         <span style={{ color: '#B45309', fontWeight: 600 }}>
                                                             Intervalo recomendado:
@@ -580,9 +679,14 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                         {isAssignedTopScored ? '👥 Próximas opções (se o top fosse indisponível)' : '⚠️ Candidatos mais pontuados'}
                                                     </div>
                                                     {alternatives.map((item, idx) => (
-                                                        <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1px', padding: '1px 0' }}>
-                                                            <span style={{ color: isAssignedTopScored ? '#6B7280' : '#DC2626' }}>{idx + 2}. {item.name}</span>
-                                                            <span style={{ fontWeight: 600, color: isAssignedTopScored ? '#6B7280' : '#B91C1C' }}>Score {item.score}</span>
+                                                        <div key={item.name} style={{ marginBottom: '4px', padding: '2px 0' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                                                                <span style={{ color: isAssignedTopScored ? '#6B7280' : '#DC2626', fontWeight: 600 }}>{idx + 2}. {item.name}</span>
+                                                                <span style={{ fontWeight: 600, color: isAssignedTopScored ? '#6B7280' : '#B91C1C' }}>Score {item.score}</span>
+                                                            </div>
+                                                            <div style={{ fontSize: '10px', color: '#64748B', marginTop: '1px' }}>
+                                                                {formatCandidateContext(item)}.
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
