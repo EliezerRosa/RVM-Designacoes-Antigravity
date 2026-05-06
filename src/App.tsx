@@ -30,8 +30,8 @@ import { publisherMutationService } from './services/publisherMutationService'
 import { PublisherStatusForm } from './components/PublisherStatusForm'
 import { PublisherAvailabilityPortal } from './components/PublisherAvailabilityPortal'
 import { findPublisherImpediments, type ImpedimentEntry } from './services/publisherImpedimentService'
+import { reflectPublisherImpediments } from './services/publisherPrivilegeReflectionService'
 import { PublisherImpedimentModal } from './components/PublisherImpedimentModal'
-import { workbookManagementService } from './services/workbookManagementService'
 
 type ActiveTab = AppActiveTab
 
@@ -594,12 +594,10 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           publisherName={pendingImpediments.publisher.name}
           impediments={pendingImpediments.impediments}
           onConfirmAndCancel={async () => {
-            // Cancelar designações afetadas
-            for (const { part } of pendingImpediments.impediments) {
-              try {
-                await workbookManagementService.updatePart(part.id, { resolvedPublisherName: '', status: 'PENDENTE' });
-              } catch { /* melhor esforço */ }
-            }
+            await reflectPublisherImpediments(
+              pendingImpediments.publisher.name,
+              pendingImpediments.impediments
+            )
             await pendingImpediments.proceedSave();
           }}
           onSaveOnly={() => { pendingImpediments.proceedSave(); }}
