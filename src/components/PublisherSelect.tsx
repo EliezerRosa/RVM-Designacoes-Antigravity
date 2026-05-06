@@ -27,7 +27,7 @@ interface PublisherSelectProps {
 // Importar mapeamento centralizado (substitui definição local)
 import { getModalidadeFromTipo } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
-import { formatWeekFromDate } from '../utils/dateUtils';
+import { formatWeekFromDate, toLocalISODate } from '../utils/dateUtils';
 
 const getModalidade = (part: WorkbookPart): string => {
     if (part.modalidade) return part.modalidade;
@@ -115,6 +115,14 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 p.gender === 'sister' &&
                 part.funcao === 'Titular';
 
+            // Última participação em QUALQUER parte (para desempate de score igual)
+            const lastAnyDate = historyForCooldown
+                .filter(h => (h.resolvedPublisherName === p.name || h.rawPublisherName === p.name) && (h.date || ''))
+                .map(h => h.date || '')
+                .filter(Boolean)
+                .sort()
+                .pop() || '';
+
             return {
                 publisher: p,
                 eligible: result.eligible,
@@ -123,7 +131,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 scoreData, // Expor dados completos para tooltip
                 hasDesignationInSameWeek,
                 cooldownInfo,
-                isSisterForDemo
+                isSisterForDemo,
+                lastAnyDate
             };
         }).sort((a, b) => {
             // 1. Elegível vem primeiro
@@ -172,7 +181,13 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 return b.priority - a.priority;
             }
 
-            // 4. Ordem alfabética como desempate
+            // 4. Desempate: weeksSinceLast da modalidade (descending — mais tempo parado na modalidade vem primeiro)
+            const wa = a.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
+            const wb = b.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
+            if (wa !== wb) return wb - wa;
+            // 5. Última participação em qualquer parte (ascending — mais antigo = maior prioridade)
+            if (a.lastAnyDate !== b.lastAnyDate) return a.lastAnyDate.localeCompare(b.lastAnyDate);
+            // 6. Ordem alfabética como desempate final
             return a.publisher.name.localeCompare(b.publisher.name);
         });
     }, [part, publishers, weekParts, allParts]);
@@ -400,7 +415,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             ⏳ COOLDOWN ATIVO
                         </div>
                         <div style={{ fontSize: '0.85em', color: '#fff' }}>
-                            {selectedCooldownInfo.weeksSinceLast >= 0
+                            {(selectedCooldownInfo.lastDate || '') <= toLocalISODate()
                                 ? <><strong>Participações Passadas:</strong> Fez <strong>{selectedCooldownInfo.lastPartType}</strong> na {selectedCooldownInfo.weekDisplay || formatWeekFromDate(selectedCooldownInfo.lastDate || '')}.</>
                                 : <><strong>Designações Futuras:</strong> Designado para <strong>{selectedCooldownInfo.lastPartType}</strong> na {selectedCooldownInfo.weekDisplay || formatWeekFromDate(selectedCooldownInfo.lastDate || '')}.</>
                             }
@@ -506,7 +521,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             }}
                             title={eligible
                                 ? (cooldownInfo?.isInCooldown
-                                    ? (cooldownInfo.weeksSinceLast >= 0
+                                    ? ((cooldownInfo.lastDate || '') <= toLocalISODate()
                                         ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `
                                         : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `)
                                     : '✅ Elegível')

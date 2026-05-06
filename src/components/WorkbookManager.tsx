@@ -35,6 +35,7 @@ import { GenerationModal, type GenerationConfig, type GenerationResult } from '.
 import { ReportsTab } from './ReportsTab';
 import { ParticipationAnalytics } from './ParticipationAnalytics';
 import { generateSessionReport, type AnalyticsSummary } from '../services/analyticsService';
+import { isOnOrAfterToday } from '../utils/dateUtils';
 
 
 
@@ -802,8 +803,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                                             // Semanas futuras únicas ordenadas
                                             [...new Set(parts
                                                 .filter(p => {
-                                                    const d = new Date(p.date);
-                                                    return d >= new Date();
+                                                    return isOnOrAfterToday(p.date);
                                                 })
                                                 .map(p => p.weekId)
                                             )]

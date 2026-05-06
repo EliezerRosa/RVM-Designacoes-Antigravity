@@ -12,6 +12,7 @@
  */
 
 import type { HistoryRecord } from '../types';
+import { toLocalISODate } from '../utils/dateUtils';
 
 // ===== Constantes de Configuração v9.0 =====
 
@@ -116,7 +117,7 @@ export function isBlocked(
     // a semana N quanto a semana N+2 se estiverem dentro do cooldown.
     // Excluímos APENAS a própria data sendo avaliada (caso a designação atual já
     // esteja no histórico). Designações futuras já gravadas DEVEM bloquear.
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = toLocalISODate(today);
     const relevantHistory = history.filter(h => {
         const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
         if (!isThisPublisher) return false;
@@ -154,7 +155,7 @@ export function getBlockInfo(
     // FRONTEIRA TEMPORAL SIMÉTRICA (mesma do isBlocked): considera passado E futuro,
     // excluindo apenas a própria data sendo avaliada. Ordena pela PROXIMIDADE absoluta
     // a `today` para retornar o evento MAIN mais próximo (passado ou futuro).
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = toLocalISODate(today);
     const todayMs = today.getTime();
     const relevantHistory = history.filter(h => {
         const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;

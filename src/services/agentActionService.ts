@@ -23,6 +23,7 @@ import { workbookManagementService } from './workbookManagementService';
 import { specialEventManagementService } from './specialEventManagementService';
 import { permissionPolicyService } from './permissionPolicyService';
 import { isManuallyAssignable } from '../constants/s140Template';
+import { toLocalISODate } from '../utils/dateUtils';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -278,7 +279,7 @@ export const agentActionService = {
                     // FONTE ÚNICA com ActionControlPanel: filtra histórico da semana corrente
                     // (evita loop: a designação atual influenciar o próprio score) e usa a
                     // data da parte como referenceDate (não "hoje").
-                    const refDateStr = (targetPart?.date || targetPart?.weekId || date) || new Date().toISOString().split('T')[0];
+                    const refDateStr = (targetPart?.date || targetPart?.weekId || date) || toLocalISODate();
                     const refDate = new Date(refDateStr + 'T12:00:00');
                     const historyForScoring = targetPart
                         ? history.filter(h => h.weekId !== targetPart.weekId)
@@ -365,7 +366,7 @@ export const agentActionService = {
                     }
                     // Fallback: próxima designação do publicador a partir de hoje
                     if (!targetPart) {
-                        const todayStr = new Date().toISOString().split('T')[0];
+                        const todayStr = toLocalISODate();
                         const futureAssigned = parts
                             .filter(p => (p.resolvedPublisherName === publisher.name || p.rawPublisherName === publisher.name) && (p.date || p.weekId) >= todayStr)
                             .sort((a, b) => (a.date || a.weekId).localeCompare(b.date || b.weekId));
@@ -395,8 +396,8 @@ export const agentActionService = {
                     const windowEnd = new Date(refDate);
                     const windowStart = new Date(refDate);
                     windowStart.setDate(windowStart.getDate() - cooldownWeeks * 7);
-                    const wStartStr = windowStart.toISOString().split('T')[0];
-                    const wEndStr = windowEnd.toISOString().split('T')[0];
+                    const wStartStr = toLocalISODate(windowStart);
+                    const wEndStr = toLocalISODate(windowEnd);
 
                     // Participações MAIN do publicador dentro da janela
                     const mainInWindow = historyForScoring.filter(h => {
@@ -410,7 +411,7 @@ export const agentActionService = {
                     // Participações nas últimas 12 semanas (para Frequency Penalty)
                     const freqWindowStart = new Date(refDate);
                     freqWindowStart.setDate(freqWindowStart.getDate() - 12 * 7);
-                    const freqStartStr = freqWindowStart.toISOString().split('T')[0];
+                    const freqStartStr = toLocalISODate(freqWindowStart);
                     const freqCount = historyForScoring.filter(h => {
                         const isThis = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
                         if (!isThis) return false;

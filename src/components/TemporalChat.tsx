@@ -30,6 +30,7 @@ import { publisherMutationService } from '../services/publisherMutationService';
 import { useTemporalChatSemanticContext } from '../hooks/useTemporalChatSemanticContext';
 import { useTemporalChatSemanticControls } from '../hooks/useTemporalChatSemanticControls';
 import { AvailabilityChangesBanner } from './admin/AvailabilityChangesBanner';
+import { toLocalISODate } from '../utils/dateUtils';
 
 interface TemporalChatProps {
     publishers: Publisher[];
@@ -1234,7 +1235,7 @@ export default function TemporalChat({
                     <AvailabilityUpdateMicroUi
                         publishers={publishers}
                         defaultPublisherId={focusedPublisherId}
-                        defaultDate={currentWeekId || new Date().toISOString().slice(0, 10)}
+                        defaultDate={currentWeekId || toLocalISODate()}
                         busy={availabilityBusy}
                         onConfirm={handleUpdateAvailability}
                     />

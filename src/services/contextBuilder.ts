@@ -8,6 +8,7 @@ import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getEligibilityStats } from './eligibilityService';
 import { calculateScore, getRankedCandidates, ROTATION_CONFIG, isStatPart } from './unifiedRotationService';
 import { AGENT_CONTEXT_WEEKS, AGENT_HISTORY_LOOKBACK_WEEKS, AGENT_LIST_LOOKBACK_WEEKS } from '../constants/config';
+import { toLocalISODate } from '../utils/dateUtils';
 
 export const RULES_TEXT_VERSION = '2024-01-27.01'; // v8.3 - Elegibilidade no contexto
 
@@ -309,7 +310,7 @@ export function buildAgentContext(
     }, {} as Record<string, number>);
 
     // Agrupar designações por semana (TODAS com partes)
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalISODate();
     const weekMap = new Map<string, WeekDesignation>();
 
     // Ordenar parts por data
@@ -493,7 +494,7 @@ export function buildAgentContext(
         participationAnalytics,
         priorityCandidates: priorityList,
         rankedByPart,
-        currentDate: new Date().toISOString().split('T')[0],
+        currentDate: toLocalISODate(),
     };
 }
 
@@ -584,7 +585,7 @@ function buildParticipationAnalytics(
 function buildRecentStats(allParts: WorkbookPart[], weeks: number) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - (weeks * 7));
-    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+    const cutoffStr = toLocalISODate(cutoffDate);
 
     // Filtrar partes recentes
     const recentParts = allParts.filter(p => p.date >= cutoffStr);

@@ -26,6 +26,13 @@ interface PublisherStats {
     totalAssignments: number;
 }
 
+function compareIsoDates(a?: string | null, b?: string | null): number {
+    if (!a || !b) return 0;
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+}
+
 export default function ActionControlPanel({ selectedPartId, parts, publishers, historyRecords, weeklyEvents = [] }: Props) {
     const selectedPart = parts.find(p => p.id === selectedPartId);
 
@@ -280,7 +287,15 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
         if (cooldown?.isInCooldown) {
             const weekOrDate = cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '') || formatDate(cooldown.lastDate);
-            parts.push(`${firstName} realizou "${cooldown.lastPartType}" na semana de ${weekOrDate}; o recomendado é aguardar 3 semanas entre partes principais.`);
+            const targetRef = selectedPart.date || selectedPart.weekId || null;
+            const lastRef = cooldown.lastDate || null;
+            const relation = compareIsoDates(lastRef, targetRef);
+            const verbPhrase = relation > 0
+                ? 'está designado para realizar'
+                : relation === 0
+                    ? 'está designado para realizar'
+                    : 'realizou';
+            parts.push(`${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${weekOrDate}; o recomendado é aguardar 3 semanas entre partes principais.`);
         }
 
         if (scoreData.details.frequencyPenalty > 50) {
@@ -512,7 +527,13 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     )}{' '}
                                                     {cooldown?.isInCooldown && (
                                                         <span>
-                                                            {firstName} realizou "{cooldown.lastPartType}" na semana de {cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}; o recomendado é aguardar 3 semanas entre partes principais.{" "}
+                                                            {(() => {
+                                                                const targetRef = selectedPart.date || selectedPart.weekId || null;
+                                                                const lastRef = cooldown.lastDate || null;
+                                                                const relation = compareIsoDates(lastRef, targetRef);
+                                                                const verbPhrase = relation >= 0 ? 'está designado para realizar' : 'realizou';
+                                                                return `${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}; o recomendado é aguardar 3 semanas entre partes principais. `;
+                                                            })()}
                                                         </span>
                                                     )}
 
