@@ -151,6 +151,11 @@ interface ParsedTextualConstraints {
     mustBeBaptized?: boolean;
 }
 
+export interface TextualConstraintSummary {
+    active: boolean;
+    labels: string[];
+}
+
 function normalizeText(input: string): string {
     return input
         .normalize('NFD')
@@ -209,6 +214,32 @@ function parseTextualConstraints(context: EligibilityContext): ParsedTextualCons
     }
 
     return constraints;
+}
+
+export function getTextualConstraintSummary(context: EligibilityContext): TextualConstraintSummary {
+    const parsed = parseTextualConstraints(context);
+    const labels: string[] = [];
+
+    if (parsed.requiredGender === 'brother') labels.push('exige irmão');
+    if (parsed.requiredGender === 'sister') labels.push('exige irmã');
+
+    if (parsed.allowedConditions && parsed.allowedConditions.length > 0) {
+        if (parsed.allowedConditions.length === 2) {
+            labels.push('exige ancião/SM');
+        } else if (parsed.allowedConditions[0] === 'elder') {
+            labels.push('exige ancião');
+        } else {
+            labels.push('exige servo ministerial');
+        }
+    }
+
+    if (parsed.requiredFuncao) labels.push('exige função específica');
+    if (parsed.mustBeBaptized) labels.push('exige batizado');
+
+    return {
+        active: labels.length > 0,
+        labels,
+    };
 }
 
 function mapPublisherCondition(condition: string): 'elder' | 'ministerial' | 'other' {

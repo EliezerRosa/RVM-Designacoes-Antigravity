@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
-import { checkEligibility, isElderOrMS, buildEligibilityContext, isPastWeekDate } from '../services/eligibilityService';
+import { checkEligibility, isElderOrMS, buildEligibilityContext, isPastWeekDate, getTextualConstraintSummary } from '../services/eligibilityService';
 import { getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
 import { calculateScore } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
@@ -470,6 +470,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Detectar semana passada para indicador visual
     const isPastWeek = useMemo(() => isPastWeekDate(part.date), [part.date]);
 
+    // Indicador explícito de restrições textuais da apostila
+    const textualConstraintSummary = useMemo(() => {
+        const ctx = buildEligibilityContext(part, weekParts, publishers);
+        return getTextualConstraintSummary(ctx);
+    }, [part, weekParts, publishers]);
+
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <select
@@ -532,6 +538,32 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     );
                 })}
             </select>
+
+            {textualConstraintSummary.active && (
+                <Tooltip content={`Regra textual ativa: ${textualConstraintSummary.labels.join(', ')}`}>
+                    <span
+                        style={{
+                            cursor: 'help',
+                            background: 'rgba(168, 85, 247, 0.16)',
+                            color: '#7c3aed',
+                            borderRadius: '999px',
+                            height: '20px',
+                            padding: '0 8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            letterSpacing: '0.2px',
+                            flexShrink: 0,
+                            border: '1px solid rgba(124, 58, 237, 0.35)'
+                        }}
+                        title={`Regra textual ativa: ${textualConstraintSummary.labels.join(', ')}`}
+                    >
+                        REGRA
+                    </span>
+                </Tooltip>
+            )}
 
             {/* Ícone de ajuda com tooltip dinâmico (HTML/JSX) */}
             <Tooltip content={renderTooltipContent()}>
