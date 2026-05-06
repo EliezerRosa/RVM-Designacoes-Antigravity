@@ -11,6 +11,8 @@ import { supabase } from '../lib/supabase';
 import type { AvailabilityToken } from './PublisherAvailabilityPortal';
 import { AvailabilityChangesBanner } from './admin/AvailabilityChangesBanner';
 import { ConfirmationRefusalsBanner } from './admin/ConfirmationRefusalsBanner';
+import { usePublisherProfileNotifications } from '../hooks/usePublisherProfileNotifications';
+import { ProfileChangeTooltipChip } from './admin/ProfileChangeTooltipChip';
 
 /** Type for confirmation status per part (item 4). */
 type PartConfirmationStatus = {
@@ -48,6 +50,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [substitutionIds, setSubstitutionIds] = useState<Set<string>>(new Set());
     /** Override do dia da reunião (apenas para a mensagem). 0=dom..6=sáb. Default=4 (qui). */
     const [meetingDayOfWeek, setMeetingDayOfWeek] = useState<number>(4);
+    const { notifications: profileChangeNotifications } = usePublisherProfileNotifications();
     const s140Ref = useRef<HTMLDivElement>(null);
     const statusRef = useRef<HTMLDivElement>(null);
 
@@ -811,6 +814,13 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
                 {/* List */}
                 <div style={{ overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                        <ProfileChangeTooltipChip
+                            notifications={profileChangeNotifications}
+                            tone="light"
+                        />
+                    </div>
 
                     <AvailabilityChangesBanner
                         publishers={publishers}

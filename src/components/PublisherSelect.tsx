@@ -6,7 +6,9 @@ import { calculateScore } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
+import { ProfileChangeTooltipChip } from './admin/ProfileChangeTooltipChip';
 import { fuzzySearchWithScore, normalize } from '../utils/searchUtils';
+import type { PublisherProfileChangeNotification } from '../hooks/usePublisherProfileNotifications';
 
 interface PublisherSelectProps {
     part: WorkbookPart;
@@ -22,6 +24,8 @@ interface PublisherSelectProps {
     history?: HistoryRecord[];
     /** Callback para fallback (compatibilidade) */
     allParts?: WorkbookPart[];
+    /** Notificacoes de mudanca de perfil carregadas pelo painel pai (evita subscricao por linha). */
+    profileChangeNotifications?: PublisherProfileChangeNotification[];
 }
 
 // Importar mapeamento centralizado (substitui definição local)
@@ -34,7 +38,7 @@ const getModalidade = (part: WorkbookPart): string => {
     return getModalidadeFromTipo(part.tipoParte, part.section);
 };
 
-export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts, history }: PublisherSelectProps) => {
+export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts, history, profileChangeNotifications = [] }: PublisherSelectProps) => {
 
     // Converter allParts para HistoryRecord[] (Memoizado para uso geral)
     // Se history já for fornecido (preferencial), usa ele.
@@ -250,6 +254,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
     // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
     const showUnmatchedName = displayName && !foundPublisher;
+    const profileNotificationTargetName =
+        foundPublisher?.name || displayName || part.resolvedPublisherName || part.rawPublisherName || null;
 
     // Verificar múltiplas designações na mesma semana ou semanas adjacentes
     const multipleAssignmentWarnings = useMemo((): AssignmentWarning[] => {
@@ -528,6 +534,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     </span>
                 </Tooltip>
             )}
+
+            <ProfileChangeTooltipChip
+                notifications={profileChangeNotifications}
+                publisherName={profileNotificationTargetName}
+                tone="light"
+            />
 
             {/* Ícone de ajuda com tooltip dinâmico (HTML/JSX) */}
             <Tooltip content={renderTooltipContent()}>

@@ -9,6 +9,7 @@ import { Tooltip } from './Tooltip';
 import { checkEligibility, isPastWeekDate } from '../services/eligibilityService';
 import { isManuallyAssignable } from '../constants/s140Template';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { usePublisherProfileNotifications } from '../hooks/usePublisherProfileNotifications';
 
 interface ApprovalPanelProps {
     elderId?: string;
@@ -33,6 +34,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
     const [rejectReason, setRejectReason] = useState('');
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [stats, setStats] = useState<Record<string, number> | null>(null);
+    const { notifications: profileChangeNotifications } = usePublisherProfileNotifications();
 
     // Ordenar publicadores por nome
 
@@ -547,6 +549,7 @@ export default function ApprovalPanel({ elderId = 'elder-1', elderName: _elderNa
                                                             part={part}
                                                             publishers={publishers}
                                                             value={currentSelectValue}
+                                                            profileChangeNotifications={profileChangeNotifications}
                                                             onChange={(newId, newName) => {
                                                                 handleUpdatePublisher(part.id, newId, newName);
                                                             }}
