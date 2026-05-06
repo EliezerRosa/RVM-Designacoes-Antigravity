@@ -267,7 +267,7 @@ export function getRankedCandidates(
         if (b.scoreData.score !== a.scoreData.score) {
             return b.scoreData.score - a.scoreData.score;
         }
-        // 2) weeksSinceLast da modalidade (descending) — quem está mais tempo parado NA modalidade vem primeiro
+        // 2) weeksSinceLast da modalidade (descending) — quem está mais tempo parado na modalidade vem primeiro
         const wa = a.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
         const wb = b.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
         if (wb !== wa) return wb - wa;
