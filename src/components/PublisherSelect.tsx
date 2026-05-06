@@ -135,62 +135,24 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 lastAnyDate
             };
         }).sort((a, b) => {
-            // 1. Elegível vem primeiro
-            if (a.eligible && !b.eligible) return -1;
-            if (!a.eligible && b.eligible) return 1;
-
-            // 2. (Removido) Prioridade v8.1 substituída pela lógica unificada v8.2 abaixo
-
-            // EXCEÇÃO PARA DEMONSTRAÇÕES (v8.2)
-            // Ordem: Irmã > Varão Comum > SM > Ancião
-            if (modalidade === EnumModalidade.DEMONSTRACAO && a.eligible && b.eligible) {
-                const getDemoScore = (p: Publisher) => {
-                    if (p.gender === 'sister') return 4; // Irmã (Máxima)
-                    if (!isElderOrMS(p)) return 3; // Varão Comum (Alta)
-                    if (p.condition === 'Servo Ministerial') return 2; // SM (Média)
-                    return 1; // Ancião (Baixa)
-                }
-                const scoreA = getDemoScore(a.publisher);
-                const scoreB = getDemoScore(b.publisher);
-
-                if (scoreA !== scoreB) {
-                    return scoreB - scoreA;
-                }
-            }
-
-            // 3. Ordenar por prioridade de rotação (maior primeiro)
-            if (a.priority !== b.priority) {
-                // EXCEÇÃO DE ORDENAÇÃO PARA LEITOR EBC (v8.2)
-                // Se for Leitor EBC, queremos agrupar por categoria hierárquica ANTES da pontuação
-                // Ordem: Varão > SM > Ancião
-                if (modalidade === EnumModalidade.LEITOR_EBC && a.eligible && b.eligible) {
-                    const getScore = (p: Publisher) => {
-                        if (!isElderOrMS(p)) return 3; // Varão Comum (Alta)
-                        if (p.condition === 'Servo Ministerial') return 2; // SM (Média)
-                        return 1; // Ancião (Baixa)
-                    }
-                    const scoreA = getScore(a.publisher);
-                    const scoreB = getScore(b.publisher);
-
-                    if (scoreA !== scoreB) {
-                        return scoreB - scoreA; // Maior score (3) aparece primeiro
-                    }
-                    // Se empate na categoria, usa prioridade normal abaixo
-                }
-
-                return b.priority - a.priority;
-            }
-
-            // 4. Desempate: weeksSinceLast da modalidade (descending — mais tempo parado na modalidade vem primeiro)
+            // 1. Ordenar por score/prioridade (maior primeiro)
+            if (a.priority !== b.priority) return b.priority - a.priority;
+            // 2. Desempate por semanas sem participar na modalidade (maior primeiro)
             const wa = a.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
             const wb = b.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
             if (wa !== wb) return wb - wa;
-            // 5. Última participação em qualquer parte (ascending — mais antigo = maior prioridade)
+            // 3. Desempate por última participação em qualquer parte (mais antiga primeiro)
             if (a.lastAnyDate !== b.lastAnyDate) return a.lastAnyDate.localeCompare(b.lastAnyDate);
-            // 6. Ordem alfabética como desempate final
+            // 4. Ordem alfabética como desempate final
             return a.publisher.name.localeCompare(b.publisher.name);
         });
     }, [part, publishers, weekParts, allParts]);
+
+    const visibleOptions = useMemo(() => sortedOptions.filter(o => o.eligible), [sortedOptions]);
+    const selectedIneligibleOption = useMemo(
+        () => sortedOptions.find(o => o.publisher.id === value && !o.eligible),
+        [sortedOptions, value]
+    );
 
     // Determinar o valor efetivo - tentar encontrar ID pelo nome se não temos ID
     // Agora usa busca fonética/fuzzy para melhor match (ex: "eryc" encontra "Erik")
@@ -512,26 +474,28 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         ⚠️ {displayName} (não encontrado)
                     </option>
                 )}
-                {sortedOptions.map(({ publisher: p, eligible, reason, cooldownInfo }) => {
-                    // Ícone de status: Se inelegível = ⚠️; Senão se em cooldown = ⏳; Senão vazio
-                    const icon = !eligible ? '⚠️ ' : (cooldownInfo?.isInCooldown ? '⏳ ' : '');
+                {selectedIneligibleOption && (
+                    <option value={selectedIneligibleOption.publisher.id} disabled style={{ fontStyle: 'italic', color: '#9CA3AF' }}>
+                        ⚠️ {selectedIneligibleOption.publisher.name} (não elegível no contexto)
+                    </option>
+                )}
+                {visibleOptions.map(({ publisher: p, cooldownInfo }) => {
+                    const icon = cooldownInfo?.isInCooldown ? '⏳ ' : '';
 
                     return (
                         <option
                             key={p.id}
                             value={p.id}
                             style={{
-                                color: eligible ? 'inherit' : '#9CA3AF',
-                                fontStyle: eligible ? 'normal' : 'italic',
-                                fontWeight: (eligible && cooldownInfo?.isInCooldown) ? 'bold' : 'normal'
+                                color: 'inherit',
+                                fontStyle: 'normal',
+                                fontWeight: cooldownInfo?.isInCooldown ? 'bold' : 'normal'
                             }}
-                            title={eligible
-                                ? (cooldownInfo?.isInCooldown
-                                    ? ((cooldownInfo.lastDate || '') <= toLocalISODate()
-                                        ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `
-                                        : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `)
-                                    : '✅ Elegível')
-                                : `❌ ${reason} `}
+                            title={cooldownInfo?.isInCooldown
+                                ? ((cooldownInfo.lastDate || '') <= toLocalISODate()
+                                    ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `
+                                    : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `)
+                                : '✅ Elegível'}
                         >
                             {icon}{p.name}
                         </option>
