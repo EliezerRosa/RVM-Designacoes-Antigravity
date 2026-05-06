@@ -13,8 +13,8 @@ import { api } from '../services/api';
 import { supabase } from '../lib/supabase';
 import type { Publisher, WorkbookPart } from '../types';
 import { findPublisherImpediments, type ImpedimentEntry } from '../services/publisherImpedimentService';
+import { reflectPublisherImpediments } from '../services/publisherPrivilegeReflectionService';
 import { PublisherImpedimentModal } from './PublisherImpedimentModal';
-import { workbookManagementService } from '../services/workbookManagementService';
 import { setProfileAuthor } from '../services/profileAuthor';
 import { LocalNeedsQueue } from './LocalNeedsQueue';
 import { SpecialEventsManager } from './SpecialEventsManager';
@@ -813,9 +813,10 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                 publisherName={pendingImpediments.publisherName}
                 impediments={pendingImpediments.impediments}
                 onConfirmAndCancel={async () => {
-                    for (const { part } of pendingImpediments.impediments) {
-                        try { await workbookManagementService.updatePart(part.id, { resolvedPublisherName: '', status: 'PENDENTE' }); } catch { /* melhor esforço */ }
-                    }
+                    await reflectPublisherImpediments(
+                        pendingImpediments.publisherName,
+                        pendingImpediments.impediments
+                    );
                     await pendingImpediments.proceedSave();
                 }}
                 onSaveOnly={() => { pendingImpediments.proceedSave(); }}
