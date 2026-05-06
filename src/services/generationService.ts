@@ -85,7 +85,13 @@ export const generationService = {
                     const mod = p.modalidade || getModalidadeFromTipo(p.tipoParte, p.section);
 
                     // Simple check: Gender/Modality mismatch is the main issue
-                    const eligibility = checkEligibility(publisher, mod as any, p.funcao, { date: p.date, secao: p.section });
+                    const eligibility = checkEligibility(publisher, mod as any, p.funcao, {
+                        date: p.date,
+                        secao: p.section,
+                        partTitle: p.tituloParte,
+                        partDescription: p.descricaoParte,
+                        partDetails: p.detalhesParte,
+                    });
                     if (!eligibility.eligible) {
                         console.log(`[SanityCheck] Found invalid assignment: ${pubName} for ${p.tipoParte} (${eligibility.reason}). Marking for re-generation.`);
                         return true;
@@ -172,7 +178,13 @@ export const generationService = {
                     const publisher = publishers.find(pub => pub.name === pubName);
                     if (publisher) {
                         const mod = part.modalidade || getModalidadeFromTipo(part.tipoParte, part.section);
-                        const eligibility = checkEligibility(publisher, mod as any, part.funcao, { date: part.date, secao: part.section });
+                        const eligibility = checkEligibility(publisher, mod as any, part.funcao, {
+                            date: part.date,
+                            secao: part.section,
+                            partTitle: part.tituloParte,
+                            partDescription: part.descricaoParte,
+                            partDetails: part.detalhesParte,
+                        });
 
                         if (!eligibility.eligible) {
                             // MARCA PARA LIMPEZA. Se o motor encontrar alguém, sobrescreve. Se não, fica limpo.
@@ -197,7 +209,12 @@ export const generationService = {
 
                 // Filtro de Elegibilidade + Disponibilidade
                 const eligibleCandidates = publishers.filter(p => {
-                    const eligResult = checkEligibility(p, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR, { date: part.date });
+                    const eligResult = checkEligibility(p, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR, {
+                        date: part.date,
+                        partTitle: part.tituloParte,
+                        partDescription: part.descricaoParte,
+                        partDetails: part.detalhesParte,
+                    });
                     if (!eligResult.eligible) return false;
 
                     const avail = p.availability;
@@ -318,7 +335,13 @@ export const generationService = {
                         const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino, ensinoPart.section);
 
                         const checkPubFilters = (p: Publisher) => {
-                            const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, { date: ensinoPart.date });
+                            const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, {
+                                date: ensinoPart.date,
+                                secao: ensinoPart.section,
+                                partTitle: ensinoPart.tituloParte,
+                                partDescription: ensinoPart.descricaoParte,
+                                partDetails: ensinoPart.detalhesParte,
+                            });
                             if (!eligResult.eligible) return false;
 
                             const avail = p.availability;
@@ -386,7 +409,13 @@ export const generationService = {
                     const modalidadeCorreta = getModalidadeFromTipo(estudantePart.tipoParte);
 
                     const checkPubFilters = (p: Publisher) => {
-                        const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, { date: estudantePart.date });
+                        const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, {
+                            date: estudantePart.date,
+                            secao: estudantePart.section,
+                            partTitle: estudantePart.tituloParte,
+                            partDescription: estudantePart.descricaoParte,
+                            partDetails: estudantePart.detalhesParte,
+                        });
                         if (!eligResult.eligible) return false;
                         const avail = p.availability;
                         if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
@@ -509,7 +538,16 @@ export const generationService = {
 
                         const createAjudanteFilter = (forceGender: 'brother' | 'sister' | undefined) => (p: Publisher): boolean => {
                             if (forceGender && p.gender !== forceGender) return false;
-                            const eligResult = checkEligibility(p, modalidade as any, funcao, { date: part.date, isOracaoInicial, secao: part.section, isPastWeek: isPast, titularGender: forceGender });
+                            const eligResult = checkEligibility(p, modalidade as any, funcao, {
+                                date: part.date,
+                                isOracaoInicial,
+                                secao: part.section,
+                                isPastWeek: isPast,
+                                titularGender: forceGender,
+                                partTitle: part.tituloParte,
+                                partDescription: part.descricaoParte,
+                                partDetails: part.detalhesParte,
+                            });
                             if (!eligResult.eligible) return false;
                             const avail = p.availability;
                             if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
@@ -555,7 +593,14 @@ export const generationService = {
 
                         if (isOracaoFinal) {
                             const oracaoFilter = (p: Publisher) => {
-                                const r = checkEligibility(p, modalidade as any, funcao, { date: part.date, isPastWeek: isPast });
+                                const r = checkEligibility(p, modalidade as any, funcao, {
+                                    date: part.date,
+                                    isPastWeek: isPast,
+                                    secao: part.section,
+                                    partTitle: part.tituloParte,
+                                    partDescription: part.descricaoParte,
+                                    partDetails: part.detalhesParte,
+                                });
                                 if (!r.eligible) return false;
                                 const avail = p.availability;
                                 if (avail.mode === 'always') return !avail.exceptionDates.includes(thursdayDate);
@@ -617,7 +662,14 @@ export const generationService = {
                             // Genérico
                             const eligiblePublishers = publishers.filter(p => {
                                 if (namesExcludedInWeek.has(p.name)) return false;
-                                const r = checkEligibility(p, modalidade as any, funcao, { date: part.date, isPastWeek: isPast, secao: part.section });
+                                const r = checkEligibility(p, modalidade as any, funcao, {
+                                    date: part.date,
+                                    isPastWeek: isPast,
+                                    secao: part.section,
+                                    partTitle: part.tituloParte,
+                                    partDescription: part.descricaoParte,
+                                    partDetails: part.detalhesParte,
+                                });
                                 return r.eligible;
                             });
                             if (eligiblePublishers.length > 0) {
