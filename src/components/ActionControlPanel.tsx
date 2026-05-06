@@ -6,6 +6,8 @@ import { calculateScore, getRankedCandidates, isStatPart, type RotationScore } f
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import { formatWeekFromDate } from '../utils/dateUtils';
+import { usePublisherProfileNotifications } from '../hooks/usePublisherProfileNotifications';
+import { ProfileChangeTooltipChip } from './admin/ProfileChangeTooltipChip';
 
 /**
  * ActionControlPanel – Exibe detalhes da parte selecionada
@@ -59,6 +61,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     const [bestCandidate, setBestCandidate] = useState<{ name: string; score: number } | null>(null);
     const [topCandidates, setTopCandidates] = useState<CandidatePanelItem[]>([]);
     const [loading, setLoading] = useState(false);
+    const { notifications: profileChangeNotifications } = usePublisherProfileNotifications();
 
     const weekParts = useMemo(
         () => (selectedPart ? parts.filter(p => p.weekId === selectedPart.weekId) : []),
@@ -562,6 +565,12 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     🟣 Regra textual ativa
                                                 </span>
                                             )}
+
+                                            <ProfileChangeTooltipChip
+                                                notifications={profileChangeNotifications}
+                                                publisherName={assignedPublisher?.name || selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || null}
+                                                tone="light"
+                                            />
                                         </div>
 
                                         {textualConstraintSummary.active && (
