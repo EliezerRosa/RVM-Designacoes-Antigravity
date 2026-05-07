@@ -11,6 +11,7 @@ import { getAppBaseUrl } from '../utils/appUrl';
 import { workbookQueryService } from './workbookQueryService';
 import { publisherDirectoryService } from './publisherDirectoryService';
 import { specialEventQueryService } from './specialEventQueryService';
+import { api } from './api';
 
 export type NotificationType = 'S140' | 'S89' | 'ANNOUNCEMENT' | 'INDIVIDUAL';
 export type NotificationStatus = 'PREPARED' | 'SENT' | 'FAILED';
@@ -51,6 +52,29 @@ function getPortalBaseUrl(): string {
 
 function getRealPartId(partId: string): string {
     return partId.replace(/-(titular|ajudante)$/, '');
+}
+
+const DEFAULT_MEETING_DAY_OF_WEEK = 4;
+const S89_MEETING_DAY_SETTING_KEY = 's89_meeting_day_by_week';
+
+function normalizeMeetingDayOfWeek(value?: number): number {
+    if (typeof value === 'number' && value >= 0 && value <= 6) return value;
+    return DEFAULT_MEETING_DAY_OF_WEEK;
+}
+
+async function resolveMeetingDayOfWeek(weekId?: string, providedValue?: number): Promise<number> {
+    if (typeof providedValue === 'number') {
+        return normalizeMeetingDayOfWeek(providedValue);
+    }
+
+    if (!weekId) return DEFAULT_MEETING_DAY_OF_WEEK;
+
+    try {
+        const map = await api.getSetting<Record<string, number>>(S89_MEETING_DAY_SETTING_KEY, {});
+        return normalizeMeetingDayOfWeek(map[weekId]);
+    } catch {
+        return DEFAULT_MEETING_DAY_OF_WEEK;
+    }
 }
 
 async function ensureSupabaseSessionReady(): Promise<boolean> {
@@ -405,6 +429,7 @@ export const communicationService = {
         const recipientGender = pub?.gender || 'brother';
         const realPartId = getRealPartId(part.id);
         const publisherId = part.resolvedPublisherId || pub?.id;
+        const meetingDayOfWeek = await resolveMeetingDayOfWeek(part.weekId, options.meetingDayOfWeek);
 
         // Verificar se a parte foi CANCELADA por evento
         if (part.status === 'CANCELADA' && (part as any).affectedByEventId) {
@@ -495,7 +520,7 @@ export const communicationService = {
             srvmPhone,
             undefined,
             options.isSubstitution,
-            options.meetingDayOfWeek
+            meetingDayOfWeek
         );
 
         if (publisherId) {
@@ -511,7 +536,7 @@ export const communicationService = {
                     srvmPhone,
                     confirmationUrl,
                     options.isSubstitution,
-                    options.meetingDayOfWeek
+                    meetingDayOfWeek
                 );
             }
         }

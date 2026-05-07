@@ -2,6 +2,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import type { WorkbookPart } from '../types';
 import { resolveAppUrl } from '../utils/appUrl';
+import { supabase } from '../lib/supabase';
 
 // Configurações de layout (baseadas no generate_s89_forms.py original)
 const POSITIONS = {
@@ -18,10 +19,64 @@ const FONT_SIZE = {
     SMALL: 10
 };
 
+const DEFAULT_MEETING_DAY_OF_WEEK = 4;
+const S89_MEETING_DAY_SETTING_KEY = 's89_meeting_day_by_week';
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const DIAS = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];
+
+function normalizeMeetingDayOfWeek(value?: number): number {
+    if (typeof value === 'number' && value >= 0 && value <= 6) return value;
+    return DEFAULT_MEETING_DAY_OF_WEEK;
+}
+
+function capitalizeFirst(text: string): string {
+    if (!text) return text;
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function resolveBaseDate(part: WorkbookPart): Date | null {
+    const source = part.date || part.weekId;
+    if (!source) return null;
+    const dateParts = source.split('-');
+    if (dateParts.length !== 3) return null;
+    const [year, month, day] = dateParts.map(v => parseInt(v, 10));
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
+}
+
+function resolveMeetingDate(baseDate: Date, meetingDayOfWeek?: number): Date {
+    const targetDow = normalizeMeetingDayOfWeek(meetingDayOfWeek);
+    const daysToTarget = (targetDow - baseDate.getDay() + 7) % 7;
+    const targetDate = new Date(baseDate);
+    targetDate.setDate(targetDate.getDate() + daysToTarget);
+    return targetDate;
+}
+
+async function getMeetingDayOfWeekFromSettings(weekId?: string): Promise<number> {
+    if (!weekId) return DEFAULT_MEETING_DAY_OF_WEEK;
+    try {
+        const { data, error } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', S89_MEETING_DAY_SETTING_KEY)
+            .maybeSingle();
+
+        if (error || !data || typeof data.value !== 'object' || data.value === null) {
+            return DEFAULT_MEETING_DAY_OF_WEEK;
+        }
+
+        const map = data.value as Record<string, number>;
+        return normalizeMeetingDayOfWeek(map[weekId]);
+    } catch {
+        return DEFAULT_MEETING_DAY_OF_WEEK;
+    }
+}
+
 /**
  * Gera o PDF do formulário S-89 preenchido
  */
-export async function generateS89(part: WorkbookPart, assistantName?: string): Promise<Uint8Array> {
+export async function generateS89(part: WorkbookPart, assistantName?: string, meetingDayOfWeek?: number): Promise<Uint8Array> {
     const path = resolveAppUrl('S-89_T.pdf');
 
     const templateBytes = await fetch(path).then(res => {
@@ -56,30 +111,22 @@ export async function generateS89(part: WorkbookPart, assistantName?: string): P
         });
     }
 
-    // Data (Quinta-feira da semana, formato: "Quinta-feira, D/mês/AAAA")
-    if (part.date) {
-        const dateParts = part.date.split('-');
-        if (dateParts.length === 3) {
-            const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-            const dayOfWeek = baseDate.getDay(); // 0=Dom, 1=Seg, ..., 4=Qui
-            const daysToThursday = (4 - dayOfWeek + 7) % 7;
-            const thursdayDate = new Date(baseDate);
-            thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+    // Data da reunião da semana (default: quinta-feira), formato: "Dia-da-semana, D/mês/AAAA"
+    const baseDate = resolveBaseDate(part);
+    if (baseDate) {
+        const meetingDate = resolveMeetingDate(baseDate, meetingDayOfWeek);
+        const day = meetingDate.getDate();
+        const month = MESES[meetingDate.getMonth()];
+        const year = meetingDate.getFullYear();
+        const dayLabel = capitalizeFirst(DIAS[meetingDate.getDay()] || 'quinta-feira');
+        const displayDate = `${dayLabel}, ${day}/${month}/${year}`;
 
-            const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-                'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-            const day = thursdayDate.getDate();
-            const month = MESES[thursdayDate.getMonth()];
-            const year = thursdayDate.getFullYear();
-            const displayDate = `Quinta-feira, ${day}/${month}/${year}`;
-
-            page.drawText(displayDate, {
-                x: POSITIONS.DATE.x,
-                y: POSITIONS.DATE.y,
-                size: FONT_SIZE.SMALL, // Texto mais longo, fonte menor
-                font: fontRegular,
-            });
-        }
+        page.drawText(displayDate, {
+            x: POSITIONS.DATE.x,
+            y: POSITIONS.DATE.y,
+            size: FONT_SIZE.SMALL, // Texto mais longo, fonte menor
+            font: fontRegular,
+        });
     }
 
     // Número da Parte (User Request: Colocar Tema/Título, mesmo truncado)
@@ -159,13 +206,11 @@ export function generateWhatsAppMessage(
         const targetDate = new Date(baseDate);
         targetDate.setDate(targetDate.getDate() + daysToTarget);
 
-        const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-            'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-        const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
         const day = targetDate.getDate();
         const month = MESES[targetDate.getMonth()];
         const year = targetDate.getFullYear();
-        displayDate = `${DIAS[targetDate.getDay()]}, ${day} de ${month} de ${year}`;
+        const DIAS_WHATSAPP = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];
+        displayDate = `${DIAS_WHATSAPP[targetDate.getDay()]}, ${day} de ${month} de ${year}`;
     }
 
     let emoji = '📅';
@@ -387,10 +432,14 @@ async function renderPdfToPngBlob(pdfBytes: Uint8Array): Promise<Blob | null> {
 /**
  * Copia a imagem FIEL do cartão S-89 (renderizada do PDF) para a área de transferência
  */
-export async function copyS89ToClipboard(part: WorkbookPart, assistantName?: string): Promise<boolean> {
+export async function copyS89ToClipboard(part: WorkbookPart, assistantName?: string, meetingDayOfWeek?: number): Promise<boolean> {
     try {
+        const resolvedMeetingDayOfWeek = typeof meetingDayOfWeek === 'number'
+            ? normalizeMeetingDayOfWeek(meetingDayOfWeek)
+            : await getMeetingDayOfWeekFromSettings(part.weekId);
+
         // 1. Gerar o PDF real (Fiel)
-        const pdfBytes = await generateS89(part, assistantName);
+        const pdfBytes = await generateS89(part, assistantName, resolvedMeetingDayOfWeek);
 
         // 2. Renderizar PDF -> PNG (Fiel)
         const blob = await renderPdfToPngBlob(pdfBytes);

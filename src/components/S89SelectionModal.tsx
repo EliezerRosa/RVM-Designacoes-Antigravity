@@ -24,6 +24,14 @@ type PartConfirmationStatus = {
 type SendKind = 'inicial' | 'reconf' | 'substituicao';
 type SendEntry = { sentAt: string; kind: SendKind };
 
+const DEFAULT_MEETING_DAY_OF_WEEK = 4;
+const S89_MEETING_DAY_SETTING_KEY = 's89_meeting_day_by_week';
+
+function normalizeMeetingDayOfWeek(value?: number): number {
+    if (typeof value === 'number' && value >= 0 && value <= 6) return value;
+    return DEFAULT_MEETING_DAY_OF_WEEK;
+}
+
 interface S89SelectionModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -49,7 +57,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     /** Per-card flag: when true, message is rendered as substitution request. */
     const [substitutionIds, setSubstitutionIds] = useState<Set<string>>(new Set());
     /** Override do dia da reunião (apenas para a mensagem). 0=dom..6=sáb. Default=4 (qui). */
-    const [meetingDayOfWeek, setMeetingDayOfWeek] = useState<number>(4);
+    const [meetingDayOfWeek, setMeetingDayOfWeek] = useState<number>(DEFAULT_MEETING_DAY_OF_WEEK);
     const { notifications: profileChangeNotifications } = usePublisherProfileNotifications();
     const s140Ref = useRef<HTMLDivElement>(null);
     const statusRef = useRef<HTMLDivElement>(null);
@@ -207,6 +215,44 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             loadConfirmationStatuses();
         }
     }, [isOpen, weekId, weekParts, publishers]);
+
+    // Carregar dia da reunião persistido para a semana atual.
+    useEffect(() => {
+        if (!isOpen || !weekId) return;
+        let canceled = false;
+
+        const loadMeetingDayOfWeek = async () => {
+            try {
+                const map = await api.getSetting<Record<string, number>>(S89_MEETING_DAY_SETTING_KEY, {});
+                const resolved = normalizeMeetingDayOfWeek(map[weekId]);
+                if (!canceled) setMeetingDayOfWeek(resolved);
+            } catch (error) {
+                console.warn('[S89Modal] Falha ao carregar dia da reuniao persistido:', error);
+                if (!canceled) setMeetingDayOfWeek(DEFAULT_MEETING_DAY_OF_WEEK);
+            }
+        };
+
+        loadMeetingDayOfWeek();
+        return () => { canceled = true; };
+    }, [isOpen, weekId]);
+
+    const handleMeetingDayChange = async (nextDay: number) => {
+        const normalizedDay = normalizeMeetingDayOfWeek(nextDay);
+        setMeetingDayOfWeek(normalizedDay);
+
+        try {
+            const map = await api.getSetting<Record<string, number>>(S89_MEETING_DAY_SETTING_KEY, {});
+            const current = normalizeMeetingDayOfWeek(map[weekId]);
+            if (current === normalizedDay) return;
+
+            await api.setSetting(S89_MEETING_DAY_SETTING_KEY, {
+                ...map,
+                [weekId]: normalizedDay,
+            });
+        } catch (error) {
+            console.warn('[S89Modal] Falha ao salvar dia da reuniao persistido:', error);
+        }
+    };
 
     // Realtime: refresh quando notifications ou portal_responses mudam externamente
     useEffect(() => {
@@ -464,7 +510,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
             // 2. Capturar imagem se for estudante
             if (isStudent) {
-                const success = await copyS89ToClipboard(part, assistantName);
+                const success = await copyS89ToClipboard(part, assistantName, meetingDayOfWeek);
                 if (!success) {
                     console.warn('Falha ao gerar imagem do cartão S-89. Continuando apenas com texto.');
                 }
@@ -594,23 +640,24 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 const hour = new Date().getHours();
                 const greeting = hour < 12 ? 'bom dia' : hour < 18 ? 'boa tarde' : 'boa noite';
 
-                // 2. Calcular Data da Quinta-feira da semana
-                // weekId assume formato YYYY-MM-DD (Segunda-feira)
+                // 2. Calcular Data da reunião da semana com base no dropdown persistido.
                 const [y, m, d] = weekId.split('-').map(Number);
                 const weekDate = new Date(y, m - 1, d);
-                // Adicionar 3 dias para chegar na Quinta-feira
-                const thursdayDate = new Date(weekDate);
-                thursdayDate.setDate(weekDate.getDate() + 3);
+                const daysToTarget = (meetingDayOfWeek - weekDate.getDay() + 7) % 7;
+                const targetDate = new Date(weekDate);
+                targetDate.setDate(weekDate.getDate() + daysToTarget);
 
                 // Formatar Data: DD de MMMMM de YYYYY
-                const day = thursdayDate.getDate();
+                const day = targetDate.getDate();
                 const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-                const month = months[thursdayDate.getMonth()];
-                const year = thursdayDate.getFullYear();
+                const weekDays = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];
+                const dayName = weekDays[targetDate.getDay()] || 'quinta-feira';
+                const month = months[targetDate.getMonth()];
+                const year = targetDate.getFullYear();
                 const formattedDate = `${day} de ${month} de ${year}`;
 
                 // 3. Montar Mensagem
-                const message = `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para quinta-feira, dia ${formattedDate}.\n\n(Salmo 90:17)`;
+                const message = `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para ${dayName}, dia ${formattedDate}.\n\n(Salmo 90:17)`;
 
                 // 4. Abrir WhatsApp Web com texto preenchido
                 const encodedMessage = encodeURIComponent(message);
@@ -843,7 +890,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                         <span style={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>📅 Dia da reunião na mensagem:</span>
                         <select
                             value={meetingDayOfWeek}
-                            onChange={e => setMeetingDayOfWeek(parseInt(e.target.value))}
+                            onChange={e => handleMeetingDayChange(parseInt(e.target.value, 10))}
                             style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #D97706', fontSize: 13 }}
                         >
                             <option value={0}>Domingo</option>
@@ -855,7 +902,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                             <option value={6}>Sábado</option>
                         </select>
                         <span style={{ fontSize: 11, color: '#92400E', fontStyle: 'italic' }}>
-                            (Aplica só nesta mensagem; não altera a apostila)
+                            (Fica salvo por semana e reflete nas mensagens/formulario S-89)
                         </span>
                     </div>
 
