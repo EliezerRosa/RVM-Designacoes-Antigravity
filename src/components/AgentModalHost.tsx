@@ -273,6 +273,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                     <SpecialEventsManager
                         availableWeeks={availableWeeks}
                         workbookParts={Object.values(weekParts).flat()}
+                        publishers={publishers}
                         onClose={handleClose}
                         onEventApplied={() => { if (onDataChange) onDataChange(); }}
                     />

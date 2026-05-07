@@ -898,6 +898,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                                                 })
                                         }
                                         workbookParts={parts}
+                                        publishers={publishers}
                                         onClose={() => setIsEventsModalOpen(false)}
                                         onEventApplied={() => loadPartsWithFilters()}
                                     />
