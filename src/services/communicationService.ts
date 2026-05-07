@@ -77,6 +77,21 @@ async function resolveMeetingDayOfWeek(weekId?: string, providedValue?: number):
     }
 }
 
+function uniqueNonEmptyLines(values: Array<string | undefined>): string[] {
+    const seen = new Set<string>();
+    const result: string[] = [];
+
+    for (const value of values) {
+        const normalized = value?.trim();
+        if (!normalized) continue;
+        if (seen.has(normalized)) continue;
+        seen.add(normalized);
+        result.push(normalized);
+    }
+
+    return result;
+}
+
 async function ensureSupabaseSessionReady(): Promise<boolean> {
     const { data, error } = await supabase.auth.getSession();
 
@@ -608,6 +623,33 @@ export const communicationService = {
                 }
 
                 if (relevantNotes.length > 0) {
+                    const createdByEvent = events.find(evt => (part as any).createdByEventId === evt.id);
+                    if (createdByEvent) {
+                        const specialPartDescription = uniqueNonEmptyLines([
+                            part.descricaoParte,
+                            part.tituloParte,
+                            createdByEvent.theme,
+                        ])[0];
+
+                        const complementaryObservations = uniqueNonEmptyLines([
+                            part.detalhesParte,
+                            createdByEvent.observation,
+                            createdByEvent.observations,
+                            createdByEvent.guidelines,
+                        ]);
+
+                        if (specialPartDescription || complementaryObservations.length > 0) {
+                            content += `\n\n──────────────────\n`;
+                            content += `📋 *DETALHES DA PARTE-EVENTO*\n`;
+                            if (specialPartDescription) {
+                                content += `• *Descrição:* ${specialPartDescription}\n`;
+                            }
+                            if (complementaryObservations.length > 0) {
+                                content += `• *Observações complementares:* ${complementaryObservations.join(' | ')}\n`;
+                            }
+                        }
+                    }
+
                     // Remover duplicatas
                     const uniqueNotes = Array.from(new Set(relevantNotes));
 
