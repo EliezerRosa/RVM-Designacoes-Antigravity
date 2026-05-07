@@ -6,7 +6,6 @@
 import React from 'react';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { PublisherSelect } from './PublisherSelect';
-import { TiedAlternativesPicker } from './TiedAlternativesPicker';
 import { Tooltip } from './Tooltip';
 import { getStatusConfig } from '../constants/status';
 void React;
@@ -171,13 +170,6 @@ export function WorkbookTable({
                                         allParts={filteredParts}
                                         history={historyRecords}
                                         style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
-                                    />
-                                    <TiedAlternativesPicker
-                                        part={part}
-                                        publishers={publishers}
-                                        historyRecords={historyRecords}
-                                        currentName={displayRaw}
-                                        onSelect={(newId, newName) => onPublisherSelect(part.id, newId, newName)}
                                     />
                                 </td>
                                 <td style={{ padding: '4px', textAlign: 'center' }}>
