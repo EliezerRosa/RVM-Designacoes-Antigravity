@@ -6,21 +6,30 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
 import { supabase } from '../lib/supabase';
-import type { SpecialEvent, EventImpactOverride, WorkbookPart } from '../types';
+import type { SpecialEvent, EventImpactOverride, WorkbookPart, Publisher } from '../types';
 import { GuidedTour, tourSeenKey, type TourStep } from './GuidedTour';
+
+// Templates que geram uma parte adicional na Vida Cristã (Preparação/Recapitulação)
+const PREP_RECAP_IDS = [
+    'preparacao-assembleia',
+    'recapitulacao-assembleia',
+    'preparacao-congresso',
+    'recapitulacao-congresso',
+] as const;
 
 interface Props {
     availableWeeks: { weekId: string; display: string }[];
     onClose: () => void;
     onEventApplied?: () => void;  // Callback para recarregar partes
     workbookParts?: WorkbookPart[];  // Mantido para compatibilidade, mas não usado
+    publishers?: Publisher[];         // Para picker Ancião/SM no sub-evento
     /** Se true, esconde formulário e botões de mutação (somente leitura). */
     readOnly?: boolean;
     /** Papel do usuário para badge edit/view no tutorial. Default 'admin'. */
     role?: string;
 }
 
-export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false, role = 'admin' }: Props) {
+export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false, role = 'admin', publishers = [] }: Props) {
     const [events, setEvents] = useState<SpecialEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -39,6 +48,10 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     const [formTheme, setFormTheme] = useState('');
     const [formAssignee, setFormAssignee] = useState('');
     const [formAutoApply, setFormAutoApply] = useState(true);
+
+    // Sub-evento (Preparação/Recapitulação)
+    const [formSubEventDuration, setFormSubEventDuration] = useState(10);
+    const [formAssigneeIsCustom, setFormAssigneeIsCustom] = useState(false);
 
     // Suporte a Impactos Granulares por Parte
     const [formGranularImpacts, setFormGranularImpacts] = useState<Record<string, { visual: boolean; cancel: boolean; reduceTime: boolean; minutes: number }>>({});
@@ -98,6 +111,16 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
+    const isInPrepRecapMode = (PREP_RECAP_IDS as readonly string[]).includes(formTemplateId);
+
+    // Anciãos e SMs ativos para o picker
+    const eldersSMs = publishers
+        .filter(p =>
+            (p.condition === 'Ancião' || p.condition === 'Anciao' || p.condition === 'Servo Ministerial') &&
+            p.isServing !== false
+        )
+        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+
     // Carregar partes da semana diretamente do Supabase (fonte da verdade)
     useEffect(() => {
         if (!formWeekId) {
@@ -151,6 +174,13 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         }
     }, [formTemplateId, allWeekParts.length]);
 
+    // Sincronizar duração padrão do sub-evento quando muda o template
+    useEffect(() => {
+        if (selectedTemplate) {
+            setFormSubEventDuration(selectedTemplate.defaults.duration || 10);
+        }
+    }, [formTemplateId]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const resetForm = () => {
         setFormTemplateId('');
         setFormWeekId('');
@@ -167,6 +197,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         setFormLinks('');
         setAllWeekParts([]);
         setFormGlobalAffectedPartIds([]);
+        setFormSubEventDuration(10);
+        setFormAssigneeIsCustom(false);
     };
 
     const handleSubmit = async () => {
@@ -220,12 +252,17 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 });
             });
 
+            // Prep/Recapitulação: inserir uma parte adicional na Vida Cristã
+            if (isInPrepRecapMode && formAssignee) {
+                impacts.push({ action: 'ADD_PART' });
+            }
+
             const eventData = {
                 templateId: formTemplateId,
                 week: formWeekId,
                 theme: formTheme || undefined,
                 responsible: formAssignee || undefined,
-                duration: selectedTemplate?.defaults.duration,
+                duration: isInPrepRecapMode ? formSubEventDuration : selectedTemplate?.defaults.duration,
                 isApplied: false,
                 impacts: impacts,
                 affectedPartIds: allVisualIds.length > 0 ? allVisualIds : undefined,
@@ -255,6 +292,14 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 // Aplicar automaticamente
                 await specialEventService.applyEventImpact(createdEvent, partIds);
                 console.log('[Eventos] ✅ Evento aplicado automaticamente');
+
+                // Recalcular horários de início/fim das partes da semana
+                try {
+                    const { workbookService } = await import('../services/workbookService');
+                    await workbookService.recalculateWeekTimings(formWeekId);
+                } catch (e) {
+                    console.warn('[Eventos] Recálculo de horários falhou (não crítico):', e);
+                }
             } else if (partIds.length > 0) {
                 // Marcar como pendente (indicadores visuais)
                 await specialEventService.markPendingImpact(createdEvent, partIds);
@@ -809,12 +854,12 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                 </button>
                             )}
                             {!readOnly && (<>
-                            <button onClick={() => handleEdit(event)} style={btnStyle('#3B82F6')} title="Editar">
-                                ✏️
-                            </button>
-                            <button onClick={() => handleDelete(event)} style={btnStyle('#EF4444')} title="Excluir">
-                                🗑️
-                            </button>
+                                <button onClick={() => handleEdit(event)} style={btnStyle('#3B82F6')} title="Editar">
+                                    ✏️
+                                </button>
+                                <button onClick={() => handleDelete(event)} style={btnStyle('#EF4444')} title="Excluir">
+                                    🗑️
+                                </button>
                             </>)}
                         </div>
                     </div>
