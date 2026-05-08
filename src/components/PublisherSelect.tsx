@@ -444,10 +444,15 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         return getTextualConstraintSummary(ctx);
     }, [part, weekParts, publishers]);
 
+    // Quando o nome digitado/importado não corresponde a nenhum publicador cadastrado,
+    // exibimos a opção '__unmatched__' como valor selecionado para que o nome apareça no dropdown
+    // (ex.: visitas do SC com nome livre).
+    const selectValue = showUnmatchedName ? '__unmatched__' : effectiveValue;
+
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <select
-                value={effectiveValue}
+                value={selectValue}
                 onChange={(e) => {
                     const id = e.target.value;
                     if (!id || id === '__unmatched__') {
@@ -474,10 +479,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 }}
             >
                 <option value="">Selecione...</option>
-                {/* Se temos um nome não encontrado na lista, mostrar como opção selecionada */}
+                {/* Se temos um nome não encontrado na lista, mostrar como opção selecionada (não desabilitada para que apareça no closed select) */}
                 {showUnmatchedName && (
-                    <option value="__unmatched__" disabled style={{ fontStyle: 'italic', color: '#9CA3AF' }}>
-                        ⚠️ {displayName} (não encontrado)
+                    <option value="__unmatched__" style={{ fontStyle: 'italic', color: '#ef4444' }}>
+                        ⚠️ {displayName} (não cadastrado)
                     </option>
                 )}
                 {selectedIneligibleOption && (
