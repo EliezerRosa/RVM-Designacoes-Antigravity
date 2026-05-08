@@ -49,7 +49,7 @@ export interface WhatsAppDispatchEntry {
     createdAt: string;
 }
 
-interface RpcOk { success: true; history_id?: number; dispatch_id?: number; }
+interface RpcOk { success: true; history_id?: number; dispatch_id?: number; already_dispatched?: boolean; }
 
 function unwrap<T>(data: unknown, error: { message: string } | null): T {
     if (error) throw new Error(error.message);

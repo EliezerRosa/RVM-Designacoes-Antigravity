@@ -162,8 +162,8 @@ export function WhatsAppDispatcher({ event, publishers, actorLabel, onClose }: P
         try {
             // 1. Abrir wa.me em nova aba (precisa ser dentro do gesto do click).
             window.open(buildWhatsAppUrl(row.phone, message), '_blank', 'noopener,noreferrer');
-            // 2. Registrar dispatch (não bloqueia se a aba já abriu).
-            await announcementService.logWhatsAppDispatch({
+            // 2. Registrar dispatch (defesa server-side: ON CONFLICT garante idempotência).
+            const result = await announcementService.logWhatsAppDispatch({
                 eventId: event.id,
                 actorLabel,
                 recipientRole: row.funcao || row.role || 'publicador',
@@ -174,6 +174,9 @@ export function WhatsAppDispatcher({ event, publishers, actorLabel, onClose }: P
                 metadata: { via: 'wa.me-direct' },
             });
             await refreshLog();
+            if (result.already_dispatched) {
+                alert(`ℹ️ Esta mensagem já havia sido registrada para ${row.name}.\n\nA aba foi aberta novamente, mas não duplicamos o registro.`);
+            }
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Falha ao registrar envio';
             alert(`Aviso: a aba do WhatsApp foi aberta, mas o registro falhou.\n\n${msg}`);
