@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import type { SpecialEvent, EventImpactOverride, WorkbookPart, Publisher, AnnouncementApprovalStatus } from '../types';
 import { GuidedTour, tourSeenKey, type TourStep } from './GuidedTour';
 import { AnnouncementBanner } from './AnnouncementBanner';
+import { WhatsAppDispatcher } from './WhatsAppDispatcher';
 
 /** Mapeia ação de histórico → label PT-BR. */
 const HISTORY_ACTION_LABELS: Record<string, string> = {
@@ -76,6 +77,9 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     const [historyOpenFor, setHistoryOpenFor] = useState<string | null>(null);
     const [historyEntries, setHistoryEntries] = useState<AnnouncementHistoryEntry[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
+
+    // Phase D: WhatsApp dispatcher modal
+    const [dispatcherOpenFor, setDispatcherOpenFor] = useState<SpecialEvent | null>(null);
 
     // Identidade efetiva (Phase C): se caller passou currentUser, usar.
     // Senão, resolver via AuthContext + lookup em publishers (funcao do registro).
@@ -1209,6 +1213,11 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                             ↩️ Revogar
                                         </button>
                                     )}
+                                    {announcementPermissions.canDispatchWhatsApp(effectiveUser) && status === 'APPROVED' && (
+                                        <button onClick={() => setDispatcherOpenFor(event)} style={btnStyle('#16A34A')} title="Enviar via WhatsApp">
+                                            📱 WhatsApp
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => historyOpenFor === event.id ? closeHistory() : openHistory(event.id)}
                                         style={btnStyle('#7C3AED')}
@@ -1342,6 +1351,16 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                     hasParts: allWeekParts.length > 0,
                 })}
             />
+
+            {/* Phase D: WhatsApp dispatcher modal */}
+            {dispatcherOpenFor && (
+                <WhatsAppDispatcher
+                    event={dispatcherOpenFor}
+                    publishers={publishers}
+                    actorLabel={effectiveUser.funcao || (effectiveUser.role === 'admin' ? 'Admin' : 'Usuário')}
+                    onClose={() => setDispatcherOpenFor(null)}
+                />
+            )}
         </div>
     );
 }
