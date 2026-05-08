@@ -242,7 +242,30 @@ export interface SpecialEvent {
     content?: string;           // Essência/conteúdo do anúncio ou notificação
     reference?: string;         // Referência bibliográfica ou documental
     links?: string[];           // Links relacionados
+
+    // ===== Workflow de aprovação CS (Comissão de Serviço) =====
+    approvalStatus?: AnnouncementApprovalStatus;
+    approvedById?: string;
+    approvedByLabel?: string;
+    approvedAt?: string;
+    revertedById?: string;
+    revertedAt?: string;
+    revertedReason?: string;
+    rejectedReason?: string;
+    linkedEventId?: string;     // Anúncio/notif vinculado a outro evento (ex.: notif vinculada a um anúncio)
+    isTemplate?: boolean;       // Padrão (Anúncio/Notif Padrão) auto-clonável
+    templateKey?: string;       // Identificador único do padrão (ex.: 'cooperacao-servico-de-campo')
+    autoAttachTo?: string[];    // template_ids onde este padrão deve ser auto-clonado
+    publishedAt?: string;       // Quando publicado no S-140 (gerado)
 }
+
+/** Estados do workflow de aprovação CS para Anúncios/Notificações. */
+export type AnnouncementApprovalStatus =
+    | 'DRAFT'      // Rascunho — editável por CS/SRVM
+    | 'PENDING'    // Aguardando aprovação do CCA
+    | 'APPROVED'   // Aprovado — entra no S-140
+    | 'REJECTED'   // Rejeitado pelo CCA (com motivo)
+    | 'REVOKED';   // Revogado após publicação
 
 // ===== APOSTILA (WORKBOOK STAGING) =====
 
