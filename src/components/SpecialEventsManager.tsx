@@ -328,7 +328,9 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         setFormTemplateId(event.templateId);
         setFormWeekId(event.week);
         setFormTheme(event.theme || '');
-        setFormAssignee(event.responsible || '');
+        const assignee = event.responsible || '';
+        setFormAssignee(assignee);
+        setFormAssigneeIsCustom(!!assignee && !eldersSMs.some(p => p.name === assignee));
 
         // Popular impactos granulares a partir do array de impacts do banco
         const granular: Record<string, any> = {};
@@ -597,6 +599,89 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         ))}
                     </select>
 
+                    {isInAddPartMode && (
+                        <div style={{
+                            marginTop: '12px',
+                            marginBottom: '16px',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            background: '#EFF6FF',
+                            border: '1px solid #BFDBFE'
+                        }}>
+                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1D4ED8', marginBottom: '4px' }}>
+                                📢 {addPartBlockTitle}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#1E40AF', marginBottom: '12px' }}>
+                                {addPartBlockDescription}
+                            </div>
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
+                                Responsável
+                            </label>
+
+                            {formAssigneeIsCustom ? (
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                    <input
+                                        type="text"
+                                        value={formAssignee}
+                                        onChange={e => setFormAssignee(e.target.value)}
+                                        placeholder="Nome do responsável"
+                                        style={{ ...inputStyle, marginBottom: 0 }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setFormAssignee('');
+                                            setFormAssigneeIsCustom(false);
+                                        }}
+                                        style={btnStyle('#6B7280')}
+                                    >
+                                        ↩ Lista
+                                    </button>
+                                </div>
+                            ) : (
+                                <select
+                                    value={formAssignee || ''}
+                                    onChange={e => {
+                                        const value = e.target.value;
+                                        if (value === '__custom__') {
+                                            setFormAssignee('');
+                                            setFormAssigneeIsCustom(true);
+                                            return;
+                                        }
+                                        setFormAssignee(value);
+                                    }}
+                                    style={inputStyle}
+                                >
+                                    <option value="">Selecione o responsável...</option>
+                                    <optgroup label="Anciãos">
+                                        {eldersSMs
+                                            .filter(p => p.condition === 'Ancião' || p.condition === 'Anciao')
+                                            .map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                    </optgroup>
+                                    <optgroup label="Servos Ministeriais">
+                                        {eldersSMs
+                                            .filter(p => p.condition === 'Servo Ministerial')
+                                            .map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                    </optgroup>
+                                    <option value="__custom__">Nome não cadastrado...</option>
+                                </select>
+                            )}
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
+                                Duração da parte
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="60"
+                                value={formSubEventDuration}
+                                onChange={e => setFormSubEventDuration(Number(e.target.value))}
+                                style={inputStyle}
+                            />
+                        </div>
+                    )}
+
                     {/* NOVA SEÇÃO: IMPACTOS POR PARTE (Modelagem Granular) */}
                     {formWeekId && allWeekParts.length > 0 && (
                         <div data-tour="evf-granular" style={{ marginTop: '16px', borderTop: '1px solid #E5E7EB', paddingTop: '16px', marginBottom: '16px' }}>
@@ -721,88 +806,6 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                             style={inputStyle}
                         />
                     </div>
-
-                    {isInAddPartMode && (
-                        <div style={{
-                            marginBottom: '16px',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            background: '#EFF6FF',
-                            border: '1px solid #BFDBFE'
-                        }}>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1D4ED8', marginBottom: '4px' }}>
-                                📢 {addPartBlockTitle}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#1E40AF', marginBottom: '12px' }}>
-                                {addPartBlockDescription}
-                            </div>
-
-                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                                Responsável
-                            </label>
-
-                            {formAssigneeIsCustom ? (
-                                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                                    <input
-                                        type="text"
-                                        value={formAssignee}
-                                        onChange={e => setFormAssignee(e.target.value)}
-                                        placeholder="Nome do responsável"
-                                        style={{ ...inputStyle, marginBottom: 0 }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setFormAssignee('');
-                                            setFormAssigneeIsCustom(false);
-                                        }}
-                                        style={btnStyle('#6B7280')}
-                                    >
-                                        ↩ Lista
-                                    </button>
-                                </div>
-                            ) : (
-                                <select
-                                    value={formAssignee || ''}
-                                    onChange={e => {
-                                        const value = e.target.value;
-                                        if (value === '__custom__') {
-                                            setFormAssignee('');
-                                            setFormAssigneeIsCustom(true);
-                                            return;
-                                        }
-                                        setFormAssignee(value);
-                                    }}
-                                    style={inputStyle}
-                                >
-                                    <option value="">Selecione o responsável...</option>
-                                    <optgroup label="Anciãos">
-                                        {eldersSMs
-                                            .filter(p => p.condition === 'Ancião' || p.condition === 'Anciao')
-                                            .map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                                    </optgroup>
-                                    <optgroup label="Servos Ministeriais">
-                                        {eldersSMs
-                                            .filter(p => p.condition === 'Servo Ministerial')
-                                            .map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                                    </optgroup>
-                                    <option value="__custom__">Nome não cadastrado...</option>
-                                </select>
-                            )}
-
-                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                                Duração da parte
-                            </label>
-                            <input
-                                type="number"
-                                min="1"
-                                max="60"
-                                value={formSubEventDuration}
-                                onChange={e => setFormSubEventDuration(Number(e.target.value))}
-                                style={inputStyle}
-                            />
-                        </div>
-                    )}
 
                     {selectedTemplate?.defaults.requiresAssignee && !isInAddPartMode && (
                         <>
