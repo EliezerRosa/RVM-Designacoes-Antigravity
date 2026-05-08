@@ -696,9 +696,12 @@ export const workbookService = {
         for (const seq of sortedSeqs) {
             const part = uniqueParts.get(seq);
 
+            // Partes CANCELADAS não consomem tempo (mas mantêm-se na lista por integridade visual).
+            const isCancelled = String(part?.status || '').toUpperCase() === 'CANCELADA';
+
             // Duração: Tentar numérico, ou extrair de string "10 min"
             let duration = 0;
-            if (part /* part existe */) {
+            if (part && !isCancelled) {
                 // Parse duração
                 let dStr = String(part.duracao || '').toLowerCase();
                 // Remover ' min', 's', etc
