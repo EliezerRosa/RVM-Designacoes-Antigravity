@@ -9,8 +9,9 @@ import { supabase } from '../lib/supabase';
 import type { SpecialEvent, EventImpactOverride, WorkbookPart, Publisher } from '../types';
 import { GuidedTour, tourSeenKey, type TourStep } from './GuidedTour';
 
-// Templates que geram uma parte adicional na Vida Cristã (Preparação/Recapitulação)
-const PREP_RECAP_IDS = [
+// Templates que geram uma parte adicional na Vida Cristã via subevento.
+const ADD_PART_TEMPLATE_IDS = [
+    'visita-sc',
     'preparacao-assembleia',
     'recapitulacao-assembleia',
     'preparacao-congresso',
@@ -49,7 +50,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     const [formAssignee, setFormAssignee] = useState('');
     const [formAutoApply, setFormAutoApply] = useState(true);
 
-    // Sub-evento (Preparação/Recapitulação)
+    // Sub-evento (templates com ADD_PART)
     const [formSubEventDuration, setFormSubEventDuration] = useState(10);
     const [formAssigneeIsCustom, setFormAssigneeIsCustom] = useState(false);
 
@@ -111,7 +112,13 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
-    const isInPrepRecapMode = (PREP_RECAP_IDS as readonly string[]).includes(formTemplateId);
+    const isInAddPartMode = (ADD_PART_TEMPLATE_IDS as readonly string[]).includes(formTemplateId);
+    const addPartBlockTitle = formTemplateId === 'visita-sc'
+        ? 'Parte Especial da Visita'
+        : 'Parte a Apresentar';
+    const addPartBlockDescription = formTemplateId === 'visita-sc'
+        ? 'Defina o responsável e a duração da parte adicional ligada à visita do SC.'
+        : 'Defina o responsável e a duração da parte adicional ligada a este evento.';
 
     // Anciãos e SMs ativos para o picker
     const eldersSMs = publishers
@@ -252,8 +259,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 });
             });
 
-            // Prep/Recapitulação: inserir uma parte adicional na Vida Cristã
-            if (isInPrepRecapMode && formAssignee) {
+            // Templates com ADD_PART: inserir uma parte adicional na Vida Cristã
+            if (isInAddPartMode && formAssignee) {
                 impacts.push({ action: 'ADD_PART' });
             }
 
@@ -262,7 +269,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 week: formWeekId,
                 theme: formTheme || undefined,
                 responsible: formAssignee || undefined,
-                duration: isInPrepRecapMode ? formSubEventDuration : selectedTemplate?.defaults.duration,
+                duration: isInAddPartMode ? formSubEventDuration : selectedTemplate?.defaults.duration,
                 isApplied: false,
                 impacts: impacts,
                 affectedPartIds: allVisualIds.length > 0 ? allVisualIds : undefined,
@@ -715,7 +722,89 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         />
                     </div>
 
-                    {selectedTemplate?.defaults.requiresAssignee && (
+                    {isInAddPartMode && (
+                        <div style={{
+                            marginBottom: '16px',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            background: '#EFF6FF',
+                            border: '1px solid #BFDBFE'
+                        }}>
+                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1D4ED8', marginBottom: '4px' }}>
+                                📢 {addPartBlockTitle}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#1E40AF', marginBottom: '12px' }}>
+                                {addPartBlockDescription}
+                            </div>
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
+                                Responsável
+                            </label>
+
+                            {formAssigneeIsCustom ? (
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                                    <input
+                                        type="text"
+                                        value={formAssignee}
+                                        onChange={e => setFormAssignee(e.target.value)}
+                                        placeholder="Nome do responsável"
+                                        style={{ ...inputStyle, marginBottom: 0 }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setFormAssignee('');
+                                            setFormAssigneeIsCustom(false);
+                                        }}
+                                        style={btnStyle('#6B7280')}
+                                    >
+                                        ↩ Lista
+                                    </button>
+                                </div>
+                            ) : (
+                                <select
+                                    value={formAssignee || ''}
+                                    onChange={e => {
+                                        const value = e.target.value;
+                                        if (value === '__custom__') {
+                                            setFormAssignee('');
+                                            setFormAssigneeIsCustom(true);
+                                            return;
+                                        }
+                                        setFormAssignee(value);
+                                    }}
+                                    style={inputStyle}
+                                >
+                                    <option value="">Selecione o responsável...</option>
+                                    <optgroup label="Anciãos">
+                                        {eldersSMs
+                                            .filter(p => p.condition === 'Ancião' || p.condition === 'Anciao')
+                                            .map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                    </optgroup>
+                                    <optgroup label="Servos Ministeriais">
+                                        {eldersSMs
+                                            .filter(p => p.condition === 'Servo Ministerial')
+                                            .map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                    </optgroup>
+                                    <option value="__custom__">Nome não cadastrado...</option>
+                                </select>
+                            )}
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
+                                Duração da parte
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="60"
+                                value={formSubEventDuration}
+                                onChange={e => setFormSubEventDuration(Number(e.target.value))}
+                                style={inputStyle}
+                            />
+                        </div>
+                    )}
+
+                    {selectedTemplate?.defaults.requiresAssignee && !isInAddPartMode && (
                         <>
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>Responsável</label>
                             <input
