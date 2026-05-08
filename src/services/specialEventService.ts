@@ -488,7 +488,7 @@ export const specialEventService = {
                                 week_id: event.week,
                                 week_display: lastPart?.week_display || event.week,
                                 date: lastPart?.date || event.week,
-                                section: 'Vida Cristã',
+                                section: 'Nossa Vida Cristã',
                                 tipo_parte: 'Evento Especial',
                                 part_title: impact.newPartDetails?.theme || event.theme || template?.name || 'Evento Especial',
                                 modalidade: 'Discurso de Ensino',
