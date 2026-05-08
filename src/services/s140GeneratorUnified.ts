@@ -140,6 +140,12 @@ interface S140WeekDataUnified {
     hasEvents: boolean;
     isWeekCancelled: boolean;
     cancelReason?: string;
+    /**
+     * Phase B: quando true, anúncios/notificações não-aprovados aparecem no S-140
+     * com sufixo de status (útil para preview do CCA antes de aprovar).
+     * Default false: apenas APPROVED são renderizados.
+     */
+    includeUnapproved?: boolean;
 }
 
 // ============================================================================
@@ -358,7 +364,28 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
     // Notas de rodapé para eventos especiais (NUNCA no topo ou corpo)
     let footerNotes = '';
     // Apenas eventos aplicados geram notas no S-140
-    const appliedEvents = (weekData.events || []).filter(e => e.isApplied);
+    const ANNOUNCEMENT_TPL_IDS = new Set(['anuncio', 'notificacao']);
+    const includeUnapproved = !!weekData.includeUnapproved;
+
+    // Phase B: filtrar anúncios/notificações não-aprovados (a menos que includeUnapproved)
+    const visibleAppliedEvents = (weekData.events || []).filter(e => {
+        if (!e.isApplied) return false;
+        if (!ANNOUNCEMENT_TPL_IDS.has(e.templateId)) return true;
+        const status = (e as any).approvalStatus || 'DRAFT';
+        if (status === 'APPROVED') return true;
+        return includeUnapproved;
+    });
+
+    // Phase B: ordenar para que vinculados (linkedEventId) apareçam logo após o pai
+    const orderById = new Map<string, number>();
+    visibleAppliedEvents.forEach((e, i) => orderById.set(e.id, i));
+    const appliedEvents = [...visibleAppliedEvents].sort((a, b) => {
+        const aParent = (a as any).linkedEventId as string | undefined;
+        const bParent = (b as any).linkedEventId as string | undefined;
+        const aKey = aParent && orderById.has(aParent) ? orderById.get(aParent)! * 10 + 1 : orderById.get(a.id)! * 10;
+        const bKey = bParent && orderById.has(bParent) ? orderById.get(bParent)! * 10 + 1 : orderById.get(b.id)! * 10;
+        return aKey - bKey;
+    });
     if (appliedEvents.length > 0) {
         let noteIndex = 1;
         const noteItems = appliedEvents.map(e => {
@@ -416,7 +443,25 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             if (reference) extra += ` (Ref: ${reference})`;
 
             const icon = (e.templateId === 'anuncio') ? '📢' : (e.templateId === 'notificacao') ? '🔔' : '📌';
-            return `<div style="margin-bottom: 4px;"><span style="font-size: 10pt; vertical-align: super; font-weight: bold; color: #4B5563;">*${currentIndex}</span> ${icon} <strong>${name}</strong>${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
+
+            // Phase B: indentação e sufixo de status para vinculados/não-aprovados
+            const isAnnouncement = ANNOUNCEMENT_TPL_IDS.has(e.templateId);
+            const status: string = (e as any).approvalStatus || 'DRAFT';
+            const isLinked = !!((e as any).linkedEventId) && orderById.has((e as any).linkedEventId);
+            const indent = isLinked ? 'margin-left: 18px; ' : '';
+            const linkedMarker = isLinked ? '↳ ' : '';
+            let statusSuffix = '';
+            if (isAnnouncement && status !== 'APPROVED') {
+                const statusLabels: Record<string, string> = {
+                    DRAFT: 'Rascunho',
+                    PENDING: 'Aguardando aprovação',
+                    REJECTED: 'Rejeitado',
+                    REVOKED: 'Revogado',
+                };
+                const label = statusLabels[status] || status;
+                statusSuffix = ` <span style="color:#B91C1C; font-weight:600; font-size:9pt;">[${label}]</span>`;
+            }
+            return `<div style="${indent}margin-bottom: 4px;"><span style="font-size: 10pt; vertical-align: super; font-weight: bold; color: #4B5563;">*${currentIndex}</span> ${linkedMarker}${icon} <strong>${name}</strong>${statusSuffix}${impactDesc ? ': ' + impactDesc : ''}${extra}</div>`;
         }).join('');
 
         footerNotes = `

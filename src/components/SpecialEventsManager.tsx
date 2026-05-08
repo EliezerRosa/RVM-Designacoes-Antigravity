@@ -3,11 +3,25 @@
  * Modal com CRUD completo para eventos que impactam semanas da apostila
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
+import { announcementService, type AnnouncementHistoryEntry } from '../services/announcementService';
+import { announcementPermissions, type AnnouncementUser } from '../lib/announcementPermissions';
 import { supabase } from '../lib/supabase';
-import type { SpecialEvent, EventImpactOverride, WorkbookPart, Publisher } from '../types';
+import type { SpecialEvent, EventImpactOverride, WorkbookPart, Publisher, AnnouncementApprovalStatus } from '../types';
 import { GuidedTour, tourSeenKey, type TourStep } from './GuidedTour';
+
+const ANNOUNCEMENT_TEMPLATE_IDS = ['anuncio', 'notificacao'] as const;
+const isAnnouncementTemplate = (templateId: string | undefined | null) =>
+    !!templateId && (ANNOUNCEMENT_TEMPLATE_IDS as readonly string[]).includes(templateId);
+
+const APPROVAL_STATUS_STYLES: Record<AnnouncementApprovalStatus, { bg: string; color: string; label: string }> = {
+    DRAFT: { bg: '#E5E7EB', color: '#374151', label: 'Rascunho' },
+    PENDING: { bg: '#FEF3C7', color: '#92400E', label: 'Aguardando aprovação' },
+    APPROVED: { bg: '#DCFCE7', color: '#166534', label: 'Aprovado' },
+    REJECTED: { bg: '#FEE2E2', color: '#B91C1C', label: 'Rejeitado' },
+    REVOKED: { bg: '#FFE4E6', color: '#9F1239', label: 'Revogado' },
+};
 
 // Templates que geram uma parte adicional na Vida Cristã via subevento.
 const ADD_PART_TEMPLATE_IDS = [
@@ -28,14 +42,30 @@ interface Props {
     readOnly?: boolean;
     /** Papel do usuário para badge edit/view no tutorial. Default 'admin'. */
     role?: string;
+    /** Identidade efetiva para gating do workflow de aprovação (CCA/SEC/SS). */
+    currentUser?: AnnouncementUser;
 }
 
-export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false, role = 'admin', publishers = [] }: Props) {
+export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false, role = 'admin', publishers = [], currentUser }: Props) {
     const [events, setEvents] = useState<SpecialEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
     const [editingEvent, setEditingEvent] = useState<SpecialEvent | null>(null);
+
+    // Phase B: Filtro de aprovação (aplica só a anuncio/notificacao)
+    const [approvalFilter, setApprovalFilter] = useState<'ALL' | AnnouncementApprovalStatus>('ALL');
+
+    // Phase B: Drawer de histórico inline
+    const [historyOpenFor, setHistoryOpenFor] = useState<string | null>(null);
+    const [historyEntries, setHistoryEntries] = useState<AnnouncementHistoryEntry[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    // Identidade efetiva: se não passar currentUser, usar fallback baseado no role do tutorial
+    const effectiveUser: AnnouncementUser = useMemo(() => currentUser ?? {
+        role: role === 'admin' ? 'admin' : 'publicador',
+        funcao: null,
+    }, [currentUser, role]);
 
     // Tutorial
     const [showTour, setShowTour] = useState(false);
@@ -487,6 +517,94 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     const getTemplateName = (templateId: string) => {
         return templates.find(t => t.id === templateId)?.name || templateId;
     };
+
+    // ─── Phase B: Workflow de aprovação (anúncio/notificação) ────────────
+    const wrapWorkflow = async (fn: () => Promise<void>) => {
+        try {
+            setLoading(true);
+            await fn();
+            await loadEvents();
+            // Se o histórico estiver aberto para este evento, recarregar
+            if (historyOpenFor) await openHistory(historyOpenFor, true);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro no workflow de aprovação');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSubmitForApproval = (event: SpecialEvent) =>
+        wrapWorkflow(async () => {
+            await announcementService.submitForApproval(event.id, effectiveUser.funcao || 'Usuário');
+        });
+
+    const handleApprove = (event: SpecialEvent) =>
+        wrapWorkflow(async () => {
+            await announcementService.approve(event.id, effectiveUser.funcao || 'Aprovador');
+        });
+
+    const handleReject = (event: SpecialEvent) => {
+        const reason = prompt('Motivo da rejeição (será registrado no histórico):');
+        if (!reason || !reason.trim()) return;
+        return wrapWorkflow(async () => {
+            await announcementService.reject(event.id, effectiveUser.funcao || 'Aprovador', reason.trim());
+        });
+    };
+
+    const handleRevertApproval = (event: SpecialEvent) => {
+        const reason = prompt('Motivo da revogação:');
+        if (!reason || !reason.trim()) return;
+        return wrapWorkflow(async () => {
+            await announcementService.revertApproval(event.id, effectiveUser.funcao || 'Aprovador', reason.trim());
+        });
+    };
+
+    const openHistory = async (eventId: string, silent = false) => {
+        try {
+            if (!silent) setHistoryLoading(true);
+            setHistoryOpenFor(eventId);
+            const entries = await announcementService.getHistory(eventId);
+            setHistoryEntries(entries);
+        } catch (err) {
+            if (!silent) setError(err instanceof Error ? err.message : 'Erro ao carregar histórico');
+        } finally {
+            if (!silent) setHistoryLoading(false);
+        }
+    };
+
+    const closeHistory = () => {
+        setHistoryOpenFor(null);
+        setHistoryEntries([]);
+    };
+
+    const renderApprovalBadge = (status?: AnnouncementApprovalStatus | null) => {
+        const s = status || 'DRAFT';
+        const cfg = APPROVAL_STATUS_STYLES[s];
+        return (
+            <span style={{
+                display: 'inline-block',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                background: cfg.bg,
+                color: cfg.color,
+                fontSize: '10px',
+                fontWeight: 700,
+                marginLeft: '6px',
+                verticalAlign: 'middle',
+            }}>
+                {cfg.label}
+            </span>
+        );
+    };
+
+    // Lista filtrada considerando filtro de aprovação
+    const filteredEvents = useMemo(() => {
+        if (approvalFilter === 'ALL') return events;
+        return events.filter(e => {
+            if (!isAnnouncementTemplate(e.templateId)) return true; // Outros eventos sempre visíveis
+            return (e.approvalStatus || 'DRAFT') === approvalFilter;
+        });
+    }, [events, approvalFilter]);
 
     // Styles
     const containerStyle: React.CSSProperties = {
@@ -972,20 +1090,44 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 </div>
             )}
 
+            {/* Phase B: Filtro por status de aprovação (afeta só anúncios/notificações) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '12px' }}>
+                <label style={{ color: '#6B7280', fontWeight: 600 }}>Filtrar anúncios/notificações:</label>
+                <select
+                    value={approvalFilter}
+                    onChange={e => setApprovalFilter(e.target.value as 'ALL' | AnnouncementApprovalStatus)}
+                    style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #D1D5DB', fontSize: '12px' }}
+                >
+                    <option value="ALL">Todos</option>
+                    <option value="DRAFT">Rascunho</option>
+                    <option value="PENDING">Aguardando aprovação</option>
+                    <option value="APPROVED">Aprovado</option>
+                    <option value="REJECTED">Rejeitado</option>
+                    <option value="REVOKED">Revogado</option>
+                </select>
+                <span style={{ color: '#9CA3AF' }}>({filteredEvents.length}/{events.length})</span>
+            </div>
+
             {/* Events List */}
             {loading && !showForm ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>
                     Carregando...
                 </div>
-            ) : events.length === 0 ? (
+            ) : filteredEvents.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '30px', color: '#6B7280' }}>
-                    Nenhum evento cadastrado.
-                    <br />
-                    <small>Clique em "Novo Evento" para adicionar.</small>
+                    {events.length === 0 ? (
+                        <>Nenhum evento cadastrado.<br /><small>Clique em "Novo Evento" para adicionar.</small></>
+                    ) : (
+                        <>Nenhum evento corresponde ao filtro selecionado.</>
+                    )}
                 </div>
             ) : (
-                events.map(event => (
-                    <div key={event.id} style={eventCardStyle(event.isApplied)}>
+                filteredEvents.map(event => {
+                    const isAnnouncement = isAnnouncementTemplate(event.templateId);
+                    const status: AnnouncementApprovalStatus = (event.approvalStatus as AnnouncementApprovalStatus) || 'DRAFT';
+                    return (
+                        <div key={event.id}>
+                        <div style={eventCardStyle(event.isApplied)}>
                         <div style={{
                             width: '36px',
                             height: '36px',
@@ -1002,14 +1144,53 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: '600', color: '#1F2937' }}>
                                 {getTemplateName(event.templateId)}
+                                {isAnnouncement && renderApprovalBadge(status)}
                             </div>
                             <div style={{ fontSize: '12px', color: '#6B7280' }}>
                                 Semana: {event.week}
                                 {event.theme && ` • ${event.theme}`}
                                 {event.responsible && ` • ${event.responsible}`}
+                                {isAnnouncement && event.approvedByLabel && status === 'APPROVED' && (
+                                    <> • Aprovado por <em>{event.approvedByLabel}</em></>
+                                )}
+                                {isAnnouncement && event.rejectedReason && status === 'REJECTED' && (
+                                    <> • <span style={{ color: '#B91C1C' }}>Motivo: {event.rejectedReason}</span></>
+                                )}
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {/* Phase B: Botões de workflow para anúncio/notificação */}
+                            {isAnnouncement && !readOnly && (
+                                <>
+                                    {announcementPermissions.canSubmit(effectiveUser, status) && (
+                                        <button onClick={() => handleSubmitForApproval(event)} style={btnStyle('#0EA5E9')} title="Submeter para aprovação">
+                                            📤 Submeter
+                                        </button>
+                                    )}
+                                    {announcementPermissions.canApprove(effectiveUser, status) && (
+                                        <>
+                                            <button onClick={() => handleApprove(event)} style={btnStyle('#16A34A')} title="Aprovar">
+                                                ✅ Aprovar
+                                            </button>
+                                            <button onClick={() => handleReject(event)} style={btnStyle('#DC2626')} title="Rejeitar">
+                                                ❌ Rejeitar
+                                            </button>
+                                        </>
+                                    )}
+                                    {announcementPermissions.canRevert(effectiveUser, status) && (
+                                        <button onClick={() => handleRevertApproval(event)} style={btnStyle('#9F1239')} title="Revogar aprovação">
+                                            ↩️ Revogar
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => historyOpenFor === event.id ? closeHistory() : openHistory(event.id)}
+                                        style={btnStyle('#7C3AED')}
+                                        title="Histórico de aprovação"
+                                    >
+                                        📜 {historyOpenFor === event.id ? 'Fechar' : 'Histórico'}
+                                    </button>
+                                </>
+                            )}
                             {!readOnly && !event.isApplied && (
                                 <button onClick={() => handleApply(event)} style={btnStyle('#059669')} title="Aplicar impacto">
                                     ▶️ Aplicar
@@ -1029,8 +1210,52 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                 </button>
                             </>)}
                         </div>
-                    </div>
-                ))
+                        </div>
+
+                        {/* Phase B: Drawer de histórico inline */}
+                        {isAnnouncement && historyOpenFor === event.id && (
+                            <div style={{
+                                margin: '0 0 8px 48px',
+                                padding: '10px 12px',
+                                background: '#FAF5FF',
+                                border: '1px solid #DDD6FE',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                            }}>
+                                <div style={{ fontWeight: 700, color: '#5B21B6', marginBottom: '6px' }}>
+                                    📜 Histórico de Aprovação
+                                </div>
+                                {historyLoading ? (
+                                    <div style={{ color: '#6B7280' }}>Carregando...</div>
+                                ) : historyEntries.length === 0 ? (
+                                    <div style={{ color: '#9CA3AF', fontStyle: 'italic' }}>Sem entradas registradas.</div>
+                                ) : (
+                                    <ul style={{ margin: 0, paddingLeft: '18px', listStyle: 'disc' }}>
+                                        {historyEntries.map(h => {
+                                            const when = h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : '';
+                                            return (
+                                                <li key={h.id} style={{ marginBottom: '4px', color: '#374151' }}>
+                                                    <strong>{h.action}</strong>
+                                                    {h.from_status && h.to_status && (
+                                                        <> ({h.from_status} → {h.to_status})</>
+                                                    )}
+                                                    {h.actor_label && <> • por <em>{h.actor_label}</em></>}
+                                                    {when && <> • <span style={{ color: '#9CA3AF' }}>{when}</span></>}
+                                                    {h.reason && (
+                                                        <div style={{ color: '#6B7280', fontStyle: 'italic', marginLeft: '4px' }}>
+                                                            “{h.reason}”
+                                                        </div>
+                                                    )}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
+                            </div>
+                        )}
+                        </div>
+                    );
+                })
             )}
 
             {/* Info */}
