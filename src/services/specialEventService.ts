@@ -471,15 +471,50 @@ export const specialEventService = {
 
                 case 'ADD_PART':
                     {
-                        const { data: existingParts } = await supabase
-                            .from('workbook_parts')
-                            .select('seq, date, week_display, batch_id')
-                            .in('id', weekParts)
-                            .order('seq', { ascending: false })
-                            .limit(1);
+                        const insertAfterId = impact.newPartDetails?.insertAfterId;
 
-                        const lastPart = existingParts?.[0];
-                        const newSeq = lastPart ? (lastPart.seq + 1) : 99;
+                        // Anchor para metadados (date, week_display, batch_id) e para calcular seq
+                        let anchorRow: { seq: number; date: string; week_display: string; batch_id: string } | null = null;
+
+                        if (insertAfterId) {
+                            const { data: anchor } = await supabase
+                                .from('workbook_parts')
+                                .select('seq, date, week_display, batch_id')
+                                .eq('id', insertAfterId)
+                                .maybeSingle();
+                            if (anchor) anchorRow = anchor as any;
+                        }
+
+                        if (!anchorRow) {
+                            const { data: existingParts } = await supabase
+                                .from('workbook_parts')
+                                .select('seq, date, week_display, batch_id')
+                                .in('id', weekParts)
+                                .order('seq', { ascending: false })
+                                .limit(1);
+                            anchorRow = (existingParts?.[0] as any) || null;
+                        }
+
+                        const newSeq = anchorRow ? (anchorRow.seq + 1) : 99;
+                        const lastPart = anchorRow;
+
+                        // Se inserindo no meio: deslocar para baixo todas as partes da semana com seq >= newSeq.
+                        // Necessário para preservar ordem e respeitar UNIQUE (year, week_id, seq, funcao).
+                        if (insertAfterId) {
+                            const { data: toShift } = await supabase
+                                .from('workbook_parts')
+                                .select('id, seq')
+                                .in('id', weekParts)
+                                .gte('seq', newSeq);
+                            // Atualiza em ordem decrescente para evitar colisão temporária no índice único.
+                            const sorted = (toShift || []).sort((a: any, b: any) => b.seq - a.seq);
+                            for (const r of sorted as any[]) {
+                                await supabase
+                                    .from('workbook_parts')
+                                    .update({ seq: (r.seq as number) + 1 })
+                                    .eq('id', r.id);
+                            }
+                        }
 
                         const { error: insertError } = await supabase
                             .from('workbook_parts')
