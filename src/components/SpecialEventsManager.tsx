@@ -52,6 +52,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
     // Sub-evento (templates com ADD_PART)
     const [formSubEventDuration, setFormSubEventDuration] = useState(10);
+    const [formSubEventTheme, setFormSubEventTheme] = useState('');
     const [formAssigneeIsCustom, setFormAssigneeIsCustom] = useState(false);
 
     // Suporte a Impactos Granulares por Parte
@@ -188,6 +189,12 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         }
     }, [formTemplateId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    useEffect(() => {
+        if (!isInAddPartMode) {
+            setFormSubEventTheme('');
+        }
+    }, [isInAddPartMode]);
+
     const resetForm = () => {
         setFormTemplateId('');
         setFormWeekId('');
@@ -205,12 +212,18 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         setAllWeekParts([]);
         setFormGlobalAffectedPartIds([]);
         setFormSubEventDuration(10);
+        setFormSubEventTheme('');
         setFormAssigneeIsCustom(false);
     };
 
     const handleSubmit = async () => {
         if (!formTemplateId || !formWeekId) {
             setError('Selecione o tipo e a semana');
+            return;
+        }
+
+        if (isInAddPartMode && !formSubEventTheme.trim()) {
+            setError('Informe o tema da parte adicional para este evento.');
             return;
         }
 
@@ -261,7 +274,13 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
             // Templates com ADD_PART: inserir uma parte adicional na Vida Cristã
             if (isInAddPartMode && formAssignee) {
-                impacts.push({ action: 'ADD_PART' });
+                impacts.push({
+                    action: 'ADD_PART',
+                    newPartDetails: {
+                        duration: formSubEventDuration,
+                        theme: formSubEventTheme.trim(),
+                    },
+                });
             }
 
             const eventData = {
@@ -331,6 +350,12 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         const assignee = event.responsible || '';
         setFormAssignee(assignee);
         setFormAssigneeIsCustom(!!assignee && !eldersSMs.some(p => p.name === assignee));
+
+        const addPartImpact = event.impacts?.find(imp => imp.action === 'ADD_PART');
+        setFormSubEventDuration(
+            Number(addPartImpact?.newPartDetails?.duration) || event.duration || 10
+        );
+        setFormSubEventTheme((addPartImpact?.newPartDetails?.theme || event.theme || '').trim());
 
         // Popular impactos granulares a partir do array de impacts do banco
         const granular: Record<string, any> = {};
@@ -618,6 +643,17 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                             <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
                                 Responsável
                             </label>
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
+                                Tema da parte adicional
+                            </label>
+                            <input
+                                type="text"
+                                value={formSubEventTheme}
+                                onChange={e => setFormSubEventTheme(e.target.value)}
+                                placeholder="Ex: Visão geral da próxima assembleia"
+                                style={inputStyle}
+                            />
 
                             {formAssigneeIsCustom ? (
                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
