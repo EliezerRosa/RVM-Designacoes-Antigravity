@@ -236,10 +236,14 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
     }, [authorized, isAdminAccess, tokenInfo]);
 
     // ── Auto-open tutorial na 1ª visita por papel ───────────────────────────
+    // NOTA: Pulamos auto-open quando isAdminAccess porque o passo 'role-badge'
+    // do tour não tem âncora em modo admin (badge só renderiza com tokenInfo)
+    // e o driver.js fica com backdrop opaco e popover sem alvo, parecendo
+    // tela em branco. O botão ❓ Tutorial continua disponível manualmente.
     useEffect(() => {
         if (!authorized) return;
-        // Aguarda o tokenInfo carregar antes de decidir (admin: imediato).
-        if (!isAdminAccess && !tokenInfo) return;
+        if (isAdminAccess) return;
+        if (!tokenInfo) return;
         try {
             const seen = localStorage.getItem(tutorialSeenKey(role));
             if (!seen) {
