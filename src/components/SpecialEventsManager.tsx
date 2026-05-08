@@ -122,6 +122,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     const [formObservation, setFormObservation] = useState('');
     const [formReference, setFormReference] = useState('');
     const [formLinks, setFormLinks] = useState('');
+    const [formLinkedEventId, setFormLinkedEventId] = useState<string>('');
 
     // Lista de Partes para Seleção do Form
     const [allWeekParts, setAllWeekParts] = useState<Array<{ id: string; title: string; duration: string; section: string; tipoParte: string; seq?: number }>>([]);
@@ -283,6 +284,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         setFormObservation('');
         setFormReference('');
         setFormLinks('');
+        setFormLinkedEventId('');
         setAllWeekParts([]);
         setFormGlobalAffectedPartIds([]);
         setFormSubEventDuration(10);
@@ -372,6 +374,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 observation: formObservation || undefined,
                 reference: formReference || undefined,
                 links: formLinks ? formLinks.split('\n').filter(l => l.trim()) : undefined,
+                linkedEventId: formLinkedEventId || undefined,
             };
 
             let createdEvent: SpecialEvent;
@@ -468,6 +471,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         setFormObservation(event.observation || '');
         setFormReference(event.reference || '');
         setFormLinks(event.links?.join('\n') || '');
+        setFormLinkedEventId(event.linkedEventId || '');
         setFormGlobalAffectedPartIds(event.affectedPartIds || []);
         setShowForm(true);
     };
@@ -1074,6 +1078,33 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                 rows={2}
                                 style={{ ...inputStyle, resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }}
                             />
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                                🔗 Vincular a outro evento <span style={{ fontWeight: 'normal', color: '#6B7280' }}>(opcional)</span>
+                            </label>
+                            <select
+                                value={formLinkedEventId}
+                                onChange={e => setFormLinkedEventId(e.target.value)}
+                                style={inputStyle}
+                            >
+                                <option value="">— Não vincular —</option>
+                                {events
+                                    .filter(e => e.id !== editingEvent?.id)
+                                    .sort((a, b) => (b.week || '').localeCompare(a.week || '') || (a.theme || '').localeCompare(b.theme || ''))
+                                    .map(e => {
+                                        const tplName = getTemplateName(e.templateId);
+                                        const label = e.theme ? `${e.theme} · ${tplName}` : tplName;
+                                        return (
+                                            <option key={e.id} value={e.id}>
+                                                [{e.week || 's/sem'}] {label}
+                                            </option>
+                                        );
+                                    })
+                                }
+                            </select>
+                            <small style={{ color: '#6B7280', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                                No S-140, este item aparecerá logo abaixo do evento selecionado.
+                            </small>
                         </div>
                     )}
 
