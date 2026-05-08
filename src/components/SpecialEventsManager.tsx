@@ -54,6 +54,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     const [formSubEventDuration, setFormSubEventDuration] = useState(10);
     const [formSubEventTheme, setFormSubEventTheme] = useState('');
     const [formAssigneeIsCustom, setFormAssigneeIsCustom] = useState(false);
+    const [formInsertAfterId, setFormInsertAfterId] = useState<string>('');
 
     // Suporte a Impactos Granulares por Parte
     const [formGranularImpacts, setFormGranularImpacts] = useState<Record<string, { visual: boolean; cancel: boolean; reduceTime: boolean; minutes: number }>>({});
@@ -192,8 +193,23 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     useEffect(() => {
         if (!isInAddPartMode) {
             setFormSubEventTheme('');
+            setFormInsertAfterId('');
         }
     }, [isInAddPartMode]);
+
+    // Default: posicionar nova parte após a última parte de "Nossa Vida Cristã"
+    // (slot natural antes do "Final da Reunião"). Editar mantém o valor já setado por handleEdit.
+    useEffect(() => {
+        if (!isInAddPartMode || editingEvent || formInsertAfterId || allWeekParts.length === 0) return;
+        const vidaCristaParts = allWeekParts.filter(p =>
+            (p.section || '').toLowerCase().includes('vida crist') &&
+            p.tipoParte !== 'Evento Especial'
+        );
+        const anchor = vidaCristaParts.length > 0
+            ? vidaCristaParts[vidaCristaParts.length - 1]
+            : allWeekParts[allWeekParts.length - 1];
+        if (anchor) setFormInsertAfterId(anchor.id);
+    }, [isInAddPartMode, allWeekParts, editingEvent, formInsertAfterId]);
 
     const resetForm = () => {
         setFormTemplateId('');
@@ -214,6 +230,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         setFormSubEventDuration(10);
         setFormSubEventTheme('');
         setFormAssigneeIsCustom(false);
+        setFormInsertAfterId('');
     };
 
     const handleSubmit = async () => {
@@ -279,6 +296,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                     newPartDetails: {
                         duration: formSubEventDuration,
                         theme: formSubEventTheme.trim(),
+                        insertAfterId: formInsertAfterId || undefined,
                     },
                 });
             }
@@ -356,6 +374,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
             Number(addPartImpact?.newPartDetails?.duration) || event.duration || 10
         );
         setFormSubEventTheme((addPartImpact?.newPartDetails?.theme || event.theme || '').trim());
+        setFormInsertAfterId(addPartImpact?.newPartDetails?.insertAfterId || '');
 
         // Popular impactos granulares a partir do array de impacts do banco
         const granular: Record<string, any> = {};
@@ -715,6 +734,26 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                 onChange={e => setFormSubEventDuration(Number(e.target.value))}
                                 style={inputStyle}
                             />
+
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px', marginTop: '8px' }}>
+                                Inserir após qual parte da semana
+                            </label>
+                            <select
+                                value={formInsertAfterId}
+                                onChange={e => setFormInsertAfterId(e.target.value)}
+                                style={inputStyle}
+                                disabled={allWeekParts.length === 0}
+                            >
+                                <option value="">(Padrão: ao final da semana)</option>
+                                {allWeekParts.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.section ? `[${p.section}] ` : ''}{p.title} ({p.duration})
+                                    </option>
+                                ))}
+                            </select>
+                            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '4px' }}>
+                                A nova parte será inserida logo após a parte selecionada. Os horários das partes seguintes serão recalculados automaticamente.
+                            </div>
                         </div>
                     )}
 
