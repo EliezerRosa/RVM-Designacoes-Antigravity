@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../../services/api';
 import { supabase } from '../../lib/supabase';
 import type { FormToken, PublisherFormRole } from '../PublisherStatusForm';
@@ -300,8 +301,13 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     };
 
     // ── Admin quick-open form ─────────────────────────────────────────────
+    // NOTA: usamos createPortal para escapar do .admin-carousel-track que tem
+    // transform: translateX(...). CSS spec: transform cria containing block
+    // para descendentes position:fixed, transformando-os em position:absolute
+    // relativo ao painel pequeno (105px). Resultado anterior: overlay preso e
+    // PublisherStatusForm com flex:1 colapsava para 0px (tela aparentemente vazia).
     if (showForm) {
-        return (
+        return createPortal(
             <div
                 style={{
                     position: 'fixed',
@@ -325,7 +331,8 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                 <div style={{ flex: 1, minHeight: 0 }}>
                     <PublisherStatusForm isAdminAccess />
                 </div>
-            </div>
+            </div>,
+            document.body
         );
     }
 
