@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '../lib/supabase';
-import type { EventTemplate, SpecialEvent, EventImpactAction, EventImpactOverride } from '../types';
+import type { EventTemplate, SpecialEvent, EventImpactAction, EventImpactOverride, AnnouncementApprovalStatus } from '../types';
 
 // ============================================================================
 // TEMPLATES PRÉ-DEFINIDOS (Pode ser movido para BD futuramente)
@@ -130,6 +130,21 @@ function mapDbToEvent(row: Record<string, unknown>): SpecialEvent {
         observation: (details.observation as string) || (row.observation as string) || undefined,
         reference: (details.reference as string) || (row.reference as string) || undefined,
         links: (details.links as string[]) || (row.links as string[]) || undefined,
+
+        // Workflow de aprovação CS (colunas dedicadas, NÃO em details)
+        approvalStatus: (row.approval_status as AnnouncementApprovalStatus) || undefined,
+        approvedById: (row.approved_by_id as string) || undefined,
+        approvedByLabel: (row.approved_by_label as string) || undefined,
+        approvedAt: (row.approved_at as string) || undefined,
+        revertedById: (row.reverted_by_id as string) || undefined,
+        revertedAt: (row.reverted_at as string) || undefined,
+        revertedReason: (row.reverted_reason as string) || undefined,
+        rejectedReason: (row.rejected_reason as string) || undefined,
+        linkedEventId: (row.linked_event_id as string) || undefined,
+        isTemplate: (row.is_template as boolean) || undefined,
+        templateKey: (row.template_key as string) || undefined,
+        autoAttachTo: (row.auto_attach_to as string[]) || undefined,
+        publishedAt: (row.published_at as string) || undefined,
     };
 }
 
@@ -199,7 +214,7 @@ export const specialEventService = {
         if (event.reference) extraDetails.reference = event.reference;
         if (event.links) extraDetails.links = event.links;
 
-        const dbEvent = {
+        const dbEvent: Record<string, unknown> = {
             template_id: event.templateId,
             week: event.week,
             theme: event.theme,
@@ -212,6 +227,16 @@ export const specialEventService = {
             guidelines: event.guidelines,
             observations: event.observations,
             details: Object.keys(extraDetails).length > 0 ? extraDetails : undefined,
+            // Workflow CS (colunas dedicadas)
+            approval_status: event.approvalStatus ?? 'DRAFT',
+            linked_event_id: event.linkedEventId,
+            is_template: event.isTemplate ?? false,
+            template_key: event.templateKey,
+            auto_attach_to: event.autoAttachTo ?? [],
+            // Conteúdo (colunas dedicadas, mantido em details para retrocompat)
+            content: event.content,
+            reference: event.reference,
+            links: event.links,
         };
 
         const { data, error } = await supabase
@@ -252,6 +277,17 @@ export const specialEventService = {
         if (updates.reference !== undefined) extraDetails.reference = updates.reference;
         if (updates.links !== undefined) extraDetails.links = updates.links;
         if (Object.keys(extraDetails).length > 0) dbUpdates.details = extraDetails;
+
+        // Conteúdo + Workflow CS — colunas dedicadas
+        if (updates.content !== undefined) dbUpdates.content = updates.content;
+        if (updates.reference !== undefined) dbUpdates.reference = updates.reference;
+        if (updates.links !== undefined) dbUpdates.links = updates.links;
+        if (updates.linkedEventId !== undefined) dbUpdates.linked_event_id = updates.linkedEventId;
+        if (updates.isTemplate !== undefined) dbUpdates.is_template = updates.isTemplate;
+        if (updates.templateKey !== undefined) dbUpdates.template_key = updates.templateKey;
+        if (updates.autoAttachTo !== undefined) dbUpdates.auto_attach_to = updates.autoAttachTo;
+        if (updates.publishedAt !== undefined) dbUpdates.published_at = updates.publishedAt;
+        // Nota: approval_status NÃO é alterado por updateEvent (use RPCs).
 
         const { error } = await supabase
             .from('special_events')
