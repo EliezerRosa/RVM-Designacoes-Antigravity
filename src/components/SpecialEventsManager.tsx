@@ -6,10 +6,26 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { specialEventService, EVENT_TEMPLATES } from '../services/specialEventService';
 import { announcementService, type AnnouncementHistoryEntry } from '../services/announcementService';
-import { announcementPermissions, type AnnouncementUser } from '../lib/announcementPermissions';
+import { announcementPermissions, type AnnouncementUser, type Funcao as AnnFuncao } from '../lib/announcementPermissions';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import type { SpecialEvent, EventImpactOverride, WorkbookPart, Publisher, AnnouncementApprovalStatus } from '../types';
 import { GuidedTour, tourSeenKey, type TourStep } from './GuidedTour';
+import { AnnouncementBanner } from './AnnouncementBanner';
+
+/** Mapeia ação de histórico → label PT-BR. */
+const HISTORY_ACTION_LABELS: Record<string, string> = {
+    created: 'Criado',
+    edited_draft: 'Rascunho editado',
+    submitted: 'Submetido para aprovação',
+    approved: 'Aprovado',
+    rejected: 'Rejeitado',
+    reverted: 'Aprovação revertida',
+    edited_after_approval: 'Editado após aprovação',
+    revoked: 'Revogado',
+    whatsapp_dispatched: 'Enviado via WhatsApp',
+    auto_cloned_from_template: 'Clonado de template',
+};
 
 const ANNOUNCEMENT_TEMPLATE_IDS = ['anuncio', 'notificacao'] as const;
 const isAnnouncementTemplate = (templateId: string | undefined | null) =>
@@ -61,11 +77,19 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     const [historyEntries, setHistoryEntries] = useState<AnnouncementHistoryEntry[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
 
-    // Identidade efetiva: se não passar currentUser, usar fallback baseado no role do tutorial
-    const effectiveUser: AnnouncementUser = useMemo(() => currentUser ?? {
-        role: role === 'admin' ? 'admin' : 'publicador',
-        funcao: null,
-    }, [currentUser, role]);
+    // Identidade efetiva (Phase C): se caller passou currentUser, usar.
+    // Senão, resolver via AuthContext + lookup em publishers (funcao do registro).
+    const { profile } = useAuth();
+    const effectiveUser: AnnouncementUser = useMemo(() => {
+        if (currentUser) return currentUser;
+        const myPub = profile?.publisher_id
+            ? publishers.find(p => p.id === profile.publisher_id)
+            : undefined;
+        return {
+            role: (profile?.role ?? (role === 'admin' ? 'admin' : 'publicador')) as AnnouncementUser['role'],
+            funcao: (myPub?.funcao ?? null) as AnnFuncao,
+        };
+    }, [currentUser, profile, publishers, role]);
 
     // Tutorial
     const [showTour, setShowTour] = useState(false);
@@ -1090,6 +1114,9 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 </div>
             )}
 
+            {/* Phase C: Banner de notificações de aprovação (somente CS members; auto-hide se vazio) */}
+            <AnnouncementBanner user={effectiveUser} actorLabel={effectiveUser.funcao || 'CS'} />
+
             {/* Phase B: Filtro por status de aprovação (afeta só anúncios/notificações) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '12px' }}>
                 <label style={{ color: '#6B7280', fontWeight: 600 }}>Filtrar anúncios/notificações:</label>
@@ -1232,18 +1259,19 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                 ) : (
                                     <ul style={{ margin: 0, paddingLeft: '18px', listStyle: 'disc' }}>
                                         {historyEntries.map(h => {
-                                            const when = h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : '';
+                                            const when = h.createdAt ? new Date(h.createdAt).toLocaleString('pt-BR') : '';
+                                            const label = HISTORY_ACTION_LABELS[h.action] ?? h.action;
+                                            const reason = (h.metadata && typeof h.metadata === 'object' && 'reason' in h.metadata)
+                                                ? String((h.metadata as Record<string, unknown>).reason ?? '')
+                                                : '';
                                             return (
                                                 <li key={h.id} style={{ marginBottom: '4px', color: '#374151' }}>
-                                                    <strong>{h.action}</strong>
-                                                    {h.from_status && h.to_status && (
-                                                        <> ({h.from_status} → {h.to_status})</>
-                                                    )}
-                                                    {h.actor_label && <> • por <em>{h.actor_label}</em></>}
+                                                    <strong>{label}</strong>
+                                                    {h.actorLabel && <> • por <em>{h.actorLabel}</em></>}
                                                     {when && <> • <span style={{ color: '#9CA3AF' }}>{when}</span></>}
-                                                    {h.reason && (
+                                                    {reason && (
                                                         <div style={{ color: '#6B7280', fontStyle: 'italic', marginLeft: '4px' }}>
-                                                            “{h.reason}”
+                                                            “{reason}”
                                                         </div>
                                                     )}
                                                 </li>
