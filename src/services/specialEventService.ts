@@ -490,7 +490,7 @@ export const specialEventService = {
                                 date: lastPart?.date || event.week,
                                 section: 'Vida Cristã',
                                 tipo_parte: 'Evento Especial',
-                                part_title: event.theme || template?.name || 'Evento Especial',
+                                part_title: impact.newPartDetails?.theme || event.theme || template?.name || 'Evento Especial',
                                 modalidade: 'Discurso de Ensino',
                                 duracao: `${event.duration || impact.newPartDetails?.duration || template?.defaults.duration || 10} min`,
                                 seq: newSeq,
