@@ -635,18 +635,16 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         );
     };
 
-    // Lista filtrada considerando filtro de aprovação + announcementsOnly
+    // Lista filtrada considerando filtro de aprovação
+    // Em modo announcementsOnly os outros eventos são exibidos como somente leitura (não filtrados)
     const filteredEvents = useMemo(() => {
         let list = events;
-        if (announcementsOnly) {
-            list = list.filter(e => isAnnouncementTemplate(e.templateId));
-        }
         if (approvalFilter === 'ALL') return list;
         return list.filter(e => {
             if (!isAnnouncementTemplate(e.templateId)) return true; // Outros eventos sempre visíveis
             return (e.approvalStatus || 'DRAFT') === approvalFilter;
         });
-    }, [events, approvalFilter, announcementsOnly]);
+    }, [events, approvalFilter]);
 
     // Styles
     const containerStyle: React.CSSProperties = {
@@ -1199,6 +1197,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
             ) : (
                 filteredEvents.map(event => {
                     const isAnnouncement = isAnnouncementTemplate(event.templateId);
+                    // Em modo CS (announcementsOnly), eventos não-anúncio são sempre somente leitura
+                    const isEffectiveReadOnly = readOnly || (announcementsOnly && !isAnnouncement);
                     const status: AnnouncementApprovalStatus = (event.approvalStatus as AnnouncementApprovalStatus) || 'DRAFT';
                     return (
                         <div key={event.id}>
@@ -1220,6 +1220,14 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                             <div style={{ fontWeight: '600', color: '#1F2937' }}>
                                 {getTemplateName(event.templateId)}
                                 {isAnnouncement && renderApprovalBadge(status)}
+                                {announcementsOnly && !isAnnouncement && (
+                                    <span style={{
+                                        fontSize: '11px', fontWeight: 500, color: '#6B7280',
+                                        background: '#F3F4F6', border: '1px solid #D1D5DB',
+                                        borderRadius: '4px', padding: '1px 5px', marginLeft: '6px',
+                                        verticalAlign: 'middle',
+                                    }}>👁️ leitura</span>
+                                )}
                             </div>
                             <div style={{ fontSize: '12px', color: '#6B7280' }}>
                                 Semana: {event.week}
@@ -1271,17 +1279,17 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                     </button>
                                 </>
                             )}
-                            {!readOnly && !event.isApplied && (
+                            {!isEffectiveReadOnly && !event.isApplied && (
                                 <button onClick={() => handleApply(event)} style={btnStyle('#059669')} title="Aplicar impacto">
                                     ▶️ Aplicar
                                 </button>
                             )}
-                            {!readOnly && event.isApplied && (
+                            {!isEffectiveReadOnly && event.isApplied && (
                                 <button onClick={() => handleRevert(event)} style={btnStyle('#F59E0B')} title="Reverter impacto">
                                     ↩️ Reverter
                                 </button>
                             )}
-                            {!readOnly && (<>
+                            {!isEffectiveReadOnly && (<>
                                 <button onClick={() => handleEdit(event)} style={btnStyle('#3B82F6')} title="Editar">
                                     ✏️
                                 </button>
