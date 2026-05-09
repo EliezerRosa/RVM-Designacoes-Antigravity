@@ -622,17 +622,17 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                             </button>
                         </div>
                         <video
-                            src="/tutorial_completo.mp4"
+                            src="/tutorial_cs.mp4"
                             controls
                             autoPlay
                             style={{ width: '100%', borderRadius: '8px', display: 'block', background: '#000' }}
                         >
-                            Seu navegador não suporta vídeo HTML5. <a href="/tutorial_completo.mp4" style={{ color: '#60A5FA' }}>Baixar o vídeo</a>.
+                            Seu navegador não suporta vídeo HTML5. <a href="/tutorial_cs.mp4" style={{ color: '#60A5FA' }}>Baixar o vídeo</a>.
                         </video>
                         <div style={{ marginTop: '10px', fontSize: '12px', color: '#94A3B8' }}>
-                            Cobre os três tutoriais guiados: Status do Publicador, Necessidades Locais (modal Eventos Especiais) e Novo Evento.
+                            Tutorial exclusivo da Comissão de Serviço: Anúncios e Notificações — lista, ciclo de aprovação, WhatsApp e formulário de criação.
                             &nbsp;·&nbsp;
-                            <a href="/tutorial_completo.mp4" download style={{ color: '#60A5FA' }}>Baixar MP4</a>
+                            <a href="/tutorial_cs.mp4" download style={{ color: '#60A5FA' }}>Baixar MP4</a>
                         </div>
                     </div>
                 </div>

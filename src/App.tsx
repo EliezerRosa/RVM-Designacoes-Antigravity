@@ -36,7 +36,7 @@ import { getTodayWeekIdLocal } from './utils/dateUtils'
 
 type ActiveTab = AppActiveTab
 
-function getPortalParams(): { portal: string | null; partId: string | null; publisherId: string | null; token: string | null } {
+function getPortalParams(): { portal: string | null; partId: string | null; publisherId: string | null; token: string | null; mode: string | null } {
   const searchParams = new URLSearchParams(window.location.search)
   const hashValue = window.location.hash || ''
   const hashQueryIndex = hashValue.indexOf('?')
@@ -60,7 +60,8 @@ function getPortalParams(): { portal: string | null; partId: string | null; publ
     portal: getFirst('portal'),
     partId: getFirst('id', 'partId'),
     publisherId: getFirst('publisherId', 'publisher_id'),
-    token: getFirst('token')
+    token: getFirst('token'),
+    mode: getFirst('mode'),
   }
 }
 
@@ -69,7 +70,7 @@ function App() {
 
   // PORTAL ROUTING: links públicos de confirmação de designação
   // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
-  const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken } = getPortalParams();
+  const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken, mode: portalMode } = getPortalParams();
 
   if (portal === 'confirm') {
     if (portalPartId && portalPublisherId && portalToken) {
@@ -99,7 +100,7 @@ function App() {
   if (portal === 'publisher-form') {
     return (
       <div className="app portal-mode" style={{ padding: 0, display: 'block', background: '#F8FAFC' }}>
-        <PublisherStatusForm token={portalToken ?? undefined} />
+        <PublisherStatusForm token={portalToken ?? undefined} announcementsOnly={portalMode === 'cs'} />
       </div>
     );
   }
