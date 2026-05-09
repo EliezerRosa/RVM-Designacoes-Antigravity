@@ -329,7 +329,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                     <span style={{ fontSize: '12px', color: '#64748B' }}>Modo administrador — todas as alterações são salvas diretamente.</span>
                 </div>
                 <div style={{ flex: 1, minHeight: 0 }}>
-                    <PublisherStatusForm isAdminAccess />
+                    <PublisherStatusForm isAdminAccess announcementsOnly />
                 </div>
             </div>,
             document.body
