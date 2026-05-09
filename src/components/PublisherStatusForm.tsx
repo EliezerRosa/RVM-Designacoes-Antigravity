@@ -864,6 +864,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         <PublisherFormTutorial
             role={role}
             open={showTutorial}
+            announcementsOnly={announcementsOnly}
             onClose={() => {
                 setShowTutorial(false);
                 try { localStorage.setItem(tutorialSeenKey(role), '1'); } catch { /* ignore */ }

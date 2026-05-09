@@ -14,9 +14,11 @@ interface TutorialProps {
     onClose: () => void;
     /** Callback p/ trocar a sub-aba antes de destacar o seletor. */
     onRequireSection?: (section: 'status' | 'privileges' | 'sections') => void;
+    /** Se true, adapta o texto do passo Eventos para o contexto CS (apenas Anúncios/Notificações). */
+    announcementsOnly?: boolean;
 }
 
-export function PublisherFormTutorial({ role, open, onClose, onRequireSection }: TutorialProps) {
+export function PublisherFormTutorial({ role, open, onClose, onRequireSection, announcementsOnly = false }: TutorialProps) {
     const STEPS: TourStep[] = [
         {
             title: 'Boas-vindas 👋',
@@ -88,7 +90,9 @@ export function PublisherFormTutorial({ role, open, onClose, onRequireSection }:
         {
             selector: '[data-tour="btn-events"]',
             title: 'Eventos Especiais',
-            body: 'Abre o gerenciador de Eventos Especiais — assembleias, visitas, congressos. Todos podem entrar; CCA e SEC têm CRUD, demais apenas visualizam. Também tem tutorial dentro.',
+            body: announcementsOnly
+                ? 'Abre o painel exclusivo de Anúncios e Notificações da Comissão de Serviço. A lista já vem filtrada — outros tipos de evento não aparecem aqui. O próprio painel tem um tutorial dedicado (botão ❓).'
+                : 'Abre o gerenciador de Eventos Especiais — assembleias, visitas do SC, congressos etc. Todos podem entrar; CCA e SEC têm CRUD, demais apenas visualizam. Também tem tutorial dentro.',
             editorRoles: ['admin', 'CCA', 'SEC'],
         },
         {
