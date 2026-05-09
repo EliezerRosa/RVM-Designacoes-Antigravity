@@ -124,8 +124,9 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
     const canEditPrivileges = isFullEditor;
     /** Edita aba "Por Seção". */
     const canEditSections = isFullEditor;
-    /** Pode CRUD em Necessidades Locais e Eventos Especiais (senão é só leitura). */
-    const canManageNLEvents = isFullEditor;
+    /** Pode CRUD em Necessidades Locais e Eventos Especiais (senão é só leitura).
+     *  Em modo CS (announcementsOnly) a role 'CS' também tem acesso de edição. */
+    const canManageNLEvents = isFullEditor || (announcementsOnly && role === 'CS');
 
     const ensureWeeks = async () => {
         if (modalWeeks) return;
