@@ -635,16 +635,31 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         );
     };
 
+    // IDs de eventos não-anúncio que estão referenciados por algum anúncio/notificação
+    const linkedNonAnnouncementIds = useMemo(() => {
+        if (!announcementsOnly) return new Set<string>();
+        return new Set(
+            events
+                .filter(e => isAnnouncementTemplate(e.templateId) && e.linkedEventId)
+                .map(e => e.linkedEventId as string)
+        );
+    }, [events, announcementsOnly]);
+
     // Lista filtrada considerando filtro de aprovação
-    // Em modo announcementsOnly os outros eventos são exibidos como somente leitura (não filtrados)
+    // Em modo announcementsOnly: anúncios/notificações + apenas os eventos vinculados a eles
     const filteredEvents = useMemo(() => {
         let list = events;
+        if (announcementsOnly) {
+            list = list.filter(e =>
+                isAnnouncementTemplate(e.templateId) || linkedNonAnnouncementIds.has(e.id)
+            );
+        }
         if (approvalFilter === 'ALL') return list;
         return list.filter(e => {
-            if (!isAnnouncementTemplate(e.templateId)) return true; // Outros eventos sempre visíveis
+            if (!isAnnouncementTemplate(e.templateId)) return true; // Eventos vinculados sempre visíveis
             return (e.approvalStatus || 'DRAFT') === approvalFilter;
         });
-    }, [events, approvalFilter]);
+    }, [events, approvalFilter, announcementsOnly, linkedNonAnnouncementIds]);
 
     // Styles
     const containerStyle: React.CSSProperties = {
