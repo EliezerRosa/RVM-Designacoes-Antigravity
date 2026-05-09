@@ -148,16 +148,20 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         loadEvents();
     }, [loadEvents]);
 
+    // Chaves de tour contextualizada: CS usa chave separada para ver o tutorial específico
+    const tourKey = announcementsOnly ? 'announcements' : 'events';
+    const tourFormKey = announcementsOnly ? 'announcements_form' : 'events_form';
+
     // Auto-abre tutorial na 1ª visita por papel
     useEffect(() => {
         try {
-            const seen = localStorage.getItem(tourSeenKey('events', role));
+            const seen = localStorage.getItem(tourSeenKey(tourKey, role));
             if (!seen) {
                 const t = setTimeout(() => setShowTour(true), 500);
                 return () => clearTimeout(t);
             }
         } catch { /* ignore */ }
-    }, [role]);
+    }, [role, tourKey]);
 
     // Auto-abre tutorial do formulário na 1ª vez que abre 'Novo Evento'
     useEffect(() => {
@@ -165,13 +169,13 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         // Fecha o tour do modal antes de abrir o do formulário (evita 2 painéis sobrepostos)
         setShowTour(false);
         try {
-            const seen = localStorage.getItem(tourSeenKey('events_form', role));
+            const seen = localStorage.getItem(tourSeenKey(tourFormKey, role));
             if (!seen) {
                 const t = setTimeout(() => setShowFormTour(true), 400);
                 return () => clearTimeout(t);
             }
         } catch { /* ignore */ }
-    }, [showForm, role]);
+    }, [showForm, role, tourFormKey]);
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
@@ -1162,7 +1166,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
             <AnnouncementBanner user={effectiveUser} actorLabel={effectiveUser.funcao || 'CS'} />
 
             {/* Phase B: Filtro por status de aprovação (afeta só anúncios/notificações) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '12px' }}>
+            <div data-tour="ev-approval-filter" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '12px' }}>
                 <label style={{ color: '#6B7280', fontWeight: 600 }}>Filtrar anúncios/notificações:</label>
                 <select
                     value={approvalFilter}
@@ -1352,11 +1356,11 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 open={showTour}
                 onClose={() => {
                     setShowTour(false);
-                    try { localStorage.setItem(tourSeenKey('events', role), '1'); } catch { /* ignore */ }
+                    try { localStorage.setItem(tourSeenKey(tourKey, role), '1'); } catch { /* ignore */ }
                 }}
                 role={role}
-                contextLabel="Eventos Especiais"
-                steps={EV_STEPS(readOnly)}
+                contextLabel={announcementsOnly ? 'Anúncios e Notificações (CS)' : 'Eventos Especiais'}
+                steps={announcementsOnly ? ANN_STEPS(readOnly) : EV_STEPS(readOnly)}
             />
 
             <GuidedTour
@@ -1367,16 +1371,19 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                     if (tourSampleRef.current.week) { setFormWeekId(''); }
                     if (tourSampleRef.current.template) { setFormTemplateId(''); }
                     tourSampleRef.current = { template: false, week: false };
-                    try { localStorage.setItem(tourSeenKey('events_form', role), '1'); } catch { /* ignore */ }
+                    try { localStorage.setItem(tourSeenKey(tourFormKey, role), '1'); } catch { /* ignore */ }
                 }}
                 role={role}
-                contextLabel="Formulário de Evento"
-                steps={EV_FORM_STEPS({
+                contextLabel={announcementsOnly ? 'Formulário de Anúncio/Notificação' : 'Formulário de Evento'}
+                steps={(announcementsOnly ? ANN_FORM_STEPS : EV_FORM_STEPS)({
                     readOnly,
                     ensureFormOpen: () => setShowForm(true),
                     setSampleTemplate: () => {
                         if (!formTemplateId) {
-                            setFormTemplateId(templates[0]?.id || '');
+                            const firstId = announcementsOnly
+                                ? (ANNOUNCEMENT_TEMPLATE_IDS[0] as string)
+                                : (templates[0]?.id || '');
+                            setFormTemplateId(firstId);
                             tourSampleRef.current.template = true;
                         }
                     },
@@ -1403,6 +1410,125 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
             )}
         </div>
     );
+}
+
+// ─── Tutorial steps — Comissão de Serviço (announcementsOnly) ───────────────
+
+function ANN_STEPS(readOnly: boolean): TourStep[] {
+    return [
+        {
+            title: 'Anúncios e Notificações 📢',
+            body: 'Este painel é exclusivo da Comissão de Serviço. Aqui a CS cadastra, aprova e envia Anúncios e Notificações para a congregação — com rastreio de status e encaminhamento via WhatsApp. Vou te guiar em poucos passos.',
+        },
+        {
+            selector: '[data-tour="ev-title"]',
+            title: 'Cabeçalho do painel',
+            body: 'Identifica o contexto restrito: apenas Anúncios e Notificações são exibidos aqui. O X fecha; o botão ❓ reabre este tutorial sempre que precisar.',
+        },
+        {
+            selector: '[data-tour="ev-new"]',
+            title: 'Novo Anúncio / Notificação',
+            body: 'Abre o formulário de criação. O tipo já virá restrito a "Anúncio" ou "Notificação" — outros tipos de evento não aparecem neste portal. CCA e SEC têm acesso de edição; demais papéis visualizam apenas.',
+            editorRoles: readOnly ? [] : ['admin', 'CCA', 'SEC'],
+        },
+        {
+            selector: '[data-tour="ev-approval-filter"]',
+            title: 'Filtro por status de aprovação',
+            body: 'Filtra a lista pelo ciclo de vida do anúncio: Rascunho → Aguardando aprovação → Aprovado → Rejeitado → Revogado. O contador (x/total) mostra quantos registros correspondem ao filtro atual.',
+        },
+        {
+            title: 'Ciclo de aprovação',
+            body: 'Todo anúncio nasce como Rascunho. A CS o submete para aprovação; o Superintendente de Circuito ou CCA aprova/rejeita. Após aprovado, o botão 📲 WhatsApp fica disponível para enviar à congregação.',
+        },
+        {
+            selector: '[data-tour="ev-info"]',
+            title: 'Aplicar e Enviar via WhatsApp',
+            body: 'Clicar em "▶️ Aplicar" efetiva o anúncio na programação. O botão 📲 abre o dispatcher de WhatsApp com o texto formatado para envio. Ambos só aparecem após aprovação. Pronto, é só isso!',
+        },
+    ];
+}
+
+type AnnFormStepsOpts = {
+    readOnly: boolean;
+    ensureFormOpen: () => void;
+    setSampleTemplate: () => void;
+    setSampleWeek: () => void;
+    currentTemplateId: string;
+    hasWeek: boolean;
+    hasParts: boolean;
+};
+
+function ANN_FORM_STEPS(opts: AnnFormStepsOpts): TourStep[] {
+    const { readOnly, ensureFormOpen, setSampleTemplate, setSampleWeek, hasWeek, hasParts } = opts;
+    const editorRoles = readOnly ? [] : ['admin', 'CCA', 'SEC'];
+    return [
+        {
+            title: 'Formulário de Anúncio / Notificação ✨',
+            body: 'Aqui a CS redige e publica comunicações oficiais. O formulário é simples e direto: tipo, semana, conteúdo, aprovação. Vou explicar cada campo. Use ← → para navegar.',
+            requireSetup: () => ensureFormOpen(),
+        },
+        {
+            selector: '[data-tour="evf-template"]',
+            title: '1️⃣ Tipo',
+            body: '**Anúncio**: comunicado formal (normas, orientações do CG, deliberações do corpo de anciãos). **Notificação**: informativo pontual (lembretes, mudanças de horário, chamados). A escolha define o ícone e o cabeçalho gerados no PDF e no WhatsApp.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        {
+            selector: '[data-tour="evf-template-desc"]',
+            title: 'Descrição do tipo',
+            body: 'Aparece logo abaixo da seleção e confirma o comportamento esperado. Leia antes de prosseguir para ter certeza de que escolheu o tipo correto.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        {
+            selector: '[data-tour="evf-week"]',
+            title: '2️⃣ Semana de referência',
+            body: 'Define em qual semana da apostila o anúncio será vinculado. Essa semana aparecerá nos relatórios e na pauta da reunião onde o anúncio for lido.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        {
+            selector: '[data-tour="evf-content-block"]',
+            title: '3️⃣ Conteúdo, Referência e Links',
+            body: '• **Conteúdo**: o texto integral do anúncio — o que será lido/enviado.\n• **Referência**: origem oficial (ex.: "Carta da Filial de 10/05"). Aparece em itálico abaixo do conteúdo.\n• **Links**: um por linha, convertidos em botões no PDF e links clicáveis no WhatsApp.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); },
+        },
+        ...(hasWeek && hasParts ? [{
+            selector: '[data-tour="evf-granular"]' as string,
+            title: '4️⃣ Impacto nas partes (opcional)',
+            body: 'Se o anúncio cancelar ou modificar alguma parte da reunião daquela semana, marque aqui. Esta seção só aparece depois de selecionar a semana. Caso o anúncio seja apenas informativo, deixe em branco.',
+            editorRoles,
+            requireSetup: () => { ensureFormOpen(); setSampleTemplate(); setSampleWeek(); },
+        } as TourStep] : []),
+        {
+            selector: '[data-tour="evf-observation"]',
+            title: '5️⃣ Observação',
+            body: 'Nota interna visível apenas na Pauta. Use para instruções ao apresentador ("ler lentamente", "distribuir folheto antes") sem que apareçam no texto enviado via WhatsApp.',
+            editorRoles,
+            requireSetup: () => ensureFormOpen(),
+        },
+        {
+            selector: '[data-tour="evf-autoapply"]',
+            title: '6️⃣ Auto-Aplicar',
+            body: '**Marcado**: ao salvar, o anúncio já é vinculado à semana selecionada imediatamente.\n**Desmarcado**: fica como Rascunho pendente de aprovação. Recomendado quando o conteúdo ainda precisa de revisão pela CS antes da publicação.',
+            editorRoles,
+            requireSetup: () => ensureFormOpen(),
+        },
+        {
+            selector: '[data-tour="evf-actions"]',
+            title: '7️⃣ Salvar',
+            body: '**Cancelar**: descarta tudo sem perguntar — cuidado!\n**Salvar**: grava no Supabase. Se Auto-Aplicar estiver ligado, o anúncio já entra na programação. Após salvo, o card aparece na lista com o status atual e os botões de aprovação/WhatsApp disponíveis conforme seu papel.',
+            editorRoles,
+            requireSetup: () => ensureFormOpen(),
+        },
+        {
+            title: 'Pronto! 🎉',
+            body: 'Fluxo resumido: Tipo → Semana → Conteúdo + Referência + Links → (Impacto nas partes) → Observação → Auto-Aplicar → Salvar. Após salvo, submeta para aprovação e, quando aprovado, envie via WhatsApp. Tutorial disponível pelo botão ❓ no cabeçalho.',
+            editorRoles,
+        },
+    ];
 }
 
 // ─── Tutorial steps ─────────────────────────────────────────────────────────
