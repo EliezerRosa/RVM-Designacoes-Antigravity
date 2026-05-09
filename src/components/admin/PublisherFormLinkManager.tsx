@@ -582,6 +582,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                     <SpecialEventsManager
                         availableWeeks={modalWeeks ?? []}
                         onClose={() => setShowEvents(false)}
+                        announcementsOnly
                     />
                 </div>
             )}

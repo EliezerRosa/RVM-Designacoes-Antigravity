@@ -61,9 +61,11 @@ interface Props {
     role?: string;
     /** Identidade efetiva para gating do workflow de aprovação (CCA/SEC/SS). */
     currentUser?: AnnouncementUser;
+    /** Se true, exibe apenas eventos do tipo anuncio/notificacao (para uso no portal admin de Links de Form). */
+    announcementsOnly?: boolean;
 }
 
-export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false, role = 'admin', publishers = [], currentUser }: Props) {
+export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, readOnly = false, role = 'admin', publishers = [], currentUser, announcementsOnly = false }: Props) {
     const [events, setEvents] = useState<SpecialEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -629,14 +631,18 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         );
     };
 
-    // Lista filtrada considerando filtro de aprovação
+    // Lista filtrada considerando filtro de aprovação + announcementsOnly
     const filteredEvents = useMemo(() => {
-        if (approvalFilter === 'ALL') return events;
-        return events.filter(e => {
+        let list = events;
+        if (announcementsOnly) {
+            list = list.filter(e => isAnnouncementTemplate(e.templateId));
+        }
+        if (approvalFilter === 'ALL') return list;
+        return list.filter(e => {
             if (!isAnnouncementTemplate(e.templateId)) return true; // Outros eventos sempre visíveis
             return (e.approvalStatus || 'DRAFT') === approvalFilter;
         });
-    }, [events, approvalFilter]);
+    }, [events, approvalFilter, announcementsOnly]);
 
     // Styles
     const containerStyle: React.CSSProperties = {
@@ -769,7 +775,10 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         style={inputStyle}
                     >
                         <option value="">Selecione...</option>
-                        {templates.map(t => (
+                        {(announcementsOnly
+                            ? templates.filter(t => (ANNOUNCEMENT_TEMPLATE_IDS as readonly string[]).includes(t.id))
+                            : templates
+                        ).map(t => (
                             <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                     </select>
