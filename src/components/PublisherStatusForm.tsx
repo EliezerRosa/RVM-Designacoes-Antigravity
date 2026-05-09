@@ -68,8 +68,8 @@ interface PublisherStatusFormProps {
     /** Se true, pula validação de token (admin autenticado). */
     isAdminAccess?: boolean;
     /** Loader de partes da apostila (para checar impedimentos em edicao de admin). */
-    partsLoader?: () => Promise<WorkbookPart[]>;
-}
+    partsLoader?: () => Promise<WorkbookPart[]>;    /** Se true, Eventos Especiais exibe/cria apenas anuncio/notificacao. */
+    announcementsOnly?: boolean;}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type FormSection = 'status' | 'privileges' | 'sections';
@@ -80,7 +80,7 @@ type PartialPublisher = Partial<Publisher> & {
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
-export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader }: PublisherStatusFormProps) {
+export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader, announcementsOnly = false }: PublisherStatusFormProps) {
     const [validating, setValidating] = useState(!isAdminAccess);
     const [authorized, setAuthorized] = useState(isAdminAccess);
     const [tokenInfo, setTokenInfo] = useState<FormToken | null>(null);
@@ -856,6 +856,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader 
                     onClose={() => setShowEvents(false)}
                     readOnly={!canManageNLEvents}
                     role={role}
+                    announcementsOnly={announcementsOnly}
                 />
             </div>
         )}
