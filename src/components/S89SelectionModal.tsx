@@ -881,13 +881,13 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                         tone="light"
                     />
 
-                    {/* Seletor de dia da reunião (apenas na mensagem; não altera workbook) */}
+                    {/* Seletor de dia da reunião — afeta mensagens, formulário S-89 e exibição do dia */}
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
                         padding: '8px 12px', borderRadius: '8px',
                         background: '#FEF3C7', border: '1px solid #FDE68A'
                     }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>📅 Dia da reunião na mensagem:</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>📅 Dia da reunião:</span>
                         <select
                             value={meetingDayOfWeek}
                             onChange={e => handleMeetingDayChange(parseInt(e.target.value, 10))}
@@ -902,7 +902,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                             <option value={6}>Sábado</option>
                         </select>
                         <span style={{ fontSize: 11, color: '#92400E', fontStyle: 'italic' }}>
-                            (Fica salvo por semana e reflete nas mensagens/formulario S-89)
+                            (Salvo por semana; reflete em todas as mensagens, formulário S-89 e textos de data)
                         </span>
                     </div>
 

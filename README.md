@@ -54,4 +54,17 @@ npm run dev
 - [Manifesto Técnico do RVM Designações](docs/manifesto_tecnico_rvm_designacoes.md)
 
 ---
-*Desenvolvido para EliezerRosa como parte do projeto Antigravity.*
+
+## 🎙 IDD em Produção — Série no YouTube
+
+Este projeto é a **implementação viva** do paradigma **IDD (Intent-Driven Development)** — onde a intenção humana em linguagem natural governa todo o código, construído em parceria com **GitHub Copilot Agent**.
+
+[![IDD Ep.1 — O que é Intent-Driven Development?](https://img.youtube.com/vi/lNEr7vb0Gyo/maxresdefault.jpg)](https://www.youtube.com/watch?v=lNEr7vb0Gyo)
+
+**▶ [Ep.1 — O que é IDD? (23 min)](https://www.youtube.com/watch?v=lNEr7vb0Gyo)**  
+Deep-dive completo: definição, as 6 propriedades essenciais, Confirm-Once Pattern, genealogia intelectual (Engelbart → Kay → Brooks → IDD) e demonstração prática com este projeto.
+
+📺 [Série completa: IDD — Base de Conhecimento](https://www.youtube.com/playlist?list=PLkbRMhsplHjaLEi9O7SsJN3pH8TvsS6k7)
+
+---
+*Desenvolvido por [Eliezer Rosa](https://github.com/EliezerRosa) como parte do projeto Antigravity.*

@@ -407,6 +407,9 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         color: '#9ca3af'
                     }}>
                         📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords.filter(h => h.weekId !== part.weekId), referenceDate, currentPresident).explanation}
+                        <div style={{ marginTop: '2px', fontSize: '0.9em', color: '#6b7280', fontStyle: 'italic' }}>
+                            ⚠️ Freq. recente pesa mais que tempo parado.
+                        </div>
                     </div>
                 )}
 
