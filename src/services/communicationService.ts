@@ -383,8 +383,9 @@ export const communicationService = {
         const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
         const partNum = partNumMatch ? partNumMatch[1] : null;
 
+        const realSelfIdForRefusal = part.id.replace(/-(titular|ajudante)$/i, '');
         const partnerPart = weekParts.find(p => {
-            if (p.id === part.id) return false;
+            if (p.id === part.id || p.id === realSelfIdForRefusal) return false;
             if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
             const otherNum = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/)?.[1];
             if (partNum && otherNum && partNum === otherNum) return p.funcao !== part.funcao;
@@ -469,13 +470,26 @@ export const communicationService = {
         
         const isAjudante = part.funcao === 'Ajudante' || isLeitorEBC;
 
+        // Se o chamador não passou weekParts, buscar do DB para garantir resolução do parceiro
+        let resolvedWeekParts = allWeekParts;
+        if (resolvedWeekParts.length === 0 && part.weekId) {
+            try {
+                resolvedWeekParts = await workbookQueryService.getWeekParts(part.weekId);
+            } catch {
+                // não crítico — segue sem parceiro
+            }
+        }
+
         let partner: WorkbookPart | undefined;
-        if (allWeekParts.length > 0) {
+        if (resolvedWeekParts.length > 0) {
             const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
             const partNum = partNumMatch ? partNumMatch[1] : null;
 
-            partner = allWeekParts.find(p => {
-                if (p.id === part.id) return false;
+            // ID real da parte (remove sufixo virtual como -titular / -ajudante)
+            const realSelfId = part.id.replace(/-(titular|ajudante)$/i, '');
+
+            partner = resolvedWeekParts.find(p => {
+                if (p.id === part.id || p.id === realSelfId) return false;
                 if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
                 
                 // Mesmo partNum (e.g. "5. Iniciando")

@@ -248,7 +248,7 @@ export function generateWhatsAppMessage(
     msg += `Aqui está sua designação para a reunião de *${displayDate}*:\n\n`;
     msg += `─────────────\n`;
 
-    if (isForAssistant && partnerName) {
+    if (isForAssistant) {
         // Mensagem para o AJUDANTE / LEITOR
         let functionName = 'Ajudante';
         let mainRoleName = 'Titular';
@@ -262,11 +262,16 @@ export function generateWhatsAppMessage(
         if (part.tituloParte) msg += `🎯 *Tema:* ${part.tituloParte}\n`;
         msg += `📍 *Local:* ${room}\n`;
         msg += `⏰ *Início:*${time}\n\n`;
-        msg += `👤 *${mainRoleName}:* ${partnerName}\n`;
-        if (partnerPhone) msg += `📱 *WhatsApp do ${mainRoleName}:* ${partnerPhone}\n\n`;
-        
+
+        if (partnerName) {
+            msg += `👤 *${mainRoleName}:* ${partnerName}\n`;
+            if (partnerPhone) msg += `📱 *WhatsApp do ${mainRoleName}:* ${partnerPhone}\n\n`;
+        }
+
         if (functionName === 'Ajudante') {
-            msg += `Por favor, entre em contato com o titular para combinarem o ensaio. 🤝`;
+            msg += partnerName
+                ? `Por favor, entre em contato com o titular para combinarem o ensaio. 🤝`
+                : `Aguarde o contato do titular para combinarem o ensaio. 🤝`;
         } else {
             msg += `Lembre-se de revisar os parágrafos com antecedência. O dirigente poderá alinhar detalhes com você. 🤝`;
         }
