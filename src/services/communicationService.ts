@@ -274,14 +274,16 @@ export const communicationService = {
      * Prepara a mensagem de S-140 para o Agente
      */
     async prepareS140Message(weekId: string, _parts: WorkbookPart[]): Promise<string> {
-        // Encontrar a data da reunião (Quinta-feira)
+        // Encontrar a data da reunião usando o dia configurado para a semana
         const dateParts = weekId.split('-');
         let displayDate = weekId;
         if (dateParts.length === 3) {
             const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-            const thursday = new Date(baseDate);
-            thursday.setDate(baseDate.getDate() + 3);
-            displayDate = thursday.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+            const meetingDow = await resolveMeetingDayOfWeek(weekId);
+            const daysToMeeting = (meetingDow - baseDate.getDay() + 7) % 7;
+            const meetingDate = new Date(baseDate);
+            meetingDate.setDate(baseDate.getDate() + daysToMeeting);
+            displayDate = meetingDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
         }
 
         const hour = new Date().getHours();
@@ -391,17 +393,19 @@ export const communicationService = {
         const partnerName = partnerPart ? (partnerPart.resolvedPublisherName || partnerPart.rawPublisherName) : null;
         const partnerPub = partnerName ? publishers.find(p => p.name.trim() === partnerName.trim()) : null;
 
-        // 5. Calcular quinta-feira da reunião
+        // 5. Calcular data/dia da reunião usando o dia configurado para a semana
         const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
             'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const DIAS_PT = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
         let thursdayStr = part.weekDisplay || part.date;
         const dp = part.date?.split('-');
         if (dp && dp.length === 3) {
+            const meetingDow = await resolveMeetingDayOfWeek(part.weekId);
             const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
-            const daysToThu = (4 - baseDate.getDay() + 7) % 7;
-            const thu = new Date(baseDate);
-            thu.setDate(thu.getDate() + daysToThu);
-            thursdayStr = `quinta-feira, ${thu.getDate()} de ${MESES[thu.getMonth()]} de ${thu.getFullYear()}`;
+            const daysToMeeting = (meetingDow - baseDate.getDay() + 7) % 7;
+            const meetingDate = new Date(baseDate);
+            meetingDate.setDate(baseDate.getDate() + daysToMeeting);
+            thursdayStr = `${DIAS_PT[meetingDow]}, ${meetingDate.getDate()} de ${MESES[meetingDate.getMonth()]} de ${meetingDate.getFullYear()}`;
         }
 
         // 6. Montar mensagem de alerta
@@ -686,16 +690,18 @@ export const communicationService = {
         if (dateParts.length === 3) {
             const baseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
             const dayOfWeek = baseDate.getDay();
-            const daysToThursday = (4 - dayOfWeek + 7) % 7;
-            const thursdayDate = new Date(baseDate);
-            thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
+            const meetingDow = await resolveMeetingDayOfWeek(part.weekId);
+            const DIAS_PT = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+            const daysToMeeting = (meetingDow - dayOfWeek + 7) % 7;
+            const meetingDate = new Date(baseDate);
+            meetingDate.setDate(meetingDate.getDate() + daysToMeeting);
 
             const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
                 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-            const day = thursdayDate.getDate();
-            const month = MESES[thursdayDate.getMonth()];
-            const year = thursdayDate.getFullYear();
-            displayDate = `quinta-feira, ${day} de ${month} de ${year}`;
+            const day = meetingDate.getDate();
+            const month = MESES[meetingDate.getMonth()];
+            const year = meetingDate.getFullYear();
+            displayDate = `${DIAS_PT[meetingDow]}, ${day} de ${month} de ${year}`;
         }
 
         const partLabel = part.tituloParte || part.tipoParte || '-';

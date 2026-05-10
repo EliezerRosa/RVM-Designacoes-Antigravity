@@ -17,12 +17,17 @@ let CURRENT_SCORING_CONFIG = {
     TIME_POWER: 1.5,
     TIME_FACTOR: 8,
 
-    RECENT_PARTICIPATION_PENALTY: 20, // -20 pontos por participação nos últimos 3 meses
+    // Participação recente tem mais peso desfavorável do que a vantagem de ter
+    // participado poucas vezes (favorável). Deliberadamente maior que o ganho
+    // marginal do time-bonus para 1-2 semanas de ausência.
+    RECENT_PARTICIPATION_PENALTY: 50, // -50 pontos por participação nos últimos 3 meses (era 20)
     COOLDOWN_PENALTY: 1500, // Penalidade massiva para bloqueados
 
     // Bônus específicos
     ELDER_BONUS: 5,
     SISTER_DEMO_PRIORITY: 50,
+    // Bônus de progressão pedagógica FSM: ajudante → titular (Item 2)
+    FSM_TITULAR_PROMOTION_BONUS: 80,
 
     // Limites
     MAX_LOOKBACK_WEEKS: 52,
@@ -125,6 +130,8 @@ export function calculateScore(
     //    Em ambos os casos, excluir SOMENTE a própria data sendo avaliada
     //    (caso a designação atual já esteja no histórico passado).
     const refDateStrForFilter = referenceDate.toISOString().split('T')[0];
+    // Hoist pType para uso em specificHistory e bônus FSM
+    const pType = partType.toLowerCase();
 
     const isMine = (h: HistoryRecord) =>
         (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
@@ -153,10 +160,18 @@ export function calculateScore(
     // Histórico Específico: Apenas desta modalidade/tipo, SÓ PASSADO (Time Bonus)
     const specificHistory = pastHistory.filter(h => {
         if (!partType) return true;
-        const pType = partType.toLowerCase();
         const hType = (h.tipoParte || '').toLowerCase();
+        const hFuncao = (h.funcao || '').toLowerCase();
 
-        if (pType === 'ajudante' && (h.funcao === 'Ajudante' || (h.funcao as any) === 'ajudante')) return true;
+        if (pType === 'ajudante' && hFuncao === 'ajudante') return true;
+
+        // Item 1: Ajudante tem mesmo efeito e peso que Titular na mesma categoria.
+        // Para partes de ministério/demonstração (FSM), inclui histórico de ajudante
+        // no cálculo de weeksSinceLast — quem foi ajudante recentemente não deve
+        // aparecer como "nunca participou" nessa categoria de parte.
+        const isMinistryPart = pType.includes('ministerio') || pType.includes('demonstra') || pType.includes('estudante');
+        if (isMinistryPart && hFuncao === 'ajudante') return true;
+
         return hType === pType || hType.includes(pType);
     });
 
@@ -183,10 +198,28 @@ export function calculateScore(
     details.frequencyPenalty = recentCount * CURRENT_SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
 
     // 4. Bônus de Função
-    const isDemonstration = partType.toLowerCase().includes('demonstra') || partType.toLowerCase().includes('estudante');
+    const isDemonstration = pType.includes('demonstra') || pType.includes('estudante');
     if (isDemonstration && publisher.gender === 'sister') {
         details.roleBonus += CURRENT_SCORING_CONFIG.SISTER_DEMO_PRIORITY;
         details.specificAdjustments.push('Prioridade Irmã (Demo)');
+    }
+
+    // Item 2: Bônus de Promoção FSM — se a última participação na seção
+    // Faça Seu Melhor foi como Ajudante, aumentar prioridade para partes de Titular.
+    // Implementa a progressão pedagógica: Ajudante → Titular (sem impedimento).
+    const isTitularMinistryPart = !pType.includes('ajudante') &&
+        (pType.includes('ministerio') || pType.includes('demonstra') || pType.includes('estudante'));
+    if (isTitularMinistryPart) {
+        const lastFsmRecord = pastHistory.find(h => {
+            const hFuncao = (h.funcao || '').toLowerCase();
+            const hType = (h.tipoParte || '').toLowerCase();
+            return hFuncao === 'ajudante' ||
+                hType.includes('ministerio') || hType.includes('demonstra') || hType.includes('estudante');
+        });
+        if (lastFsmRecord?.funcao === 'Ajudante') {
+            details.roleBonus += CURRENT_SCORING_CONFIG.FSM_TITULAR_PROMOTION_BONUS;
+            details.specificAdjustments.push('Progressão FSM: última part. foi Ajudante');
+        }
     }
 
     // Presidente na Oração Final: agora é bloqueio duro em eligibilityService (Regra 8)
@@ -327,13 +360,14 @@ export function generateNaturalLanguageExplanation(
         : `${firstName} não tem participações anteriores registradas.`;
 
     // Frequência geral (agenda lotada ou livre)
+    // Limiar atualizado: penalidade = 50/participação → 2 participações = 100
     let narrative = "";
-    if (details.frequencyPenalty > 50) {
-        narrative = `${firstName} participou bastante nos últimos 3 meses — muitas designações recentes reduzem um pouco a prioridade geral.`;
+    if (details.frequencyPenalty > 100) {
+        narrative = `${firstName} participou bastante nos últimos 3 meses — participação recente pesa mais no cálculo do que a vantagem de ter participado poucas vezes; a prioridade cai de forma mais acentuada.`;
     } else if (details.frequencyPenalty > 0) {
         narrative = `${firstName} teve algumas participações recentes, o que foi levado em conta no cálculo.`;
     } else {
-        narrative = `${firstName} está com a agenda tranquila — sem muitas participações nos últimos meses.`;
+        narrative = `${firstName} está com a agenda tranquila — sem participações recentes que reduzam a prioridade.`;
     }
 
     // Tempo específico nesta parte

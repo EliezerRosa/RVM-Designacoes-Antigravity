@@ -61,6 +61,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     const [bestCandidate, setBestCandidate] = useState<{ name: string; score: number } | null>(null);
     const [topCandidates, setTopCandidates] = useState<CandidatePanelItem[]>([]);
     const [loading, setLoading] = useState(false);
+    const [showPartHistory, setShowPartHistory] = useState(false);
     const { notifications: profileChangeNotifications } = usePublisherProfileNotifications();
 
     const weekParts = useMemo(
@@ -77,6 +78,22 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
         () => (eligibilityCtx ? getTextualConstraintSummary(eligibilityCtx) : { active: false, labels: [] }),
         [eligibilityCtx]
     );
+
+    // Item 4: Todos os participantes deste tipo de parte, ordenados por data DESC,
+    // com delta em dias em relação à semana foco.
+    const partTypeHistory = useMemo(() => {
+        if (!selectedPart) return [];
+        const weekFocusDateStr = selectedPart.date || selectedPart.weekId || '';
+        const weekFocusDate = new Date(weekFocusDateStr + 'T12:00:00');
+        return historyRecords
+            .filter(h => h.tipoParte === selectedPart.tipoParte)
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map(h => {
+                const histDate = new Date(h.date + 'T12:00:00');
+                const deltaDays = Math.round((histDate.getTime() - weekFocusDate.getTime()) / (1000 * 60 * 60 * 24));
+                return { ...h, deltaDays };
+            });
+    }, [historyRecords, selectedPart]);
     
     // Memoized impacts for the selected part
     const partImpacts = useMemo(() => {
@@ -349,8 +366,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
             parts.push(`${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${weekOrDate}; o recomendado é aguardar 3 semanas entre partes principais.`);
         }
 
-        if (scoreData.details.frequencyPenalty > 50) {
-            parts.push(`${firstName} participou bastante nos últimos 3 meses; isso reduz um pouco a prioridade geral.`);
+        if (scoreData.details.frequencyPenalty > 100) {
+            parts.push(`${firstName} participou bastante nos últimos 3 meses; participação recente pesa mais no cálculo do que a vantagem de ter participado poucas vezes — a prioridade cai de forma mais acentuada.`);
         } else if (scoreData.details.frequencyPenalty > 0) {
             parts.push(`${firstName} teve algumas designações recentes; isso foi considerado no cálculo de prioridade.`);
         } else {
@@ -649,8 +666,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                         Frequência recente:
                                                     </span>{' '}
                                                     <span>
-                                                        {scoreData && scoreData.details.frequencyPenalty > 50
-                                                            ? `${firstName} participou bastante nos últimos 3 meses; isso reduz um pouco a prioridade geral.`
+                                                        {scoreData && scoreData.details.frequencyPenalty > 100
+                                                            ? `${firstName} participou bastante nos últimos 3 meses; participação recente pesa mais no cálculo do que a vantagem de ter participado poucas vezes — a prioridade cai de forma mais acentuada.`
                                                             : scoreData && scoreData.details.frequencyPenalty > 0
                                                                 ? `${firstName} teve algumas designações recentes; isso foi considerado no cálculo de prioridade.`
                                                                 : `${firstName} está com a agenda mais livre nos últimos 3 meses.`}
@@ -719,11 +736,67 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> verifica atuação ativa, desqualificação, pedido de não participação, disponibilidade na data, restrição "só ajudante", permissões por seção (Tesouros/Ministério/Vida Cristã), compatibilidade de função (Titular/Ajudante), gênero/batismo e privilégios específicos da modalidade (presidir, orar, ensinar, dirigir/ler EBC, etc.).</div>
                                                 <div><strong style={{ color: '#7C3AED' }}>Intervalo:</strong> verifica partes principais recentes (regra de 3 semanas).</div>
                                                 <div><strong style={{ color: '#0F766E' }}>Tempo desde última similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior prioridade.</div>
-                                                <div><strong style={{ color: '#B45309' }}>Frequência recente:</strong> muitas designações no período reduzem prioridade.</div>
+                                                <div><strong style={{ color: '#B45309' }}>Frequência recente (peso dominante):</strong> participações recentes reduzem a prioridade <strong>mais</strong> do que o tempo parado aumenta. Cada participação nos últimos 3 meses penaliza −{50} pts; 2× = −10⁄0 — maior que semanas de ausência.</div>
                                                 <div><strong style={{ color: '#334155' }}>Pontuação final:</strong> {scoreData.score} (base + tempo - frequência - penalidades + bônus).</div>
                                             </div>
                                         )}
 
+                                        {/* Item 4: Histórico desta parte — todos os participantes, ordem data DESC */}
+                                        {partTypeHistory.length > 0 && (
+                                            <div style={{ marginTop: '6px' }}>
+                                                <button
+                                                    onClick={() => setShowPartHistory(v => !v)}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: '1px solid #CBD5E1',
+                                                        borderRadius: '4px',
+                                                        padding: '2px 8px',
+                                                        fontSize: '11px',
+                                                        color: '#475569',
+                                                        cursor: 'pointer',
+                                                        width: '100%',
+                                                        textAlign: 'left',
+                                                    }}
+                                                >
+                                                    {showPartHistory ? '▼' : '►'} 📜 Histórico desta parte ({partTypeHistory.length})
+                                                </button>
+                                                {showPartHistory && (
+                                                    <div style={{
+                                                        marginTop: '4px',
+                                                        background: '#F8FAFC',
+                                                        border: '1px solid #E2E8F0',
+                                                        borderRadius: '4px',
+                                                        padding: '4px 6px',
+                                                        fontSize: '11px',
+                                                        maxHeight: '200px',
+                                                        overflowY: 'auto',
+                                                        lineHeight: '1.6',
+                                                    }}>
+                                                        {partTypeHistory.map((h, idx) => {
+                                                            const name = h.resolvedPublisherName || h.rawPublisherName || '?';
+                                                            const deltaStr = h.deltaDays === 0
+                                                                ? 'esta semana'
+                                                                : h.deltaDays > 0
+                                                                    ? `em +${h.deltaDays}d`
+                                                                    : `há ${Math.abs(h.deltaDays)}d`;
+                                                            const funcaoTag = h.funcao === 'Ajudante' ? ' 🤝' : '';
+                                                            return (
+                                                                <div key={idx} style={{
+                                                                    display: 'flex',
+                                                                    justifyContent: 'space-between',
+                                                                    borderBottom: idx < partTypeHistory.length - 1 ? '1px solid #F1F5F9' : 'none',
+                                                                    paddingBottom: '1px',
+                                                                    color: h.deltaDays > 0 ? '#2563EB' : '#334155',
+                                                                }}>
+                                                                    <span>{name}{funcaoTag}</span>
+                                                                    <span style={{ color: '#94A3B8', marginLeft: '8px' }}>{h.date.slice(5)} ({deltaStr})</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                     </div>
                                 )}
