@@ -105,8 +105,17 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
     const onCloseRef = useRef(onClose);
     useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
+    // Ref para o timeout de renderStep — cancelado no cleanup para evitar que
+    // d.highlight() dispare após unmount e re-inicialize o driver.js
+    // (driver re-init adiciona driver-active ao body → pointer-events:none em tudo).
+    const stepTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     useEffect(() => {
         if (!open) {
+            if (stepTimeoutRef.current !== null) {
+                clearTimeout(stepTimeoutRef.current);
+                stepTimeoutRef.current = null;
+            }
             driverRef.current?.destroy();
             driverRef.current = null;
             stopSpeaking();
@@ -124,6 +133,10 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
         });
         setStepIndex(0);
         return () => {
+            if (stepTimeoutRef.current !== null) {
+                clearTimeout(stepTimeoutRef.current);
+                stepTimeoutRef.current = null;
+            }
             driverRef.current?.destroy();
             driverRef.current = null;
             stopSpeaking();
@@ -158,7 +171,11 @@ export function GuidedTour({ open, onClose, role, steps, contextLabel }: GuidedT
         `;
 
         const delay = step.requireSetup ? 220 : 0;
-        setTimeout(() => {
+        stepTimeoutRef.current = setTimeout(() => {
+            stepTimeoutRef.current = null;
+            // Guarda: se o driver foi destruído e substituído desde que capturamos
+            // `d`, não chamamos highlight — evita re-inicialização espúria.
+            if (driverRef.current !== d) return;
             const elementSelector = step.selector;
             const target = elementSelector ? document.querySelector(elementSelector) : null;
             if (elementSelector && !target) {
