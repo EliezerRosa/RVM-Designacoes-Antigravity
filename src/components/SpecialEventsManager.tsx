@@ -1281,7 +1281,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                         </button>
                                     )}
                                     {announcementPermissions.canDispatchWhatsApp(effectiveUser) && status === 'APPROVED' && (
-                                        <button onClick={() => setDispatcherOpenFor(event)} style={btnStyle('#16A34A')} title="Enviar via WhatsApp">
+                                        <button data-tour="ev-whatsapp" onClick={() => setDispatcherOpenFor(event)} style={btnStyle('#16A34A')} title="Enviar via WhatsApp">
                                             📱 WhatsApp
                                         </button>
                                     )}
@@ -1461,12 +1461,17 @@ function ANN_STEPS(readOnly: boolean): TourStep[] {
         },
         {
             title: 'Ciclo de aprovação',
-            body: 'Todo anúncio nasce como Rascunho. A CS o submete para aprovação; o Superintendente de Circuito ou CCA aprova/rejeita. Após aprovado, o botão 📲 WhatsApp fica disponível para enviar à congregação.',
+            body: 'Todo anúncio nasce como Rascunho. A CS o submete para aprovação; o Superintendente de Circuito ou CCA aprova/rejeita. Após aprovado, o botão � WhatsApp fica disponível para enviar à congregação.',
+        },
+        {
+            selector: '[data-tour="ev-whatsapp"]',
+            title: '📱 Botão WhatsApp',
+            body: 'Este botão verde aparece **somente quando o anúncio está Aprovado** e você é membro da CS (CCA, SEC, SS ou Admin). Clicá-lo abre o **Dispatcher de WhatsApp**: lista de destinatários com filtros, prévia do texto formatado e botão de envio individual por número. Cada envio gera um hash de idempotência — evita duplicatas mesmo se clicado duas vezes.',
         },
         {
             selector: '[data-tour="ev-info"]',
-            title: 'Aplicar e Enviar via WhatsApp',
-            body: 'Clicar em "▶️ Aplicar" efetiva o anúncio na programação. O botão 📲 abre o dispatcher de WhatsApp com o texto formatado para envio. Ambos só aparecem após aprovação. Pronto, é só isso!',
+            title: 'Aplicar e Encerrar',
+            body: 'Clicar em "▶️ Aplicar" efetiva o anúncio na programação da semana selecionada. Após aplicado e enviado via WhatsApp, o ciclo está completo. O botão ❓ reabre este tutorial a qualquer momento. Pronto, é só isso!',
         },
     ];
 }
