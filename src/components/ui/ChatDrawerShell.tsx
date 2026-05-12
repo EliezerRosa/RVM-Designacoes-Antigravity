@@ -13,7 +13,8 @@
  *    DENTRO do mesmo overlay.
  */
 
-import { useEffect, useState, useCallback, type ReactNode } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useId, type ReactNode } from 'react';
+void React;
 
 export type DrawerSide = 'left' | 'right';
 
@@ -49,6 +50,13 @@ export interface ChatDrawerShellProps {
 
     /** Chave de persistência em localStorage. */
     storageKey?: string;
+
+    /**
+     * Sinal externo para forçar abertura de um lado específico (auto-open).
+     * O componente reage quando o `nonce` muda — usar bump de nonce a cada
+     * novo evento (ex.: chegada de micro-UI). `null` = sem ação.
+     */
+    forceOpen?: { side: DrawerSide; nonce: number } | null;
 }
 
 type OpenSide = DrawerSide | null;
@@ -77,12 +85,20 @@ export function ChatDrawerShell({
     rightRailLabel = 'Detalhes',
     rightRailIcon = '📋',
     storageKey = 'rvm_chat_drawer_open',
+    forceOpen = null,
 }: ChatDrawerShellProps) {
     const [open, setOpen] = useState<OpenSide>(() => readStored(storageKey));
 
     useEffect(() => {
         writeStored(storageKey, open);
     }, [open, storageKey]);
+
+    // Auto-open externo: quando o nonce muda, força a abertura do lado pedido.
+    useEffect(() => {
+        if (!forceOpen) return;
+        setOpen(forceOpen.side);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [forceOpen?.nonce]);
 
     const toggle = useCallback((side: DrawerSide) => {
         setOpen(prev => (prev === side ? null : side));
@@ -146,6 +162,15 @@ export function ChatDrawerShell({
                 />
             )}
 
+            {/* Backdrop — visible apenas em mobile (CSS mídia) para click-out fechar. */}
+            {open !== null && (
+                <div
+                    className="chat-drawer-shell__backdrop"
+                    onClick={close}
+                    aria-hidden="true"
+                />
+            )}
+
             {/* Painel overlay esquerdo */}
             {showLeft && open === 'left' && (
                 <DrawerPanel side="left" slots={leftSlots!} onClose={close} />
@@ -203,13 +228,25 @@ interface DrawerPanelProps {
 }
 
 function DrawerPanel({ side, slots, onClose }: DrawerPanelProps) {
+    const labelId = useId();
+    const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+    // Move foco ao botão de fechar quando o painel abre (acessibilidade + Esc imediato).
+    useEffect(() => {
+        const t = setTimeout(() => closeBtnRef.current?.focus(), 30);
+        return () => clearTimeout(t);
+    }, []);
+
     return (
         <aside
             className={`chat-drawer-shell__panel chat-drawer-shell__panel--${side}`}
-            role="complementary"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby={labelId}
         >
             <button
                 type="button"
+                ref={closeBtnRef}
                 className="chat-drawer-shell__panel-close"
                 onClick={onClose}
                 title="Fechar (Esc)"
@@ -229,8 +266,11 @@ function DrawerPanel({ side, slots, onClose }: DrawerPanelProps) {
                         }
                         data-section-index={idx}
                     >
-                        <header className="chat-drawer-shell__panel-section-header">
-                            {slot.icon && <span>{slot.icon}</span>}
+                        <header
+                            className="chat-drawer-shell__panel-section-header"
+                            id={idx === 0 ? labelId : undefined}
+                        >
+                            {slot.icon && <span aria-hidden="true">{slot.icon}</span>}
                             <span>{slot.title}</span>
                             {(slot.badgeCount ?? 0) > 0 && (
                                 <span className="chat-drawer-shell__section-badge">
