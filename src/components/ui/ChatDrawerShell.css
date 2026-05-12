@@ -247,3 +247,115 @@
         box-shadow: 0 0 0 2px #ffffff;
     }
 }
+
+/* ===== PR 5: backdrop + mobile bottom-sheet + reduced motion ===== */
+
+/* Backdrop: invisível em desktop (drawer já é overlay lateral discreto), visível em mobile */
+.chat-drawer-shell__backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    background: transparent;
+    pointer-events: none;
+}
+
+/* Em mobile o backdrop captura cliques e escurece o fundo */
+@media (max-width: 768px) {
+    .chat-drawer-shell__backdrop {
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(2px);
+        pointer-events: auto;
+        animation: chat-drawer-fade-in 0.18s ease-out;
+    }
+
+    /* Trilhos um pouco maiores para toque (44px alvo aproximado) */
+    .chat-drawer-shell__rail {
+        width: 28px;
+    }
+
+    .chat-drawer-shell__chat {
+        padding-left: 30px;
+        padding-right: 30px;
+    }
+
+    /* Painel vira bottom-sheet: largura total, 75vh, slide-up */
+    .chat-drawer-shell__panel {
+        left: 0 !important;
+        right: 0 !important;
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        max-width: 100%;
+        height: min(75vh, 560px);
+        border-left: none;
+        border-right: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+        animation-name: chat-drawer-slide-up;
+    }
+
+    .chat-drawer-shell__panel--left,
+    .chat-drawer-shell__panel--right {
+        animation-name: chat-drawer-slide-up;
+    }
+
+    /* Handle visual no topo do bottom-sheet */
+    .chat-drawer-shell__panel::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.25);
+        pointer-events: none;
+    }
+
+    .chat-drawer-shell__panel-close {
+        top: 14px;
+        right: 12px;
+    }
+
+    .chat-drawer-shell__panel-stack {
+        padding-top: 18px; /* espaço para o handle */
+    }
+}
+
+@keyframes chat-drawer-slide-up {
+    from { transform: translateY(16px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes chat-drawer-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Respeita usuário com aversão a movimento */
+@media (prefers-reduced-motion: reduce) {
+    .chat-drawer-shell__panel,
+    .chat-drawer-shell__panel--left,
+    .chat-drawer-shell__panel--right,
+    .chat-drawer-shell__backdrop,
+    .chat-drawer-shell__badge,
+    .chat-drawer-shell__rail {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* Light theme override do backdrop em mobile */
+@media (max-width: 768px) and (prefers-color-scheme: light) {
+    .chat-drawer-shell__backdrop {
+        background: rgba(15, 23, 42, 0.30);
+    }
+    .chat-drawer-shell__panel {
+        border-top-color: rgba(0, 0, 0, 0.10);
+    }
+    .chat-drawer-shell__panel::before {
+        background: rgba(0, 0, 0, 0.18);
+    }
+}

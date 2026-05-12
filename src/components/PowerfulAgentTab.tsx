@@ -22,6 +22,12 @@ import { isManuallyAssignable } from '../constants/s140Template';
 import type { AgentModalType } from './AgentModalHost';
 import { ChatDrawerShell } from './ui/ChatDrawerShell';
 import './ui/ChatDrawerShell.css';
+import { LeftPanelActions } from './ui/LeftPanelActions';
+import { RightPanelDetails } from './ui/RightPanelDetails';
+import type { ChatActionChipItem } from './ui/ChatActionChips';
+import type { PostResponseActionItem } from './ui/PostResponseActions';
+import type { SlashCommandItem } from './ui/SlashCommandMenu';
+import type { FloatingMicroUiItem } from './ui/FloatingMicroUiHost';
 
 interface Props {
     publishers: Publisher[];
@@ -79,6 +85,23 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
     const [rateLimitInfo, setRateLimitInfo] = useState<{ remaining: number, max: number, refillInSeconds: number } | null>(null);
     const [, setActiveModel] = useState<string>('gemini-1.5-flash'); // Default model active
+
+    // === IDD drawer ESQ: controles semânticos vindos do TemporalChat.
+    const [semanticControls, setSemanticControls] = useState<{
+        chips: ChatActionChipItem[];
+        slashCommands: SlashCommandItem[];
+        suggestedActions: PostResponseActionItem[];
+    }>({ chips: [], slashCommands: [], suggestedActions: [] });
+
+    // === IDD drawer DIR: micro-UIs ativas + request de auto-open vindas do TemporalChat.
+    const [activeMicroUis, setActiveMicroUis] = useState<FloatingMicroUiItem[]>([]);
+    const [microUiRequest, setMicroUiRequest] = useState<{ id: string; nonce: number } | null>(null);
+    // Bump nonce para o ChatDrawerShell.forceOpen quando uma nova request chega.
+    const [drawerForceOpen, setDrawerForceOpen] = useState<{ side: 'left' | 'right'; nonce: number } | null>(null);
+    useEffect(() => {
+        if (!microUiRequest) return;
+        setDrawerForceOpen({ side: 'right', nonce: microUiRequest.nonce });
+    }, [microUiRequest]);
 
     // Sync week navigation with TemporalChat
     useEffect(() => {
@@ -181,37 +204,26 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
             <div className="agent-tab-column">
                 <div className="agent-tab-col-header" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <span>🤖</span> Agente RVM
-                    {currentWeekId && (
-                        <span style={{
-                            fontSize: '0.8em',
-                            background: '#E5E7EB',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            color: '#4B5563',
-                            fontWeight: 'normal',
-                            marginRight: '8px'
-                        }}>
-                            Semana: {currentWeekId}
-                        </span>
-                    )}
-                    {accessLevel === 'elder' && (<span
+                    {/* IDD: chip "Semana: X" removido — já visível no header da Coluna 1 (S-140)
+                        e na IntentContextBar do próprio chat. Reduz ruído. */}
+                    {accessLevel === 'elder' && (<button
+                        type="button"
                         onClick={() => setShowSubscriptionModal(true)}
+                        title="Monitoramento de custos IA"
+                        aria-label="Abrir monitor de custos IA"
                         style={{
                             marginLeft: 'auto',
-                            fontSize: '10px',
-                            background: '#3730A3', // Indigo-800
-                            color: '#E0E7FF', // Indigo-100
-                            padding: '2px 8px',
+                            fontSize: '14px',
+                            background: 'transparent',
+                            color: '#E0E7FF',
+                            padding: '2px 6px',
                             borderRadius: '4px',
-                            border: '1px solid #6366F1', // Indigo-500
+                            border: '1px solid #6366F1',
                             cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                        }} title="Clique para ver custos">
-                        ⚡ Pro Reference
-                    </span>)}
+                            lineHeight: 1,
+                        }}>
+                        ⚡
+                    </button>)}
                 </div>
                 <div className="agent-tab-col-content" style={{ padding: 0 }}>
                     <ChatDrawerShell
@@ -220,39 +232,35 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         leftSlots={[
                             {
                                 id: 'suggested-actions',
-                                title: 'Ações Sugeridas',
+                                title: 'Ações',
                                 icon: '💡',
+                                badgeCount: semanticControls.chips.length + semanticControls.suggestedActions.length,
                                 content: (
-                                    <div style={{ fontSize: '12px', lineHeight: 1.5, opacity: 0.85 }}>
-                                        <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>Em breve:</p>
-                                        <ul style={{ paddingLeft: '18px', margin: 0 }}>
-                                            <li>Ações inferidas da última resposta do agente.</li>
-                                            <li>Ações de continuidade da conversa.</li>
-                                        </ul>
-                                        <p style={{ margin: '12px 0 0 0', fontSize: '11px', opacity: 0.7 }}>
-                                            Atalho: <kbd>Ctrl+[</kbd>
-                                        </p>
-                                    </div>
+                                    <LeftPanelActions
+                                        chips={semanticControls.chips}
+                                        suggestedActions={semanticControls.suggestedActions}
+                                        slashCommands={semanticControls.slashCommands}
+                                    />
                                 ),
                             },
                         ]}
                         rightRailLabel="Detalhes"
                         rightRailIcon="📋"
-                        rightSlots={[
+                        forceOpen={drawerForceOpen}
+                        rightSlots={activeMicroUis.length > 0 ? [
                             {
                                 id: 'micro-ui',
                                 title: 'Micro-UI Ativa',
                                 icon: '🧩',
+                                badgeCount: activeMicroUis.length,
                                 content: (
-                                    <div style={{ fontSize: '12px', opacity: 0.85 }}>
-                                        Edição rápida sob demanda (publicador, disponibilidade, conclusão de parte) aparecerá aqui.
-                                        <p style={{ margin: '12px 0 0 0', fontSize: '11px', opacity: 0.7 }}>
-                                            Respostas/relatórios longos do agente abrem como <strong>modal à parte</strong>, não aqui. Atalho: <kbd>Ctrl+]</kbd>
-                                        </p>
-                                    </div>
+                                    <RightPanelDetails
+                                        items={activeMicroUis}
+                                        activeId={microUiRequest?.id ?? null}
+                                    />
                                 ),
                             },
-                        ]}
+                        ] : null}
                     >
                         <TemporalChat
                             publishers={publishers}
@@ -268,6 +276,11 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             accessLevel={accessLevel}
                             canSendZap={canSendZap}
                             onPartFocus={setSelectedPartId}
+                            onSemanticControlsChange={setSemanticControls}
+                            onActiveMicroUiChange={(items, request) => {
+                                setActiveMicroUis(items);
+                                setMicroUiRequest(request);
+                            }}
                         />
                     </ChatDrawerShell>
                 </div>

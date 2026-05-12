@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ChatMessageBubble } from './ui/ChatMessageBubble';
-import { ChatActionChips } from './ui/ChatActionChips';
+// IDD: ChatActionChips inline removidos da Coluna 2 — chips agora ficam no drawer ESQ (LeftPanelActions).
+// Mantemos o import-only do tipo via `import('./ui/ChatActionChips').ChatActionChipItem` na prop onSemanticControlsChange.
 import { IntentContextBar } from './ui/IntentContextBar';
 import { PostResponseActions } from './ui/PostResponseActions';
 import { SlashCommandMenu } from './ui/SlashCommandMenu';
@@ -8,7 +9,10 @@ import { ProposalApprovalMicroUi } from './ui/ProposalApprovalMicroUi';
 import { AvailabilityUpdateMicroUi } from './ui/AvailabilityUpdateMicroUi';
 import { PublisherQuickEditMicroUi } from './ui/PublisherQuickEditMicroUi';
 import { PartCompletionMicroUi } from './ui/PartCompletionMicroUi';
-import { FloatingMicroUiHost } from './ui/FloatingMicroUiHost';
+// IDD: FloatingMicroUiHost removido do render — micro-UIs agora vivem no
+// drawer DIR (RightPanelDetails) via onActiveMicroUiChange. Importamos só o
+// type FloatingMicroUiItem inline na prop. O componente segue existindo como
+// fallback histórico para mobile/snap-scroll (a ser revisitado em PR posterior).
 import { FloatingPanelShell } from './ui/FloatingPanelShell';
 import { chatHistoryService } from '../services/chatHistoryService';
 import { askAgent, isAgentConfigured, getSuggestedQuestions } from '../services/agentService';
@@ -47,6 +51,28 @@ interface TemporalChatProps {
     accessLevel?: 'elder' | 'publisher';
     canSendZap?: boolean;
     onPartFocus?: (partId: string) => void;
+    /**
+     * Emitido sempre que os controles semânticos derivados (chips contextuais,
+     * slash commands visíveis e ações pós-resposta da última mensagem do
+     * agente) mudam. Permite ao pai (PowerfulAgentTab) renderizar
+     * `LeftPanelActions` no drawer ESQ sem duplicar o hook semântico aqui.
+     */
+    onSemanticControlsChange?: (controls: {
+        chips: import('./ui/ChatActionChips').ChatActionChipItem[];
+        slashCommands: import('./ui/SlashCommandMenu').SlashCommandItem[];
+        suggestedActions: import('./ui/PostResponseActions').PostResponseActionItem[];
+    }) => void;
+    /**
+     * Emitido sempre que o conjunto de micro-UIs ativas (aprovação,
+     * disponibilidade, ficha rápida, conclusão) muda OU quando o usuário
+     * solicita abrir uma específica via slash/chip. Permite ao pai
+     * (PowerfulAgentTab) hospedar essas UIs no drawer DIR e auto-abrir o
+     * painel quando uma nova chega.
+     */
+    onActiveMicroUiChange?: (
+        items: import('./ui/FloatingMicroUiHost').FloatingMicroUiItem[],
+        request: { id: string; nonce: number } | null
+    ) => void;
 }
 
 export default function TemporalChat({
@@ -62,7 +88,9 @@ export default function TemporalChat({
     onRateLimitChange,
     accessLevel = 'publisher',
     canSendZap = false,
-    onPartFocus
+    onPartFocus,
+    onSemanticControlsChange,
+    onActiveMicroUiChange
 }: TemporalChatProps) {
     const { profile } = useAuth();
     // ... existing hooks ...
@@ -1201,6 +1229,27 @@ export default function TemporalChat({
         openCompletionMicroUi,
     });
 
+    // === IDD: emite controles sem\u00e2nticos para o pai (PowerfulAgentTab) renderizar
+    // o `LeftPanelActions` no drawer ESQ. Suggested actions = post-response actions
+    // da \u00faltima mensagem do agente (se houver).
+    const suggestedActionsForPanel = useMemo(() => {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'assistant') {
+                return buildPostResponseActions(messages[i], i);
+            }
+        }
+        return [];
+    }, [messages, buildPostResponseActions]);
+
+    useEffect(() => {
+        if (!onSemanticControlsChange) return;
+        onSemanticControlsChange({
+            chips: contextualChips,
+            slashCommands: visibleSlashCommands,
+            suggestedActions: suggestedActionsForPanel,
+        });
+    }, [contextualChips, visibleSlashCommands, suggestedActionsForPanel, onSemanticControlsChange]);
+
     const floatingMicroUiItems = useMemo(() => {
         const items = [];
 
@@ -1308,6 +1357,14 @@ export default function TemporalChat({
         shouldShowPublisherEditMicroUi
     ]);
 
+    // === IDD: emite micro-UIs ativas e a request atual de abertura para o pai
+    // hospedar no drawer DIR (RightPanelDetails) e auto-abri-lo quando uma
+    // nova chega.
+    useEffect(() => {
+        if (!onActiveMicroUiChange) return;
+        onActiveMicroUiChange(floatingMicroUiItems, microUiOpenRequest);
+    }, [floatingMicroUiItems, microUiOpenRequest, onActiveMicroUiChange]);
+
     const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -1360,11 +1417,11 @@ export default function TemporalChat({
                 />
             </div>
 
-            <FloatingMicroUiHost
-                items={floatingMicroUiItems}
-                requestedOpenId={microUiOpenRequest?.id ?? null}
-                requestNonce={microUiOpenRequest?.nonce ?? 0}
-            />
+            {/* IDD: FloatingMicroUiHost (cards flutuantes sobre a conversa) substituído pelo
+                drawer DIR (RightPanelDetails) hospedado em PowerfulAgentTab via
+                onActiveMicroUiChange. Evita oclusão da conversa e unifica o ponto
+                de hospedagem. Mobile fallback (snap-scroll) será revisitado em PR posterior. */}
+
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
                 {messages.length === 0 && (
@@ -1406,9 +1463,13 @@ export default function TemporalChat({
                                 setTimeout(() => sendMessage('continue'), 100);
                             }}
                         />
-                        {msg.role === 'assistant' && (
-                            <PostResponseActions actions={buildPostResponseActions(msg, idx)} />
-                        )}
+                        {msg.role === 'assistant' && (() => {
+                            // IDD: ações pós-resposta migraram para o drawer ESQ.
+                            // Mantém inline apenas ações URGENTES (variant=primary).
+                            const all = buildPostResponseActions(msg, idx);
+                            const urgent = all.filter(a => a.variant === 'primary');
+                            return urgent.length > 0 ? <PostResponseActions actions={urgent} /> : null;
+                        })()}
                     </div>
                 ))}
                 {isLoading && (
@@ -1420,7 +1481,8 @@ export default function TemporalChat({
             </div>
             {/* Pending actions panel removed - Actions are now direct or conversational */}
 
-            <ChatActionChips chips={contextualChips} />
+            {/* IDD: ChatActionChips inline removidos. Chips contextuais agora vivem
+                no drawer ESQ (LeftPanelActions) através de onSemanticControlsChange. */}
 
             {/* v9.3: BatchSimulationPanel removed - Agent uses existing Workbook UI */}
 

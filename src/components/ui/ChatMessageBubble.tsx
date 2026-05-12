@@ -5,13 +5,31 @@
  * Suporta markdown: **bold**, *italic*, tabelas, listas, quebras de linha.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 
 export interface ChatMessageBubbleProps {
     role: 'user' | 'assistant' | 'system' | 'model'; // 'model' alias for assistant
     content: string;
     timestamp?: Date;
     onShowMore?: () => void;
+}
+
+/** Limiar IDD: respostas longas saem da bolha e abrem modal à parte. */
+const LONG_RESPONSE_CHARS = 1500;
+const LONG_RESPONSE_MARKER = '\n\n## ';
+
+function isLongResponse(text: string): boolean {
+    return text.length > LONG_RESPONSE_CHARS || text.includes(LONG_RESPONSE_MARKER);
+}
+
+/** Resumo curto da bolha para respostas longas: até a 1ª quebra dupla
+ *  ou primeiros ~400 caracteres, o que vier antes. */
+function summarizeLong(text: string): string {
+    const idx = text.indexOf('\n\n');
+    const cap = 400;
+    let summary = idx > 0 && idx < cap ? text.slice(0, idx) : text.slice(0, cap);
+    if (summary.length < text.length) summary += '…';
+    return summary;
 }
 
 /** Renderiza markdown básico como JSX */
@@ -124,6 +142,11 @@ export function ChatMessageBubble({ role, content, timestamp, onShowMore }: Chat
     const hasContinuation = !isUser && content.includes('[CONTINUA...]');
     const displayContent = hasContinuation ? content.replace('[CONTINUA...]', '').trim() : content;
 
+    // IDD: resposta longa do agente vai para modal à parte; bolha mostra só o resumo.
+    const longMode = !isUser && isLongResponse(displayContent);
+    const [showFullModal, setShowFullModal] = useState(false);
+    const bubbleContent = longMode ? summarizeLong(displayContent) : displayContent;
+
     return (
         <div style={{
             display: 'flex',
@@ -146,9 +169,27 @@ export function ChatMessageBubble({ role, content, timestamp, onShowMore }: Chat
                 border: isUser ? 'none' : '1px solid rgba(0,0,0,0.03)'
             }}>
                 {isUser
-                    ? displayContent
-                    : renderMarkdown(displayContent)
+                    ? bubbleContent
+                    : renderMarkdown(bubbleContent)
                 }
+                {longMode && (
+                    <button
+                        type="button"
+                        onClick={() => setShowFullModal(true)}
+                        style={{
+                            marginTop: 10,
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '6px 12px',
+                            background: 'linear-gradient(135deg, #6366F1 0%, #4338CA 100%)',
+                            color: 'white', border: 'none', borderRadius: 999, cursor: 'pointer',
+                            fontSize: 12, fontWeight: 600,
+                            boxShadow: '0 2px 6px rgba(99, 102, 241, 0.25)',
+                        }}
+                        aria-label="Abrir resposta completa em modal"
+                    >
+                        📄 Abrir resposta completa
+                    </button>
+                )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 4px', opacity: 0.8 }}>
@@ -169,6 +210,56 @@ export function ChatMessageBubble({ role, content, timestamp, onShowMore }: Chat
                     </button>
                 )}
             </div>
+
+            {/* IDD: modal overlay para resposta longa. Centralizado, com Esc/click-out e markdown completo. */}
+            {longMode && showFullModal && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Resposta completa do agente"
+                    onClick={() => setShowFullModal(false)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setShowFullModal(false); }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 9998,
+                        background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(2px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: 16,
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: 'white', color: '#111827',
+                            borderRadius: 14, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)',
+                            width: 'min(880px, 100%)', maxHeight: '85vh',
+                            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                        }}
+                    >
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '12px 16px', borderBottom: '1px solid #E5E7EB', background: '#F9FAFB',
+                        }}>
+                            <strong style={{ fontSize: 14 }}>📄 Resposta completa do agente</strong>
+                            <button
+                                type="button"
+                                onClick={() => setShowFullModal(false)}
+                                aria-label="Fechar resposta completa"
+                                style={{
+                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    fontSize: 22, lineHeight: 1, color: '#6B7280',
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div style={{
+                            padding: '16px 20px', overflowY: 'auto', fontSize: 14, lineHeight: 1.65,
+                        }}>
+                            {renderMarkdown(displayContent)}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
