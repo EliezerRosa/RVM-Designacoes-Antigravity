@@ -46,16 +46,15 @@ export async function reassignParts(
         matchConfidence: 0,
     }));
 
-    const weekIds = Array.from(new Set(toClear.map(p => p.weekId).filter(Boolean)));
     const refreshedParts = (workbookParts || []).map(p =>
         idsSet.has(p.id) ? cleared.find(c => c.id === p.id)! : p,
     );
 
-    // 2) Roda motor restrito às semanas afetadas
+    // 2) Roda motor SEM generationWeeks para não forçar re-geração de parts
+    // já designadas em outras posições da mesma semana. As parts limpadas no
+    // passo 1 estão com status PENDENTE; o motor as encontra naturalmente.
     const result = await generationService.generateDesignations(refreshedParts, publishers, {
         isDryRun: false,
-        generationWeeks: weekIds,
-        forceAllPartsInPeriod: true,
     });
 
     // 3) Limpa flags needs_reassignment para parts agora resolvidas
