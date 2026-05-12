@@ -189,10 +189,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             for (const wp of weekParts) {
                 if (!DESIGNATABLE_STATUSES.includes(wp.status)) continue;
                 if (HIDDEN_TYPES.some(h => wp.tipoParte?.includes(h))) continue;
-                // Sentinel AUTO_CHAIRMAN: parte auto-atribuída ao presidente.
+                // Parte derivada do presidente: auto-atribuída ao mesmo publicador.
                 // S-89 dessas partes não vai para o presidente — ele já recebe via
                 // o cartão da própria designação "Presidente" (seq=1).
-                if (wp.resolvedPublisherId === 'AUTO_CHAIRMAN') continue;
+                if (wp.isChairmanDerived === true) continue;
                 const name = wp.resolvedPublisherName || wp.rawPublisherName;
                 if (!name) continue;
                 // Já incluída via S-140?

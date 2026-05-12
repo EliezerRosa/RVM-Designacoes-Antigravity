@@ -274,14 +274,18 @@ export const generationService = {
 
                 // Encontrar o Presidente desta semana (já processado na Fase 1 ou existente no array)
                 let chairmanName = 'Presidente da Reunião'; // Fallback
+                let chairmanId = ''; // ID real do publicador (FK -> publishers.id)
 
                 // 1. Tenta achar nos selecionados agora (Fase 1)
                 const chairmanPart = weekParts.find(p => p.tipoParte.toLowerCase().includes('presidente'));
                 if (chairmanPart && selectedPublisherByPart.has(chairmanPart.id)) {
-                    chairmanName = selectedPublisherByPart.get(chairmanPart.id)?.name || chairmanName;
+                    const sel = selectedPublisherByPart.get(chairmanPart.id);
+                    chairmanName = sel?.name || chairmanName;
+                    chairmanId = sel?.id || '';
                 } else if (chairmanPart?.resolvedPublisherName) {
                     // 2. Tenta achar se já estava salvo antes
                     chairmanName = chairmanPart.resolvedPublisherName;
+                    chairmanId = chairmanPart.resolvedPublisherId || '';
                 }
 
                 // Auto-atribuir partes do presidente
@@ -290,8 +294,13 @@ export const generationService = {
                     // Se já estiver correto no banco, ignora (para não gastar update)
                     if (part.resolvedPublisherName === chairmanName) continue;
 
+                    // Sem chairmanId real não persistimos (FK validaria e quebraria).
+                    // O fluxo normal é: chairmanPart é commitado primeiro e
+                    // workbookService.syncChairmanAssignments propaga depois com FK válida.
+                    if (!chairmanId) continue;
+
                     selectedPublisherByPart.set(part.id, {
-                        id: 'AUTO_CHAIRMAN',
+                        id: chairmanId,
                         name: chairmanName
                     });
                 }

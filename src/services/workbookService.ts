@@ -92,6 +92,8 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         originalDuration: (row.original_duration as string) || undefined,
         // Auditoria de designação
         isManualOverride: (row.is_manual_override as boolean) ?? false,
+        // Substitui o sentinel legado 'AUTO_CHAIRMAN' em resolved_publisher_id
+        isChairmanDerived: (row.is_chairman_derived as boolean) ?? false,
     };
 }
 
@@ -627,9 +629,10 @@ export const workbookService = {
         // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
         if (updatedPart.tipoParte === 'Presidente' && updates.resolvedPublisherName) {
             const pubName = updates.resolvedPublisherName || '';
+            const pubId = updates.resolvedPublisherId || '';
             if (pubName) {
                 // Executar em background (sem await para não travar a UI)
-                this.syncChairmanAssignments(updatedPart.weekId, '', pubName, updatedPart.status);
+                this.syncChairmanAssignments(updatedPart.weekId, pubId, pubName, updatedPart.status);
             }
         }
 
@@ -839,7 +842,7 @@ export const workbookService = {
 
         // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
         if (updatedPart.tipoParte === 'Presidente') {
-            this.syncChairmanAssignments(updatedPart.weekId, '', publisherName, status);
+            this.syncChairmanAssignments(updatedPart.weekId, publisherId || '', publisherName, status);
         }
 
         return updatedPart;
@@ -1115,7 +1118,7 @@ export const workbookService = {
      * Sincroniza partes do Presidente (Comentários Iniciais/Finais)
      * Deve ser chamado após atualizar a parte principal 'Presidente'
      */
-    async syncChairmanAssignments(weekId: string, _publisherId: string, publisherName: string, status: WorkbookStatus): Promise<void> {
+    async syncChairmanAssignments(weekId: string, publisherId: string, publisherName: string, status: WorkbookStatus): Promise<void> {
         // Tipos de parte que devem ser sincronizados com o Presidente
         const TARGET_TYPES = [
             'Comentários Iniciais', 'Comentarios Iniciais',
@@ -1125,27 +1128,27 @@ export const workbookService = {
             'Elogios e Conselhos', 'Elogios e conselhos'
         ];
 
-        // Buscar partes alvo na mesma semana — por TIPO ou por sentinel AUTO_CHAIRMAN.
-        // O sentinel cobre rows de partes auto-atribuídas ao chair pelo generationService
-        // mesmo que o tipo_parte não bata com TARGET_TYPES (ex.: variações de grafia).
+        // Buscar partes alvo na mesma semana — por TIPO ou pelo flag is_chairman_derived.
+        // O flag cobre rows já marcadas como derivadas do presidente mesmo que o
+        // tipo_parte não bata com TARGET_TYPES (ex.: variações de grafia).
         const { data: partsToUpdate, error: fetchError } = await supabase
             .from('workbook_parts')
             .select('id, tipo_parte')
             .eq('week_id', weekId)
-            .or(`tipo_parte.in.(${TARGET_TYPES.map(t => `"${t}"`).join(',')}),resolved_publisher_id.eq.AUTO_CHAIRMAN`);
+            .or(`tipo_parte.in.(${TARGET_TYPES.map(t => `"${t}"`).join(',')}),is_chairman_derived.eq.true`);
 
         if (fetchError || !partsToUpdate || partsToUpdate.length === 0) return;
 
         // Preparar update
         const updates: any = {
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            // Marca canonicamente como derivada do presidente (substitui sentinel legado)
+            is_chairman_derived: true,
+            // Propaga identidade real do presidente (FK → publishers.id)
+            resolved_publisher_id: publisherId || null,
+            resolved_publisher_name: publisherName || null,
+            status,
         };
-
-        // Se o status da parte principal for PROPOSTA ou acima, propagamos.
-        // resolved_publisher_id é UUID no banco, publishers usam IDs numéricos - incompatível
-        // Guardamos apenas o nome
-        updates.resolved_publisher_name = publisherName || null;
-        updates.status = status;
 
         const ids = partsToUpdate.map(p => p.id);
 

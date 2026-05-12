@@ -21,6 +21,7 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         batchId: 'batch_id', partNumber: 'part_number', participantName: 'participant_name',
         assistantName: 'assistant_name', resolvedPublisherName: 'resolved_publisher_name',
         resolvedPublisherId: 'resolved_publisher_id', isCancelled: 'is_cancelled',
+        isChairmanDerived: 'is_chairman_derived',
         createdAt: 'created_at', updatedAt: 'updated_at',
     },
     workbook_batches: {
