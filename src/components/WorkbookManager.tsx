@@ -458,7 +458,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
 
 
     // Helper para atualizar publisher do dropdown
-    const handlePublisherSelect = async (partId: string, _newId: string, newName: string) => {
+    const handlePublisherSelect = async (partId: string, newId: string, newName: string) => {
         try {
             // Tentar pegar a part atual para checar status
             const part = parts.find(p => p.id === partId);
@@ -509,7 +509,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                     partId,
                     newName,
                     'MANUAL',
-                    'Seleção via Dropdown'
+                    'Seleção via Dropdown',
+                    newId || undefined
                 );
             } else {
                 // Reverter/Limpar
