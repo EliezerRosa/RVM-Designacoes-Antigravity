@@ -1125,12 +1125,14 @@ export const workbookService = {
             'Elogios e Conselhos', 'Elogios e conselhos'
         ];
 
-        // Buscar partes alvo na mesma semana
+        // Buscar partes alvo na mesma semana — por TIPO ou por sentinel AUTO_CHAIRMAN.
+        // O sentinel cobre rows de partes auto-atribuídas ao chair pelo generationService
+        // mesmo que o tipo_parte não bata com TARGET_TYPES (ex.: variações de grafia).
         const { data: partsToUpdate, error: fetchError } = await supabase
             .from('workbook_parts')
             .select('id, tipo_parte')
             .eq('week_id', weekId)
-            .in('tipo_parte', TARGET_TYPES);
+            .or(`tipo_parte.in.(${TARGET_TYPES.map(t => `"${t}"`).join(',')}),resolved_publisher_id.eq.AUTO_CHAIRMAN`);
 
         if (fetchError || !partsToUpdate || partsToUpdate.length === 0) return;
 
