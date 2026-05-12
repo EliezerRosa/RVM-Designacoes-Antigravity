@@ -70,8 +70,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 if (wp.id === part.id) continue;
                 // Só considerar partes da mesma semana
                 if (wp.weekId !== part.weekId) continue;
-                // Só considerar partes com publicador atribuído
-                if (wp.resolvedPublisherName) {
+                // Só considerar partes com publicador atribuído e não canceladas
+                if (wp.resolvedPublisherName && wp.status !== 'CANCELADA') {
                     publishersInSameWeek.add(wp.resolvedPublisherName);
                 }
             }
