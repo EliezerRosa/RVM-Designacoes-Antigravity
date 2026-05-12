@@ -275,6 +275,20 @@ export function checkEligibility(
 
     const textualConstraints = parseTextualConstraints(context);
 
+    // Regra de exceção (acordada 2026-05-11): para Discurso de Ensino na seção
+    // Tesouros (ex.: "Discurso Tesouros", "Joias Espirituais"), Servo Ministerial
+    // também é elegível além de Ancião — mesmo quando o texto da apostila menciona
+    // apenas "ancião". Amplia allowedConditions de ['elder'] para ['elder','ministerial'].
+    if (
+        modalidade === EnumModalidade.DISCURSO_ENSINO &&
+        context.secao === EnumSecao.TESOUROS &&
+        textualConstraints.allowedConditions &&
+        textualConstraints.allowedConditions.length === 1 &&
+        textualConstraints.allowedConditions[0] === 'elder'
+    ) {
+        textualConstraints.allowedConditions = ['elder', 'ministerial'];
+    }
+
     // ===== FILTROS GLOBAIS (Regras 1-3) =====
 
     // Regra 1: Não designar publicadores não atuantes
