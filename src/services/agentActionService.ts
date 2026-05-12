@@ -869,10 +869,10 @@ export const agentActionService = {
 
                         let count = 0;
                         for (const part of weekParts) {
-                            // Sentinel AUTO_CHAIRMAN: parte auto-atribuída ao presidente.
+                            // Parte derivada do presidente: auto-atribuída ao mesmo publicador.
                             // Nenhum cartão S-89 deve ser emitido para essas partes — o
                             // presidente já recebe o cartão da designação "Presidente" (seq=1).
-                            if (part.resolvedPublisherId === 'AUTO_CHAIRMAN') continue;
+                            if (part.isChairmanDerived === true) continue;
 
                             const pType = (part.tipoParte || '').toLowerCase();
                             const pSection = (part.section || '').toLowerCase();

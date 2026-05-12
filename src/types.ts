@@ -308,6 +308,10 @@ export interface WorkbookPart {
     resolvedPublisherId?: string;
     resolvedPublisherName?: string;
 
+    // Marca partes auto-atribuídas ao presidente da semana
+    // (substitui o sentinel legado 'AUTO_CHAIRMAN' em resolved_publisher_id)
+    isChairmanDerived?: boolean;
+
     // Status e metadados
     status: WorkbookStatus;
     createdAt: string;

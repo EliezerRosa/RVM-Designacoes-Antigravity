@@ -64,6 +64,7 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         horaFim: row.hora_fim as string,
         rawPublisherName: row.raw_publisher_name as string,
         resolvedPublisherName: row.resolved_publisher_name as string | undefined,
+        isChairmanDerived: (row.is_chairman_derived as boolean) ?? false,
         status: row.status as any,
         createdAt: row.created_at as string,
         updatedAt: row.updated_at as string | undefined,

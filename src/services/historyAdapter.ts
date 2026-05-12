@@ -148,6 +148,7 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         rawPublisherName: (row.raw_publisher_name as string) || '',
         // SIMPLIFICADO: apenas nome
         resolvedPublisherName: (row.resolved_publisher_name as string) || undefined,
+        isChairmanDerived: (row.is_chairman_derived as boolean) ?? false,
         status: (row.status as WorkbookStatus) || WorkbookStatus.PENDENTE,
         batch_id: (row.batch_id as string) || undefined,
         createdAt: (row.created_at as string) || '',
