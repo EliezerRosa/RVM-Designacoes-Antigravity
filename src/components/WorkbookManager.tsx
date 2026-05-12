@@ -553,9 +553,14 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
         try {
             // =====================================================================
             // REGRA: Se status voltar para PENDENTE, limpar o publicador
+            // Espelha o comportamento do caminho "aplicar à semana" em
+            // workbookManagementServiceCore (limpa name, id e rawName) — caso
+            // contrário, WorkbookTable continua exibindo o nome via lookup pelo id.
             // =====================================================================
             if (updates.status === 'PENDENTE') {
-                updates.resolvedPublisherName = ''; // Limpar publicador
+                updates.resolvedPublisherName = '';
+                updates.resolvedPublisherId = '';
+                updates.rawPublisherName = '';
             }
 
             // 1. Atualizar a parte individual pelo boundary de gerenciamento
