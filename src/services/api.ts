@@ -4,6 +4,41 @@ import { getAvailabilityAuthor, availabilityChanged } from './availabilityAuthor
 import { getProfileAuthor, profileChanged } from './profileAuthor';
 
 // ============================================================================
+// Helper: sync cônjuge bidirecional (sem recursão)
+// Chamado após upsert do publicador principal, direto no supabase (sem this.updatePublisher).
+// ============================================================================
+async function syncSpouseBackLink(
+    publisherId: string,
+    oldSpouseId: string | undefined,
+    newSpouseId: string | undefined,
+): Promise<void> {
+    // 1) Limpar back-link do cônjuge anterior (se existia e mudou)
+    if (oldSpouseId && oldSpouseId !== newSpouseId) {
+        const { data: row } = await supabase.from('publishers').select('data').eq('id', oldSpouseId).maybeSingle();
+        if (row?.data) {
+            const old = row.data as Publisher;
+            if (old.spouseId === publisherId) {
+                const updated = { ...old, spouseId: undefined };
+                await supabase.from('publishers').upsert({ id: oldSpouseId, data: updated }, { onConflict: 'id' });
+                console.log(`[API] Spouse back-link cleared on publisher ${oldSpouseId}`);
+            }
+        }
+    }
+    // 2) Estabelecer back-link no novo cônjuge
+    if (newSpouseId) {
+        const { data: row } = await supabase.from('publishers').select('data').eq('id', newSpouseId).maybeSingle();
+        if (row?.data) {
+            const spouse = row.data as Publisher;
+            if (spouse.spouseId !== publisherId) {
+                const updated = { ...spouse, spouseId: publisherId };
+                await supabase.from('publishers').upsert({ id: newSpouseId, data: updated }, { onConflict: 'id' });
+                console.log(`[API] Spouse back-link set on publisher ${newSpouseId} → ${publisherId}`);
+            }
+        }
+    }
+}
+
+// ============================================================================
 // API Service - Full Supabase Persistence
 // ============================================================================
 
@@ -98,6 +133,12 @@ export const api = {
             throw error;
         }
         console.log(`[API] Publisher ${publisher.name} created with id ${publisher.id}`);
+
+        // Sync cônjuge: se novo publicador já tem spouseId, apontar o cônjuge de volta
+        if (publisher.spouseId) {
+            await syncSpouseBackLink(publisher.id, undefined, publisher.spouseId);
+        }
+
         return publisher;
     },
 
@@ -124,7 +165,13 @@ export const api = {
             throw error;
         }
 
-        // 3) Se availability mudou, registra via RPC (history + meta + notif + flags).
+        // 3) Sync cônjuge bidirecional: se spouseId mudou, atualizar o(s) cônjuge(s) no BD.
+        const prevSpouseId = prev?.spouseId;
+        if (prevSpouseId !== publisher.spouseId) {
+            await syncSpouseBackLink(publisher.id, prevSpouseId, publisher.spouseId);
+        }
+
+        // 4) Se availability mudou, registra via RPC (history + meta + notif + flags).
         if (availChanged) {
             try {
                 await this.recordAvailabilityChange(publisher.id, publisher.availability);
@@ -271,9 +318,8 @@ export const api = {
     subscribeToPublishers(onUpdate: (publishers: Publisher[]) => void): () => void {
         console.log('[REALTIME] Subscribing to publishers changes...');
 
-        // Debounce para evitar loop infinito de reloads
+        // Debounce de 300ms para agrupar mudanças simultâneas sem descartar eventos
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-        let isProcessing = false;
 
         const channel = supabase
             .channel('publishers-changes')
@@ -281,28 +327,20 @@ export const api = {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'publishers' },
                 async () => {
-                    // Ignorar se já estiver processando
-                    if (isProcessing) return;
-
-                    // Debounce de 1 segundo para agrupar múltiplas mudanças
                     if (debounceTimer) clearTimeout(debounceTimer);
                     debounceTimer = setTimeout(async () => {
                         try {
-                            isProcessing = true;
                             console.log('[REALTIME] Publishers changed, reloading...');
                             const publishers = await this.loadPublishers();
                             onUpdate(publishers);
                         } catch (err) {
                             console.warn('[REALTIME] Failed to reload publishers:', err);
-                        } finally {
-                            isProcessing = false;
                         }
-                    }, 1000);
+                    }, 300);
                 }
             )
             .subscribe();
 
-        // Return unsubscribe function
         return () => {
             console.log('[REALTIME] Unsubscribing from publishers...');
             if (debounceTimer) clearTimeout(debounceTimer);

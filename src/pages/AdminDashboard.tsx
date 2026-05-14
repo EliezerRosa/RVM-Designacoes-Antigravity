@@ -18,6 +18,7 @@ import { RULES_TEXT_VERSION } from '../services/contextBuilder.ts';
 import { ActionDiagnosticPanel } from '../components/admin/ActionDiagnosticPanel';
 import { AuthLogsPanel } from '../components/admin/AuthLogsPanel';
 import { PermissionManager } from '../components/admin/PermissionManager';
+import { EngineRulesPanel } from '../components/admin/EngineRulesPanel';
 import { PublisherFormLinkManager } from '../components/admin/PublisherFormLinkManager';
 import { AvailabilityLinkManager } from '../components/admin/AvailabilityLinkManager';
 import { useAuth } from '../context/AuthContext';
@@ -30,13 +31,14 @@ interface SystemLog {
     created_at: string;
 }
 
-type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'links' | 'availability';
+type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability';
 
 const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }> = [
     { id: 'overview', label: 'Visão Geral', eyebrow: 'Core' },
     { id: 'diagnostics', label: 'Diagnóstico', eyebrow: 'IA' },
     { id: 'auth', label: 'Autenticação', eyebrow: 'Segurança' },
     { id: 'permissions', label: 'Permissões', eyebrow: 'Controle' },
+    { id: 'engine', label: 'Motor de Rotação', eyebrow: 'Regras' },
     { id: 'links', label: 'Links de Form', eyebrow: 'Publicadores' },
     { id: 'availability', label: 'Disponibilidade', eyebrow: 'Links' },
 ];
@@ -431,6 +433,15 @@ export function AdminDashboard() {
                                     <div style={{ padding: '16px' }}>
                                         <PermissionManager />
                                     </div>
+                                </div>
+                            </section>
+
+                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Motor de Rotação">
+                                <div className="table-card admin-panel-card">
+                                    <div className="table-header">
+                                        <h3>⚙️ Regras do Motor de Rotação</h3>
+                                    </div>
+                                    <EngineRulesPanel />
                                 </div>
                             </section>
 

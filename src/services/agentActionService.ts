@@ -4,8 +4,8 @@ import { getPermissions, createPermissionGate } from './permissionService';
 
 import { generationService } from './generationService';
 import { undoService } from './undoService';
-import { getRankedCandidates, explainScoreForAgent, calculateScore } from './unifiedRotationService';
-import { checkEligibility, buildEligibilityContext, getCompatiblePartTypes } from './eligibilityService';
+import { getRankedCandidates, explainScoreForAgent, calculateScore, getRotationConfig } from './unifiedRotationService';
+import { checkEligibility, buildEligibilityContext, getCompatiblePartTypes, ELIGIBILITY_RULES_VERSION } from './eligibilityService';
 import { isBlocked, getParticipationCategory, COOLDOWN_WEEKS, COOLDOWN_WEEKS_HELPER } from './cooldownService';
 import { EnumFuncao } from '../types';
 import { communicationService } from './communicationService';
@@ -39,6 +39,9 @@ export type AgentActionType =
     | 'CHECK_SCORE'
     | 'EXPLAIN_SCORE'
     | 'EXPLAIN_PART'
+    | 'EXPLAIN_RANKING'
+    | 'GET_ENGINE_RULES'
+    | 'GET_ELIGIBILITY_VERSION'
     | 'CLEAR_WEEK'
     | 'CLEAR_RANGE'
     | 'UPDATE_PUBLISHER'
@@ -556,6 +559,95 @@ export const agentActionService = {
                         message: lines.join('\n'),
                         data: { partId: targetPart.id, sorted, assignedName, focusName, alreadyInWeek: Object.fromEntries(inWeekMap) },
                         actionType: 'EXPLAIN_PART',
+                    };
+                }
+
+                case 'EXPLAIN_RANKING': {
+                    // GET-only: ranking determinístico top-N para uma parte, sem narrativa
+                    // de elegibilidade do designado/focado. Útil quando o agente só precisa
+                    // do "quem o motor recomenda?" sem contexto de comparação.
+                    const { partId, partType: ptHint, weekId: wHint, topN } = action.params;
+                    const targetPart = partId
+                        ? parts.find(p => p.id === partId)
+                        : parts.find(p =>
+                            (ptHint ? (p.tipoParte === ptHint || p.tituloParte?.includes(ptHint)) : false)
+                            && (wHint ? p.weekId === wHint : true)
+                        );
+                    if (!targetPart) {
+                        return { success: false, message: 'Parte não encontrada para ranking.' };
+                    }
+                    const limit = Math.max(1, Math.min(50, Number(topN) || 10));
+                    const weekParts = parts.filter(p => p.weekId === targetPart.weekId);
+                    const eligCtx = buildEligibilityContext(targetPart, weekParts, publishers);
+                    const partType = targetPart.tipoParte || targetPart.tituloParte || '';
+                    const elegModalidade = targetPart.modalidade as Parameters<typeof checkEligibility>[1];
+                    const elegFuncao = (targetPart.funcao as Parameters<typeof checkEligibility>[2]) || EnumFuncao.TITULAR;
+                    const eligibleList = publishers.filter(p =>
+                        checkEligibility(p, elegModalidade, elegFuncao, eligCtx).eligible
+                    );
+                    const refDate = new Date((targetPart.date || targetPart.weekId) + 'T12:00:00');
+                    const historyForScoring = history.filter(h => h.weekId !== targetPart.weekId);
+                    const ranked = getRankedCandidates(eligibleList, partType, historyForScoring, undefined, refDate);
+                    const top = ranked.slice(0, limit).map((c, i) => ({
+                        rank: i + 1,
+                        name: c.publisher.name,
+                        score: c.scoreData.score,
+                        weeksSinceLast: c.scoreData.weeksSinceLast,
+                        isInCooldown: c.scoreData.isInCooldown,
+                        explanation: c.scoreData.explanation,
+                    }));
+                    const lines = [`**Ranking determinístico — Top ${limit}** para *${targetPart.tituloParte || partType}* (semana ${targetPart.weekId}):`];
+                    top.forEach(t => {
+                        const cd = t.isInCooldown ? ' [⏸ cooldown]' : '';
+                        lines.push(`${t.rank}. ${t.name} — Score ${t.score}${cd} — ${t.explanation}`);
+                    });
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { partId: targetPart.id, partType, top, totalEligible: eligibleList.length },
+                        actionType: 'EXPLAIN_RANKING',
+                    };
+                }
+
+                case 'GET_ENGINE_RULES': {
+                    // GET-only: snapshot atual da configuração do motor (pesos, penalidades, bônus).
+                    // Fonte única: getRotationConfig() — runtime mutável via UPDATE_ENGINE_RULES.
+                    const config = getRotationConfig();
+                    const lines = [
+                        `**Configuração ATUAL do motor de rotação** (snapshot runtime):`,
+                        '',
+                        '| Chave | Valor |',
+                        '|---|---|',
+                    ];
+                    for (const [k, v] of Object.entries(config)) {
+                        lines.push(`| \`${k}\` | ${JSON.stringify(v)} |`);
+                    }
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { engineConfig: config },
+                        actionType: 'GET_ENGINE_RULES',
+                    };
+                }
+
+                case 'GET_ELIGIBILITY_VERSION': {
+                    // GET-only: versão das regras de elegibilidade + constantes de cooldown.
+                    // Útil para o agente declarar com qual conjunto de regras está raciocinando.
+                    const info = {
+                        eligibilityRulesVersion: ELIGIBILITY_RULES_VERSION,
+                        cooldownWeeksMain: COOLDOWN_WEEKS,
+                        cooldownWeeksHelper: COOLDOWN_WEEKS_HELPER,
+                    };
+                    const lines = [
+                        `**Versão das regras de elegibilidade:** \`${info.eligibilityRulesVersion}\``,
+                        `**Cooldown TITULAR:** ${info.cooldownWeeksMain} semanas`,
+                        `**Cooldown AJUDANTE:** ${info.cooldownWeeksHelper} semanas`,
+                    ];
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: info,
+                        actionType: 'GET_ELIGIBILITY_VERSION',
                     };
                 }
 

@@ -387,6 +387,87 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                             </>
                         )}
 
+                        {/* Spouse Settings */}
+                        <h4 style={{ marginBottom: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)', color: 'var(--primary-500)' }}>
+                            👫 Cônjuge
+                        </h4>
+                        <div className="form-group">
+                            {formData.spouseId && (
+                                <div style={{
+                                    marginBottom: '8px',
+                                    padding: '8px 12px',
+                                    background: 'rgba(236, 72, 153, 0.1)',
+                                    borderRadius: '6px',
+                                    fontSize: '0.85rem',
+                                    color: '#db2777'
+                                }}>
+                                    <strong>✓ Cônjuge:</strong>{' '}
+                                    {publishers.find(p => p.id === formData.spouseId)?.name || formData.spouseId}
+                                </div>
+                            )}
+                            <select
+                                value={formData.spouseId || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, spouseId: e.target.value || undefined }))}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-color)',
+                                    background: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                }}
+                            >
+                                <option value="">— Nenhum —</option>
+                                {publishers
+                                    .filter(p => p.id !== formData.id)
+                                    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+                                    .map(p => (
+                                        <option key={p.id} value={p.id}>
+                                            {p.name} ({p.gender === 'brother' ? 'Irmão' : 'Irmã'})
+                                        </option>
+                                    ))
+                                }
+                            </select>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                Casais podem ser ajudantes um do outro mesmo sendo de gêneros diferentes.
+                            </p>
+                        </div>
+
+                        {/* Filhos/Dependentes vinculados (derivado, somente leitura) */}
+                        {formData.id && (() => {
+                            const filhos = publishers.filter(p =>
+                                (p.parentIds ?? []).includes(formData.id!)
+                            );
+                            if (filhos.length === 0) return null;
+                            return (
+                                <div style={{
+                                    marginTop: '12px',
+                                    padding: '10px 12px',
+                                    background: 'rgba(139, 92, 246, 0.08)',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    color: '#7c3aed',
+                                }}>
+                                    <strong>👶 Filhos/Dependentes vinculados:</strong>
+                                    <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {filhos.map(f => (
+                                            <span key={f.id} style={{
+                                                padding: '2px 8px',
+                                                background: 'rgba(139, 92, 246, 0.15)',
+                                                borderRadius: '12px',
+                                                fontSize: '0.8rem',
+                                            }}>
+                                                {f.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                        Pai/mãe e filhos podem ser ajudantes um do outro.
+                                    </p>
+                                </div>
+                            );
+                        })()}
+
                         {/* Availability Settings */}
                         <h4 style={{ marginBottom: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)', color: 'var(--info-500)' }}>
                             📅 Disponibilidade

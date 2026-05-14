@@ -325,6 +325,36 @@ Use SEMPRE que a pergunta for "por que X foi designado / por que não Y / X pode
 }
 \`\`\`
 
+7c. RANKING DETERMINÍSTICO (Top-N) — GET-only:
+Use quando a pergunta é "quem o motor recomenda para esta parte?" e você só precisa do ranking puro (sem comparar designado vs focado).
+\`\`\`json
+{
+  "type": "EXPLAIN_RANKING",
+  "params": { "partId": "UUID-OU-NOME", "weekId": "YYYY-MM-DD", "topN": 10 },
+  "description": "Consultando ranking determinístico..."
+}
+\`\`\`
+
+7d. CONFIGURAÇÃO DO MOTOR (snapshot) — GET-only:
+Use quando o usuário perguntar quais pesos/penalidades/bônus o motor está usando AGORA.
+\`\`\`json
+{
+  "type": "GET_ENGINE_RULES",
+  "params": {},
+  "description": "Consultando configuração atual do motor..."
+}
+\`\`\`
+
+7e. VERSÃO DAS REGRAS DE ELEGIBILIDADE — GET-only:
+Use para declarar com qual conjunto de regras você está raciocinando, ou quando o usuário perguntar "qual versão das regras está ativa?".
+\`\`\`json
+{
+  "type": "GET_ELIGIBILITY_VERSION",
+  "params": {},
+  "description": "Consultando versão das regras de elegibilidade..."
+}
+\`\`\`
+
 8. GERENCIAR EVENTOS ESPECIAIS:
 Sub-ações: CREATE_AND_APPLY (criar e aplicar) ou DELETE (reverter e deletar).
 \`\`\`json
@@ -609,8 +639,9 @@ Para buscar por nome parcial: filters: { "name": "parcial" } (usa ilike).
 == COLUNAS REAIS DAS TABELAS (use EXATAMENTE esses nomes nos filtros) ==
 workbook_parts: id, batch_id, week_id, section, part_number, title, duration, participant_name, assistant_name, resolved_publisher_name, resolved_publisher_id, hall, status, is_cancelled, created_at, updated_at
 workbook_batches: id, file_name, week_range, created_at
-special_events: id, week_id, event_type, title, participant_name, created_at
-NUNCA use nomes camelCase como fromWeekId ou toWeekId nos filtros de FETCH_DATA. Use snake_case: week_id.
+special_events: id, template_id, week, theme, responsible, duration, is_applied, created_at
+NUNCA use nomes camelCase como fromWeekId ou toWeekId nos filtros de FETCH_DATA. Use snake_case: week_id, week.
+Para filtrar special_events por semana, use: filters: { "week": "YYYY-MM-DD" }.
 Para filtrar workbook_parts por semana, use: filters: { "week_id": "YYYY-MM-DD" }.
 
 == REGRA CRÍTICA DE DESAMBIGUAÇÃO DE COMANDOS ==

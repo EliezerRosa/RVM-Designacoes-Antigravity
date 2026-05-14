@@ -259,7 +259,18 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
     try {
       if (editingPublisher) {
         const result = await publisherMutationService.savePublisherWithPropagation(publisher, editingPublisher)
-        setPublishers(prev => prev.map(p => p.id === publisher.id ? result.publisher : p))
+        setPublishers(prev => {
+          let updated = prev.map(p => p.id === publisher.id ? result.publisher : p)
+          // Optimistic: refletir back-link do novo cônjuge localmente
+          if (publisher.spouseId) {
+            updated = updated.map(p => p.id === publisher.spouseId ? { ...p, spouseId: publisher.id } : p)
+          }
+          // Optimistic: limpar back-link do cônjuge anterior
+          if (editingPublisher.spouseId && editingPublisher.spouseId !== publisher.spouseId) {
+            updated = updated.map(p => p.id === editingPublisher.spouseId ? { ...p, spouseId: undefined } : p)
+          }
+          return updated
+        })
         setStatusMessage(result.renamed
           ? `✅ Publicador atualizado (${result.propagatedParts} designações sincronizadas)`
           : "✅ Publicador atualizado")
