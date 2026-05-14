@@ -6,42 +6,27 @@
  * Usado por: Agente IA, Motor de Geração e Dropdown UI.
  */
 
-import type { Publisher, HistoryRecord } from '../types';
+import type { Publisher, HistoryRecord, EngineConfig } from '../types';
+import { DEFAULT_ENGINE_CONFIG } from '../types';
 import { isBlocked } from './cooldownService';
 import { toLocalISODate } from '../utils/dateUtils';
 
 // ===== CONFIGURAÇÃO DE PESOS (DINÂMICA) =====
-let CURRENT_SCORING_CONFIG = {
-    BASE_SCORE: 100,
-    // FÓRMULA EXPONENCIAL: Score = Base + (Weeks^POWER * FACTOR)
-    TIME_POWER: 1.5,
-    TIME_FACTOR: 8,
-
-    // Participação recente tem mais peso desfavorável do que a vantagem de ter
-    // participado poucas vezes (favorável). Deliberadamente maior que o ganho
-    // marginal do time-bonus para 1-2 semanas de ausência.
-    RECENT_PARTICIPATION_PENALTY: 50, // -50 pontos por participação nos últimos 3 meses (era 20)
-    COOLDOWN_PENALTY: 1500, // Penalidade massiva para bloqueados
-
-    // Bônus específicos
-    ELDER_BONUS: 5,
-    SISTER_DEMO_PRIORITY: 50,
-    // Bônus de progressão pedagógica FSM: ajudante → titular (Item 2)
-    FSM_TITULAR_PROMOTION_BONUS: 80,
-
-    // Limites
-    MAX_LOOKBACK_WEEKS: 52,
-};
+// Fonte canônica do shape: `EngineConfig` em `types.ts`.
+// Defaults canônicos: `DEFAULT_ENGINE_CONFIG`.
+// Persistência (setting `engine_config`) e UI (`EngineRulesPanel`) operam
+// sobre este MESMO objeto plano via `engineConfigService`.
+let CURRENT_SCORING_CONFIG: EngineConfig = { ...DEFAULT_ENGINE_CONFIG };
 
 /**
  * Atualiza a configuração do motor em tempo real
  */
-export function updateRotationConfig(newConfig: Partial<typeof CURRENT_SCORING_CONFIG>) {
+export function updateRotationConfig(newConfig: Partial<EngineConfig>) {
     console.log('[Rotation] Updating config:', newConfig);
     CURRENT_SCORING_CONFIG = { ...CURRENT_SCORING_CONFIG, ...newConfig };
 }
 
-export function getRotationConfig() {
+export function getRotationConfig(): EngineConfig {
     return { ...CURRENT_SCORING_CONFIG };
 }
 
@@ -264,7 +249,9 @@ export function calculateScore(
  *   1) maior weeksSinceLast (já refletido no score, mas reforça em caso de empate por teto da fórmula)
  *   2) maior tempo desde QUALQUER participação histórica (inclui partes não-rotacionadas) —
  *      garante que quem está mais "esquecido" globalmente venha primeiro
- *   3) ordem alfabética (estabilidade determinística final)
+ *   3) menor número total de participações na janela MAX_LOOKBACK_WEEKS — favorece
+ *      quem participou menos no histórico recente (justiça acumulada)
+ *   4) ordem alfabética (estabilidade determinística final)
  *
  * Motivação: quando vários candidatos atingem o teto da fórmula (≥52 semanas para o tipo),
  * o desempate alfabético é arbitrário e gera viés sistêmico (sempre os mesmos primeiros nomes).
@@ -282,12 +269,23 @@ export function getRankedCandidates(
     // Pré-computa última data de QUALQUER participação histórica por nome.
     // Mais tempo sem participação => menor lastAnyDate (string ISO) => deve vir primeiro.
     const lastAnyDateByName = new Map<string, string>();
+    // Pré-computa contagem total de participações por nome dentro da janela MAX_LOOKBACK_WEEKS.
+    // Menor contagem => candidato participou menos => vem primeiro no desempate.
+    const totalCountByName = new Map<string, number>();
+    const lookbackMs = CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS * 7 * 24 * 60 * 60 * 1000;
+    const refDateMs = (referenceDate ?? new Date()).getTime();
+    const lookbackCutoffMs = refDateMs - lookbackMs;
     for (const h of history) {
         if (h.date >= refStr) continue; // só passado
         const nm = h.resolvedPublisherName || h.rawPublisherName;
         if (!nm) continue;
         const prev = lastAnyDateByName.get(nm);
         if (!prev || h.date > prev) lastAnyDateByName.set(nm, h.date);
+        // Contagem dentro da janela de lookback
+        const hMs = new Date(h.date).getTime();
+        if (!Number.isNaN(hMs) && hMs >= lookbackCutoffMs) {
+            totalCountByName.set(nm, (totalCountByName.get(nm) ?? 0) + 1);
+        }
     }
 
     const ranked = candidates.map(pub => {
@@ -308,7 +306,11 @@ export function getRankedCandidates(
         const da = lastAnyDateByName.get(a.publisher.name) ?? '';
         const db = lastAnyDateByName.get(b.publisher.name) ?? '';
         if (da !== db) return da.localeCompare(db);
-        // 4) fallback alfabético (estável)
+        // 4) menor número total de participações na janela (ascending)
+        const ca = totalCountByName.get(a.publisher.name) ?? 0;
+        const cb = totalCountByName.get(b.publisher.name) ?? 0;
+        if (ca !== cb) return ca - cb;
+        // 5) fallback alfabético (estável)
         return a.publisher.name.localeCompare(b.publisher.name);
     });
 }

@@ -14,14 +14,12 @@ export interface UpdateEngineConfigResult {
 export function createEngineConfigService(dependencies: EngineConfigDependencies) {
     return {
         async updateEngineConfig(settings: Partial<EngineConfig>): Promise<UpdateEngineConfigResult> {
+            // Shape canônico é PLANO (chaves runtime do motor) — merge raso é
+            // suficiente. Ver `EngineConfig` em `types.ts`.
             const currentConfig = dependencies.getCurrentConfig();
             const mergedConfig: EngineConfig = {
                 ...currentConfig,
                 ...settings,
-                weights: { ...currentConfig.weights, ...settings.weights },
-                cooldown: { ...currentConfig.cooldown, ...settings.cooldown },
-                bonuses: { ...currentConfig.bonuses, ...settings.bonuses },
-                pairing: { ...currentConfig.pairing, ...settings.pairing },
             };
 
             await dependencies.persistConfig(mergedConfig);

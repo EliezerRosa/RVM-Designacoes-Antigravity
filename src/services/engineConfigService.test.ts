@@ -4,13 +4,18 @@ import type { EngineConfig } from '../types';
 import { createEngineConfigService } from './engineConfigServiceCore';
 
 const baseConfig: EngineConfig = {
-    weights: { teaching: 1, student: 0.5, helper: 0.1 },
-    cooldown: { samePartWeeks: 6, sameSectionWeeks: 2, penaltyPoints: 500 },
-    bonuses: { neverParticipated: 1000 },
-    pairing: { preferSameGender: true, preferFamily: true },
+    BASE_SCORE: 100,
+    TIME_POWER: 1.5,
+    TIME_FACTOR: 8,
+    RECENT_PARTICIPATION_PENALTY: 50,
+    COOLDOWN_PENALTY: 1500,
+    ELDER_BONUS: 5,
+    SISTER_DEMO_PRIORITY: 50,
+    FSM_TITULAR_PROMOTION_BONUS: 80,
+    MAX_LOOKBACK_WEEKS: 52,
 };
 
-test('updateEngineConfig merges nested settings, persists merged config and applies runtime delta', async () => {
+test('updateEngineConfig shallow-merges flat settings, persists merged config and applies runtime delta', async () => {
     let persistedConfig: EngineConfig | null = null;
     let appliedSettings: Partial<EngineConfig> | null = null;
     const service = createEngineConfigService({
@@ -24,17 +29,17 @@ test('updateEngineConfig merges nested settings, persists merged config and appl
     });
 
     const result = await service.updateEngineConfig({
-        cooldown: { samePartWeeks: 8 },
-        pairing: { preferFamily: false },
-    } as Partial<EngineConfig>);
+        COOLDOWN_PENALTY: 2000,
+        ELDER_BONUS: 10,
+    });
 
-    assert.equal(result.mergedConfig.cooldown.samePartWeeks, 8);
-    assert.equal(result.mergedConfig.cooldown.sameSectionWeeks, 2);
-    assert.equal(result.mergedConfig.pairing.preferFamily, false);
-    assert.equal(result.mergedConfig.pairing.preferSameGender, true);
+    assert.equal(result.mergedConfig.COOLDOWN_PENALTY, 2000);
+    assert.equal(result.mergedConfig.ELDER_BONUS, 10);
+    assert.equal(result.mergedConfig.BASE_SCORE, 100);
+    assert.equal(result.mergedConfig.MAX_LOOKBACK_WEEKS, 52);
     assert.deepEqual(persistedConfig, result.mergedConfig);
     assert.deepEqual(appliedSettings, {
-        cooldown: { samePartWeeks: 8 },
-        pairing: { preferFamily: false },
+        COOLDOWN_PENALTY: 2000,
+        ELDER_BONUS: 10,
     });
 });

@@ -470,9 +470,9 @@ export const communicationService = {
         
         const isAjudante = part.funcao === 'Ajudante' || isLeitorEBC;
 
-        // Se o chamador não passou weekParts, buscar do DB para garantir resolução do parceiro
+        // Se é substituição OU se caller não passou weekParts, buscar do DB para garantir resolução do parceiro
         let resolvedWeekParts = allWeekParts;
-        if (resolvedWeekParts.length === 0 && part.weekId) {
+        if ((options.isSubstitution || resolvedWeekParts.length === 0) && part.weekId) {
             try {
                 resolvedWeekParts = await workbookQueryService.getWeekParts(part.weekId);
             } catch {

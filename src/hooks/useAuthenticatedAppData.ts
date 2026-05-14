@@ -17,7 +17,12 @@ interface UseAuthenticatedAppDataOptions {
 }
 
 const computePublisherHash = (publishers: Publisher[]) =>
-  publishers.map(p => `${p.id}:${p.name}:${p.gender}:${p.condition}:${p.isServing}`).join('|');
+  publishers.map(p =>
+    `${p.id}:${p.name}:${p.gender}:${p.condition}:${p.isServing}` +
+    `:${p.spouseId ?? ''}:${(p.parentIds ?? []).join(',')}` +
+    `:${p.isNotQualified ?? false}:${p.requestedNoParticipation ?? false}` +
+    `:${p.privileges?.canGiveTalks ?? false}:${p.isHelperOnly ?? false}`
+  ).join('|');
 
 const computePartsHash = (parts: WorkbookPart[]) =>
   `${parts.length}:${parts.slice(0, 50).map(p => `${p.id}:${p.resolvedPublisherName || ''}:${p.status}`).join('|')}`;
@@ -161,7 +166,7 @@ export function useAuthenticatedAppData({ onInitialTabResolved, onCriticalError 
             } finally {
               isPartsProcessing = false;
             }
-          }, 3000);
+          }, 1000);
         },
       )
       .subscribe();

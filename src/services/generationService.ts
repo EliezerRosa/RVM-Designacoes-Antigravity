@@ -2,13 +2,15 @@ import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao, EnumTipoParte, HistoryStatus } from '../types';
 import { loadCompletedParticipations } from './historyAdapter';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, getWeekMondayId, isElderOrMS } from './eligibilityService';
-import { getRankedCandidates } from './unifiedRotationService';
+import { getRankedCandidates, getRotationConfig } from './unifiedRotationService';
 import { generationCommitService } from './generationCommitService';
 import { localNeedsService } from './localNeedsService';
 
 import { getModalidadeFromTipo, isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 
-import { isBlocked } from './cooldownService';
+import { isBlocked, COOLDOWN_WEEKS, COOLDOWN_WEEKS_HELPER } from './cooldownService';
+import { ELIGIBILITY_RULES_VERSION } from './eligibilityService';
+import { auditService } from './auditService';
 
 export interface GenerationConfig {
     isDryRun: boolean;
@@ -767,6 +769,32 @@ export const generationService = {
                 } catch (e) {
                     console.error(`[GenerationService] Error saving part ${partId}:`, e);
                     warnings.push(`Erro ao salvar parte ${part?.tipoParte}: ${e instanceof Error ? e.message : 'Unknown'}`);
+                }
+            }
+
+            // Snapshot do motor por semana gerada (auditável; não bloqueia o fluxo)
+            if (savedCount > 0) {
+                const generatedWeekIds = Object.keys(byWeek);
+                const engineSnapshot = {
+                    engine_config: getRotationConfig(),
+                    eligibility_version: ELIGIBILITY_RULES_VERSION,
+                    cooldown_weeks_main: COOLDOWN_WEEKS,
+                    cooldown_weeks_helper: COOLDOWN_WEEKS_HELPER,
+                    generated_at: new Date().toISOString(),
+                    parts_saved: savedCount,
+                };
+                for (const weekId of generatedWeekIds) {
+                    try {
+                        await auditService.logAction({
+                            table_name: 'workbook_parts',
+                            operation: 'SCRIPT_EXEC',
+                            record_id: weekId,
+                            new_data: engineSnapshot,
+                            description: `Snapshot do motor de rotação no momento da geração da semana ${weekId}`,
+                        });
+                    } catch (auditErr) {
+                        console.warn('[GenerationService] Falha ao gravar snapshot do motor no audit_log:', auditErr);
+                    }
                 }
             }
 

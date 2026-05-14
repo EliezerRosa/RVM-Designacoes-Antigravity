@@ -62,6 +62,7 @@ export interface Publisher {
     isServing: boolean;
     ageGroup: AgeGroup;
     parentIds: string[];
+    spouseId?: string;         // ID do cônjuge (bypass da regra de mesmo gênero como ajudante)
     isHelperOnly: boolean;
     canPairWithNonParent: boolean;
     privileges: PublisherPrivileges;
@@ -369,44 +370,39 @@ export const TeachingCategory = {
 } as const;
 export type TeachingCategory = typeof TeachingCategory[keyof typeof TeachingCategory];
 
+/**
+ * Configuração runtime do motor de rotação (shape canônico, plano).
+ *
+ * IMPORTANTE: estas chaves são as MESMAS lidas/escritas por
+ * `unifiedRotationService.CURRENT_SCORING_CONFIG` em tempo de execução.
+ * O setting persistido em `engine_config` (Supabase) e o boot loader em
+ * `useAuthenticatedAppData` aplicam este shape diretamente em
+ * `updateRotationConfig(...)`. Não existe mais "shape estruturado":
+ * `engineConfigService`, `EngineRulesPanel` e a ação de agente
+ * `UPDATE_ENGINE_RULES` operam todos sobre este mesmo objeto plano.
+ */
 export interface EngineConfig {
-    weights: {
-        teaching: number;
-        student: number;
-        helper: number;
-    };
-    cooldown: {
-        samePartWeeks: number;
-        sameSectionWeeks: number;
-        penaltyPoints: number;
-    };
-    bonuses: {
-        neverParticipated: number;
-    };
-    pairing: {
-        preferSameGender: boolean;
-        preferFamily: boolean;
-    };
+    BASE_SCORE: number;
+    TIME_POWER: number;
+    TIME_FACTOR: number;
+    RECENT_PARTICIPATION_PENALTY: number;
+    COOLDOWN_PENALTY: number;
+    ELDER_BONUS: number;
+    SISTER_DEMO_PRIORITY: number;
+    FSM_TITULAR_PROMOTION_BONUS: number;
+    MAX_LOOKBACK_WEEKS: number;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
-    weights: {
-        teaching: 1.0,
-        student: 0.5,
-        helper: 0.1,
-    },
-    cooldown: {
-        samePartWeeks: 6,
-        sameSectionWeeks: 2,
-        penaltyPoints: 500,
-    },
-    bonuses: {
-        neverParticipated: 1000,
-    },
-    pairing: {
-        preferSameGender: true,
-        preferFamily: true,
-    },
+    BASE_SCORE: 100,
+    TIME_POWER: 1.5,
+    TIME_FACTOR: 8,
+    RECENT_PARTICIPATION_PENALTY: 50,
+    COOLDOWN_PENALTY: 1500,
+    ELDER_BONUS: 5,
+    SISTER_DEMO_PRIORITY: 50,
+    FSM_TITULAR_PROMOTION_BONUS: 80,
+    MAX_LOOKBACK_WEEKS: 52,
 };
 
 export interface RankedCandidate {

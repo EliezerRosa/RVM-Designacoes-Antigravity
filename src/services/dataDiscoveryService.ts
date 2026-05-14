@@ -28,7 +28,8 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
         fileName: 'file_name', weekRange: 'week_range', createdAt: 'created_at',
     },
     special_events: {
-        weekId: 'week_id', eventType: 'event_type', participantName: 'participant_name',
+        weekId: 'week', week: 'week', eventType: 'template_id', templateId: 'template_id',
+        participantName: 'responsible', responsible: 'responsible',
         createdAt: 'created_at',
     },
 };

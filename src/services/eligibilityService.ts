@@ -36,6 +36,10 @@ export interface EligibilityContext {
     isOracaoFinal?: boolean;   // Se é oração final (presidente bloqueado)
     isPastWeek?: boolean;    // Se é semana passada (não verifica disponibilidade)
     titularGender?: 'brother' | 'sister'; // Gênero do titular (para validar ajudante)
+    titularPublisherId?: string;           // ID do publicador titular (para bypass de cônjuge)
+    titularSpouseId?: string;              // spouseId cadastrado no titular (para bypass bidirecional)
+    titularParentIds?: string[];           // IDs dos pais do titular (para bypass pai/filho)
+    titularChildIds?: string[];            // IDs dos filhos do titular (para bypass pai/filho reverso)
     presidentName?: string;  // Nome do presidente da semana (para bloquear na oração final)
 }
 
@@ -67,6 +71,10 @@ export function buildEligibilityContext(
 
     // Lógica de Gênero do Titular (se for ajudante)
     let titularGender: 'brother' | 'sister' | undefined = undefined;
+    let titularPublisherId: string | undefined = undefined;
+    let titularSpouseId: string | undefined = undefined;
+    let titularParentIds: string[] = [];
+    let titularChildIds: string[] = [];
     if (funcao === EnumFuncao.AJUDANTE && weekParts.length > 0) {
         // Tentar encontrar titular por SEQ (caso padrão)
         let titularPart = weekParts.find(wp =>
@@ -117,6 +125,12 @@ export function buildEligibilityContext(
 
             if (titularPub) {
                 titularGender = titularPub.gender;
+                titularPublisherId = titularPub.id;
+                titularSpouseId = titularPub.spouseId;
+                titularParentIds = titularPub.parentIds || [];
+                titularChildIds = publishers
+                    .filter(p => (p.parentIds || []).includes(titularPub.id))
+                    .map(p => p.id);
             }
         } else {
             if (titularPart) {
@@ -135,6 +149,10 @@ export function buildEligibilityContext(
         secao: part.section,
         isPastWeek: isPast,
         titularGender,
+        titularPublisherId,
+        titularSpouseId,
+        titularParentIds,
+        titularChildIds,
         presidentName
     };
 }
@@ -462,9 +480,12 @@ export function checkEligibility(
             return { eligible: true };
 
         case EnumModalidade.LEITOR_EBC:
-            // Regra 8: Somente irmãos podem ler no EBC
+            // Regra 8: Somente irmãos batizados podem ler no EBC
             if (publisher.gender !== 'brother') {
                 return { eligible: false, reason: 'Irmãs não fazem leitura de EBC' };
+            }
+            if (!publisher.isBaptized) {
+                return { eligible: false, reason: 'Não é batizado' };
             }
             if (!publisher.privileges.canReadCBS) {
                 return { eligible: false, reason: 'Não tem privilégio de ler EBC' };
@@ -722,6 +743,17 @@ function canBeHelper(publisher: Publisher, context: EligibilityContext = {}): El
     // REGRA INEXORÁVEL: Se não sabemos o gênero do titular, NÃO PERMITIR seleção automática
     if (!context.titularGender) {
         return { eligible: false, reason: 'BLOQUEADO: Titular não definido - selecione o ajudante manualmente' };
+    }
+
+    // BYPASS DE CÔNJUGE: Casais podem ser ajudantes um do outro independente de gênero
+    if (context.titularPublisherId &&
+        (publisher.spouseId === context.titularPublisherId || publisher.id === context.titularSpouseId)) {
+        return { eligible: true };
+    }
+
+    // BYPASS PAI/FILHO: Pais podem ser ajudantes de seus filhos (e vice-versa) independente de gênero
+    if (context.titularParentIds?.includes(publisher.id) || context.titularChildIds?.includes(publisher.id)) {
+        return { eligible: true };
     }
 
     // REGRA INEXORÁVEL: Ajudante DEVE ser do mesmo sexo que o titular
