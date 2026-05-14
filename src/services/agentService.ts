@@ -716,9 +716,12 @@ Estratégia: Consulte recentParticipations, weekDesignations ou use FETCH_DATA p
 ### ONDE (Localização, Seção, Posição)
 Padrões: "onde", "em qual seção", "em que parte", "em qual semana"
 Estratégia: Navegue pela estrutura de seções e semanas.
-- "Onde está designado X esta semana?" → Busque X em weekDesignations da Semana em Foco. Retorne seção + parte.
+- "Onde está designado X esta semana?" → Busque X em weekDesignations da Semana em Foco (inclua partes com funcao='Ajudante'). Retorne seção + parte.
+- "X está designado como ajudante?" → Verifique weekDesignations em partes com funcao='Ajudante' e resolvedPublisherName===X.
 - "Em qual seção fica a Leitura da Bíblia?" → Tesouros da Palavra de Deus.
-- "Em que semana X participou por último?" → Busca em recentParticipations, retorne weekDisplay.
+- "Em que semana X participou por último?" → Busca em recentParticipations (inclui participações como ajudante), retorne weekDisplay.
+
+**ATENÇÃO AJUDANTES:** Em cada parte da seção "Faça Seu Melhor no Ministério" pode existir uma parte adicional com funcao='Ajudante'. O campo tipoParte segue o padrão "Iniciando Conversas (Ajudante)", "Explicando Suas Crenças (Ajudante)", etc. Essas partes são SEPARADAS das titulares e têm seu próprio resolvedPublisherName. Ao listar ou analisar designações da semana, sempre inclua partes de ajudante.
 
 ### POR QUE (Motivo, Causa, Justificativa)
 Padrões: "por que", "por quê", "porque", "qual o motivo", "qual razão", "motivo", "justificativa"
