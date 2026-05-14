@@ -320,7 +320,14 @@ export function buildAgentContext(
         // Considerar TODAS as partes, mesmo sem designação (v9.5: Fix Blindness)
         // FIX A (2026-04-29): label inequívoco — '🟥 VAGA (sem designado)' impede o LLM
         // de pegar nome de outra linha por engano (ver bug Israel Vieira em Joias).
-        const designado = part.resolvedPublisherName || part.rawPublisherName || '🟥 VAGA (sem designado)';
+        // FIX B (2026-05-14): resolvedPublisherName pode ser null se salvo só com ID.
+        // Fonte da verdade = resolvedPublisherId → publishers lookup (padrão do S-140).
+        let designado = part.resolvedPublisherName || part.rawPublisherName || '';
+        if (!designado && part.resolvedPublisherId) {
+            const pub = publishers.find(p => p.id === part.resolvedPublisherId);
+            if (pub) designado = pub.name;
+        }
+        if (!designado) designado = '🟥 VAGA (sem designado)';
         // if (!designado) continue; // REMOVIDO: Agente precisa ver buracos na agenda
 
         const weekId = part.weekId;
@@ -339,7 +346,7 @@ export function buildAgentContext(
         // alucinação tipo "Marcos não está designado em outra parte" quando ele tinha NL.
         const tLower = (part.tipoParte || '').toLowerCase();
         const pLower = (part.tituloParte || '').toLowerCase();
-        const hasRealAssignee = !!(part.resolvedPublisherName || part.rawPublisherName);
+        const hasRealAssignee = !!(part.resolvedPublisherName || part.rawPublisherName || part.resolvedPublisherId);
         const isCanonicalPart = isStatPart(pLower || tLower || part.funcao || '') ||
             tLower.includes('presidente') ||
             tLower.includes('oração') || pLower.includes('oração') ||

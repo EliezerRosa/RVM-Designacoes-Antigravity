@@ -77,6 +77,20 @@ async function resolveMeetingDayOfWeek(weekId?: string, providedValue?: number):
     }
 }
 
+/**
+ * Resolve o nome do publicador de uma parte.
+ * Fonte de verdade: resolvedPublisherId → lookup em publishers.
+ * Fallback: resolvedPublisherName → rawPublisherName.
+ */
+function resolvePartPublisherName(part: WorkbookPart, publishers: Publisher[]): string {
+    if (part.resolvedPublisherName) return part.resolvedPublisherName;
+    if (part.resolvedPublisherId) {
+        const pub = publishers.find(p => p.id === part.resolvedPublisherId);
+        if (pub) return pub.name;
+    }
+    return part.rawPublisherName || '';
+}
+
 function uniqueNonEmptyLines(values: Array<string | undefined>): string[] {
     const seen = new Set<string>();
     const result: string[] = [];
@@ -349,10 +363,10 @@ export const communicationService = {
     async notifyOverseerOfRefusal(part: WorkbookPart, reason: string): Promise<void> {
         console.log('[communicationService] Notificando superintendente da recusa...');
 
-        const publisherName = part.resolvedPublisherName || part.rawPublisherName;
-
         const publishers = await publisherDirectoryService.loadAllPublishers();
         const history = await loadCompletedParticipations();
+
+        const publisherName = resolvePartPublisherName(part, publishers);
 
         // 2. Encontrar o Ancião Edmardo Queiroz (Superintendente RVM)
         // Buscamos especificamente por Edmardo para evitar pegar outros parentes (Ex: Marilene, Larissa)
@@ -386,12 +400,12 @@ export const communicationService = {
         const realSelfIdForRefusal = part.id.replace(/-(titular|ajudante)$/i, '');
         const partnerPart = weekParts.find(p => {
             if (p.id === part.id || p.id === realSelfIdForRefusal) return false;
-            if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
+            if (!p.resolvedPublisherName && !p.rawPublisherName && !p.resolvedPublisherId) return false;
             const otherNum = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/)?.[1];
             if (partNum && otherNum && partNum === otherNum) return p.funcao !== part.funcao;
             return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
         });
-        const partnerName = partnerPart ? (partnerPart.resolvedPublisherName || partnerPart.rawPublisherName) : null;
+        const partnerName = partnerPart ? resolvePartPublisherName(partnerPart, publishers) || null : null;
         const partnerPub = partnerName ? publishers.find(p => p.name.trim() === partnerName.trim()) : null;
 
         // 5. Calcular data/dia da reunião usando o dia configurado para a semana
@@ -444,7 +458,7 @@ export const communicationService = {
      * Inclui contexto de excepcionalidades (eventos especiais) quando aplicável
      */
     async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = [], options: { isSubstitution?: boolean, meetingDayOfWeek?: number } = {}): Promise<{ content: string, phone?: string }> {
-        const publisherName = (part.resolvedPublisherName || part.rawPublisherName || '').trim();
+        const publisherName = resolvePartPublisherName(part, publishers).trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
         const realPartId = getRealPartId(part.id);
@@ -490,7 +504,7 @@ export const communicationService = {
 
             partner = resolvedWeekParts.find(p => {
                 if (p.id === part.id || p.id === realSelfId) return false;
-                if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
+                if (!p.resolvedPublisherName && !p.rawPublisherName && !p.resolvedPublisherId) return false;
                 
                 // Mesmo partNum (e.g. "5. Iniciando")
                 const otherNumMatch = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/);
@@ -532,7 +546,7 @@ export const communicationService = {
             }
         }
 
-        const partnerName = partner ? (partner.resolvedPublisherName || partner.rawPublisherName) : undefined;
+        const partnerName = partner ? resolvePartPublisherName(partner, publishers) || undefined : undefined;
         let partnerPhone: string | undefined;
         if (partnerName) {
             const partnerPub = publishers.find(p => p.name.trim() === partnerName.trim());
@@ -694,7 +708,7 @@ export const communicationService = {
      * Conteúdo mínimo: data, parte e link de reconfirmação
      */
     async prepareS89ReconfirmationMessage(part: WorkbookPart, publishers: Publisher[]): Promise<{ content: string, phone?: string }> {
-        const publisherName = (part.resolvedPublisherName || part.rawPublisherName || '').trim();
+        const publisherName = resolvePartPublisherName(part, publishers).trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const realPartId = getRealPartId(part.id);
         const publisherId = part.resolvedPublisherId || pub?.id;

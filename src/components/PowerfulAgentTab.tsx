@@ -413,7 +413,9 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                                                             {part.tituloParte || part.tipoParte}
                                                         </span>
                                                         <span style={{ color: '#6B7280', fontSize: '10px', marginLeft: '4px', flexShrink: 0 }}>
-                                                            {part.resolvedPublisherName || part.rawPublisherName || '—'}
+                                                            {part.resolvedPublisherName || part.rawPublisherName
+                                                                || (part.resolvedPublisherId ? publishers.find(p => p.id === part.resolvedPublisherId)?.name : undefined)
+                                                                || '—'}
                                                         </span>
                                                     </div>
                                                 ))}
