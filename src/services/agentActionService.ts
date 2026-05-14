@@ -1642,12 +1642,17 @@ export const agentActionService = {
                                     return { success: true, message: `Nenhuma parte encontrada para semana ${weekId}.`, data: { parts: [] }, actionType: 'MANAGE_WORKBOOK_WEEK' };
                                 }
                                 const titulares = weekParts.filter(p => p.funcao === 'Titular');
-                                const summary = titulares.map(p =>
-                                    `- **${p.tipoParte}**: ${p.tituloParte || '—'} | ${p.resolvedPublisherName || p.rawPublisherName || '—'} | ${p.status}`
-                                ).join('\n');
+                                const ajudantes = weekParts.filter(p => p.funcao === 'Ajudante');
+                                const summarizePart = (p: WorkbookPart) =>
+                                    `- **${p.tipoParte}**: ${p.tituloParte || '—'} | ${p.resolvedPublisherName || p.rawPublisherName || '🟥 VAGA'} | ${p.status}`;
+                                const summaryTitulares = titulares.map(summarizePart).join('\n');
+                                const summaryAjudantes = ajudantes.length > 0
+                                    ? `\n\n**Ajudantes (${ajudantes.length}):**\n` + ajudantes.map(summarizePart).join('\n')
+                                    : '';
+                                const summary = summaryTitulares + summaryAjudantes;
                                 return {
                                     success: true,
-                                    message: `**Semana ${weekId}** — ${weekParts.length} partes (${titulares.length} titulares):\n\n${summary}`,
+                                    message: `**Semana ${weekId}** — ${weekParts.length} partes (${titulares.length} titulares, ${ajudantes.length} ajudantes):\n\n${summary}`,
                                     data: { parts: weekParts, totalParts: weekParts.length },
                                     actionType: 'MANAGE_WORKBOOK_WEEK'
                                 };
