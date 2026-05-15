@@ -391,6 +391,10 @@ export interface EngineConfig {
     SISTER_DEMO_PRIORITY: number;
     FSM_TITULAR_PROMOTION_BONUS: number;
     MAX_LOOKBACK_WEEKS: number;
+    /** Penalidade máxima por papel pesado (ex: Presidente, EBC) na janela adjacente. */
+    HEAVY_ROLE_BASE: number;
+    /** Raio em semanas (passado + futuro) da janela de papel pesado. */
+    HEAVY_ROLE_RADIUS: number;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
@@ -403,6 +407,8 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     SISTER_DEMO_PRIORITY: 50,
     FSM_TITULAR_PROMOTION_BONUS: 80,
     MAX_LOOKBACK_WEEKS: 52,
+    HEAVY_ROLE_BASE: 4000,
+    HEAVY_ROLE_RADIUS: 4,
 };
 
 export interface RankedCandidate {

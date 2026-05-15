@@ -45,8 +45,9 @@ export function Tooltip({ content, children, triggerStyle, triggerClassName }: T
         }
 
         // Se não couber acima, mostrar abaixo
+        // Offset de 22px: o ponteiro do mouse tem ~18px de altura; abaixo de 8px o cursor cobre a 1ª linha
         if (top < padding) {
-            top = triggerRect.bottom + 8;
+            top = triggerRect.bottom + 22;
         }
 
         // Atualizar após tooltip renderizar para usar dimensões reais
@@ -66,7 +67,7 @@ export function Tooltip({ content, children, triggerStyle, triggerClassName }: T
                     finalLeft = window.innerWidth - actualRect.width - padding;
                 }
                 if (finalTop < padding) {
-                    finalTop = triggerRect.bottom + 8;
+                    finalTop = triggerRect.bottom + 22;
                 }
 
                 setPosition({ top: finalTop, left: finalLeft });

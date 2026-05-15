@@ -397,21 +397,34 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     </div>
                 )}
 
-                {/* Score Unificado (Debug/Info) */}
-                {foundPublisher && (
-                    <div style={{
-                        marginTop: '8px',
-                        paddingTop: '8px',
-                        borderTop: '1px solid rgba(255,255,255,0.1)',
-                        fontSize: '0.8em',
-                        color: '#9ca3af'
-                    }}>
-                        📊 {calculateScore(foundPublisher, part.tipoParte, historyRecords.filter(h => h.weekId !== part.weekId), referenceDate, currentPresident).explanation}
-                        <div style={{ marginTop: '2px', fontSize: '0.9em', color: '#6b7280', fontStyle: 'italic' }}>
-                            ⚠️ Freq. recente pesa mais que tempo parado.
+                {/* Score Unificado + Contexto de Proximidade de Papel Pesado */}
+                {foundPublisher && (() => {
+                    const sd = calculateScore(foundPublisher, part.tipoParte, historyRecords.filter(h => h.weekId !== part.weekId), referenceDate, currentPresident);
+                    return (
+                        <div style={{
+                            marginTop: '8px',
+                            paddingTop: '8px',
+                            borderTop: '1px solid rgba(255,255,255,0.1)',
+                            fontSize: '0.8em',
+                            color: '#9ca3af'
+                        }}>
+                            <div>📊 {sd.explanation}</div>
+                            <div style={{ marginTop: '2px', fontSize: '0.9em', color: '#6b7280', fontStyle: 'italic' }}>
+                                ⚠️ Freq. recente pesa mais que tempo parado.
+                            </div>
+                            {sd.details.heavyProximityPenalty > 0 ? (
+                                <div style={{ marginTop: '6px', padding: '4px 6px', background: 'rgba(239,68,68,0.18)', borderRadius: '4px', color: '#fca5a5', fontSize: '0.9em', lineHeight: 1.4 }}>
+                                    🏗️ Papel pesado próximo: −{sd.details.heavyProximityPenalty} pts
+                                    <div style={{ color: '#f87171', fontSize: '0.85em', marginTop: '2px' }}>(designação de alto peso a ≤4 semanas desta data)</div>
+                                </div>
+                            ) : (
+                                <div style={{ marginTop: '6px', color: '#6ee7b7', fontSize: '0.9em' }}>
+                                    ✓ Sem papel pesado no período adjacente (±4 semanas).
+                                </div>
+                            )}
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {/* Warnings de múltiplas designações */}
                 {multipleAssignmentWarnings.length > 0 && (

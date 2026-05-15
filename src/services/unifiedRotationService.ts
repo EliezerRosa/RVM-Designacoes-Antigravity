@@ -53,6 +53,21 @@ export const EXCLUDED_STATS_PARTS = [
     "Comentarios finais"
 ];
 
+// Partes de alto peso: designação recente ou futura nestas partes
+// impõe penalidade graduada na janela ±HEAVY_ROLE_RADIUS semanas.
+// Critério: exigem preparação profunda e liderança de audiência comparável ao Presidente.
+export const HEAVY_WEIGHT_PARTS = [
+    'presidente',
+    'dirigente ebc',
+    'dirigente do ebc',
+    'discurso tesouros',
+    'discurso na tesouros',
+    'discurso vida crista',
+    'discurso na vida crista',
+    'leitor ebc',
+    'leitor do ebc',
+];
+
 // Helper to check exclusion
 export const isStatPart = (title: string) => {
     if (!title) return false;
@@ -67,6 +82,8 @@ export interface RotationScore {
         timeBonus: number;
         frequencyPenalty: number;
         cooldownPenalty: number;
+        /** Penalidade graduada por papel pesado (Presidente, EBC, Discurso) em ±HEAVY_ROLE_RADIUS semanas. */
+        heavyProximityPenalty: number;
         roleBonus: number;
         specificAdjustments: string[];
         scoreAdjustment?: number;
@@ -96,7 +113,8 @@ export function calculateScore(
         base: CURRENT_SCORING_CONFIG.BASE_SCORE,
         timeBonus: 0,
         frequencyPenalty: 0,
-        cooldownPenalty: 0,
+        cooldownPenalty: 0, // mantido em 0 (visual only) — score usa heavyProximityPenalty
+        heavyProximityPenalty: 0,
         roleBonus: 0,
         specificAdjustments: [] as string[],
         scoreAdjustment: 0
@@ -182,6 +200,35 @@ export function calculateScore(
     const recentCount = windowHistory.length;
     details.frequencyPenalty = recentCount * CURRENT_SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
 
+    // 3b. Penalidade de Proximidade de Papel Pesado (Heavy Proximity Penalty)
+    // Partes de alto peso nos ±HEAVY_ROLE_RADIUS semanas impõem penalidade graduada:
+    //   factor = max(0, (radius - weeksAway) / radius)
+    // Cada ocorrência contribui independentemente (soma). Exclui a própria data.
+    {
+        const heavyRadius = CURRENT_SCORING_CONFIG.HEAVY_ROLE_RADIUS;
+        const heavyBase = CURRENT_SCORING_CONFIG.HEAVY_ROLE_BASE;
+        const refMs = referenceDate.getTime();
+        const hwWinMs = heavyRadius * 7 * 24 * 60 * 60 * 1000;
+        const hwStartStr = new Date(refMs - hwWinMs).toISOString().split('T')[0];
+        const hwEndStr = new Date(refMs + hwWinMs).toISOString().split('T')[0];
+        for (const h of history) {
+            const isThisPublisher = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
+            if (!isThisPublisher) continue;
+            const d = h.date || '';
+            if (!d || d === refDateStrForFilter) continue;
+            if (d < hwStartStr || d > hwEndStr) continue;
+            const hType = (h.tipoParte || '').toLowerCase();
+            if (!HEAVY_WEIGHT_PARTS.some(k => hType.includes(k))) continue;
+            const diffMs = Math.abs(new Date(d + 'T12:00:00').getTime() - refMs);
+            const weeksAway = diffMs / (7 * 24 * 60 * 60 * 1000);
+            const factor = Math.max(0, (heavyRadius - weeksAway) / heavyRadius);
+            details.heavyProximityPenalty += Math.round(heavyBase * factor);
+        }
+        if (details.heavyProximityPenalty > 0) {
+            details.specificAdjustments.push(`HeavyProx: -${details.heavyProximityPenalty}`);
+        }
+    }
+
     // 4. Bônus de Função
     const isDemonstration = pType.includes('demonstra') || pType.includes('estudante');
     if (isDemonstration && publisher.gender === 'sister') {
@@ -210,23 +257,24 @@ export function calculateScore(
     // Presidente na Oração Final: agora é bloqueio duro em eligibilityService (Regra 8)
     // Penalidade soft removida — não é mais necessária
 
-    // 5. Cooldown
+    // 5. Cooldown — mantido APENAS para indicador visual (isInCooldown)
+    // O score não usa mais cooldownPenalty; a penalidade real é heavyProximityPenalty (passo 3b).
     const blocked = isBlocked(publisher.name, history, referenceDate);
     if (blocked) {
-        details.cooldownPenalty = CURRENT_SCORING_CONFIG.COOLDOWN_PENALTY;
-        details.specificAdjustments.push('Cooldown Ativo');
+        details.specificAdjustments.push('Intervalo ativo (visual)');
     }
 
     // 6. Score Final
     const score = details.base + details.timeBonus - details.frequencyPenalty
-        + details.roleBonus + (details.scoreAdjustment || 0) - details.cooldownPenalty;
+        + details.roleBonus + (details.scoreAdjustment || 0) - details.heavyProximityPenalty;
 
     const explanationParts = [
         `Base: ${details.base}`,
         `Tempo Exp: +${details.timeBonus}`,
         `Freq: -${details.frequencyPenalty}`,
     ];
-    if (details.cooldownPenalty > 0) explanationParts.push(`Cooldown: -${details.cooldownPenalty}`);
+    if (details.heavyProximityPenalty > 0) explanationParts.push(`HeavyProx: -${details.heavyProximityPenalty}`);
+    if (blocked) explanationParts.push('Intervalo ativo');
     if (details.roleBonus !== 0) explanationParts.push(`Bônus: +${details.roleBonus}`);
     if (details.scoreAdjustment) explanationParts.push(`Ajuste: ${details.scoreAdjustment}`);
 

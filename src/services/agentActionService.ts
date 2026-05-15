@@ -434,17 +434,42 @@ export const agentActionService = {
                     lines.push(`Tipo de parte usado para scoring: \`${scoringPartType}\``);
                     lines.push('');
                     lines.push(`**Aritmética literal:**`);
-                    lines.push(`\`${sd.details.base} (Base) + ${sd.details.timeBonus} (Time Bonus) − ${sd.details.frequencyPenalty} (Frequency Penalty) ${sd.details.roleBonus !== 0 ? `+ ${sd.details.roleBonus} (Bônus função) ` : ''}− ${sd.details.cooldownPenalty} (Cooldown) = **${sd.score}**\``);
+                    lines.push(`\`${sd.details.base} (Base) + ${sd.details.timeBonus} (Time Bonus) − ${sd.details.frequencyPenalty} (Frequency Penalty) ${sd.details.roleBonus !== 0 ? `+ ${sd.details.roleBonus} (Bônus função) ` : ''}− ${sd.details.heavyProximityPenalty} (Heavy Proximity) = **${sd.score}**\``);
                     lines.push('');
                     lines.push(`**Time Bonus** (semanas desde a última vez nesta MESMA parte): ${sd.weeksSinceLast} semana(s) → ${sd.details.timeBonus} pts.`);
                     if (sd.lastDate) lines.push(`Última vez em "${scoringPartType}": ${fmtDate(sd.lastDate)}.`);
                     lines.push('');
                     lines.push(`**Frequency Penalty** (12 semanas, MAIN): ${freqCount} participação(ões) × 20 = ${sd.details.frequencyPenalty} pts.`);
                     lines.push('');
-                    lines.push(`**Cooldown** (regra GLOBAL POR PUBLICADOR, ${cooldownWeeks} semanas, universal — não varia por parte):`);
+                    lines.push(`**Heavy Proximity Penalty** (±4 semanas, papéis pesados: Presidente, EBC, Discurso):`);
+                    if (sd.details.heavyProximityPenalty > 0) {
+                        lines.push(`Penalidade total: **−${sd.details.heavyProximityPenalty} pts** (soma de ocorrências em gradiente 4000×(radius−weeks)/radius).`);
+                        const heavyInWindow = history.filter(h => {
+                            const isThis = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
+                            if (!isThis) return false;
+                            const d = h.date || '';
+                            if (!d || d === refDateStr) return false;
+                            const refMs = refDate.getTime();
+                            const hwMs = 4 * 7 * 24 * 60 * 60 * 1000;
+                            const hwStart = new Date(refMs - hwMs).toISOString().split('T')[0];
+                            const hwEnd = new Date(refMs + hwMs).toISOString().split('T')[0];
+                            if (d < hwStart || d > hwEnd) return false;
+                            const hType = (h.tipoParte || '').toLowerCase();
+                            return ['presidente','dirigente ebc','dirigente do ebc','discurso tesouros','discurso na tesouros','discurso vida crista','discurso na vida crista','leitor ebc','leitor do ebc'].some(k => hType.includes(k));
+                        });
+                        heavyInWindow.forEach(h => {
+                            const diffMs = Math.abs(new Date((h.date||'') + 'T12:00:00').getTime() - refDate.getTime());
+                            const w = (diffMs / (7 * 24 * 60 * 60 * 1000)).toFixed(1);
+                            lines.push(`  • ${fmtDate(h.date||'')} — ${h.tipoParte} (${w} semanas de distância)`);
+                        });
+                    } else {
+                        lines.push(`Sem papéis pesados no período ±4 semanas — penalidade = 0.`);
+                    }
+                    lines.push('');
+                    lines.push(`**Cooldown visual** (indicador ⏳, não deduz do score, ${cooldownWeeks} semanas):`);
                     lines.push(`Janela: ${fmtDate(wStartStr)} → ${fmtDate(wEndStr)}.`);
                     if (blocked) {
-                        lines.push(`Status: **BLOQUEADO** (-${sd.details.cooldownPenalty}).`);
+                        lines.push(`Status visual: **BLOQUEADO** (⏳ intervalo ativo — não penaliza o score, apenas indica sobrecarga recente).`);
                         if (mainInWindow.length > 0) {
                             lines.push(`Participações MAIN que dispararam o bloqueio:`);
                             mainInWindow.forEach(h => {

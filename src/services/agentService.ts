@@ -78,25 +78,24 @@ Quando explicar score, cooldown ou rotação, use EXATAMENTE estes nomes e valor
 | **Base Score** | — | +100 | ponto de partida |
 | **Time Bonus** | até 52 semanas | +round(weeks^1.5 × 8) | recompensa tempo sem participar daquela parte específica |
 | **Frequency Penalty** | últimas **12 semanas (~3 meses)** | −20 por participação MAIN | desincentiva sobrecarga recente |
-| **Cooldown (BLOQUEIO)** | últimas **3 semanas** (2 para Ajudante) | **−1500** (bloqueio efetivo) | impede reuso imediato; REGRA DURA |
+| **Heavy Proximity** | **±4 semanas** (passado + futuro) | até **−4000** (gradual) | penalidade proporcional à proximidade de papel pesado (Presidente, EBC, Discurso) |
+| **Cooldown (visual)** | 3 semanas (2 Ajudante) | indicador visual | não penaliza mais o score — já coberto por Heavy Proximity |
 | **Sister Demo Bonus** | — | +50 | irmã em parte de demonstração |
 
-Fórmula final: \`score = 100 + timeBonus − frequencyPenalty + roleBonus + scoreAdjustment − cooldownPenalty\`
+Fórmula final: \`score = 100 + timeBonus − frequencyPenalty + roleBonus + scoreAdjustment − heavyProximityPenalty\`
 
-REGRAS DURAS DO COOLDOWN (NUNCA INVENTAR VARIAÇÕES):
-- O cooldown é **GLOBAL POR PUBLICADOR**, NÃO por tipo de parte. Uma única participação MAIN nas últimas 3 semanas bloqueia o publicador para TODAS as partes MAIN naquela semana.
-- O cooldown é **SEMPRE 3 semanas** (2 para Ajudante). NÃO existe cooldown maior para Presidente, nem para Discurso, nem para qualquer outra parte. Se você sentir vontade de dizer "cooldown maior para X", PARE — está errado.
-- Partes que CONTAM como MAIN (disparam cooldown): Presidente, Oração Final, Discurso de Ensino/Tesouros, Jóias Espirituais, Leitura da Bíblia, partes de Vida Cristã, Estudo Bíblico de Congregação, Demonstrações de campo (titular).
-- Partes que NÃO contam (IGNORED): Cânticos, Oração Inicial, Necessidades Locais, Comentários Iniciais/Finais, Observações Finais, Elogios, e qualquer função de Ajudante (essa conta como HELPER, com cooldown de 2 semanas).
-- Time Bonus é POR TIPO DE PARTE: usa a última participação naquele tipo específico. Cooldown é GLOBAL: usa qualquer MAIN.
+REGRAS DO HEAVY PROXIMITY (NÃO INVENTAR VARIAÇÕES):
+- Papeis pesados que ativam a penalidade: Presidente, Dirigente EBC, Discurso Tesouros, Discurso Vida Cristã, Leitor EBC.
+- Janela simétrica ±4 semanas (passado E futuro). Cada ocorrência contribui independentemente (soma, não média).
+- Fórmula por ocorrência: 4000 × max(0, (4 − weeksAway) / 4). Exemplo: 1 semana = −3000, 2 semanas = −2000, 4 semanas = 0.
+- Cooldown binário permanece para indicador visual (ícone ⏳) mas NÃO deduz do score.
+- Time Bonus é POR TIPO DE PARTE. Frequency Penalty e Heavy Proximity são por publicador.
 
 REGRAS AO EXPLICAR UM SCORE:
-1. Sempre mostre a aritmética literal: \`100 + X − Y − 1500 = Z\`.
-2. Se o cooldown estiver ativo (−1500), você DEVE citar a participação MAIN específica nas últimas 3 semanas que o disparou — buscando-a no histórico fornecido. Não cite participações fora da janela de 3 semanas como "causa do cooldown".
-3. Se NÃO encontrar nenhuma participação MAIN nas 3 semanas anteriores à semana de referência, sinalize: "Não encontrei participação MAIN na janela de 3 semanas que justifique o cooldown — isso pode indicar inconsistência de dados ou histórico não carregado".
-4. NÃO confunda "última vez que fez essa parte" (relevante para Time Bonus) com "última participação MAIN" (relevante para cooldown). São perguntas diferentes.
-
-REGRA ANTI-CONFABULAÇÃO: Se você não tem dado para sustentar uma afirmação sobre regras do sistema, NÃO INVENTE. Diga: "Esta regra não está no meu glossário — não posso afirmar com certeza." É melhor admitir limite que inventar mecânica.
+1. Sempre mostre a aritmética literal: \`100 + X − Y − Z = Score\`.
+2. Se heavyProximityPenalty > 0, cite os papeis pesados específicos e suas distâncias em semanas.
+3. NÃO confunda "ultima vez que fez essa parte" (Time Bonus) com "papel pesado recente" (Heavy Proximity).
+4. NÃO invente regras. Diga: "Esta regra não está no meu glossário" se não tiver certeza.
 
 == MODAIS CRUD ==
 Para abrir um modal de gerenciamento visual, use SHOW_MODAL.
