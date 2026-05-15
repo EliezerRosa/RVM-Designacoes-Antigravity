@@ -56,16 +56,14 @@ export const EXCLUDED_STATS_PARTS = [
 // Partes de alto peso: designação recente ou futura nestas partes
 // impõe penalidade graduada na janela ±HEAVY_ROLE_RADIUS semanas.
 // Critério: exigem preparação profunda e liderança de audiência comparável ao Presidente.
+// Chaves normalizadas (sem artigos/preposições) — combinadas via normPartType() antes de comparar.
+// Cobre tanto o workbook atual ("Dirigente EBC") quanto histórico legado ("Dirigente do EBC") etc.
 export const HEAVY_WEIGHT_PARTS = [
     'presidente',
     'dirigente ebc',
-    'dirigente do ebc',
     'discurso tesouros',
-    'discurso na tesouros',
-    'discurso vida crista',
-    'discurso na vida crista',
+    'discurso vida cristã',
     'leitor ebc',
-    'leitor do ebc',
 ];
 
 // Helper to check exclusion
@@ -97,6 +95,18 @@ export interface RotationScore {
 export interface RankedCandidate {
     publisher: Publisher;
     scoreData: RotationScore;
+}
+
+/**
+ * Normaliza tipoParte para comparação: remove artigos/preposições comuns (do, da, na, no...)
+ * que causam divergência entre o workbook atual ("Dirigente EBC") e registros históricos
+ * legados ("Dirigente do EBC", "Discurso na Tesouros", "Parte na Vida Cristã" etc.).
+ */
+function normPartType(s: string): string {
+    return s.toLowerCase()
+        .replace(/\b(do|da|de|na|no|dos|das)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 /**
@@ -161,6 +171,12 @@ export function calculateScore(
     });
 
     // Histórico Específico: Apenas desta modalidade/tipo, SÓ PASSADO (Time Bonus)
+    // Normalização via normPartType(): elimina divergências entre nomes do workbook atual
+    // ("Dirigente EBC", "Leitor EBC", "Discurso Tesouros", "Parte Vida Cristã") e registros
+    // históricos legados ("Dirigente do EBC", "Leitor do EBC", "Discurso na Tesouros",
+    // "Parte na Vida Cristã") — os artigos/preposições "do", "da", "na", etc. são removidos
+    // antes de comparar, garantindo match correto e Time Bonus preciso.
+    const pTypeNorm = normPartType(pType);
     const specificHistory = pastHistory.filter(h => {
         if (!partType) return true;
         const hType = (h.tipoParte || '').toLowerCase();
@@ -175,7 +191,11 @@ export function calculateScore(
         const isMinistryPart = pType.includes('ministerio') || pType.includes('demonstra') || pType.includes('estudante');
         if (isMinistryPart && hFuncao === 'ajudante') return true;
 
-        return hType === pType || hType.includes(pType);
+        // Comparação direta (sem normalização) — cobre casos onde os nomes já coincidem
+        if (hType === pType || hType.includes(pType)) return true;
+        // Comparação normalizada — cobre divergências com artigos/preposições
+        const hTypeNorm = normPartType(hType);
+        return hTypeNorm === pTypeNorm || hTypeNorm.includes(pTypeNorm);
     });
 
     const lastParticipation = specificHistory[0];
@@ -217,8 +237,8 @@ export function calculateScore(
             const d = h.date || '';
             if (!d || d === refDateStrForFilter) continue;
             if (d < hwStartStr || d > hwEndStr) continue;
-            const hType = (h.tipoParte || '').toLowerCase();
-            if (!HEAVY_WEIGHT_PARTS.some(k => hType.includes(k))) continue;
+            const hTypeNorm = normPartType(h.tipoParte || '');
+            if (!HEAVY_WEIGHT_PARTS.some(k => hTypeNorm.includes(k))) continue;
             const diffMs = Math.abs(new Date(d + 'T12:00:00').getTime() - refMs);
             const weeksAway = diffMs / (7 * 24 * 60 * 60 * 1000);
             const factor = Math.max(0, (heavyRadius - weeksAway) / heavyRadius);
