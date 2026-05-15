@@ -29,11 +29,13 @@ const KEY_DESCRIPTIONS: Record<string, string> = {
     TIME_POWER: 'Expoente do bônus de tempo: weeks^POWER (curva exponencial).',
     TIME_FACTOR: 'Multiplicador do bônus de tempo: × FACTOR.',
     RECENT_PARTICIPATION_PENALTY: 'Penalidade por cada participação na janela ±12 semanas.',
-    COOLDOWN_PENALTY: 'Penalidade massiva quando candidato está em cooldown obrigatório.',
+    COOLDOWN_PENALTY: 'Legado — não usado no score (mantido para UI). Penalidade visual de cooldown.',
     ELDER_BONUS: 'Bônus pequeno para anciãos em partes ambíguas.',
     SISTER_DEMO_PRIORITY: 'Bônus de prioridade para irmãs em demonstrações.',
     FSM_TITULAR_PROMOTION_BONUS: 'Bônus de progressão pedagógica: ajudante → titular.',
     MAX_LOOKBACK_WEEKS: 'Janela histórica máxima (semanas) para weeksSinceLast e contagens.',
+    HEAVY_ROLE_BASE: 'Penalidade máxima por papel pesado (Presidente, EBC, Discurso) adjacente. Aplicada em gradiente: 1 semana=75%, 4 semanas=0%.',
+    HEAVY_ROLE_RADIUS: 'Raio em semanas (±) da janela de papel pesado (passado + futuro).',
 };
 
 export function EngineRulesPanel() {

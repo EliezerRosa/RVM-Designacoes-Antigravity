@@ -674,6 +674,20 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                         {' '}
                                                     </span>
 
+                                                    {scoreData && (
+                                                        <>
+                                                            <span style={{ color: '#B45309', fontWeight: 600 }}>
+                                                                Papel pesado adjacente:
+                                                            </span>{' '}
+                                                            <span>
+                                                                {scoreData.details.heavyProximityPenalty > 0
+                                                                    ? `${firstName} teve um papel de alto peso (Presidente, EBC ou Discurso) nas semanas próximas a esta, o que reduziu a prioridade em ${scoreData.details.heavyProximityPenalty} pts.`
+                                                                    : `Sem papéis de alto peso no período adjacente (±4 semanas) — fator de proximidade neutro.`}
+                                                                {' '}
+                                                            </span>
+                                                        </>
+                                                    )}
+
                                                     <span style={{ color: hasManualOverride ? '#B45309' : '#047857', fontWeight: 600 }}>
                                                         {hasManualOverride ? 'Decisão final do SRVM:' : isAssignedTopScored ? 'Conclusão do sistema:' : 'Conclusão do sistema:'}
                                                     </span>{' '}
@@ -736,8 +750,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> verifica atuação ativa, desqualificação, pedido de não participação, disponibilidade na data, restrição "só ajudante", permissões por seção (Tesouros/Ministério/Vida Cristã), compatibilidade de função (Titular/Ajudante), gênero/batismo e privilégios específicos da modalidade (presidir, orar, ensinar, dirigir/ler EBC, etc.).</div>
                                                 <div><strong style={{ color: '#7C3AED' }}>Intervalo:</strong> verifica partes principais recentes (regra de 3 semanas).</div>
                                                 <div><strong style={{ color: '#0F766E' }}>Tempo desde última similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior prioridade.</div>
-                                                <div><strong style={{ color: '#B45309' }}>Frequência recente (peso dominante):</strong> participações recentes reduzem a prioridade <strong>mais</strong> do que o tempo parado aumenta. Cada participação nos últimos 3 meses penaliza −{50} pts; 2× = −10⁄0 — maior que semanas de ausência.</div>
-                                                <div><strong style={{ color: '#334155' }}>Pontuação final:</strong> {scoreData.score} (base + tempo - frequência - penalidades + bônus).</div>
+                                                <div><strong style={{ color: '#B45309' }}>Frequência recente (peso dominante):</strong> participações recentes reduzem a prioridade <strong>mais</strong> do que o tempo parado aumenta. Cada participação nos últimos 3 meses penaliza −{50} pts; 2× = −10⁄0 — maior que semanas de ausência.</div>                                                <div><strong style={{ color: '#DC2626' }}>Papel pesado adjacente:</strong> cada designação de alto peso (Presidente, EBC, Discurso) nas ±4 semanas penaliza até −4000 pts em gradiente proporcional à proximidade.</div>                                                <div><strong style={{ color: '#334155' }}>Pontuação final:</strong> {scoreData.score} (base + tempo - frequência - penalidades + bônus).</div>
                                             </div>
                                         )}
 
