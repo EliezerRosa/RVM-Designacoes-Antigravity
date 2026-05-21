@@ -36,6 +36,8 @@ const KEY_DESCRIPTIONS: Record<string, string> = {
     MAX_LOOKBACK_WEEKS: 'Janela histórica máxima (semanas) para weeksSinceLast e contagens.',
     HEAVY_ROLE_BASE: 'Penalidade máxima por papel pesado (Presidente, EBC, Discurso) adjacente. Aplicada em gradiente: 1 semana=75%, 4 semanas=0%.',
     HEAVY_ROLE_RADIUS: 'Raio em semanas (±) da janela de papel pesado (passado + futuro).',
+    ROLE_ALTERNATION_WINDOW_WEEKS: 'Motor — janela (semanas) para forçar alternância Titular↔Ajudante em partes FSM (leitura/demonstração/discurso estudante). Bidirecional. Escape: publicador "Só Ajudante". 0 desliga.',
+    PAIR_REPETITION_WINDOW_WEEKS: 'Motor — janela (semanas) para vetar repetição do par titular+ajudante em demonstrações. Bypass: cônjuge e pai/filho podem repetir. 0 desliga.',
 };
 
 export function EngineRulesPanel() {

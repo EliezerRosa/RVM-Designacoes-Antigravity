@@ -2,7 +2,7 @@ import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao, EnumTipoParte, HistoryStatus } from '../types';
 import { loadCompletedParticipations } from './historyAdapter';
 import { checkEligibility, isPastWeekDate, getThursdayFromDate, getWeekMondayId, isElderOrMS } from './eligibilityService';
-import { getRankedCandidates, getRotationConfig } from './unifiedRotationService';
+import { getRankedCandidates, getRotationConfig, getMostRecentFSMRole, wasRecentlyPairedWith } from './unifiedRotationService';
 import { generationCommitService } from './generationCommitService';
 import { localNeedsService } from './localNeedsService';
 
@@ -419,6 +419,12 @@ export const generationService = {
                     const weekId = getWeekMondayId(estudantePart.date);
                     const modalidadeCorreta = getModalidadeFromTipo(estudantePart.tipoParte);
 
+                    // Q2 (Titular FSM): bloquear quem foi Titular em parte FSM nas últimas N semanas.
+                    const cfgRuntime = getRotationConfig();
+                    const alternWeeks = cfgRuntime.ROLE_ALTERNATION_WINDOW_WEEKS ?? 0;
+                    const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
+                    const historyForChecks = historyRecords.filter(h => h.weekId !== estudantePart.weekId);
+
                     const checkPubFilters = (p: Publisher) => {
                         const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, {
                             date: estudantePart.date,
@@ -429,8 +435,17 @@ export const generationService = {
                         });
                         if (!eligResult.eligible) return false;
                         const avail = p.availability;
-                        if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
-                        return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
+                        const availableHere = avail.mode === 'always'
+                            ? !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate)
+                            : avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
+                        if (!availableHere) return false;
+
+                        // Q2 bidirecional: se a última participação FSM foi Titular, bloquear novo Titular.
+                        if (alternWeeks > 0) {
+                            const lastRole = getMostRecentFSMRole(p.name, historyForChecks, safeThursdayDate, alternWeeks);
+                            if (lastRole === 'Titular') return false;
+                        }
+                        return true;
                     };
 
                     const isDemonstracao = modalidadeCorreta === EnumModalidade.DEMONSTRACAO;
@@ -525,6 +540,11 @@ export const generationService = {
                     const weekId = getWeekMondayId(part.date);
                     if (funcao === EnumFuncao.AJUDANTE) {
                         let titularGender: 'brother' | 'sister' | undefined = undefined;
+                        let titularPublisherId: string | undefined = undefined;
+                        let titularSpouseId: string | undefined = undefined;
+                        let titularParentIds: string[] = [];
+                        let titularChildIds: string[] = [];
+                        let titularNameResolved: string | undefined = undefined;
                         // Tentativas de achar titular... (Simplificado para brevidade, mas mantendo lógica principal)
                         const titularPart = weekParts.find(p => p.weekId === part.weekId && p.seq === part.seq && p.funcao === 'Titular') ||
                             weekParts.find(p => p.weekId === part.weekId && p.id !== part.id && p.tipoParte === part.tipoParte && p.funcao === 'Titular'); // Simplificação da busca posicional
@@ -544,25 +564,69 @@ export const generationService = {
 
                             const titularName = selectedPublisherByPart.get(titularPart.id)?.name || titularPart.resolvedPublisherName || titularPart.rawPublisherName;
                             const titularPub = publishers.find(p => p.name === titularName);
-                            if (titularPub) titularGender = titularPub.gender;
+                            if (titularPub) {
+                                titularGender = titularPub.gender;
+                                titularPublisherId = titularPub.id;
+                                titularSpouseId = titularPub.spouseId;
+                                titularParentIds = titularPub.parentIds || [];
+                                titularChildIds = publishers
+                                    .filter(p => (p.parentIds || []).includes(titularPub.id))
+                                    .map(p => p.id);
+                                titularNameResolved = titularPub.name;
+                            }
                         }
 
+                        // Janelas configuráveis (Motor — Q2/Q3)
+                        const cfgRuntime = getRotationConfig();
+                        const alternWeeks = cfgRuntime.ROLE_ALTERNATION_WINDOW_WEEKS ?? 0;
+                        const pairWeeks = cfgRuntime.PAIR_REPETITION_WINDOW_WEEKS ?? 0;
+                        const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
+                        const historyForChecks = historyRecords.filter(h => h.weekId !== part.weekId);
+
                         const createAjudanteFilter = (forceGender: 'brother' | 'sister' | undefined) => (p: Publisher): boolean => {
-                            if (forceGender && p.gender !== forceGender) return false;
+                            // Q1: pré-filtro de gênero REMOVIDO — canBeHelper decide com bypass cônjuge/pai-filho.
                             const eligResult = checkEligibility(p, modalidade as any, funcao, {
                                 date: part.date,
                                 isOracaoInicial,
                                 secao: part.section,
                                 isPastWeek: isPast,
                                 titularGender: forceGender,
+                                titularPublisherId,
+                                titularSpouseId,
+                                titularParentIds,
+                                titularChildIds,
                                 partTitle: part.tituloParte,
                                 partDescription: part.descricaoParte,
                                 partDetails: part.detalhesParte,
                             });
                             if (!eligResult.eligible) return false;
                             const avail = p.availability;
-                            if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
-                            return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
+                            const availableHere = avail.mode === 'always'
+                                ? !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate)
+                                : avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
+                            if (!availableHere) return false;
+
+                            // Q2: alternância Titular↔Ajudante em 4 semanas (escape: isHelperOnly).
+                            if (alternWeeks > 0 && !p.isHelperOnly) {
+                                const lastRole = getMostRecentFSMRole(p.name, historyForChecks, safeThursdayDate, alternWeeks);
+                                if (lastRole === 'Ajudante') return false;
+                            }
+
+                            // Q3: não repetir par titular+ajudante em 4 semanas.
+                            // Bypass: cônjuge/pai-filho (já permitidos por canBeHelper) ignoram a regra.
+                            if (pairWeeks > 0 && titularNameResolved && titularPublisherId) {
+                                const isSpouseBypass = !!titularSpouseId && p.id === titularSpouseId;
+                                const isParentChildBypass =
+                                    titularParentIds.includes(p.id) ||
+                                    titularChildIds.includes(p.id) ||
+                                    (p.parentIds || []).includes(titularPublisherId);
+                                if (!isSpouseBypass && !isParentChildBypass) {
+                                    if (wasRecentlyPairedWith(p.name, titularNameResolved, historyForChecks, safeThursdayDate, pairWeeks)) {
+                                        return false;
+                                    }
+                                }
+                            }
+                            return true;
                         };
 
                         let selectedPublisher: Publisher | null = null;

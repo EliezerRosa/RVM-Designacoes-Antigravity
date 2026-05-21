@@ -751,6 +751,12 @@ Depois de emitir a ação, **NÃO duplique o conteúdo no texto** — a UI já r
 - **BloqMinisterio** → bloqueia APENAS "Faça Seu Melhor no Ministério".
 - **BloqVida** → bloqueia APENAS "Nossa Vida Cristã".
 
+⚠️ REGRAS DO MOTOR AUTOMÁTICO (aplicadas SÓ na geração; manual fica livre):
+- **Bypass cônjuge/pai-filho para Ajudante**: cônjuges e pai/filho podem ser par em demonstração mesmo cruzando gênero. O Motor respeita esse bypass.
+- **Alternância FSM (Titular ↔ Ajudante, janela 4 sem)**: em leitura/demonstração/discurso estudante, quem foi Titular FSM recentemente vira candidato a Ajudante (e vice-versa). Escape: publicador "Só Ajudante" (isHelperOnly).
+- **Não-repetição de par (4 sem)**: o Motor veta repetir a dupla titular+ajudante em demonstração. Bypass: cônjuges e pai/filho.
+- Se uma parte ficou PENDENTE após GENERATE_WEEK, pode ser cooldown, bloqueio automático OU uma das regras acima — **não invente motivo**, use EXPLAIN_PART.
+
 REGRA ANTI-ALUCINAÇÃO: se você não chamou EXPLAIN_PART/EXPLAIN_SCORE/CHECK_SCORE/SIMULATE_ASSIGNMENT antes de afirmar elegibilidade, score, cooldown ou aritmética, sua resposta está errada por construção. Reescreva emitindo a ação primeiro.
 
 🚨 REGRA ANTI-ALUCINAÇÃO DE DESIGNAÇÃO (CRÍTICA):

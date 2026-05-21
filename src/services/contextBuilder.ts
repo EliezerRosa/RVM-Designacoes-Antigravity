@@ -858,6 +858,27 @@ BLOQUEIOS AUTOMÁTICOS:
 - isNotQualified = true → Não designar
 - requestedNoParticipation = true → Não designar
 - Indisponível na data → Não designar
+
+REGRAS DO MOTOR AUTOMÁTICO (aplicadas SÓ na geração automática; designação manual fica livre):
+
+A. BYPASS DE GÊNERO PARA AJUDANTE (cônjuge / pai-filho):
+   - Cônjuges podem ser par mesmo em demonstrações independente do gênero.
+   - Pai/mãe e filho(a) também podem ser par.
+   - Motor automático respeita esse bypass ao escolher o Ajudante.
+
+B. ALTERNÂNCIA FSM (Titular ↔ Ajudante) — janela ${ROTATION_CONFIG.ROLE_ALTERNATION_WINDOW_WEEKS} semanas:
+   - Em partes FSM (leitura, demonstração, discurso estudante), o Motor força alternância bidirecional.
+   - Quem foi Titular FSM recentemente NÃO recebe novo Titular FSM dentro da janela (deve aparecer como Ajudante).
+   - Quem foi Ajudante FSM recentemente NÃO recebe novo Ajudante FSM dentro da janela (deve aparecer como Titular).
+   - ESCAPE: publicador marcado "Só Ajudante" (isHelperOnly) está isento — pode ser Ajudante repetidas vezes.
+
+C. NÃO-REPETIÇÃO DE PAR (titular + ajudante) — janela ${ROTATION_CONFIG.PAIR_REPETITION_WINDOW_WEEKS} semanas:
+   - O Motor veta dar a mesma dupla titular+ajudante em demonstrações dentro da janela.
+   - BYPASS: cônjuges e pai/filho podem repetir o par sem restrição.
+
+IMPORTANTE PARA EXPLICAÇÕES:
+- Se uma parte ficou PENDENTE/VAZA após geração automática, pode ser por cooldown, bloqueio automático OU por uma das regras A/B/C acima. Use EXPLAIN_PART para identificar a razão real — não invente motivo.
+- Designação manual (Apostila/Dropdown) NÃO aplica B e C; o operador pode forçar. A UI mostra um aviso amarelo quando o Motor desaconselharia.
     `.trim();
 }
 
