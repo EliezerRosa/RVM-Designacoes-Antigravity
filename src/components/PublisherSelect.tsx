@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 import { checkEligibility, isElderOrMS, buildEligibilityContext, isPastWeekDate, getTextualConstraintSummary } from '../services/eligibilityService';
 import { getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
-import { calculateScore } from '../services/unifiedRotationService';
+import { calculateScore, getMostRecentFSMRole, wasRecentlyPairedWith, getRotationConfig } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
 import { EnumModalidade, EnumFuncao } from '../types';
 import { Tooltip } from './Tooltip';
@@ -291,6 +291,70 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         return getBlockInfo(foundPublisher.name, historyForCooldown, referenceDate);
     }, [foundPublisher, part.tipoParte, historyRecords, referenceDate]);
 
+    // Avisos informativos das regras do Motor automático (Q2 alternância FSM, Q3 par recente).
+    // NÃO bloqueiam designação manual — só informam que o Motor evitaria.
+    const motorWarnings = useMemo(() => {
+        const warnings: { kind: 'alternation' | 'pair'; message: string }[] = [];
+        if (!foundPublisher) return warnings;
+        const cfg = getRotationConfig();
+        const historyExcludingWeek = historyRecords.filter(h => h.weekId !== part.weekId);
+        const t = part.tipoParte.toLowerCase();
+        const m = (part.modalidade || '').toLowerCase();
+        const partIsFSM = t.includes('ministerio') || t.includes('demonstra') || t.includes('estudante')
+            || m.includes('demonstra') || m.includes('estudante') || m.includes('leitura');
+
+        // Q2 — alternância Titular ↔ Ajudante em FSM
+        if (partIsFSM && cfg.ROLE_ALTERNATION_WINDOW_WEEKS > 0) {
+            const isHelperOnly = foundPublisher.isHelperOnly === true;
+            const funcaoAtual: 'Titular' | 'Ajudante' = part.funcao === 'Ajudante' ? 'Ajudante' : 'Titular';
+            const lastRole = getMostRecentFSMRole(
+                foundPublisher.name,
+                historyExcludingWeek,
+                referenceDate,
+                cfg.ROLE_ALTERNATION_WINDOW_WEEKS,
+            );
+            // Escape: "Só Ajudante" isento de alternância quando recebe Ajudante.
+            const isEscape = funcaoAtual === 'Ajudante' && isHelperOnly;
+            if (lastRole && lastRole === funcaoAtual && !isEscape) {
+                warnings.push({
+                    kind: 'alternation',
+                    message: `Foi ${lastRole} em parte FSM há ≤${cfg.ROLE_ALTERNATION_WINDOW_WEEKS} sem. — Motor automático tenta alternar; manual: permitido.`,
+                });
+            }
+        }
+
+        // Q3 — não repetir par titular+ajudante em demonstração
+        const isDemo = t.includes('demonstra') || m.includes('demonstra');
+        if (part.funcao === 'Ajudante' && isDemo && cfg.PAIR_REPETITION_WINDOW_WEEKS > 0) {
+            const ctx = buildEligibilityContext(part, weekParts, publishers);
+            const titularPub = ctx.titularPublisherId
+                ? publishers.find(p => p.id === ctx.titularPublisherId)
+                : null;
+            if (titularPub) {
+                const isBypass =
+                    foundPublisher.id === ctx.titularSpouseId ||
+                    (ctx.titularParentIds || []).includes(foundPublisher.id) ||
+                    (ctx.titularChildIds || []).includes(foundPublisher.id);
+                if (!isBypass) {
+                    const recently = wasRecentlyPairedWith(
+                        foundPublisher.name,
+                        titularPub.name,
+                        historyExcludingWeek,
+                        referenceDate,
+                        cfg.PAIR_REPETITION_WINDOW_WEEKS,
+                    );
+                    if (recently) {
+                        warnings.push({
+                            kind: 'pair',
+                            message: `Já foi par com ${titularPub.name} há ≤${cfg.PAIR_REPETITION_WINDOW_WEEKS} sem. — Motor automático evita repetir; manual: permitido.`,
+                        });
+                    }
+                }
+            }
+        }
+        return warnings;
+    }, [foundPublisher, part, historyRecords, referenceDate, weekParts, publishers]);
+
     // Renderizar conteúdo do tooltip (JSX)
     const renderTooltipContent = () => {
         if (!foundPublisher) {
@@ -394,6 +458,29 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                                 (Convenção: Aguardar 3 semanas após partes principais. Pode ser ignorada manualmente.)
                             </span>
                         </div>
+                    </div>
+                )}
+
+                {/* Avisos do Motor (alternância FSM + par recente) — informativos, não bloqueiam manual */}
+                {motorWarnings.length > 0 && (
+                    <div style={{
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                        <div style={{ color: '#fcd34d', fontWeight: 'bold', marginBottom: '4px' }}>
+                            🔁 Motor automático evitaria
+                        </div>
+                        {motorWarnings.map((w, idx) => (
+                            <div key={idx} style={{
+                                fontSize: '0.85em',
+                                color: '#fde68a',
+                                marginBottom: '3px',
+                                lineHeight: 1.35,
+                            }}>
+                                {w.kind === 'alternation' ? '↔️ ' : '👥 '}{w.message}
+                            </div>
+                        ))}
                     </div>
                 )}
 

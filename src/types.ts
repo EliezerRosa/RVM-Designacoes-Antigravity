@@ -395,6 +395,10 @@ export interface EngineConfig {
     HEAVY_ROLE_BASE: number;
     /** Raio em semanas (passado + futuro) da janela de papel pesado. */
     HEAVY_ROLE_RADIUS: number;
+    /** Motor — janela (semanas) para forçar alternância Titular↔Ajudante em partes FSM. 0 desliga. */
+    ROLE_ALTERNATION_WINDOW_WEEKS: number;
+    /** Motor — janela (semanas) para vetar repetição do par titular+ajudante em demonstrações. 0 desliga. */
+    PAIR_REPETITION_WINDOW_WEEKS: number;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
@@ -409,6 +413,8 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     MAX_LOOKBACK_WEEKS: 52,
     HEAVY_ROLE_BASE: 4000,
     HEAVY_ROLE_RADIUS: 4,
+    ROLE_ALTERNATION_WINDOW_WEEKS: 4,
+    PAIR_REPETITION_WINDOW_WEEKS: 4,
 };
 
 export interface RankedCandidate {

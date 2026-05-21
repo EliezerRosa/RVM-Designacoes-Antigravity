@@ -109,6 +109,84 @@ function normPartType(s: string): string {
         .trim();
 }
 
+// ===== HELPERS — janelas FSM (alternância e par) =====
+// FSM = partes do "Faça Seu Melhor no Ministério": leitura/demonstração/discurso estudante.
+// Alinhado ao critério já usado pelo FSM_TITULAR_PROMOTION_BONUS.
+export function isFSMHistoryRecord(h: HistoryRecord): boolean {
+    const t = (h.tipoParte || '').toLowerCase();
+    const m = (h.modalidade || '').toLowerCase();
+    return t.includes('ministerio') || t.includes('demonstra') || t.includes('estudante') ||
+           m.includes('demonstra') || m.includes('estudante') || m.includes('leitura');
+}
+
+/**
+ * Retorna o papel mais recente do publicador em parte FSM dentro da janela.
+ * `null` se não tem nada na janela.
+ */
+export function getMostRecentFSMRole(
+    publisherName: string,
+    history: HistoryRecord[],
+    referenceDate: Date,
+    windowWeeks: number
+): 'Titular' | 'Ajudante' | null {
+    if (!publisherName || windowWeeks <= 0) return null;
+    const cutoff = new Date(referenceDate);
+    cutoff.setDate(cutoff.getDate() - windowWeeks * 7);
+    const lowerName = publisherName.trim().toLowerCase();
+
+    let best: HistoryRecord | null = null;
+    for (const h of history) {
+        const nm = (h.resolvedPublisherName || '').trim().toLowerCase();
+        if (nm !== lowerName) continue;
+        if (!isFSMHistoryRecord(h)) continue;
+        const hDate = new Date(h.date + 'T12:00:00');
+        if (hDate >= referenceDate) continue;     // só passado
+        if (hDate < cutoff) continue;             // dentro da janela
+        if (!best || new Date(best.date) < hDate) best = h;
+    }
+    return best ? (best.funcao as 'Titular' | 'Ajudante') : null;
+}
+
+/**
+ * Verifica se o candidato já foi Ajudante deste titular dentro da janela.
+ * Olha pares titular+ajudante via (weekId, seq).
+ */
+export function wasRecentlyPairedWith(
+    candidateName: string,
+    titularName: string,
+    history: HistoryRecord[],
+    referenceDate: Date,
+    windowWeeks: number
+): boolean {
+    if (!candidateName || !titularName || windowWeeks <= 0) return false;
+    const cutoff = new Date(referenceDate);
+    cutoff.setDate(cutoff.getDate() - windowWeeks * 7);
+    const candLower = candidateName.trim().toLowerCase();
+    const titLower = titularName.trim().toLowerCase();
+
+    // 1) Coletar registros do candidato como Ajudante na janela
+    const candidateAjudantes = history.filter(h => {
+        if (h.funcao !== 'Ajudante') return false;
+        if ((h.resolvedPublisherName || '').trim().toLowerCase() !== candLower) return false;
+        const d = new Date(h.date + 'T12:00:00');
+        return d < referenceDate && d >= cutoff;
+    });
+    if (candidateAjudantes.length === 0) return false;
+
+    // 2) Para cada um, procurar o titular correspondente (mesmo weekId+seq)
+    for (const aj of candidateAjudantes) {
+        const tit = history.find(h2 =>
+            h2.weekId === aj.weekId &&
+            h2.seq === aj.seq &&
+            h2.funcao === 'Titular'
+        );
+        if (tit && (tit.resolvedPublisherName || '').trim().toLowerCase() === titLower) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Calcula a pontuação unificada usando Lógica Científica (Crescimento Exponencial).
  */
