@@ -27,6 +27,7 @@ const CommunicationTab = lazy(() => import('./components/CommunicationTab').then
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 
 import { publisherMutationService } from './services/publisherMutationService'
+import { workbookService } from './services/workbookService'
 import { PublisherStatusForm } from './components/PublisherStatusForm'
 import { PublisherAvailabilityPortal } from './components/PublisherAvailabilityPortal'
 import { findPublisherImpediments, type ImpedimentEntry } from './services/publisherImpedimentService'
@@ -64,6 +65,9 @@ function getPortalParams(): { portal: string | null; partId: string | null; publ
     mode: getFirst('mode'),
   }
 }
+
+// Ciclo simplificado (fase C): guard single-flight de markPastWeeksAsCompleted (1x por carga).
+let markPastWeeksRan = false;
 
 function App() {
   const { isAuthenticated, isLoading: authLoading, needs2FA, signOut, profile } = useAuth();
@@ -148,6 +152,22 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
         authorId: profile.id,
       });
     }
+  }, [profile]);
+
+  // Ciclo simplificado (fase C): auto-conclusão de partes de semanas passadas no app load.
+  // Single-flight (módulo-level guard) — roda 1x por carga da aba/janela, idempotente.
+  useEffect(() => {
+    if (!profile) return;
+    if (markPastWeeksRan) return;
+    markPastWeeksRan = true;
+    workbookService.markPastWeeksAsCompleted()
+      .then(count => {
+        if (count > 0) console.log(`[App] auto-CONCLUIDA: ${count} parte(s) de semanas passadas`);
+      })
+      .catch(err => {
+        console.warn('[App] markPastWeeksAsCompleted falhou (não-crítico):', err);
+        markPastWeeksRan = false; // permite retry em próximo load
+      });
   }, [profile]);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
