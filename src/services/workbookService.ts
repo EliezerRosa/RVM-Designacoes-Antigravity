@@ -417,7 +417,7 @@ export const workbookService = {
     },
 
     /**
- * Busca partes por status (para o ApprovalPanel)
+ * Busca partes por status (visões filtradas)
  * Pode receber um status único ou array de status
  * @param status Status único ou array de status
  * @param minDate (Opcional) Data mínima para filtro (YYYY-MM-DD)
@@ -521,7 +521,7 @@ export const workbookService = {
 
     /**
      * Busca TODAS as partes (para filtro 'all' ou 'completed' histórico)
-     * Útil para o ApprovalPanel listar histórico completo
+     * Útil para listar histórico completo
      * @param filters Filtros opcionais para server-side filtering
      */
     async getAll(filters?: {
@@ -849,16 +849,21 @@ export const workbookService = {
     },
 
     /**
-     * Aprova uma proposta de designação (PROPOSTA -> APROVADA)
+     * Ciclo simplificado: admin força aceitação direta (pula portal de confirmação).
+     * PROPOSTA -> DESIGNADA. Mantém approved_by_id/approved_at como auditoria de quem
+     * deu o "go" sem esperar resposta do publicador.
+     * (Histórico: antes gravava APROVADA — etapa cerimonial removida em 2026-05.)
      */
     async approveProposal(partId: string, elderId: string): Promise<WorkbookPart> {
+        const nowIso = new Date().toISOString();
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
-                status: WorkbookStatus.APROVADA,
+                status: WorkbookStatus.DESIGNADA,
                 approved_by_id: elderId,
-                approved_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
+                approved_at: nowIso,
+                status_changed_at: nowIso,
+                updated_at: nowIso,
             })
             .eq('id', partId)
             .eq('status', WorkbookStatus.PROPOSTA)
@@ -906,6 +911,7 @@ export const workbookService = {
             enhancedReason = `[${new Date().toLocaleDateString()}] Recusado por ${currentPart.resolved_publisher_name}: ${reason}`;
         }
 
+        const nowIso = new Date().toISOString();
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
@@ -914,14 +920,17 @@ export const workbookService = {
                 // Limpar a designação ao rejeitar
                 resolved_publisher_id: null,
                 resolved_publisher_name: null,
-                updated_at: new Date().toISOString(),
+                updated_at: nowIso,
+                // Ciclo simplificado: marca histórico de recusa (consistente com RPC do portal)
+                had_refusal: true,
+                status_changed_at: nowIso,
                 // Limpar metadados de aprovação/conclusão para resetar ciclo
                 approved_by_id: null,
                 approved_at: null,
                 completed_at: null
             })
             .eq('id', partId)
-            // Aceita rejeitar de qualquer status avançado
+            // Aceita rejeitar de qualquer status avançado (incluindo APROVADA legado)
             .in('status', [
                 WorkbookStatus.PENDENTE,
                 WorkbookStatus.PROPOSTA,
@@ -1093,15 +1102,18 @@ export const workbookService = {
     },
 
     /**
-     * Reverte a conclusão (CONCLUIDA -> APROVADA) mantendo a designação
+     * Ciclo simplificado: reverte conclusão CONCLUIDA -> DESIGNADA mantendo a designação.
+     * (Histórico: antes voltava para APROVADA — etapa cerimonial removida em 2026-05.)
      */
     async undoCompletion(partId: string): Promise<WorkbookPart> {
+        const nowIso = new Date().toISOString();
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
-                status: WorkbookStatus.APROVADA,
+                status: WorkbookStatus.DESIGNADA,
                 completed_at: null,
-                updated_at: new Date().toISOString()
+                status_changed_at: nowIso,
+                updated_at: nowIso
             })
             .eq('id', partId)
             .eq('status', WorkbookStatus.CONCLUIDA)
