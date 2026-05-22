@@ -1,0 +1,50 @@
+flowchart LR
+  classDef entry fill:#0b4f6c,color:#fff,stroke:#083d56,stroke-width:1.5px
+  classDef core fill:#2f855a,color:#fff,stroke:#276749,stroke-width:1.5px
+  classDef decision fill:#d69e2e,color:#1a202c,stroke:#975a16,stroke-width:1.5px
+  classDef diverge fill:#9f1239,color:#fff,stroke:#881337,stroke-width:1.5px
+  classDef output fill:#374151,color:#fff,stroke:#111827,stroke-width:1.5px
+
+  U1[GenerationService\nAuto election]:::entry
+  U2[PublisherSelect\nManual election UI]:::entry
+  U3[ActionControlPanel\nExplain and compare]:::entry
+  U4[agentActionService\nCHECK_SCORE / EXPLAIN_*]:::entry
+
+  C1[buildEligibilityContext\nweek context, titular, president]:::core
+  C2[checkEligibility\nBinary gate + reason]:::core
+  C3[getRankedCandidates\nDeterministic ranking]:::core
+  C4[calculateScore\nTime + Frequency + Heavy proximity]:::core
+  C5[isBlocked / getBlockInfo\nCooldown signal and ordering]:::core
+
+  U1 --> C1 --> C2
+  U2 --> C1 --> C2
+  U3 --> C1 --> C2
+  U4 --> C1 --> C2
+
+  U1 --> C3
+  U2 --> C4
+  U3 --> C3
+  U4 --> C3
+
+  C3 --> C4
+  C3 --> C5
+  U2 --> C5
+  U3 --> C5
+
+  D1{Convergence point\nAll paths use checkEligibility}:::decision
+  D2{Convergence point\nRanking from unifiedRotationService}:::decision
+  D3{Divergence point\nHow cooldown is applied}:::diverge
+
+  C2 --> D1
+  C3 --> D2
+  C5 --> D3
+
+  O1[Auto assignee per part\ncommit path]:::output
+  O2[Visible dropdown candidates\neligible only]:::output
+  O3[Best candidate and top list\ncontrol panel]:::output
+  O4[Agent explanation\nrank + eligibility tags]:::output
+
+  D1 --> O1
+  D1 --> O2
+  D2 --> O3
+  D2 --> O4
