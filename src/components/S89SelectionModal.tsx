@@ -145,13 +145,27 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 }
                 if (part.mainHallAssistant) {
                     // CORREÇÃO CRÍTICA: o S140 agrupa Titular e Ajudante num mesmo slot (part.id = ID do Titular).
-                    // Precisamos buscar o ID real do Ajudante no weekParts pelo nome,
-                    // caso contrário o link de confirmação apontaria para o registro do Titular.
-                    const ajudanteWp = weekParts.find(wp =>
-                        wp.funcao === 'Ajudante' &&
-                        (wp.resolvedPublisherName === part.mainHallAssistant ||
-                         wp.rawPublisherName === part.mainHallAssistant)
-                    );
+                    // Precisamos buscar o ID real do Ajudante no weekParts.
+                    //
+                    // Estratégia (mais robusta que match por nome):
+                    //   1) Por número de sequência do título (ex.: "4. Iniciando conversas" ↔ "4. Iniciando conversas - Ajudante")
+                    //      — funciona mesmo quando resolvedPublisherName do Ajudante está NULL no BD
+                    //   2) Fallback: match por nome (resolvedPublisherName / rawPublisherName) — caso o título não dê seq
+                    const titularTitulo = (original?.tituloParte || part.title || '') as string;
+                    const titularSeq = extractPartNumber(titularTitulo);
+                    let ajudanteWp = titularSeq
+                        ? weekParts.find(wp =>
+                            wp.funcao === 'Ajudante' &&
+                            extractPartNumber(wp.tituloParte || wp.tipoParte || '') === titularSeq
+                        )
+                        : undefined;
+                    if (!ajudanteWp) {
+                        ajudanteWp = weekParts.find(wp =>
+                            wp.funcao === 'Ajudante' &&
+                            (wp.resolvedPublisherName === part.mainHallAssistant ||
+                             wp.rawPublisherName === part.mainHallAssistant)
+                        );
+                    }
                     const ajudanteRealId = ajudanteWp?.id || part.id; // fallback = ID do slot se não encontrado
                     const ajudanteWpFields = ajudanteWp ? {
                         date: ajudanteWp.date,
