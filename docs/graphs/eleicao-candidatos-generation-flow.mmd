@@ -1,0 +1,63 @@
+flowchart TD
+  classDef phase fill:#1f2937,color:#fff,stroke:#111827,stroke-width:1.2px
+  classDef decision fill:#d97706,color:#111827,stroke:#92400e,stroke-width:1.2px
+  classDef rule fill:#065f46,color:#fff,stroke:#064e3b,stroke-width:1.2px
+  classDef out fill:#374151,color:#fff,stroke:#1f2937,stroke-width:1.2px
+
+  A0[Input parts + publishers + history]:::phase
+  A1[Pre-filter partsNeedingAssignment]:::phase
+  A2{Past date?\nd before today}:::decision
+  A3{Non-designatable?\nnon designatable by mapping}:::decision
+  A4{Final status?\nCONCLUIDA or CANCELADA}:::decision
+  A5{Pending/no-name/invalid assigned?}:::decision
+
+  A0 --> A1 --> A2
+  A2 -- yes --> AX1[Discard part]:::out
+  A2 -- no --> A3
+
+  A3 -- yes and has residual name --> P0[Phase 0 CLEANUP\nset CLEANUP marker]:::phase
+  A3 -- yes and no residual --> AX1
+  A3 -- no --> A4
+
+  A4 -- yes --> AX1
+  A4 -- no --> A5
+  A5 -- no --> AX1
+  A5 -- yes --> P05[Phase 0.5 SANITY\ncheck eligibility on existing assigned]:::phase
+
+  P05 --> D05{Existing assignment\nineligible?}:::decision
+  D05 -- yes --> P0
+  D05 -- no --> P1[Phase 1 President selection]:::phase
+
+  P1 --> R1[Rules:\n- check eligibility presidencia\n- availability by weekId and thursday\n- ranked candidates\n- choose first non blocked]:::rule
+  R1 --> P15[Phase 1.5 auto-chairman cascade]:::phase
+
+  P15 --> R15[Rules:\n- isAutoAssignedToChairman\n- require chairmanId for persistable assign]:::rule
+
+  R15 --> P2[Phase 2 Teaching loop]:::phase
+  P2 --> D2{tipoEnsino?\nDiscurso Joias EBC Vida}:::decision
+  D2 -- yes --> R2[Rules:\n- check eligibility by modalidade\n- Leitor EBC priority brothers then MS then elder\n- ranked candidates then non blocked]:::rule
+  D2 -- no --> P3[Phase 3 Student loop]:::phase
+
+  P3 --> D3{Demonstracao?}:::decision
+  D3 -- yes --> R3a[Rules:\npriority sisters then brothers then MS then elder\nthen ranked then non blocked]:::rule
+  D3 -- no --> R3b[Rules:\neligible list then ranked then non blocked]:::rule
+
+  R3a --> P4[Phase 4 Remaining parts]:::phase
+  R3b --> P4
+  R2 --> P4
+
+  P4 --> D4{Funcao = AJUDANTE?}:::decision
+  D4 -- yes --> R4a[Rules:\n- resolve titular context\n- solo modalities cleanup helper\n- check eligibility ajudante\n- same gender or family bypass\n- ranked then non blocked]:::rule
+  D4 -- no --> D4b{Oracao Final?}:::decision
+
+  D4b -- yes --> R4b[Rules:\nGroup 1 free non-president\nGroup 2 occupied non-president\nGroup 3 president fallback]:::rule
+  D4b -- no --> R4c[Rules:\ngeneric eligible then ranked then non blocked\nexclude names already used in week]:::rule
+
+  R4a --> H0[Intra-batch synthetic history injection]:::phase
+  R4b --> H0
+  R4c --> H0
+
+  H0 --> C0{Dry run?}:::decision
+  C0 -- yes --> O1[Return simulation result]:::out
+  C0 -- no --> C1[Commit generated assignments]:::phase
+  C1 --> O2[Persist and audit snapshot\nengine config and eligibility version]:::out

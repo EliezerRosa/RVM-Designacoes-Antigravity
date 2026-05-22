@@ -1,0 +1,60 @@
+flowchart LR
+  classDef lane fill:#1f2937,color:#fff,stroke:#111827,stroke-width:1.2px
+  classDef step fill:#0f766e,color:#fff,stroke:#115e59,stroke-width:1.2px
+  classDef decision fill:#d97706,color:#111827,stroke:#92400e,stroke-width:1.2px
+  classDef diverge fill:#9f1239,color:#fff,stroke:#881337,stroke-width:1.2px
+  classDef converge fill:#166534,color:#fff,stroke:#14532d,stroke-width:1.2px
+
+  subgraph L1[Manual path - PublisherSelect]
+    M1[Build context]:::step
+    M2[checkEligibility per publisher]:::step
+    M3{Already assigned same week?}:::decision
+    M4[calculateScore + getBlockInfo]:::step
+    M5[visibleOptions = eligible only]:::step
+    M6[Cooldown shown as tooltip/tag]:::step
+    M1 --> M2 --> M3 --> M4 --> M5 --> M6
+  end
+  class L1 lane
+
+  subgraph L2[Diagnostic path - ActionControlPanel]
+    P1[Build context]:::step
+    P2[eligibleCandidates via checkEligibility]:::step
+    P3[getRankedCandidates]:::step
+    P4{isBlocked?}:::decision
+    P5[bestCandidate = first non-blocked]:::step
+    P6[topCandidates first 4 of ranked]:::step
+    P1 --> P2 --> P3 --> P4 --> P5
+    P3 --> P6
+  end
+  class L2 lane
+
+  subgraph L3[Agent path - CHECK_SCORE / EXPLAIN_*]
+    A1[Resolve targetPart + aliases]:::step
+    A2[Build context]:::step
+    A3[eligible list via checkEligibility]:::step
+    A4[getRankedCandidates]:::step
+    A5{isBlocked?}:::decision
+    A6[sorted = non-blocked first\nthen blocked with tags]:::step
+    A1 --> A2 --> A3 --> A4 --> A5 --> A6
+  end
+  class L3 lane
+
+  C1[Convergence:\ncheckEligibility + same context builder]:::converge
+  C2[Convergence:\nshared deterministic ranking service]:::converge
+  D1[Divergence:\nManual path blocks same-week duplicate hard]:::diverge
+  D2[Divergence:\nCooldown behavior differs by surface\nUI warning vs ordered recommendation]:::diverge
+  D3[Divergence:\nControl panel top list may include blocked\nbestCandidate excludes blocked]:::diverge
+
+  M2 --> C1
+  P2 --> C1
+  A3 --> C1
+
+  M4 --> C2
+  P3 --> C2
+  A4 --> C2
+
+  M3 --> D1
+  M6 --> D2
+  P4 --> D2
+  A5 --> D2
+  P6 --> D3
