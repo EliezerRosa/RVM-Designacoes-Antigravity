@@ -503,6 +503,13 @@ export const generationService = {
                 for (const part of weekParts) {
                     if (selectedPublisherByPart.has(part.id)) continue;
 
+                    // Fase H.8 (2026-05-22): partes auto-atribuídas ao Presidente NUNCA
+                    // entram em rotação. Se o Presidente já foi designado, a Fase 1.5
+                    // (acima) ou o trigger `trg_sync_chairman_derived_parts` (DB) cuidam
+                    // de propagar o publisher. Se o Presidente ainda não foi designado,
+                    // a derivada PERMANECE pendente (não pegamos um publicador aleatório).
+                    if (isAutoAssignedToChairman(part.tipoParte)) continue;
+
                     const modalidade = getModalidade(part);
                     const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
 
