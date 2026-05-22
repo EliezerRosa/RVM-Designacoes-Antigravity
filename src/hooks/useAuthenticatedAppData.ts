@@ -7,9 +7,9 @@ import { updateRotationConfig } from '../services/unifiedRotationService';
 import { publisherDirectoryService } from '../services/publisherDirectoryService';
 import { workbookQueryService } from '../services/workbookQueryService';
 
-export type AppActiveTab = 'workbook' | 'approvals' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin' | 'communication';
+export type AppActiveTab = 'workbook' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin' | 'communication';
 
-const VALID_TABS: AppActiveTab[] = ['workbook', 'approvals', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication'];
+const VALID_TABS: AppActiveTab[] = ['workbook', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication'];
 
 interface UseAuthenticatedAppDataOptions {
   onInitialTabResolved?: (tab: AppActiveTab) => void;

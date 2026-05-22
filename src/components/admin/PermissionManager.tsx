@@ -51,7 +51,7 @@ interface UserOverride {
 
 // ===== Constants =====
 
-const ALL_TABS: ActiveTab[] = ['workbook', 'approvals', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication'];
+const ALL_TABS: ActiveTab[] = ['workbook', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication'];
 
 const ALL_ACTIONS = [
     'GENERATE_WEEK', 'ASSIGN_PART', 'APPROVE_PROPOSAL', 'REJECT_PROPOSAL', 'COMPLETE_PART', 'UNDO_COMPLETE_PART', 'UNDO_LAST', 'NAVIGATE_WEEK', 'VIEW_S140',
@@ -85,7 +85,6 @@ const DATA_ACCESS_LEVELS = ['all', 'filtered', 'self'] as const;
 
 const TAB_LABELS: Record<string, string> = {
     workbook: '📖 Apostila',
-    approvals: '✅ Aprovações',
     publishers: '👥 Publicadores',
     territories: '🌍 Territórios',
     backup: '💾 Backup',

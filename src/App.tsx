@@ -19,7 +19,7 @@ import { usePermissions } from './hooks/usePermissions'
 
 // Lazy-loaded tabs (code splitting)
 const WorkbookManager = lazy(() => import('./components/WorkbookManager'))
-const ApprovalPanel = lazy(() => import('./components/ApprovalPanel'))
+// ApprovalPanel removido em 2026-05-22 (ciclo simplificado fase E) — aba 'approvals' aposentada.
 const BackupRestore = lazy(() => import('./components/BackupRestore'))
 const PowerfulAgentTab = lazy(() => import('./components/PowerfulAgentTab'))
 const TerritoryManager = lazy(() => import('./components/TerritoryManager'))
@@ -416,13 +416,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           >
             📖 Apostila
           </button>}
-          {permissions.canViewTab('approvals') && <button
-            className={`nav-btn ${activeTab === 'approvals' ? 'active' : ''}`}
-            onClick={() => handleTabChange('approvals')}
-            title="Painel de Aprovação"
-          >
-            ✅ Aprovações
-          </button>}
+          {/* Aba 'Aprovações' removida em 2026-05-22 (ciclo simplificado fase E). */}
           {permissions.canViewTab('publishers') && <button
             className={`nav-btn ${activeTab === 'publishers' ? 'active' : ''}`}
             onClick={() => handleTabChange('publishers')}
@@ -512,10 +506,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
             />
           )}
 
-          {/* Approvals */}
-          {activeTab === 'approvals' && (
-            <ApprovalPanel publishers={publishers} />
-          )}
+          {/* Approvals: aba removida em 2026-05-22 (ciclo simplificado fase E). */}
 
           {/* Publishers */}
           {activeTab === 'publishers' && (
