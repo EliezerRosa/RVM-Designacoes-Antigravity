@@ -45,13 +45,19 @@ function compareIsoDates(a?: string | null, b?: string | null): number {
 export default function ActionControlPanel({ selectedPartId, parts, publishers, historyRecords, weeklyEvents = [] }: Props) {
     const selectedPart = parts.find(p => p.id === selectedPartId);
 
-    // Buscar o publicador designado para esta parte
-    const effectiveName = selectedPart?.resolvedPublisherName || selectedPart?.rawPublisherName;
-    const assignedPublisher = effectiveName
-        ? publishers.find(pub =>
-            pub.name.toLowerCase() === effectiveName.toLowerCase()
-        )
-        : null;
+    // Buscar o publicador designado para esta parte.
+    // Fallback em 3 fontes (alinha com a lista do PowerfulAgentTab):
+    //   1) resolvedPublisherName (canônico)
+    //   2) rawPublisherName (string da apostila)
+    //   3) resolvedPublisherId → publishers.find(...) (quando o nome não foi resolvido mas o id está gravado)
+    const nameFromFields = selectedPart?.resolvedPublisherName || selectedPart?.rawPublisherName;
+    const publisherById = selectedPart?.resolvedPublisherId
+        ? publishers.find(pub => pub.id === selectedPart.resolvedPublisherId)
+        : undefined;
+    const assignedPublisher = nameFromFields
+        ? publishers.find(pub => pub.name.toLowerCase() === nameFromFields.toLowerCase()) || publisherById || null
+        : publisherById || null;
+    const effectiveName = nameFromFields || assignedPublisher?.name;
 
     // Estados para dados assíncronos
     const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
@@ -430,7 +436,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                 <div style={{ fontSize: '11px', color: '#9CA3AF', fontStyle: 'italic', padding: '4px 0' }}>
                                     (Não se aplica a esta parte)
                                 </div>
-                            ) : (selectedPart.resolvedPublisherName || selectedPart.rawPublisherName) ? (
+                            ) : (selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || effectiveName) ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '0px' }}>
                                     <div style={{
                                         width: '24px',
@@ -445,10 +451,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         fontWeight: '600',
                                         flexShrink: 0,
                                     }}>
-                                        {(selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || '?').charAt(0).toUpperCase()}
+                                        {(selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || effectiveName || '?').charAt(0).toUpperCase()}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={valueStyle}>{selectedPart.resolvedPublisherName || selectedPart.rawPublisherName}</div>
+                                        <div style={valueStyle}>{selectedPart.resolvedPublisherName || selectedPart.rawPublisherName || effectiveName}</div>
                                         {assignedPublisher && (
                                             <div style={{ fontSize: '10px', color: '#4B5563', marginTop: '0px', lineHeight: '1.2' }}>
                                                 <div style={{ fontWeight: '500', color: '#1F2937' }}>
