@@ -1127,22 +1127,28 @@ export const workbookService = {
     },
 
     /**
-     * Sincroniza partes do Presidente (Comentários Iniciais/Finais)
-     * Deve ser chamado após atualizar a parte principal 'Presidente'
+     * Sincroniza partes do Presidente (Comentários Iniciais/Finais, Oração Inicial, Elogios).
+     *
+     * Fase H (2026-05-22): a propagação canônica agora é feita por TRIGGER PL/pgSQL
+     * no banco (`trg_sync_chairman_derived_parts`). Esta função permanece apenas
+     * como rede de segurança para: (1) marcar `is_chairman_derived=true` em rows
+     * recém-criadas que ainda não têm o flag, e (2) forçar `status=DESIGNADA` em
+     * derivadas (elas NUNCA passam por portal, mesmo quando o Presidente está
+     * em PROPOSTA — derivadas viram DESIGNADA direto).
+     *
+     * Cânticos foram REMOVIDOS do escopo (H.7): rotacionam independentemente.
+     *
+     * @param _status ignorado em derivadas; sempre DESIGNADA (a menos que limpe).
      */
-    async syncChairmanAssignments(weekId: string, publisherId: string, publisherName: string, status: WorkbookStatus): Promise<void> {
-        // Tipos de parte que devem ser sincronizados com o Presidente
+    async syncChairmanAssignments(weekId: string, publisherId: string, publisherName: string, _status: WorkbookStatus): Promise<void> {
+        // Tipos textuais do Presidente (sem cânticos — Fase H.7)
         const TARGET_TYPES = [
             'Comentários Iniciais', 'Comentarios Iniciais',
             'Comentários Finais', 'Comentarios Finais',
-            'Cântico Inicial', 'Cântico do Meio', 'Cântico Final', 'Cântico', 'Cantico',
             'Oração Inicial', 'Oracao Inicial',
             'Elogios e Conselhos', 'Elogios e conselhos'
         ];
 
-        // Buscar partes alvo na mesma semana — por TIPO ou pelo flag is_chairman_derived.
-        // O flag cobre rows já marcadas como derivadas do presidente mesmo que o
-        // tipo_parte não bata com TARGET_TYPES (ex.: variações de grafia).
         const { data: partsToUpdate, error: fetchError } = await supabase
             .from('workbook_parts')
             .select('id, tipo_parte')
@@ -1151,20 +1157,21 @@ export const workbookService = {
 
         if (fetchError || !partsToUpdate || partsToUpdate.length === 0) return;
 
-        // Preparar update
+        const isClearing = !publisherId;
         const updates: any = {
             updated_at: new Date().toISOString(),
-            // Marca canonicamente como derivada do presidente (substitui sentinel legado)
             is_chairman_derived: true,
-            // Propaga identidade real do presidente (FK → publishers.id)
             resolved_publisher_id: publisherId || null,
             resolved_publisher_name: publisherName || null,
-            status,
+            // Derivadas NUNCA passam por portal: vão direto a DESIGNADA quando
+            // recebem publisher; PENDENTE quando limpadas. Ignora _status recebido.
+            status: isClearing ? WorkbookStatus.PENDENTE : WorkbookStatus.DESIGNADA,
+            status_changed_at: new Date().toISOString(),
         };
 
         const ids = partsToUpdate.map(p => p.id);
 
-        console.log(`[workbookService] 🔄 Sincronizando Presidente para ${ids.length} partes derivadas (${weekId})`);
+        console.log(`[workbookService] 🔄 Sincronizando Presidente para ${ids.length} partes derivadas (${weekId}) → ${updates.status}`);
 
         const { error: updateError } = await supabase
             .from('workbook_parts')
