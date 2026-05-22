@@ -216,11 +216,14 @@ export const PartEditModal: React.FC<PartEditModalProps> = ({ isOpen, part, onCl
                             >
                                 <option value="PENDENTE">PENDENTE</option>
                                 <option value="PROPOSTA">PROPOSTA</option>
-                                <option value="APROVADA">APROVADA</option>
                                 <option value="DESIGNADA">DESIGNADA</option>
-                                <option value="REJEITADA">REJEITADA</option>
                                 <option value="CONCLUIDA">CONCLUIDA</option>
                                 <option value="CANCELADA">CANCELADA</option>
+                                {/* Ciclo simplificado (fase D, 2026-05-22): APROVADA e REJEITADA */}
+                                {/* removidas do dropdown. Legados continuam legíveis fora dele. */}
+                                {(formData.status === 'APROVADA' || formData.status === 'REJEITADA') && (
+                                    <option value={formData.status}>{formData.status} (legado)</option>
+                                )}
                             </select>
 
                             <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
