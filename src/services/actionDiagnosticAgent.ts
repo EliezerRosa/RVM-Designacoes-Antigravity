@@ -279,7 +279,7 @@ const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
             comandoSimulado: '"Aprove esta proposta"',
             expectativa: 'N/A — skip por segurança.',
             resultadoObtido: 'SKIP.',
-            diagnostico: 'Ação coberta por testes específicos de lifecycle e ApprovalPanel.',
+            diagnostico: 'Ação coberta por testes específicos de lifecycle.',
             dadosUtilizados: { motivo: 'protegido por testes específicos' },
         }),
     }),
