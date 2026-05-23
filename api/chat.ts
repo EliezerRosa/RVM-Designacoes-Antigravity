@@ -1,52 +1,222 @@
 /**
- * Vercel Serverless Function - Proxy para Gemini API
- * Protege a API Key mantendo-a apenas no servidor.
+ * Vercel Serverless Function - Proxy Multi-Provider para IA
+ * Protege as API Keys mantendo-as apenas no servidor.
+ *
+ * 2026-05-23: Multi-provider fallback — Gemini → Mistral → DeepSeek → Cloudflare Workers AI
+ *  - Cada provider tem adapter próprio que normaliza request/response para o
+ *    formato Gemini (usado pelo frontend).
+ *  - Loop percorre a lista do nível de pensamento escolhido e avança ao próximo
+ *    provider/modelo em caso de 429, 5xx ou timeout.
  */
 
 export const config = {
-    runtime: 'edge', // Usa Vercel Edge Runtime (mais rápido/barato)
+    runtime: 'edge',
 };
 
-// Modelo de Estratégia (Resilience Architecture)
-// Duplicado de src/lib/ai/types.ts para garantir independência da Serverless Function
-//
-// 2026-04-29: Diversificação anti-429.
-//  - Pools de quota distintos por modelo (flash vs pro vs lite vs 1.5).
-//    Se 2.0-flash bate 429, 2.5-flash e 1.5-flash provavelmente ainda têm quota.
-//  - Modelos "pro" só ajudam se a API key tiver billing habilitado em AI Studio
-//    (Tier 1+). Sem billing, dão 429 também — mas o loop pula adiante.
-//  - 2.5-pro / 1.5-pro são fallbacks "premium" — o usuário com billing ganha
-//    qualidade superior e quota muito maior; sem billing, custo zero (são
-//    pulados rápido pelo Abort).
-const MODEL_STRATEGY = {
-    // LOW: Tarefas rápidas (High Efficiency)
+// ─── TIPOS ────────────────────────────────────────────────────────────────────
+
+type ThinkingLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+type Provider = 'gemini' | 'mistral' | 'deepseek' | 'cloudflare';
+
+interface ModelEntry {
+    provider: Provider;
+    model: string;
+}
+
+interface CallResult {
+    data: unknown;
+    ok: boolean;
+    status: number;
+    errorText: string;
+}
+
+// ─── ESTRATÉGIA MULTI-PROVIDER ────────────────────────────────────────────────
+
+const MODEL_STRATEGY: Record<ThinkingLevel, ModelEntry[]> = {
+    // LOW: Tarefas rápidas — free pools em cascata
     LOW: [
-        'gemini-2.0-flash-lite',  // Ultra fast, free pool
-        'gemini-2.5-flash',       // Next-gen flash, pool independente
-        'gemini-1.5-flash'        // Pool legacy, último recurso free
+        { provider: 'gemini',     model: 'gemini-2.0-flash-lite' },             // Ultra rápido, free
+        { provider: 'mistral',    model: 'mistral-small-latest' },               // Free tier Mistral
+        { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },    // Free CF Workers AI
+        { provider: 'gemini',     model: 'gemini-2.5-flash' },                  // Pool independente
+        { provider: 'gemini',     model: 'gemini-1.5-flash' },                  // Legacy free
     ],
-    // MEDIUM: Raciocínio padrão (Standard)
+    // MEDIUM: Raciocínio padrão — melhor qualidade free
     MEDIUM: [
-        'gemini-2.5-flash',       // Workhorse atual, pool independente
-        'gemini-2.0-flash',       // Pool free clássico
-        'gemini-1.5-pro'          // Pool Pro legacy (precisa billing p/ quota alta)
+        { provider: 'gemini',     model: 'gemini-2.5-flash' },                             // Workhorse atual
+        { provider: 'mistral',    model: 'mistral-small-latest' },                          // Free Mistral
+        { provider: 'deepseek',   model: 'deepseek-chat' },                                // V3, ~$0.27/Mtok
+        { provider: 'gemini',     model: 'gemini-2.0-flash' },                             // Pool free clássico
+        { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },    // CF 70B free
+        { provider: 'gemini',     model: 'gemini-1.5-pro' },                               // Legacy Pro
     ],
-    // HIGH: Arquitetura & Raciocínio
+    // HIGH: Raciocínio complexo — modelos premium
     HIGH: [
-        'gemini-2.5-pro',                       // Top-tier raciocínio (billing recomendado)
-        'gemini-2.0-flash-thinking-exp-01-21',  // Deep Think experimental
-        'gemini-1.5-pro'                        // Fallback Pro estável
-    ]
+        { provider: 'gemini',     model: 'gemini-2.5-pro' },                       // Top-tier Google
+        { provider: 'deepseek',   model: 'deepseek-reasoner' },                    // R1 raciocínio
+        { provider: 'mistral',    model: 'mistral-large-latest' },                 // Mistral Large
+        { provider: 'gemini',     model: 'gemini-2.0-flash-thinking-exp-01-21' }, // Deep Think
+        { provider: 'gemini',     model: 'gemini-1.5-pro' },                       // Fallback Pro
+    ],
 };
+
+// ─── TIMEOUTS ─────────────────────────────────────────────────────────────────
 
 // Vercel Edge runtime tem limite de 25s wall-clock; reservamos 22s para o loop
 // e 18s por modelo individual (com Abort) para não estourar e devolver 504 genérico.
 const PER_MODEL_TIMEOUT_MS = 18_000;
-const GLOBAL_BUDGET_MS = 22_000;
+const GLOBAL_BUDGET_MS     = 22_000;
 
-type ThinkingLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+/** Converte o body Gemini (frontend) para array de mensagens OpenAI-compatible. */
+function extractMessages(body: Record<string, unknown>): Array<{ role: string; content: string }> {
+    const messages: Array<{ role: string; content: string }> = [];
+
+    const sys = body.systemInstruction as { parts?: Array<{ text?: string }> } | undefined;
+    if (sys?.parts) {
+        const sysText = sys.parts.map(p => p.text ?? '').join('\n').trim();
+        if (sysText) messages.push({ role: 'system', content: sysText });
+    }
+
+    const contents = body.contents as Array<{ role?: string; parts?: Array<{ text?: string }> }> | undefined;
+    for (const c of (contents ?? [])) {
+        const text = c.parts?.map(p => p.text ?? '').join('') ?? '';
+        messages.push({ role: c.role === 'model' ? 'assistant' : 'user', content: text });
+    }
+
+    return messages;
+}
+
+/** Normaliza qualquer resposta textual de volta ao formato Gemini esperado pelo frontend. */
+function toGeminiResponse(text: string, usage?: { input: number; output: number }): unknown {
+    return {
+        candidates: [{
+            content: { parts: [{ text }], role: 'model' },
+            finishReason: 'STOP',
+            index: 0,
+        }],
+        usageMetadata: {
+            promptTokenCount:     usage?.input  ?? 0,
+            candidatesTokenCount: usage?.output ?? 0,
+            totalTokenCount:      (usage?.input ?? 0) + (usage?.output ?? 0),
+        },
+    };
+}
+
+// ─── ADAPTERS ─────────────────────────────────────────────────────────────────
+
+async function callGemini(
+    model: string,
+    body: Record<string, unknown>,
+    apiKey: string,
+    signal: AbortSignal,
+): Promise<CallResult> {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const { thinking_level, ...geminiBody } = body;
+    void thinking_level; // campo RVM — não enviar para a API Gemini
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiBody),
+        signal,
+    });
+    if (res.ok) return { data: await res.json(), ok: true, status: 200, errorText: '' };
+    return { data: null, ok: false, status: res.status, errorText: await res.text() };
+}
+
+async function callOpenAICompat(
+    baseUrl: string,
+    model: string,
+    body: Record<string, unknown>,
+    apiKey: string,
+    signal: AbortSignal,
+): Promise<CallResult> {
+    const messages  = extractMessages(body);
+    const genConfig = (body.generationConfig as Record<string, unknown>) ?? {};
+
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+            model,
+            messages,
+            temperature: (genConfig.temperature    as number) ?? 0.7,
+            max_tokens:  (genConfig.maxOutputTokens as number) ?? 8192,
+        }),
+        signal,
+    });
+
+    if (res.ok) {
+        type OAIResp = { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
+        const raw = await res.json() as OAIResp;
+        const text  = raw.choices?.[0]?.message?.content ?? '';
+        const usage = raw.usage
+            ? { input: raw.usage.prompt_tokens ?? 0, output: raw.usage.completion_tokens ?? 0 }
+            : undefined;
+        return { data: toGeminiResponse(text, usage), ok: true, status: 200, errorText: '' };
+    }
+    return { data: null, ok: false, status: res.status, errorText: await res.text() };
+}
+
+async function callCloudflare(
+    model: string,
+    body: Record<string, unknown>,
+    token: string,
+    accountId: string,
+    signal: AbortSignal,
+): Promise<CallResult> {
+    const messages = extractMessages(body);
+    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ messages }),
+        signal,
+    });
+
+    if (res.ok) {
+        type CFResp = { result?: { response?: string }; success?: boolean };
+        const raw = await res.json() as CFResp;
+        return { data: toGeminiResponse(raw.result?.response ?? ''), ok: true, status: 200, errorText: '' };
+    }
+    return { data: null, ok: false, status: res.status, errorText: await res.text() };
+}
+
+// ─── DISPATCHER ───────────────────────────────────────────────────────────────
+
+async function callProvider(
+    entry: ModelEntry,
+    body: Record<string, unknown>,
+    env: Record<string, string | undefined>,
+    signal: AbortSignal,
+): Promise<CallResult> {
+    switch (entry.provider) {
+        case 'gemini': {
+            const key = env.GEMINI_API_KEY;
+            if (!key) return { data: null, ok: false, status: 500, errorText: 'GEMINI_API_KEY missing' };
+            return callGemini(entry.model, body, key, signal);
+        }
+        case 'mistral': {
+            const key = env.MISTRAL_API_KEY;
+            if (!key) return { data: null, ok: false, status: 500, errorText: 'MISTRAL_API_KEY missing' };
+            return callOpenAICompat('https://api.mistral.ai/v1', entry.model, body, key, signal);
+        }
+        case 'deepseek': {
+            const key = env.DEEPSEEK_API_KEY;
+            if (!key) return { data: null, ok: false, status: 500, errorText: 'DEEPSEEK_API_KEY missing' };
+            return callOpenAICompat('https://api.deepseek.com', entry.model, body, key, signal);
+        }
+        case 'cloudflare': {
+            const token     = env.CF_AI_TOKEN;
+            const accountId = env.CF_ACCOUNT_ID;
+            if (!token || !accountId) return { data: null, ok: false, status: 500, errorText: 'CF_AI_TOKEN or CF_ACCOUNT_ID missing' };
+            return callCloudflare(entry.model, body, token, accountId, signal);
+        }
+    }
+}
 
 export default async function handler(request: Request) {
     // CORS Headers
@@ -72,22 +242,22 @@ export default async function handler(request: Request) {
     }
 
     try {
-        const body = await request.json();
-        // Sanitize API Key
-        const apiKey = process.env.GEMINI_API_KEY?.replace(/['"]/g, '').trim();
+        const body = await request.json() as Record<string, unknown>;
+
+        // Env vars consolidadas (sanitizadas)
+        const env: Record<string, string | undefined> = {
+            GEMINI_API_KEY:  process.env.GEMINI_API_KEY?.replace(/['"]/g, '').trim(),
+            MISTRAL_API_KEY: process.env.MISTRAL_API_KEY?.replace(/['"]/g, '').trim(),
+            DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY?.replace(/['"]/g, '').trim(),
+            CF_AI_TOKEN:     process.env.CF_AI_TOKEN?.replace(/['"]/g, '').trim(),
+            CF_ACCOUNT_ID:   process.env.CF_ACCOUNT_ID?.replace(/['"]/g, '').trim(),
+        };
 
         // Determinar nível de pensamento (Default: MEDIUM)
-        const thinkingLevel: ThinkingLevel = (body.thinking_level || 'MEDIUM').toUpperCase();
-        const modelsToTry = MODEL_STRATEGY[thinkingLevel] || MODEL_STRATEGY.MEDIUM;
+        const thinkingLevel: ThinkingLevel = ((body.thinking_level as string) || 'MEDIUM').toUpperCase() as ThinkingLevel;
+        const modelsToTry = MODEL_STRATEGY[thinkingLevel] ?? MODEL_STRATEGY.MEDIUM;
 
-        console.log(`[Orchestrator] Level: ${thinkingLevel} -> Models: ${modelsToTry.join(', ')}`);
-
-        if (!apiKey) {
-            return new Response(JSON.stringify({ error: 'Server misconfiguration: API Key not found' }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json', ...corsHeaders },
-            });
-        }
+        console.log(`[Orchestrator] Level: ${thinkingLevel} -> ${modelsToTry.map(e => `${e.provider}/${e.model}`).join(', ')}`);
 
         // --- CACHE LAYER (Intention Cache) ---
         // Calcular hash do prompt para servir de chave
@@ -141,12 +311,12 @@ export default async function handler(request: Request) {
         const errorTrace: string[] = [];
         const startedAt = Date.now();
 
-        for (const model of modelsToTry) {
-            const elapsed = Date.now() - startedAt;
+        for (const entry of modelsToTry) {
+            const elapsed   = Date.now() - startedAt;
             const remaining = GLOBAL_BUDGET_MS - elapsed;
             if (remaining <= 2_000) {
-                errorTrace.push(`[${model}]: skipped (global budget exhausted, elapsed=${elapsed}ms)`);
-                console.warn(`[Proxy] Pulando ${model}: orçamento global esgotado (${elapsed}ms).`);
+                errorTrace.push(`[${entry.provider}/${entry.model}]: skipped (global budget exhausted, elapsed=${elapsed}ms)`);
+                console.warn(`[Proxy] Pulando ${entry.provider}/${entry.model}: orçamento global esgotado (${elapsed}ms).`);
                 break;
             }
             const perModelTimeout = Math.min(PER_MODEL_TIMEOUT_MS, remaining - 500);
@@ -154,22 +324,14 @@ export default async function handler(request: Request) {
             const abortTimer = setTimeout(() => abortController.abort(), perModelTimeout);
 
             try {
-                // console.log(`[Proxy] Tentando modelo: ${model}...`); // Verbose off
-                const url = `${BASE_URL}/${model}:generateContent?key=${apiKey}`;
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                    signal: abortController.signal,
-                });
+                const result = await callProvider(entry, body, env, abortController.signal);
                 clearTimeout(abortTimer);
 
                 // Se sucesso (200), retorna imediatamente
-                if (response.ok) {
-                    const data = await response.json();
+                if (result.ok) {
+                    const data = result.data;
 
                     // --- CACHE SAVE ---
-                    // Salvar resposta no cache para o futuro (Fire & Forget)
                     if (promptHash && process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {
                         try {
                             const { createClient } = await import('@supabase/supabase-js');
@@ -177,96 +339,69 @@ export default async function handler(request: Request) {
                                 process.env.VITE_SUPABASE_URL,
                                 process.env.VITE_SUPABASE_ANON_KEY
                             );
-
-                            // Não precisamos esperar o insert (Edge function tem tempo curto, mas fire-and-forget ajuda)
-                            // Nota: Edge functions as vezes matam promessas pendentes. O ideal é ctx.waitUntil, 
-                            // mas handler padrão web não tem isso fácil. Vamos tentar await rápido ou ignorar erro.
-                            // Extract Usage Metadata (if available)
-                            const usage = data.usageMetadata || {};
-                            const inputTokens = usage.promptTokenCount || 0;
-                            const outputTokens = usage.candidatesTokenCount || 0;
-                            const totalTokens = usage.totalTokenCount || 0;
-
+                            const usage = (data as Record<string, unknown>)?.usageMetadata as Record<string, number> | undefined;
                             await supabase.from('ai_intent_cache').upsert({
-                                prompt_hash: promptHash,
+                                prompt_hash:    promptHash,
                                 prompt_preview: promptText.substring(0, 200),
                                 thinking_level: thinkingLevel,
-                                model_used: model,
-                                response: data,
-                                input_tokens: inputTokens,
-                                output_tokens: outputTokens,
-                                total_tokens: totalTokens,
-                                created_at: new Date().toISOString()
+                                model_used:     `${entry.provider}/${entry.model}`,
+                                response:       data,
+                                input_tokens:   usage?.promptTokenCount     ?? 0,
+                                output_tokens:  usage?.candidatesTokenCount ?? 0,
+                                total_tokens:   usage?.totalTokenCount      ?? 0,
+                                created_at:     new Date().toISOString(),
                             });
                         } catch (saveErr) {
                             console.warn('[Cache] Erro ao salvar:', saveErr);
                         }
                     }
 
-                    // Adicionar header indicando se houve fallback (se não for o primeiro modelo)
-                    const isFallback = model !== modelsToTry[0];
-                    const headers = {
-                        'Content-Type': 'application/json',
-                        'X-RVM-Model-Used': model,
-                        'X-RVM-Model-Fallback': isFallback ? 'true' : 'false'
-                    };
-
+                    const isFallback = entry !== modelsToTry[0];
                     return new Response(JSON.stringify(data), {
                         status: 200,
-                        headers: { ...headers, ...corsHeaders },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-RVM-Model-Used':     `${entry.provider}/${entry.model}`,
+                            'X-RVM-Model-Fallback': isFallback ? 'true' : 'false',
+                            ...corsHeaders,
+                        },
                     });
                 }
 
-                // Se erro, captura para analisar
-                const errorText = await response.text();
-                let errorData;
-                try {
-                    errorData = JSON.parse(errorText);
-                } catch {
-                    errorData = { error: { message: errorText } };
-                }
+                // Erro: captura para analisar
+                const { status, errorText } = result;
+                let errorData: unknown;
+                try { errorData = JSON.parse(errorText); } catch { errorData = { error: { message: errorText } }; }
 
-                lastStatus = response.status;
-                const failureMsg = `[${model}]: ${response.status} - ${errorData.error?.message || errorText}`;
+                lastStatus = status;
+                const failureMsg = `[${entry.provider}/${entry.model}]: ${status} - ${(errorData as Record<string, unknown>)?.error?.toString() ?? errorText}`;
                 errorTrace.push(failureMsg);
+                console.warn(`[Proxy] Falha:`, failureMsg);
 
-                // Masked Key for debug
-                const maskedKey = apiKey ? `...${apiKey.slice(-4)}` : 'MISSING';
-
-                // Log do erro (interno Vercel)
-                console.warn(`[Proxy] Falha no modelo ${model} (Key: ${maskedKey}):`, failureMsg);
-
-                // Se for erro de cliente (ex: Bad Request 400), NÃO adianta tentar outro modelo.
-                // Erros de cota geralmente são 429 ou 403 (com mensagem específica)
-                // Vamos tentar o próximo apenas se for 429 (Too Many Requests) ou 5xx (Server Error) ou 404 (Model Not Found)
-                const isRetryable = response.status === 429 || response.status >= 500 ||
-                    (response.status === 403 && errorText.includes('quota')) ||
-                    response.status === 404;
+                const isRetryable = status === 429 || status >= 500 ||
+                    (status === 403 && errorText.includes('quota')) ||
+                    status === 404 || status === 500; // 500 missing key → pula para próximo
 
                 if (!isRetryable) {
-                    // Erro fatal (ex: payload inválido), retorna erro para o cliente
                     return new Response(JSON.stringify(errorData), {
                         status: lastStatus,
                         headers: { 'Content-Type': 'application/json', ...corsHeaders },
                     });
                 }
 
-                // Se for retryable, o loop continua para o próximo modelo...
-
             } catch (networkError) {
                 clearTimeout(abortTimer);
                 const isAbort = (networkError as Error)?.name === 'AbortError';
-                const netMsg = isAbort
-                    ? `[${model}]: Aborted after ${perModelTimeout}ms (per-model timeout)`
-                    : `[${model}]: Network Error - ${networkError}`;
+                const netMsg  = isAbort
+                    ? `[${entry.provider}/${entry.model}]: Aborted after ${perModelTimeout}ms`
+                    : `[${entry.provider}/${entry.model}]: Network Error - ${networkError}`;
                 console.error(netMsg);
                 errorTrace.push(netMsg);
             }
         }
 
         // Se chegou aqui, todos os modelos falharam
-        console.error('[Proxy] Todos os modelos falharam.');
-        const maskedKeyFinal = apiKey ? `...${apiKey.slice(-4)}` : 'UNKNOWN';
+        console.error('[Proxy] Todos os modelos/providers falharam.');
 
         // --- SYSTEM LOGGING (Centralized Alerts) ---
         if (process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {
@@ -276,15 +411,10 @@ export default async function handler(request: Request) {
                     process.env.VITE_SUPABASE_URL,
                     process.env.VITE_SUPABASE_ANON_KEY
                 );
-
                 await supabase.from('ai_system_logs').insert({
                     level: 'ERROR',
-                    message: `Todos os modelos falharam para a Key ${maskedKeyFinal}`,
-                    details: {
-                        errorTrace,
-                        thinkingLevel,
-                        promptPreview: promptText.substring(0, 100)
-                    }
+                    message: `Todos os providers falharam`,
+                    details: { errorTrace, thinkingLevel, promptPreview: promptText.substring(0, 100) }
                 });
             } catch (logErr) {
                 console.error('[Proxy] Falha ao registrar log de sistema:', logErr);
@@ -296,8 +426,7 @@ export default async function handler(request: Request) {
         // do Vercel Edge runtime.
         const allTimedOut = errorTrace.length > 0 &&
             errorTrace.every(t => t.includes('Aborted') || t.includes('budget exhausted'));
-        // 2026-04-29: detectar quota Gemini esgotada em TODOS os modelos da chain.
-        // Sinal: cada entrada do trace contém "429" ou "Resource exhausted" ou "quota".
+
         const allQuotaExhausted = errorTrace.length > 0 &&
             errorTrace.every(t => t.includes('429') || /resource exhausted|quota/i.test(t));
 
@@ -305,15 +434,15 @@ export default async function handler(request: Request) {
         let friendly: string;
         if (allTimedOut) {
             finalStatus = 503;
-            friendly = '⏱️ A IA demorou demais para responder. Tente novamente em alguns segundos ou reduza o escopo da pergunta.';
+            friendly = '⏱️ A IA demorou demais para responder (todos os providers). Tente novamente em alguns segundos ou reduza o escopo da pergunta.';
         } else if (allQuotaExhausted) {
             finalStatus = 429;
-            friendly = '🚦 Cota da IA esgotada (todos os modelos da chain bateram 429). '
-                + 'Aguarde alguns minutos ou habilite billing na sua API key do Google AI Studio '
-                + '(https://aistudio.google.com/apikey) para liberar quota Tier 1+.';
+            friendly = '🚦 Cota esgotada em todos os providers da chain (429). '
+                + 'Aguarde alguns minutos. Para aumentar quota do Gemini, habilite billing no Google AI Studio '
+                + '(https://aistudio.google.com/apikey).';
         } else {
             finalStatus = lastStatus || 500;
-            friendly = `⚠️ Ocorreu um erro técnico na comunicação com a IA. Detalhes: ${errorTrace.join(' | ')}`;
+            friendly = `⚠️ Erro técnico em todos os providers. Detalhes: ${errorTrace.join(' | ')}`;
         }
 
         return new Response(JSON.stringify({
