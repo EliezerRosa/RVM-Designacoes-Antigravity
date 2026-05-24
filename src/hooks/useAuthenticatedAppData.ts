@@ -25,7 +25,7 @@ const computePublisherHash = (publishers: Publisher[]) =>
   ).join('|');
 
 const computePartsHash = (parts: WorkbookPart[]) =>
-  `${parts.length}:${parts.slice(0, 50).map(p => `${p.id}:${p.resolvedPublisherName || ''}:${p.status}`).join('|')}`;
+  `${parts.length}:${parts.map(p => `${p.id}:${p.resolvedPublisherName || ''}:${p.status}`).join('|')}`;
 
 export function useAuthenticatedAppData({ onInitialTabResolved, onCriticalError }: UseAuthenticatedAppDataOptions = {}) {
   const [publishers, setPublishers] = useState<Publisher[]>([]);

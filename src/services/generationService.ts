@@ -321,6 +321,14 @@ export const generationService = {
                 const namesExcludedInWeek = new Set<string>();
                 if (presidenteDaSemana) namesExcludedInWeek.add(presidenteDaSemana);
 
+                // Seed namesExcludedInWeek from parts already assigned in this week
+                // that are NOT being reassigned now. Prevents double-assignment of same publisher.
+                for (const wp of weekParts) {
+                    if (!partsNeedingAssignment.some(p => p.id === wp.id) && wp.resolvedPublisherName) {
+                        namesExcludedInWeek.add(wp.resolvedPublisherName);
+                    }
+                }
+
                 // --- FASE 2: ENSINO ---
                 // v9.5: Add missing Teaching types to ensure they use Ranked Selection (not strict blocking)
                 const tiposEnsino = [
