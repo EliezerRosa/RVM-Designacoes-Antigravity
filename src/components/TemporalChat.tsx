@@ -796,6 +796,131 @@ export default function TemporalChat({
         window.speechSynthesis.speak(utterance);
     };
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // DETECÇÃO DE INTENÇÃO DETERMINÍSTICA (CLIENT-SIDE, PRE-LLM)
+    // 2026-05-24 anti-hallucination defense in-depth:
+    // Quando o usuário digita padrões inequívocos de consulta, executa a
+    // action determinística DIRETAMENTE, sem chamar LLM. Isso garante zero
+    // alucinação mesmo se o provider AI falhar / cair em modelo fraco.
+    // ─────────────────────────────────────────────────────────────────────────
+    const detectDeterministicQueryIntent = (text: string): AgentAction | null => {
+        const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        if (!t || t.length < 4) return null;
+
+        const normName = (s: string) => s.trim().replace(/\s+/g, ' ');
+
+        // Tenta resolver um nome de publicador no texto (substring match)
+        const findPublisherInText = (txt: string): string | null => {
+            const txtNorm = txt.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            // Match publishers cujo nome (ou primeiro+sobrenome) aparecem no texto
+            let best: { name: string; score: number } | null = null;
+            for (const p of publishers) {
+                const pNorm = p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                if (txtNorm.includes(pNorm)) {
+                    if (!best || pNorm.length > best.score) best = { name: p.name, score: pNorm.length };
+                    continue;
+                }
+                // Try first name
+                const first = pNorm.split(' ')[0];
+                if (first.length >= 4 && new RegExp(`\\b${first}\\b`).test(txtNorm)) {
+                    if (!best || first.length > best.score) best = { name: p.name, score: first.length };
+                }
+            }
+            return best ? normName(best.name) : null;
+        };
+
+        // QUERY_PUBLISHER_ASSIGNMENTS — "designações de X", "partes de X", "onde X está"
+        if (/(designac\w*|partes|atribuic\w*)\s+(de|da|do)\s+\w+/.test(t) ||
+            /onde\s+\w+\s+(esta|estao)/.test(t) ||
+            /em\s+que\s+partes?\s+\w+/.test(t)) {
+            const publisherName = findPublisherInText(text);
+            if (publisherName) {
+                return {
+                    type: 'QUERY_PUBLISHER_ASSIGNMENTS',
+                    params: { publisherName },
+                    description: `Listando designações de ${publisherName}...`
+                };
+            }
+        }
+
+        // QUERY_PUBLISHER_PROFILE — "perfil de X", "dados de X", "me fale sobre X"
+        if (/(perfil|dados|informacoes|me\s+fale|me\s+conta)\s+(de|da|do|sobre|a respeito de)\s+\w+/.test(t)) {
+            const publisherName = findPublisherInText(text);
+            if (publisherName) {
+                return {
+                    type: 'QUERY_PUBLISHER_PROFILE',
+                    params: { publisherName },
+                    description: `Consultando perfil de ${publisherName}...`
+                };
+            }
+        }
+
+        // QUERY_COOLDOWN_STATUS — "X em cooldown", "X bloqueado"
+        if (/(cooldown|bloqueado|intervalo|esta\s+livre)/.test(t)) {
+            const publisherName = findPublisherInText(text);
+            if (publisherName) {
+                return {
+                    type: 'QUERY_COOLDOWN_STATUS',
+                    params: { publisherName, weekId: currentWeekId },
+                    description: `Verificando cooldown de ${publisherName}...`
+                };
+            }
+        }
+
+        // QUERY_LAST_PARTICIPATION — "última participação de X", "quando X participou"
+        if (/(ultima\s+(participacao|vez)|quando\s+\w+\s+participou|h[aá]\s+quanto\s+tempo)/.test(t)) {
+            const publisherName = findPublisherInText(text);
+            if (publisherName) {
+                return {
+                    type: 'QUERY_LAST_PARTICIPATION',
+                    params: { publisherName },
+                    description: `Consultando última participação de ${publisherName}...`
+                };
+            }
+        }
+
+        // QUERY_VACANT_PARTS — "partes vagas/pendentes", "o que falta designar"
+        if (/(partes?\s+(vag\w+|pendent\w+|sem\s+designad\w+))|(o\s+que\s+falta\s+designar)/.test(t)) {
+            return {
+                type: 'QUERY_VACANT_PARTS',
+                params: currentWeekId ? { weekId: currentWeekId } : {},
+                description: 'Listando partes pendentes...'
+            };
+        }
+
+        // QUERY_PENDING_WEEKS — "semanas pendentes", "ciclo pendente"
+        if (/(semanas?\s+(pendent\w+|com\s+vagas))|(falta\s+designar\s+no\s+ciclo)/.test(t)) {
+            return {
+                type: 'QUERY_PENDING_WEEKS',
+                params: {},
+                description: 'Verificando semanas pendentes...'
+            };
+        }
+
+        // QUERY_PUBLISHER_LIST — "liste anciãos", "lista de servos", "publicadores inativos"
+        const listMatchers: Array<{ rx: RegExp; filter: string; label: string }> = [
+            { rx: /(liste|lista|mostre|quem\s+sao)\s+(os\s+)?ancia?o?s?\b/, filter: 'elder', label: 'anciãos' },
+            { rx: /(liste|lista|mostre|quem\s+sao)\s+(os\s+)?servos?(\s+ministeria\w+)?/, filter: 'ministerial_servant', label: 'servos ministeriais' },
+            { rx: /(publicador\w*|irma\w*)\s+inativ\w+/, filter: 'inactive', label: 'inativos' },
+            { rx: /(publicador\w*|irma\w*)\s+(sem\s+telefone|sem\s+contato)/, filter: 'no_phone', label: 'sem telefone' },
+            { rx: /(liste|lista|mostre)\s+(as\s+)?irmas?\b/, filter: 'female', label: 'irmãs' },
+            { rx: /(liste|lista|mostre)\s+(os\s+)?irmaos\b/, filter: 'male', label: 'irmãos' },
+            { rx: /(publicador\w*|irma\w*)\s+(nao|n[aã]o)\s+batiz\w+/, filter: 'unbaptized', label: 'não batizados' },
+            { rx: /(publicador\w*|irma\w*)\s+inapt\w+/, filter: 'unqualified', label: 'inaptos' },
+        ];
+        for (const { rx, filter, label } of listMatchers) {
+            if (rx.test(t)) {
+                return {
+                    type: 'QUERY_PUBLISHER_LIST',
+                    params: { filter },
+                    description: `Listando publicadores (${label})...`
+                };
+            }
+        }
+
+        return null;
+    };
+
     const sendMessage = async (overrideInput?: string, audioData?: { mimeType: string, data: string }) => {
         // Safety check: Ensure overrideInput is a string and not a PointerEvent or other object
         const finalOverride = typeof overrideInput === 'string' ? overrideInput : undefined;
@@ -822,6 +947,43 @@ export default function TemporalChat({
             };
             await chatHistoryService.addMessage(sessionId, userMsg);
             setMessages(prev => [...prev, userMsg]);
+
+            // ─────────────────────────────────────────────────────────────────
+            // FAST-PATH: detecção determinística pré-LLM (anti-alucinação)
+            // Se o texto bate em padrão inequívoco de consulta, executa a
+            // action direto sem chamar IA. Resposta instantânea + zero alucinação.
+            // ─────────────────────────────────────────────────────────────────
+            const deterministicAction = detectDeterministicQueryIntent(textToSend);
+            if (deterministicAction) {
+                console.log('[TemporalChat] Fast-path determinístico:', deterministicAction.type);
+                try {
+                    const history = parts.map(p => workbookPartToHistoryRecord(p));
+                    const result = await agentActionService.executeAction(
+                        deterministicAction, parts, publishers, history, currentWeekId
+                    );
+                    const isQueryAction = result.actionType?.startsWith('QUERY_');
+                    const feedbackContent = result.success
+                        ? (isQueryAction ? result.message : `✅ ${result.message}`)
+                        : `⚠️ ${result.message}`;
+                    const assistantMsg: ChatMessage = {
+                        role: 'assistant',
+                        content: feedbackContent,
+                        timestamp: new Date(),
+                        weekId: currentWeekId,
+                        modelUsed: 'deterministic/local',
+                    };
+                    await chatHistoryService.addMessage(sessionId, assistantMsg);
+                    setMessages(prev => [...prev, assistantMsg]);
+                    if (result.success && onAction) onAction(result);
+                    if (result.success && onModelChange) onModelChange('deterministic/local');
+                    setIsLoading(false);
+                    setInteractionStage(null);
+                    return;
+                } catch (e) {
+                    console.warn('[TemporalChat] Fast-path falhou, caindo para LLM:', e);
+                    // continua para fluxo LLM normal
+                }
+            }
         } else {
             // Para áudio puro: mostrar indicador temporário e logar no audit_log
             const tempMsg: ChatMessage = {
