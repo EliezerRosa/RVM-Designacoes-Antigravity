@@ -1079,8 +1079,9 @@ export default function TemporalChat({
                 if (results.length === 1) {
                     // Single action: show result directly
                     const r = results[0];
+                    const isQueryAction = r.actionType?.startsWith('QUERY_');
                     feedbackContent = r.success
-                        ? (r.actionType === 'CHECK_SCORE' || r.actionType === 'EXPLAIN_PART' ? r.message : `✅ ${r.message}`)
+                        ? (r.actionType === 'CHECK_SCORE' || r.actionType === 'EXPLAIN_PART' || isQueryAction ? r.message : `✅ ${r.message}`)
                         : `⚠️ Não foi possível realizar a ação: ${r.message}`;
                 } else {
                     // Multiple actions: show summary + details

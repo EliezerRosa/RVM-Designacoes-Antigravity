@@ -59,7 +59,16 @@ export type AgentActionType =
     | 'IMPORT_WORKBOOK'
     | 'MANAGE_WORKBOOK_PART'
     | 'MANAGE_WORKBOOK_WEEK'
-    | 'MANAGE_PERMISSIONS';
+    | 'MANAGE_PERMISSIONS'
+    | 'QUERY_PUBLISHER_ASSIGNMENTS'
+    | 'QUERY_WEEK_ASSIGNMENTS'
+    | 'QUERY_VACANT_PARTS'
+    | 'QUERY_ELIGIBILITY'
+    | 'QUERY_PUBLISHER_PROFILE'
+    | 'QUERY_PUBLISHER_LIST'
+    | 'QUERY_COOLDOWN_STATUS'
+    | 'QUERY_LAST_PARTICIPATION'
+    | 'QUERY_PENDING_WEEKS';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -1933,6 +1942,531 @@ export const agentActionService = {
                         console.error('[AgentAction] MANAGE_PERMISSIONS error:', e);
                         return { success: false, message: `Erro ao gerenciar permissões: ${e?.message || 'Desconhecido'}` };
                     }
+                }
+
+                // ─────────────────────────────────────────────────────────────────────────
+                // QUERY ACTIONS — purely in-memory, no LLM inference, no DB calls
+                // ─────────────────────────────────────────────────────────────────────────
+
+                case 'QUERY_PUBLISHER_ASSIGNMENTS': {
+                    const { publisherName, fromWeekId, toWeekId, status } = action.params;
+                    if (!publisherName) {
+                        return { success: false, message: 'Parâmetro publisherName é obrigatório.', actionType: 'QUERY_PUBLISHER_ASSIGNMENTS' };
+                    }
+                    const norm = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const pubNorm = norm(publisherName);
+                    const pub = publishers.find(p => norm(p.name) === pubNorm)
+                        || publishers.find(p => norm(p.name).includes(pubNorm) || pubNorm.includes(norm(p.name)));
+                    const resolvedName = pub?.name || publisherName;
+
+                    let assigned = parts.filter(p => {
+                        const pName = p.resolvedPublisherName || p.rawPublisherName || '';
+                        return norm(pName) === norm(resolvedName) || norm(pName) === pubNorm;
+                    });
+                    if (fromWeekId) assigned = assigned.filter(p => (p.weekId || '') >= fromWeekId);
+                    if (toWeekId) assigned = assigned.filter(p => (p.weekId || '') <= toWeekId);
+                    if (status) assigned = assigned.filter(p => (p.status || '').toUpperCase() === status.toUpperCase());
+                    assigned.sort((a, b) => (a.weekId || '').localeCompare(b.weekId || ''));
+
+                    if (assigned.length === 0) {
+                        const range = (fromWeekId || toWeekId) ? ` no período ${fromWeekId || '?'}–${toWeekId || '?'}` : '';
+                        return {
+                            success: true,
+                            message: `**Designações de ${resolvedName}:** Nenhuma encontrada${range}.`,
+                            data: { publisherName: resolvedName, assignments: [], total: 0 },
+                            actionType: 'QUERY_PUBLISHER_ASSIGNMENTS'
+                        };
+                    }
+
+                    const today = toLocalISODate();
+                    const fmtDate = (s: string) => { try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; } };
+                    const secShort = (s: string) => (s || '').replace('Tesouros da Palavra de Deus', 'Tesouros').replace('Faça Seu Melhor no Ministério', 'FSM').replace('Nossa Vida Cristã', 'NVC');
+
+                    const rows = assigned.map(p => {
+                        const d = p.date || p.weekId || '';
+                        const mark = d < today ? '🕐' : d === today ? '📅' : '📌';
+                        const fn = p.funcao === 'Ajudante' ? '🤝 Ajudante' : '⭐ Titular';
+                        return `| ${mark} ${fmtDate(d)} | ${fn} | ${secShort(p.section)} | ${p.tituloParte || p.tipoParte} | ${p.status} |`;
+                    });
+
+                    const past = assigned.filter(p => (p.date || p.weekId || '') < today).length;
+                    const future = assigned.length - past;
+                    const lines = [
+                        `**Designações de ${resolvedName}** — total: **${assigned.length}** (${past} passadas · ${future} futuras):`,
+                        '',
+                        '| Data | Função | Seção | Parte | Status |',
+                        '|------|--------|-------|-------|--------|',
+                        ...rows
+                    ];
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { publisherName: resolvedName, assignments: assigned, total: assigned.length },
+                        actionType: 'QUERY_PUBLISHER_ASSIGNMENTS'
+                    };
+                }
+
+                case 'QUERY_WEEK_ASSIGNMENTS': {
+                    const { weekId: wkParam } = action.params;
+                    const targetWeekId = wkParam || contextWeekId;
+                    if (!targetWeekId) {
+                        return { success: false, message: 'Parâmetro weekId é obrigatório.', actionType: 'QUERY_WEEK_ASSIGNMENTS' };
+                    }
+
+                    const weekParts = parts.filter(p => p.weekId === targetWeekId);
+                    if (weekParts.length === 0) {
+                        return {
+                            success: true,
+                            message: `**Semana ${targetWeekId}:** Nenhuma parte encontrada. A semana pode não ter sido importada ainda.`,
+                            data: { weekId: targetWeekId, parts: [], total: 0 },
+                            actionType: 'QUERY_WEEK_ASSIGNMENTS'
+                        };
+                    }
+
+                    const fmtWeekDate = (s: string) => { try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }); } catch { return s; } };
+                    const secShort2 = (s: string) => (s || '').replace('Tesouros da Palavra de Deus', 'Tesouros').replace('Faça Seu Melhor no Ministério', 'FSM').replace('Nossa Vida Cristã', 'NVC');
+                    const statusIcon = (s: string) => {
+                        const u = (s || '').toUpperCase();
+                        if (u === 'COMPLETA') return '✅';
+                        if (u === 'APROVADA') return '✔️';
+                        if (u === 'PROPOSTA') return '🔵';
+                        if (u === 'CANCELADA') return '❌';
+                        return '🔲';
+                    };
+
+                    const sections = ['Tesouros da Palavra de Deus', 'Faça Seu Melhor no Ministério', 'Nossa Vida Cristã'];
+                    const grouped = new Map<string, WorkbookPart[]>();
+                    for (const sec of [...sections, 'Outros']) grouped.set(sec, []);
+
+                    for (const p of weekParts.sort((a, b) => (a.seq || 0) - (b.seq || 0))) {
+                        const secKey = sections.find(s => p.section === s) || 'Outros';
+                        grouped.get(secKey)!.push(p);
+                    }
+
+                    let totalParts = 0;
+                    let filled = 0;
+                    let pendingCount = 0;
+                    const lines: string[] = [];
+
+                    for (const [sec, sparts] of grouped.entries()) {
+                        if (sparts.length === 0) continue;
+                        const titulares = sparts.filter(p => p.funcao !== 'Ajudante');
+                        const ajudantes = sparts.filter(p => p.funcao === 'Ajudante');
+
+                        lines.push(`### ${secShort2(sec)}`);
+                        lines.push('| # | Parte | Designado | Ajudante | Status |');
+                        lines.push('|---|-------|-----------|---------|--------|');
+
+                        for (const t of titulares) {
+                            totalParts++;
+                            const aj = ajudantes.find(a => Math.abs((a.seq || 0) - (t.seq || 0)) <= 1);
+                            const designado = t.resolvedPublisherName || t.rawPublisherName || '🔲 VAGA';
+                            const ajudante = aj ? (aj.resolvedPublisherName || aj.rawPublisherName || '🔲 VAGA') : '—';
+                            if (!t.resolvedPublisherName && !t.rawPublisherName) pendingCount++;
+                            else filled++;
+                            lines.push(`| ${t.seq || ''} | ${t.tituloParte || t.tipoParte} | ${statusIcon(t.status)} ${designado} | ${ajudante} | ${t.status} |`);
+                        }
+                        lines.push('');
+                    }
+
+                    const summary = `_${filled} de ${totalParts} partes designadas — ${pendingCount} pendentes_`;
+
+                    return {
+                        success: true,
+                        message: [`**Designações — Semana ${fmtWeekDate(targetWeekId)}:**`, '', summary, '', ...lines].join('\n'),
+                        data: { weekId: targetWeekId, parts: weekParts, total: totalParts, filled, pending: pendingCount },
+                        actionType: 'QUERY_WEEK_ASSIGNMENTS'
+                    };
+                }
+
+                case 'QUERY_VACANT_PARTS': {
+                    const { weekId: vwkParam, fromWeekId: vFrom, toWeekId: vTo } = action.params;
+                    const targetWeekId = vwkParam || ((!vFrom && !vTo) ? contextWeekId : undefined);
+
+                    let vacant = parts.filter(p => {
+                        const hasDesignee = !!(p.resolvedPublisherName || p.rawPublisherName);
+                        const isActive = !['COMPLETA', 'CANCELADA'].includes((p.status || '').toUpperCase());
+                        return !hasDesignee && isActive && p.funcao !== 'Ajudante';
+                    });
+
+                    if (targetWeekId && !vFrom) vacant = vacant.filter(p => p.weekId === targetWeekId);
+                    if (vFrom) vacant = vacant.filter(p => (p.weekId || '') >= vFrom);
+                    if (vTo) vacant = vacant.filter(p => (p.weekId || '') <= vTo);
+                    vacant.sort((a, b) => (a.weekId || '').localeCompare(b.weekId || '') || (a.seq || 0) - (b.seq || 0));
+
+                    if (vacant.length === 0) {
+                        return {
+                            success: true,
+                            message: `✅ Nenhuma parte pendente encontrada${targetWeekId ? ` na semana ${targetWeekId}` : ''}.`,
+                            data: { vacant: [], total: 0 },
+                            actionType: 'QUERY_VACANT_PARTS'
+                        };
+                    }
+
+                    const fmtVDate = (s: string) => { try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; } };
+                    const secShortV = (s: string) => (s || '').replace('Tesouros da Palavra de Deus', 'Tesouros').replace('Faça Seu Melhor no Ministério', 'FSM').replace('Nossa Vida Cristã', 'NVC');
+
+                    const rows = vacant.map(p => `| ${fmtVDate(p.date || p.weekId || '')} | ${secShortV(p.section)} | ${p.tituloParte || p.tipoParte} | ${p.status} |`);
+                    const lines = [
+                        `**🔲 Partes pendentes** (${vacant.length} total):`,
+                        '',
+                        '| Semana | Seção | Parte | Status |',
+                        '|--------|-------|-------|--------|',
+                        ...rows
+                    ];
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { vacant, total: vacant.length },
+                        actionType: 'QUERY_VACANT_PARTS'
+                    };
+                }
+
+                case 'QUERY_ELIGIBILITY': {
+                    const { publisherName: eligPub, partId: eligPartId, partType: eligPartType, weekId: eligWkId } = action.params;
+                    if (!eligPub) {
+                        return { success: false, message: 'Parâmetro publisherName é obrigatório.', actionType: 'QUERY_ELIGIBILITY' };
+                    }
+
+                    const normE = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const pub = publishers.find(p => normE(p.name) === normE(eligPub))
+                        || publishers.find(p => normE(p.name).includes(normE(eligPub)) || normE(eligPub).includes(normE(p.name)));
+
+                    if (!pub) {
+                        return { success: false, message: `Publicador "${eligPub}" não encontrado.`, actionType: 'QUERY_ELIGIBILITY' };
+                    }
+
+                    let part: WorkbookPart | undefined;
+                    if (eligPartId) {
+                        part = parts.find(p => p.id === eligPartId);
+                    } else if (eligPartType) {
+                        const targetWk = eligWkId || contextWeekId;
+                        const pt = normE(eligPartType);
+                        part = parts.find(p =>
+                            (!targetWk || p.weekId === targetWk) &&
+                            (normE(p.tipoParte) === pt || normE(p.tituloParte || '') === pt)
+                        );
+                    }
+
+                    if (!part) {
+                        return { success: false, message: `Parte não encontrada. Informe partId ou partType (com weekId opcional).`, actionType: 'QUERY_ELIGIBILITY' };
+                    }
+
+                    const eligCtx = buildEligibilityContext(pub, history, part.weekId);
+                    const elig = checkEligibility(pub, part, eligCtx);
+                    const score = calculateScore(pub, history, part.weekId, part.tipoParte);
+
+                    const lines = [
+                        `**Elegibilidade: ${pub.name} → "${part.tituloParte || part.tipoParte}"**`,
+                        '',
+                        `${elig.eligible ? '✅' : '❌'} **Elegível:** ${elig.eligible ? 'SIM' : 'NÃO'}`,
+                        `**Motivo:** ${elig.reason || '(sem restrição)'}`,
+                        `**Score atual:** ${score.toFixed(2)}`,
+                        `**Semana:** ${part.weekId}  |  **Seção:** ${part.section || '—'}`,
+                    ];
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { publisherName: pub.name, part, eligible: elig.eligible, reason: elig.reason, score },
+                        actionType: 'QUERY_ELIGIBILITY'
+                    };
+                }
+
+                case 'QUERY_PUBLISHER_PROFILE': {
+                    const { publisherName: profPub } = action.params;
+                    if (!profPub) {
+                        return { success: false, message: 'Parâmetro publisherName é obrigatório.', actionType: 'QUERY_PUBLISHER_PROFILE' };
+                    }
+
+                    const normP = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const pub = publishers.find(p => normP(p.name) === normP(profPub))
+                        || publishers.find(p => normP(p.name).includes(normP(profPub)) || normP(profPub).includes(normP(p.name)));
+
+                    if (!pub) {
+                        return { success: false, message: `Publicador "${profPub}" não encontrado.`, actionType: 'QUERY_PUBLISHER_PROFILE' };
+                    }
+
+                    const genderLabel = pub.gender === 'brother' ? '👨 Irmão' : '👩 Irmã';
+                    const privLines: string[] = [];
+                    if (pub.privileges?.canPreside) privLines.push('Presidir');
+                    if (pub.privileges?.canPray) privLines.push('Orar');
+                    if (pub.privileges?.canGiveTalks) privLines.push('Discursos');
+                    if (pub.privileges?.canConductCBS) privLines.push('Dirigir EBC');
+                    if (pub.privileges?.canReadCBS) privLines.push('Ler EBC');
+                    if (pub.privileges?.canGiveStudentTalks) privLines.push('Discursos de estudante');
+
+                    const restrictions: string[] = [];
+                    if (pub.isNotQualified) restrictions.push(`ÑQualificado${pub.notQualifiedReason ? ': ' + pub.notQualifiedReason : ''}`);
+                    if (pub.requestedNoParticipation) restrictions.push(`Sem participação${(pub as any).noParticipationReason ? ': ' + (pub as any).noParticipationReason : ''}`);
+                    if (pub.isHelperOnly) restrictions.push('Apenas ajudante');
+                    if (pub.privilegesBySection?.canParticipateInTreasures === false) restrictions.push('Bloq.Tesouros');
+                    if (pub.privilegesBySection?.canParticipateInMinistry === false) restrictions.push('Bloq.FSM');
+                    if (pub.privilegesBySection?.canParticipateInLife === false) restrictions.push('Bloq.NVC');
+
+                    const parents = publishers.filter(p => pub.parentIds?.includes(p.id));
+                    const children = publishers.filter(p => p.parentIds?.includes(pub.id));
+                    const aliases = (pub as any).aliases?.join(', ') || '—';
+                    const avMode = (pub.availability as any)?.mode || 'available';
+                    const avLabel = avMode === 'always' ? 'Sempre disponível' : avMode === 'never' ? 'Nunca disponível' : `Modo: ${avMode}`;
+
+                    const lines = [
+                        `**Perfil: ${pub.name}**`,
+                        '',
+                        `**Gênero:** ${genderLabel}  |  **Condição:** ${pub.condition || '—'}`,
+                        `**Status:** ${pub.isServing === false ? '⏸ Inativo' : '✅ Em serviço'}  |  **Batizado:** ${pub.isBaptized ? 'Sim' : 'Não'}`,
+                        `**Telefone:** ${pub.phone || '—'}  |  **Apelidos:** ${aliases}`,
+                        '',
+                        `**Privilégios:** ${privLines.length > 0 ? privLines.join(', ') : '(nenhum especial)'}`,
+                        `**Restrições:** ${restrictions.length > 0 ? restrictions.join(', ') : '(sem restrições)'}`,
+                        '',
+                        `**Disponibilidade:** ${avLabel}`,
+                        `**Pais/Responsáveis:** ${parents.map(p => p.name).join(', ') || '—'}`,
+                        `**Filhos/Dependentes:** ${children.map(p => p.name).join(', ') || '—'}`,
+                        `**Ajuste de score:** ${(pub as any).scoreAdjustment ?? 0}`,
+                    ];
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { publisher: pub },
+                        actionType: 'QUERY_PUBLISHER_PROFILE'
+                    };
+                }
+
+                case 'QUERY_PUBLISHER_LIST': {
+                    const { filter: listFilter } = action.params;
+                    const normL = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const f = normL(listFilter || '');
+
+                    let filtered = [...publishers];
+                    if (['active', 'ativos', 'ativo'].includes(f)) filtered = filtered.filter(p => p.isServing !== false);
+                    else if (['inactive', 'inativos', 'inativo'].includes(f)) filtered = filtered.filter(p => p.isServing === false);
+                    else if (['qualified', 'qualificados', 'aptos'].includes(f)) filtered = filtered.filter(p => !p.isNotQualified);
+                    else if (['unqualified', 'nao_qualificados', 'inaptos', 'inqualificados'].includes(f)) filtered = filtered.filter(p => p.isNotQualified);
+                    else if (['male', 'irmaos', 'irmaos', 'brother'].includes(f)) filtered = filtered.filter(p => p.gender === 'brother');
+                    else if (['female', 'irmas', 'irmas', 'sister'].includes(f)) filtered = filtered.filter(p => p.gender === 'sister');
+                    else if (['baptized', 'batizados'].includes(f)) filtered = filtered.filter(p => p.isBaptized);
+                    else if (['unbaptized', 'nao_batizados', 'sem_batismo'].includes(f)) filtered = filtered.filter(p => !p.isBaptized);
+                    else if (['elder', 'anciaos', 'anciao'].includes(f)) filtered = filtered.filter(p => normL(p.condition || '').includes('anciao'));
+                    else if (['ministerial_servant', 'servos', 'servo'].includes(f)) filtered = filtered.filter(p => normL(p.condition || '').includes('servo'));
+                    else if (['helper_only', 'so_ajudante', 'apenas_ajudante'].includes(f)) filtered = filtered.filter(p => p.isHelperOnly);
+                    else if (['no_phone', 'sem_telefone', 'sem telefone'].includes(f)) filtered = filtered.filter(p => !p.phone);
+
+                    filtered.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+                    const listRows = filtered.map(p => {
+                        const g = p.gender === 'brother' ? '👨' : '👩';
+                        const s = p.isServing === false ? '⏸' : '✅';
+                        const r: string[] = [];
+                        if (p.isNotQualified) r.push('ÑQualif');
+                        if (p.isHelperOnly) r.push('SóAj');
+                        if (p.requestedNoParticipation) r.push('SemPartic');
+                        return `| ${g} ${p.name} | ${p.condition || '—'} | ${s} | ${p.phone || '—'} | ${r.join(', ') || '—'} |`;
+                    });
+
+                    const filterLabel = listFilter ? ` (filtro: "${listFilter}")` : '';
+                    const listLines = [
+                        `**Publicadores${filterLabel}** — total: **${filtered.length}**`,
+                        '',
+                        '| Nome | Condição | Status | Telefone | Restrições |',
+                        '|------|----------|--------|---------|------------|',
+                        ...listRows
+                    ];
+
+                    return {
+                        success: true,
+                        message: listLines.join('\n'),
+                        data: { publishers: filtered, total: filtered.length, filter: listFilter },
+                        actionType: 'QUERY_PUBLISHER_LIST'
+                    };
+                }
+
+                case 'QUERY_COOLDOWN_STATUS': {
+                    const { publisherName: cdPub, weekId: cdWkId } = action.params;
+                    if (!cdPub) {
+                        return { success: false, message: 'Parâmetro publisherName é obrigatório.', actionType: 'QUERY_COOLDOWN_STATUS' };
+                    }
+
+                    const normC = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const pub = publishers.find(p => normC(p.name) === normC(cdPub))
+                        || publishers.find(p => normC(p.name).includes(normC(cdPub)) || normC(cdPub).includes(normC(p.name)));
+
+                    if (!pub) {
+                        return { success: false, message: `Publicador "${cdPub}" não encontrado.`, actionType: 'QUERY_COOLDOWN_STATUS' };
+                    }
+
+                    const refDate = cdWkId || contextWeekId || toLocalISODate();
+                    const blocked = isBlocked(pub.name, history, refDate);
+                    const category = getParticipationCategory(pub.name, history, refDate);
+                    const cooldownWeeks = COOLDOWN_WEEKS || 4;
+
+                    const refDateObj = new Date(refDate + 'T12:00:00');
+                    const fromDateObj = new Date(refDateObj);
+                    fromDateObj.setDate(fromDateObj.getDate() - cooldownWeeks * 7);
+                    const fromDateStr = fromDateObj.toISOString().substring(0, 10);
+
+                    const recentMain = history
+                        .filter(h => normC(h.resolvedPublisherName || h.rawPublisherName || '') === normC(pub.name))
+                        .filter(h => (h.weekId || h.date || '') >= fromDateStr && (h.weekId || h.date || '') < refDate)
+                        .filter(h => h.funcao !== 'Ajudante')
+                        .sort((a, b) => (b.weekId || b.date || '').localeCompare(a.weekId || a.date || ''));
+
+                    const fmtCDate = (s: string) => { try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; } };
+
+                    const lines: string[] = [
+                        `**Cooldown de ${pub.name}** (referência: ${refDate}):`,
+                        '',
+                        `**Status:** ${blocked ? '🔴 BLOQUEADO' : '🟢 LIVRE'}`,
+                        `**Categoria:** ${category || '—'}`,
+                        `**Janela de cooldown:** ${cooldownWeeks} semanas`,
+                        '',
+                    ];
+
+                    if (recentMain.length > 0) {
+                        lines.push(`**Participações MAIN nas últimas ${cooldownWeeks} semanas:**`);
+                        lines.push('| Data | Parte | Função |');
+                        lines.push('|------|-------|--------|');
+                        for (const h of recentMain) {
+                            lines.push(`| ${fmtCDate(h.weekId || h.date || '')} | ${h.tituloParte || h.tipoParte} | ${h.funcao} |`);
+                        }
+                    } else {
+                        lines.push('_Nenhuma participação MAIN na janela de cooldown._');
+                    }
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { publisherName: pub.name, blocked, category, recentMain, cooldownWeeks, refDate },
+                        actionType: 'QUERY_COOLDOWN_STATUS'
+                    };
+                }
+
+                case 'QUERY_LAST_PARTICIPATION': {
+                    const { publisherName: lpPub, partType: lpPartType } = action.params;
+                    if (!lpPub) {
+                        return { success: false, message: 'Parâmetro publisherName é obrigatório.', actionType: 'QUERY_LAST_PARTICIPATION' };
+                    }
+
+                    const normLP = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+                    const pub = publishers.find(p => normLP(p.name) === normLP(lpPub))
+                        || publishers.find(p => normLP(p.name).includes(normLP(lpPub)) || normLP(lpPub).includes(normLP(p.name)));
+                    const resolvedName = pub?.name || lpPub;
+                    const ptNorm = lpPartType ? normLP(lpPartType) : null;
+                    const today = toLocalISODate();
+
+                    const records = history
+                        .filter(h => normLP(h.resolvedPublisherName || h.rawPublisherName || '') === normLP(resolvedName))
+                        .filter(h => !ptNorm || normLP(h.tipoParte) === ptNorm || normLP(h.tituloParte || '') === ptNorm)
+                        .filter(h => (h.weekId || h.date || '') < today)
+                        .sort((a, b) => (b.weekId || b.date || '').localeCompare(a.weekId || a.date || ''));
+
+                    if (records.length === 0) {
+                        return {
+                            success: true,
+                            message: `**Última participação de ${resolvedName}:** Nenhum registro encontrado${lpPartType ? ` para "${lpPartType}"` : ''}.`,
+                            data: { publisherName: resolvedName, last: null, total: 0 },
+                            actionType: 'QUERY_LAST_PARTICIPATION'
+                        };
+                    }
+
+                    const fmtLDate = (s: string) => { try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; } };
+                    const last = records[0];
+
+                    const lines: string[] = [
+                        `**Últimas participações de ${resolvedName}**${lpPartType ? ` (tipo: "${lpPartType}")` : ''}:`,
+                        '',
+                        `**Última registrada:** ${fmtLDate(last.weekId || last.date || '')} — ${last.tituloParte || last.tipoParte} (${last.funcao})`,
+                        '',
+                    ];
+
+                    if (!ptNorm) {
+                        // Group by tipoParte, keep the most recent per type
+                        const byType = new Map<string, HistoryRecord>();
+                        for (const r of records) {
+                            const key = r.tipoParte || '';
+                            if (!byType.has(key)) byType.set(key, r);
+                        }
+                        lines.push('**Por tipo de parte (última ocorrência):**');
+                        lines.push('| Data | Tipo de Parte | Função |');
+                        lines.push('|------|---------------|--------|');
+                        for (const [, r] of [...byType.entries()].sort((a, b) =>
+                            (b[1].weekId || b[1].date || '').localeCompare(a[1].weekId || a[1].date || ''))) {
+                            lines.push(`| ${fmtLDate(r.weekId || r.date || '')} | ${r.tituloParte || r.tipoParte} | ${r.funcao} |`);
+                        }
+                    } else {
+                        lines.push('**Histórico recente (últimas 10):**');
+                        lines.push('| Data | Parte | Função |');
+                        lines.push('|------|-------|--------|');
+                        for (const r of records.slice(0, 10)) {
+                            lines.push(`| ${fmtLDate(r.weekId || r.date || '')} | ${r.tituloParte || r.tipoParte} | ${r.funcao} |`);
+                        }
+                    }
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { publisherName: resolvedName, last, total: records.length },
+                        actionType: 'QUERY_LAST_PARTICIPATION'
+                    };
+                }
+
+                case 'QUERY_PENDING_WEEKS': {
+                    const { fromWeekId: pwFrom, toWeekId: pwTo } = action.params;
+                    const today = toLocalISODate();
+
+                    let allVacant = parts.filter(p => {
+                        const hasDesignee = !!(p.resolvedPublisherName || p.rawPublisherName);
+                        const isActive = !['COMPLETA', 'CANCELADA'].includes((p.status || '').toUpperCase());
+                        return !hasDesignee && isActive && p.funcao !== 'Ajudante';
+                    });
+
+                    if (pwFrom) allVacant = allVacant.filter(p => (p.weekId || '') >= pwFrom);
+                    if (pwTo) allVacant = allVacant.filter(p => (p.weekId || '') <= pwTo);
+
+                    if (allVacant.length === 0) {
+                        return {
+                            success: true,
+                            message: `✅ Todas as semanas estão com designações completas no período consultado.`,
+                            data: { weeks: {}, totalPending: 0, weekCount: 0 },
+                            actionType: 'QUERY_PENDING_WEEKS'
+                        };
+                    }
+
+                    const byWeek = new Map<string, WorkbookPart[]>();
+                    for (const p of allVacant) {
+                        const w = p.weekId || '';
+                        if (!byWeek.has(w)) byWeek.set(w, []);
+                        byWeek.get(w)!.push(p);
+                    }
+
+                    const fmtPDate = (s: string) => { try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; } };
+                    const secShortPW = (s: string) => (s || '').replace('Tesouros da Palavra de Deus', 'Tesouros').replace('Faça Seu Melhor no Ministério', 'FSM').replace('Nossa Vida Cristã', 'NVC');
+
+                    const sortedWeeks = [...byWeek.keys()].sort();
+                    const pwRows = sortedWeeks.map(w => {
+                        const wParts = byWeek.get(w)!;
+                        const mark = w < today ? '🕐' : '📌';
+                        const partsShort = wParts.map(p => `${secShortPW(p.section)}: ${p.tituloParte || p.tipoParte}`).join(', ');
+                        return `| ${mark} ${fmtPDate(w)} | ${wParts.length} | ${partsShort} |`;
+                    });
+
+                    const pwLines = [
+                        `**Semanas com partes pendentes** — ${sortedWeeks.length} semanas, ${allVacant.length} partes no total:`,
+                        '',
+                        '| Semana | Pendentes | Partes |',
+                        '|--------|-----------|--------|',
+                        ...pwRows
+                    ];
+
+                    return {
+                        success: true,
+                        message: pwLines.join('\n'),
+                        data: { weeks: Object.fromEntries(byWeek), totalPending: allVacant.length, weekCount: sortedWeeks.length },
+                        actionType: 'QUERY_PENDING_WEEKS'
+                    };
                 }
 
                 default:
