@@ -32,31 +32,39 @@ interface CallResult {
 
 // ─── ESTRATÉGIA MULTI-PROVIDER ────────────────────────────────────────────────
 
+// ESTRATÉGIA 2026-05-24 (anti-hallucination): modelos FORTES PRIMEIRO,
+// modelos pequenos (Cloudflare 8B/70B) APENAS COMO ÚLTIMA RESERVA.
+// Modelos pequenos tendem a ignorar instruções do system prompt e gerar
+// prosa narrativa — exatamente a causa raiz das alucinações observadas.
 const MODEL_STRATEGY: Record<ThinkingLevel, ModelEntry[]> = {
-    // LOW: Tarefas rápidas — free pools em cascata
+    // LOW: Tarefas rápidas — prioriza Gemini Flash (forte + free)
     LOW: [
-        { provider: 'gemini',     model: 'gemini-2.0-flash-lite' },             // Ultra rápido, free
+        { provider: 'gemini',     model: 'gemini-2.5-flash' },                  // Forte E rápido, free
+        { provider: 'gemini',     model: 'gemini-2.0-flash' },                  // Pool free
+        { provider: 'gemini',     model: 'gemini-2.0-flash-lite' },             // Free leve
         { provider: 'mistral',    model: 'mistral-small-latest' },               // Free tier Mistral
-        { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },    // Free CF Workers AI
-        { provider: 'gemini',     model: 'gemini-2.5-flash' },                  // Pool independente
         { provider: 'gemini',     model: 'gemini-1.5-flash' },                  // Legacy free
+        { provider: 'cloudflare', model: '@cf/meta/llama-3.1-8b-instruct' },    // ÚLTIMA reserva (weak)
     ],
-    // MEDIUM: Raciocínio padrão — melhor qualidade free
+    // MEDIUM: Workhorse — Gemini Flash + Pro free pools antes de pagos/weak
     MEDIUM: [
-        { provider: 'gemini',     model: 'gemini-2.5-flash' },                             // Workhorse atual
-        { provider: 'mistral',    model: 'mistral-small-latest' },                          // Free Mistral
-        { provider: 'deepseek',   model: 'deepseek-chat' },                                // V3, ~$0.27/Mtok
+        { provider: 'gemini',     model: 'gemini-2.5-flash' },                             // Workhorse, forte + free
+        { provider: 'gemini',     model: 'gemini-2.5-pro' },                              // Top-tier free tier
         { provider: 'gemini',     model: 'gemini-2.0-flash' },                             // Pool free clássico
-        { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },    // CF 70B free
-        { provider: 'gemini',     model: 'gemini-1.5-pro' },                               // Legacy Pro
+        { provider: 'gemini',     model: 'gemini-1.5-pro' },                              // Legacy Pro free
+        { provider: 'mistral',    model: 'mistral-small-latest' },                          // Free Mistral
+        { provider: 'mistral',    model: 'mistral-large-latest' },                          // Mistral Large (pago/quota)
+        { provider: 'deepseek',   model: 'deepseek-chat' },                                // DeepSeek V3 (pago, 402 risk)
+        { provider: 'cloudflare', model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast' },    // ÚLTIMA reserva (weak prompt adherence)
     ],
-    // HIGH: Raciocínio complexo — modelos premium
+    // HIGH: Raciocínio complexo — premium primeiro, weak nunca
     HIGH: [
         { provider: 'gemini',     model: 'gemini-2.5-pro' },                       // Top-tier Google
-        { provider: 'deepseek',   model: 'deepseek-reasoner' },                    // R1 raciocínio
+        { provider: 'gemini',     model: 'gemini-2.5-flash' },                     // Strong fallback free
         { provider: 'mistral',    model: 'mistral-large-latest' },                 // Mistral Large
-        { provider: 'gemini',     model: 'gemini-2.0-flash-thinking-exp-01-21' }, // Deep Think
-        { provider: 'gemini',     model: 'gemini-1.5-pro' },                       // Fallback Pro
+        { provider: 'deepseek',   model: 'deepseek-reasoner' },                    // R1 raciocínio (pago)
+        { provider: 'gemini',     model: 'gemini-2.0-flash-thinking-exp-01-21' }, // Deep Think exp
+        { provider: 'gemini',     model: 'gemini-1.5-pro' },                       // Fallback Pro legacy
     ],
 };
 
@@ -378,7 +386,11 @@ export default async function handler(request: Request) {
                 errorTrace.push(failureMsg);
                 console.warn(`[Proxy] Falha:`, failureMsg);
 
+                // 2026-05-24: HTTP 402 (Insufficient Balance, DeepSeek/Mistral)
+                // DEVE ser retryable — caso contrário a falha do provider pago
+                // borbulha para o frontend e mata a chain inteira.
                 const isRetryable = status === 429 || status >= 500 ||
+                    status === 402 || // Insufficient balance → pula para próximo
                     (status === 403 && errorText.includes('quota')) ||
                     status === 404 || status === 500; // 500 missing key → pula para próximo
 
