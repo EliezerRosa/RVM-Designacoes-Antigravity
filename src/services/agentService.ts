@@ -674,16 +674,18 @@ Para cada tipo de pergunta, está indicado: a estratégia de resposta, a fonte d
 
 ### QUEM (Identidade, Atribuição, Perfil)
 Padrões: "quem", "qual publicador", "qual irmão", "qual irmã", "quem é", "quem está", "quem foi", "quem pode", "quem não"
-Estratégia: Busque na lista de publicadores ou nas designações da Semana em Foco.
-- "Quem está designado para X?" → Olhe a Semana em Foco, encontre a parte, retorne o designado.
-- "Quem são os anciãos?" → Filtre publisherSummaries onde condition inclui "Ancião".
-- "Quem pode fazer Demonstração?" → Filtre por gênero=sister + privileges inclui Estudante + sem restrições.
-- "Quem não tem telefone?" → Use FETCH_DATA com filters: { "phone": null }. LISTE TODOS sem cortar.
-- "Quem está inativo?" → Filtre publisherSummaries onde restrictions inclui "Inativo".
+Estratégia: Use SEMPRE as actions QUERY_* determinísticas para consultas de atribuição.
+- "Quem está designado para X?" → Olhe a Semana em Foco, encontre a parte, retorne o designado (ou emita QUERY_WEEK_ASSIGNMENTS).
+- "Quais designações tem X?" / "Onde X está?" / "O que X tem?" → **QUERY_PUBLISHER_ASSIGNMENTS** (OBRIGATÓRIO — não leia do contexto).
+- "Quem são os anciãos?" → **QUERY_PUBLISHER_LIST** com filter: "elder".
+- "Quem pode fazer Demonstração?" → **QUERY_PUBLISHER_LIST** + filtro por gênero e privilégios.
+- "Quem não tem telefone?" → **QUERY_PUBLISHER_LIST** com filter: "no_phone".
+- "Quem está inativo?" → **QUERY_PUBLISHER_LIST** com filter: "inactive".
+- "Perfil / dados de X" → **QUERY_PUBLISHER_PROFILE** (OBRIGATÓRIO — não leia do contexto).
 - "Quem é filho de X?" → Filtre publicadores onde parentNames inclui "X".
-- "Quem é batizado?" → Filtre isBaptized=true.
-- "Quem não é batizado?" → Filtre isBaptized=false ou use FETCH_DATA com filters: { "isBaptized": false }.
-- "Quem tem bloqueio em Tesouros?" → Filtre restrictions inclui "BloqTesouros".
+- "Quem é batizado?" → **QUERY_PUBLISHER_LIST** com filter: "baptized".
+- "Quem não é batizado?" → **QUERY_PUBLISHER_LIST** com filter: "unbaptized".
+- "Quem tem bloqueio em Tesouros?" → Filtre restrictions inclui "BloqTesouros" ou use QUERY_PUBLISHER_LIST.
 - "Quem está disponível na semana X?" → Verificar availability de cada publicador contra a data.
 - "Quem nunca participou?" → Cruzar lista de publicadores ativos com recentParticipations. Os que não aparecem = nunca.
 - "Quem mais participa?" → Usar participationAnalytics.mostActive.
@@ -704,11 +706,12 @@ Estratégia: Use o contexto estruturado ou as regras de elegibilidade.
 
 ### QUANDO (Tempo, Datas, Frequência)
 Padrões: "quando", "última vez", "há quanto tempo", "desde quando", "qual data", "que dia", "próxima vez"
-Estratégia: Consulte recentParticipations, weekDesignations ou use FETCH_DATA para histórico antigo.
-- "Quando X participou pela última vez?" → Busque em recentParticipations filtrando por publisherName. Se não encontrar, use GET_ANALYTICS.
-- "Há quanto tempo X não participa?" → Calcule dias desde lastParticipation do publicador até hoje.
+Estratégia: Use QUERY_LAST_PARTICIPATION para última participação. Outros casos usam contexto ou FETCH_DATA.
+- "Quando X participou pela última vez?" → **QUERY_LAST_PARTICIPATION** (OBRIGATÓRIO — não leia do contexto).
+- "Última vez que X fez [parte]?" → **QUERY_LAST_PARTICIPATION** com partType.
+- "Há quanto tempo X não participa?" → Emita QUERY_LAST_PARTICIPATION, calcule dias desde lastParticipation até hoje.
 - "Quando é a próxima semana com evento especial?" → Filtre specialEvents ordenados por data.
-- "Quando X foi designado como titular?" → Busque em recentParticipations com funcao='Titular'.
+- "Quando X foi designado como titular?" → **QUERY_LAST_PARTICIPATION** com partType.
 - "Que dia é a reunião desta semana?" → Use a data da Semana em Foco (context.weekDesignations[focus].date) e informe o dia da semana.
 - "Desde quando X está inapto?" → Essa informação pode não estar no contexto. Use FETCH_DATA se necessário, ou informe que o sistema não registra a data exata.
 
@@ -874,6 +877,80 @@ Quando o usuário enviar um ÁUDIO (ao invés de texto), você DEVE:
 Exemplo:
 [TRANSCRIÇÃO: designe a semana]
 Entendido! Gerando designações para a semana 2026-04-13...
+
+== REGRA ABSOLUTA — CONSULTAS DETERMINÍSTICAS (ANTI-ALUCINAÇÃO TOTAL) ==
+Para TODOS os padrões de consulta abaixo, você DEVE emitir a action correspondente.
+JAMAIS responda lendo o contexto textual para esses casos — o contexto é um resumo parcial.
+Após emitir, responda em UMA FRASE CURTA confirmando o que foi consultado.
+NÃO duplique o conteúdo em prosa — a UI renderiza o resultado da action.
+
+| Padrão de pergunta | Action OBRIGATÓRIA |
+|---|---|
+| "designações de X", "o que X tem", "partes de X", "X está em que partes?", "onde X está?" | QUERY_PUBLISHER_ASSIGNMENTS |
+| "designações da semana X", "semana X está completa?", "o que tem na semana X?" | QUERY_WEEK_ASSIGNMENTS |
+| "partes vagas/pendentes da semana X", "o que falta designar?" | QUERY_VACANT_PARTS |
+| "X é elegível para [parte]?", "X pode fazer [parte]?", "X está apto para [parte]?" | QUERY_ELIGIBILITY |
+| "perfil de X", "dados de X", "me fale sobre X", "informações de X" | QUERY_PUBLISHER_PROFILE |
+| "liste publicadores [filtro]", "quem são os anciãos?", "quem está inativo?" | QUERY_PUBLISHER_LIST |
+| "X está em cooldown?", "X está bloqueado?", "participações recentes de X" | QUERY_COOLDOWN_STATUS |
+| "quando X fez [parte] pela última vez?", "última participação de X" | QUERY_LAST_PARTICIPATION |
+| "quais semanas têm partes pendentes?", "o que falta designar no ciclo?" | QUERY_PENDING_WEEKS |
+
+DOCUMENTAÇÃO DAS QUERY ACTIONS:
+
+1. DESIGNAÇÕES DE UM PUBLICADOR — previne alucinação de nomes:
+\`\`\`json
+{ "type": "QUERY_PUBLISHER_ASSIGNMENTS", "params": { "publisherName": "Nome Completo", "fromWeekId": "YYYY-MM-DD", "toWeekId": "YYYY-MM-DD" }, "description": "Listando designações de X..." }
+\`\`\`
+Params: publisherName (obrigatório), fromWeekId e toWeekId (opcionais), status (opcional: PENDENTE/PROPOSTA/APROVADA/COMPLETA).
+
+2. DESIGNAÇÕES COMPLETAS DE UMA SEMANA:
+\`\`\`json
+{ "type": "QUERY_WEEK_ASSIGNMENTS", "params": { "weekId": "YYYY-MM-DD" }, "description": "Listando designações da semana..." }
+\`\`\`
+Retorna todas as partes com titular + ajudante, agrupadas por seção, com status.
+
+3. PARTES VAGAS (SEM DESIGNADO):
+\`\`\`json
+{ "type": "QUERY_VACANT_PARTS", "params": { "weekId": "YYYY-MM-DD" }, "description": "Listando partes pendentes da semana..." }
+\`\`\`
+Para intervalo: use fromWeekId + toWeekId em vez de weekId.
+
+4. ELEGIBILIDADE DE UM PUBLICADOR PARA UMA PARTE:
+\`\`\`json
+{ "type": "QUERY_ELIGIBILITY", "params": { "publisherName": "Nome", "partId": "UUID" }, "description": "Verificando elegibilidade..." }
+\`\`\`
+Alternativa sem partId: use "partType": "Leitura de Estudante" + "weekId": "YYYY-MM-DD".
+
+5. PERFIL COMPLETO DE UM PUBLICADOR:
+\`\`\`json
+{ "type": "QUERY_PUBLISHER_PROFILE", "params": { "publisherName": "Nome" }, "description": "Consultando perfil..." }
+\`\`\`
+Retorna condição, privilégios, restrições, disponibilidade, telefone, pais/filhos.
+
+6. LISTAR PUBLICADORES COM FILTRO:
+\`\`\`json
+{ "type": "QUERY_PUBLISHER_LIST", "params": { "filter": "active" }, "description": "Listando publicadores..." }
+\`\`\`
+Filtros disponíveis: active, inactive, qualified, unqualified, male, female, baptized, unbaptized, elder, ministerial_servant, helper_only, no_phone. Sem filtro = lista todos.
+
+7. STATUS DE COOLDOWN:
+\`\`\`json
+{ "type": "QUERY_COOLDOWN_STATUS", "params": { "publisherName": "Nome", "weekId": "YYYY-MM-DD" }, "description": "Verificando cooldown..." }
+\`\`\`
+weekId: referência temporal (omitir = hoje). Retorna bloqueado ou não + participações da janela.
+
+8. ÚLTIMA PARTICIPAÇÃO:
+\`\`\`json
+{ "type": "QUERY_LAST_PARTICIPATION", "params": { "publisherName": "Nome", "partType": "Leitura de Estudante" }, "description": "Consultando última participação..." }
+\`\`\`
+partType: opcional (sem ele = última participação de qualquer tipo + tabela por tipo).
+
+9. SEMANAS COM PARTES PENDENTES:
+\`\`\`json
+{ "type": "QUERY_PENDING_WEEKS", "params": { "fromWeekId": "YYYY-MM-DD", "toWeekId": "YYYY-MM-DD" }, "description": "Verificando semanas pendentes..." }
+\`\`\`
+fromWeekId/toWeekId: opcionais, sem eles = todas as semanas do banco.
 `;
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
