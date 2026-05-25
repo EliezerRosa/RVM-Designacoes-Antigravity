@@ -442,18 +442,27 @@ export default async function handler(request: Request) {
         const allQuotaExhausted = errorTrace.length > 0 &&
             errorTrace.every(t => t.includes('429') || /resource exhausted|quota/i.test(t));
 
+        // 2026-05-25: tolerant quota detection — permite até 1 entrada não-429
+        // (ex: Cloudflare retornando 404 por modelo não encontrado enquanto todos
+        // os Gemini/Mistral/DeepSeek estão em 429). Sem isso, finalStatus ficava 404.
+        const quotaErrorCount = errorTrace.filter(t => t.includes('429') || /resource exhausted|quota/i.test(t)).length;
+        const mostlyQuotaExhausted = errorTrace.length > 0 && quotaErrorCount >= errorTrace.length - 1;
+
         let finalStatus: number;
         let friendly: string;
         if (allTimedOut) {
             finalStatus = 503;
             friendly = '⏱️ A IA demorou demais para responder (todos os providers). Tente novamente em alguns segundos ou reduza o escopo da pergunta.';
-        } else if (allQuotaExhausted) {
+        } else if (allQuotaExhausted || mostlyQuotaExhausted) {
             finalStatus = 429;
             friendly = '🚦 Cota esgotada em todos os providers da chain (429). '
                 + 'Aguarde alguns minutos. Para aumentar quota do Gemini, habilite billing no Google AI Studio '
                 + '(https://aistudio.google.com/apikey).';
         } else {
-            finalStatus = lastStatus || 500;
+            // Nunca retornar 404 ao cliente — significaria "endpoint não encontrado",
+            // que confunde o usuário. 503 é o status semântico correto para
+            // "todos os providers falharam".
+            finalStatus = (lastStatus === 404 ? 503 : lastStatus) || 500;
             friendly = `⚠️ Erro técnico em todos os providers. Detalhes: ${errorTrace.join(' | ')}`;
         }
 
