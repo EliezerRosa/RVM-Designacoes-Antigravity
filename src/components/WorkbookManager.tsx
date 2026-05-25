@@ -559,7 +559,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
             // =====================================================================
             if (updates.status === 'PENDENTE') {
                 updates.resolvedPublisherName = '';
-                updates.resolvedPublisherId = '';
+                updates.resolvedPublisherId = undefined;  // null no DB via workbookService ('' viola FK)
                 updates.rawPublisherName = '';
             }
 

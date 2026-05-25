@@ -604,7 +604,8 @@ export const workbookService = {
         if (updates.horaFim !== undefined) dbUpdates.hora_fim = updates.horaFim;
         if (updates.rawPublisherName !== undefined) dbUpdates.raw_publisher_name = updates.rawPublisherName;
         // SIMPLIFICADO: Apenas resolved_publisher_name
-        if (updates.resolvedPublisherId !== undefined) dbUpdates.resolved_publisher_id = updates.resolvedPublisherId;
+        // Coerce '' → null para não violar FK workbook_parts_resolved_publisher_id_fkey
+        if (updates.resolvedPublisherId !== undefined) dbUpdates.resolved_publisher_id = updates.resolvedPublisherId || null;
         if (updates.resolvedPublisherName !== undefined) dbUpdates.resolved_publisher_name = updates.resolvedPublisherName;
         if (updates.status !== undefined) dbUpdates.status = updates.status;
 
@@ -773,6 +774,7 @@ export const workbookService = {
         // Se clearPublisher for true, também limpar o publicador
         if (clearPublisher) {
             updateData.resolved_publisher_name = null;
+            updateData.resolved_publisher_id = null; // evita FK órfã se publisher for deletado
         }
 
         const { error } = await supabase
@@ -796,7 +798,8 @@ export const workbookService = {
             .from('workbook_parts')
             .update({
                 status: 'PENDENTE',
-                resolved_publisher_name: null
+                resolved_publisher_name: null,
+                resolved_publisher_id: null,
             })
             .gte('date', fromDate)
             .lte('date', toDate)
