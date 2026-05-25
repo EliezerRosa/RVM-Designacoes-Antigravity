@@ -53,7 +53,7 @@ export function createWorkbookManagementService(dependencies: WorkbookManagement
             for (const part of assignedParts) {
                 await dependencies.workbookClient.updatePart(part.id, {
                     resolvedPublisherName: '',
-                    resolvedPublisherId: '',
+                    resolvedPublisherId: undefined, // null no DB ('' violaria FK)
                     rawPublisherName: '',
                     status: 'PENDENTE',
                 });
