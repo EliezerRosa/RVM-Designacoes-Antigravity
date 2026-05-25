@@ -1348,6 +1348,19 @@ export const agentActionService = {
 
                 case 'NAVIGATE_WEEK': {
                     const { weekId } = action.params;
+                    // 2026-05-25: validate weekId exists in loaded workbook — without this,
+                    // the action always "succeeds" but S-140 carousel never updates (weekOrder.indexOf = -1).
+                    const weekExists = parts.some(p => p.weekId === weekId);
+                    if (!weekExists) {
+                        const weeks = [...new Set(parts.map(p => p.weekId))].sort();
+                        const first = weeks[0] ?? '?';
+                        const last = weeks[weeks.length - 1] ?? '?';
+                        return {
+                            success: false,
+                            message: `Semana "${weekId}" não está na apostila carregada (${first} → ${last}). Verifique se a semana existe ou recarregue a apostila.`,
+                            actionType: 'NAVIGATE_WEEK'
+                        };
+                    }
                     return {
                         success: true,
                         message: `Navegando para semana ${weekId}`,

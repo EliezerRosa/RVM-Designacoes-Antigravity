@@ -1139,14 +1139,15 @@ export default function TemporalChat({
                 console.warn('[TemporalChat] Smart Fallback activated (System alert suppressed in UI)');
             }
 
-            // NEW: Detect week patterns in response and navigate
+            // Fallback: if LLM explicitly says "navegando para semana YYYY-MM-DD" but
+            // returned no NAVIGATE_WEEK action (e.g. pure text response), still navigate.
+            // NOTE: narrow regex to avoid false-triggers on any date mentioned in query
+            // results (e.g. "última participação: 2026-04-07" would wrongly navigate).
             if (response.success && onNavigateToWeek) {
-                // Pattern: YYYY-MM-DD format
-                const weekPattern = /(\d{4}-\d{2}-\d{2})/;
-                const match = response.message.match(weekPattern);
-                if (match) {
-                    console.log('[TemporalChat] Navigating to week:', match[1]);
-                    onNavigateToWeek(match[1]);
+                const navMatch = response.message.match(/[Nn]aveg\w+\s+para\s+semana\s+(\d{4}-\d{2}-\d{2})/);
+                if (navMatch) {
+                    console.log('[TemporalChat] Nav-fallback: navigating to week:', navMatch[1]);
+                    onNavigateToWeek(navMatch[1]);
                 }
             }
 
