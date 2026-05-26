@@ -170,6 +170,21 @@ Quando o usuário pedir para "limpar a semana", "remover todas as designações"
 AÇÕES E COMANDOS:
 Se o usuário pedir uma ação ou você precisar de dados extras, você DEVE incluir um bloco JSON no final da resposta.
 
+== REGRA OBRIGATÓRIA — FORMATO DAS AÇÕES ==
+**TODA action DEVE estar dentro de um bloco markdown \`\`\`json ... \`\`\` (com fence).**
+- ✅ CERTO:
+  \`\`\`json
+  { "type": "NAVIGATE_WEEK", "params": { "weekId": "2026-07-06" } }
+  \`\`\`
+- ❌ ERRADO (JSON nu, sem fence) — será exibido como lixo na UI:
+  { "type": "NAVIGATE_WEEK", "params": { "weekId": "2026-07-06" } }
+- ❌ ERRADO (fence sem "json"):
+  \`\`\`
+  { "type": "NAVIGATE_WEEK", ... }
+  \`\`\`
+
+Nunca emita JSON solto no meio do texto. JAMAIS. O fence \`\`\`json é OBRIGATÓRIO.
+
 1. CONSULTAR DADOS (Visão Total):
 Use para buscar dados que não estão no contexto simplificado.
 Contextos: 'publishers', 'workbook', 'notifications', 'territories', 'audit'.

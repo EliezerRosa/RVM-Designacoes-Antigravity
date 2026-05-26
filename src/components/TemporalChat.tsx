@@ -1048,12 +1048,54 @@ export default function TemporalChat({
                 audioData // 👈 Injecting Multimodal Audio Base64
             );
 
-            // Strip JSON action blocks for clean LN display, and remove any leaked UUIDs
+            // Strip JSON action blocks for clean LN display, and remove any leaked UUIDs.
+            // 2026-05-26: Defesa em profundidade — o servidor (api/chat.ts) já canoniza
+            // JSON bare → fenced via sanitizeGeminiPayload. Aqui ainda fazemos varredura
+            // bare como backstop (cache pré-fix, futuros endpoints sem sanitizer).
             const stripJsonBlocks = (text: string) => {
-                const noJson = text.replace(/```json[\s\S]*?```/gi, '');
-                // Regex for UUID v4
+                // 1) Remove fenced ```json ... ``` blocks
+                let noJson = text.replace(/```json[\s\S]*?```/gi, '');
+
+                // 2) Backstop: remove qualquer objeto JSON bare com "type" (assinatura de action)
+                const removeBareActionObjects = (input: string): string => {
+                    let out = input;
+                    let i = 0;
+                    while (i < out.length) {
+                        if (out[i] !== '{') { i++; continue; }
+                        let braceCount = 0;
+                        let inString = false;
+                        let escape = false;
+                        let endIdx = -1;
+                        for (let j = i; j < out.length; j++) {
+                            const ch = out[j];
+                            if (escape) { escape = false; continue; }
+                            if (ch === '\\') { escape = true; continue; }
+                            if (ch === '"') inString = !inString;
+                            if (!inString) {
+                                if (ch === '{') braceCount++;
+                                else if (ch === '}') {
+                                    braceCount--;
+                                    if (braceCount === 0) { endIdx = j; break; }
+                                }
+                            }
+                        }
+                        if (endIdx === -1) { i++; continue; }
+                        const candidate = out.substring(i, endIdx + 1);
+                        try {
+                            const parsed = JSON.parse(candidate);
+                            if (parsed && typeof parsed === 'object' && typeof (parsed as { type?: unknown }).type === 'string') {
+                                out = out.substring(0, i) + out.substring(endIdx + 1);
+                                continue; // não incrementa i; vê se há mais
+                            }
+                        } catch { /* não é JSON, segue */ }
+                        i++;
+                    }
+                    return out;
+                };
+                noJson = removeBareActionObjects(noJson);
+
+                // 3) Remove UUIDs leaked
                 const uuidRegex = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
-                // Remove formats like "[ID: UUID]" or just the UUID
                 const noUuid = noJson.replace(/\[?ID:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\]?/gi, '').replace(uuidRegex, '');
                 return noUuid.replace(/\n{3,}/g, '\n\n').trim();
             };
