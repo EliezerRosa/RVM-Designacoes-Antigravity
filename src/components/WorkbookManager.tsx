@@ -36,6 +36,15 @@ import { ReportsTab } from './ReportsTab';
 import { ParticipationAnalytics } from './ParticipationAnalytics';
 import { generateSessionReport, type AnalyticsSummary } from '../services/analyticsService';
 import { isOnOrAfterToday } from '../utils/dateUtils';
+import { validatePublisherName, type InvalidNameReason } from '../utils/publisherNameValidation';
+
+interface ImportWarning {
+    rawName: string;
+    weekId: string;
+    seq: number;
+    tituloParte: string;
+    reason: InvalidNameReason;
+}
 
 
 
@@ -70,6 +79,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    // 2026-05-26: Warnings de poluição do parser detectadas na importação
+    const [parserWarnings, setParserWarnings] = useState<ImportWarning[]>([]);
     const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
 
     // Filtros - carregar do localStorage para persistência
@@ -313,12 +324,34 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                 descricaoParte: excelRows[0]?.descricaoParte?.substring(0, 50),
             });
 
+            // 2026-05-26: Detectar poluição do parser ANTES do upsert.
+            // Não bloqueia (manter atomicidade do batch), apenas alerta o usuário
+            // para revisar e limpar com a ferramenta admin.
+            const warnings: ImportWarning[] = [];
+            for (const r of excelRows) {
+                const reason = validatePublisherName(r.rawPublisherName);
+                if (reason) {
+                    warnings.push({
+                        rawName: r.rawPublisherName || '',
+                        weekId: r.weekId,
+                        seq: r.seq ?? -1,
+                        tituloParte: r.tituloParte || '',
+                        reason,
+                    });
+                }
+            }
+            if (warnings.length > 0) {
+                console.warn(`[WorkbookManager] ⚠️ ${warnings.length} nomes suspeitos detectados na importação:`, warnings);
+            }
+            setParserWarnings(warnings);
+
             // Criar batch (upsert interno atualiza partes existentes)
             console.log('[WorkbookManager] 💾 Enviando para createBatch...');
             const batch = await workbookImportService.importBatch(file.name, excelRows);
             console.log('[WorkbookManager] ✅ Batch criado:', batch.id);
 
-            setSuccessMessage(`✅ Importadas ${excelRows.length} partes de "${file.name}"`);
+            const suffix = warnings.length > 0 ? ` (⚠️ ${warnings.length} nomes suspeitos — veja aviso abaixo)` : '';
+            setSuccessMessage(`✅ Importadas ${excelRows.length} partes de "${file.name}"${suffix}`);
 
             // Recarregar partes
             console.log('[WorkbookManager] 🔄 Recarregando partes...');
@@ -678,6 +711,46 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                             <div style={{ padding: '12px', background: '#D1FAE5', color: '#047857', borderRadius: '8px', marginBottom: '16px' }}>
                                 {successMessage}
                                 <button onClick={() => setSuccessMessage(null)} style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+                            </div>
+                        )}
+                        {parserWarnings.length > 0 && (
+                            <div style={{ padding: '12px', background: '#FFFBEB', border: '1px solid #FCD34D', color: '#92400E', borderRadius: '8px', marginBottom: '16px' }}>
+                                <div style={{ fontWeight: 700, marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>⚠️ Poluição do parser detectada — {parserWarnings.length} nome(s) suspeito(s)</span>
+                                    <button onClick={() => setParserWarnings([])} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#92400E' }}>✕</button>
+                                </div>
+                                <div style={{ fontSize: '12px', marginBottom: '8px' }}>
+                                    Os campos abaixo provavelmente NÃO são nomes de publicadores reais (título de parte, range de horário, etc.).
+                                    A importação foi concluída, mas estas designações ficarão órfãs até serem corrigidas.
+                                    Use <strong>Admin → Auditoria de órfãs</strong> para limpar em lote.
+                                </div>
+                                <div style={{ maxHeight: '200px', overflowY: 'auto', fontSize: '11px', background: '#FFF', borderRadius: '4px', padding: '6px' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr style={{ textAlign: 'left', borderBottom: '1px solid #FCD34D' }}>
+                                                <th style={{ padding: '4px' }}>Semana</th>
+                                                <th style={{ padding: '4px' }}>Seq</th>
+                                                <th style={{ padding: '4px' }}>Parte</th>
+                                                <th style={{ padding: '4px' }}>Valor capturado</th>
+                                                <th style={{ padding: '4px' }}>Motivo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {parserWarnings.slice(0, 50).map((w, i) => (
+                                                <tr key={i} style={{ borderBottom: '1px solid #FEF3C7' }}>
+                                                    <td style={{ padding: '4px' }}>{w.weekId}</td>
+                                                    <td style={{ padding: '4px' }}>{w.seq}</td>
+                                                    <td style={{ padding: '4px' }}>{w.tituloParte}</td>
+                                                    <td style={{ padding: '4px', color: '#B91C1C' }}><code>{w.rawName}</code></td>
+                                                    <td style={{ padding: '4px' }}>{w.reason.description}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    {parserWarnings.length > 50 && (
+                                        <div style={{ padding: '6px', fontStyle: 'italic' }}>… e mais {parserWarnings.length - 50} entradas.</div>
+                                    )}
+                                </div>
                             </div>
                         )}
 

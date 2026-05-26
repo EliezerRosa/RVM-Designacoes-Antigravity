@@ -9,6 +9,7 @@ import { formatWeekFromDate } from '../utils/dateUtils';
 import { usePublisherProfileNotifications } from '../hooks/usePublisherProfileNotifications';
 import { ProfileChangeTooltipChip } from './admin/ProfileChangeTooltipChip';
 import { workbookManagementService } from '../services/workbookManagementService';
+import { validatePublisherName } from '../utils/publisherNameValidation';
 
 /**
  * ActionControlPanel – Exibe detalhes da parte selecionada
@@ -493,6 +494,38 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                 </div>
                             )}
                         </div>
+
+                        {/* 2026-05-26: Badge específico para "poluição do parser" — o que está
+                            no rawPublisherName não parece nem ser nome de pessoa (título de parte,
+                            range de horário, etc.). Vem ANTES do bloco genérico de órfão pois é
+                            uma causa-raiz diagnosticável. */}
+                        {selectedPart.rawPublisherName && !assignedPublisher && !isNonDesignatablePart(selectedPart.tipoParte || '') && (() => {
+                            const invalid = validatePublisherName(selectedPart.rawPublisherName);
+                            if (!invalid) return null;
+                            return (
+                                <div style={{
+                                    background: '#FEE2E2',
+                                    border: '1px solid #FCA5A5',
+                                    borderRadius: '6px',
+                                    padding: '8px 10px',
+                                    marginBottom: '6px',
+                                    fontSize: '11px',
+                                    color: '#991B1B',
+                                    lineHeight: '1.4'
+                                }}>
+                                    <div style={{ fontWeight: 700, marginBottom: '4px' }}>
+                                        🐛 Nome inválido detectado na importação
+                                    </div>
+                                    <div>
+                                        O valor <code style={{ background: '#FECACA', padding: '0 4px', borderRadius: '3px' }}>{selectedPart.rawPublisherName}</code> {' '}
+                                        provavelmente foi capturado por engano pelo parser da apostila.
+                                    </div>
+                                    <div style={{ marginTop: '4px', fontSize: '10px', color: '#7F1D1D' }}>
+                                        Motivo heurístico: {invalid.description}.
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {/* 2026-05-26: Aviso quando designação refere publisher inexistente no cadastro.
                             Acontece quando rawPublisherName veio da apostila importada mas o nome não bate
