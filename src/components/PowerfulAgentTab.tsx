@@ -65,11 +65,19 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     const [weeklyEvents, setWeeklyEvents] = useState<SpecialEvent[]>([]);
 
     // Sync currentWeekId when weekOrder arrives asynchronously OR fallback if stored is invalid
+    // 2026-05-26: também valida currentWeekId hidratado do localStorage contra weekOrder.
+    // Sem isso, um weekId fantasma persistido (ex: erro do agente em sessão anterior)
+    // contamina pill/drawers no boot, mesmo com Ctrl+Shift+R.
     useEffect(() => {
         if (initialWeekId) {
             setCurrentWeekId(initialWeekId);
         } else if (!currentWeekId && weekOrder.length > 0) {
             console.log('[AgentTab] Setting initial week to:', weekOrder[0]);
+            setCurrentWeekId(weekOrder[0]);
+        } else if (currentWeekId && weekOrder.length > 0 && !weekOrder.includes(currentWeekId)) {
+            // weekId hidratado é inválido (apostila não cobre). Limpa localStorage e reseta.
+            console.warn(`[AgentTab] currentWeekId hidratado "${currentWeekId}" não está na apostila (range: ${weekOrder[0]} → ${weekOrder[weekOrder.length - 1]}). Resetando para ${weekOrder[0]}.`);
+            try { localStorage.removeItem('rvm_agent_last_week_id'); } catch { /* noop */ }
             setCurrentWeekId(weekOrder[0]);
         }
     }, [weekOrder, currentWeekId, initialWeekId]);
