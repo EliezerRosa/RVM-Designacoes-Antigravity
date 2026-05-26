@@ -2572,13 +2572,41 @@ export const agentActionService = {
                             rowsMap.set(pub.id, { key: pub.id, label: pub.name, titular: 0, ajudante: 0, total: 0 });
                         }
                         const universeIds = new Set(universe.map(p => p.id));
-                        const universeByName = new Map(universe.map(p => [normA(p.name), p]));
+                        // Index: nome normalizado → pub. Também token-level (1ª palavra) p/ matchear "Dayse" ↔ "Dayse Campos".
+                        const universeByName = new Map<string, Publisher>();
+                        const universeByFirstToken = new Map<string, Publisher[]>();
+                        for (const pub of universe) {
+                            const n = normA(pub.name);
+                            universeByName.set(n, pub);
+                            const first = n.split(/\s+/)[0];
+                            if (first) {
+                                const arr = universeByFirstToken.get(first) || [];
+                                arr.push(pub);
+                                universeByFirstToken.set(first, arr);
+                            }
+                        }
+                        const resolveByName = (raw: string | undefined): string | undefined => {
+                            if (!raw) return undefined;
+                            const n = normA(raw);
+                            if (!n) return undefined;
+                            // 1) match exato
+                            const exact = universeByName.get(n);
+                            if (exact) return exact.id;
+                            // 2) substring nos dois lados
+                            for (const [pn, pub] of universeByName) {
+                                if (pn.includes(n) || n.includes(pn)) return pub.id;
+                            }
+                            // 3) primeiro token, se único
+                            const first = n.split(/\s+/)[0];
+                            const tokenMatches = universeByFirstToken.get(first) || [];
+                            if (tokenMatches.length === 1) return tokenMatches[0].id;
+                            return undefined;
+                        };
                         for (const part of filteredParts) {
-                            // Resolve para pub do universo
+                            // Resolve para pub do universo: ID primeiro, depois resolvedPublisherName, depois rawPublisherName
                             let pubId: string | undefined = part.resolvedPublisherId || undefined;
-                            if (!pubId && part.resolvedPublisherName) {
-                                const m = universeByName.get(normA(part.resolvedPublisherName));
-                                if (m) pubId = m.id;
+                            if (!pubId || !universeIds.has(pubId)) {
+                                pubId = resolveByName(part.resolvedPublisherName) || resolveByName(part.rawPublisherName);
                             }
                             if (!pubId || !universeIds.has(pubId)) continue;
                             const row = rowsMap.get(pubId)!;
