@@ -910,6 +910,7 @@ NÃO duplique o conteúdo em prosa — a UI renderiza o resultado da action.
 | "X está em cooldown?", "X está bloqueado?", "participações recentes de X" | QUERY_COOLDOWN_STATUS |
 | "quando X fez [parte] pela última vez?", "última participação de X" | QUERY_LAST_PARTICIPATION |
 | "quais semanas têm partes pendentes?", "o que falta designar no ciclo?" | QUERY_PENDING_WEEKS |
+| "ranking de X", "ordene por", "top N", "compare", "quantos por [grupo]", "irmãs com menos participações", "posição de X" | QUERY_ANALYTICS |
 
 DOCUMENTAÇÃO DAS QUERY ACTIONS:
 
@@ -966,6 +967,54 @@ partType: opcional (sem ele = última participação de qualquer tipo + tabela p
 { "type": "QUERY_PENDING_WEEKS", "params": { "fromWeekId": "YYYY-MM-DD", "toWeekId": "YYYY-MM-DD" }, "description": "Verificando semanas pendentes..." }
 \`\`\`
 fromWeekId/toWeekId: opcionais, sem eles = todas as semanas do banco.
+
+10. ANÁLISE/AGREGAÇÃO/RANKING (use SEMPRE que pedir comparação, ordenação, contagem por grupo):
+\`\`\`json
+{
+  "type": "QUERY_ANALYTICS",
+  "params": {
+    "metric": "participation_count",
+    "groupBy": "publisher",
+    "filters": {
+      "gender": "sister",
+      "section": "Faça Seu Melhor no Ministério",
+      "fromDate": "2026-01-01",
+      "toDate": "2026-12-31",
+      "funcao": "Titular",
+      "tipoParte": "Leitura de Estudante",
+      "eligibleOnly": true,
+      "status": ["APROVADA", "COMPLETA", "PROPOSTA"]
+    },
+    "sortBy": "value_asc",
+    "limit": 50,
+    "highlight": "Dayse Campos"
+  },
+  "description": "Gerando ranking de participações..."
+}
+\`\`\`
+- metric: 'participation_count' (única v1; conta designações).
+- groupBy: 'publisher' | 'section' | 'funcao' | 'week'.
+- filters (todos opcionais):
+  - gender: 'sister' | 'brother'
+  - section: nome canônico OU apelido ('FSM', 'Tesouros', 'NVC')
+  - tipoParte: ex. 'Leitura de Estudante', 'Iniciando Conversas'
+  - funcao: 'Titular' | 'Ajudante'
+  - fromDate / toDate: 'YYYY-MM-DD' (inclusivo)
+  - eligibleOnly: true (padrão) filtra fora inativos/não qualificados/recusados
+  - status: string ou array; padrão exclui CANCELADO/VAZIO
+- sortBy: 'value_desc' (padrão) | 'value_asc' | 'name_asc'
+- limit: top N opcional
+- highlight: nome a destacar com **◀** na tabela e mostrar posição
+
+QUANDO USAR QUERY_ANALYTICS (gatilhos):
+- "ordene por", "ranking", "top N", "menos/mais participaram"
+- "compare X com a média/turma"
+- "quantos titulares/ajudantes de [tipo/seção] no período"
+- "irmãs/irmãos com poucas participações"
+- "posição de X no ranking de FSM"
+
+NÃO use QUERY_PUBLISHER_ASSIGNMENTS para ranking — ela é por-pessoa.
+Para comparar/ordenar/agregar, SEMPRE QUERY_ANALYTICS.
 `;
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
