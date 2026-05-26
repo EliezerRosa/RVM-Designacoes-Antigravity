@@ -1176,6 +1176,118 @@ function isActionQuestion(question: string): boolean {
     return actionMarkers.some(m => q.includes(m));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTER L0 — classificador determinístico de intent ANALYTICS.
+// Quando a pergunta tem sinais fortes de ranking/agregação, retorna direto
+// um AgentAction QUERY_ANALYTICS com params extraídos via regex — sem chamar
+// o LLM. Garante que perguntas como "Liste irmãs por participação em FSM 2026,
+// ordene crescente, destaque Dayse Campos" NUNCA caiam em QUERY_PUBLISHER_LIST.
+// Retorna null se a pergunta não casar com o padrão analítico.
+// ─────────────────────────────────────────────────────────────────────────────
+function routeAnalyticsIntent(question: string): AgentAction | null {
+    const q = String(question || '').trim();
+    if (!q) return null;
+    const lower = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // SINAL 1 — palavra de agregação/ordem (obrigatória)
+    const aggMarkers = [
+        'ranking', 'rankear', 'ranquear',
+        'ordene', 'ordenar', 'ordena', 'ordenadas', 'ordenados', 'ordenada', 'ordenado',
+        'crescente', 'decrescente',
+        'top ', 'topn ',
+        'compare', 'comparar', 'comparacao',
+        'quantos por', 'quantas por', 'agrupa', 'agrupado',
+        'participacao', 'participacoes', 'participaram', 'participou',
+        'menos que', 'mais que', 'acima da media', 'abaixo da media',
+        'quem zerou', 'quem nao participou', 'quem nunca participou',
+        'posicao de', 'posicao da', 'posicao do',
+        'menor participacao', 'maior participacao',
+        'menos participacao', 'mais participacao',
+        'menos participacoes', 'mais participacoes'
+    ];
+    const hasAgg = aggMarkers.some(m => lower.includes(m));
+    if (!hasAgg) return null;
+
+    // SINAL 2 — domínio claro: gênero, seção, ou "ordene/ranking" sozinho não basta sem entidade
+    // Mas se tem "participação" + qualquer outro sinal, é forte o suficiente.
+    const filters: Record<string, any> = {};
+
+    // gender
+    if (/\birm(a|ã)s\b|\bsisters?\b|\bmulheres\b|\bfemininas?\b/i.test(q)) filters.gender = 'sister';
+    else if (/\birm(ao|ã)os?\b|\bbrothers?\b|\bhomens\b|\bmasculinos?\b/i.test(q)) filters.gender = 'brother';
+
+    // section
+    if (/\bfsm\b|fa[çc]a seu melhor|minist[ée]rio\b/i.test(q)) filters.section = 'Faça Seu Melhor no Ministério';
+    else if (/\btesouros\b|palavra de deus/i.test(q)) filters.section = 'Tesouros da Palavra de Deus';
+    else if (/\bnvc\b|nossa vida crist[aã]/i.test(q)) filters.section = 'Nossa Vida Cristã';
+
+    // funcao
+    if (/\btitular(es)?\b/i.test(q) && !/ajudant/i.test(q)) filters.funcao = 'Titular';
+    else if (/\bajudante(s)?\b/i.test(q) && !/titular/i.test(q)) filters.funcao = 'Ajudante';
+
+    // datas: "em YYYY", "desde YYYY", "desde MES de YYYY", "desde DD/MM/YYYY", "ano YYYY"
+    const yearMatch = q.match(/\b(20\d{2})\b/);
+    if (yearMatch) {
+        const y = yearMatch[1];
+        if (/desde\s+\w+\s+de\s+\d{4}/i.test(q) || /a partir de/i.test(q)) {
+            filters.fromDate = `${y}-01-01`;
+        } else if (/\bem\s+20\d{2}\b|\bano\s+20\d{2}\b|\bdo ano\b/i.test(q) || lower.includes(y)) {
+            filters.fromDate = `${y}-01-01`;
+            filters.toDate = `${y}-12-31`;
+        }
+    }
+    const isoFrom = q.match(/desde\s+(\d{4}-\d{2}-\d{2})/i);
+    if (isoFrom) filters.fromDate = isoFrom[1];
+    const isoTo = q.match(/at[ée]\s+(\d{4}-\d{2}-\d{2})/i);
+    if (isoTo) filters.toDate = isoTo[1];
+
+    // sortBy
+    let sortBy: string = 'value_desc';
+    if (/\bcrescente\b|\bmenor\b|\bmenos\b|\bzeraram?\b|\bnunca participaram?\b/i.test(q)) sortBy = 'value_asc';
+    else if (/\bdecrescente\b|\bmaior\b|\bmais\b|\btop\b/i.test(q)) sortBy = 'value_desc';
+
+    // highlight: "destaque [Nome Sobrenome ...]" ou "destaque a Nome" ou "posição de Nome"
+    let highlight: string | undefined;
+    const hl1 = q.match(/destaqu[ea]\s+(?:a\s+|o\s+)?([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*)/);
+    if (hl1) highlight = hl1[1];
+    else {
+        const hl2 = q.match(/posi[çc][aã]o\s+(?:de|da|do)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)*)/);
+        if (hl2) highlight = hl2[1];
+    }
+
+    // groupBy — só "publisher" suportado quando há nome destacado / gênero / participação
+    // Outros groupBy ficam para evolução.
+    const groupBy = 'publisher';
+
+    // GUARD: precisa de pelo menos UM sinal de domínio (gender, section, ou highlight/posição)
+    // para evitar disparar em perguntas vagas tipo só "ordene".
+    const hasDomainSignal = !!filters.gender || !!filters.section || !!highlight || /participa/i.test(q);
+    if (!hasDomainSignal) return null;
+
+    // top N
+    let limit: number | undefined;
+    const topMatch = q.match(/top\s*(\d+)/i);
+    if (topMatch) limit = parseInt(topMatch[1], 10);
+
+    const params: any = {
+        metric: 'participation_count',
+        groupBy,
+        filters,
+        sortBy
+    };
+    if (limit) params.limit = limit;
+    if (highlight) params.highlight = highlight;
+
+    const desc = `Gerando análise${filters.gender ? ` de ${filters.gender === 'sister' ? 'irmãs' : 'irmãos'}` : ''}${filters.section ? ` em ${filters.section}` : ''}${highlight ? ` (destaque ${highlight})` : ''}...`;
+
+    return {
+        type: 'QUERY_ANALYTICS',
+        params,
+        description: desc
+    };
+}
+
+
 export async function askAgent(
     question: string,
     publishers: Publisher[],
@@ -1191,6 +1303,25 @@ export async function askAgent(
     if (!isAgentConfigured()) {
     return { success: false, message: '', error: 'Serviço de IA indisponível.', actions: [] };
     }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ROUTER L0 — classificação determinística por regex.
+  // Se a pergunta bate em padrão analítico/ranking, retorna QUERY_ANALYTICS
+  // SEM chamar Gemini. Elimina risco de LLM cair em PUBLISHER_LIST por engano.
+  // Só roteia quando há sinal forte (palavra de agregação + sinal de domínio).
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!audioData) {
+    const routed = routeAnalyticsIntent(question);
+    if (routed) {
+      return {
+        success: true,
+        message: routed.description,
+        actions: [routed],
+        action: routed,
+        modelUsed: 'router-l0-deterministic'
+      };
+    }
+  }
 
   try {
     const contextOptions = audioData
