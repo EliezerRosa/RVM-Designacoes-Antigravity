@@ -24,6 +24,29 @@ export function _clearCache() {
     _cache.clear();
 }
 
+/**
+ * 🛡️ Auto-resolve: dado um nome de publicador, busca o ID em publishers via match exato (case/space insensitive).
+ * Retorna null se: nome vazio, sem match, ou ambíguo (>1 match). Centraliza defesa anti-órfã.
+ */
+async function resolvePublisherIdByName(name: string | null | undefined): Promise<string | null> {
+    const trimmed = (name ?? '').trim();
+    if (!trimmed) return null;
+    try {
+        const { data: matches } = await supabase
+            .from('publishers')
+            .select('id')
+            .ilike('data->>name', trimmed)
+            .limit(2);
+        if (matches && matches.length === 1) return matches[0].id as string;
+        if (matches && matches.length > 1) {
+            console.warn(`[workbookService] Nome ambíguo "${trimmed}" — ${matches.length} matches; ID não vinculado.`);
+        }
+    } catch (err) {
+        console.warn('[workbookService] Falha em resolvePublisherIdByName:', err);
+    }
+    return null;
+}
+
 export interface WorkbookExcelRow {
     id?: string;
     year?: number;
@@ -609,7 +632,21 @@ export const workbookService = {
         if (updates.resolvedPublisherName !== undefined) dbUpdates.resolved_publisher_name = updates.resolvedPublisherName;
         if (updates.status !== undefined) dbUpdates.status = updates.status;
 
-
+        // 🛡️ DEFESA ANTI-ÓRFÃ: se o caller informou resolved_publisher_name mas NÃO informou
+        // resolved_publisher_id (ou passou vazio), tentar resolver via match exato em publishers.
+        // Caso name venha vazio/null → garantir id nulo também. Evita criar órfãs no banco.
+        if (
+            updates.resolvedPublisherName !== undefined &&
+            updates.resolvedPublisherId === undefined
+        ) {
+            const nameTrim = (updates.resolvedPublisherName ?? '').trim();
+            if (!nameTrim) {
+                dbUpdates.resolved_publisher_id = null;
+            } else {
+                const resolvedId = await resolvePublisherIdByName(nameTrim);
+                if (resolvedId) dbUpdates.resolved_publisher_id = resolvedId;
+            }
+        }
 
         // Se status não foi atualizado e há outras mudanças, manter PENDENTE
         if (updates.status === undefined && Object.keys(dbUpdates).length > 0) {
@@ -825,11 +862,17 @@ export const workbookService = {
         // Se remover o publicador, status volta para PENDENTE
         const status = (publisherName || publisherId) ? WorkbookStatus.PROPOSTA : WorkbookStatus.PENDENTE;
 
+        // 🛡️ DEFESA ANTI-ÓRFÃ: se caller não passou id mas passou nome, resolver via lookup.
+        let resolvedId = publisherId || null;
+        if (!resolvedId && publisherName) {
+            resolvedId = await resolvePublisherIdByName(publisherName);
+        }
+
         const { data, error } = await supabase
             .from('workbook_parts')
             .update({
                 status: status,
-                resolved_publisher_id: publisherId || null,
+                resolved_publisher_id: resolvedId,
                 resolved_publisher_name: publisherName || null,
                 is_manual_override: isManual,
                 updated_at: new Date().toISOString(),
@@ -845,7 +888,7 @@ export const workbookService = {
 
         // TRIGGER DE SINCRONIZAÇÃO DO PRESIDENTE
         if (updatedPart.tipoParte === 'Presidente') {
-            this.syncChairmanAssignments(updatedPart.weekId, publisherId || '', publisherName, status);
+            this.syncChairmanAssignments(updatedPart.weekId, resolvedId || '', publisherName, status);
         }
 
         return updatedPart;

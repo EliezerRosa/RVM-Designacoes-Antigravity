@@ -371,7 +371,7 @@ export const agentActionService = {
                         const ptN = norm(ptHint);
                         targetPart = parts.find(p => p.weekId === wHint && (norm(p.tipoParte) === ptN || norm(p.tituloParte) === ptN || norm(p.tipoParte).includes(ptN)));
                     } else if (wHint) {
-                        targetPart = parts.find(p => p.weekId === wHint && (p.resolvedPublisherName === publisher.name || p.rawPublisherName === publisher.name));
+                        targetPart = parts.find(p => p.weekId === wHint && ((publisher?.id && p.resolvedPublisherId === publisher.id) || p.resolvedPublisherName === publisher.name || p.rawPublisherName === publisher.name));
                     } else if (ptHint) {
                         const ptN = norm(ptHint);
                         targetPart = parts.find(p => norm(p.tipoParte) === ptN || norm(p.tipoParte).includes(ptN));
@@ -380,7 +380,7 @@ export const agentActionService = {
                     if (!targetPart) {
                         const todayStr = toLocalISODate();
                         const futureAssigned = parts
-                            .filter(p => (p.resolvedPublisherName === publisher.name || p.rawPublisherName === publisher.name) && (p.date || p.weekId) >= todayStr)
+                            .filter(p => ((publisher?.id && p.resolvedPublisherId === publisher.id) || p.resolvedPublisherName === publisher.name || p.rawPublisherName === publisher.name) && (p.date || p.weekId) >= todayStr)
                             .sort((a, b) => (a.date || a.weekId).localeCompare(b.date || b.weekId));
                         targetPart = futureAssigned[0];
                     }
@@ -413,7 +413,7 @@ export const agentActionService = {
 
                     // Participações MAIN do publicador dentro da janela
                     const mainInWindow = historyForScoring.filter(h => {
-                        const isThis = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
+                        const isThis = (publisher?.id && h.resolvedPublisherId === publisher.id) || h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
                         if (!isThis) return false;
                         if (!h.date || h.date < wStartStr || h.date >= wEndStr) return false;
                         const cat = getParticipationCategory(h.tipoParte || '', h.funcao || '');
@@ -425,7 +425,7 @@ export const agentActionService = {
                     freqWindowStart.setDate(freqWindowStart.getDate() - 12 * 7);
                     const freqStartStr = toLocalISODate(freqWindowStart);
                     const freqCount = historyForScoring.filter(h => {
-                        const isThis = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
+                        const isThis = (publisher?.id && h.resolvedPublisherId === publisher.id) || h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
                         if (!isThis) return false;
                         if (!h.date || h.date < freqStartStr || h.date >= wEndStr) return false;
                         const cat = getParticipationCategory(h.tipoParte || '', h.funcao || '');
@@ -454,7 +454,7 @@ export const agentActionService = {
                     if (sd.details.heavyProximityPenalty > 0) {
                         lines.push(`Penalidade total: **−${sd.details.heavyProximityPenalty} pts** (soma de ocorrências em gradiente 4000×(radius−weeks)/radius).`);
                         const heavyInWindow = history.filter(h => {
-                            const isThis = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
+                            const isThis = (publisher?.id && h.resolvedPublisherId === publisher.id) || h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
                             if (!isThis) return false;
                             const d = h.date || '';
                             if (!d || d === refDateStr) return false;
@@ -1973,6 +1973,8 @@ export const agentActionService = {
                     const resolvedName = pub?.name || publisherName;
 
                     let assigned = parts.filter(p => {
+                        // Match por ID (fonte da verdade, captura órfãs e ajudantes sem name)
+                        if (pub?.id && p.resolvedPublisherId === pub.id) return true;
                         const pName = p.resolvedPublisherName || p.rawPublisherName || '';
                         return norm(pName) === norm(resolvedName) || norm(pName) === pubNorm;
                     });
