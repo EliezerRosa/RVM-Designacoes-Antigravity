@@ -68,7 +68,8 @@ export type AgentActionType =
     | 'QUERY_PUBLISHER_LIST'
     | 'QUERY_COOLDOWN_STATUS'
     | 'QUERY_LAST_PARTICIPATION'
-    | 'QUERY_PENDING_WEEKS';
+    | 'QUERY_PENDING_WEEKS'
+    | 'QUERY_ANALYTICS';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -2481,6 +2482,174 @@ export const agentActionService = {
                         message: pwLines.join('\n'),
                         data: { weeks: Object.fromEntries(byWeek), totalPending: allVacant.length, weekCount: sortedWeeks.length },
                         actionType: 'QUERY_PENDING_WEEKS'
+                    };
+                }
+
+                // ─────────────────────────────────────────────────────────────────────────
+                // QUERY_ANALYTICS — agregação genérica determinística (camada 2 do tríplice)
+                // metric: 'participation_count' (v1)
+                // groupBy: 'publisher' | 'section' | 'funcao' | 'week'
+                // filters: gender, section, tipoParte, funcao, fromDate, toDate, eligibleOnly, status
+                // sortBy: 'value_asc' | 'value_desc' | 'name_asc'
+                // highlight: nome a marcar com ◀ na tabela
+                // ─────────────────────────────────────────────────────────────────────────
+                case 'QUERY_ANALYTICS': {
+                    const {
+                        metric = 'participation_count',
+                        groupBy = 'publisher',
+                        filters = {},
+                        sortBy = 'value_desc',
+                        limit,
+                        highlight
+                    } = action.params as any;
+
+                    if (metric !== 'participation_count') {
+                        return { success: false, message: `Métrica '${metric}' não suportada. Use 'participation_count'.`, actionType: 'QUERY_ANALYTICS' };
+                    }
+                    const validGroupBy = ['publisher', 'section', 'funcao', 'week'];
+                    if (!validGroupBy.includes(groupBy)) {
+                        return { success: false, message: `groupBy inválido. Use: ${validGroupBy.join(', ')}.`, actionType: 'QUERY_ANALYTICS' };
+                    }
+
+                    const normA = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+                    // 1) Filtra parts conforme filters
+                    let filteredParts = [...parts];
+                    if (filters.fromDate) filteredParts = filteredParts.filter(p => (p.date || p.weekId || '') >= filters.fromDate);
+                    if (filters.toDate)   filteredParts = filteredParts.filter(p => (p.date || p.weekId || '') <= filters.toDate);
+                    if (filters.section) {
+                        const expand = (raw: string) => {
+                            const r = normA(raw);
+                            if (r === 'fsm' || r === 'ministerio' || r === 'ministério') return normA('Faça Seu Melhor no Ministério');
+                            if (r === 'tesouros') return normA('Tesouros da Palavra de Deus');
+                            if (r === 'nvc' || r === 'vida crista' || r === 'vida cristã') return normA('Nossa Vida Cristã');
+                            return r;
+                        };
+                        const target = expand(filters.section);
+                        filteredParts = filteredParts.filter(p => normA(p.section) === target);
+                    }
+                    if (filters.tipoParte) {
+                        const tNorm = normA(filters.tipoParte);
+                        filteredParts = filteredParts.filter(p => normA(p.tipoParte) === tNorm || normA(p.tituloParte).includes(tNorm));
+                    }
+                    if (filters.funcao) {
+                        filteredParts = filteredParts.filter(p => (p.funcao || '') === filters.funcao);
+                    }
+                    if (filters.status) {
+                        const statuses = (Array.isArray(filters.status) ? filters.status : [filters.status]).map((s: string) => String(s).toUpperCase());
+                        filteredParts = filteredParts.filter(p => statuses.includes(String(p.status || '').toUpperCase()));
+                    } else {
+                        // padrão: ignora CANCELADO/VAZIO
+                        filteredParts = filteredParts.filter(p => !['CANCELADO', 'VAZIO'].includes(String(p.status || '').toUpperCase()));
+                    }
+
+                    // 2) Universo de publishers (para groupBy=publisher e para filtro de gênero/elegibilidade)
+                    const isEligiblePub = (pub: Publisher): boolean => {
+                        if (pub.isServing === false) return false;
+                        if ((pub as any).requestedNoParticipation === true) return false;
+                        if ((pub as any).isNotQualified === true) return false;
+                        const cpm = (pub as any)?.privilegesBySection?.canParticipateInMinistry;
+                        if (cpm === false) return false;
+                        return true;
+                    };
+                    let universe = [...publishers];
+                    if (filters.gender) {
+                        const g = String(filters.gender).toLowerCase();
+                        universe = universe.filter(p => String((p as any).gender || '').toLowerCase() === g);
+                    }
+                    if (filters.eligibleOnly !== false) {
+                        // default true (queremos só elegíveis em rankings)
+                        universe = universe.filter(isEligiblePub);
+                    }
+
+                    // 3) Agrupa
+                    type Row = { key: string; label: string; titular: number; ajudante: number; total: number };
+                    const rowsMap = new Map<string, Row>();
+
+                    if (groupBy === 'publisher') {
+                        // Inicializa com o universo (para incluir quem tem 0 participações)
+                        for (const pub of universe) {
+                            rowsMap.set(pub.id, { key: pub.id, label: pub.name, titular: 0, ajudante: 0, total: 0 });
+                        }
+                        const universeIds = new Set(universe.map(p => p.id));
+                        const universeByName = new Map(universe.map(p => [normA(p.name), p]));
+                        for (const part of filteredParts) {
+                            // Resolve para pub do universo
+                            let pubId: string | undefined = part.resolvedPublisherId || undefined;
+                            if (!pubId && part.resolvedPublisherName) {
+                                const m = universeByName.get(normA(part.resolvedPublisherName));
+                                if (m) pubId = m.id;
+                            }
+                            if (!pubId || !universeIds.has(pubId)) continue;
+                            const row = rowsMap.get(pubId)!;
+                            row.total++;
+                            if (part.funcao === 'Titular') row.titular++;
+                            else if (part.funcao === 'Ajudante') row.ajudante++;
+                        }
+                    } else {
+                        // groupBy = section | funcao | week
+                        for (const part of filteredParts) {
+                            let key: string;
+                            let label: string;
+                            if (groupBy === 'section') { key = part.section || '—'; label = key; }
+                            else if (groupBy === 'funcao') { key = part.funcao || '—'; label = key; }
+                            else /* week */ { key = part.weekId || part.date || '—'; label = key; }
+                            let row = rowsMap.get(key);
+                            if (!row) { row = { key, label, titular: 0, ajudante: 0, total: 0 }; rowsMap.set(key, row); }
+                            row.total++;
+                            if (part.funcao === 'Titular') row.titular++;
+                            else if (part.funcao === 'Ajudante') row.ajudante++;
+                        }
+                    }
+
+                    // 4) Ordena
+                    let rowsOut = Array.from(rowsMap.values());
+                    if (sortBy === 'value_asc')      rowsOut.sort((a, b) => a.total - b.total || a.label.localeCompare(b.label, 'pt-BR'));
+                    else if (sortBy === 'name_asc')  rowsOut.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+                    else /* value_desc */            rowsOut.sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, 'pt-BR'));
+
+                    if (typeof limit === 'number' && limit > 0) rowsOut = rowsOut.slice(0, limit);
+
+                    // 5) Renderiza markdown
+                    const highlightNorm = highlight ? normA(highlight) : '';
+                    const headerCols = groupBy === 'publisher'
+                        ? ['#', 'Publicador', 'Titular', 'Ajudante', 'Total']
+                        : ['#', groupBy === 'section' ? 'Seção' : groupBy === 'funcao' ? 'Função' : 'Semana', 'Titular', 'Ajudante', 'Total'];
+
+                    let highlightPos: number | null = null;
+                    const bodyRows = rowsOut.map((r, i) => {
+                        const isH = highlightNorm && normA(r.label).includes(highlightNorm);
+                        if (isH && highlightPos === null) highlightPos = i + 1;
+                        const label = isH ? `**◀ ${r.label}**` : r.label;
+                        return `| ${i + 1} | ${label} | ${r.titular} | ${r.ajudante} | **${r.total}** |`;
+                    });
+
+                    const totalParticipations = rowsOut.reduce((s, r) => s + r.total, 0);
+                    const filterParts: string[] = [];
+                    if (filters.gender) filterParts.push(`gênero=${filters.gender}`);
+                    if (filters.section) filterParts.push(`seção=${filters.section}`);
+                    if (filters.tipoParte) filterParts.push(`tipoParte=${filters.tipoParte}`);
+                    if (filters.funcao) filterParts.push(`função=${filters.funcao}`);
+                    if (filters.fromDate) filterParts.push(`desde ${filters.fromDate}`);
+                    if (filters.toDate) filterParts.push(`até ${filters.toDate}`);
+                    if (filters.eligibleOnly !== false) filterParts.push('elegíveis');
+                    const filterDesc = filterParts.length ? ` _(${filterParts.join(' · ')})_` : '';
+
+                    const lines = [
+                        `**Análise: participações por ${groupBy === 'publisher' ? 'publicador' : groupBy === 'section' ? 'seção' : groupBy === 'funcao' ? 'função' : 'semana'}**${filterDesc}`,
+                        '',
+                        `Total: **${rowsOut.length}** ${groupBy === 'publisher' ? 'publicador(es)' : 'grupos'} · **${totalParticipations}** participações${highlightPos ? ` · destaque na posição **${highlightPos}**` : ''}`,
+                        '',
+                        `| ${headerCols.join(' | ')} |`,
+                        `|${headerCols.map(() => '---').join('|')}|`,
+                        ...bodyRows
+                    ];
+
+                    return {
+                        success: true,
+                        message: lines.join('\n'),
+                        data: { rows: rowsOut, total: totalParticipations, highlightPos, groupBy, metric, filters },
+                        actionType: 'QUERY_ANALYTICS'
                     };
                 }
 
