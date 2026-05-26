@@ -449,6 +449,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             publishers={publishers}
                             historyRecords={historyRecords}
                             weeklyEvents={weeklyEvents}
+                            onDataChange={onDataChange}
                         />
                     </div>
                     {showContextAlert && (

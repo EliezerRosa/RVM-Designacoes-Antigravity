@@ -8,6 +8,7 @@ import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import { formatWeekFromDate } from '../utils/dateUtils';
 import { usePublisherProfileNotifications } from '../hooks/usePublisherProfileNotifications';
 import { ProfileChangeTooltipChip } from './admin/ProfileChangeTooltipChip';
+import { workbookManagementService } from '../services/workbookManagementService';
 
 /**
  * ActionControlPanel – Exibe detalhes da parte selecionada
@@ -19,6 +20,7 @@ interface Props {
     publishers: Publisher[];
     historyRecords: HistoryRecord[]; // NEW: Receber histórico completo
     weeklyEvents?: SpecialEvent[]; // NEW: Receber eventos da semana
+    onDataChange?: () => void; // 2026-05-26: para refresh após limpar designação órfã
 }
 
 interface PublisherStats {
@@ -42,8 +44,9 @@ function compareIsoDates(a?: string | null, b?: string | null): number {
     return 0;
 }
 
-export default function ActionControlPanel({ selectedPartId, parts, publishers, historyRecords, weeklyEvents = [] }: Props) {
+export default function ActionControlPanel({ selectedPartId, parts, publishers, historyRecords, weeklyEvents = [], onDataChange }: Props) {
     const selectedPart = parts.find(p => p.id === selectedPartId);
+    const [isClearingOrphan, setIsClearingOrphan] = useState(false);
 
     // Buscar o publicador designado para esta parte.
     // Fallback em 3 fontes (alinha com a lista do PowerfulAgentTab):
@@ -490,6 +493,76 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                 </div>
                             )}
                         </div>
+
+                        {/* 2026-05-26: Aviso quando designação refere publisher inexistente no cadastro.
+                            Acontece quando rawPublisherName veio da apostila importada mas o nome não bate
+                            com nenhum Publisher cadastrado. Sem o Publisher, a Análise & Status não tem
+                            como mostrar elegibilidade/intervalo/score. Oferecemos botão para limpar a
+                            designação órfã (single-row UPDATE → atômico no Postgres). */}
+                        {effectiveName && !assignedPublisher && !isNonDesignatablePart(selectedPart.tipoParte || '') && (
+                            <div style={{
+                                background: '#FFFBEB',
+                                border: '1px solid #FCD34D',
+                                borderRadius: '6px',
+                                padding: '8px 10px',
+                                marginBottom: '6px',
+                                fontSize: '11px',
+                                color: '#92400E',
+                                lineHeight: '1.4'
+                            }}>
+                                <div style={{ fontWeight: 600, marginBottom: '4px' }}>
+                                    ⚠️ Publicador não cadastrado
+                                </div>
+                                <div style={{ marginBottom: '6px' }}>
+                                    O nome <strong>"{effectiveName}"</strong> está designado nesta parte, mas
+                                    não existe na aba <em>Publicadores</em>. Por isso a análise (elegibilidade,
+                                    intervalo, score, privilégios) não pode ser exibida.
+                                </div>
+                                <div style={{ marginBottom: '6px', fontSize: '10px', color: '#78350F' }}>
+                                    Sugestões: (a) cadastrar o publicador, (b) corrigir o nome para casar com
+                                    um já existente, ou (c) limpar esta designação e deixar a parte VAGA.
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={isClearingOrphan}
+                                    onClick={async () => {
+                                        if (!selectedPart) return;
+                                        const ok = window.confirm(
+                                            `Limpar a designação órfã "${effectiveName}" da parte "${selectedPart.tituloParte || selectedPart.tipoParte}"?\n\n` +
+                                            `A parte voltará para status PENDENTE (sem designado). Esta ação NÃO remove o publicador do cadastro — apenas desfaz o vínculo nesta única parte.`
+                                        );
+                                        if (!ok) return;
+                                        setIsClearingOrphan(true);
+                                        try {
+                                            await workbookManagementService.updatePart(selectedPart.id, {
+                                                rawPublisherName: '',
+                                                resolvedPublisherId: '',
+                                                resolvedPublisherName: '',
+                                                status: 'PENDENTE',
+                                            });
+                                            if (onDataChange) onDataChange();
+                                        } catch (err) {
+                                            console.error('[ActionControlPanel] Falha ao limpar designação órfã:', err);
+                                            window.alert('Não foi possível limpar a designação. Veja o console para detalhes.');
+                                        } finally {
+                                            setIsClearingOrphan(false);
+                                        }
+                                    }}
+                                    style={{
+                                        background: isClearingOrphan ? '#FCD34D' : '#F59E0B',
+                                        color: '#FFFFFF',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        padding: '5px 10px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        cursor: isClearingOrphan ? 'wait' : 'pointer',
+                                    }}
+                                >
+                                    {isClearingOrphan ? 'Limpando…' : '🧹 Limpar designação'}
+                                </button>
+                            </div>
+                        )}
 
                         {/* Painel de Análise Unificado */}
                         {assignedPublisher && (
