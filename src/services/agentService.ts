@@ -1312,6 +1312,7 @@ export async function askAgent(
   // ─────────────────────────────────────────────────────────────────────────
   if (!audioData) {
     const routed = routeAnalyticsIntent(question);
+    console.log('[L0Router] question=', question, '→ routed=', routed);
     if (routed) {
       return {
         success: true,
