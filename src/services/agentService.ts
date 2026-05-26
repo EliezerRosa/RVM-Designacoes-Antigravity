@@ -899,6 +899,27 @@ JAMAIS responda lendo o contexto textual para esses casos — o contexto é um r
 Após emitir, responda em UMA FRASE CURTA confirmando o que foi consultado.
 NÃO duplique o conteúdo em prosa — a UI renderiza o resultado da action.
 
+== PRECEDÊNCIA CRÍTICA (LEIA ANTES DA TABELA) ==
+1. Se a pergunta contém QUALQUER destas palavras → use **QUERY_ANALYTICS**, mesmo que comece com "Liste":
+   - "participação", "participações", "participaram", "designações em [seção]"
+   - "ordene", "ordenadas", "ordem crescente/decrescente"
+   - "ranking", "top N", "compare", "comparar"
+   - "FSM", "Tesouros", "NVC", "Faça Seu Melhor", "Nossa Vida"
+   - "menos que X", "mais que X", "acima/abaixo da média", "quem zerou"
+   - "destaque [nome]", "posição de [nome]"
+   Exemplo: "Liste irmãs por **participação** em FSM 2026, ordene crescente, destaque Dayse" → **QUERY_ANALYTICS** (NÃO QUERY_PUBLISHER_LIST).
+   Exemplo: "Liste irmãs ativas" (sem palavra de participação/ordem) → QUERY_PUBLISHER_LIST.
+
+2. PROIBIDO REUSAR PROSA DE TURNOS ANTERIORES. Cada nova pergunta = nova decisão de action.
+   Se você já emitiu QUERY_ANALYTICS no turno anterior e o usuário faz follow-up derivado
+   ("quem teve menos que X", "acima da média", "quantos zeraram", "compare X com Y"),
+   você DEVE emitir NOVA QUERY_ANALYTICS — JAMAIS recopiar a resposta anterior nem inventar
+   números agregados ("67 nunca participaram", "X está acima da média") sem rodar a action.
+
+3. Se o resultado da action anterior é suficiente para responder (ex: "quem teve menos que Dayse?"
+   e a tabela já está ordenada crescente com Dayse destacada na posição P), responda em UMA FRASE
+   citando os nomes das linhas 1..P-1 da tabela — sem inventar contagens novas. Caso contrário, emita action.
+
 | Padrão de pergunta | Action OBRIGATÓRIA |
 |---|---|
 | "designações de X", "o que X tem", "partes de X", "X está em que partes?", "onde X está?" | QUERY_PUBLISHER_ASSIGNMENTS |
@@ -906,11 +927,11 @@ NÃO duplique o conteúdo em prosa — a UI renderiza o resultado da action.
 | "partes vagas/pendentes da semana X", "o que falta designar?" | QUERY_VACANT_PARTS |
 | "X é elegível para [parte]?", "X pode fazer [parte]?", "X está apto para [parte]?" | QUERY_ELIGIBILITY |
 | "perfil de X", "dados de X", "me fale sobre X", "informações de X" | QUERY_PUBLISHER_PROFILE |
-| "liste publicadores [filtro]", "quem são os anciãos?", "quem está inativo?" | QUERY_PUBLISHER_LIST |
+| "liste publicadores [filtro de CADASTRO sem agregação]", "quem são os anciãos?", "quem está inativo?" | QUERY_PUBLISHER_LIST |
 | "X está em cooldown?", "X está bloqueado?", "participações recentes de X" | QUERY_COOLDOWN_STATUS |
 | "quando X fez [parte] pela última vez?", "última participação de X" | QUERY_LAST_PARTICIPATION |
 | "quais semanas têm partes pendentes?", "o que falta designar no ciclo?" | QUERY_PENDING_WEEKS |
-| "ranking de X", "ordene por", "top N", "compare", "quantos por [grupo]", "irmãs com menos participações", "posição de X" | QUERY_ANALYTICS |
+| "ranking", "ordene por participação", "top N", "compare", "quantos por [grupo]", "quem participou menos", "posição de X", "liste irmãs/irmãos por participação/FSM/Tesouros/NVC" | QUERY_ANALYTICS |
 
 DOCUMENTAÇÃO DAS QUERY ACTIONS:
 
