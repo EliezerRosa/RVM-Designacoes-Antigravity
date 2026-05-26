@@ -112,6 +112,101 @@ function toGeminiResponse(text: string, usage?: { input: number; output: number 
     };
 }
 
+/**
+ * 2026-05-26: Sanitiza texto de resposta do LLM normalizando blocos de ação.
+ *
+ * Problema observado (modelos fracos: Cloudflare, DeepSeek, às vezes Mistral):
+ * emitem o JSON de action SEM o fence ```json ... ```. O parser de actions no
+ * cliente é tolerante (aceita bare), mas o stripper visual só remove fenced —
+ * resultado: JSON cru vaza para a UI.
+ *
+ * Solução: aqui, antes de enviar ao cliente, encontramos todo objeto JSON
+ * (fenced ou bare) que tenha chave "type" (assinatura de uma action) e
+ * re-emitimos canonicamente entre ```json fences```. Assim:
+ *   - O detector de actions continua funcionando (achava em ambos os formatos).
+ *   - O stripper visual passa a limpar TUDO (porque agora tudo está fenced).
+ *   - O cache armazena a versão já normalizada.
+ *   - Backwards-compat: respostas já fenced passam inalteradas.
+ */
+function sanitizeAgentResponseText(text: string): string {
+    if (!text || typeof text !== 'string') return text;
+
+    // 1) Marca ranges já fenced (não mexer)
+    const fencedRanges: Array<[number, number]> = [];
+    const fenceRegex = /```json\s*[\s\S]*?```/gi;
+    let fm: RegExpExecArray | null;
+    while ((fm = fenceRegex.exec(text)) !== null) {
+        fencedRanges.push([fm.index, fm.index + fm[0].length]);
+    }
+    const isInsideFence = (idx: number) =>
+        fencedRanges.some(([s, e]) => idx >= s && idx < e);
+
+    // 2) Varre objetos JSON bare {...} contendo "type"
+    const replacements: Array<{ start: number; end: number; canonical: string }> = [];
+    let i = 0;
+    while (i < text.length) {
+        if (text[i] !== '{' || isInsideFence(i)) { i++; continue; }
+
+        let braceCount = 0;
+        let inString = false;
+        let escape = false;
+        let endIdx = -1;
+        for (let j = i; j < text.length; j++) {
+            const ch = text[j];
+            if (escape) { escape = false; continue; }
+            if (ch === '\\') { escape = true; continue; }
+            if (ch === '"') inString = !inString;
+            if (!inString) {
+                if (ch === '{') braceCount++;
+                else if (ch === '}') {
+                    braceCount--;
+                    if (braceCount === 0) { endIdx = j; break; }
+                }
+            }
+        }
+        if (endIdx === -1) { i++; continue; }
+
+        const candidate = text.substring(i, endIdx + 1);
+        try {
+            const parsed = JSON.parse(candidate);
+            if (parsed && typeof parsed === 'object' && typeof (parsed as { type?: unknown }).type === 'string') {
+                replacements.push({
+                    start: i,
+                    end: endIdx + 1,
+                    canonical: '```json\n' + JSON.stringify(parsed, null, 2) + '\n```',
+                });
+                i = endIdx + 1;
+                continue;
+            }
+        } catch { /* não é JSON válido, pular */ }
+        i++;
+    }
+
+    if (replacements.length === 0) return text;
+
+    // 3) Aplica de trás pra frente pra preservar índices
+    let out = text;
+    for (const r of replacements.sort((a, b) => b.start - a.start)) {
+        out = out.substring(0, r.start) + r.canonical + out.substring(r.end);
+    }
+    return out;
+}
+
+/** Aplica sanitizeAgentResponseText em todos os parts.text de um payload Gemini. */
+function sanitizeGeminiPayload(data: unknown): void {
+    const candidates = (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })?.candidates;
+    if (!Array.isArray(candidates)) return;
+    for (const cand of candidates) {
+        const parts = cand?.content?.parts;
+        if (!Array.isArray(parts)) continue;
+        for (const part of parts) {
+            if (part && typeof part.text === 'string') {
+                part.text = sanitizeAgentResponseText(part.text);
+            }
+        }
+    }
+}
+
 // ─── ADAPTERS ─────────────────────────────────────────────────────────────────
 
 async function callGemini(
@@ -338,6 +433,11 @@ export default async function handler(request: Request) {
                 // Se sucesso (200), retorna imediatamente
                 if (result.ok) {
                     const data = result.data;
+
+                    // 2026-05-26: sanitiza JSON bare → fenced ANTES de cachear/retornar.
+                    // Modelos fracos (Cloudflare/DeepSeek) emitem actions sem ```json fence```,
+                    // o que fazia o JSON cru vazar pra UI. Aqui canonicalizamos.
+                    sanitizeGeminiPayload(data);
 
                     // --- CACHE SAVE ---
                     if (promptHash && process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {

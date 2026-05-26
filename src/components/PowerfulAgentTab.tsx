@@ -172,9 +172,16 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     };
 
     // Callback de navegação do carrossel (Manual)
+    // 2026-05-26: valida weekId contra weekOrder antes de aplicar — defesa em
+    // profundidade. Sem isso, qualquer caminho que chame onNavigateToWeek com
+    // weekId inválido contamina o state do tab (pill mostra semana fantasma).
     const handleCarouselNavigation = (weekId: string) => {
+        if (!weekId) return;
+        if (weekOrder.length > 0 && !weekOrder.includes(weekId)) {
+            console.warn(`[AgentTab] Ignorando navegação para semana inexistente: ${weekId} (range: ${weekOrder[0]} → ${weekOrder[weekOrder.length - 1]})`);
+            return;
+        }
         setCurrentWeekId(weekId);
-        // console.log(`[AgentTab] Usuário navegou para: ${weekId}`);
     };
 
     // Estilos — usando classes CSS para responsividade (ver App.css .agent-tab-*)
