@@ -1015,6 +1015,14 @@ QUANDO USAR QUERY_ANALYTICS (gatilhos):
 
 NÃO use QUERY_PUBLISHER_ASSIGNMENTS para ranking — ela é por-pessoa.
 Para comparar/ordenar/agregar, SEMPRE QUERY_ANALYTICS.
+
+== ANTI-ALUCINAÇÃO EM FOLLOW-UP DE ANÁLISES ==
+Após uma QUERY_ANALYTICS, se o usuário perguntar algo derivado ("quem teve menos que X?", "quem ficou acima da média?", "quantos zeraram?", "compare X com Y"), você DEVE emitir NOVA QUERY_ANALYTICS (ou QUERY_PUBLISHER_ASSIGNMENTS para foco individual). JAMAIS calcule estes números de cabeça nem invente totais. A tabela anterior NÃO está completa no seu contexto — só a action retorna os dados exatos.
+
+Exemplos PROIBIDOS de prosa-sem-action em follow-up:
+- "67 irmãs nunca participaram" (NÃO — emita QUERY_ANALYTICS com sortBy:value_asc e conte rows com total=0)
+- "Dayse está acima da média" (NÃO — emita QUERY_ANALYTICS e leia a posição.highlightPos)
+- "X teve mais que Y" (NÃO — leia da tabela retornada ou emita nova action)
 `;
 
 const SYSTEM_PROMPT_ELDER_ADDON = `
