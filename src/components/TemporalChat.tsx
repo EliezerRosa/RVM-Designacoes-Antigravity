@@ -807,6 +807,26 @@ export default function TemporalChat({
         const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
         if (!t || t.length < 4) return null;
 
+        // GUARD ANALÍTICO: se a pergunta tem sinais de agregação/ranking/participação,
+        // delega ao L0 Router em askAgent (que monta QUERY_ANALYTICS). Senão, esse
+        // fast-path captura "liste irmãs" → QUERY_PUBLISHER_LIST e perde a análise.
+        const analyticsMarkers = [
+            'ranking', 'rankear', 'ranquear',
+            'ordene', 'ordenar', 'ordena', 'ordenadas', 'ordenados',
+            'crescente', 'decrescente',
+            'participacao', 'participacoes', 'participaram', 'participou',
+            'compare', 'comparar', 'comparacao',
+            'menos que', 'mais que', 'acima da media', 'abaixo da media',
+            'zeraram', 'nunca participaram', 'posicao de', 'posicao da', 'posicao do',
+            'menor participacao', 'maior participacao',
+            'menos participacao', 'mais participacao',
+            'top '
+        ];
+        if (analyticsMarkers.some(m => t.includes(m))) {
+            console.log('[TemporalChat] Fast-path SKIP (sinal analítico) →', t);
+            return null;
+        }
+
         const normName = (s: string) => s.trim().replace(/\s+/g, ' ');
 
         // Tenta resolver um nome de publicador no texto (substring match)
