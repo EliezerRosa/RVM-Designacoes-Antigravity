@@ -21,6 +21,7 @@ import { PermissionManager } from '../components/admin/PermissionManager';
 import { EngineRulesPanel } from '../components/admin/EngineRulesPanel';
 import { PublisherFormLinkManager } from '../components/admin/PublisherFormLinkManager';
 import { AvailabilityLinkManager } from '../components/admin/AvailabilityLinkManager';
+import { OrphanAuditPanel } from '../components/admin/OrphanAuditPanel';
 import { useAuth } from '../context/AuthContext';
 
 interface SystemLog {
@@ -31,7 +32,7 @@ interface SystemLog {
     created_at: string;
 }
 
-type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability';
+type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans';
 
 const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }> = [
     { id: 'overview', label: 'Visão Geral', eyebrow: 'Core' },
@@ -41,6 +42,7 @@ const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }>
     { id: 'engine', label: 'Motor de Rotação', eyebrow: 'Regras' },
     { id: 'links', label: 'Links de Form', eyebrow: 'Publicadores' },
     { id: 'availability', label: 'Disponibilidade', eyebrow: 'Links' },
+    { id: 'orphans', label: 'Auditoria de Órfãs', eyebrow: 'Importação' },
 ];
 
 export function AdminDashboard() {
@@ -464,6 +466,15 @@ export function AdminDashboard() {
                                     <div style={{ padding: '16px' }}>
                                         <AvailabilityLinkManager adminEmail={profile?.email ?? undefined} />
                                     </div>
+                                </div>
+                            </section>
+
+                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Auditoria de Órfãs">
+                                <div className="table-card admin-panel-card">
+                                    <div className="table-header">
+                                        <h3>🔍 Auditoria de Designações Órfãs</h3>
+                                    </div>
+                                    <OrphanAuditPanel />
                                 </div>
                             </section>
                         </div>
