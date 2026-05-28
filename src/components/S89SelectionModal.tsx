@@ -468,13 +468,21 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const currentPartNumber = extractPartNumber(part.tituloParte || part.tipoParte);
 
             let assistantName: string | undefined;
+            // Parte canônica usada para gerar o PDF S-89: sempre o Titular.
+            // Garante que o cartão enviado ao Ajudante seja IDÊNTICO ao do Titular
+            // (Titular ocupa o slot "Nome do Estudante", Ajudante ocupa o slot "Ajudante").
+            let partForPdf: WorkbookPart = part;
 
             if (isAjudante) {
                 // Find Titular
-                /* const titular = weekParts.find(p => {
+                const titular = weekParts.find(p => {
                     const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
                     return pNum === currentPartNumber && p.funcao === 'Titular' && p.id !== part.id;
-                }); */
+                });
+                if (titular) {
+                    partForPdf = titular;
+                    assistantName = part.resolvedPublisherName || part.rawPublisherName;
+                }
             } else {
                 // Find Assistant
                 const assistant = weekParts.find(p => {
@@ -528,7 +536,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
             // 2. Capturar imagem se for estudante
             if (isStudent) {
-                const success = await copyS89ToClipboard(part, assistantName, meetingDayOfWeek);
+                const success = await copyS89ToClipboard(partForPdf, assistantName, meetingDayOfWeek);
                 if (!success) {
                     console.warn('Falha ao gerar imagem do cartão S-89. Continuando apenas com texto.');
                 }
