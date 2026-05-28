@@ -457,40 +457,55 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const getPublisher = (name?: string) => publishers.find(p => p.name === name);
     const hasConfirmationLink = (message: string) => /portal=confirm/i.test(message) && /token=/i.test(message);
 
+    /**
+     * Resolve os parâmetros do cartão S-89 para qualquer parte:
+     * - `partForPdf`: sempre o Titular (ou a própria parte se for titular)
+     * - `assistantName`: nome do Ajudante, se houver
+     * - `isStudent`: se a parte pertence à Escola do Ministério
+     */
+    const resolveS89CardParams = (part: WorkbookPart) => {
+        const isAjudante = part.funcao === 'Ajudante';
+        const currentPartNumber = extractPartNumber(part.tituloParte || part.tipoParte);
+        let partForPdf: WorkbookPart = part;
+        let assistantName: string | undefined;
+
+        if (isAjudante) {
+            const titular = weekParts.find(p => {
+                const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
+                return pNum === currentPartNumber && p.funcao === 'Titular' && p.id !== part.id;
+            });
+            if (titular) {
+                partForPdf = titular;
+                assistantName = part.resolvedPublisherName || part.rawPublisherName;
+            }
+        } else {
+            const assistant = weekParts.find(p => {
+                const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
+                return pNum === currentPartNumber && p.funcao === 'Ajudante' && p.id !== part.id;
+            });
+            assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
+        }
+
+        const pType = (part.tipoParte || '').toLowerCase();
+        const pSection = (part.section || '').toLowerCase();
+        const isStudent = pSection.includes('ministério') ||
+            pSection.includes('ministerio') ||
+            pType.includes('leitura') ||
+            pType.includes('conversa') ||
+            pType.includes('revisita') ||
+            pType.includes('estudo');
+
+        return { partForPdf, assistantName, isStudent };
+    };
+
     const handleSend = async (part: WorkbookPart) => {
         setProcessingIds(prev => new Set(prev).add(part.id));
         try {
-            const isAjudante = part.funcao === 'Ajudante';
             const publisherName = part.resolvedPublisherName || part.rawPublisherName;
             const foundPublisher = getPublisher(publisherName);
             const phone = foundPublisher?.phone;
 
-            const currentPartNumber = extractPartNumber(part.tituloParte || part.tipoParte);
-
-            let assistantName: string | undefined;
-            // Parte canônica usada para gerar o PDF S-89: sempre o Titular.
-            // Garante que o cartão enviado ao Ajudante seja IDÊNTICO ao do Titular
-            // (Titular ocupa o slot "Nome do Estudante", Ajudante ocupa o slot "Ajudante").
-            let partForPdf: WorkbookPart = part;
-
-            if (isAjudante) {
-                // Find Titular
-                const titular = weekParts.find(p => {
-                    const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
-                    return pNum === currentPartNumber && p.funcao === 'Titular' && p.id !== part.id;
-                });
-                if (titular) {
-                    partForPdf = titular;
-                    assistantName = part.resolvedPublisherName || part.rawPublisherName;
-                }
-            } else {
-                // Find Assistant
-                const assistant = weekParts.find(p => {
-                    const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
-                    return pNum === currentPartNumber && p.funcao === 'Ajudante' && p.id !== part.id;
-                });
-                assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
-            }
+            const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part);
 
             // Obter mensagem (pode estar undefined se validParts acabou de ser populado)
             let message = editingMessages[part.id];
@@ -524,23 +539,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 return;
             }
 
-            // 1. Identificar se a parte é de Estudante (Escola do Ministério)
-            //    Usado para: (a) marcar metadata, (b) adaptar o cartão S-89 —
-            //    quando NÃO for estudante, ocultamos a linha "Ajudante:" e o
-            //    trecho "para o estudante" no rodapé do template.
-            const pType = (part.tipoParte || '').toLowerCase();
-            const pSection = (part.section || '').toLowerCase();
-            const isStudent = pSection.includes('ministério') ||
-                pSection.includes('ministerio') ||
-                pType.includes('leitura') ||
-                pType.includes('conversa') ||
-                pType.includes('revisita') ||
-                pType.includes('estudo');
-
-            // 2. Gerar e copiar imagem do cartão S-89 para TODAS as partes
-            //    (presidente, oração, discursos, estudante etc.). A flag
-            //    `forStudent` controla a oclusão visual dos elementos
-            //    específicos de estudante no template.
+            // 1. Gerar e copiar imagem do cartão S-89 para TODAS as partes.
+            //    `forStudent` controla a oclusão visual dos elementos de estudante.
             {
                 const success = await copyS89ToClipboard(partForPdf, assistantName, meetingDayOfWeek, isStudent);
                 if (!success) {
@@ -548,7 +548,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 }
             }
 
-            // 3. Registrar no histórico de notificações
+            // 2. Registrar no histórico de notificações
             await communicationService.logNotification({
                 type: 'S89',
                 recipient_name: publisherName,
@@ -601,6 +601,16 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             if (!content || !/https?:\/\//i.test(content)) {
                 alert('Não foi possível gerar o link de re-confirmação para esta designação.');
                 return;
+            }
+
+            // Copiar imagem do cartão S-89 para a área de transferência —
+            // mesmo comportamento do envio inicial.
+            {
+                const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part);
+                const success = await copyS89ToClipboard(partForPdf, assistantName, meetingDayOfWeek, isStudent);
+                if (!success) {
+                    console.warn('[Reconfirmação] Falha ao gerar imagem do cartão S-89. Continuando apenas com texto.');
+                }
             }
 
             await communicationService.logNotification({
