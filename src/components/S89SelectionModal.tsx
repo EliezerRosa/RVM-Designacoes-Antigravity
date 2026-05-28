@@ -524,7 +524,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 return;
             }
 
-            // 1. Identificar se é Estudante (Para Image Capture)
+            // 1. Identificar se a parte é de Estudante (Escola do Ministério)
+            //    Usado para: (a) marcar metadata, (b) adaptar o cartão S-89 —
+            //    quando NÃO for estudante, ocultamos a linha "Ajudante:" e o
+            //    trecho "para o estudante" no rodapé do template.
             const pType = (part.tipoParte || '').toLowerCase();
             const pSection = (part.section || '').toLowerCase();
             const isStudent = pSection.includes('ministério') ||
@@ -534,9 +537,12 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 pType.includes('revisita') ||
                 pType.includes('estudo');
 
-            // 2. Capturar imagem se for estudante
-            if (isStudent) {
-                const success = await copyS89ToClipboard(partForPdf, assistantName, meetingDayOfWeek);
+            // 2. Gerar e copiar imagem do cartão S-89 para TODAS as partes
+            //    (presidente, oração, discursos, estudante etc.). A flag
+            //    `forStudent` controla a oclusão visual dos elementos
+            //    específicos de estudante no template.
+            {
+                const success = await copyS89ToClipboard(partForPdf, assistantName, meetingDayOfWeek, isStudent);
                 if (!success) {
                     console.warn('Falha ao gerar imagem do cartão S-89. Continuando apenas com texto.');
                 }
