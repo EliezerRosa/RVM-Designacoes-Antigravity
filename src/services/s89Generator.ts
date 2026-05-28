@@ -299,6 +299,8 @@ export function generateWhatsAppMessage(
 
     let msg = `Olá *${salutation} ${studentName}*! 👋\n`;
     msg += `*SUA FUNÇÃO: ${highlightFunction}*\n`;
+    const partLabel = part.tituloParte || part.tipoParte || '';
+    if (partLabel) msg += `📝 *Parte:* ${partLabel}\n`;
     if (isSubstitution) {
         msg += `\n🔄 *PEDIDO DE SUBSTITUIÇÃO*\n`;
         msg += `_Esta parte foi reatribuída a você. Pedimos a gentileza de avaliar e responder o quanto antes._\n`;
