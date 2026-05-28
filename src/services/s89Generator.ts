@@ -277,7 +277,7 @@ export function generateWhatsAppMessage(
         msg += `👤 *Responsável RVM:* ${srvmName} (${srvmPhone})\n`;
         let cleaned = srvmPhone.replace(/[^0-9]/g, '');
         if (cleaned && cleaned.length <= 11 && !cleaned.startsWith('55')) cleaned = '55' + cleaned;
-        msg += `📱 *Falar com ele (Zap):* https://wa.me/${cleaned}`;
+        msg += `📱 *Falar com ele (Zap):* https://wa.me/${cleaned}\n`;
     }
 
     // Suprime warnings de variáveis hoje não utilizadas no corpo simplificado
