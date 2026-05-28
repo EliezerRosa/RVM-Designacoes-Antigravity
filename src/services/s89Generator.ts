@@ -1,4 +1,3 @@
-
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import type { WorkbookPart } from '../types';
 import { resolveAppUrl } from '../utils/appUrl';
@@ -226,97 +225,64 @@ export function generateWhatsAppMessage(
     const room = part.modalidade?.toLowerCase().includes('b') ? 'SALA B 🏛️' : 'SALÃO PRINCIPAL 🏟️';
     const time = part.horaInicio ? ` às *${part.horaInicio}*` : '';
 
-    let msg = `Olá *${salutation} ${studentName}*! 👋\n`;
-    // Determinar função em destaque (logo abaixo da saudação)
+    // Determinar nomes dos papéis (parceiro) por tipo de parte
+    const isLeitorEBC = !!(part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc'));
+    const isDirigenteEBC = !!(part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc'));
+    let partnerRoleName: string;
+    if (isForAssistant) {
+        partnerRoleName = isLeitorEBC ? 'Dirigente' : 'Titular';
+    } else {
+        partnerRoleName = isDirigenteEBC ? 'Leitor' : 'Ajudante';
+    }
+    const partnerEmoji = isForAssistant ? '👤' : '👥';
+
+    // Função em destaque, colada à saudação
     let highlightFunction = 'TITULAR';
     if (isForAssistant) {
-        highlightFunction = (part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc'))
-            ? 'LEITOR'
-            : 'AJUDANTE';
-    } else if (part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc')) {
+        highlightFunction = isLeitorEBC ? 'LEITOR' : 'AJUDANTE';
+    } else if (isDirigenteEBC) {
         highlightFunction = 'DIRIGENTE';
     } else if (part.tipoParte?.toLowerCase().includes('presidente')) {
         highlightFunction = 'PRESIDENTE';
     } else if (part.tipoParte?.toLowerCase().includes('oração')) {
         highlightFunction = 'ORAÇÃO';
     }
-    msg += `*SUA FUNÇÃO: ${highlightFunction}*\n\n`;
+
+    let msg = `Olá *${salutation} ${studentName}*! 👋\n`;
+    msg += `*SUA FUNÇÃO: ${highlightFunction}*\n`;
     if (isSubstitution) {
-        msg += `🔄 *PEDIDO DE SUBSTITUIÇÃO*\n`;
-        msg += `_Esta parte foi reatribuída a você. Pedimos a gentileza de avaliar e responder o quanto antes._\n\n`;
+        msg += `\n🔄 *PEDIDO DE SUBSTITUIÇÃO*\n`;
+        msg += `_Esta parte foi reatribuída a você. Pedimos a gentileza de avaliar e responder o quanto antes._\n`;
     }
-    msg += `Aqui está sua designação para a reunião de *${displayDate}*:\n\n`;
     msg += `─────────────\n`;
+    msg += `📅 *Data:* ${displayDate}\n`;
+    msg += `⏰ *Início:*${time}\n\n`;
 
-    if (isForAssistant) {
-        // Mensagem para o AJUDANTE / LEITOR
-        let functionName = 'Ajudante';
-        let mainRoleName = 'Titular';
-        if (part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc')) {
-            functionName = 'Leitor';
-            mainRoleName = 'Dirigente';
-        }
-
-        msg += `${emoji} *Sua função:* ${functionName}\n`;
-        msg += `📝 *Tipo de Parte:* ${part.tipoParte}\n`;
-        if (part.tituloParte) msg += `🎯 *Tema:* ${part.tituloParte}\n`;
-        msg += `📍 *Local:* ${room}\n`;
-        msg += `⏰ *Início:*${time}\n\n`;
-
-        if (partnerName) {
-            msg += `👤 *${mainRoleName}:* ${partnerName}\n`;
-            if (partnerPhone) msg += `📱 *WhatsApp do ${mainRoleName}:* ${partnerPhone}\n\n`;
-        }
-
-        if (functionName === 'Ajudante') {
-            msg += partnerName
-                ? `Por favor, entre em contato com o titular para combinarem o ensaio. 🤝`
-                : `Aguarde o contato do titular para combinarem o ensaio. 🤝`;
-        } else {
-            msg += `Lembre-se de revisar os parágrafos com antecedência. O dirigente poderá alinhar detalhes com você. 🤝`;
-        }
-    } else {
-        // Mensagem para o TITULAR / DIRIGENTE
-        msg += `${emoji} *Parte:* ${part.tipoParte}\n`;
-        if (part.tituloParte) msg += `🎯 *Tema:* ${part.tituloParte}\n`;
-        msg += `📍 *Local:* ${room}\n`;
-        msg += `⏰ *Início:*${time}\n\n`;
-
-        if (partnerName) {
-            let roleName = 'Ajudante';
-            if (part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc')) {
-                roleName = 'Leitor';
-            }
-
-            msg += `👥 *${roleName}:* ${partnerName}\n`;
-            if (partnerPhone) msg += `📱 *WhatsApp do ${roleName}:* ${partnerPhone}\n\n`;
-            
-            if (roleName === 'Ajudante') {
-                msg += `Por favor, entre em contato com o ajudante para combinarem o ensaio. 🤝\n\n`;
-            } else {
-                msg += `Sinta-se à vontade para combinar os detalhes e andamento da leitura com ele. 📖\n\n`;
-            }
-        }
-
-        msg += `Bom preparo! Que Jeová abençoe seu esforço. ✨`;
+    if (partnerName) {
+        msg += `${partnerEmoji} *${partnerRoleName}:* *${partnerName}*\n`;
+        if (partnerPhone) msg += `📱 *WhatsApp do ${partnerRoleName}:* ${partnerPhone}\n`;
     }
-
-    msg += `\n─────────────\n`;
 
     if (confirmationUrl) {
+        msg += `\n─────────────\n`;
         msg += `\n👉 *CLIQUE AQUI PARA CONFIRMAR SE PODERÁ OU NÃO*\n${confirmationUrl}\n`;
     }
 
-    msg += `\n*Por favor, confirme o recebimento desta mensagem.* 🙏\n`;
+    if (!isForAssistant) {
+        msg += `\nBom preparo! Que Jeová abençoe seu esforço. ✨\n`;
+    }
 
     if (srvmName && srvmPhone) {
-        msg += `\n─────────────\n`;
+        msg += `─────────────\n`;
         msg += `👤 *Responsável RVM:* ${srvmName} (${srvmPhone})\n`;
-        // Formatar link wa.me
         let cleaned = srvmPhone.replace(/[^0-9]/g, '');
         if (cleaned && cleaned.length <= 11 && !cleaned.startsWith('55')) cleaned = '55' + cleaned;
         msg += `📱 *Falar com ele (Zap):* https://wa.me/${cleaned}`;
     }
+
+    // Suprime warnings de variáveis hoje não utilizadas no corpo simplificado
+    // (mantidas para uso em futuras variantes/locais distintos por sala)
+    void emoji; void room;
 
     return msg;
 }
@@ -358,6 +324,11 @@ export function openWhatsApp(
 /**
  * Fluxo Combinado: Baixa o S-89 e abre WhatsApp com mensagem pronta
  * O usuário só precisa arrastar o arquivo baixado para a conversa
+ *
+ * Quando `isForAssistant=true` e `titularPart` é fornecido, o PDF é gerado a
+ * partir da parte do Titular (espelhando o cartão), com o nome do Ajudante no
+ * slot "Ajudante". Garante que o cartão recebido pelo Ajudante seja IDÊNTICO
+ * ao recebido pelo Titular.
  */
 export async function sendS89ViaWhatsApp(
     part: WorkbookPart,
@@ -365,11 +336,19 @@ export async function sendS89ViaWhatsApp(
     partnerName?: string,
     partnerPhone?: string,
     phone?: string,
-    isForAssistant: boolean = false
+    isForAssistant: boolean = false,
+    titularPart?: WorkbookPart
 ): Promise<void> {
     try {
         // 1. Gerar e baixar o S-89
-        const pdfBytes = await generateS89(part, (isForAssistant ? undefined : partnerName)); // Note: Assistant on card is assistantName
+        // Espelhar o cartão do Titular quando o destinatário for o Ajudante.
+        // - Titular: part=titular, assistant=ajudanteName (= partnerName)
+        // - Ajudante: part=titularPart (se disponível), assistant=ajudanteName (= part.resolvedPublisherName)
+        const ajudanteName = isForAssistant
+            ? (part.resolvedPublisherName || part.rawPublisherName || undefined)
+            : partnerName;
+        const partForPdf = isForAssistant && titularPart ? titularPart : part;
+        const pdfBytes = await generateS89(partForPdf, ajudanteName);
         const fileName = `S-89_${part.date}_${part.resolvedPublisherName || part.rawPublisherName}.pdf`;
         downloadS89(pdfBytes, fileName);
 
