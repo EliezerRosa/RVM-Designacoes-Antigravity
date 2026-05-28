@@ -176,7 +176,10 @@ export async function generateS89(
 
     // Número da Parte (User Request: Colocar Tema/Título, mesmo truncado)
     // Coordenada PART: x: 150. Se for muito longo, truncamos para evitar sair da folha.
-    let partTitle = part.tituloParte || '';
+    // Para partes derivadas (Presidência, Oração Inicial/Final, Comentários,
+    // Leitor EBC, etc.) o título da apostila pode estar vazio — nesse caso,
+    // usamos `tipoParte` como fallback (é o que descreve a parte ao destinatário).
+    let partTitle = part.tituloParte || part.tipoParte || '';
     if (partTitle.length > 60) {
         partTitle = partTitle.substring(0, 57) + '...';
     }
