@@ -73,9 +73,24 @@ async function getMeetingDayOfWeekFromSettings(weekId?: string): Promise<number>
 }
 
 /**
- * Gera o PDF do formulário S-89 preenchido
+ * Gera o PDF do formulário S-89 preenchido.
+ *
+ * @param forStudent  Quando `false`, o formulário é gerado para uma parte
+ *                    que NÃO é de estudante (ex.: presidente, oração,
+ *                    discurso de Tesouros, Vida Cristã). Nesse caso, são
+ *                    suprimidos visualmente:
+ *                      - a linha "Ajudante: ____" (label + pontilhado);
+ *                      - o trecho "para o estudante" em "Observação para o
+ *                        estudante:" do rodapé.
+ *                    O texto "Observação:" é redesenhado por cima da área
+ *                    coberta para preservar a legibilidade do parágrafo.
  */
-export async function generateS89(part: WorkbookPart, assistantName?: string, meetingDayOfWeek?: number): Promise<Uint8Array> {
+export async function generateS89(
+    part: WorkbookPart,
+    assistantName?: string,
+    meetingDayOfWeek?: number,
+    forStudent: boolean = true
+): Promise<Uint8Array> {
     const path = resolveAppUrl('S-89_T.pdf');
 
     const templateBytes = await fetch(path).then(res => {
@@ -88,7 +103,38 @@ export async function generateS89(part: WorkbookPart, assistantName?: string, me
     const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // Nome do Estudante 
+    // Para partes que não são de estudante: cobrir trechos do template que
+    // não fazem sentido (linha do Ajudante + "para o estudante" na obs).
+    if (!forStudent) {
+        const { width: pageWidth } = page.getSize();
+        // 1) Linha "Ajudante: ___________" (label + pontilhado)
+        page.drawRectangle({
+            x: 0,
+            y: 238,
+            width: pageWidth,
+            height: 18,
+            color: rgb(1, 1, 1),
+        });
+        // 2) "para o estudante" do rodapé "Observação para o estudante:"
+        //    (cobre " para o estudante" e mantém "Observação" + ":")
+        page.drawRectangle({
+            x: 67,
+            y: 79,
+            width: 92,
+            height: 13,
+            color: rgb(1, 1, 1),
+        });
+        // Redesenha o ":" colado ao "Observação"
+        page.drawText(':', {
+            x: 67,
+            y: 81,
+            size: FONT_SIZE.DEFAULT,
+            font: fontBold,
+            color: rgb(0, 0, 0),
+        });
+    }
+
+    // Nome do Estudante (ou do publicador, se não-estudante)
     const studentName = part.resolvedPublisherName || part.rawPublisherName || '';
 
     page.drawText(studentName, {
@@ -99,8 +145,8 @@ export async function generateS89(part: WorkbookPart, assistantName?: string, me
         color: rgb(0, 0, 0),
     });
 
-    // Ajudante (Opcional)
-    if (assistantName) {
+    // Ajudante (Opcional) — só desenhado quando a parte é de estudante
+    if (forStudent && assistantName) {
         page.drawText(assistantName, {
             x: POSITIONS.ASSISTANT.x,
             y: POSITIONS.ASSISTANT.y,
@@ -337,7 +383,8 @@ export async function sendS89ViaWhatsApp(
     partnerPhone?: string,
     phone?: string,
     isForAssistant: boolean = false,
-    titularPart?: WorkbookPart
+    titularPart?: WorkbookPart,
+    forStudent: boolean = true
 ): Promise<void> {
     try {
         // 1. Gerar e baixar o S-89
@@ -348,7 +395,7 @@ export async function sendS89ViaWhatsApp(
             ? (part.resolvedPublisherName || part.rawPublisherName || undefined)
             : partnerName;
         const partForPdf = isForAssistant && titularPart ? titularPart : part;
-        const pdfBytes = await generateS89(partForPdf, ajudanteName);
+        const pdfBytes = await generateS89(partForPdf, ajudanteName, undefined, forStudent);
         const fileName = `S-89_${part.date}_${part.resolvedPublisherName || part.rawPublisherName}.pdf`;
         downloadS89(pdfBytes, fileName);
 
@@ -416,14 +463,19 @@ async function renderPdfToPngBlob(pdfBytes: Uint8Array): Promise<Blob | null> {
 /**
  * Copia a imagem FIEL do cartão S-89 (renderizada do PDF) para a área de transferência
  */
-export async function copyS89ToClipboard(part: WorkbookPart, assistantName?: string, meetingDayOfWeek?: number): Promise<boolean> {
+export async function copyS89ToClipboard(
+    part: WorkbookPart,
+    assistantName?: string,
+    meetingDayOfWeek?: number,
+    forStudent: boolean = true
+): Promise<boolean> {
     try {
         const resolvedMeetingDayOfWeek = typeof meetingDayOfWeek === 'number'
             ? normalizeMeetingDayOfWeek(meetingDayOfWeek)
             : await getMeetingDayOfWeekFromSettings(part.weekId);
 
         // 1. Gerar o PDF real (Fiel)
-        const pdfBytes = await generateS89(part, assistantName, resolvedMeetingDayOfWeek);
+        const pdfBytes = await generateS89(part, assistantName, resolvedMeetingDayOfWeek, forStudent);
 
         // 2. Renderizar PDF -> PNG (Fiel)
         const blob = await renderPdfToPngBlob(pdfBytes);
