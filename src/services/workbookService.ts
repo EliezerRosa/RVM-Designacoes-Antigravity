@@ -1034,27 +1034,72 @@ export const workbookService = {
     async markPastWeeksAsCompleted(): Promise<number> {
         const today = new Date().toISOString().split('T')[0];
 
-        // Buscar partes de semanas passadas que ainda não estão CONCLUIDA
-        const { data: pastParts, error: fetchError } = await supabase
+        // Buscar candidatas: semanas cujo início (segunda-feira) já é <= hoje.
+        // Inclui a semana atual porque a reunião pode ter ocorrido nessa semana.
+        const { data: candidateParts, error: fetchError } = await supabase
             .from('workbook_parts')
-            .select('id')
-            .lt('date', today)
+            .select('id, date')
+            .lte('date', today)
             .in('status', [WorkbookStatus.DESIGNADA, WorkbookStatus.APROVADA])
-            .not('resolved_publisher_name', 'is', null); // Só marcar partes com publicador atribuído
+            .not('resolved_publisher_name', 'is', null);
 
         if (fetchError) {
             throw new Error(`Erro ao buscar partes passadas: ${fetchError.message}`);
         }
 
-        if (!pastParts || pastParts.length === 0) {
+        if (!candidateParts || candidateParts.length === 0) {
             console.log('[workbookService] Nenhuma parte pendente para marcar como CONCLUIDA');
             return 0;
         }
 
-        const partIds = pastParts.map(p => p.id);
+        // Carregar mapa de dia da reunião por semana (gravado pelo modal S-89).
+        // Formato: { [weekId: YYYY-MM-DD]: dayOfWeek (0=dom … 6=sáb), default=4=quinta }
+        const DEFAULT_MEETING_DOW = 4;
+        let meetingDayMap: Record<string, number> = {};
+        try {
+            const { data: settingRow } = await supabase
+                .from('app_settings')
+                .select('value')
+                .eq('key', 's89_meeting_day_by_week')
+                .maybeSingle();
+            if (settingRow?.value && typeof settingRow.value === 'object') {
+                meetingDayMap = settingRow.value as Record<string, number>;
+            }
+        } catch {
+            // Falha ao carregar setting: usa default para todas as semanas
+        }
+
+        // Manter apenas partes cuja reunião já ocorreu (meetingDate <= today).
+        // meetingDate = segunda-feira da semana + dias até o dia configurado no S-89 modal.
+        const partIds = candidateParts
+            .filter(p => {
+                const weekId = p.date; // date === weekId === segunda-feira da semana
+                const rawDow = meetingDayMap[weekId];
+                const dow = typeof rawDow === 'number' && rawDow >= 0 && rawDow <= 6
+                    ? rawDow
+                    : DEFAULT_MEETING_DOW;
+                // Calcular data real da reunião a partir da segunda-feira
+                const [y, m, d] = weekId.split('-').map(Number);
+                const monday = new Date(y, m - 1, d); // midnight local
+                const daysToMeeting = (dow - monday.getDay() + 7) % 7;
+                monday.setDate(monday.getDate() + daysToMeeting);
+                const meetingDateStr = [
+                    monday.getFullYear(),
+                    String(monday.getMonth() + 1).padStart(2, '0'),
+                    String(monday.getDate()).padStart(2, '0'),
+                ].join('-');
+                return meetingDateStr <= today;
+            })
+            .map(p => p.id);
+
+        if (partIds.length === 0) {
+            console.log('[workbookService] Nenhuma parte com reunião já realizada para marcar como CONCLUIDA');
+            return 0;
+        }
+
         await this.markAsCompleted(partIds);
 
-        console.log(`[workbookService] ${partIds.length} partes de semanas passadas marcadas como CONCLUIDA`);
+        console.log(`[workbookService] ${partIds.length} partes marcadas como CONCLUIDA (reunião já ocorreu)`);
         return partIds.length;
     },
 
