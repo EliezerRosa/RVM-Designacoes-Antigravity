@@ -28,26 +28,11 @@ export type ParticipationCategory = 'MAIN' | 'HELPER' | 'IGNORED';
  * MAIN = conta para bloqueio, HELPER = pouco peso, IGNORED = não conta
  */
 export function getParticipationCategory(tipoParte: string, funcao: string = 'Titular'): ParticipationCategory {
-    // 1. Ajudante SEMPRE tem peso mínimo
-    if (funcao === 'Ajudante') return 'HELPER';
-
     const lower = tipoParte?.toLowerCase() || '';
 
-    // 2. Presidente conta como MAIN para bloqueio (garante rotação entre anciãos)
-    if (lower.includes('presidente')) {
-        return 'MAIN';
-    }
-
-    // 3. Oração Final conta como MAIN para rotação entre irmãos qualificados
-    if (lower.includes('oração final') || lower.includes('oracao final')) {
-        return 'MAIN';
-    }
-
-    // 4. IGNORADOS: Oração Inicial, NL, Cânticos, e partes secundárias da Presidência - NÃO CONTAM para bloqueio
-    if (lower.includes('oração inicial') ||
-        lower.includes('oracao inicial') ||
-        lower.includes('oração') && !lower.includes('final') ||
-        lower.includes('oracao') && !lower.includes('final') ||
+    // IGNORADOS: Qualquer oração (inicial ou final), NL, Cânticos, e partes secundárias da Presidência
+    if (lower.includes('oração') ||
+        lower.includes('oracao') ||
         lower.includes('necessidades') ||
         lower.includes('cântico') ||
         lower.includes('cantico') ||
@@ -61,7 +46,8 @@ export function getParticipationCategory(tipoParte: string, funcao: string = 'Ti
         return 'IGNORED';
     }
 
-    // 3. MAIN: Todo o resto conta para bloqueio
+    // MAIN: qualquer papel (Titular ou Ajudante) em qualquer outra parte conta para bloqueio.
+    // Ajudante deixou de ser HELPER — gap de 3 semanas vale para ambos os papéis.
     return 'MAIN';
 }
 
