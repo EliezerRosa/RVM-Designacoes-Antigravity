@@ -1392,9 +1392,14 @@ export async function askAgent(
     }
 
     const requestBody = {
+      // systemInstruction é o campo correto para a instrução de sistema.
+      // Para Gemini: tratado nativamente. Para Mistral/DeepSeek (via extractMessages
+      // em api/chat.ts): convertido para { role: 'system', content: ... }.
+      // ANTES era embutido como 1ª mensagem user → providers não-Gemini ignoravam.
+      systemInstruction: {
+        parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }]
+      },
       contents: [
-        { role: 'user', parts: [{ text: `${systemPrompt}\n\n${rulesText}\n\n${contextText}${sensitiveContextText}` }] },
-        { role: 'model', parts: [{ text: 'Entendido! Assistente RVM disponível.' }] },
         ...recentChat,
         { role: 'user', parts: currentUserParts },
       ],
