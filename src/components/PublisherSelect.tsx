@@ -469,7 +469,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         borderTop: '1px solid rgba(255,255,255,0.1)',
                     }}>
                         <div style={{ color: '#fcd34d', fontWeight: 'bold', marginBottom: '4px' }}>
-                            🔁 Motor automático evitaria
+                            🔁 Preferência do Motor automático (não bloqueia manual)
                         </div>
                         {motorWarnings.map((w, idx) => (
                             <div key={idx} style={{
@@ -478,7 +478,9 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                                 marginBottom: '3px',
                                 lineHeight: 1.35,
                             }}>
-                                {w.kind === 'alternation' ? '↔️ ' : '👥 '}{w.message}
+                                {w.kind === 'alternation'
+                                    ? <><strong>↔️ Alternância de função (FSM):</strong> {w.message}</>
+                                    : <><strong>👥 Repetição de par (demonstração):</strong> {w.message}</>}
                             </div>
                         ))}
                     </div>
@@ -487,6 +489,9 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 {/* Score Unificado + Contexto de Proximidade de Papel Pesado */}
                 {foundPublisher && (() => {
                     const sd = calculateScore(foundPublisher, part.tipoParte, historyRecords.filter(h => h.weekId !== part.weekId), referenceDate, currentPresident);
+                    const ci = selectedCooldownInfo; // parte PRINCIPAL mais próxima (passado/futuro)
+                    const lastWeekLabel = ci ? (ci.weekDisplay || formatWeekFromDate(ci.lastDate || '')) : '';
+                    const lastIsFuture = ci ? ((ci.lastDate || '') > toLocalISODate()) : false;
                     return (
                         <div style={{
                             marginTop: '8px',
@@ -495,18 +500,40 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             fontSize: '0.8em',
                             color: '#9ca3af'
                         }}>
-                            <div>📊 {sd.explanation}</div>
-                            <div style={{ marginTop: '2px', fontSize: '0.9em', color: '#6b7280', fontStyle: 'italic' }}>
-                                ⚠️ Freq. recente pesa mais que tempo parado.
+                            <div>📊 <strong>Pontuação:</strong> {sd.explanation}</div>
+
+                            {/* 2) Carga recente (frequência) — QUANTIFICADA */}
+                            <div style={{ marginTop: '4px', color: '#d1d5db' }}>
+                                🔢 <strong>Carga recente (frequência):</strong> {sd.details.recentCount} parte{sd.details.recentCount === 1 ? '' : 's'} nas últimas 12 semanas{sd.details.frequencyPenalty > 0 ? <> → <span style={{ color: '#fca5a5' }}>−{sd.details.frequencyPenalty} pts</span></> : null}
                             </div>
+
+                            {/* 3) Última parte principal + zona de bloqueio duro */}
+                            <div style={{ marginTop: '4px', color: '#d1d5db' }}>
+                                📅 <strong>{lastIsFuture ? 'Próxima parte principal:' : 'Última parte principal:'}</strong>{' '}
+                                {ci
+                                    ? <>{lastWeekLabel} <span style={{ color: '#9ca3af' }}>({ci.lastPartType})</span></>
+                                    : <span style={{ color: '#9ca3af' }}>nenhuma registrada</span>}
+                                {ci && (
+                                    ci.isInCooldown ? (
+                                        <span style={{ marginLeft: '6px', padding: '1px 6px', background: 'rgba(239,68,68,0.22)', borderRadius: '4px', color: '#fca5a5', fontWeight: 'bold', fontSize: '0.9em' }}>
+                                            🔒 BLOQUEIO DURO ({ci.weeksSinceLast} de {ci.weeksSinceLast + ci.cooldownRemaining} sem)
+                                        </span>
+                                    ) : (
+                                        <span style={{ marginLeft: '6px', padding: '1px 6px', background: 'rgba(16,185,129,0.18)', borderRadius: '4px', color: '#6ee7b7', fontWeight: 'bold', fontSize: '0.9em' }}>
+                                            🔓 fora do bloqueio ({ci.weeksSinceLast} sem)
+                                        </span>
+                                    )
+                                )}
+                            </div>
+                            {/* 4) Proximidade de papel pesado — categoria DISTINTA das demais */}
                             {sd.details.heavyProximityPenalty > 0 ? (
                                 <div style={{ marginTop: '6px', padding: '4px 6px', background: 'rgba(239,68,68,0.18)', borderRadius: '4px', color: '#fca5a5', fontSize: '0.9em', lineHeight: 1.4 }}>
-                                    🏗️ Papel pesado próximo: −{sd.details.heavyProximityPenalty} pts
-                                    <div style={{ color: '#f87171', fontSize: '0.85em', marginTop: '2px' }}>(designação de alto peso a ≤4 semanas desta data)</div>
+                                    🏗️ <strong>Papel pesado adjacente:</strong> −{sd.details.heavyProximityPenalty} pts
+                                    <div style={{ color: '#f87171', fontSize: '0.85em', marginTop: '2px' }}>(Presidente / EBC / Discurso a ≤4 semanas desta data)</div>
                                 </div>
                             ) : (
                                 <div style={{ marginTop: '6px', color: '#6ee7b7', fontSize: '0.9em' }}>
-                                    ✓ Sem papel pesado no período adjacente (±4 semanas).
+                                    🏗️ <strong>Papel pesado adjacente:</strong> nenhum (±4 semanas).
                                 </div>
                             )}
                         </div>
