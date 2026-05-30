@@ -757,33 +757,36 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                         </>
                                                     )}
 
-                                                    {cooldown?.isInCooldown && (
-                                                        <span style={{ color: '#B45309', fontWeight: 600 }}>
-                                                            Intervalo recomendado:
+                                                    {cooldown && (
+                                                        <span style={{ color: cooldown.isInCooldown ? '#B45309' : '#047857', fontWeight: 600 }}>
+                                                            {cooldown.isInCooldown ? 'Intervalo (bloqueio duro):' : 'Última parte principal:'}
                                                         </span>
                                                     )}{' '}
-                                                    {cooldown?.isInCooldown && (
+                                                    {cooldown && (
                                                         <span>
                                                             {(() => {
                                                                 const targetRef = selectedPart.date || selectedPart.weekId || null;
                                                                 const lastRef = cooldown.lastDate || null;
                                                                 const relation = compareIsoDates(lastRef, targetRef);
                                                                 const verbPhrase = relation >= 0 ? 'está designado para realizar' : 'realizou';
-                                                                return `${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '')}; o recomendado é aguardar 3 semanas entre partes principais. `;
+                                                                const semana = cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '');
+                                                                return cooldown.isInCooldown
+                                                                    ? `${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${semana}, há ${cooldown.weeksSinceLast} semana${cooldown.weeksSinceLast === 1 ? '' : 's'} — DENTRO da zona de bloqueio duro (mínimo 3 semanas entre partes principais). `
+                                                                    : `${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${semana}, há ${cooldown.weeksSinceLast} semanas — FORA da zona de bloqueio duro. `;
                                                             })()}
                                                         </span>
                                                     )}
 
                                                     <span style={{ color: '#1D4ED8', fontWeight: 600 }}>
-                                                        Frequência recente:
+                                                        Carga recente (frequência):
                                                     </span>{' '}
                                                     <span>
-                                                        {scoreData && scoreData.details.frequencyPenalty > 100
-                                                            ? `${firstName} participou bastante nos últimos 3 meses; participação recente pesa mais no cálculo do que a vantagem de ter participado poucas vezes — a prioridade cai de forma mais acentuada.`
-                                                            : scoreData && scoreData.details.frequencyPenalty > 0
-                                                                ? `${firstName} teve algumas designações recentes; isso foi considerado no cálculo de prioridade.`
-                                                                : `${firstName} está com a agenda mais livre nos últimos 3 meses.`}
-                                                        {' '}
+                                                        {scoreData
+                                                            ? `${firstName} fez ${scoreData.details.recentCount} parte${scoreData.details.recentCount === 1 ? '' : 's'} nas últimas 12 semanas` +
+                                                              (scoreData.details.frequencyPenalty > 0
+                                                                ? ` (−${scoreData.details.frequencyPenalty} pts). Participação recente pesa mais no cálculo do que a vantagem de estar há tempo sem participar. `
+                                                                : `; agenda livre no período — sem penalidade de frequência. `)
+                                                            : ''}
                                                     </span>
 
                                                     {scoreData && (
@@ -860,9 +863,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     Critérios usados na avaliação
                                                 </div>
                                                 <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> verifica atuação ativa, desqualificação, pedido de não participação, disponibilidade na data, restrição "só ajudante", permissões por seção (Tesouros/Ministério/Vida Cristã), compatibilidade de função (Titular/Ajudante), gênero/batismo e privilégios específicos da modalidade (presidir, orar, ensinar, dirigir/ler EBC, etc.).</div>
-                                                <div><strong style={{ color: '#7C3AED' }}>Intervalo:</strong> verifica partes principais recentes (regra de 3 semanas).</div>
-                                                <div><strong style={{ color: '#0F766E' }}>Tempo desde última similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior prioridade.</div>
-                                                <div><strong style={{ color: '#B45309' }}>Frequência recente (peso dominante):</strong> participações recentes reduzem a prioridade <strong>mais</strong> do que o tempo parado aumenta. Cada participação nos últimos 3 meses penaliza −{50} pts; 2× = −10⁄0 — maior que semanas de ausência.</div>                                                <div><strong style={{ color: '#DC2626' }}>Papel pesado adjacente:</strong> cada designação de alto peso (Presidente, EBC, Discurso) nas ±4 semanas penaliza até −4000 pts em gradiente proporcional à proximidade.</div>                                                <div><strong style={{ color: '#334155' }}>Pontuação final:</strong> {scoreData.score} (base + tempo - frequência - penalidades + bônus).</div>
+                                                <div><strong style={{ color: '#7C3AED' }}>Intervalo entre partes principais (bloqueio duro):</strong> partes principais recentes bloqueiam por no mínimo 3 semanas.</div>
+                                                <div><strong style={{ color: '#0F766E' }}>Tempo desde a última parte similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior a prioridade.</div>
+                                                <div><strong style={{ color: '#B45309' }}>Carga recente (frequência) — peso dominante:</strong> conta quantas partes a pessoa fez nas últimas 12 semanas; cada uma penaliza −{50} pts, e isso pesa <strong>mais</strong> do que o tempo parado adiciona.</div>                                                <div><strong style={{ color: '#DC2626' }}>Papel pesado adjacente:</strong> cada designação de alto peso (Presidente, EBC, Discurso) nas ±4 semanas penaliza até −4000 pts em gradiente proporcional à proximidade.</div>                                                <div><strong style={{ color: '#334155' }}>Pontuação final:</strong> {scoreData.score} (base + tempo - frequência - penalidades + bônus).</div>
                                             </div>
                                         )}
 
