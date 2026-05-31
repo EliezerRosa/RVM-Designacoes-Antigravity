@@ -166,7 +166,7 @@ export function useAuthenticatedAppData({ onInitialTabResolved, onCriticalError 
             } finally {
               isPartsProcessing = false;
             }
-          }, 1000);
+          }, 350);
         },
       )
       .subscribe();
@@ -196,6 +196,37 @@ export function useAuthenticatedAppData({ onInitialTabResolved, onCriticalError 
       supabase.removeChannel(partsChannel);
     };
   }, []);
+
+  // Realtime: engine_config (app_settings) — propaga ajustes do Motor para todos
+  // os usuários sem reload. Ao mudar a config, reaplica updateRotationConfig e
+  // re-hidrata as listas para recomputar pontuações imediatamente.
+  useEffect(() => {
+    const ch = supabase
+      .channel('app-settings-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_settings' },
+        async (payload: { new?: Record<string, unknown> | null; old?: Record<string, unknown> | null }) => {
+          const key = (payload.new?.key as string | undefined) ?? (payload.old?.key as string | undefined);
+          if (key && key !== 'engine_config') return;
+          try {
+            const cfg = await api.getSetting<any>('engine_config', null);
+            if (cfg) {
+              console.log('[REALTIME] engine_config changed, applying...');
+              updateRotationConfig(cfg);
+              void refreshAllData();
+            }
+          } catch (err) {
+            console.warn('[REALTIME] Failed to apply engine_config:', err);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [refreshAllData]);
 
   // Re-hidratação ao retomar (acordar de hibernação / voltar a aba / reconectar).
   // Sem isso, leituras abortadas durante o refresh do token deixam as colunas
