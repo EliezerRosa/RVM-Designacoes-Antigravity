@@ -228,7 +228,8 @@ export function calculateScore(
     const pType = partType.toLowerCase();
 
     const isMine = (h: HistoryRecord) =>
-        (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
+        (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name ||
+            (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id)) &&
         isStatPart(h.tipoParte || h.funcao);
 
     // PASSADO ESTRITO (Time Bonus): h.date < refDate
@@ -314,7 +315,7 @@ export function calculateScore(
         const hwStartStr = new Date(refMs - hwWinMs).toISOString().split('T')[0];
         const hwEndStr = new Date(refMs + hwWinMs).toISOString().split('T')[0];
         for (const h of history) {
-            const isThisPublisher = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
+            const isThisPublisher = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name || (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id);
             if (!isThisPublisher) continue;
             const d = h.date || '';
             if (!d || d === refDateStrForFilter) continue;
@@ -495,7 +496,8 @@ export function generateNaturalLanguageExplanation(
 
     const allHistory = history
         .filter(h =>
-            (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name) &&
+            (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name ||
+                (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id)) &&
             h.date < refDateStr &&
             isStatPart(h.tipoParte || h.funcao)
         )

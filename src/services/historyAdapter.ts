@@ -34,6 +34,7 @@ export function workbookPartToHistoryRecord(part: WorkbookPart): HistoryRecord {
         rawPublisherName: part.rawPublisherName,
         // SIMPLIFICADO: apenas nome
         resolvedPublisherName: part.resolvedPublisherName,
+        resolvedPublisherId: part.resolvedPublisherId,
         status: HistoryStatus.APPROVED, // COMPLETED/PROMOTED = participação válida
         importSource: 'Excel',
         importBatchId: part.batch_id || '',
@@ -81,8 +82,10 @@ export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
     const data = await fetchAllRows<Record<string, unknown>>(
         'workbook_parts',
         (query) => query
-            // NÃO FILTRAR POR STATUS - carregar todas que têm publicador atribuído
-            .not('resolved_publisher_name', 'is', null)
+            // NÃO FILTRAR POR STATUS - carregar todas que têm publicador atribuído.
+            // Inclui partes atribuídas por ID mesmo quando resolved_publisher_name está NULL
+            // (ex.: ajudantes resolvidos só por id) para não subcontar a frequência.
+            .or('resolved_publisher_name.not.is.null,resolved_publisher_id.not.is.null')
             .gte('date', dateStr)
             .order('date', { ascending: false })
     );
@@ -148,6 +151,7 @@ function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
         rawPublisherName: (row.raw_publisher_name as string) || '',
         // SIMPLIFICADO: apenas nome
         resolvedPublisherName: (row.resolved_publisher_name as string) || undefined,
+        resolvedPublisherId: (row.resolved_publisher_id as string) || undefined,
         isChairmanDerived: (row.is_chairman_derived as boolean) ?? false,
         status: (row.status as WorkbookStatus) || WorkbookStatus.PENDENTE,
         batch_id: (row.batch_id as string) || undefined,
