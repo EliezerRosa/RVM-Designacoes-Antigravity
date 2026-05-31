@@ -504,7 +504,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
                             {/* 2) Carga recente (frequência) — QUANTIFICADA */}
                             <div style={{ marginTop: '4px', color: '#d1d5db' }}>
-                                🔢 <strong>Carga recente (frequência):</strong> {sd.details.recentCount} parte{sd.details.recentCount === 1 ? '' : 's'} nas últimas 12 semanas{sd.details.frequencyPenalty > 0 ? <> → <span style={{ color: '#fca5a5' }}>−{sd.details.frequencyPenalty} pts</span></> : null}
+                                🔢 <strong>Carga recente (frequência):</strong> {sd.details.recentCount} parte{sd.details.recentCount === 1 ? '' : 's'} (passadas e futuras, ±12 sem.){sd.details.frequencyPenalty > 0 ? <> → <span style={{ color: '#fca5a5' }}>−{sd.details.frequencyPenalty} pts</span></> : null}
                             </div>
 
                             {/* 3) Última parte principal + zona de bloqueio duro */}
