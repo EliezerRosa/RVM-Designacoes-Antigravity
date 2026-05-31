@@ -28,8 +28,20 @@ export async function fetchAllRows<T extends Record<string, unknown>>(
         const baseQuery = supabase.from(table).select('*');
         const filteredQuery = buildQuery(baseQuery);
 
-        // Aplica range para paginação
-        const { data, error } = await filteredQuery.range(offset, offset + PAGE_SIZE - 1);
+        // Aplica range para paginação, com retry em AbortError transitório
+        // (comum ao acordar de hibernação, quando o refresh do token JWT
+        // aborta requisições em voo: "signal is aborted without reason").
+        let data: unknown[] | null = null;
+        let error: { message?: string; name?: string; code?: string } | null = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const res = await filteredQuery.range(offset, offset + PAGE_SIZE - 1);
+            data = res.data;
+            error = res.error;
+            const isAbort = error && (error.name === 'AbortError' || /aborted/i.test(error.message ?? ''));
+            if (!isAbort) break;
+            console.warn(`[Pagination] AbortError em ${table} (tentativa ${attempt + 1}/3), retry...`);
+            await new Promise(resolve => setTimeout(resolve, 400 * (attempt + 1)));
+        }
 
         if (error) {
             console.error(`[Pagination] Erro ao buscar ${table}:`, error.message);
