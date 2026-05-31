@@ -197,6 +197,39 @@ export function useAuthenticatedAppData({ onInitialTabResolved, onCriticalError 
     };
   }, []);
 
+  // Re-hidratação ao retomar (acordar de hibernação / voltar a aba / reconectar).
+  // Sem isso, leituras abortadas durante o refresh do token deixam as colunas
+  // (workbook_parts) vazias até o próximo poll. Aqui forçamos refresh imediato.
+  useEffect(() => {
+    let resumeDebounce: ReturnType<typeof setTimeout> | null = null;
+
+    const rehydrate = (reason: string) => {
+      if (resumeDebounce) clearTimeout(resumeDebounce);
+      resumeDebounce = setTimeout(() => {
+        console.log(`[RESUME] Re-hydrating data after ${reason}...`);
+        void refreshAllData();
+        void refreshWorkbookParts({ forceRefresh: true });
+      }, 300);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') rehydrate('visibilitychange');
+    };
+    const onOnline = () => rehydrate('online');
+    const onFocus = () => rehydrate('focus');
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      if (resumeDebounce) clearTimeout(resumeDebounce);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [refreshAllData, refreshWorkbookParts]);
+
   return {
     publishers,
     setPublishers,
