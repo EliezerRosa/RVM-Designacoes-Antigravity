@@ -421,17 +421,10 @@ export const agentActionService = {
                         return cat === 'MAIN';
                     }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-                    // Participações nas últimas 12 semanas (para Frequency Penalty)
-                    const freqWindowStart = new Date(refDate);
-                    freqWindowStart.setDate(freqWindowStart.getDate() - 12 * 7);
-                    const freqStartStr = toLocalISODate(freqWindowStart);
-                    const freqCount = historyForScoring.filter(h => {
-                        const isThis = (publisher?.id && h.resolvedPublisherId === publisher.id) || h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
-                        if (!isThis) return false;
-                        if (!h.date || h.date < freqStartStr || h.date >= wEndStr) return false;
-                        const cat = getParticipationCategory(h.tipoParte || '', h.funcao || '');
-                        return cat === 'MAIN';
-                    }).length;
+                    // Frequência: usamos o recentCount AUTORITATIVO do motor (calculateScore),
+                    // que conta a janela ±12 semanas (passadas E futuras) com TODAS as partes
+                    // exceto oração, INCLUINDO Ajudante. (Antes recalculávamos aqui só passado/MAIN,
+                    // o que excluía ajudante e o futuro — divergindo do score real.)
 
                     const fmtDate = (s: string) => {
                         try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; }
@@ -449,7 +442,8 @@ export const agentActionService = {
                     lines.push(`**Time Bonus** (semanas desde a última vez nesta MESMA parte): ${sd.weeksSinceLast} semana(s) → ${sd.details.timeBonus} pts.`);
                     if (sd.lastDate) lines.push(`Última vez em "${scoringPartType}": ${fmtDate(sd.lastDate)}.`);
                     lines.push('');
-                    lines.push(`**Frequency Penalty** (12 semanas, MAIN): ${freqCount} participação(ões) × 20 = ${sd.details.frequencyPenalty} pts.`);
+                    const freqPerPart = sd.details.recentCount > 0 ? Math.round(sd.details.frequencyPenalty / sd.details.recentCount) : getRotationConfig().RECENT_PARTICIPATION_PENALTY;
+                    lines.push(`**Frequency Penalty** (±12 semanas — passadas E futuras; todas as partes exceto oração, incl. Ajudante): ${sd.details.recentCount} participação(ões) × ${freqPerPart} = ${sd.details.frequencyPenalty} pts.`);
                     lines.push('');
                     lines.push(`**Heavy Proximity Penalty** (±4 semanas, papéis pesados: Presidente, EBC, Discurso):`);
                     if (sd.details.heavyProximityPenalty > 0) {

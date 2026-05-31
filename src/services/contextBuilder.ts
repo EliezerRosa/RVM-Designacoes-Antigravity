@@ -848,7 +848,7 @@ REGRAS DE ELEGIBILIDADE DO SISTEMA:
 
 SISTEMA DE ROTAÇÃO (Unificado v9.0):
 - COOLDOWN (BLOQUEIO DURO): 3 semanas. Universal — NÃO varia por tipo de parte. NÃO existe "cooldown maior para Presidente" nem para qualquer outra parte. Disparado por QUALQUER participação MAIN nas últimas 3 semanas (Presidente, Discurso, Jóias, Tesouros, Leitura, Vida Cristã, EBC, Demonstração titular, Oração Final). Ajudante = 2 semanas. Aplica penalidade de -1500 no score.
-- FREQUENCY PENALTY (suave): -20 pontos por participação MAIN nos últimos 3 meses (12 semanas). Distinto do cooldown.
+- FREQUENCY PENALTY (suave): -${ROTATION_CONFIG.RECENT_PARTICIPATION_PENALTY} pontos por participação na janela de ±12 semanas (passadas E futuras). Conta TODAS as partes exceto oração — INCLUINDO Ajudante. Distinto do cooldown.
 - Prioridade Baseada em Tempo (EXPONENCIAL): Tempo de espera gera urgência crescente (Weeks^1.5). Calculado por TIPO DE PARTE (semanas desde última vez NESSA parte específica).
 - Fórmula Real: Score = ${ROTATION_CONFIG.BASE_SCORE} + (SemanasSemEstaParte ^ ${ROTATION_CONFIG.TIME_POWER} * ${ROTATION_CONFIG.TIME_FACTOR}) - (PartesMainEm12Sem * ${ROTATION_CONFIG.RECENT_PARTICIPATION_PENALTY}) - (CooldownAtivo ? 1500 : 0)
 - Bônus: +${ROTATION_CONFIG.SISTER_DEMO_PRIORITY} pts para Irmãs em demonstrações.
