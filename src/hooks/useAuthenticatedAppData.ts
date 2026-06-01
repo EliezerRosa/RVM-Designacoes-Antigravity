@@ -161,6 +161,14 @@ export function useAuthenticatedAppData({ onInitialTabResolved, onCriticalError 
               const freshParts = await workbookQueryService.getAllParts(undefined, { forceRefresh: true });
               partsHashRef.current = computePartsHash(freshParts);
               setWorkbookParts(freshParts);
+              // Staleness fix: a projeção historyRecords é derivada de workbook_parts;
+              // refrescar junto evita o "diff ao vivo" (score/agente liam snapshot do mount).
+              try {
+                const freshHistory = await loadCompletedParticipations(true);
+                setHistoryRecords(freshHistory);
+              } catch (e) {
+                console.warn('[REALTIME] Failed to refresh history projection:', e);
+              }
             } catch (err) {
               console.warn('[REALTIME] Failed to reload parts:', err);
             } finally {
@@ -183,6 +191,13 @@ export function useAuthenticatedAppData({ onInitialTabResolved, onCriticalError 
           console.log('[POLLING] Parts change detected, refreshing...');
           partsHashRef.current = newHash;
           setWorkbookParts(freshParts);
+          // Staleness fix: refrescar a projeção historyRecords junto com as parts.
+          try {
+            const freshHistory = await loadCompletedParticipations(true);
+            setHistoryRecords(freshHistory);
+          } catch (e) {
+            console.warn('[POLLING] Failed to refresh history projection:', e);
+          }
         }
       } catch (e) {
         console.warn('[POLLING] Error checking parts:', e);
