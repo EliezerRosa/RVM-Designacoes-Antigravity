@@ -81,6 +81,8 @@ export interface RotationScore {
         frequencyPenalty: number;
         /** Nº de partes contabilizadas na janela ±12 semanas (gera frequencyPenalty). */
         recentCount: number;
+        /** Datas (ISO) das partes contabilizadas na janela ±12 semanas, ordenadas. */
+        recentDates: string[];
         cooldownPenalty: number;
         /** Penalidade graduada por papel pesado (Presidente, EBC, Discurso) em ±HEAVY_ROLE_RADIUS semanas. */
         heavyProximityPenalty: number;
@@ -204,6 +206,7 @@ export function calculateScore(
         timeBonus: 0,
         frequencyPenalty: 0,
         recentCount: 0,
+        recentDates: [] as string[],
         cooldownPenalty: 0, // mantido em 0 (visual only) — score usa heavyProximityPenalty
         heavyProximityPenalty: 0,
         roleBonus: 0,
@@ -307,6 +310,10 @@ export function calculateScore(
     // 3. Penalidade de Frequência: carga na janela ±12 semanas (passado E futuro)
     const recentCount = windowHistory.length;
     details.recentCount = recentCount;
+    details.recentDates = windowHistory
+        .map(h => h.date || '')
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
     details.frequencyPenalty = recentCount * CURRENT_SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
 
     // 3b. Penalidade de Proximidade de Papel Pesado (Heavy Proximity Penalty)

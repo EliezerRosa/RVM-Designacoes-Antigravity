@@ -784,6 +784,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     <span>
                                                         {scoreData
                                                             ? `${firstName} tem ${scoreData.details.recentCount} parte${scoreData.details.recentCount === 1 ? '' : 's'} (passadas e futuras) na janela de ±12 semanas` +
+                                                              (scoreData.details.recentDates && scoreData.details.recentDates.length > 0
+                                                                ? ` — em ${scoreData.details.recentDates.map(d => { const [y, m, dd] = d.split('-'); return y && m && dd ? `${dd}/${m}/${y}` : d; }).join(', ')}`
+                                                                : '') +
                                                               (scoreData.details.frequencyPenalty > 0
                                                                 ? ` (−${scoreData.details.frequencyPenalty} pts). Participação recente pesa mais no cálculo do que a vantagem de estar há tempo sem participar. `
                                                                 : `; agenda livre no período — sem penalidade de frequência. `)
