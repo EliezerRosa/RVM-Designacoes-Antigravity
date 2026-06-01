@@ -215,9 +215,15 @@ class ApprovalService:
     
     def promote_to_history(self, assignment_ids: List[str]) -> List[str]:
         """
-        Promove designações COMPLETED para history_records.
-        Retorna lista de IDs dos HistoryRecords criados.
+        DESATIVADO (2026-06-01): a tabela history_records foi removida (fóssil sem
+        leitor vivo). O histórico de produção é derivado de workbook_parts. Este
+        método não é chamado em lugar nenhum; mantido apenas como stub explícito.
         """
+        raise RuntimeError(
+            "promote_to_history desativado: tabela history_records removida em 2026-06-01. "
+            "O histórico é derivado de workbook_parts."
+        )
+
         # Buscar designações
         if not self._use_supabase:
             assignments = [self._memory_storage[aid] for aid in assignment_ids if aid in self._memory_storage]
