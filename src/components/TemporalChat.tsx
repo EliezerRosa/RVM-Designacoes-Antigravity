@@ -822,7 +822,22 @@ export default function TemporalChat({
             'menos participacao', 'mais participacao',
             'top '
         ];
-        if (analyticsMarkers.some(m => t.includes(m))) {
+        // EXCEÇÃO (2026-06-01): "participações de/da/do <publicador>" é uma LISTAGEM
+        // por-pessoa (QUERY_PUBLISHER_ASSIGNMENTS determinística), NÃO uma análise
+        // agregada. Sem esta exceção a palavra "participações" derrubava a consulta
+        // no LLM, que alucinava datas/scores (ex.: Ajudante em 08/06 e Score 2.400).
+        const hasResolvablePublisher = publishers.some(p => {
+            const pNorm = p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (t.includes(pNorm)) return true;
+            const first = pNorm.split(' ')[0];
+            return first.length >= 4 && new RegExp(`\\b${first}\\b`).test(t);
+        });
+        const isPerPublisherParticipation =
+            /participac\w*/.test(t) &&
+            /\b(de|da|do)\s+/.test(t) &&
+            !/(ranking|rankear|ranquear|orden|crescente|decrescente|compar|\bmedia\b|menos que|mais que|menor|maior|quantas vezes|quantos|quantas|top |todas as|todos os|liste as irmas|liste os irmaos|posicao)/.test(t) &&
+            hasResolvablePublisher;
+        if (!isPerPublisherParticipation && analyticsMarkers.some(m => t.includes(m))) {
             console.log('[TemporalChat] Fast-path SKIP (sinal analítico) →', t);
             return null;
         }
@@ -850,7 +865,7 @@ export default function TemporalChat({
         };
 
         // QUERY_PUBLISHER_ASSIGNMENTS — "designações de X", "partes de X", "onde X está"
-        if (/(designac\w*|partes|atribuic\w*)\s+(de|da|do)\s+\w+/.test(t) ||
+        if (/(designac\w*|partes|atribuic\w*|participac\w*)\s+(de|da|do)\s+\w+/.test(t) ||
             /onde\s+\w+\s+(esta|estao)/.test(t) ||
             /em\s+que\s+partes?\s+\w+/.test(t)) {
             const publisherName = findPublisherInText(text);
