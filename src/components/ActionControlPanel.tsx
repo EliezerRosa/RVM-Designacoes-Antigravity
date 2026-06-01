@@ -170,7 +170,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 const targetDate = partDateStr ? new Date(`${partDateStr}T12:00:00`) : new Date();
                 const historyForRanking = allHistory.filter(h => h.weekId !== selectedPart.weekId);
                 const ranked = getRankedCandidates(eligibleCandidates, selectedPart.tipoParte, historyForRanking, undefined, targetDate);
-                const rankedNonBlocked = ranked.filter(r => !isBlocked(r.publisher.name, historyForRanking, targetDate));
+                const rankedNonBlocked = ranked.filter(r => !isBlocked(r.publisher.name, historyForRanking, targetDate, r.publisher.id));
                 const best = rankedNonBlocked.length > 0 ? rankedNonBlocked[0] : null;
 
                 if (isMounted) {
@@ -179,7 +179,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                             name: item.publisher.name,
                             score: item.scoreData.score,
                             lastDate: item.scoreData.lastDate || null,
-                            cooldownInfo: getBlockInfo(item.publisher.name, historyForRanking, targetDate)
+                            cooldownInfo: getBlockInfo(item.publisher.name, historyForRanking, targetDate, item.publisher.id)
                         }))
                     );
                 }
@@ -209,7 +209,8 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     const cdInfo = getBlockInfo(
                         assignedPublisher.name,
                         historyForCooldown, // Use filtered history
-                        targetDate
+                        targetDate,
+                        assignedPublisher.id
                     );
 
                     const score = calculateScore(

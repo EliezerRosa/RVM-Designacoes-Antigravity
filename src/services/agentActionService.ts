@@ -313,7 +313,7 @@ export const agentActionService = {
                     const ranked = getRankedCandidates(eligible, scoringPartType, historyForScoring, undefined, refDate);
                     const rankedWithCooldown = ranked.map(r => ({
                         ...r,
-                        blocked: isBlocked(r.publisher.name, historyForScoring, refDate)
+                        blocked: isBlocked(r.publisher.name, historyForScoring, refDate, r.publisher.id)
                     }));
                     const sorted = [
                         ...rankedWithCooldown.filter(r => !r.blocked),
@@ -401,7 +401,7 @@ export const agentActionService = {
                     const scoringPartType = (compatibleTipos[0] || targetPart.tipoParte || ptHint || '');
 
                     const sd = calculateScore(publisher, scoringPartType, historyForScoring, refDate);
-                    const blocked = isBlocked(publisher.name, historyForScoring, refDate);
+                    const blocked = isBlocked(publisher.name, historyForScoring, refDate, publisher.id);
                     const isHelperPart = (targetPart.funcao || '').toLowerCase() === 'ajudante';
                     const cooldownWeeks = isHelperPart ? COOLDOWN_WEEKS_HELPER : COOLDOWN_WEEKS;
 
@@ -527,7 +527,7 @@ export const agentActionService = {
                     // Mesma filtragem do ActionControlPanel: ignora a semana atual no histórico
                     const historyForScoring = history.filter(h => h.weekId !== targetPart.weekId);
                     const ranked = getRankedCandidates(eligibleList, partType, historyForScoring, undefined, refDate);
-                    const rankedWithCooldown = ranked.map(r => ({ ...r, blocked: isBlocked(r.publisher.name, historyForScoring, refDate) }));
+                    const rankedWithCooldown = ranked.map(r => ({ ...r, blocked: isBlocked(r.publisher.name, historyForScoring, refDate, r.publisher.id) }));
                     const sorted = [
                         ...rankedWithCooldown.filter(r => !r.blocked),
                         ...rankedWithCooldown.filter(r => r.blocked),
@@ -2309,7 +2309,7 @@ export const agentActionService = {
                     }
 
                     const refDate = cdWkId || contextWeekId || toLocalISODate();
-                    const blocked = isBlocked(pub.name, history, refDate);
+                    const blocked = isBlocked(pub.name, history, refDate, pub.id);
                     const category = getParticipationCategory(pub.name, history, refDate);
                     const cooldownWeeks = COOLDOWN_WEEKS || 4;
 
@@ -2319,7 +2319,7 @@ export const agentActionService = {
                     const fromDateStr = fromDateObj.toISOString().substring(0, 10);
 
                     const recentMain = history
-                        .filter(h => normC(h.resolvedPublisherName || h.rawPublisherName || '') === normC(pub.name))
+                        .filter(h => h.resolvedPublisherId === pub.id)
                         .filter(h => (h.weekId || h.date || '') >= fromDateStr && (h.weekId || h.date || '') < refDate)
                         .filter(h => h.funcao !== 'Ajudante')
                         .sort((a, b) => (b.weekId || b.date || '').localeCompare(a.weekId || a.date || ''));
@@ -2368,7 +2368,7 @@ export const agentActionService = {
                     const today = toLocalISODate();
 
                     const records = history
-                        .filter(h => normLP(h.resolvedPublisherName || h.rawPublisherName || '') === normLP(resolvedName))
+                        .filter(h => pub ? h.resolvedPublisherId === pub.id : normLP(h.resolvedPublisherName || h.rawPublisherName || '') === normLP(resolvedName))
                         .filter(h => !ptNorm || normLP(h.tipoParte) === ptNorm || normLP(h.tituloParte || '') === ptNorm)
                         .filter(h => (h.weekId || h.date || '') < today)
                         .sort((a, b) => (b.weekId || b.date || '').localeCompare(a.weekId || a.date || ''));

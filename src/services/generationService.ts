@@ -232,7 +232,7 @@ export const generationService = {
 
                 // v10: Pegar o primeiro NÃO bloqueado
                 // CORRECTION O: Use target date (thursdayDate)
-                const candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate))?.publisher
+                const candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id))?.publisher
                     || (ranked.length > 0 ? ranked[0].publisher : null); // Fallback se todos bloqueados
 
                 if (candidate) {
@@ -379,7 +379,7 @@ export const generationService = {
                             const ranked = getRankedCandidates(pubs, tipoEnsino, historyForRanking, undefined, safeThursdayDate);
                             return ranked.find(r =>
                                 !namesExcludedInWeek.has(r.publisher.name) &&
-                                !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate)
+                                !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id)
                             )?.publisher || null;
                         };
 
@@ -467,7 +467,7 @@ export const generationService = {
                         const ranked = getRankedCandidates(pubs, estudantePart.tipoParte, historyForRanking, undefined, safeThursdayDate);
                         return ranked.find(r =>
                             !namesExcludedInWeek.has(r.publisher.name) &&
-                            !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate)
+                            !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id)
                         )?.publisher || null;
                     };
 
@@ -653,7 +653,7 @@ export const generationService = {
                             const ranked = getRankedCandidates(pubs, type, historyForRanking, undefined, safeThursdayDate);
                             return ranked.find(r =>
                                 !namesExcludedInWeek.has(r.publisher.name) &&
-                                !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate)
+                                !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id)
                             )?.publisher || null;
                         };
 
@@ -716,7 +716,7 @@ export const generationService = {
                                 const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
                                 const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
                                 const ranked = getRankedCandidates(group1, 'Oração Final', historyForRanking, undefined, safeThursdayDate);
-                                candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate))?.publisher
+                                candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id))?.publisher
                                     || ranked[0]?.publisher || null;
                             }
 
@@ -730,7 +730,7 @@ export const generationService = {
                                     const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
                                     const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
                                     const ranked = getRankedCandidates(group2, 'Oração Final', historyForRanking, undefined, safeThursdayDate);
-                                    candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate))?.publisher
+                                    candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id))?.publisher
                                         || ranked[0]?.publisher || null;
                                 }
                             }
@@ -767,7 +767,7 @@ export const generationService = {
                                 const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
                                 const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
                                 const ranked = getRankedCandidates(eligiblePublishers, part.tipoParte, historyForRanking, undefined, safeThursdayDate);
-                                const p = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate))?.publisher
+                                const p = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id))?.publisher
                                     || ranked[0]?.publisher;
                                 if (p) {
                                     selectedPublisherByPart.set(part.id, { id: p.id, name: p.name });

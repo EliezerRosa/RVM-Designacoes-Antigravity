@@ -88,15 +88,19 @@ export interface CooldownInfo {
  * 
  * Esta verificação é usada pelo motor de rotação para PULAR publicadores bloqueados.
  * 
- * @param publisherName Nome do publicador
+ * @param publisherName Nome do publicador (fallback de exibição/identidade legada)
  * @param history Histórico de participações (HistoryRecord[])
  * @param today Data de referência (default: hoje)
+ * @param publisherId ID do publicador — IDENTIDADE AUTORITATIVA. Quando fornecido,
+ *   o casamento é EXCLUSIVAMENTE por resolvedPublisherId. Nome só é usado como
+ *   fallback quando o id não é passado (chamadas legadas com histórico já filtrado).
  * @returns true se bloqueado, false se disponível
  */
 export function isBlocked(
     publisherName: string,
     history: HistoryRecord[],
-    today: Date = new Date()
+    today: Date = new Date(),
+    publisherId?: string
 ): boolean {
     // FRONTEIRA TEMPORAL SIMÉTRICA: o cooldown é um GAP MÍNIMO entre participações
     // MAIN. O gap é absoluto — uma designação MAIN na semana N+1 bloqueia tanto
@@ -105,7 +109,11 @@ export function isBlocked(
     // esteja no histórico). Designações futuras já gravadas DEVEM bloquear.
     const todayStr = toLocalISODate(today);
     const relevantHistory = history.filter(h => {
-        const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
+        // IDENTIDADE = id único. Se o id foi fornecido, casa SÓ por resolvedPublisherId
+        // (ignora nome/raw → elimina crédito-fantasma e enxerga partes sem nome, ex. ajudante).
+        const isThisPublisher = publisherId
+            ? h.resolvedPublisherId === publisherId
+            : (h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName);
         if (!isThisPublisher) return false;
         if ((h.date || '') === todayStr) return false; // exclui só a própria data
 
@@ -136,7 +144,8 @@ export function isBlocked(
 export function getBlockInfo(
     publisherName: string,
     history: HistoryRecord[],
-    today: Date = new Date()
+    today: Date = new Date(),
+    publisherId?: string
 ): CooldownInfo | null {
     // FRONTEIRA TEMPORAL SIMÉTRICA (mesma do isBlocked): considera passado E futuro,
     // excluindo apenas a própria data sendo avaliada. Ordena pela PROXIMIDADE absoluta
@@ -144,7 +153,10 @@ export function getBlockInfo(
     const todayStr = toLocalISODate(today);
     const todayMs = today.getTime();
     const relevantHistory = history.filter(h => {
-        const isThisPublisher = h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName;
+        // IDENTIDADE = id único (mesmo critério de isBlocked).
+        const isThisPublisher = publisherId
+            ? h.resolvedPublisherId === publisherId
+            : (h.resolvedPublisherName === publisherName || h.rawPublisherName === publisherName);
         if (!isThisPublisher) return false;
         if ((h.date || '') === todayStr) return false;
 
