@@ -111,7 +111,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
             // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
             // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
-            const cooldownInfo = getBlockInfo(p.name, historyForCooldown, referenceDate);
+            const cooldownInfo = getBlockInfo(p.name, historyForCooldown, referenceDate, p.id);
 
             // v8.1: Prioridade para irmãs em demonstrações
             const isSisterForDemo =
@@ -288,7 +288,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         if (!foundPublisher) return null;
         // v9.5: Filtrar histórico para excluir semana atual
         const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
-        return getBlockInfo(foundPublisher.name, historyForCooldown, referenceDate);
+        return getBlockInfo(foundPublisher.name, historyForCooldown, referenceDate, foundPublisher.id);
     }, [foundPublisher, part.tipoParte, historyRecords, referenceDate]);
 
     // Avisos informativos das regras do Motor automático (Q2 alternância FSM, Q3 par recente).

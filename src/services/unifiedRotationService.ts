@@ -227,15 +227,14 @@ export function calculateScore(
     // Hoist pType para uso em specificHistory e bônus FSM
     const pType = partType.toLowerCase();
 
-    // Option A: raw_publisher_name é placeholder pré-resolução do import. Só conta
-    // quando NÃO há identidade resolvida (nome ou id). Uma vez resolvido, resolved é
-    // autoritativo — evita crédito-fantasma em partes importadas raw=A e reatribuídas a B.
+    // IDENTIDADE = id único. Linha com id resolvido casa SÓ por id (elimina
+    // crédito-fantasma e enxerga partes sem nome, ex. ajudante). Sem id resolvido,
+    // fallback por nome cobre apenas registros legados/placeholders — que nunca
+    // correspondem a publicador registrado.
     const isMine = (h: HistoryRecord) => {
-        const hasResolved = !!h.resolvedPublisherName || !!h.resolvedPublisherId;
-        const matches =
-            h.resolvedPublisherName === publisher.name ||
-            (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id) ||
-            (!hasResolved && h.rawPublisherName === publisher.name);
+        const matches = h.resolvedPublisherId
+            ? h.resolvedPublisherId === publisher.id
+            : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
         return matches && isStatPart(h.tipoParte || h.funcao);
     };
 
@@ -323,8 +322,9 @@ export function calculateScore(
         const hwEndStr = new Date(refMs + hwWinMs).toISOString().split('T')[0];
         for (const h of history) {
             // Option A: raw só como fallback quando não há identidade resolvida.
-            const hasResolved = !!h.resolvedPublisherName || !!h.resolvedPublisherId;
-            const isThisPublisher = h.resolvedPublisherName === publisher.name || (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id) || (!hasResolved && h.rawPublisherName === publisher.name);
+            const isThisPublisher = h.resolvedPublisherId
+                ? h.resolvedPublisherId === publisher.id
+                : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
             if (!isThisPublisher) continue;
             const d = h.date || '';
             if (!d || d === refDateStrForFilter) continue;
@@ -371,7 +371,7 @@ export function calculateScore(
 
     // 5. Cooldown — mantido APENAS para indicador visual (isInCooldown)
     // O score não usa mais cooldownPenalty; a penalidade real é heavyProximityPenalty (passo 3b).
-    const blocked = isBlocked(publisher.name, history, referenceDate);
+    const blocked = isBlocked(publisher.name, history, referenceDate, publisher.id);
     if (blocked) {
         details.specificAdjustments.push('Intervalo ativo (visual)');
     }
@@ -505,12 +505,10 @@ export function generateNaturalLanguageExplanation(
 
     const allHistory = history
         .filter(h => {
-            // Option A: raw só como fallback quando não há identidade resolvida.
-            const hasResolved = !!h.resolvedPublisherName || !!h.resolvedPublisherId;
-            const matches =
-                h.resolvedPublisherName === publisher.name ||
-                (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id) ||
-                (!hasResolved && h.rawPublisherName === publisher.name);
+            // IDENTIDADE = id único (mesmo critério de isMine).
+            const matches = h.resolvedPublisherId
+                ? h.resolvedPublisherId === publisher.id
+                : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
             return matches && h.date < refDateStr && isStatPart(h.tipoParte || h.funcao);
         })
         .sort((a, b) => b.date.localeCompare(a.date));
