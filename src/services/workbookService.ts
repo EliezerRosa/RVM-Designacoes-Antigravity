@@ -28,18 +28,58 @@ export function _clearCache() {
  * 🛡️ Auto-resolve: dado um nome de publicador, busca o ID em publishers via match exato (case/space insensitive).
  * Retorna null se: nome vazio, sem match, ou ambíguo (>1 match). Centraliza defesa anti-órfã.
  */
+/** Normaliza nome para casamento robusto: lowercase + remove acento + colapsa espaços. */
+function normalizePublisherName(name: string | null | undefined): string {
+    return String(name ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Resolve nome → id do publicador (IDENTIDADE). Fase 3 (id-only):
+ * - Fast path: match exato case-insensitive no banco.
+ * - Robust path: normaliza acento/espaço em JS contra a lista de publishers
+ *   (exato-normalizado, depois "contém" guardado), para que toda designação de
+ *   publicador real persista o id e o fallback-por-nome nunca seja exercido.
+ * - Guard de ambiguidade: se >1 candidato, NÃO vincula (não chuta homônimo).
+ */
 async function resolvePublisherIdByName(name: string | null | undefined): Promise<string | null> {
     const trimmed = (name ?? '').trim();
-    if (!trimmed) return null;
+    const target = normalizePublisherName(trimmed);
+    if (!target) return null;
     try {
-        const { data: matches } = await supabase
+        // Fast path: match exato case-insensitive (cobre a maioria, sem fetch da lista)
+        const { data: fast } = await supabase
             .from('publishers')
             .select('id')
             .ilike('data->>name', trimmed)
             .limit(2);
-        if (matches && matches.length === 1) return matches[0].id as string;
-        if (matches && matches.length > 1) {
-            console.warn(`[workbookService] Nome ambíguo "${trimmed}" — ${matches.length} matches; ID não vinculado.`);
+        if (fast && fast.length === 1) return fast[0].id as string;
+
+        // Robust path: normaliza acento/espaço em JS contra todos os publishers
+        const { data: all } = await supabase
+            .from('publishers')
+            .select('id, data');
+        const rows = (all ?? []) as { id: string; data: { name?: string } | null }[];
+
+        const exact = rows.filter(r => normalizePublisherName(r.data?.name) === target);
+        if (exact.length === 1) return exact[0].id;
+        if (exact.length > 1) {
+            console.warn(`[workbookService] Nome ambíguo "${target}" — ${exact.length} matches exatos; ID não vinculado.`);
+            return null;
+        }
+
+        // Contains guardado: só vincula se houver exatamente 1 candidato por inclusão
+        const contains = rows.filter(r => {
+            const n = normalizePublisherName(r.data?.name);
+            return n.length > 0 && (n.includes(target) || target.includes(n));
+        });
+        if (contains.length === 1) return contains[0].id;
+        if (contains.length > 1) {
+            console.warn(`[workbookService] Nome ambíguo "${target}" — ${contains.length} matches por inclusão; ID não vinculado.`);
         }
     } catch (err) {
         console.warn('[workbookService] Falha em resolvePublisherIdByName:', err);
