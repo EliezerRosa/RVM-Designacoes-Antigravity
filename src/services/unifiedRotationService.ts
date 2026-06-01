@@ -227,10 +227,17 @@ export function calculateScore(
     // Hoist pType para uso em specificHistory e bônus FSM
     const pType = partType.toLowerCase();
 
-    const isMine = (h: HistoryRecord) =>
-        (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name ||
-            (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id)) &&
-        isStatPart(h.tipoParte || h.funcao);
+    // Option A: raw_publisher_name é placeholder pré-resolução do import. Só conta
+    // quando NÃO há identidade resolvida (nome ou id). Uma vez resolvido, resolved é
+    // autoritativo — evita crédito-fantasma em partes importadas raw=A e reatribuídas a B.
+    const isMine = (h: HistoryRecord) => {
+        const hasResolved = !!h.resolvedPublisherName || !!h.resolvedPublisherId;
+        const matches =
+            h.resolvedPublisherName === publisher.name ||
+            (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id) ||
+            (!hasResolved && h.rawPublisherName === publisher.name);
+        return matches && isStatPart(h.tipoParte || h.funcao);
+    };
 
     // PASSADO ESTRITO (Time Bonus): h.date < refDate
     const pastHistory = history
@@ -315,7 +322,9 @@ export function calculateScore(
         const hwStartStr = new Date(refMs - hwWinMs).toISOString().split('T')[0];
         const hwEndStr = new Date(refMs + hwWinMs).toISOString().split('T')[0];
         for (const h of history) {
-            const isThisPublisher = h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name || (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id);
+            // Option A: raw só como fallback quando não há identidade resolvida.
+            const hasResolved = !!h.resolvedPublisherName || !!h.resolvedPublisherId;
+            const isThisPublisher = h.resolvedPublisherName === publisher.name || (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id) || (!hasResolved && h.rawPublisherName === publisher.name);
             if (!isThisPublisher) continue;
             const d = h.date || '';
             if (!d || d === refDateStrForFilter) continue;
@@ -495,12 +504,15 @@ export function generateNaturalLanguageExplanation(
     const refDateStr = referenceDate.toISOString().split('T')[0];
 
     const allHistory = history
-        .filter(h =>
-            (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name ||
-                (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id)) &&
-            h.date < refDateStr &&
-            isStatPart(h.tipoParte || h.funcao)
-        )
+        .filter(h => {
+            // Option A: raw só como fallback quando não há identidade resolvida.
+            const hasResolved = !!h.resolvedPublisherName || !!h.resolvedPublisherId;
+            const matches =
+                h.resolvedPublisherName === publisher.name ||
+                (!!h.resolvedPublisherId && h.resolvedPublisherId === publisher.id) ||
+                (!hasResolved && h.rawPublisherName === publisher.name);
+            return matches && h.date < refDateStr && isStatPart(h.tipoParte || h.funcao);
+        })
         .sort((a, b) => b.date.localeCompare(a.date));
 
     const recentDates = allHistory.slice(0, 3).map(h => {

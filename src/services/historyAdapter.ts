@@ -64,9 +64,9 @@ const HISTORY_CACHE_TTL = 60000; // 60 segundos
  * ATUALIZADO: Respeita janela de histórico definida em config.ts (12 meses)
  * v9.3: Usa Paginação para garantir carga total (>1000 rows)
  */
-export async function loadCompletedParticipations(): Promise<HistoryRecord[]> {
-    // Retorna cache se válido
-    if (_historyCache && Date.now() - _historyCache.ts < HISTORY_CACHE_TTL) {
+export async function loadCompletedParticipations(forceRefresh = false): Promise<HistoryRecord[]> {
+    // Retorna cache se válido (ignorado quando forceRefresh = true, ex.: realtime de parts)
+    if (!forceRefresh && _historyCache && Date.now() - _historyCache.ts < HISTORY_CACHE_TTL) {
         return _historyCache.data;
     }
     // Deduplicar chamadas concorrentes
