@@ -12,6 +12,7 @@ import { PublisherProfileChangesBanner } from './components/admin/PublisherProfi
 import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
+import { MyAssignmentsPortal } from './components/MyAssignmentsPortal'
 import { LoginPage } from './components/LoginPage'
 import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
@@ -75,6 +76,15 @@ function App() {
   // PORTAL ROUTING: links públicos de confirmação de designação
   // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
   const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken, mode: portalMode } = getPortalParams();
+
+  // PORTAL: designações individuais do publicador (acesso por token + Google OAuth)
+  if (portal === 'my-assignments') {
+    return (
+      <div className="app portal-mode">
+        <MyAssignmentsPortal publisherId={portalPublisherId ?? ''} token={portalToken ?? ''} />
+      </div>
+    );
+  }
 
   if (portal === 'confirm') {
     if (portalPartId && portalPublisherId && portalToken) {
