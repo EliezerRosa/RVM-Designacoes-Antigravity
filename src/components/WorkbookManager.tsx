@@ -29,6 +29,8 @@ import { WorkbookTable } from './WorkbookTable';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
+import { MyAssignmentsModal } from './MyAssignmentsModal';
+import { useAuth } from '../context/AuthContext';
 
 
 
@@ -126,6 +128,12 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
 
     // Estado do Modal de Geração
     const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
+
+    // Estado do Modal de Minhas Designações
+    const [isMyAssignmentsOpen, setIsMyAssignmentsOpen] = useState(false);
+
+    // Auth (para gating do botão Minhas Designações)
+    const { profile } = useAuth();
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -686,6 +694,11 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                             <button onClick={() => setIsS140MultiModalOpen(true)} style={{ padding: '8px 16px', background: '#4F46E5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 📦 S-140 Pacote
                             </button>
+                            {profile?.publisher_id && (
+                                <button onClick={() => setIsMyAssignmentsOpen(true)} style={{ padding: '8px 16px', background: '#0369A1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    📋 Minhas Designações
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -993,6 +1006,14 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                         </div>
                     )}
             </div>
+
+            <MyAssignmentsModal
+                isOpen={isMyAssignmentsOpen}
+                onClose={() => setIsMyAssignmentsOpen(false)}
+                parts={parts}
+                publishers={publishers}
+                weekOrder={uniqueWeeks.map(w => w.weekId)}
+            />
 
             {/* Modal de Geração Inteligente */}
             <GenerationModal

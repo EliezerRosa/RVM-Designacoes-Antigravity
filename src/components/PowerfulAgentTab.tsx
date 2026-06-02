@@ -15,6 +15,8 @@ import ActionControlPanel from './ActionControlPanel';
 import { specialEventService } from '../services/specialEventService';
 import type { SpecialEvent } from '../types';
 import { S89SelectionModal } from './S89SelectionModal';
+import { MyAssignmentsModal } from './MyAssignmentsModal';
+import { useAuth } from '../context/AuthContext';
 import type { ActionResult } from '../services/agentActionService';
 import { CostMonitor } from './admin/CostMonitor';
 import AgentModalHost from './AgentModalHost';
@@ -60,7 +62,9 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     });
 
     const [showS89Modal, setShowS89Modal] = useState(false);
+    const [showMyAssignmentsModal, setShowMyAssignmentsModal] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
+    const { profile } = useAuth();
     const [activeModal, setActiveModal] = useState<AgentModalType>(null);
     const [weeklyEvents, setWeeklyEvents] = useState<SpecialEvent[]>([]);
 
@@ -221,13 +225,34 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     <span>🤖</span> Agente RVM
                     {/* IDD: chip "Semana: X" removido — já visível no header da Coluna 1 (S-140)
                         e na IntentContextBar do próprio chat. Reduz ruído. */}
+                    {profile?.publisher_id && (
+                        <button
+                            type="button"
+                            onClick={() => setShowMyAssignmentsModal(true)}
+                            title="Minhas Designações"
+                            aria-label="Abrir minhas designações"
+                            style={{
+                                marginLeft: accessLevel === 'elder' ? undefined : 'auto',
+                                fontSize: '14px',
+                                background: 'transparent',
+                                color: '#93C5FD',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                border: '1px solid #3B82F6',
+                                cursor: 'pointer',
+                                lineHeight: 1,
+                            }}
+                        >
+                            📋
+                        </button>
+                    )}
                     {accessLevel === 'elder' && (<button
                         type="button"
                         onClick={() => setShowSubscriptionModal(true)}
                         title="Monitoramento de custos IA"
                         aria-label="Abrir monitor de custos IA"
                         style={{
-                            marginLeft: 'auto',
+                            marginLeft: profile?.publisher_id ? undefined : 'auto',
                             fontSize: '14px',
                             background: 'transparent',
                             color: '#E0E7FF',
@@ -470,6 +495,14 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 weekParts={weekParts[currentWeekId || ''] || []}
                 weekId={currentWeekId || ''}
                 publishers={publishers}
+            />
+
+            <MyAssignmentsModal
+                isOpen={showMyAssignmentsModal}
+                onClose={() => setShowMyAssignmentsModal(false)}
+                parts={parts}
+                publishers={publishers}
+                weekOrder={weekOrder}
             />
 
             <AgentModalHost
