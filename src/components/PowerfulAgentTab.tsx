@@ -64,7 +64,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     const [showS89Modal, setShowS89Modal] = useState(false);
     const [showMyAssignmentsModal, setShowMyAssignmentsModal] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
-    const { profile } = useAuth();
+    const { profile, isAdmin } = useAuth();
     const [activeModal, setActiveModal] = useState<AgentModalType>(null);
     const [weeklyEvents, setWeeklyEvents] = useState<SpecialEvent[]>([]);
 
@@ -225,7 +225,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     <span>🤖</span> Agente RVM
                     {/* IDD: chip "Semana: X" removido — já visível no header da Coluna 1 (S-140)
                         e na IntentContextBar do próprio chat. Reduz ruído. */}
-                    {profile?.publisher_id && (
+                    {(isAdmin || profile?.publisher_id) && (
                         <button
                             type="button"
                             onClick={() => setShowMyAssignmentsModal(true)}
