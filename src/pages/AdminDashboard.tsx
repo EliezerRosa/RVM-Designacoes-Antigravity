@@ -22,6 +22,7 @@ import { EngineRulesPanel } from '../components/admin/EngineRulesPanel';
 import { PublisherFormLinkManager } from '../components/admin/PublisherFormLinkManager';
 import { AvailabilityLinkManager } from '../components/admin/AvailabilityLinkManager';
 import { OrphanAuditPanel } from '../components/admin/OrphanAuditPanel';
+import { MyAssignmentsPortalManager } from '../components/admin/MyAssignmentsPortalManager';
 import { useAuth } from '../context/AuthContext';
 
 interface SystemLog {
@@ -32,7 +33,7 @@ interface SystemLog {
     created_at: string;
 }
 
-type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans';
+type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans' | 'my-assignments-portal';
 
 const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }> = [
     { id: 'overview', label: 'Visão Geral', eyebrow: 'Core' },
@@ -43,6 +44,7 @@ const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }>
     { id: 'links', label: 'Links de Form', eyebrow: 'Publicadores' },
     { id: 'availability', label: 'Disponibilidade', eyebrow: 'Links' },
     { id: 'orphans', label: 'Auditoria de Órfãs', eyebrow: 'Importação' },
+    { id: 'my-assignments-portal', label: 'Portal Designações', eyebrow: 'Publicadores' },
 ];
 
 export function AdminDashboard() {
@@ -475,6 +477,17 @@ export function AdminDashboard() {
                                         <h3>🔍 Auditoria de Designações Órfãs</h3>
                                     </div>
                                     <OrphanAuditPanel />
+                                </div>
+                            </section>
+
+                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Portal Minhas Designações">
+                                <div className="table-card admin-panel-card">
+                                    <div className="table-header">
+                                        <h3>📋 Portal Minhas Designações</h3>
+                                    </div>
+                                    <div style={{ padding: '16px' }}>
+                                        <MyAssignmentsPortalManager adminEmail={profile?.email ?? undefined} />
+                                    </div>
                                 </div>
                             </section>
                         </div>
