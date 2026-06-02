@@ -88,20 +88,27 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
     // Availability portal link opening
     const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
+    // Admin: publisher selected to view (when admin has no own publisher_id)
+    const [selectedPubId, setSelectedPubId] = useState('');
+
     // ── derived data ──────────────────────────────────────────────────────
 
     const todayWeekId = useMemo(() => getTodayWeekIdLocal(), []);
 
+    // Effective publisher: own (regular user / admin with publisher_id) or admin-selected
+    const effectivePubId: string | null =
+        profile?.publisher_id ?? (isAdmin && selectedPubId ? selectedPubId : null);
+
     const myParts = useMemo(() => {
-        if (!profile?.publisher_id) return [];
+        if (!effectivePubId) return [];
         return parts.filter(
             p =>
-                p.resolvedPublisherId === profile.publisher_id &&
+                p.resolvedPublisherId === effectivePubId &&
                 p.weekId >= todayWeekId &&
                 (p.status === 'PROPOSTA' || p.status === 'DESIGNADA') &&
                 !p.isChairmanDerived
         );
-    }, [parts, profile?.publisher_id, todayWeekId]);
+    }, [parts, effectivePubId, todayWeekId]);
 
     const grouped = useMemo(() => {
         const map: Record<string, WorkbookPart[]> = {};
@@ -114,16 +121,16 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
             .map(wid => ({ weekId: wid, weekDisplay: map[wid][0].weekDisplay, parts: map[wid] }));
     }, [myParts, weekOrder]);
 
-    const publisherName =
-        publishers.find(p => p.id === profile?.publisher_id)?.name ||
-        profile?.full_name ||
-        'Publicador';
+    const publisherName = effectivePubId
+        ? (publishers.find(p => p.id === effectivePubId)?.name ?? 'Publicador')
+        : (profile?.full_name ?? 'Publicador');
 
     // ── effects ───────────────────────────────────────────────────────────
 
     // Load existing confirmation statuses from DB when modal opens
     useEffect(() => {
-        if (!isOpen || myParts.length === 0) return;
+        setConfirmStatuses({});
+        if (!isOpen || !effectivePubId || myParts.length === 0) return;
         const uniqueWeeks = [...new Set(myParts.map(p => p.weekId))];
         Promise.all(
             uniqueWeeks.map(wid =>
@@ -141,7 +148,7 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
             });
             setConfirmStatuses(map);
         });
-    }, [isOpen, myParts.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isOpen, effectivePubId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Reset refuse state when modal closes
     useEffect(() => {
@@ -150,6 +157,7 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
             setRefuseReason('');
             setLinkCopied(false);
             setS89CopiedId(null);
+            setSelectedPubId('');
         }
     }, [isOpen]);
 
@@ -222,7 +230,7 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
         accept: boolean,
         reason?: string
     ) => {
-        if (!profile?.publisher_id) return;
+        if (!effectivePubId) return;
         if (submittingId) return;
         if (!accept && !reason?.trim()) {
             // Safety: caller should already prevent this via disabled state
@@ -235,7 +243,7 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
             // Step 1: get/create confirmation token
             const { data: tokenData, error: tokenError } = await supabase.rpc(
                 'create_confirmation_portal_token',
-                { p_part_id: part.id, p_publisher_id: profile.publisher_id }
+                { p_part_id: part.id, p_publisher_id: effectivePubId }
             );
             if (tokenError) throw tokenError;
 
@@ -254,7 +262,7 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
                 'submit_confirmation_portal_response',
                 {
                     p_part_id: part.id,
-                    p_publisher_id: profile.publisher_id,
+                    p_publisher_id: effectivePubId,
                     p_token: tokenResult.token,
                     p_accept: accept,
                     p_reason: accept ? null : (reason?.trim() || null),
@@ -287,18 +295,19 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
     // ── availability token helpers ────────────────────────────────────────
 
     const getOrCreateAvailabilityToken = async (): Promise<string | null> => {
-        if (!profile?.publisher_id) return null;
+        const pubId = effectivePubId;
+        if (!pubId) return null;
         try {
             const tokens = await api.getSetting<AvailabilityToken[]>('availability_tokens', []);
-            let token = tokens.find(t => t.publisherId === profile.publisher_id && t.active);
+            let token = tokens.find(t => t.publisherId === pubId && t.active);
             if (!token) {
                 const arr = new Uint8Array(18);
                 crypto.getRandomValues(arr);
                 const newTok: AvailabilityToken = {
                     token: Array.from(arr, b => b.toString(16).padStart(2, '0')).join(''),
-                    publisherId: profile.publisher_id,
+                    publisherId: pubId,
                     publisherName:
-                        publishers.find(p => p.id === profile.publisher_id)?.name || '',
+                        publishers.find(p => p.id === pubId)?.name || '',
                     createdAt: new Date().toISOString(),
                     createdBy: 'my-assignments-modal',
                     active: true,
@@ -416,7 +425,7 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
 
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
                         {/* [ADMIN ONLY] Copy portal link */}
-                        {isAdmin && profile?.publisher_id && (
+                        {isAdmin && effectivePubId && (
                             <button
                                 onClick={handleCopyPortalLink}
                                 disabled={copyingLink}
@@ -459,15 +468,48 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
 
                 {/* ── Body ────────────────────────────────────────────────── */}
                 <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px 16px' }}>
-                    {!profile?.publisher_id ? (
-                        <div
-                            style={{ padding: '40px 32px', textAlign: 'center', color: '#64748B' }}
+                {/* Admin publisher selector */}
+                {isAdmin && !profile?.publisher_id && (
+                    <div style={{ paddingBottom: '14px', borderBottom: '1px solid #1E293B', marginBottom: '12px' }}>
+                        <label style={{ fontSize: '12px', color: '#64748B', display: 'block', marginBottom: '6px' }}>
+                            Visualizar designações de:
+                        </label>
+                        <select
+                            value={selectedPubId}
+                            onChange={e => setSelectedPubId(e.target.value)}
+                            style={{
+                                width: '100%',
+                                background: '#1E293B',
+                                border: '1px solid #334155',
+                                borderRadius: '8px',
+                                color: '#E2E8F0',
+                                padding: '8px 10px',
+                                fontSize: '13px',
+                                cursor: 'pointer',
+                            }}
                         >
-                            <div style={{ fontSize: '36px', marginBottom: '12px' }}>👤</div>
-                            <p style={{ margin: 0 }}>
-                                Sua conta não está vinculada a um publicador.
-                            </p>
+                            <option value="">— selecione um publicador —</option>
+                            {[...publishers]
+                                .sort((a, b) => a.name.localeCompare(b.name))
+                                .map(pub => (
+                                    <option key={pub.id} value={pub.id}>{pub.name}</option>
+                                ))}
+                        </select>
+                    </div>
+                )}
+                {!effectivePubId ? (
+                    <div
+                        style={{ padding: '40px 32px', textAlign: 'center', color: '#64748B' }}
+                    >
+                        <div style={{ fontSize: '36px', marginBottom: '12px' }}>
+                            {isAdmin ? '🔍' : '👤'}
                         </div>
+                        <p style={{ margin: 0 }}>
+                            {isAdmin
+                                ? 'Selecione um publicador para ver suas designações.'
+                                : 'Sua conta não está vinculada a um publicador.'}
+                        </p>
+                    </div>
                     ) : grouped.length === 0 ? (
                         <div
                             style={{ padding: '40px 32px', textAlign: 'center', color: '#64748B' }}
@@ -821,7 +863,7 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
                 </div>
 
                 {/* ── Footer: availability ─────────────────────────────────── */}
-                {profile?.publisher_id && (
+                {effectivePubId && (
                     <div
                         style={{
                             borderTop: '1px solid #1F2937',
