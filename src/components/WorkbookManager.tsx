@@ -133,7 +133,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
     const [isMyAssignmentsOpen, setIsMyAssignmentsOpen] = useState(false);
 
     // Auth (para gating do botão Minhas Designações)
-    const { profile } = useAuth();
+    const { profile, isAdmin } = useAuth();
 
     // Paginação
     const [currentPage, setCurrentPage] = useState(1);
@@ -694,7 +694,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                             <button onClick={() => setIsS140MultiModalOpen(true)} style={{ padding: '8px 16px', background: '#4F46E5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 📦 S-140 Pacote
                             </button>
-                            {profile?.publisher_id && (
+                            {(isAdmin || profile?.publisher_id) && (
                                 <button onClick={() => setIsMyAssignmentsOpen(true)} style={{ padding: '8px 16px', background: '#0369A1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     📋 Minhas Designações
                                 </button>
