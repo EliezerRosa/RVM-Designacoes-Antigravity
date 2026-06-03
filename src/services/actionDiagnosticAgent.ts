@@ -75,7 +75,7 @@ type TestFactory = (fixtures: LiveFixtures) => {
     buildScript: (fixtures: LiveFixtures, result?: ActionResult, error?: string) => TestScript;
 };
 
-const TEST_REGISTRY: Record<AgentActionType, TestFactory> = {
+const TEST_REGISTRY: Partial<Record<AgentActionType, TestFactory>> = {
 
     SHOW_MODAL: (fx) => ({
         action: { type: 'SHOW_MODAL', params: { modal: 'publishers' }, description: 'Teste: abrir modal publicadores' },

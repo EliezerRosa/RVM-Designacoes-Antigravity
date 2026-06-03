@@ -136,8 +136,7 @@ export function MyAssignmentsModal({ isOpen, onClose, parts, publishers, weekOrd
             uniqueWeeks.map(wid =>
                 supabase
                     .rpc('get_portal_responses_for_week', { p_week_id: wid })
-                    .then(({ data }) => data || [])
-                    .catch(() => [])
+                    .then(({ data }) => data || [], () => [])
             )
         ).then(results => {
             const map: Record<string, ConfirmationStatus> = {};

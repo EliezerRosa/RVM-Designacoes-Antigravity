@@ -21,31 +21,32 @@ export interface ImpedimentEntry {
  * Usado para atalhar a verificação pesada (skip se nenhum campo relevante mudou).
  */
 function hasImpedimentCausingChange(old: Publisher, updated: Publisher): boolean {
-    if (old.active !== updated.active) return true;
-    if (old.isDisqualified !== updated.isDisqualified) return true;
-    if (old.wontParticipate !== updated.wontParticipate) return true;
+    if (old.isServing !== updated.isServing) return true;
+    if (old.isNotQualified !== updated.isNotQualified) return true;
+    if (old.requestedNoParticipation !== updated.requestedNoParticipation) return true;
+    if (old.isHelperOnly !== updated.isHelperOnly) return true;
     if (old.gender !== updated.gender) return true;
     if (old.isBaptized !== updated.isBaptized) return true;
 
     // Privilégios gerais
-    const op = old.privileges || {};
-    const np = updated.privileges || {};
+    const op = old.privileges || ({} as Partial<Publisher['privileges']>);
+    const np = updated.privileges || ({} as Partial<Publisher['privileges']>);
     if (
         op.canPreside !== np.canPreside ||
-        op.canGivePublicTalk !== np.canGivePublicTalk ||
+        op.canGiveTalks !== np.canGiveTalks ||
+        op.canGiveStudentTalks !== np.canGiveStudentTalks ||
         op.canPray !== np.canPray ||
-        op.canLedEBC !== np.canLedEBC ||
-        op.canReadEBC !== np.canReadEBC ||
-        op.canTeach !== np.canTeach
+        op.canConductCBS !== np.canConductCBS ||
+        op.canReadCBS !== np.canReadCBS
     ) return true;
 
     // Permissões por seção
-    const os = old.privilegesBySection || {};
-    const ns = updated.privilegesBySection || {};
+    const os = old.privilegesBySection || ({} as Partial<Publisher['privilegesBySection']>);
+    const ns = updated.privilegesBySection || ({} as Partial<Publisher['privilegesBySection']>);
     if (
-        os.tesouros !== ns.tesouros ||
-        os.ministerio !== ns.ministerio ||
-        os.vida_crista !== ns.vida_crista
+        os.canParticipateInTreasures !== ns.canParticipateInTreasures ||
+        os.canParticipateInMinistry !== ns.canParticipateInMinistry ||
+        os.canParticipateInLife !== ns.canParticipateInLife
     ) return true;
 
     // Disponibilidade (defensivo: dados legados podem não ter availableDates/exceptionDates)

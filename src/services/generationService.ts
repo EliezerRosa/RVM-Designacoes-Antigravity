@@ -146,12 +146,6 @@ export const generationService = {
                 console.warn('[GenerationService] Failed to load history:', e);
             }
 
-            // Modalidade helper
-            const getModalidade = (part: WorkbookPart): string => {
-                if (part.modalidade) return part.modalidade;
-                return getModalidadeFromTipo(part.tipoParte, part.section);
-            };
-
             // Agrupar por semana
             const byWeek = partsNeedingAssignment.reduce((acc, part) => {
                 const week = part.weekId || part.weekDisplay;

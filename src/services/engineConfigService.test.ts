@@ -13,6 +13,10 @@ const baseConfig: EngineConfig = {
     SISTER_DEMO_PRIORITY: 50,
     FSM_TITULAR_PROMOTION_BONUS: 80,
     MAX_LOOKBACK_WEEKS: 52,
+    HEAVY_ROLE_BASE: 4000,
+    HEAVY_ROLE_RADIUS: 4,
+    ROLE_ALTERNATION_WINDOW_WEEKS: 4,
+    PAIR_REPETITION_WINDOW_WEEKS: 4,
 };
 
 test('updateEngineConfig shallow-merges flat settings, persists merged config and applies runtime delta', async () => {

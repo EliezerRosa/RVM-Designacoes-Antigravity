@@ -132,7 +132,7 @@ export default function TemporalChat({
     const [isListening, setIsListening] = useState(false);
     const [speechError, setSpeechError] = useState<string | null>(null);
     const [activeTopic, setActiveTopic] = useState('Exploração geral');
-    const [interactionStage, setInteractionStage] = useState('Consulta');
+    const [interactionStage, setInteractionStage] = useState<string | null>('Consulta');
     const [lastUserPrompt, setLastUserPrompt] = useState<string>('');
     const [proposalBusyPartId, setProposalBusyPartId] = useState<string | null>(null);
     const [proposalRejectFocusId, setProposalRejectFocusId] = useState<string | null>(null);

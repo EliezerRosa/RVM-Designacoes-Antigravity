@@ -402,7 +402,7 @@ export const api = {
             status: row.status,
             seq: row.seq,
             isManualOverride: row.is_manual_override,
-        }));
+        })) as unknown as import('../types').WorkbookPart[];
     },
 };
 

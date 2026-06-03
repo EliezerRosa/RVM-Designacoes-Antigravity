@@ -199,7 +199,7 @@ export function calculateScore(
     partType: string,
     history: HistoryRecord[],
     referenceDate: Date = new Date(),
-    currentPresident?: string
+    _currentPresident?: string
 ): RotationScore {
     const details = {
         base: CURRENT_SCORING_CONFIG.BASE_SCORE,
@@ -490,7 +490,7 @@ export function explainScoreForAgent(candidate: RankedCandidate): string {
 export function generateNaturalLanguageExplanation(
     candidate: RankedCandidate,
     history: HistoryRecord[],
-    referenceDate: Date = new Date()
+    referenceDate?: Date
 ): string;
 export function generateNaturalLanguageExplanation(
     candidate: RankedCandidate,

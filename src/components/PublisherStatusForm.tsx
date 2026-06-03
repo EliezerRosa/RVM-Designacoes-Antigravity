@@ -126,7 +126,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
     const canEditSections = isFullEditor;
     /** Pode CRUD em Necessidades Locais e Eventos Especiais (senão é só leitura).
      *  Em modo CS (announcementsOnly) a role 'CS' também tem acesso de edição. */
-    const canManageNLEvents = isFullEditor || (announcementsOnly && role === 'CS');
+    const canManageNLEvents = isFullEditor || (announcementsOnly && (role as string) === 'CS');
 
     const ensureWeeks = async () => {
         if (modalWeeks) return;
@@ -274,7 +274,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
             const existing = next.get(id) || {};
             const pub = publishers.find(p => p.id === id);
             if (!pub) return prev;
-            const parentVal = (existing[parent] as Record<string, unknown>) || { ...(pub[parent] as Record<string, unknown>) };
+            const parentVal = (existing[parent] as unknown as Record<string, unknown>) || { ...(pub[parent] as unknown as Record<string, unknown>) };
             next.set(id, { ...existing, [parent]: { ...parentVal, [field]: value } });
             return next;
         });
