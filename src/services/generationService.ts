@@ -1,14 +1,15 @@
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
-import { EnumModalidade, EnumFuncao, EnumTipoParte, HistoryStatus } from '../types';
+import { EnumModalidade, EnumFuncao, HistoryStatus } from '../types';
 import { loadCompletedParticipations } from './historyAdapter';
-import { checkEligibility, isPastWeekDate, getThursdayFromDate, getWeekMondayId, isElderOrMS } from './eligibilityService';
-import { getRankedCandidates, getRotationConfig, getMostRecentFSMRole, wasRecentlyPairedWith } from './unifiedRotationService';
+import { checkEligibility } from './eligibilityService';
+import { getRotationConfig } from './unifiedRotationService';
+import { getRankedEligibleForPart } from './rankedEligibleService';
 import { generationCommitService } from './generationCommitService';
 import { localNeedsService } from './localNeedsService';
 
 import { getModalidadeFromTipo, isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 
-import { isBlocked, COOLDOWN_WEEKS, COOLDOWN_WEEKS_HELPER } from './cooldownService';
+import { COOLDOWN_WEEKS, COOLDOWN_WEEKS_HELPER } from './cooldownService';
 import { ELIGIBILITY_RULES_VERSION } from './eligibilityService';
 import { auditService } from './auditService';
 
@@ -28,6 +29,78 @@ export interface GenerationResult {
     message?: string;
 }
 
+function parseGenerationDate(dateStr: string): Date {
+    if (!dateStr) return new Date(0);
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(dateStr + 'T12:00:00');
+    const dmy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
+    return new Date(dateStr);
+}
+
+export function shouldIncludePartForGeneration(
+    part: WorkbookPart,
+    publishers: Publisher[],
+    today: Date,
+    config?: GenerationConfig,
+): boolean {
+    const normalizedToday = new Date(today);
+    normalizedToday.setHours(0, 0, 0, 0);
+
+    const d = parseGenerationDate(part.date);
+    if (d < normalizedToday) return false; // Sempre excluir passadas
+    if (part.funcao !== 'Titular' && part.funcao !== 'Ajudante') return false;
+
+    // Quando o usuário pede semanas específicas, isso vira fronteira dura
+    // inclusive para cleanup de partes não-designáveis. Evita tocar semanas
+    // laterais e mantém `generatedWeeks` fiel ao escopo solicitado.
+    if (config?.generationWeeks && config.generationWeeks.length > 0 && !config.generationWeeks.includes(part.weekId)) {
+        return false;
+    }
+
+    // Cânticos, Comentários Iniciais/Finais, Elogios e Conselhos NUNCA recebem designação
+    if (isNonDesignatablePart(part.tipoParte)) {
+        // v9.1: Se tiver lixo (nome preenchido), incluir para limpar!
+        if (part.resolvedPublisherName || part.rawPublisherName) return true;
+        return false;
+    }
+
+    // Se já foi concluída ou cancelada, nunca reagendar automaticamente
+    if (part.status === 'CONCLUIDA' || part.status === 'CANCELADA') return false;
+
+    // Se semanas específicas definidas → incluir TODAS do período que não estejam finalizadas
+    if (config?.generationWeeks && config.generationWeeks.length > 0) {
+        return config.generationWeeks.includes(part.weekId);
+    }
+
+    // Senão → só PENDENTE ou sem publicador
+    // OU se tiver publicador, mas for INVÁLIDO (Sanity Check v9.2)
+    if (part.status === 'PENDENTE' || !part.resolvedPublisherName) return true;
+
+    // Check if existing assignment is valid
+    // Only check if we are forced to re-evaluate or if status is not finalized
+    // Mas o usuário quer corrigir "resíduos". Então vamos checar PROPOSTA/DESIGNADA também se estiver no range.
+    if (part.status === 'PROPOSTA' || part.status === 'DESIGNADA') {
+        const pubName = part.resolvedPublisherName;
+        const publisher = publishers.find(pub => pub.name === pubName);
+        if (publisher) {
+            const mod = part.modalidade || getModalidadeFromTipo(part.tipoParte, part.section);
+            const eligibility = checkEligibility(publisher, mod as any, part.funcao, {
+                date: part.date,
+                secao: part.section,
+                partTitle: part.tituloParte,
+                partDescription: part.descricaoParte,
+                partDetails: part.detalhesParte,
+            });
+            if (!eligibility.eligible) {
+                console.log(`[SanityCheck] Found invalid assignment: ${pubName} for ${part.tipoParte} (${eligibility.reason}). Marking for re-generation.`);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 /**
  * Service to handle batch generation of assignments.
  * Extracted from WorkbookManager to be used by both UI and Agent.
@@ -41,68 +114,11 @@ export const generationService = {
         const isDryRun = config?.isDryRun ?? false;
         const warnings: string[] = [];
 
-        // Helper para normalizar data
-        const parseDate = (dateStr: string): Date => {
-            if (!dateStr) return new Date(0);
-            if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(dateStr + 'T12:00:00');
-            const dmy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-            if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}T12:00:00`);
-            return new Date(dateStr);
-        };
-
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         // Filter parts needing assignment
-        const partsNeedingAssignment = parts.filter(p => {
-            const d = parseDate(p.date);
-            if (d < today) return false; // Sempre excluir passadas
-            if (p.funcao !== 'Titular' && p.funcao !== 'Ajudante') return false;
-            // Cânticos, Comentários Iniciais/Finais, Elogios e Conselhos NUNCA recebem designação
-            if (isNonDesignatablePart(p.tipoParte)) {
-                // v9.1: Se tiver lixo (nome preenchido), incluir para limpar!
-                if (p.resolvedPublisherName || p.rawPublisherName) return true;
-                return false;
-            }
-            // Se já foi concluída ou cancelada, nunca reagendar automaticamente
-            if (p.status === 'CONCLUIDA' || p.status === 'CANCELADA') return false;
-
-            // Se semanas específicas definidas → incluir TODAS do período que não estejam finalizadas
-            if (config?.generationWeeks && config.generationWeeks.length > 0) {
-                return config.generationWeeks.includes(p.weekId);
-            }
-
-            // Senão → só PENDENTE ou sem publicador
-            // OU se tiver publicador, mas for INVÁLIDO (Sanity Check v9.2)
-            if (p.status === 'PENDENTE' || !p.resolvedPublisherName) return true;
-
-            // Check if existing assignment is valid
-            // Only check if we are forced to re-evaluate or if status is not finalized
-            // Mas o usuário quer corrigir "resíduos". Então vamos checar PROPOSTA/DESIGNADA também se estiver no range.
-            if (p.status === 'PROPOSTA' || p.status === 'DESIGNADA') {
-                const pubName = p.resolvedPublisherName;
-                const publisher = publishers.find(pub => pub.name === pubName);
-                if (publisher) {
-                    // Copied helper logic or use direct import
-                    const mod = p.modalidade || getModalidadeFromTipo(p.tipoParte, p.section);
-
-                    // Simple check: Gender/Modality mismatch is the main issue
-                    const eligibility = checkEligibility(publisher, mod as any, p.funcao, {
-                        date: p.date,
-                        secao: p.section,
-                        partTitle: p.tituloParte,
-                        partDescription: p.descricaoParte,
-                        partDetails: p.detalhesParte,
-                    });
-                    if (!eligibility.eligible) {
-                        console.log(`[SanityCheck] Found invalid assignment: ${pubName} for ${p.tipoParte} (${eligibility.reason}). Marking for re-generation.`);
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        });
+        const partsNeedingAssignment = parts.filter(part => shouldIncludePartForGeneration(part, publishers, today, config));
 
         if (partsNeedingAssignment.length === 0) {
             return {
@@ -147,6 +163,52 @@ export const generationService = {
             let totalCreated = 0;
             let totalWithPublisher = 0;
             const selectedPublisherByPart = new Map<string, { id: string; name: string }>();
+
+            const getFullWeekParts = (weekId: string) =>
+                parts.filter(part => part.weekId === weekId);
+
+            const materializeSelectedPublisher = (part: WorkbookPart): WorkbookPart => {
+                const selected = selectedPublisherByPart.get(part.id);
+                if (!selected) return part;
+
+                if (selected.id === 'CLEANUP') {
+                    return {
+                        ...part,
+                        resolvedPublisherId: undefined,
+                        resolvedPublisherName: '',
+                        rawPublisherName: '',
+                    };
+                }
+
+                const resolvedPublisher = publishers.find(pub => pub.id === selected.id || pub.name === selected.name);
+
+                return {
+                    ...part,
+                    resolvedPublisherId: resolvedPublisher?.id || (selected.id !== 'preassigned' ? selected.id : part.resolvedPublisherId),
+                    resolvedPublisherName: selected.name,
+                    rawPublisherName: selected.name,
+                };
+            };
+
+            const buildWorkingWeekParts = (weekId: string): WorkbookPart[] =>
+                getFullWeekParts(weekId).map(materializeSelectedPublisher);
+
+            const pickCanonicalCandidate = (targetPart: WorkbookPart): Publisher | null => {
+                const rankedResult = getRankedEligibleForPart(
+                    targetPart,
+                    buildWorkingWeekParts(targetPart.weekId),
+                    publishers,
+                    historyRecords,
+                    {
+                        applyEngineRules: true,
+                        excludeAssignedInSameWeek: true,
+                    },
+                );
+
+                return rankedResult.eligibleCandidates.find(candidate => !candidate.blocked)?.publisher
+                    || rankedResult.eligibleCandidates[0]?.publisher
+                    || null;
+            };
 
             // Rastreamento in-loop para cooldown imediato
 
@@ -206,34 +268,7 @@ export const generationService = {
             console.log(`[GenerationService] Processing ${presidenteParts.length} President parts`);
 
             for (const part of presidenteParts) {
-                const thursdayDate = getThursdayFromDate(part.date);
-                const weekId = getWeekMondayId(part.date);
-
-                // Filtro de Elegibilidade + Disponibilidade
-                const eligibleCandidates = publishers.filter(p => {
-                    const eligResult = checkEligibility(p, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR, {
-                        date: part.date,
-                        partTitle: part.tituloParte,
-                        partDescription: part.descricaoParte,
-                        partDetails: part.detalhesParte,
-                    });
-                    if (!eligResult.eligible) return false;
-
-                    const avail = p.availability;
-                    if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
-                    return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
-                });
-
-                // Seleção via Scientific Score (mesma fonte do painel/agente:
-                // filtra a semana corrente do histórico + usa data da parte como referência)
-                const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
-                const ranked = getRankedCandidates(eligibleCandidates, 'Presidente', historyForRanking, undefined, safeThursdayDate);
-
-                // v10: Pegar o primeiro NÃO bloqueado
-                // CORRECTION O: Use target date (thursdayDate)
-                const candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id))?.publisher
-                    || (ranked.length > 0 ? ranked[0].publisher : null); // Fallback se todos bloqueados
+                const candidate = pickCanonicalCandidate(part);
 
                 if (candidate) {
                     selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
@@ -272,7 +307,7 @@ export const generationService = {
             // ===================================
             // Atribui Oração Inicial, Comentários, etc. ao Presidente da Semana
             for (const weekId of Object.keys(byWeek)) {
-                const weekParts = byWeek[weekId];
+                const weekParts = getFullWeekParts(weekId);
 
                 // Encontrar o Presidente desta semana (já processado na Fase 1 ou existente no array)
                 let chairmanName = 'Presidente da Reunião'; // Fallback
@@ -311,23 +346,13 @@ export const generationService = {
             // ===================================
             // FASE 2 & 3: Loop Semanal (Ensino, Estudante, Demais)
             // ===================================
-            for (const [_weekId, weekParts] of Object.entries(byWeek)) {
-                weekParts.sort((a, b) => a.date.localeCompare(b.date));
+            for (const [_weekId, weekPartsToAssign] of Object.entries(byWeek)) {
+                const weekParts = getFullWeekParts(_weekId);
+                weekPartsToAssign.sort((a, b) => a.date.localeCompare(b.date));
 
                 // Presidente designado nesta semana (para Oração Inicial e exclusão)
                 const presidentePart = weekParts.find(p => p.tipoParte.toLowerCase().includes('presidente') && p.funcao === 'Titular');
                 const presidenteDaSemana = presidentePart ? selectedPublisherByPart.get(presidentePart.id)?.name : undefined;
-
-                const namesExcludedInWeek = new Set<string>();
-                if (presidenteDaSemana) namesExcludedInWeek.add(presidenteDaSemana);
-
-                // Seed namesExcludedInWeek from parts already assigned in this week
-                // that are NOT being reassigned now. Prevents double-assignment of same publisher.
-                for (const wp of weekParts) {
-                    if (!partsNeedingAssignment.some(p => p.id === wp.id) && wp.resolvedPublisherName) {
-                        namesExcludedInWeek.add(wp.resolvedPublisherName);
-                    }
-                }
 
                 // --- FASE 2: ENSINO ---
                 // v9.5: Add missing Teaching types to ensure they use Ranked Selection (not strict blocking)
@@ -341,81 +366,24 @@ export const generationService = {
                     'Parte Vida Crista'
                 ];
                 for (const tipoEnsino of tiposEnsino) {
-                    const ensinoParts = weekParts.filter(p =>
+                    const ensinoParts = weekPartsToAssign.filter(p =>
                         p.tipoParte === tipoEnsino &&
                         p.funcao === 'Titular' &&
                         !selectedPublisherByPart.has(p.id)
                     );
 
                     for (const ensinoPart of ensinoParts) {
-                        const thursdayDate = getThursdayFromDate(ensinoPart.date);
-                        const weekId = getWeekMondayId(ensinoPart.date);
-                        // v8.5: Passar seção para garantir fallback correto (Vida Cristã vs Tesouros)
-                        const modalidadeCorreta = getModalidadeFromTipo(tipoEnsino, ensinoPart.section);
-
-                        const checkPubFilters = (p: Publisher) => {
-                            const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, {
-                                date: ensinoPart.date,
-                                secao: ensinoPart.section,
-                                partTitle: ensinoPart.tituloParte,
-                                partDescription: ensinoPart.descricaoParte,
-                                partDetails: ensinoPart.detalhesParte,
-                            });
-                            if (!eligResult.eligible) return false;
-
-                            const avail = p.availability;
-                            if (avail.mode === 'always') return !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate);
-                            return avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
-                        };
-
-                        let candidate: Publisher | null = null;
-                        const isLeitorEBC = (tipoEnsino === 'Leitor EBC' || tipoEnsino === EnumTipoParte.LEITOR_EBC);
-
-                        // Helper para selecionar o primeiro DISPONÍVEL da lista ranqueada
-                        const pickTopRanked = (pubs: Publisher[]) => {
-                            // Mesma fonte do painel/agente: filtrar semana corrente + refDate
-                            const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                            const historyForRanking = historyRecords.filter(h => h.weekId !== ensinoPart.weekId);
-                            const ranked = getRankedCandidates(pubs, tipoEnsino, historyForRanking, undefined, safeThursdayDate);
-                            return ranked.find(r =>
-                                !namesExcludedInWeek.has(r.publisher.name) &&
-                                !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id)
-                            )?.publisher || null;
-                        };
-
-                        if (isLeitorEBC) {
-                            // Varão > SM > Ancião
-                            // Grupo 1: Varões Comuns
-                            const brothers = publishers.filter(p => !isElderOrMS(p) && checkPubFilters(p));
-                            candidate = pickTopRanked(brothers);
-
-                            if (!candidate) {
-                                // Grupo 2: SM
-                                const servants = publishers.filter(p => p.condition === 'Servo Ministerial' && checkPubFilters(p));
-                                candidate = pickTopRanked(servants);
-                            }
-
-                            if (!candidate) {
-                                // Grupo 3: Anciãos
-                                const elders = publishers.filter(p => (p.condition === 'Ancião' || p.condition === 'Anciao') && checkPubFilters(p));
-                                candidate = pickTopRanked(elders);
-                            }
-                        } else {
-                            // Standard: Todos elegíveis juntos
-                            const eligible = publishers.filter(p => checkPubFilters(p));
-                            candidate = pickTopRanked(eligible);
-                        }
+                        const candidate = pickCanonicalCandidate(ensinoPart);
 
                         if (candidate) {
                             selectedPublisherByPart.set(ensinoPart.id, { id: candidate.id, name: candidate.name });
                             totalWithPublisher++;
-                            namesExcludedInWeek.add(candidate.name);
                         }
                     }
                 }
 
                 // --- FASE 3: ESTUDANTE ---
-                const estudanteParts = weekParts.filter(p => {
+                const estudanteParts = weekPartsToAssign.filter(p => {
                     const mod = getModalidadeFromTipo(p.tipoParte);
                     return p.funcao === 'Titular' && !selectedPublisherByPart.has(p.id) && (
                         mod === EnumModalidade.LEITURA_ESTUDANTE || mod === EnumModalidade.DEMONSTRACAO || mod === EnumModalidade.DISCURSO_ESTUDANTE
@@ -423,92 +391,16 @@ export const generationService = {
                 });
 
                 for (const estudantePart of estudanteParts) {
-                    const thursdayDate = getThursdayFromDate(estudantePart.date);
-                    const weekId = getWeekMondayId(estudantePart.date);
-                    const modalidadeCorreta = getModalidadeFromTipo(estudantePart.tipoParte);
-
-                    // Q2 (Titular FSM): bloquear quem foi Titular em parte FSM nas últimas N semanas.
-                    const cfgRuntime = getRotationConfig();
-                    const alternWeeks = cfgRuntime.ROLE_ALTERNATION_WINDOW_WEEKS ?? 0;
-                    const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                    const historyForChecks = historyRecords.filter(h => h.weekId !== estudantePart.weekId);
-
-                    const checkPubFilters = (p: Publisher) => {
-                        const eligResult = checkEligibility(p, modalidadeCorreta as any, EnumFuncao.TITULAR, {
-                            date: estudantePart.date,
-                            secao: estudantePart.section,
-                            partTitle: estudantePart.tituloParte,
-                            partDescription: estudantePart.descricaoParte,
-                            partDetails: estudantePart.detalhesParte,
-                        });
-                        if (!eligResult.eligible) return false;
-                        const avail = p.availability;
-                        const availableHere = avail.mode === 'always'
-                            ? !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate)
-                            : avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
-                        if (!availableHere) return false;
-
-                        // Q2 bidirecional: se a última participação FSM foi Titular, bloquear novo Titular.
-                        if (alternWeeks > 0) {
-                            const lastRole = getMostRecentFSMRole(p.name, historyForChecks, safeThursdayDate, alternWeeks);
-                            if (lastRole === 'Titular') return false;
-                        }
-                        return true;
-                    };
-
-                    const isDemonstracao = modalidadeCorreta === EnumModalidade.DEMONSTRACAO;
-                    let candidate: Publisher | null = null;
-
-                    // Helper para selecionar o primeiro DISPONÍVEL da lista ranqueada
-                    const pickTopRanked = (pubs: Publisher[]) => {
-                        // Mesma fonte do painel/agente
-                        const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                        const historyForRanking = historyRecords.filter(h => h.weekId !== estudantePart.weekId);
-                        const ranked = getRankedCandidates(pubs, estudantePart.tipoParte, historyForRanking, undefined, safeThursdayDate);
-                        return ranked.find(r =>
-                            !namesExcludedInWeek.has(r.publisher.name) &&
-                            !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id)
-                        )?.publisher || null;
-                    };
-
-                    if (isDemonstracao) {
-                        // Irmãs > Varões > SMs > Anciãos
-                        // Grupo 1: Irmãs
-                        const sisters = publishers.filter(p => p.gender === 'sister' && checkPubFilters(p));
-                        candidate = pickTopRanked(sisters);
-
-                        if (!candidate) {
-                            // Grupo 2: Varões Comuns
-                            const brothers = publishers.filter(p => p.gender === 'brother' && !isElderOrMS(p) && checkPubFilters(p));
-                            candidate = pickTopRanked(brothers);
-                        }
-
-                        if (!candidate) {
-                            // Grupo 3: SMs
-                            const servants = publishers.filter(p => p.condition === 'Servo Ministerial' && checkPubFilters(p));
-                            candidate = pickTopRanked(servants);
-                        }
-
-                        if (!candidate) {
-                            // Grupo 4: Anciãos
-                            const elders = publishers.filter(p => (p.condition === 'Ancião' || p.condition === 'Anciao') && checkPubFilters(p));
-                            candidate = pickTopRanked(elders);
-                        }
-                    } else {
-                        // Standard
-                        const eligible = publishers.filter(p => checkPubFilters(p));
-                        candidate = pickTopRanked(eligible);
-                    }
+                    const candidate = pickCanonicalCandidate(estudantePart);
 
                     if (candidate) {
                         selectedPublisherByPart.set(estudantePart.id, { id: candidate.id, name: candidate.name });
                         totalWithPublisher++;
-                        namesExcludedInWeek.add(candidate.name);
                     }
                 }
 
                 // --- FASE 4: DEMAIS PARTES ---
-                for (const part of weekParts) {
+                for (const part of weekPartsToAssign) {
                     if (selectedPublisherByPart.has(part.id)) continue;
 
                     // Fase H.8 (2026-05-22): partes auto-atribuídas ao Presidente NUNCA
@@ -518,7 +410,6 @@ export const generationService = {
                     // a derivada PERMANECE pendente (não pegamos um publicador aleatório).
                     if (isAutoAssignedToChairman(part.tipoParte)) continue;
 
-                    const modalidade = getModalidade(part);
                     const isOracaoInicial = part.tipoParte.toLowerCase().includes('inicial');
 
                     if (isOracaoInicial && presidenteDaSemana) {
@@ -550,17 +441,7 @@ export const generationService = {
                         }
                     }
 
-                    const isPast = isPastWeekDate(part.date);
-                    const thursdayDate = getThursdayFromDate(part.date);
-                    const weekId = getWeekMondayId(part.date);
                     if (funcao === EnumFuncao.AJUDANTE) {
-                        let titularGender: 'brother' | 'sister' | undefined = undefined;
-                        let titularPublisherId: string | undefined = undefined;
-                        let titularSpouseId: string | undefined = undefined;
-                        let titularParentIds: string[] = [];
-                        let titularChildIds: string[] = [];
-                        let titularNameResolved: string | undefined = undefined;
-                        // Tentativas de achar titular... (Simplificado para brevidade, mas mantendo lógica principal)
                         const titularPart = weekParts.find(p => p.weekId === part.weekId && p.seq === part.seq && p.funcao === 'Titular') ||
                             weekParts.find(p => p.weekId === part.weekId && p.id !== part.id && p.tipoParte === part.tipoParte && p.funcao === 'Titular'); // Simplificação da busca posicional
 
@@ -577,204 +458,20 @@ export const generationService = {
                                 continue;
                             }
 
-                            const titularName = selectedPublisherByPart.get(titularPart.id)?.name || titularPart.resolvedPublisherName || titularPart.rawPublisherName;
-                            const titularPub = publishers.find(p => p.name === titularName);
-                            if (titularPub) {
-                                titularGender = titularPub.gender;
-                                titularPublisherId = titularPub.id;
-                                titularSpouseId = titularPub.spouseId;
-                                titularParentIds = titularPub.parentIds || [];
-                                titularChildIds = publishers
-                                    .filter(p => (p.parentIds || []).includes(titularPub.id))
-                                    .map(p => p.id);
-                                titularNameResolved = titularPub.name;
-                            }
                         }
-
-                        // Janelas configuráveis (Motor — Q2/Q3)
-                        const cfgRuntime = getRotationConfig();
-                        const alternWeeks = cfgRuntime.ROLE_ALTERNATION_WINDOW_WEEKS ?? 0;
-                        const pairWeeks = cfgRuntime.PAIR_REPETITION_WINDOW_WEEKS ?? 0;
-                        const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                        const historyForChecks = historyRecords.filter(h => h.weekId !== part.weekId);
-
-                        const createAjudanteFilter = (forceGender: 'brother' | 'sister' | undefined) => (p: Publisher): boolean => {
-                            // Q1: pré-filtro de gênero REMOVIDO — canBeHelper decide com bypass cônjuge/pai-filho.
-                            const eligResult = checkEligibility(p, modalidade as any, funcao, {
-                                date: part.date,
-                                isOracaoInicial,
-                                secao: part.section,
-                                isPastWeek: isPast,
-                                titularGender: forceGender,
-                                titularPublisherId,
-                                titularSpouseId,
-                                titularParentIds,
-                                titularChildIds,
-                                partTitle: part.tituloParte,
-                                partDescription: part.descricaoParte,
-                                partDetails: part.detalhesParte,
-                            });
-                            if (!eligResult.eligible) return false;
-                            const avail = p.availability;
-                            const availableHere = avail.mode === 'always'
-                                ? !avail.exceptionDates.includes(weekId) && !avail.exceptionDates.includes(thursdayDate)
-                                : avail.availableDates.includes(weekId) || avail.availableDates.includes(thursdayDate);
-                            if (!availableHere) return false;
-
-                            // Q2: alternância Titular↔Ajudante em 4 semanas (escape: isHelperOnly).
-                            if (alternWeeks > 0 && !p.isHelperOnly) {
-                                const lastRole = getMostRecentFSMRole(p.name, historyForChecks, safeThursdayDate, alternWeeks);
-                                if (lastRole === 'Ajudante') return false;
-                            }
-
-                            // Q3: não repetir par titular+ajudante em 4 semanas.
-                            // Bypass: cônjuge/pai-filho (já permitidos por canBeHelper) ignoram a regra.
-                            if (pairWeeks > 0 && titularNameResolved && titularPublisherId) {
-                                const isSpouseBypass = !!titularSpouseId && p.id === titularSpouseId;
-                                const isParentChildBypass =
-                                    titularParentIds.includes(p.id) ||
-                                    titularChildIds.includes(p.id) ||
-                                    (p.parentIds || []).includes(titularPublisherId);
-                                if (!isSpouseBypass && !isParentChildBypass) {
-                                    if (wasRecentlyPairedWith(p.name, titularNameResolved, historyForChecks, safeThursdayDate, pairWeeks)) {
-                                        return false;
-                                    }
-                                }
-                            }
-                            return true;
-                        };
-
-                        let selectedPublisher: Publisher | null = null;
-
-                        const pickTopRanked = (pubs: Publisher[], type: string) => {
-                            // Mesma fonte do painel/agente
-                            const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                            const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
-                            const ranked = getRankedCandidates(pubs, type, historyForRanking, undefined, safeThursdayDate);
-                            return ranked.find(r =>
-                                !namesExcludedInWeek.has(r.publisher.name) &&
-                                !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id)
-                            )?.publisher || null;
-                        };
-
-                        if (titularGender) {
-                            const filtered = publishers.filter(createAjudanteFilter(titularGender));
-                            selectedPublisher = pickTopRanked(filtered, 'Ajudante');
-                        } else {
-                            // Fallback: Irmã depois Irmão
-                            const sisters = publishers.filter(createAjudanteFilter('sister'));
-                            selectedPublisher = pickTopRanked(sisters, 'Ajudante');
-
-                            if (!selectedPublisher) {
-                                const brothers = publishers.filter(createAjudanteFilter('brother'));
-                                selectedPublisher = pickTopRanked(brothers, 'Ajudante');
-                            }
-                        }
+                        const selectedPublisher = pickCanonicalCandidate(part);
 
                         if (selectedPublisher) {
                             selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
                             totalWithPublisher++;
-                            namesExcludedInWeek.add(selectedPublisher.name);
                         }
                     }
                     // Outras partes
                     else {
-                        const isOracaoFinal = part.tipoParte.toLowerCase().includes('oração final') || part.tipoParte.toLowerCase().includes('oracao final');
-
-                        if (isOracaoFinal) {
-                            const oracaoFilter = (p: Publisher) => {
-                                const r = checkEligibility(p, modalidade as any, funcao, {
-                                    date: part.date,
-                                    isPastWeek: isPast,
-                                    secao: part.section,
-                                    partTitle: part.tituloParte,
-                                    partDescription: part.descricaoParte,
-                                    partDetails: part.detalhesParte,
-                                });
-                                if (!r.eligible) return false;
-                                const avail = p.availability;
-                                if (avail.mode === 'always') return !avail.exceptionDates.includes(thursdayDate);
-                                return avail.availableDates.includes(thursdayDate);
-                            };
-
-                            const eligible = publishers.filter(p => oracaoFilter(p));
-
-                            // v9.3: Lógica de Prioridade para Oração Final
-                            // 1. Não-Presidentes SEM outra designação (Ideal)
-                            // 2. Não-Presidentes COM outra designação (Aceitável)
-                            // 3. Presidente (Último caso)
-
-                            let candidate: Publisher | null = null;
-
-                            // Grupo 1: Livres e não-presidente
-                            const group1 = eligible.filter(p =>
-                                !namesExcludedInWeek.has(p.name) &&
-                                p.name !== presidenteDaSemana
-                            );
-                            if (group1.length > 0) {
-                                // Mesma fonte do painel/agente
-                                const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                                const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
-                                const ranked = getRankedCandidates(group1, 'Oração Final', historyForRanking, undefined, safeThursdayDate);
-                                candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id))?.publisher
-                                    || ranked[0]?.publisher || null;
-                            }
-
-                            // Grupo 2: Ocupados (2ª parte) e não-presidente
-                            if (!candidate) {
-                                const group2 = eligible.filter(p =>
-                                    namesExcludedInWeek.has(p.name) &&
-                                    p.name !== presidenteDaSemana
-                                );
-                                if (group2.length > 0) {
-                                    const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                                    const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
-                                    const ranked = getRankedCandidates(group2, 'Oração Final', historyForRanking, undefined, safeThursdayDate);
-                                    candidate = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id))?.publisher
-                                        || ranked[0]?.publisher || null;
-                                }
-                            }
-
-                            // Grupo 3: Presidente (Fallback)
-                            if (!candidate && presidenteDaSemana) {
-                                const group3 = eligible.filter(p => p.name === presidenteDaSemana);
-                                if (group3.length > 0) {
-                                    candidate = group3[0];
-                                }
-                            }
-
-                            if (candidate) {
-                                selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
-                                totalWithPublisher++;
-                                // Não adicionamos a namesExcludedInWeek pq pode ser segunda parte
-                            }
-                        } else {
-                            // Genérico
-                            const eligiblePublishers = publishers.filter(p => {
-                                if (namesExcludedInWeek.has(p.name)) return false;
-                                const r = checkEligibility(p, modalidade as any, funcao, {
-                                    date: part.date,
-                                    isPastWeek: isPast,
-                                    secao: part.section,
-                                    partTitle: part.tituloParte,
-                                    partDescription: part.descricaoParte,
-                                    partDetails: part.detalhesParte,
-                                });
-                                return r.eligible;
-                            });
-                            if (eligiblePublishers.length > 0) {
-                                // Mesma fonte do painel/agente: filtrar semana corrente + refDate
-                                const safeThursdayDate = new Date(thursdayDate + 'T12:00:00');
-                                const historyForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
-                                const ranked = getRankedCandidates(eligiblePublishers, part.tipoParte, historyForRanking, undefined, safeThursdayDate);
-                                const p = ranked.find(r => !isBlocked(r.publisher.name, historyForRanking, safeThursdayDate, r.publisher.id))?.publisher
-                                    || ranked[0]?.publisher;
-                                if (p) {
-                                    selectedPublisherByPart.set(part.id, { id: p.id, name: p.name });
-                                    namesExcludedInWeek.add(p.name);
-                                    totalWithPublisher++;
-                                }
-                            }
+                        const selectedPublisher = pickCanonicalCandidate(part);
+                        if (selectedPublisher) {
+                            selectedPublisherByPart.set(part.id, { id: selectedPublisher.id, name: selectedPublisher.name });
+                            totalWithPublisher++;
                         }
                     }
                 }
@@ -814,7 +511,7 @@ export const generationService = {
                     }
                 }
 
-                totalCreated += weekParts.length;
+                totalCreated += weekPartsToAssign.length;
             }
 
             if (isDryRun) {
