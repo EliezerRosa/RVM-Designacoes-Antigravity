@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
-import { checkEligibility, isElderOrMS, buildEligibilityContext, isPastWeekDate, getTextualConstraintSummary } from '../services/eligibilityService';
+import { checkEligibility, buildEligibilityContext, isPastWeekDate, getTextualConstraintSummary } from '../services/eligibilityService';
 import { getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
-import { calculateScore, getMostRecentFSMRole, wasRecentlyPairedWith, getRotationConfig } from '../services/unifiedRotationService';
+import { getMostRecentFSMRole, wasRecentlyPairedWith, getRotationConfig } from '../services/unifiedRotationService';
 import { markManualSelection } from '../services/manualSelectionTracker';
 import { EnumModalidade, EnumFuncao } from '../types';
+import { getRankedEligibleForPart } from '../services/rankedEligibleService';
 import { Tooltip } from './Tooltip';
 import { ProfileChangeTooltipChip } from './admin/ProfileChangeTooltipChip';
 import { fuzzySearchWithScore, normalize } from '../utils/searchUtils';
@@ -54,103 +55,15 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         return new Date(part.date + 'T12:00:00');
     }, [part.date]);
 
+    const weekPartsSnapshot = weekParts || [];
+
     // Memoizar a lista sorted para evitar recálculo excessivo
     const sortedOptions = useMemo(() => {
-        const modalidade = getModalidade(part);
-        const funcao = part.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
-        // v8.4: Usar helper centralizado para contexto
-        const eligibilityContext = buildEligibilityContext(part, weekParts, publishers);
-
-        // historyRecords e today vêm do escopo externo agora
-        // Coletar publicadores já designados nesta semana (excluindo a parte atual)
-        const publishersInSameWeek = new Set<string>();
-        if (weekParts) {
-            for (const wp of weekParts) {
-                // Pular a parte atual
-                if (wp.id === part.id) continue;
-                // Só considerar partes da mesma semana
-                if (wp.weekId !== part.weekId) continue;
-                // Só considerar partes com publicador atribuído e não canceladas
-                if (wp.resolvedPublisherName && wp.status !== 'CANCELADA') {
-                    publishersInSameWeek.add(wp.resolvedPublisherName);
-                }
-            }
-        }
-
-        return [...publishers].map(p => {
-            // Verificar se já tem designação na mesma semana
-            const hasDesignationInSameWeek = publishersInSameWeek.has(p.name);
-
-            // Checar elegibilidade de cada publicador
-            let result = checkEligibility(
-                p,
-                modalidade as Parameters<typeof checkEligibility>[1],
-                funcao,
-                eligibilityContext
-            );
-
-            // Se já tem designação na semana, marcar como inelegível
-            if (hasDesignationInSameWeek && result.eligible) {
-                result = { eligible: false, reason: 'Já tem designação nesta semana' };
-            }
-
-            // v9.4: Identificar Presidente da semana para penalidade em Oração Final
-            const currentPresidentPart = weekParts?.find(wp => wp.tipoParte.toLowerCase().includes('presidente') && wp.resolvedPublisherName);
-            const currentPresident = currentPresidentPart?.resolvedPublisherName;
-
-            // FONTE ÚNICA com ActionControlPanel/agentActionService:
-            // filtrar a semana corrente do histórico antes de calcular score (evita
-            // loop em que a própria designação desta semana zera weeksSinceLast e
-            // dispara o cooldown máximo).
-            const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
-
-            // Calcular prioridade usando o NOVO serviço centralizado (Restored Unified Service)
-            const scoreData = calculateScore(p, part.tipoParte, historyForCooldown, referenceDate, currentPresident);
-            // Compatibilidade com código legado que espera apenas um número
-            const priority = scoreData.score;
-
-            // Verificar Cooldown para aviso visual (NÃO bloqueia mais, apenas avisa)
-            // Usa o tipo específico da parte (ex: "Leitura da Bíblia")
-            const cooldownInfo = getBlockInfo(p.name, historyForCooldown, referenceDate, p.id);
-
-            // v8.1: Prioridade para irmãs em demonstrações
-            const isSisterForDemo =
-                modalidade === EnumModalidade.DEMONSTRACAO &&
-                p.gender === 'sister' &&
-                part.funcao === 'Titular';
-
-            // Última participação em QUALQUER parte (para desempate de score igual)
-            const lastAnyDate = historyForCooldown
-                .filter(h => (h.resolvedPublisherName === p.name || h.rawPublisherName === p.name) && (h.date || ''))
-                .map(h => h.date || '')
-                .filter(Boolean)
-                .sort()
-                .pop() || '';
-
-            return {
-                publisher: p,
-                eligible: result.eligible,
-                reason: result.reason,
-                priority,
-                scoreData, // Expor dados completos para tooltip
-                hasDesignationInSameWeek,
-                cooldownInfo,
-                isSisterForDemo,
-                lastAnyDate
-            };
-        }).sort((a, b) => {
-            // 1. Ordenar por score/prioridade (maior primeiro)
-            if (a.priority !== b.priority) return b.priority - a.priority;
-            // 2. Desempate por semanas sem participar na modalidade (maior primeiro)
-            const wa = a.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
-            const wb = b.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
-            if (wa !== wb) return wb - wa;
-            // 3. Desempate por última participação em qualquer parte (mais antiga primeiro)
-            if (a.lastAnyDate !== b.lastAnyDate) return a.lastAnyDate.localeCompare(b.lastAnyDate);
-            // 4. Ordem alfabética como desempate final
-            return a.publisher.name.localeCompare(b.publisher.name);
-        });
-    }, [part, publishers, weekParts, allParts]);
+        return getRankedEligibleForPart(part, weekPartsSnapshot, publishers, historyRecords, {
+            applyEngineRules: true,
+            excludeAssignedInSameWeek: true,
+        }).allCandidates;
+    }, [part, publishers, weekPartsSnapshot, historyRecords]);
 
     const visibleOptions = useMemo(() => sortedOptions.filter(o => o.eligible), [sortedOptions]);
     const selectedIneligibleOption = useMemo(
@@ -252,6 +165,11 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         return { effectiveValue: '', foundPublisher: undefined, eligibilityInfo: undefined };
     }, [value, displayName, publishers, part, weekParts, sortedOptions]);
 
+    const selectedCandidate = useMemo(
+        () => sortedOptions.find(o => o.publisher.id === effectiveValue),
+        [sortedOptions, effectiveValue]
+    );
+
     // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
     const showUnmatchedName = displayName && !foundPublisher;
     const profileNotificationTargetName =
@@ -285,11 +203,11 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
     // Cooldown Info do publicador SELECIONADO (para tooltip)
     const selectedCooldownInfo = useMemo(() => {
+        if (selectedCandidate) return selectedCandidate.cooldownInfo;
         if (!foundPublisher) return null;
-        // v9.5: Filtrar histórico para excluir semana atual
         const historyForCooldown = historyRecords.filter(h => h.weekId !== part.weekId);
         return getBlockInfo(foundPublisher.name, historyForCooldown, referenceDate, foundPublisher.id);
-    }, [foundPublisher, part.tipoParte, historyRecords, referenceDate]);
+    }, [selectedCandidate, foundPublisher, part.weekId, historyRecords, referenceDate]);
 
     // Avisos informativos das regras do Motor automático (Q2 alternância FSM, Q3 par recente).
     // NÃO bloqueiam designação manual — só informam que o Motor evitaria.
@@ -404,11 +322,6 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 }
             }
         }
-
-        // v9.4: Identificar Presidente da semana para avaliacao de score no tooltip
-        const currentPresidentPart = weekParts?.find(wp => wp.tipoParte.toLowerCase().includes('presidente') && wp.resolvedPublisherName);
-        const currentPresident = currentPresidentPart?.resolvedPublisherName;
-
         return (
             <div>
                 <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '6px', marginBottom: '6px' }}>
@@ -488,7 +401,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
 
                 {/* Score Unificado + Contexto de Proximidade de Papel Pesado */}
                 {foundPublisher && (() => {
-                    const sd = calculateScore(foundPublisher, part.tipoParte, historyRecords.filter(h => h.weekId !== part.weekId), referenceDate, currentPresident);
+                    const sd = selectedCandidate?.scoreData;
+                    if (!sd) return null;
                     const ci = selectedCooldownInfo; // parte PRINCIPAL mais próxima (passado/futuro)
                     const lastWeekLabel = ci ? (ci.weekDisplay || formatWeekFromDate(ci.lastDate || '')) : '';
                     const lastIsFuture = ci ? ((ci.lastDate || '') > toLocalISODate()) : false;

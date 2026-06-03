@@ -4,10 +4,10 @@ import { getPermissions, createPermissionGate } from './permissionService';
 
 import { generationService } from './generationService';
 import { undoService } from './undoService';
-import { getRankedCandidates, explainScoreForAgent, calculateScore, getRotationConfig } from './unifiedRotationService';
-import { checkEligibility, buildEligibilityContext, getCompatiblePartTypes, ELIGIBILITY_RULES_VERSION } from './eligibilityService';
+import { explainScoreForAgent, calculateScore, getRotationConfig } from './unifiedRotationService';
+import { ELIGIBILITY_RULES_VERSION } from './eligibilityService';
 import { isBlocked, getParticipationCategory, COOLDOWN_WEEKS, COOLDOWN_WEEKS_HELPER } from './cooldownService';
-import { EnumFuncao } from '../types';
+import { getRankedEligibleForPart } from './rankedEligibleService';
 import { communicationService } from './communicationService';
 import { dataDiscoveryService } from './dataDiscoveryService';
 import { auditService } from './auditService';
@@ -270,72 +270,25 @@ export const agentActionService = {
                             return tipo.includes(ptNorm) || ptNorm.includes(tipo) || titulo.includes(ptNorm);
                         });
                     const weekParts = targetPart ? parts.filter(p => p.weekId === targetPart.weekId) : [];
-                    const eligCtx = targetPart
-                        ? buildEligibilityContext(targetPart, weekParts, publishers)
-                        : { date };
 
-                    // FONTE ÚNICA: usar a MODALIDADE da parte (mesmo critério do painel
-                    // "Controle & Explicações"). Sem isso, o tipoParte (ex: "Iniciando conversas")
-                    // chega no switch como modalidade desconhecida e ninguém fica elegível.
-                    const elegModalidade = (targetPart?.modalidade as Parameters<typeof checkEligibility>[1])
-                        || (resolvedModalidade as Parameters<typeof checkEligibility>[1]);
-                    const elegFuncao = (targetPart?.funcao as Parameters<typeof checkEligibility>[2]) || EnumFuncao.TITULAR;
-
-                    const eligible = publishers.filter(p =>
-                        checkEligibility(p, elegModalidade, elegFuncao, eligCtx).eligible
-                    );
-
-                    if (eligible.length === 0) {
-                        return { success: false, message: `Nenhum publicador elegível encontrado para ${partType} (modalidade resolvida: ${elegModalidade}).` };
+                    if (!targetPart) {
+                        return { success: false, message: `Nenhuma parte representativa encontrada para ${partType}.` };
                     }
 
-                    // FONTE ÚNICA com ActionControlPanel: filtra histórico da semana corrente
-                    // (evita loop: a designação atual influenciar o próprio score) e usa a
-                    // data da parte como referenceDate (não "hoje").
-                    const refDateStr = (targetPart?.date || targetPart?.weekId || date) || toLocalISODate();
-                    const refDate = new Date(refDateStr + 'T12:00:00');
-                    const historyForScoring = targetPart
-                        ? history.filter(h => h.weekId !== targetPart.weekId)
-                        : history;
-                    // CRÍTICO: usar tipoParte CANÔNICO da modalidade para scoring.
-                    // calculateScore filtra `specificHistory` por igualdade case-insensitive
-                    // de tipoParte. Se passarmos nome informal ("Presidência"), "Orção"
-                    // ou diacrítico errado ("Jóias"), o filtro fica vazio/colidido e o
-                    // score infla/deflaciona artificialmente.
-                    //
-                    // Preferência: (1) exato no targetPart se bate com user; (2) primeiro
-                    // tipoParte compatível da modalidade resolvida; (3) fallback ao input.
-                    const compatibleTipos = getCompatiblePartTypes(elegModalidade as any);
-                    const userMatchesTarget = targetPart && norm(targetPart.tipoParte) === ptNorm;
-                    const scoringPartType = userMatchesTarget
-                        ? targetPart!.tipoParte
-                        : (compatibleTipos[0] || targetPart?.tipoParte || partType);
-                    const ranked = getRankedCandidates(eligible, scoringPartType, historyForScoring, undefined, refDate);
-                    const rankedWithCooldown = ranked.map(r => ({
-                        ...r,
-                        blocked: isBlocked(r.publisher.name, historyForScoring, refDate, r.publisher.id)
-                    }));
-                    const sorted = [
-                        ...rankedWithCooldown.filter(r => !r.blocked),
-                        ...rankedWithCooldown.filter(r => r.blocked)
-                    ];
-                    // FIX B (2026-04-29): tag determinística "já está em outra parte da semana".
-                    // Antes o LLM inventava o rótulo "(excluindo quem já está na semana)" sem
-                    // qualquer filtro; agora o código informa explicitamente quem está ocupado.
-                    const inWeekMap = new Map<string, string>(); // publisherName -> partTitle
-                    if (targetPart) {
-                        for (const wp of weekParts) {
-                            if (wp.id === targetPart.id) continue;
-                            const n = wp.resolvedPublisherName || wp.rawPublisherName;
-                            if (n && !inWeekMap.has(n)) {
-                                inWeekMap.set(n, wp.tituloParte || wp.tipoParte);
-                            }
-                        }
+                    const rankedResult = getRankedEligibleForPart(targetPart, weekParts, publishers, history, {
+                        applyEngineRules: true,
+                        excludeAssignedInSameWeek: true,
+                    });
+                    const sorted = rankedResult.eligibleCandidates;
+
+                    if (sorted.length === 0) {
+                        const resolvedContext = targetPart.modalidade || resolvedModalidade || targetPart.tipoParte;
+                        return { success: false, message: `Nenhum publicador elegível encontrado para ${partType} (modalidade resolvida: ${resolvedContext}).` };
                     }
                     const topList = sorted.slice(0, 10).map((cand, i) => {
                         const tags: string[] = [];
                         if (cand.blocked) tags.push('⏸ em cooldown');
-                        const otherPart = inWeekMap.get(cand.publisher.name);
+                        const otherPart = cand.inOtherPartSameWeek;
                         if (otherPart) tags.push(`⚠️ já em "${otherPart}" nesta semana`);
                         const tagStr = tags.length ? ` ${tags.map(t => `[${t}]`).join(' ')}` : '';
                         return `${i + 1}. ${explainScoreForAgent(cand)}${tagStr}`;
@@ -343,8 +296,8 @@ export const agentActionService = {
 
                     return {
                         success: true,
-                        message: `**Análise do Cérebro (Top 10) — fonte: motor determinístico:**\nPara: ${partType} (Ref: ${date || 'Hoje'})\n\n${topList}\n\nℹ️ Tags são informativas. Designações na mesma semana NÃO são bloqueadas, mas devem ser justificadas.`,
-                        data: { sorted, alreadyInWeek: Object.fromEntries(inWeekMap) },
+                        message: `**Análise do Cérebro (Top 10) — fonte canônica única:**\nPara: ${partType} (Ref: ${date || targetPart.weekId || 'Hoje'})\n\n${topList}\n\nℹ️ O ranking já reflete snapshot vivo da semana, estado do publicador e regras bloqueantes do motor. Cooldown permanece sinalizado; a escolha automática usa o primeiro não bloqueado e cai em fallback apenas se todos estiverem bloqueados.`,
+                        data: { sorted, alreadyInWeek: Object.fromEntries(rankedResult.inWeekMap) },
                         actionType: 'CHECK_SCORE'
                     };
                 }
@@ -390,18 +343,20 @@ export const agentActionService = {
                         return { success: false, message: `Não consegui localizar a parte para calcular o score de ${publisher.name}. Forneça partType + weekId ou partId.`, actionType: 'EXPLAIN_SCORE' };
                     }
 
-                    const refDateStr = (targetPart.date || targetPart.weekId);
-                    const refDate = new Date(refDateStr + 'T12:00:00');
-                    // Mesma filtragem que CHECK_SCORE/EXPLAIN_PART: ignora a semana corrente para evitar loop
-                    const historyForScoring = history.filter(h => h.weekId !== targetPart!.weekId);
-
-                    // tipoParte canônico para scoring
-                    const elegModalidade = targetPart.modalidade as any;
-                    const compatibleTipos = getCompatiblePartTypes(elegModalidade);
-                    const scoringPartType = (compatibleTipos[0] || targetPart.tipoParte || ptHint || '');
-
-                    const sd = calculateScore(publisher, scoringPartType, historyForScoring, refDate);
-                    const blocked = isBlocked(publisher.name, historyForScoring, refDate, publisher.id);
+                    const weekParts = parts.filter(p => p.weekId === targetPart!.weekId);
+                    const rankedResult = getRankedEligibleForPart(targetPart, weekParts, publishers, history, {
+                        applyEngineRules: true,
+                        excludeAssignedInSameWeek: true,
+                    });
+                    const candidateSnapshot = rankedResult.allCandidates.find(candidate => candidate.publisher.id === publisher.id);
+                    const refDateStr = targetPart.date || targetPart.weekId;
+                    const refDate = rankedResult.referenceDate;
+                    const historyForScoring = rankedResult.historyForScoring;
+                    const scoringPartType = rankedResult.scoringPartType;
+                    const sd = candidateSnapshot?.scoreData
+                        || calculateScore(publisher, scoringPartType, historyForScoring, refDate, rankedResult.currentPresident);
+                    const blocked = candidateSnapshot?.blocked
+                        || isBlocked(publisher.name, historyForScoring, refDate, publisher.id);
                     const isHelperPart = (targetPart.funcao || '').toLowerCase() === 'ajudante';
                     const cooldownWeeks = isHelperPart ? COOLDOWN_WEEKS_HELPER : COOLDOWN_WEEKS;
 
@@ -435,6 +390,9 @@ export const agentActionService = {
                     lines.push(`Publicador: **${publisher.name}**`);
                     lines.push(`Parte: *${targetPart.tituloParte || targetPart.tipoParte}* — Semana ${targetPart.weekId}`);
                     lines.push(`Tipo de parte usado para scoring: \`${scoringPartType}\``);
+                    if (candidateSnapshot) {
+                        lines.push(`Elegibilidade canônica atual: **${candidateSnapshot.eligible ? 'sim' : `não (${candidateSnapshot.reason})`}**`);
+                    }
                     lines.push('');
                     lines.push(`**Aritmética literal:**`);
                     lines.push(`\`${sd.details.base} (Base) + ${sd.details.timeBonus} (Time Bonus) − ${sd.details.frequencyPenalty} (Frequency Penalty) ${sd.details.roleBonus !== 0 ? `+ ${sd.details.roleBonus} (Bônus função) ` : ''}− ${sd.details.heavyProximityPenalty} (Heavy Proximity) = **${sd.score}**\``);
@@ -511,53 +469,28 @@ export const agentActionService = {
                     if (!targetPart) {
                         return { success: false, message: 'Parte não encontrada para explicação.' };
                     }
-                    const weekParts = parts.filter(p => p.weekId === targetPart.weekId);
-                    const eligCtx = buildEligibilityContext(targetPart, weekParts, publishers);
                     const partType = targetPart.tipoParte || targetPart.tituloParte || '';
-                    // FONTE ÚNICA: usar modalidade/função reais da parte (mesmo critério do
-                    // painel "Controle & Explicações").
-                    const elegModalidade = targetPart.modalidade as Parameters<typeof checkEligibility>[1];
-                    const elegFuncao = (targetPart.funcao as Parameters<typeof checkEligibility>[2]) || EnumFuncao.TITULAR;
-
-                    // Filtra elegíveis pelo MESMO critério do motor.
-                    const eligibleList = publishers.filter(p =>
-                        checkEligibility(p, elegModalidade, elegFuncao, eligCtx).eligible
-                    );
-                    const refDate = new Date((targetPart.date || targetPart.weekId) + 'T12:00:00');
-                    // Mesma filtragem do ActionControlPanel: ignora a semana atual no histórico
-                    const historyForScoring = history.filter(h => h.weekId !== targetPart.weekId);
-                    const ranked = getRankedCandidates(eligibleList, partType, historyForScoring, undefined, refDate);
-                    const rankedWithCooldown = ranked.map(r => ({ ...r, blocked: isBlocked(r.publisher.name, historyForScoring, refDate, r.publisher.id) }));
-                    const sorted = [
-                        ...rankedWithCooldown.filter(r => !r.blocked),
-                        ...rankedWithCooldown.filter(r => r.blocked),
-                    ];
+                    const weekParts = parts.filter(p => p.weekId === targetPart.weekId);
+                    const rankedResult = getRankedEligibleForPart(targetPart, weekParts, publishers, history, {
+                        applyEngineRules: true,
+                        excludeAssignedInSameWeek: true,
+                    });
+                    const sorted = rankedResult.eligibleCandidates;
 
                     const assignedName = targetPart.resolvedPublisherName || '';
                     const assignedPub = assignedName ? publishers.find(p => p.name === assignedName) : null;
                     const focusName = publisherName || assignedName;
                     const focusPub = focusName ? publishers.find(p => p.name === focusName) : null;
-
-                    // FIX B (2026-04-29): mapa determinístico de quem já está em outra parte
-                    // da MESMA semana, para taggear o Top sem depender do LLM "lembrar".
-                    const inWeekMap = new Map<string, string>();
-                    for (const wp of weekParts) {
-                        if (wp.id === targetPart.id) continue;
-                        const n = wp.resolvedPublisherName || wp.rawPublisherName;
-                        if (n && !inWeekMap.has(n)) {
-                            inWeekMap.set(n, wp.tituloParte || wp.tipoParte);
-                        }
-                    }
+                    const assignedSnapshot = assignedPub ? rankedResult.allCandidates.find(candidate => candidate.publisher.id === assignedPub.id) : null;
+                    const focusSnapshot = focusPub ? rankedResult.allCandidates.find(candidate => candidate.publisher.id === focusPub.id) : null;
 
                     const lines: string[] = [];
-                    lines.push(`**Explicação oficial (mesma fonte do painel “Controle & Explicações”):**`);
+                    lines.push(`**Explicação oficial (mesma fonte canônica de Motor, Agente e Dropdown):**`);
                     lines.push(`Parte: *${targetPart.tituloParte || partType}* — Semana ${targetPart.weekId}`);
                     if (assignedPub) {
-                        const elig = checkEligibility(assignedPub, elegModalidade, elegFuncao, eligCtx);
-                        const assignedRanked = sorted.find(r => r.publisher.id === assignedPub.id);
-                        lines.push(`\nDesignado atual: **${assignedPub.name}** — Elegível: ${elig.eligible ? 'sim' : `não (${elig.reason})`}`);
-                        if (assignedRanked) {
-                            lines.push(`Score: ${assignedRanked.scoreData.score} — ${assignedRanked.scoreData.explanation}`);
+                        lines.push(`\nDesignado atual: **${assignedPub.name}** — Elegível: ${assignedSnapshot?.eligible ? 'sim' : `não (${assignedSnapshot?.reason || 'fora da lista canônica atual'})`}`);
+                        if (assignedSnapshot) {
+                            lines.push(`Score: ${assignedSnapshot.scoreData.score} — ${assignedSnapshot.scoreData.explanation}`);
                         }
                     } else {
                         // FIX A (2026-04-29): label inequívoco. Antes "— (vago)" era ambíguo;
@@ -566,27 +499,25 @@ export const agentActionService = {
                     }
 
                     if (focusPub && (!assignedPub || focusPub.id !== assignedPub.id)) {
-                        const elig = checkEligibility(focusPub, elegModalidade, elegFuncao, eligCtx);
-                        const fr = sorted.find(r => r.publisher.id === focusPub.id);
-                        lines.push(`\nFoco: **${focusPub.name}** — Elegível: ${elig.eligible ? 'sim' : `não (${elig.reason})`}`);
-                        if (fr) lines.push(`Score: ${fr.scoreData.score} — ${fr.scoreData.explanation}`);
+                        lines.push(`\nFoco: **${focusPub.name}** — Elegível: ${focusSnapshot?.eligible ? 'sim' : `não (${focusSnapshot?.reason || 'fora da lista canônica atual'})`}`);
+                        if (focusSnapshot) lines.push(`Score: ${focusSnapshot.scoreData.score} — ${focusSnapshot.scoreData.explanation}`);
                     }
 
                     lines.push(`\n**Top 5 candidatos pelo motor (fonte determinística):**`);
                     sorted.slice(0, 5).forEach((c, i) => {
                         const tags: string[] = [];
                         if (c.blocked) tags.push('⏸ cooldown');
-                        const otherPart = inWeekMap.get(c.publisher.name);
+                        const otherPart = c.inOtherPartSameWeek;
                         if (otherPart) tags.push(`⚠️ já em "${otherPart}" nesta semana`);
                         const tagStr = tags.length ? ` ${tags.map(t => `[${t}]`).join(' ')}` : '';
                         lines.push(`${i + 1}. ${explainScoreForAgent(c)}${tagStr}`);
                     });
-                    lines.push(`\nℹ️ Designações na mesma semana NÃO são bloqueadas pelo motor (apenas sinalizadas). Se precisar designar alguém com tag ⚠️, considere se é apropriado.`);
+                    lines.push(`\nℹ️ Este ranking já incorpora o snapshot vivo da semana, as regras do motor e a exclusão de partes abertas já ocupadas. Cooldown continua apenas como tag de seleção/fallback.`);
 
                     return {
                         success: true,
                         message: lines.join('\n'),
-                        data: { partId: targetPart.id, sorted, assignedName, focusName, alreadyInWeek: Object.fromEntries(inWeekMap) },
+                        data: { partId: targetPart.id, sorted, assignedName, focusName, alreadyInWeek: Object.fromEntries(rankedResult.inWeekMap) },
                         actionType: 'EXPLAIN_PART',
                     };
                 }
@@ -607,22 +538,17 @@ export const agentActionService = {
                     }
                     const limit = Math.max(1, Math.min(50, Number(topN) || 10));
                     const weekParts = parts.filter(p => p.weekId === targetPart.weekId);
-                    const eligCtx = buildEligibilityContext(targetPart, weekParts, publishers);
                     const partType = targetPart.tipoParte || targetPart.tituloParte || '';
-                    const elegModalidade = targetPart.modalidade as Parameters<typeof checkEligibility>[1];
-                    const elegFuncao = (targetPart.funcao as Parameters<typeof checkEligibility>[2]) || EnumFuncao.TITULAR;
-                    const eligibleList = publishers.filter(p =>
-                        checkEligibility(p, elegModalidade, elegFuncao, eligCtx).eligible
-                    );
-                    const refDate = new Date((targetPart.date || targetPart.weekId) + 'T12:00:00');
-                    const historyForScoring = history.filter(h => h.weekId !== targetPart.weekId);
-                    const ranked = getRankedCandidates(eligibleList, partType, historyForScoring, undefined, refDate);
-                    const top = ranked.slice(0, limit).map((c, i) => ({
+                    const rankedResult = getRankedEligibleForPart(targetPart, weekParts, publishers, history, {
+                        applyEngineRules: true,
+                        excludeAssignedInSameWeek: true,
+                    });
+                    const top = rankedResult.eligibleCandidates.slice(0, limit).map((c, i) => ({
                         rank: i + 1,
                         name: c.publisher.name,
                         score: c.scoreData.score,
                         weeksSinceLast: c.scoreData.weeksSinceLast,
-                        isInCooldown: c.scoreData.isInCooldown,
+                        isInCooldown: c.blocked,
                         explanation: c.scoreData.explanation,
                     }));
                     const lines = [`**Ranking determinístico — Top ${limit}** para *${targetPart.tituloParte || partType}* (semana ${targetPart.weekId}):`];
@@ -633,7 +559,7 @@ export const agentActionService = {
                     return {
                         success: true,
                         message: lines.join('\n'),
-                        data: { partId: targetPart.id, partType, top, totalEligible: eligibleList.length },
+                        data: { partId: targetPart.id, partType, top, totalEligible: rankedResult.eligibleCandidates.length },
                         actionType: 'EXPLAIN_RANKING',
                     };
                 }
@@ -2164,16 +2090,25 @@ export const agentActionService = {
                         return { success: false, message: `Parte não encontrada. Informe partId ou partType (com weekId opcional).`, actionType: 'QUERY_ELIGIBILITY' };
                     }
 
-                    const eligCtx = buildEligibilityContext(pub, history, part.weekId);
-                    const elig = checkEligibility(pub, part, eligCtx);
-                    const score = calculateScore(pub, history, part.weekId, part.tipoParte);
+                    const weekParts = parts.filter(p => p.weekId === part!.weekId);
+                    const rankedResult = getRankedEligibleForPart(part, weekParts, publishers, history, {
+                        applyEngineRules: true,
+                        excludeAssignedInSameWeek: true,
+                    });
+                    const candidateSnapshot = rankedResult.allCandidates.find(candidate => candidate.publisher.id === pub.id);
+                    const elig = {
+                        eligible: candidateSnapshot?.eligible ?? false,
+                        reason: candidateSnapshot?.reason,
+                    };
+                    const score = candidateSnapshot?.scoreData
+                        || calculateScore(pub, rankedResult.scoringPartType, rankedResult.historyForScoring, rankedResult.referenceDate, rankedResult.currentPresident);
 
                     const lines = [
                         `**Elegibilidade: ${pub.name} → "${part.tituloParte || part.tipoParte}"**`,
                         '',
                         `${elig.eligible ? '✅' : '❌'} **Elegível:** ${elig.eligible ? 'SIM' : 'NÃO'}`,
                         `**Motivo:** ${elig.reason || '(sem restrição)'}`,
-                        `**Score atual:** ${score.toFixed(2)}`,
+                        `**Score atual:** ${score.score.toFixed(2)}`,
                         `**Semana:** ${part.weekId}  |  **Seção:** ${part.section || '—'}`,
                     ];
 
@@ -2310,7 +2245,6 @@ export const agentActionService = {
 
                     const refDate = cdWkId || contextWeekId || toLocalISODate();
                     const blocked = isBlocked(pub.name, history, refDate, pub.id);
-                    const category = getParticipationCategory(pub.name, history, refDate);
                     const cooldownWeeks = COOLDOWN_WEEKS || 4;
 
                     const refDateObj = new Date(refDate + 'T12:00:00');
@@ -2323,6 +2257,9 @@ export const agentActionService = {
                         .filter(h => (h.weekId || h.date || '') >= fromDateStr && (h.weekId || h.date || '') < refDate)
                         .filter(h => h.funcao !== 'Ajudante')
                         .sort((a, b) => (b.weekId || b.date || '').localeCompare(a.weekId || a.date || ''));
+                    const category = recentMain[0]
+                        ? getParticipationCategory(recentMain[0].tipoParte || '', recentMain[0].funcao || '')
+                        : undefined;
 
                     const fmtCDate = (s: string) => { try { return new Date(s + 'T12:00:00').toLocaleDateString('pt-BR'); } catch { return s; } };
 
