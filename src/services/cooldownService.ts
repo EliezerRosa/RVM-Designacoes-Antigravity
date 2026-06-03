@@ -27,7 +27,7 @@ export type ParticipationCategory = 'MAIN' | 'HELPER' | 'IGNORED';
  * Determina categoria da parte para cálculo de prioridade.
  * MAIN = conta para bloqueio, HELPER = pouco peso, IGNORED = não conta
  */
-export function getParticipationCategory(tipoParte: string, funcao: string = 'Titular'): ParticipationCategory {
+export function getParticipationCategory(tipoParte: string, _funcao: string = 'Titular'): ParticipationCategory {
     const lower = tipoParte?.toLowerCase() || '';
 
     // IGNORADOS: Qualquer oração (inicial ou final), NL, Cânticos, e partes secundárias da Presidência

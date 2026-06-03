@@ -28,6 +28,8 @@ export interface ChatMessage {
     /** Semana focada quando a mensagem foi trocada. Usado para evitar
      * contaminar o contexto de uma nova semana com chat antigo de outra. */
     weekId?: string;
+    /** Modelo/origem que produziu a mensagem do assistente (ex: 'deterministic/local'). */
+    modelUsed?: string;
 }
 
 export interface AgentResponse {

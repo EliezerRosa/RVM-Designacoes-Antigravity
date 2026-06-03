@@ -17,7 +17,6 @@ import type { FormToken, PublisherFormRole } from '../PublisherStatusForm';
 import { PublisherStatusForm } from '../PublisherStatusForm';
 import { LocalNeedsQueue } from '../LocalNeedsQueue';
 import { SpecialEventsManager } from '../SpecialEventsManager';
-import { VideoTutorialModal } from '../VideoTutorialModal';
 import { communicationService } from '../../services/communicationService';
 import { recordLinkTokenEvent } from '../../services/linkTokenAuditService';
 import type { Publisher } from '../../types';
@@ -33,7 +32,7 @@ const ROLE_LABEL: Record<PublisherFormRole, string> = {
 const ROLE_BG: Record<PublisherFormRole, string> = {
     CCA: '#7C3AED', SEC: '#0EA5E9', SS: '#10B981', SRVM: '#F97316', AjSRVM: '#FBBF24',
 };
-function funcaoToRole(funcao?: string): PublisherFormRole | null {
+function funcaoToRole(funcao?: string | null): PublisherFormRole | null {
     switch (funcao) {
         case 'Coordenador do Corpo de Anciãos': return 'CCA';
         case 'Secretário': return 'SEC';

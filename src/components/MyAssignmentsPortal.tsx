@@ -131,7 +131,7 @@ export function MyAssignmentsPortal({ publisherId, token }: Props) {
 
     // Data state
     const [parts,       setParts]       = useState<WorkbookPart[]>([]);
-    const [publishers,  setPublishers]  = useState<Publisher[]>([]);
+    const [, setPublishers]  = useState<Publisher[]>([]);
     const [dataLoading, setDataLoading] = useState(false);
     const [weekOrder,   setWeekOrder]   = useState<string[]>([]);
 
@@ -235,8 +235,7 @@ export function MyAssignmentsPortal({ publisherId, token }: Props) {
                     uniqueWeeks.map(wid =>
                         supabase
                             .rpc('get_portal_responses_for_week', { p_week_id: wid })
-                            .then(({ data }) => data || [])
-                            .catch(() => [])
+                            .then(({ data }) => data || [], () => [])
                     )
                 );
                 const map: Record<string, ConfirmationStatus> = {};

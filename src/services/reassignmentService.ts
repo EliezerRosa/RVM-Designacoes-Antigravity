@@ -33,7 +33,6 @@ export async function reassignParts(
             resolvedPublisherName: null as any,
             rawPublisherName: '',
             status: 'PENDENTE' as any,
-            matchConfidence: 0,
         });
     }
 
@@ -43,7 +42,6 @@ export async function reassignParts(
         resolvedPublisherName: null as any,
         rawPublisherName: '',
         status: 'PENDENTE' as any,
-        matchConfidence: 0,
     }));
 
     const refreshedParts = (workbookParts || []).map(p =>

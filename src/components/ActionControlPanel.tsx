@@ -66,7 +66,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     // Estados para dados assíncronos
     const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
     const [cooldown, setCooldown] = useState<CooldownInfo | null>(null);
-    const [stats, setStats] = useState<PublisherStats | null>(null);
+    const [, setStats] = useState<PublisherStats | null>(null);
     const [scoreData, setScoreData] = useState<RotationScore | null>(null);
     const [bestCandidate, setBestCandidate] = useState<{ name: string; score: number } | null>(null);
     const [topCandidates, setTopCandidates] = useState<CandidatePanelItem[]>([]);

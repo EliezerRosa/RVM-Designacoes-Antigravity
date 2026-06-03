@@ -11,7 +11,7 @@ export interface RankedEligibleCandidate {
     score: number;
     scoreData: RotationScore;
     blocked: boolean;
-    cooldownInfo: CooldownInfo;
+    cooldownInfo: CooldownInfo | null;
     inOtherPartSameWeek?: string;
     isSisterForDemo: boolean;
     lastAnyDate: string;

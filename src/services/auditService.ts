@@ -21,6 +21,7 @@ export const auditService = {
         table_name: string;
         operation: 'AGENT_INTENT' | 'MANUAL_OVERRIDE' | 'SCRIPT_EXEC';
         record_id?: string;
+        old_data?: any;
         new_data: any;
         description?: string;
     }) {
@@ -28,6 +29,7 @@ export const auditService = {
             table_name: action.table_name,
             operation: action.operation,
             record_id: action.record_id,
+            old_data: action.old_data,
             new_data: { ...action.new_data, description: action.description },
             user_agent: 'RVM_AGENT_v4'
         });

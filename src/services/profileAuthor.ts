@@ -69,8 +69,8 @@ export function profileChanged(
 ): boolean {
     if (!prev || !next) return !!(prev || next);
     for (const k of TRACKED_KEYS) {
-        const a = JSON.stringify((prev as Record<string, unknown>)[k as string] ?? null);
-        const b = JSON.stringify((next as Record<string, unknown>)[k as string] ?? null);
+        const a = JSON.stringify((prev as unknown as Record<string, unknown>)[k as string] ?? null);
+        const b = JSON.stringify((next as unknown as Record<string, unknown>)[k as string] ?? null);
         if (a !== b) return true;
     }
     return false;

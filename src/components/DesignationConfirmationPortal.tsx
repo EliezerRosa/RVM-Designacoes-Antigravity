@@ -48,7 +48,7 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
     const [authenticatedEmail, setAuthenticatedEmail] = useState<string | null>(null);
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [isSigningIn, setIsSigningIn] = useState(false);
-    const [matchType, setMatchType] = useState<PortalAuthorizationResult['match_type']>(undefined);
+    const [, setMatchType] = useState<PortalAuthorizationResult['match_type']>(undefined);
     const [identityWarning, setIdentityWarning] = useState<string | null>(null);
     const [assignedPublisherName, setAssignedPublisherName] = useState<string | null>(null);
 

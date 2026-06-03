@@ -1265,7 +1265,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                             📤 Submeter
                                         </button>
                                     )}
-                                    {announcementPermissions.canApprove(effectiveUser, status) && (
+                                    {announcementPermissions.canApprove(effectiveUser) && (
                                         <>
                                             <button onClick={() => handleApprove(event)} style={btnStyle('#16A34A')} title="Aprovar">
                                                 ✅ Aprovar

@@ -4,10 +4,10 @@ interface IntentContextBarProps {
     currentWeekId?: string;
     accessLevel: 'elder' | 'publisher';
     activeTopic: string;
-    stage: string;
+    stage: string | null;
 }
 
-function ContextPill({ label, value }: { label: string; value: string }) {
+function ContextPill({ label, value }: { label: string; value: string | null }) {
     return (
         <div style={{
             display: 'flex',
