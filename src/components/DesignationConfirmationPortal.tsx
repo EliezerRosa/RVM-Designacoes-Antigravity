@@ -403,8 +403,10 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
     const DIAS_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
     const weekRangeDisplay = part.weekDisplay || part.date || '';
     let meetingDateDisplay = '';
-    const dp = part.date?.split('-');
-    if (dp && dp.length === 3) {
+    // weekId é sempre YYYY-MM-DD (segunda-feira da semana); usar como base confiável
+    const dateSource = part.weekId || part.date;
+    const dp = dateSource?.split('-');
+    if (dp && dp.length >= 3) {
         const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
         const daysToMeeting = (meetingDayOfWeek - baseDate.getDay() + 7) % 7;
         const meetingDate = new Date(baseDate);
