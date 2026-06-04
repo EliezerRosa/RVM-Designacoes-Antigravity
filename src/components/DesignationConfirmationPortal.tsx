@@ -52,6 +52,8 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
     const [identityWarning, setIdentityWarning] = useState<string | null>(null);
     const [assignedPublisherName, setAssignedPublisherName] = useState<string | null>(null);
 
+    const [meetingDayOfWeek, setMeetingDayOfWeek] = useState<number>(4);
+
     // Form state
     const [accept, setAccept] = useState<boolean | null>(null);
     const [reason, setReason] = useState('');
@@ -180,6 +182,17 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
                     setAlreadyResponded('refused');
                 }
                 setPart(found);
+
+                // Carregar dia da reunião persistido para esta semana
+                try {
+                    const dayMap = await api.getSetting<Record<string, number>>('s89_meeting_day_by_week', {});
+                    const savedDay = dayMap[found.weekId];
+                    if (!cancelled) {
+                        setMeetingDayOfWeek(typeof savedDay === 'number' && savedDay >= 0 && savedDay <= 6 ? savedDay : 4);
+                    }
+                } catch {
+                    // mantém padrão quinta-feira (4)
+                }
 
                 // Carregar parceiro (Titular/Ajudante) da mesma semana
                 try {
@@ -384,17 +397,20 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
 
     if (!part) return null;
 
-    // Calcular quinta-feira da reunião
+    // Calcular data da reunião usando dia da semana persistido
     const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
         'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-    let thursdayDisplay = part.weekDisplay || part.date;
+    const DIAS_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+    const weekRangeDisplay = part.weekDisplay || part.date || '';
+    let meetingDateDisplay = '';
     const dp = part.date?.split('-');
     if (dp && dp.length === 3) {
         const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
-        const daysToThu = (4 - baseDate.getDay() + 7) % 7;
-        const thu = new Date(baseDate);
-        thu.setDate(thu.getDate() + daysToThu);
-        thursdayDisplay = `Quinta-feira, ${thu.getDate()} de ${MESES[thu.getMonth()]} de ${thu.getFullYear()}`;
+        const daysToMeeting = (meetingDayOfWeek - baseDate.getDay() + 7) % 7;
+        const meetingDate = new Date(baseDate);
+        meetingDate.setDate(meetingDate.getDate() + daysToMeeting);
+        const dayName = DIAS_SEMANA[meetingDate.getDay()] ?? 'quinta-feira';
+        meetingDateDisplay = `${dayName}, ${meetingDate.getDate()} de ${MESES[meetingDate.getMonth()]}`;
     }
 
     return (
@@ -432,7 +448,14 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
             <div className="assignment-card">
                 <div className="card-item">
                     <span className="label">📅 Data:</span>
-                    <span className="value">{thursdayDisplay}</span>
+                    <span className="value">
+                        {weekRangeDisplay}
+                        {meetingDateDisplay && (
+                            <span style={{ display: 'block', fontSize: '0.88em', color: '#475569', marginTop: 2 }}>
+                                Reunião: {meetingDateDisplay}
+                            </span>
+                        )}
+                    </span>
                 </div>
                 <div className="card-item">
                     <span className="label">⏰ Horário:</span>
