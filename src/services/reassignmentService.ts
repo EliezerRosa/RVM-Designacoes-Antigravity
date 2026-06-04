@@ -48,17 +48,22 @@ export async function reassignParts(
         idsSet.has(p.id) ? cleared.find(c => c.id === p.id)! : p,
     );
 
-    // 2) Roda motor SEM generationWeeks para não forçar re-geração de parts
-    // já designadas em outras posições da mesma semana. As parts limpadas no
-    // passo 1 estão com status PENDENTE; o motor as encontra naturalmente.
+    // 2) Roda motor restrito às semanas das parts limpadas para evitar
+    // efeitos colaterais em outras semanas (partes já designadas não são tocadas).
+    const weekIds = [...new Set(toClear.map(p => p.weekId).filter(Boolean))];
     const result = await generationService.generateDesignations(refreshedParts, publishers, {
         isDryRun: false,
+        generationWeeks: weekIds.length > 0 ? weekIds : undefined,
     });
 
-    // 3) Limpa flags needs_reassignment para parts agora resolvidas
-    for (const partId of partIds) {
-        try { await supabase.rpc('clear_part_reassignment_flag', { p_part_id: partId }); }
-        catch (e) { console.warn('[reassignmentService] clear flag err:', e); }
+    // 3) Limpa flags needs_reassignment apenas se a geração produziu resultado.
+    // Se partsGenerated === 0 o publicador não foi encontrado; manter o flag
+    // ativo para que o banner continue visível e o admin possa agir manualmente.
+    if (result.partsGenerated > 0) {
+        for (const partId of partIds) {
+            try { await supabase.rpc('clear_part_reassignment_flag', { p_part_id: partId }); }
+            catch (e) { console.warn('[reassignmentService] clear flag err:', e); }
+        }
     }
 
     // 4) Refresca workbook
