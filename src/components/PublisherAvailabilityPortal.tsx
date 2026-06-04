@@ -141,6 +141,7 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
     const [status, setStatus] = useState<'validating' | 'unauthorized' | 'ready' | 'saving' | 'saved'>('validating');
     const [publisher, setPublisher] = useState<Publisher | null>(null);
     const [weekStates, setWeekStates] = useState<Map<string, WeekState>>(new Map());
+    const [meetingDayOfWeek, setMeetingDayOfWeek] = useState<number>(4); // 4 = quinta-feira (padrão)
 
     // Impediment modal state
     const [pendingImpediments, setPendingImpediments] = useState<{
@@ -186,6 +187,21 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                 }
                 setWeekStates(initial);
                 setStatus('ready');
+
+                // Carregar dia da reunião global (usa o mesmo setting do S89Modal)
+                try {
+                    const dayMap = await api.getSetting<Record<string, number>>('s89_meeting_day_by_week', {});
+                    // Pegar o valor da semana mais recente disponível, ou o primeiro encontrado
+                    const values = Object.values(dayMap).filter(v => typeof v === 'number' && v >= 0 && v <= 6);
+                    if (values.length > 0) {
+                        // Usar o valor da semana mais próxima se disponível
+                        const upcomingWeekId = weeks.find(w => dayMap[w.weekId] !== undefined)?.weekId;
+                        const day = upcomingWeekId ? dayMap[upcomingWeekId] : values[values.length - 1];
+                        setMeetingDayOfWeek(day);
+                    }
+                } catch {
+                    // mantém padrão quinta-feira (4)
+                }
             } catch (err) {
                 console.error('[AvailabilityPortal] Load error:', err);
                 setStatus('unauthorized');
@@ -413,6 +429,19 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                                     <span style={{ color: '#E2E8F0', fontWeight: 600, fontSize: '14px' }}>
                                         Semana de {formatPtBR(weekId)} a {formatPtBR(endDate)}
                                     </span>
+                                    {(() => {
+                                        const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+                                        const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+                                        const [y, m, d] = weekId.split('-').map(Number);
+                                        const base = new Date(y, m - 1, d);
+                                        const diff = (meetingDayOfWeek - base.getDay() + 7) % 7;
+                                        const meet = new Date(base);
+                                        meet.setDate(base.getDate() + diff);
+                                        const label = `${DIAS[meet.getDay()]}, ${meet.getDate()} de ${MESES[meet.getMonth()]}`;
+                                        return (
+                                            <span style={{ color: '#94A3B8', fontSize: '11px' }}>{label}</span>
+                                        );
+                                    })()}
                                     {isPast && (
                                         <span style={{ color: '#475569', fontSize: '11px' }}>semana passada</span>
                                     )}
