@@ -450,6 +450,13 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                                     📍 <strong>Proximidade de parte (MAIN):</strong> nenhuma (±4 semanas) — prioridade máxima.
                                 </div>
                             )}
+                            {/* Gate duro de NÃO-REPETIÇÃO da MESMA parte na janela ±4 semanas (Camada 1) */}
+                            {sd.details.samePartConflict && (
+                                <div style={{ marginTop: '6px', padding: '4px 6px', background: 'rgba(239,68,68,0.28)', borderRadius: '4px', color: '#fca5a5', fontSize: '0.9em', lineHeight: 1.4 }}>
+                                    🚫 <strong>Mesma parte na janela:</strong> já fez esta parte{sd.details.samePartConflictDate ? ` em ${new Date(sd.details.samePartConflictDate + 'T12:00:00').toLocaleDateString('pt-BR')}` : ''} (±4 sem)
+                                    <div style={{ color: '#f87171', fontSize: '0.85em', marginTop: '2px' }}>bloqueado para esta parte — só escolhido se o pool elegível esvaziar</div>
+                                </div>
+                            )}
                         </div>
                     );
                 })()}

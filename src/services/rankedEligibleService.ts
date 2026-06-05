@@ -16,6 +16,10 @@ export interface RankedEligibleCandidate {
     isSisterForDemo: boolean;
     lastAnyDate: string;
     priorityBucket: number;
+    /** Gate duro Camada 1: já fez ESTA mesma parte na janela ±radius (simétrico). Bloqueia, com fallback de relaxamento. */
+    samePartBlocked: boolean;
+    /** Data (ISO) da ocorrência mais próxima da mesma parte na janela (para exibição). */
+    samePartConflictDate?: string;
 }
 
 export interface RankedEligibleOptions {
@@ -246,22 +250,37 @@ export function getRankedEligibleForPart(
             isSisterForDemo: modalidade === EnumModalidade.DEMONSTRACAO && funcao === EnumFuncao.TITULAR && publisher.gender === 'sister',
             lastAnyDate,
             priorityBucket: computePriorityBucket(targetPart, modalidade, publisher, inOtherPartSameWeek, currentPresident, applyEngineRules),
+            samePartBlocked: !!scoreData.details.samePartConflict,
+            samePartConflictDate: scoreData.details.samePartConflictDate || undefined,
         };
     });
 
-    const rankedById = new Map<string, RankedEligibleCandidate>();
-    const buckets = [...new Set(precomputedCandidates.filter(candidate => candidate.eligible).map(candidate => candidate.priorityBucket))].sort((a, b) => a - b);
-
-    for (const bucket of buckets) {
-        const publishersInBucket = precomputedCandidates
-            .filter(candidate => candidate.eligible && candidate.priorityBucket === bucket)
-            .map(candidate => candidate.publisher);
-
-        const rankedBucket = getRankedCandidates(publishersInBucket, scoringPartType, historyForScoring, currentPresident, referenceDate);
-        for (const rankedCandidate of rankedBucket) {
-            const precomputed = precomputedCandidates.find(candidate => candidate.publisher.id === rankedCandidate.publisher.id);
-            if (precomputed) rankedById.set(precomputed.publisher.id, precomputed);
+    // Monta o ranking lexicográfico (por priorityBucket) sobre um subconjunto elegível.
+    const buildRankedMap = (gate: (candidate: RankedEligibleCandidate) => boolean): Map<string, RankedEligibleCandidate> => {
+        const map = new Map<string, RankedEligibleCandidate>();
+        const pool = precomputedCandidates.filter(candidate => candidate.eligible && gate(candidate));
+        const orderedBuckets = [...new Set(pool.map(candidate => candidate.priorityBucket))].sort((a, b) => a - b);
+        for (const bucket of orderedBuckets) {
+            const publishersInBucket = pool
+                .filter(candidate => candidate.priorityBucket === bucket)
+                .map(candidate => candidate.publisher);
+            const rankedBucket = getRankedCandidates(publishersInBucket, scoringPartType, historyForScoring, currentPresident, referenceDate);
+            for (const rankedCandidate of rankedBucket) {
+                const precomputed = precomputedCandidates.find(candidate => candidate.publisher.id === rankedCandidate.publisher.id);
+                if (precomputed) map.set(precomputed.publisher.id, precomputed);
+            }
         }
+        return map;
+    };
+
+    // GATE DURO (Camada 1) — NÃO REPETIR a MESMA parte na janela de proximidade (±radius,
+    // simétrico). Só quando applyEngineRules. FALLBACK de relaxamento: se o gate esvaziar o
+    // pool (pools pequenos — Leitor/Dirigente EBC, Leitura da Bíblia, Presidente), volta à
+    // ordenação mole por proximidade (sem o gate) para nunca deixar a parte sem candidato.
+    const hardSamePartGate = (candidate: RankedEligibleCandidate) => !(applyEngineRules && candidate.samePartBlocked);
+    let rankedById = buildRankedMap(hardSamePartGate);
+    if (rankedById.size === 0) {
+        rankedById = buildRankedMap(() => true);
     }
 
     const eligibleCandidates = [...rankedById.values()];

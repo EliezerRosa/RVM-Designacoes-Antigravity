@@ -107,6 +107,10 @@ export interface RotationScore {
         mainProximityPenalty: number;
         /** Soma bruta do gradiente de proximidade (Σ (radius−weeksAway)/radius). Chave de ordenação fina. */
         proximityCost: number;
+        /** True se o candidato já fez ESTA mesma parte dentro da janela ±HEAVY_ROLE_RADIUS (gate duro Camada 1, não-repetição). */
+        samePartConflict: boolean;
+        /** Data (ISO) da ocorrência mais próxima da mesma parte na janela, para exibição/explicação. */
+        samePartConflictDate: string | null;
         roleBonus: number;
         specificAdjustments: string[];
         scoreAdjustment?: number;
@@ -231,6 +235,8 @@ export function calculateScore(
         cooldownPenalty: 0, // mantido em 0 (visual only) — score usa mainProximityPenalty
         mainProximityPenalty: 0,
         proximityCost: 0,
+        samePartConflict: false,
+        samePartConflictDate: null as string | null,
         roleBonus: 0,
         specificAdjustments: [] as string[],
         scoreAdjustment: 0
@@ -290,7 +296,9 @@ export function calculateScore(
     // "Parte na Vida Cristã") — os artigos/preposições "do", "da", "na", etc. são removidos
     // antes de comparar, garantindo match correto e Time Bonus preciso.
     const pTypeNorm = normPartType(pType);
-    const specificHistory = pastHistory.filter(h => {
+    // Predicado "mesma parte" — fonte única usada tanto pelo Time Bonus (specificHistory)
+    // quanto pelo gate duro de NÃO-REPETIÇÃO na janela de proximidade (samePartConflict).
+    const isSamePartType = (h: HistoryRecord): boolean => {
         if (!partType) return true;
         const hType = (h.tipoParte || '').toLowerCase();
         const hFuncao = (h.funcao || '').toLowerCase();
@@ -309,7 +317,8 @@ export function calculateScore(
         // Comparação normalizada — cobre divergências com artigos/preposições
         const hTypeNorm = normPartType(hType);
         return hTypeNorm === pTypeNorm || hTypeNorm.includes(pTypeNorm);
-    });
+    };
+    const specificHistory = pastHistory.filter(isSamePartType);
 
     const lastParticipation = specificHistory[0];
     let weeksSinceLast = CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS;
@@ -352,6 +361,7 @@ export function calculateScore(
         const hwStartStr = new Date(refMs - hwWinMs).toISOString().split('T')[0];
         const hwEndStr = new Date(refMs + hwWinMs).toISOString().split('T')[0];
         let proximityCost = 0;
+        let samePartClosestWeeks = Infinity;
         for (const h of history) {
             // Option A: raw só como fallback quando não há identidade resolvida.
             const isThisPublisher = h.resolvedPublisherId
@@ -361,10 +371,19 @@ export function calculateScore(
             const d = h.date || '';
             if (!d || d === refDateStrForFilter) continue;
             if (d < hwStartStr || d > hwEndStr) continue;
+            const weeksAway = Math.abs(new Date(d + 'T12:00:00').getTime() - refMs) / (7 * 24 * 60 * 60 * 1000);
+            // Gate duro de NÃO-REPETIÇÃO da MESMA parte na janela (±radius, simétrico):
+            // se já fez ESTA mesma parte dentro da janela (antes ou depois), marca conflito.
+            // Camada 1 (restrição) — aplicada em rankedEligibleService com fallback de relaxamento.
+            if (isSamePartType(h)) {
+                details.samePartConflict = true;
+                if (weeksAway < samePartClosestWeeks) {
+                    samePartClosestWeeks = weeksAway;
+                    details.samePartConflictDate = d;
+                }
+            }
             // Part-agnóstico: QUALQUER parte MAIN conta (não mais só os 5 papéis pesados).
             if (!isMainPart(h.tipoParte || '')) continue;
-            const diffMs = Math.abs(new Date(d + 'T12:00:00').getTime() - refMs);
-            const weeksAway = diffMs / (7 * 24 * 60 * 60 * 1000);
             const factor = Math.max(0, (heavyRadius - weeksAway) / heavyRadius);
             proximityCost += factor;
         }

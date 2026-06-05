@@ -429,6 +429,13 @@ export const agentActionService = {
                         lines.push(`Sem parte MAIN no período ±4 semanas — proximidade = 0 (máxima prioridade).`);
                     }
                     lines.push('');
+                    lines.push(`**Não-repetição da MESMA parte** (gate duro ±4 semanas, simétrico — Camada 1 RESTRIÇÃO):`);
+                    if (sd.details.samePartConflict) {
+                        lines.push(`🚫 **BLOQUEADO para esta parte**: já fez ESTA mesma parte em ${fmtDate(sd.details.samePartConflictDate || '')} (dentro da janela ±4 semanas). Só é escolhido se o pool elegível esvaziar (fallback de relaxamento).`);
+                    } else {
+                        lines.push(`Livre — não fez esta mesma parte na janela ±4 semanas.`);
+                    }
+                    lines.push('');
                     lines.push(`**Cooldown visual** (indicador ⏳, não deduz do score, ${cooldownWeeks} semanas):`);
                     lines.push(`Janela: ${fmtDate(wStartStr)} → ${fmtDate(wEndStr)}.`);
                     if (blocked) {
