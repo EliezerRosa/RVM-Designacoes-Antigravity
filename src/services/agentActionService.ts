@@ -4,7 +4,7 @@ import { getPermissions, createPermissionGate } from './permissionService';
 
 import { generationService } from './generationService';
 import { undoService } from './undoService';
-import { explainScoreForAgent, calculateScore, getRotationConfig } from './unifiedRotationService';
+import { explainScoreForAgent, calculateScore, getRotationConfig, isMainPart } from './unifiedRotationService';
 import { ELIGIBILITY_RULES_VERSION } from './eligibilityService';
 import { isBlocked, getParticipationCategory, COOLDOWN_WEEKS, COOLDOWN_WEEKS_HELPER } from './cooldownService';
 import { getRankedEligibleForPart } from './rankedEligibleService';
@@ -394,8 +394,10 @@ export const agentActionService = {
                         lines.push(`Elegibilidade canônica atual: **${candidateSnapshot.eligible ? 'sim' : `não (${candidateSnapshot.reason})`}**`);
                     }
                     lines.push('');
-                    lines.push(`**Aritmética literal:**`);
-                    lines.push(`\`${sd.details.base} (Base) + ${sd.details.timeBonus} (Time Bonus) − ${sd.details.frequencyPenalty} (Frequency Penalty) ${sd.details.roleBonus !== 0 ? `+ ${sd.details.roleBonus} (Bônus função) ` : ''}− ${sd.details.heavyProximityPenalty} (Heavy Proximity) = **${sd.score}**\``);
+                    lines.push(`**Modelo de seleção (3 camadas — ordenação lexicográfica, não soma):**`);
+                    lines.push(`1) Proximidade MAIN (chave primária) ▸ 2) Frequência (±12 sem) ▸ 3) desempates (Time Bonus / esquecimento).`);
+                    lines.push(`O \`score\` abaixo é apenas indicador legado de exibição — a ORDEM real é lexicográfica.`);
+                    lines.push(`\`${sd.details.base} (Base) + ${sd.details.timeBonus} (Time Bonus) − ${sd.details.frequencyPenalty} (Frequency Penalty) ${sd.details.roleBonus !== 0 ? `+ ${sd.details.roleBonus} (Bônus função) ` : ''}− ${sd.details.mainProximityPenalty} (Proximidade MAIN) = **${sd.score}**\``);
                     lines.push('');
                     lines.push(`**Time Bonus** (semanas desde a última vez nesta MESMA parte): ${sd.weeksSinceLast} semana(s) → ${sd.details.timeBonus} pts.`);
                     if (sd.lastDate) lines.push(`Última vez em "${scoringPartType}": ${fmtDate(sd.lastDate)}.`);
@@ -403,10 +405,10 @@ export const agentActionService = {
                     const freqPerPart = sd.details.recentCount > 0 ? Math.round(sd.details.frequencyPenalty / sd.details.recentCount) : getRotationConfig().RECENT_PARTICIPATION_PENALTY;
                     lines.push(`**Frequency Penalty** (±12 semanas — passadas E futuras; todas as partes exceto oração, incl. Ajudante): ${sd.details.recentCount} participação(ões) × ${freqPerPart} = ${sd.details.frequencyPenalty} pts.`);
                     lines.push('');
-                    lines.push(`**Heavy Proximity Penalty** (±4 semanas, papéis pesados: Presidente, EBC, Discurso):`);
-                    if (sd.details.heavyProximityPenalty > 0) {
-                        lines.push(`Penalidade total: **−${sd.details.heavyProximityPenalty} pts** (soma de ocorrências em gradiente 4000×(radius−weeks)/radius).`);
-                        const heavyInWindow = history.filter(h => {
+                    lines.push(`**Proximidade MAIN** (±4 semanas — QUALQUER parte designável adjacente, exceto Oração Final/auto-presidente/cânticos) — CHAVE PRIMÁRIA de ordenação:`);
+                    if (sd.details.mainProximityPenalty > 0) {
+                        lines.push(`Custo de proximidade: **${sd.details.proximityCost.toFixed(2)}** (Σ do gradiente (radius−weeks)/radius) → escala de exibição −${sd.details.mainProximityPenalty} pts.`);
+                        const mainProxInWindow = history.filter(h => {
                             const isThis = (publisher?.id && h.resolvedPublisherId === publisher.id) || h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
                             if (!isThis) return false;
                             const d = h.date || '';
@@ -416,16 +418,15 @@ export const agentActionService = {
                             const hwStart = new Date(refMs - hwMs).toISOString().split('T')[0];
                             const hwEnd = new Date(refMs + hwMs).toISOString().split('T')[0];
                             if (d < hwStart || d > hwEnd) return false;
-                            const hType = (h.tipoParte || '').toLowerCase();
-                            return ['presidente','dirigente ebc','dirigente do ebc','discurso tesouros','discurso na tesouros','discurso vida crista','discurso na vida crista','leitor ebc','leitor do ebc'].some(k => hType.includes(k));
+                            return isMainPart(h.tipoParte || '');
                         });
-                        heavyInWindow.forEach(h => {
+                        mainProxInWindow.forEach(h => {
                             const diffMs = Math.abs(new Date((h.date||'') + 'T12:00:00').getTime() - refDate.getTime());
                             const w = (diffMs / (7 * 24 * 60 * 60 * 1000)).toFixed(1);
                             lines.push(`  • ${fmtDate(h.date||'')} — ${h.tipoParte} (${w} semanas de distância)`);
                         });
                     } else {
-                        lines.push(`Sem papéis pesados no período ±4 semanas — penalidade = 0.`);
+                        lines.push(`Sem parte MAIN no período ±4 semanas — proximidade = 0 (máxima prioridade).`);
                     }
                     lines.push('');
                     lines.push(`**Cooldown visual** (indicador ⏳, não deduz do score, ${cooldownWeeks} semanas):`);

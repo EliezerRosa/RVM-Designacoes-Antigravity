@@ -10,6 +10,8 @@ import type { Publisher, HistoryRecord, EngineConfig } from '../types';
 import { DEFAULT_ENGINE_CONFIG } from '../types';
 import { isBlocked } from './cooldownService';
 import { toLocalISODate } from '../utils/dateUtils';
+import { isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
+import { isManuallyAssignable } from '../constants/s140Template';
 
 // ===== CONFIGURAÇÃO DE PESOS (DINÂMICA) =====
 // Fonte canônica do shape: `EngineConfig` em `types.ts`.
@@ -53,18 +55,35 @@ export const EXCLUDED_STATS_PARTS = [
     "Comentarios finais"
 ];
 
-// Partes de alto peso: designação recente ou futura nestas partes
-// impõe penalidade graduada na janela ±HEAVY_ROLE_RADIUS semanas.
-// Critério: exigem preparação profunda e liderança de audiência comparável ao Presidente.
-// Chaves normalizadas (sem artigos/preposições) — combinadas via normPartType() antes de comparar.
-// Cobre tanto o workbook atual ("Dirigente EBC") quanto histórico legado ("Dirigente do EBC") etc.
-export const HEAVY_WEIGHT_PARTS = [
-    'presidente',
-    'dirigente ebc',
-    'discurso tesouros',
-    'discurso vida cristã',
-    'leitor ebc',
-];
+// ===== CONCEITO "MAIN" — Proximidade part-agnóstica (2026-06-05) =====
+// Modelo de 3 camadas ratificado por Eliezer:
+//   CAMADA 1 (RESTRIÇÃO): elegibilidade/privilégio/mesma-semana/alternância — portão HARD (eligibilityService/rankedEligibleService).
+//   CAMADA 2 (QUEM): ordenação LEXICOGRÁFICA proximidade ▸ frequência ▸ esquecimento ▸ nome (getRankedCandidates).
+//   CAMADA 3 (QUAL PARTE): timeBonus por tipo roteia o selecionado (desempate na contenção + ordem de escassez no Motor).
+//
+// "MAIN" = TODA parte designável (qualquer seção), EXCETO:
+//   - Oração Final (designável, mas isenta de proximidade por decisão de Eliezer);
+//   - Partes auto-atribuídas ao Presidente (Oração Inicial, Comentários, Elogios);
+//   - Cânticos e demais não-designáveis (não pesam em nada).
+// Substitui a antiga whitelist HEAVY_WEIGHT_PARTS (5 papéis) — que gerava a "chave fantasma"
+// 'discurso vida cristã' nunca casando com o dado real "Parte Vida Cristã".
+export function isOracaoFinalPart(tipoParte: string): boolean {
+    if (!tipoParte) return false;
+    const n = tipoParte.toLowerCase();
+    return n.includes('oração final') || n.includes('oracao final');
+}
+
+/**
+ * Determina se uma parte é "MAIN" — conta para a Penalidade de Proximidade (Camada 2).
+ * Verdadeiro para qualquer parte designável, exceto Oração Final, auto-presidente e cânticos.
+ */
+export function isMainPart(tipoParte: string): boolean {
+    if (!tipoParte) return false;
+    if (isCleanablePart(tipoParte)) return false;            // cânticos
+    if (isAutoAssignedToChairman(tipoParte)) return false;   // oração inicial, comentários, elogios
+    if (isOracaoFinalPart(tipoParte)) return false;          // oração final (isenta por decisão)
+    return isManuallyAssignable(tipoParte);                  // MANUAL/MANUAL_PAIR; desconhecido legado → true (conta como MAIN)
+}
 
 // Helper to check exclusion
 export const isStatPart = (title: string) => {
@@ -84,8 +103,10 @@ export interface RotationScore {
         /** Datas (ISO) das partes contabilizadas na janela ±12 semanas, ordenadas. */
         recentDates: string[];
         cooldownPenalty: number;
-        /** Penalidade graduada por papel pesado (Presidente, EBC, Discurso) em ±HEAVY_ROLE_RADIUS semanas. */
-        heavyProximityPenalty: number;
+        /** Penalidade graduada de proximidade de parte MAIN em ±HEAVY_ROLE_RADIUS semanas (Camada 2, chave primária do ranqueamento). */
+        mainProximityPenalty: number;
+        /** Soma bruta do gradiente de proximidade (Σ (radius−weeksAway)/radius). Chave de ordenação fina. */
+        proximityCost: number;
         roleBonus: number;
         specificAdjustments: string[];
         scoreAdjustment?: number;
@@ -207,8 +228,9 @@ export function calculateScore(
         frequencyPenalty: 0,
         recentCount: 0,
         recentDates: [] as string[],
-        cooldownPenalty: 0, // mantido em 0 (visual only) — score usa heavyProximityPenalty
-        heavyProximityPenalty: 0,
+        cooldownPenalty: 0, // mantido em 0 (visual only) — score usa mainProximityPenalty
+        mainProximityPenalty: 0,
+        proximityCost: 0,
         roleBonus: 0,
         specificAdjustments: [] as string[],
         scoreAdjustment: 0
@@ -316,10 +338,12 @@ export function calculateScore(
         .sort((a, b) => a.localeCompare(b));
     details.frequencyPenalty = recentCount * CURRENT_SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
 
-    // 3b. Penalidade de Proximidade de Papel Pesado (Heavy Proximity Penalty)
-    // Partes de alto peso nos ±HEAVY_ROLE_RADIUS semanas impõem penalidade graduada:
-    //   factor = max(0, (radius - weeksAway) / radius)
+    // 3b. Penalidade de Proximidade de Parte MAIN (Main Proximity Penalty) — Camada 2, chave primária.
+    // QUALQUER parte MAIN (isMainPart) nos ±HEAVY_ROLE_RADIUS semanas impõe penalidade graduada:
+    //   factor = max(0, (radius - weeksAway) / radius)   → 1 sem ≈ 0.75 ... 4 sem = 0
     // Cada ocorrência contribui independentemente (soma). Exclui a própria data.
+    // A MAGNITUDE (escala HEAVY_ROLE_BASE) é só para exibição; o ranqueamento é lexicográfico
+    // e usa proximityCost (soma do gradiente) como ordem, não como parcela somada ao score.
     {
         const heavyRadius = CURRENT_SCORING_CONFIG.HEAVY_ROLE_RADIUS;
         const heavyBase = CURRENT_SCORING_CONFIG.HEAVY_ROLE_BASE;
@@ -327,6 +351,7 @@ export function calculateScore(
         const hwWinMs = heavyRadius * 7 * 24 * 60 * 60 * 1000;
         const hwStartStr = new Date(refMs - hwWinMs).toISOString().split('T')[0];
         const hwEndStr = new Date(refMs + hwWinMs).toISOString().split('T')[0];
+        let proximityCost = 0;
         for (const h of history) {
             // Option A: raw só como fallback quando não há identidade resolvida.
             const isThisPublisher = h.resolvedPublisherId
@@ -336,15 +361,17 @@ export function calculateScore(
             const d = h.date || '';
             if (!d || d === refDateStrForFilter) continue;
             if (d < hwStartStr || d > hwEndStr) continue;
-            const hTypeNorm = normPartType(h.tipoParte || '');
-            if (!HEAVY_WEIGHT_PARTS.some(k => hTypeNorm.includes(k))) continue;
+            // Part-agnóstico: QUALQUER parte MAIN conta (não mais só os 5 papéis pesados).
+            if (!isMainPart(h.tipoParte || '')) continue;
             const diffMs = Math.abs(new Date(d + 'T12:00:00').getTime() - refMs);
             const weeksAway = diffMs / (7 * 24 * 60 * 60 * 1000);
             const factor = Math.max(0, (heavyRadius - weeksAway) / heavyRadius);
-            details.heavyProximityPenalty += Math.round(heavyBase * factor);
+            proximityCost += factor;
         }
-        if (details.heavyProximityPenalty > 0) {
-            details.specificAdjustments.push(`HeavyProx: -${details.heavyProximityPenalty}`);
+        details.proximityCost = proximityCost;
+        details.mainProximityPenalty = Math.round(heavyBase * proximityCost);
+        if (details.mainProximityPenalty > 0) {
+            details.specificAdjustments.push(`Proximidade MAIN: -${details.mainProximityPenalty}`);
         }
     }
 
@@ -377,22 +404,26 @@ export function calculateScore(
     // Penalidade soft removida — não é mais necessária
 
     // 5. Cooldown — mantido APENAS para indicador visual (isInCooldown)
-    // O score não usa mais cooldownPenalty; a penalidade real é heavyProximityPenalty (passo 3b).
+    // O score não usa mais cooldownPenalty; o espaçamento é governado pela proximidade MAIN (passo 3b).
     const blocked = isBlocked(publisher.name, history, referenceDate, publisher.id);
     if (blocked) {
         details.specificAdjustments.push('Intervalo ativo (visual)');
     }
 
-    // 6. Score Final
+    // 6. Score Final (COMPOSTO INFORMATIVO).
+    // ATENÇÃO: o ranqueamento real é LEXICOGRÁFICO (getRankedCandidates): proximidade ▸ frequência ▸
+    // esquecimento ▸ nome — NÃO é este score somado. Este número é mantido só como indicador de
+    // exibição (legado) e aproxima a ordem na maioria dos casos. timeBonus/roleBonus aqui NÃO
+    // decidem QUEM; servem à Camada 3 (roteamento por tipo de parte).
     const score = details.base + details.timeBonus - details.frequencyPenalty
-        + details.roleBonus + (details.scoreAdjustment || 0) - details.heavyProximityPenalty;
+        + details.roleBonus + (details.scoreAdjustment || 0) - details.mainProximityPenalty;
 
     const explanationParts = [
         `Base: ${details.base}`,
         `Tempo Exp: +${details.timeBonus}`,
         `Freq: -${details.frequencyPenalty}`,
     ];
-    if (details.heavyProximityPenalty > 0) explanationParts.push(`HeavyProx: -${details.heavyProximityPenalty}`);
+    if (details.mainProximityPenalty > 0) explanationParts.push(`Proximidade MAIN: -${details.mainProximityPenalty}`);
     if (blocked) explanationParts.push('Intervalo ativo');
     if (details.roleBonus !== 0) explanationParts.push(`Bônus: +${details.roleBonus}`);
     if (details.scoreAdjustment) explanationParts.push(`Ajuste: ${details.scoreAdjustment}`);
@@ -412,17 +443,19 @@ export function calculateScore(
 /**
  * Retorna lista de candidatos classificada por pontuação (Score).
  *
- * Critério de desempate (quando dois candidatos têm score idêntico):
- *   1) maior weeksSinceLast (já refletido no score, mas reforça em caso de empate por teto da fórmula)
- *   2) maior tempo desde QUALQUER participação histórica (inclui partes não-rotacionadas) —
- *      garante que quem está mais "esquecido" globalmente venha primeiro
- *   3) menor número total de participações na janela MAX_LOOKBACK_WEEKS — favorece
- *      quem participou menos no histórico recente (justiça acumulada)
- *   4) ordem alfabética (estabilidade determinística final)
+ * RANQUEAMENTO LEXICOGRÁFICO (Camada 2 — "QUEM", modelo 2026-06-05).
+ * NÃO é mais soma de score. A ordem é, estritamente nesta prioridade:
+ *   1) MENOR proximidade de parte MAIN (proximityCost ascendente) — chave PRIMÁRIA.
+ *   2) MENOR frequência na janela ±12 sem (recentCount ascendente) — DESEMPATE.
+ *   3) MAIOR timeBonus do tipo de parte (descendente) — Camada 3 (roteamento): entre
+ *      candidatos igualmente "devidos", esta parte fica com quem está mais fresco PARA ELA.
+ *   4) MAIS esquecido globalmente (lastAnyDate ascendente).
+ *   5) MENOR total de participações na janela (justiça acumulada).
+ *   6) ordem alfabética (estabilidade determinística final).
  *
- * Motivação: quando vários candidatos atingem o teto da fórmula (≥52 semanas para o tipo),
- * o desempate alfabético é arbitrário e gera viés sistêmico (sempre os mesmos primeiros nomes).
- * Ver /memories/session/pacote-melhorias-rotacao-2026-04-30.md.
+ * Proximidade > frequência é literal (lexicográfico puro). timeBonus NÃO decide "quem é o mais
+ * devido" (isso é proximidade▸frequência); só arbitra a contenção de roteamento em empates.
+ * Ver /memories/session/maim-cooldown-proximidade-retomada.md.
  */
 export function getRankedCandidates(
     candidates: Publisher[],
@@ -461,23 +494,30 @@ export function getRankedCandidates(
     });
 
     return ranked.sort((a, b) => {
-        // 1) score (descending)
-        if (b.scoreData.score !== a.scoreData.score) {
-            return b.scoreData.score - a.scoreData.score;
-        }
-        // 2) weeksSinceLast da modalidade (descending) — quem está mais tempo parado na modalidade vem primeiro
-        const wa = a.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
-        const wb = b.scoreData.weeksSinceLast ?? Number.MAX_SAFE_INTEGER;
-        if (wb !== wa) return wb - wa;
-        // 3) última participação em QUALQUER parte (ascending — data mais antiga primeiro = mais esquecido)
+        // CAMADA 2 (QUEM) — lexicográfico puro:
+        // 1) proximidade MAIN (ascending) — chave PRIMÁRIA: menos proximidade vem primeiro.
+        const pa = a.scoreData.details.proximityCost ?? 0;
+        const pb = b.scoreData.details.proximityCost ?? 0;
+        if (pa !== pb) return pa - pb;
+        // 2) frequência na janela ±12 sem (ascending) — DESEMPATE: menos carga vem primeiro.
+        const fa = a.scoreData.details.recentCount ?? 0;
+        const fb = b.scoreData.details.recentCount ?? 0;
+        if (fa !== fb) return fa - fb;
+        // CAMADA 3 (QUAL PARTE) — roteamento por contenção:
+        // 3) timeBonus do tipo de parte (descending) — entre igualmente devidos, esta parte
+        //    fica com quem está mais fresco PARA ELA; o outro permanece livre p/ parte mais fresca.
+        const ta = a.scoreData.details.timeBonus ?? 0;
+        const tb = b.scoreData.details.timeBonus ?? 0;
+        if (tb !== ta) return tb - ta;
+        // 4) última participação em QUALQUER parte (ascending — data mais antiga primeiro = mais esquecido)
         const da = lastAnyDateByName.get(a.publisher.name) ?? '';
         const db = lastAnyDateByName.get(b.publisher.name) ?? '';
         if (da !== db) return da.localeCompare(db);
-        // 4) menor número total de participações na janela (ascending)
+        // 5) menor número total de participações na janela (ascending)
         const ca = totalCountByName.get(a.publisher.name) ?? 0;
         const cb = totalCountByName.get(b.publisher.name) ?? 0;
         if (ca !== cb) return ca - cb;
-        // 5) fallback alfabético (estável)
+        // 6) fallback alfabético (estável)
         return a.publisher.name.localeCompare(b.publisher.name);
     });
 }
