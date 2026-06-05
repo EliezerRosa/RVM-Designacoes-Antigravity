@@ -158,3 +158,45 @@ test('CONSISTÊNCIA TOTAL após fix: agente e card produzem mesma decomposição
     assert.equal(agentMarcus.scoreData.details.timeBonus, cardScore.details.timeBonus);
     assert.equal(agentMarcus.scoreData.details.frequencyPenalty, cardScore.details.frequencyPenalty);
 });
+
+// ---------- Gate duro: NÃO repetir a MESMA parte na janela de proximidade (±4 sem, simétrico) ----------
+
+test('SAME-PART GATE: mesma parte 3 semanas ANTES dentro da janela → samePartConflict=true', () => {
+    // Israel presidiu 01/06; alvo 22/06 (3 sem) → dentro de ±4 → conflito.
+    const ref = new Date('2026-06-22T12:00:00');
+    const hist: HistoryRecord[] = [
+        mkHist({ name: 'Israel Vieira', date: '2026-06-01', weekId: '2026-06-01', tipoParte: 'Presidente' }),
+    ];
+    const sd = calculateScore(mkPub('p-israel', 'Israel Vieira'), 'Presidente', hist, ref);
+    assert.equal(sd.details.samePartConflict, true, 'deve marcar conflito de mesma parte na janela');
+    assert.equal(sd.details.samePartConflictDate, '2026-06-01');
+});
+
+test('SAME-PART GATE: mesma parte 2 semanas DEPOIS (futuro) também conta (simétrico)', () => {
+    const ref = new Date('2026-06-22T12:00:00');
+    const hist: HistoryRecord[] = [
+        mkHist({ name: 'Israel Vieira', date: '2026-07-06', weekId: '2026-07-06', tipoParte: 'Presidente' }),
+    ];
+    const sd = calculateScore(mkPub('p-israel', 'Israel Vieira'), 'Presidente', hist, ref);
+    assert.equal(sd.details.samePartConflict, true, 'janela é simétrica: futuro dentro de ±4 conta');
+});
+
+test('SAME-PART GATE: mesma parte FORA da janela (6 semanas) → sem conflito', () => {
+    const ref = new Date('2026-06-22T12:00:00');
+    const hist: HistoryRecord[] = [
+        mkHist({ name: 'Israel Vieira', date: '2026-05-11', weekId: '2026-05-11', tipoParte: 'Presidente' }),
+    ];
+    const sd = calculateScore(mkPub('p-israel', 'Israel Vieira'), 'Presidente', hist, ref);
+    assert.equal(sd.details.samePartConflict, false, '6 semanas está fora de ±4 → sem conflito');
+});
+
+test('SAME-PART GATE: parte DIFERENTE na janela NÃO dispara o gate (é só proximidade mole)', () => {
+    const ref = new Date('2026-06-22T12:00:00');
+    const hist: HistoryRecord[] = [
+        // Parte diferente (Vida Cristã) 1 semana antes — conta para proximityCost, NÃO para o gate.
+        mkHist({ name: 'Diego Resmann', date: '2026-06-15', weekId: '2026-06-15', tipoParte: 'Parte Vida Cristã' }),
+    ];
+    const sd = calculateScore(mkPub('p-diego', 'Diego Resmann'), 'Presidente', hist, ref);
+    assert.equal(sd.details.samePartConflict, false, 'parte diferente não dispara gate de mesma-parte');
+    assert.ok(sd.details.proximityCost > 0, 'mas continua pagando proximidade mole (part-agnóstica)');
+});
