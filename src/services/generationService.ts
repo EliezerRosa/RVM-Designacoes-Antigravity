@@ -199,9 +199,14 @@ export const generationService = {
                     },
                 );
 
-                return rankedResult.eligibleCandidates.find(candidate => !candidate.blocked)?.publisher
-                    || rankedResult.eligibleCandidates[0]?.publisher
-                    || null;
+                // CAMADA 2/3 (modelo 2026-06-05): eligibleCandidates já vem ordenado
+                // lexicograficamente (proximidade MAIN ▸ frequência ▸ timeBonus-roteamento ▸
+                // esquecimento ▸ nome). O espaçamento é governado pela PROXIMIDADE, não mais
+                // pelo cooldown duro (`blocked` é apenas indicador visual). Por isso pegamos
+                // diretamente o TOPO da fila — quem está com menor proximidade de parte MAIN.
+                // A proteção anti-fome (pools escassos como EBC/Tesouros) é garantida pela
+                // ORDEM DE ESCASSEZ das fases (Fase 2 Ensino antes de Fase 3 Estudante / Fase 4).
+                return rankedResult.eligibleCandidates[0]?.publisher || null;
             };
 
             // Rastreamento in-loop para cooldown imediato
@@ -340,6 +345,12 @@ export const generationService = {
             // ===================================
             // FASE 2 & 3: Loop Semanal (Ensino, Estudante, Demais)
             // ===================================
+            // PROTEÇÃO ANTI-FOME (Camada 3 — roteamento por escassez): as fases são
+            // processadas da MENOR para a MAIOR oferta de candidatos elegíveis —
+            // Ensino (Tesouros/EBC: pool restrito de anciãos/SMs) ANTES de Estudante
+            // (pool largo) ANTES das Demais. Como cada designação marca o publicador
+            // como usado na semana, as partes de pool escasso escolhem primeiro e nunca
+            // ficam sem candidato por terem sido "puxadas" para uma parte mais aberta.
             for (const [_weekId, weekPartsToAssign] of Object.entries(byWeek)) {
                 const weekParts = getFullWeekParts(_weekId);
                 weekPartsToAssign.sort((a, b) => a.date.localeCompare(b.date));

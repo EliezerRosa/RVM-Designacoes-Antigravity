@@ -796,12 +796,12 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     {scoreData && (
                                                         <>
                                                             <span style={{ color: '#B45309', fontWeight: 600 }}>
-                                                                Papel pesado adjacente:
+                                                                Proximidade de parte (MAIN):
                                                             </span>{' '}
                                                             <span>
-                                                                {scoreData.details.heavyProximityPenalty > 0
-                                                                    ? `${firstName} teve um papel de alto peso (Presidente, EBC ou Discurso) nas semanas próximas a esta, o que reduziu a prioridade em ${scoreData.details.heavyProximityPenalty} pts.`
-                                                                    : `Sem papéis de alto peso no período adjacente (±4 semanas) — fator de proximidade neutro.`}
+                                                                {scoreData.details.mainProximityPenalty > 0
+                                                                    ? `${firstName} teve outra parte designável (MAIN) nas semanas próximas a esta, o que reduziu a prioridade — esta é a chave primária de ordenação (custo ${scoreData.details.proximityCost.toFixed(2)}).`
+                                                                    : `Sem parte MAIN no período adjacente (±4 semanas) — prioridade máxima por proximidade.`}
                                                                 {' '}
                                                             </span>
                                                         </>
@@ -867,9 +867,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     Critérios usados na avaliação
                                                 </div>
                                                 <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> verifica atuação ativa, desqualificação, pedido de não participação, disponibilidade na data, restrição "só ajudante", permissões por seção (Tesouros/Ministério/Vida Cristã), compatibilidade de função (Titular/Ajudante), gênero/batismo e privilégios específicos da modalidade (presidir, orar, ensinar, dirigir/ler EBC, etc.).</div>
-                                                <div><strong style={{ color: '#7C3AED' }}>Intervalo entre partes principais (bloqueio duro):</strong> partes principais recentes bloqueiam por no mínimo 3 semanas.</div>
+                                                <div><strong style={{ color: '#7C3AED' }}>Intervalo entre partes principais (indicador visual):</strong> partes principais recentes mostram o ícone ⏳, mas o espaçamento é governado pela Proximidade MAIN, não por bloqueio duro.</div>
                                                 <div><strong style={{ color: '#0F766E' }}>Tempo desde a última parte similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior a prioridade.</div>
-                                                <div><strong style={{ color: '#B45309' }}>Carga recente (frequência) — peso dominante:</strong> conta quantas partes (passadas e futuras; todas exceto oração, incl. Ajudante) a pessoa tem na janela de ±12 semanas; cada uma penaliza −{50} pts, e isso pesa <strong>mais</strong> do que o tempo parado adiciona.</div>                                                <div><strong style={{ color: '#DC2626' }}>Papel pesado adjacente:</strong> cada designação de alto peso (Presidente, EBC, Discurso) nas ±4 semanas penaliza até −4000 pts em gradiente proporcional à proximidade.</div>                                                <div><strong style={{ color: '#334155' }}>Pontuação final:</strong> {scoreData.score} (base + tempo - frequência - penalidades + bônus).</div>
+                                                <div><strong style={{ color: '#B45309' }}>Carga recente (frequência) — 2º critério:</strong> conta quantas partes (passadas e futuras; todas exceto oração, incl. Ajudante) a pessoa tem na janela de ±12 semanas; usada como desempate após a Proximidade MAIN.</div>                                                <div><strong style={{ color: '#DC2626' }}>Proximidade de parte (MAIN) — chave primária:</strong> qualquer parte designável (exceto Oração Final / auto-presidente / cânticos) nas ±4 semanas reduz a prioridade em gradiente proporcional à proximidade. É o <strong>primeiro</strong> critério de ordenação.</div>                                                <div><strong style={{ color: '#334155' }}>Ordenação:</strong> lexicográfica — Proximidade MAIN ▸ Frequência ▸ desempates. O número ({scoreData.score}) é apenas indicador legado de exibição.</div>
                                             </div>
                                         )}
 

@@ -439,15 +439,15 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                                     )
                                 )}
                             </div>
-                            {/* 4) Proximidade de papel pesado — categoria DISTINTA das demais */}
-                            {sd.details.heavyProximityPenalty > 0 ? (
+                            {/* 4) Proximidade de parte MAIN — CHAVE PRIMÁRIA da ordenação lexicográfica */}
+                            {sd.details.mainProximityPenalty > 0 ? (
                                 <div style={{ marginTop: '6px', padding: '4px 6px', background: 'rgba(239,68,68,0.18)', borderRadius: '4px', color: '#fca5a5', fontSize: '0.9em', lineHeight: 1.4 }}>
-                                    🏗️ <strong>Papel pesado adjacente:</strong> −{sd.details.heavyProximityPenalty} pts
-                                    <div style={{ color: '#f87171', fontSize: '0.85em', marginTop: '2px' }}>(Presidente / EBC / Discurso a ≤4 semanas desta data)</div>
+                                    📍 <strong>Proximidade de parte (MAIN):</strong> custo {sd.details.proximityCost.toFixed(2)}
+                                    <div style={{ color: '#f87171', fontSize: '0.85em', marginTop: '2px' }}>(parte designável a ≤4 semanas desta data — chave primária de prioridade)</div>
                                 </div>
                             ) : (
                                 <div style={{ marginTop: '6px', color: '#6ee7b7', fontSize: '0.9em' }}>
-                                    🏗️ <strong>Papel pesado adjacente:</strong> nenhum (±4 semanas).
+                                    📍 <strong>Proximidade de parte (MAIN):</strong> nenhuma (±4 semanas) — prioridade máxima.
                                 </div>
                             )}
                         </div>

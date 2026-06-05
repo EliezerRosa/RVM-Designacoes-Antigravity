@@ -34,8 +34,8 @@ const KEY_DESCRIPTIONS: Record<string, string> = {
     SISTER_DEMO_PRIORITY: 'Bônus de prioridade para irmãs em demonstrações.',
     FSM_TITULAR_PROMOTION_BONUS: 'Bônus de progressão pedagógica: ajudante → titular.',
     MAX_LOOKBACK_WEEKS: 'Janela histórica máxima (semanas) para weeksSinceLast e contagens.',
-    HEAVY_ROLE_BASE: 'Penalidade máxima por papel pesado (Presidente, EBC, Discurso) adjacente. Aplicada em gradiente: 1 semana=75%, 4 semanas=0%.',
-    HEAVY_ROLE_RADIUS: 'Raio em semanas (±) da janela de papel pesado (passado + futuro).',
+    HEAVY_ROLE_BASE: 'Escala de exibição da Proximidade MAIN (chave primária da ordenação). Aplicada em gradiente sobre QUALQUER parte designável adjacente: 1 semana≈75%, 4 semanas=0%.',
+    HEAVY_ROLE_RADIUS: 'Raio em semanas (±) da janela de Proximidade MAIN (passado + futuro).',
     ROLE_ALTERNATION_WINDOW_WEEKS: 'Motor — janela (semanas) para forçar alternância Titular↔Ajudante em partes FSM (leitura/demonstração/discurso estudante). Bidirecional. Escape: publicador "Só Ajudante". 0 desliga.',
     PAIR_REPETITION_WINDOW_WEEKS: 'Motor — janela (semanas) para vetar repetição do par titular+ajudante em demonstrações. Bypass: cônjuge e pai/filho podem repetir. 0 desliga.',
 };
