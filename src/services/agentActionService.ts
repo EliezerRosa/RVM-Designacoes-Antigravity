@@ -386,28 +386,27 @@ export const agentActionService = {
                     };
 
                     const lines: string[] = [];
-                    lines.push(`**Score determinístico (motor oficial — sem LLM):**`);
-                    lines.push(`Publicador: **${publisher.name}**`);
+                    lines.push(`**Por que esta escolha — explicação do sistema (cálculo automático, sem IA):**`);
+                    lines.push(`Pessoa: **${publisher.name}**`);
                     lines.push(`Parte: *${targetPart.tituloParte || targetPart.tipoParte}* — Semana ${targetPart.weekId}`);
-                    lines.push(`Tipo de parte usado para scoring: \`${scoringPartType}\``);
                     if (candidateSnapshot) {
-                        lines.push(`Elegibilidade canônica atual: **${candidateSnapshot.eligible ? 'sim' : `não (${candidateSnapshot.reason})`}**`);
+                        lines.push(`Pode participar agora: **${candidateSnapshot.eligible ? 'sim' : `não (${candidateSnapshot.reason})`}**`);
                     }
                     lines.push('');
-                    lines.push(`**Modelo de seleção (3 camadas — ordenação lexicográfica, não soma):**`);
-                    lines.push(`1) Proximidade MAIN (chave primária) ▸ 2) Frequência (±12 sem) ▸ 3) desempates (Time Bonus / esquecimento).`);
-                    lines.push(`O \`score\` abaixo é apenas indicador legado de exibição — a ORDEM real é lexicográfica.`);
-                    lines.push(`\`${sd.details.base} (Base) + ${sd.details.timeBonus} (Time Bonus) − ${sd.details.frequencyPenalty} (Frequency Penalty) ${sd.details.roleBonus !== 0 ? `+ ${sd.details.roleBonus} (Bônus função) ` : ''}− ${sd.details.mainProximityPenalty} (Proximidade MAIN) = **${sd.score}**\``);
+                    lines.push(`**Como o sistema decide quem entra (em ordem de prioridade):**`);
+                    lines.push(`1º) Quem não tem outra parte importante em semanas próximas — este é o critério principal.`);
+                    lines.push(`2º) Em caso de empate: quem tem menos partes nas últimas e próximas semanas.`);
+                    lines.push(`3º) Em novo empate: quem está há mais tempo sem participar.`);
+                    lines.push(`O número ao lado (${sd.score}) é só um indicador antigo de exibição — não é ele que decide.`);
                     lines.push('');
-                    lines.push(`**Time Bonus** (semanas desde a última vez nesta MESMA parte): ${sd.weeksSinceLast} semana(s) → ${sd.details.timeBonus} pts.`);
-                    if (sd.lastDate) lines.push(`Última vez em "${scoringPartType}": ${fmtDate(sd.lastDate)}.`);
+                    lines.push(`**Há quanto tempo não faz esta mesma parte:** ${sd.weeksSinceLast} semana(s).`);
+                    if (sd.lastDate) lines.push(`Última vez nesta parte: ${fmtDate(sd.lastDate)}.`);
                     lines.push('');
-                    const freqPerPart = sd.details.recentCount > 0 ? Math.round(sd.details.frequencyPenalty / sd.details.recentCount) : getRotationConfig().RECENT_PARTICIPATION_PENALTY;
-                    lines.push(`**Frequency Penalty** (±12 semanas — passadas E futuras; todas as partes exceto oração, incl. Ajudante): ${sd.details.recentCount} participação(ões) × ${freqPerPart} = ${sd.details.frequencyPenalty} pts.`);
+                    lines.push(`**Quantas partes tem por perto** (somando as últimas e as próximas semanas): ${sd.details.recentCount}.`);
                     lines.push('');
-                    lines.push(`**Proximidade MAIN** (±4 semanas — QUALQUER parte designável adjacente, exceto Oração Final/auto-presidente/cânticos) — CHAVE PRIMÁRIA de ordenação:`);
+                    lines.push(`**Tem outra parte importante em semanas próximas?** (até 4 semanas antes ou depois) — critério principal:`);
                     if (sd.details.mainProximityPenalty > 0) {
-                        lines.push(`Custo de proximidade: **${sd.details.proximityCost.toFixed(2)}** (Σ do gradiente (radius−weeks)/radius) → escala de exibição −${sd.details.mainProximityPenalty} pts.`);
+                        lines.push(`Sim — e isso reduz a prioridade dela. Partes próximas:`);
                         const mainProxInWindow = history.filter(h => {
                             const isThis = (publisher?.id && h.resolvedPublisherId === publisher.id) || h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
                             if (!isThis) return false;
@@ -423,33 +422,31 @@ export const agentActionService = {
                         mainProxInWindow.forEach(h => {
                             const diffMs = Math.abs(new Date((h.date||'') + 'T12:00:00').getTime() - refDate.getTime());
                             const w = (diffMs / (7 * 24 * 60 * 60 * 1000)).toFixed(1);
-                            lines.push(`  • ${fmtDate(h.date||'')} — ${h.tipoParte} (${w} semanas de distância)`);
+                            lines.push(`  • ${fmtDate(h.date||'')} — ${h.tipoParte} (a ${w} semanas de distância)`);
                         });
                     } else {
-                        lines.push(`Sem parte MAIN no período ±4 semanas — proximidade = 0 (máxima prioridade).`);
+                        lines.push(`Não — por isso tem prioridade alta.`);
                     }
                     lines.push('');
-                    lines.push(`**Não-repetição da MESMA parte** (gate duro ±4 semanas, simétrico — Camada 1 RESTRIÇÃO):`);
+                    lines.push(`**Já fez esta MESMA parte há pouco?** (a pessoa não pode repetir a mesma parte dentro de 4 semanas):`);
                     if (sd.details.samePartConflict) {
-                        lines.push(`🚫 **BLOQUEADO para esta parte**: já fez ESTA mesma parte em ${fmtDate(sd.details.samePartConflictDate || '')} (dentro da janela ±4 semanas). Só é escolhido se o pool elegível esvaziar (fallback de relaxamento).`);
+                        lines.push(`🚫 Sim — fez esta mesma parte em ${fmtDate(sd.details.samePartConflictDate || '')}. Por isso fica de fora desta parte, a não ser que não sobre mais ninguém disponível.`);
                     } else {
-                        lines.push(`Livre — não fez esta mesma parte na janela ±4 semanas.`);
+                        lines.push(`Não fez esta mesma parte nas 4 semanas anteriores ou seguintes.`);
                     }
                     lines.push('');
-                    lines.push(`**Cooldown visual** (indicador ⏳, não deduz do score, ${cooldownWeeks} semanas):`);
-                    lines.push(`Janela: ${fmtDate(wStartStr)} → ${fmtDate(wEndStr)}.`);
+                    lines.push(`**Participou há pouco?** (aviso ⏳ de ${cooldownWeeks} semanas — é só um lembrete, não tira pontos nem bloqueia):`);
+                    lines.push(`Período observado: ${fmtDate(wStartStr)} → ${fmtDate(wEndStr)}.`);
                     if (blocked) {
-                        lines.push(`Status visual: **BLOQUEADO** (⏳ intervalo ativo — não penaliza o score, apenas indica sobrecarga recente).`);
+                        lines.push(`Sim, participou há pouco (⏳). Isso é apenas um lembrete de que ela esteve ativa recentemente.`);
                         if (mainInWindow.length > 0) {
-                            lines.push(`Participações MAIN que dispararam o bloqueio:`);
+                            lines.push(`Partes recentes:`);
                             mainInWindow.forEach(h => {
                                 lines.push(`  • ${fmtDate(h.date)} — ${h.tipoParte || h.tituloParte} (${h.funcao || 'Titular'})`);
                             });
-                        } else {
-                            lines.push(`⚠️ Inconsistência: cooldown ativo mas nenhuma participação MAIN encontrada na janela. Verifique o histórico.`);
                         }
                     } else {
-                        lines.push(`Status: livre (sem participação MAIN na janela).`);
+                        lines.push(`Não participou de nenhuma parte importante nas últimas semanas.`);
                     }
                     if (sd.details.specificAdjustments.length > 0) {
                         lines.push('');
