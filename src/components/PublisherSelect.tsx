@@ -499,6 +499,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // exibimos a opção '__unmatched__' como valor selecionado para que o nome apareça no dropdown
     // (ex.: visitas do SC com nome livre).
     const selectValue = showUnmatchedName ? '__unmatched__' : effectiveValue;
+    const selectedLabel = foundPublisher?.name || displayName || part.resolvedPublisherName || part.rawPublisherName || '';
+    const hasRenderedSelectedOption = Boolean(selectValue) && (
+        showUnmatchedName ||
+        visibleOptions.some(({ publisher }) => publisher.id === selectValue) ||
+        selectedIneligibleOption?.publisher.id === selectValue
+    );
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -534,6 +540,12 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 {showUnmatchedName && (
                     <option value="__unmatched__" style={{ fontStyle: 'italic', color: '#ef4444' }}>
                         ⚠️ {displayName} (não cadastrado)
+                    </option>
+                )}
+                {/* Fallback: mantém visível a seleção atual mesmo quando ela não está na lista renderizada */}
+                {!showUnmatchedName && !hasRenderedSelectedOption && selectedLabel && selectValue && (
+                    <option value={selectValue} disabled style={{ fontStyle: 'italic', color: '#374151' }}>
+                        {selectedLabel} (seleção atual)
                     </option>
                 )}
                 {selectedIneligibleOption && (
