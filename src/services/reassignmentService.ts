@@ -1,7 +1,9 @@
 import { supabase } from '../lib/supabase';
-import { generationService } from './generationService';
+import { loadCompletedParticipations } from './historyAdapter';
+import { getRankedEligibleForPart, type RankedEligibleCandidate } from './rankedEligibleService';
+import { workbookAssignmentService } from './workbookAssignmentService';
 import { workbookService } from './workbookService';
-import type { Publisher, WorkbookPart } from '../types';
+import type { HistoryRecord, Publisher, WorkbookPart } from '../types';
 
 export interface ReassignResult {
     success: boolean;
@@ -9,10 +11,55 @@ export interface ReassignResult {
     warnings: string[];
 }
 
+export interface ReassignmentSuggestion {
+    targetPart: WorkbookPart;
+    selectedPublisher: Publisher | null;
+    rankedCandidates: RankedEligibleCandidate[];
+}
+
+function clearPartLocally(part: WorkbookPart): WorkbookPart {
+    return {
+        ...part,
+        resolvedPublisherId: null as any,
+        resolvedPublisherName: '',
+        rawPublisherName: '',
+        status: 'PENDENTE' as any,
+    };
+}
+
 /**
- * Reatribui um conjunto de parts: limpa assignee, roda motor restrito às semanas
- * afetadas, e remove o flag needs_reassignment. Reutilizado pelos banners
- * de Disponibilidade e Confirmação.
+ * Consulta pura do motor para uma única parte, sem escrever no banco.
+ * Sempre usa o estado atual da semana foco e retorna a fila canônica já ordenada.
+ */
+export async function consultReassignmentSuggestion(
+    targetPart: WorkbookPart,
+    workbookParts: WorkbookPart[],
+    publishers: Publisher[],
+    history: HistoryRecord[] = [],
+): Promise<ReassignmentSuggestion> {
+    const weekParts = workbookParts.filter(part => part.weekId === targetPart.weekId);
+    const rankedResult = getRankedEligibleForPart(
+        targetPart,
+        weekParts,
+        publishers,
+        history,
+        {
+            applyEngineRules: true,
+            excludeAssignedInSameWeek: true,
+        },
+    );
+
+    return {
+        targetPart,
+        selectedPublisher: rankedResult.eligibleCandidates[0]?.publisher || null,
+        rankedCandidates: rankedResult.eligibleCandidates,
+    };
+}
+
+/**
+ * Reatribui um conjunto de parts de forma cirúrgica: consulta o motor por parte,
+ * aplica apenas o candidato escolhido naquele slot e remove o flag
+ * needs_reassignment somente quando houve redistribuição real.
  */
 export async function reassignParts(
     partIds: string[],
@@ -23,46 +70,75 @@ export async function reassignParts(
     if (partIds.length === 0) {
         return { success: true, partsGenerated: 0, warnings: [] };
     }
+
+    const history = await loadCompletedParticipations();
     const idsSet = new Set(partIds);
-    const toClear = workbookParts.filter(p => idsSet.has(p.id));
+    let workingParts = workbookParts.map(part => idsSet.has(part.id) ? clearPartLocally(part) : part);
+    const warnings: string[] = [];
+    let partsGenerated = 0;
 
-    // 1) Limpa parts conflitantes (PENDENTE + null assignee)
-    for (const part of toClear) {
-        await workbookService.updatePart(part.id, {
-            resolvedPublisherId: null as any,
-            resolvedPublisherName: null as any,
-            rawPublisherName: '',
-            status: 'PENDENTE' as any,
-        });
-    }
+    for (const partId of partIds) {
+        const currentPart = workingParts.find(part => part.id === partId);
+        if (!currentPart) {
+            warnings.push(`Parte ${partId} não encontrada para reatribuição.`);
+            continue;
+        }
 
-    const cleared: WorkbookPart[] = toClear.map(p => ({
-        ...p,
-        resolvedPublisherId: null as any,
-        resolvedPublisherName: null as any,
-        rawPublisherName: '',
-        status: 'PENDENTE' as any,
-    }));
+        try {
+            // 1) Limpa apenas a parte alvo no banco e na visão local.
+            await workbookService.updatePart(partId, {
+                resolvedPublisherId: null as any,
+                resolvedPublisherName: null as any,
+                rawPublisherName: '',
+                status: 'PENDENTE' as any,
+            });
 
-    const refreshedParts = (workbookParts || []).map(p =>
-        idsSet.has(p.id) ? cleared.find(c => c.id === p.id)! : p,
-    );
+            workingParts = workingParts.map(part =>
+                part.id === partId ? clearPartLocally(part) : part,
+            );
 
-    // 2) Roda motor restrito às semanas das parts limpadas para evitar
-    // efeitos colaterais em outras semanas (partes já designadas não são tocadas).
-    const weekIds = [...new Set(toClear.map(p => p.weekId).filter(Boolean))];
-    const result = await generationService.generateDesignations(refreshedParts, publishers, {
-        isDryRun: false,
-        generationWeeks: weekIds.length > 0 ? weekIds : undefined,
-    });
+            // 2) Consulta o motor somente para a parte atual, com o estado já limpo.
+            const suggestion = await consultReassignmentSuggestion(
+                workingParts.find(part => part.id === partId) || clearPartLocally(currentPart),
+                workingParts,
+                publishers,
+                history,
+            );
 
-    // 3) Limpa flags needs_reassignment apenas se a geração produziu resultado.
-    // Se partsGenerated === 0 o publicador não foi encontrado; manter o flag
-    // ativo para que o banner continue visível e o admin possa agir manualmente.
-    if (result.partsGenerated > 0) {
-        for (const partId of partIds) {
-            try { await supabase.rpc('clear_part_reassignment_flag', { p_part_id: partId }); }
-            catch (e) { console.warn('[reassignmentService] clear flag err:', e); }
+            if (!suggestion.selectedPublisher) {
+                warnings.push(`Sem candidato elegível para ${currentPart.tipoParte} (${currentPart.weekDisplay}).`);
+                continue;
+            }
+
+            // 3) Comita apenas a parte rejeitada.
+            const updatedPart = await workbookAssignmentService.assignPublisher(
+                partId,
+                suggestion.selectedPublisher.name,
+                suggestion.selectedPublisher.id,
+                false,
+            );
+
+            partsGenerated += 1;
+            workingParts = workingParts.map(part =>
+                part.id === partId
+                    ? {
+                        ...part,
+                        resolvedPublisherId: updatedPart.resolvedPublisherId,
+                        resolvedPublisherName: updatedPart.resolvedPublisherName || '',
+                        rawPublisherName: updatedPart.rawPublisherName || '',
+                        status: updatedPart.status,
+                    }
+                    : part,
+            );
+
+            try {
+                await supabase.rpc('clear_part_reassignment_flag', { p_part_id: partId });
+            } catch (e) {
+                console.warn('[reassignmentService] clear flag err:', e);
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            warnings.push(`Erro ao reatribuir ${currentPart.tipoParte}: ${message}`);
         }
     }
 
@@ -70,8 +146,8 @@ export async function reassignParts(
     if (onPartsRefresh) await onPartsRefresh();
 
     return {
-        success: result.success,
-        partsGenerated: result.partsGenerated,
-        warnings: result.warnings ?? [],
+        success: true,
+        partsGenerated,
+        warnings,
     };
 }
