@@ -37,10 +37,14 @@ export function ConfirmationRefusalsBanner({
         setReassigningId(n.id);
         try {
             const result = await reassignParts(n.affected_part_ids, publishers, workbookParts, onPartsRefresh);
-            await dismiss(n.id);
-            const msg = result.success
+            const msg = result.partsGenerated > 0
                 ? `Reatribuição concluída: ${result.partsGenerated} parte(s) processada(s).`
-                : `Reatribuição parcial — verifique avisos: ${result.warnings.join('; ')}`;
+                : `Reatribuição parcial — verifique avisos: ${result.warnings.join('; ') || 'nenhum candidato elegível encontrado.'}`;
+
+            if (result.partsGenerated > 0) {
+                await dismiss(n.id);
+            }
+
             alert(msg);
         } catch (err) {
             console.error('[ConfirmationRefusalsBanner] reassign error:', err);
