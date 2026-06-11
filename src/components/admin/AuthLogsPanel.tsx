@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { ProfileLinksPanel } from './ProfileLinksPanel';
+import { createWhatsAppAutoServiceFromEnv } from '../../services/whatsappAutoService';
 
 interface AuthLog {
   id: string;
@@ -45,6 +46,30 @@ export function AuthLogsPanel() {
   const [transactions, setTransactions] = useState<TransactionLog[]>([]);
   const [authRequests, setAuthRequests] = useState<AuthRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sending2FA, setSending2FA] = useState<Record<string, boolean>>({});
+
+  const handleResend2FA = async (req: AuthRequest) => {
+    if (!req.phone || !req.code) return;
+    
+    setSending2FA(prev => ({ ...prev, [req.id]: true }));
+    try {
+      const wa = createWhatsAppAutoServiceFromEnv();
+      const msg = `*RVM Designações*\n\nSeu código de acesso é: *${req.code}*\n\n_Não compartilhe este código com ninguém._`;
+      
+      const result = await wa.sendText(req.phone, msg);
+      
+      if (result.success) {
+        alert(result.manual ? 'WhatsApp aberto para envio manual.' : 'Código reenviado com sucesso via API!');
+      } else {
+        alert(`Falha ao reenviar: ${result.error}`);
+      }
+    } catch (e) {
+      alert('Erro ao processar o reenvio.');
+      console.error(e);
+    } finally {
+      setSending2FA(prev => ({ ...prev, [req.id]: false }));
+    }
+  };
 
   const fetchData = useCallback(async () => {
     if (activeTab === 'links') return;
@@ -198,6 +223,7 @@ export function AuthLogsPanel() {
               <th style={thStyle}>Telefone</th>
               <th style={thStyle}>Código</th>
               <th style={thStyle}>Status</th>
+              <th style={thStyle}>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -220,6 +246,27 @@ export function AuthLogsPanel() {
                   }}>
                     {req.status}
                   </span>
+                </td>
+                <td style={tdStyle}>
+                  {req.status === 'pending' && (
+                    <button
+                      onClick={() => handleResend2FA(req)}
+                      disabled={sending2FA[req.id]}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '0.725rem',
+                        background: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: sending2FA[req.id] ? 'wait' : 'pointer',
+                        opacity: sending2FA[req.id] ? 0.7 : 1
+                      }}
+                      title="Reenviar via WhatsApp"
+                    >
+                      {sending2FA[req.id] ? '⏳...' : '📱 Reenviar'}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

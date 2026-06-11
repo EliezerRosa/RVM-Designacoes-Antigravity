@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { createWhatsAppAutoServiceFromEnv } from '../services/whatsappAutoService';
 
 interface RpcResult {
   success?: boolean;
@@ -273,9 +274,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: 'Falha ao solicitar código.' };
     }
 
-    // TODO: Integrar com WhatsApp Business API para enviar o código
-    // Por enquanto, admin pode ver o código no painel
-    console.log(`[2FA] Código para ${phone}: ${code}`);
+    console.log(`[2FA] Código para ${phone}: ${code} (Enviando via whatsappAutoService)`);
+
+    try {
+      const wa = createWhatsAppAutoServiceFromEnv();
+      const msg = `*RVM Designações*\n\nSeu código de acesso é: *${code}*\n\n_Não compartilhe este código com ninguém._`;
+      const sendResult = await wa.sendText(phone, msg);
+      
+      if (!sendResult.success && !sendResult.manual) {
+        console.warn('[2FA] Aviso: falha no envio automático, admin pode ver o código no painel.', sendResult.error);
+        // Não falhamos o login aqui para permitir que o admin repasse manualmente
+      }
+    } catch (e) {
+      console.error('[2FA] Erro ao instanciar ou enviar via whatsappAutoService:', e);
+    }
 
     await logAuthEvent(state.user.id, state.user.email || '', '2fa_request', { phone });
 
