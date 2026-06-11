@@ -21,6 +21,7 @@ import { PermissionManager } from '../components/admin/PermissionManager';
 import { EngineRulesPanel } from '../components/admin/EngineRulesPanel';
 import { PublisherFormLinkManager } from '../components/admin/PublisherFormLinkManager';
 import { AvailabilityLinkManager } from '../components/admin/AvailabilityLinkManager';
+import { OrphanAuditPanel } from '../components/admin/OrphanAuditPanel';
 import { MyAssignmentsPortalManager } from '../components/admin/MyAssignmentsPortalManager';
 import { ZApiConfigPanel } from '../components/admin/ZApiConfigPanel';
 import { useAuth } from '../context/AuthContext';
