@@ -714,57 +714,55 @@ export function createWhatsAppAutoService(config: WhatsAppAutoConfig): WhatsAppA
  *   VITE_SUPABASE_ANON_KEY        — (reusa do app)
  */
 export function createWhatsAppAutoServiceFromEnv(): WhatsAppAutoService {
-  const env = (typeof import.meta !== 'undefined' && (import.meta as any).env) || {};
-
-  const explicit = env.VITE_WHATSAPP_PROVIDER as string | undefined;
+  const explicit = import.meta.env.VITE_WHATSAPP_PROVIDER as string | undefined;
 
   // Evolution API
   if (
     explicit === 'evolution' ||
-    (!explicit && env.VITE_EVOLUTION_BASE_URL)
+    (!explicit && import.meta.env.VITE_EVOLUTION_BASE_URL)
   ) {
     return createWhatsAppAutoService({
       provider: 'evolution',
-      baseUrl: env.VITE_EVOLUTION_BASE_URL || '',
-      apiKey: env.VITE_EVOLUTION_API_KEY || '',
-      instanceName: env.VITE_EVOLUTION_INSTANCE || 'default',
+      baseUrl: import.meta.env.VITE_EVOLUTION_BASE_URL || '',
+      apiKey: import.meta.env.VITE_EVOLUTION_API_KEY || '',
+      instanceName: import.meta.env.VITE_EVOLUTION_INSTANCE || 'default',
     });
   }
 
   // Z-API
   if (
     explicit === 'z-api' ||
-    (!explicit && env.VITE_ZAPI_INSTANCE_ID)
+    (!explicit && import.meta.env.VITE_ZAPI_INSTANCE_ID)
   ) {
     return createWhatsAppAutoService({
       provider: 'z-api',
-      instanceId: env.VITE_ZAPI_INSTANCE_ID || '',
-      instanceToken: env.VITE_ZAPI_INSTANCE_TOKEN || '',
-      clientToken: env.VITE_ZAPI_CLIENT_TOKEN || '',
+      instanceId: import.meta.env.VITE_ZAPI_INSTANCE_ID || '',
+      instanceToken: import.meta.env.VITE_ZAPI_INSTANCE_TOKEN || '',
+      clientToken: import.meta.env.VITE_ZAPI_CLIENT_TOKEN || '',
     });
   }
 
   // Meta Cloud API
   if (
     explicit === 'meta-cloud' ||
-    (!explicit && env.VITE_META_WA_ACCESS_TOKEN)
+    (!explicit && import.meta.env.VITE_META_WA_ACCESS_TOKEN)
   ) {
     return createWhatsAppAutoService({
       provider: 'meta-cloud',
-      accessToken: env.VITE_META_WA_ACCESS_TOKEN || '',
-      phoneNumberId: env.VITE_META_WA_PHONE_NUMBER_ID || '',
+      accessToken: import.meta.env.VITE_META_WA_ACCESS_TOKEN || '',
+      phoneNumberId: import.meta.env.VITE_META_WA_PHONE_NUMBER_ID || '',
     });
   }
 
   // Edge Function (se Supabase está configurado)
   if (
     explicit === 'edge-function' ||
-    (!explicit && env.VITE_SUPABASE_URL)
+    (!explicit && import.meta.env.VITE_SUPABASE_URL)
   ) {
     return createWhatsAppAutoService({
       provider: 'edge-function',
-      supabaseUrl: env.VITE_SUPABASE_URL || '',
-      supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || '',
+      supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
+      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
     });
   }
 
