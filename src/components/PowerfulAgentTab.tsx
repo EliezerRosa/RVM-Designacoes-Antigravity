@@ -17,6 +17,7 @@ import type { SpecialEvent } from '../types';
 import { S89SelectionModal } from './S89SelectionModal';
 import { MyAssignmentsModal } from './MyAssignmentsModal';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import type { ActionResult } from '../services/agentActionService';
 import { CostMonitor } from './admin/CostMonitor';
 import AgentModalHost from './AgentModalHost';
@@ -67,6 +68,25 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     const { profile, isAdmin } = useAuth();
     const [activeModal, setActiveModal] = useState<AgentModalType>(null);
     const [weeklyEvents, setWeeklyEvents] = useState<SpecialEvent[]>([]);
+    const [pendingLinksCount, setPendingLinksCount] = useState<number>(0);
+
+    // Fetch pending links count para exibir no cabeçalho
+    useEffect(() => {
+        if (!isAdmin) return;
+        const fetchPendingLinks = async () => {
+            try {
+                const { data, error } = await supabase.rpc('admin_list_unlinked_profiles');
+                if (!error && data) {
+                    setPendingLinksCount(data.length);
+                }
+            } catch (e) { /* ignore */ }
+        };
+        fetchPendingLinks();
+        
+        // Refresh a cada 30 segundos
+        const interval = setInterval(fetchPendingLinks, 30000);
+        return () => clearInterval(interval);
+    }, [isAdmin]);
 
     // Sync currentWeekId when weekOrder arrives asynchronously OR fallback if stored is invalid
     // 2026-05-26: também valida currentWeekId hidratado do localStorage contra weekOrder.
@@ -223,6 +243,30 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
             <div className="agent-tab-column">
                 <div className="agent-tab-col-header" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <span>🤖</span> Agente RVM
+                    
+                    {isAdmin && pendingLinksCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setActiveModal('profile_links')}
+                            title={`${pendingLinksCount} vínculos pendentes!`}
+                            className="blink-bg"
+                            style={{
+                                marginLeft: '8px',
+                                fontSize: '11px',
+                                background: '#F59E0B',
+                                color: '#FFF',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                            }}
+                        >
+                            ⚠️ {pendingLinksCount} Vínculo{pendingLinksCount !== 1 ? 's' : ''} Pendente{pendingLinksCount !== 1 ? 's' : ''}
+                        </button>
+                    )}
+
                     {/* IDD: chip "Semana: X" removido — já visível no header da Coluna 1 (S-140)
                         e na IntentContextBar do próprio chat. Reduz ruído. */}
                     {(isAdmin || profile?.publisher_id) && (

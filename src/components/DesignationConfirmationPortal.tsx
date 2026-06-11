@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getModalidadeFromTipo } from '../constants/mappings';
+import { publisherDirectoryService } from '../services/publisherDirectoryService';
 import { workbookService } from '../services/workbookService';
 import { api } from '../services/api';
+import { zapiOrchestrator } from '../services/zapiOrchestrator';
 import { EnumModalidade, WorkbookStatus, type WorkbookPart } from '../types';
 import { useAuth } from '../context/AuthContext';
 import './DesignationConfirmationPortal.css';
@@ -300,6 +302,23 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
                 await loadPart();
                 return;
             }
+
+            // --- Z-API Orchestration ---
+            try {
+                if (accept && part) {
+                    const caption = `✅ *Confirmação Recebida!*\n\nFicamos felizes em saber que você poderá realizar sua parte: *${part.tipoParte}*.\nQue Jeová abençoe sua preparação!`;
+                    const publishers = await api.loadPublishers();
+                    const pub = publishers.find(p => p.id === publisherId || p.id === part.resolvedPublisherId);
+                    if (pub?.phone) {
+                        zapiOrchestrator.dispatchS89Receipt(partId, pub.phone, caption).catch(console.error);
+                    }
+                } else if (!accept && part) {
+                    zapiOrchestrator.dispatchRefusalAlert(part, reason.trim()).catch(console.error);
+                }
+            } catch (zapiErr) {
+                console.error('[Portal] Erro ao orquestrar Z-API:', zapiErr);
+            }
+            // -----------------------------
 
             setStatus('success');
         } catch (err) {

@@ -42,30 +42,53 @@ export function ProfileLinksPanel() {
 
     useEffect(() => { load(); }, [load]);
 
-    const handleLink = async (profileId: string, profileEmail: string) => {
-        const namePrompt = window.prompt(
-            `Vincular "${profileEmail}" a qual publicador?\n\n` +
-            `Digite o nome (parcial) do publicador:`
-        );
-        if (!namePrompt) return;
-        const needle = namePrompt.toLowerCase().trim();
-        const matches = publishers.filter(p => p.name.toLowerCase().includes(needle));
-        if (matches.length === 0) {
-            alert('Nenhum publicador encontrado com "' + namePrompt + '".');
-            return;
+    const handleLink = async (profileId: string, profileEmail: string, profileName: string | null) => {
+        let target: Publisher | null = null;
+        
+        // 1. Tentativa de match exato
+        if (profileEmail) {
+            const byEmail = publishers.find(p => p.email?.toLowerCase() === profileEmail.toLowerCase());
+            if (byEmail) target = byEmail;
         }
-        let target = matches[0];
-        if (matches.length > 1) {
-            const list = matches.slice(0, 10).map((p, i) => `${i + 1}. ${p.name} (id ${p.id})`).join('\n');
-            const choice = window.prompt(`Vários encontrados — escolha o número:\n\n${list}`);
-            const idx = choice ? parseInt(choice, 10) - 1 : -1;
-            if (isNaN(idx) || idx < 0 || idx >= matches.length) {
-                alert('Cancelado.');
+        if (!target && profileName) {
+            const byName = publishers.find(p => p.name.toLowerCase() === profileName.toLowerCase().trim());
+            if (byName) target = byName;
+        }
+
+        // 2. Confirmação do match exato
+        if (target) {
+            if (!confirm(`Vínculo Sugerido Automaticamente!\n\nDeseja vincular ${profileEmail}\nAo publicador: ${target.name}?\n\n(Se cancelar, você poderá buscar manualmente)`)) {
+                target = null;
+            }
+        }
+
+        // 3. Busca manual (se falhou auto ou se recusou a sugestão)
+        if (!target) {
+            const namePrompt = window.prompt(
+                `Vincular "${profileEmail}" a qual publicador?\n\n` +
+                `Digite o nome (parcial) do publicador:`
+            );
+            if (!namePrompt) return;
+            const needle = namePrompt.toLowerCase().trim();
+            const matches = publishers.filter(p => p.name.toLowerCase().includes(needle));
+            if (matches.length === 0) {
+                alert('Nenhum publicador encontrado com "' + namePrompt + '".');
                 return;
             }
-            target = matches[idx];
+            target = matches[0];
+            if (matches.length > 1) {
+                const list = matches.slice(0, 10).map((p, i) => `${i + 1}. ${p.name} (id ${p.id})`).join('\n');
+                const choice = window.prompt(`Vários encontrados — escolha o número:\n\n${list}`);
+                const idx = choice ? parseInt(choice, 10) - 1 : -1;
+                if (isNaN(idx) || idx < 0 || idx >= matches.length) {
+                    alert('Cancelado.');
+                    return;
+                }
+                target = matches[idx];
+            }
+            if (!confirm(`Vincular ${profileEmail} → ${target.name}?`)) return;
         }
-        if (!confirm(`Vincular ${profileEmail} → ${target.name}?`)) return;
+
         setBusyProfile(profileId);
         try {
             const { data, error } = await supabase.rpc('admin_link_profile_to_publisher', {
@@ -75,7 +98,11 @@ export function ProfileLinksPanel() {
             if (error) throw error;
             const result = (data || {}) as { success?: boolean; error?: string };
             if (!result.success) {
-                alert('Erro: ' + (result.error || 'falha desconhecida'));
+                if (result.error === 'publisher_already_linked') {
+                    alert('⚠️ Erro de Segurança:\nEste publicador já está vinculado a outro e-mail! Desvincule o e-mail antigo primeiro.');
+                } else {
+                    alert('Erro: ' + (result.error || 'falha desconhecida'));
+                }
             } else {
                 await load();
             }
@@ -182,7 +209,7 @@ export function ProfileLinksPanel() {
                                         ) : (
                                             <button
                                                 disabled={busyProfile === l.profile_id}
-                                                onClick={() => handleLink(l.profile_id, l.email)}
+                                                onClick={() => handleLink(l.profile_id, l.email, l.full_name)}
                                                 style={{ ...actionBtnStyle, background: '#059669' }}
                                             >Vincular…</button>
                                         )

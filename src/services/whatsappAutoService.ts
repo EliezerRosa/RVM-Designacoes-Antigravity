@@ -37,6 +37,7 @@ export interface WhatsAppConnectionStatus {
 export interface WhatsAppProvider {
   readonly name: string;
   sendText(phone: string, message: string): Promise<WhatsAppSendResult>;
+  sendImage?(phone: string, imageBase64: string, caption?: string): Promise<WhatsAppSendResult>;
   checkConnection(): Promise<WhatsAppConnectionStatus>;
 }
 
@@ -264,6 +265,39 @@ class ZApiProvider implements WhatsAppProvider {
     }
   }
 
+  async sendImage(phone: string, imageBase64: string, caption?: string): Promise<WhatsAppSendResult> {
+    const number = normalizePhoneBR(phone);
+    if (!isValidBRPhone(number)) {
+      return { success: false, error: `Número inválido: ${phone}`, provider: this.name };
+    }
+
+    try {
+      const base64Data = imageBase64.includes('base64,') ? imageBase64.split('base64,')[1] : imageBase64;
+      const res = await fetch(`${this.baseUrl}/send-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'client-token': this.clientToken,
+        },
+        body: JSON.stringify({
+          phone: number,
+          image: `data:image/png;base64,${base64Data}`,
+          caption: caption || '',
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text();
+        return { success: false, error: `Z-API ${res.status}: ${body}`, provider: this.name };
+      }
+
+      const data = await res.json();
+      return { success: true, messageId: data.messageId, provider: this.name };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err), provider: this.name };
+    }
+  }
+
   async checkConnection(): Promise<WhatsAppConnectionStatus> {
     try {
       const res = await fetch(`${this.baseUrl}/status`, {
@@ -443,6 +477,39 @@ class EdgeFunctionProvider implements WhatsAppProvider {
     }
   }
 
+  async sendImage(phone: string, imageBase64: string, caption?: string): Promise<WhatsAppSendResult> {
+    const number = normalizePhoneBR(phone);
+    if (!isValidBRPhone(number)) {
+      return { success: false, error: `Número inválido: ${phone}`, provider: this.name };
+    }
+
+    try {
+      const res = await fetch(
+        `${this.supabaseUrl}/functions/v1/${this.functionName}`,
+        {
+          method: 'POST',
+          headers: this.headers,
+          body: JSON.stringify({
+            phone: number,
+            image: imageBase64,
+            caption: caption || '',
+            action: 'send-image'
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.text();
+        return { success: false, error: `Edge Function ${res.status}: ${body}`, provider: this.name };
+      }
+
+      const data = await res.json();
+      return { success: true, messageId: data.messageId, provider: this.name };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err), provider: this.name };
+    }
+  }
+
   async checkConnection(): Promise<WhatsAppConnectionStatus> {
     try {
       const res = await fetch(
@@ -527,6 +594,9 @@ export interface WhatsAppAutoService {
   /** Envia uma mensagem de texto para o número informado. */
   sendText(phone: string, message: string): Promise<WhatsAppSendResult>;
 
+  /** Envia uma imagem em Base64 (opcionalmente suportado pelo provider). */
+  sendImage(phone: string, imageBase64: string, caption?: string): Promise<WhatsAppSendResult>;
+
   /** Verifica se a conexão com o WhatsApp está ativa. */
   checkConnection(): Promise<WhatsAppConnectionStatus>;
 
@@ -588,6 +658,13 @@ export function createWhatsAppAutoService(config: WhatsAppAutoConfig): WhatsAppA
 
     sendText(phone: string, message: string) {
       return provider.sendText(phone, message);
+    },
+
+    async sendImage(phone: string, imageBase64: string, caption?: string) {
+      if (provider.sendImage) {
+        return provider.sendImage(phone, imageBase64, caption);
+      }
+      return { success: false, error: 'Provedor atual não suporta envio de imagem em modo automação.', provider: provider.name };
     },
 
     checkConnection() {

@@ -112,6 +112,75 @@ async function sendViaMeta(phone: string, message: string) {
   };
 }
 
+/** Envia texto via Z-API. */
+async function sendViaZApi(phone: string, message: string) {
+  // @ts-ignore Deno.env
+  const instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
+  // @ts-ignore Deno.env
+  const instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
+  // @ts-ignore Deno.env
+  const clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+
+  if (!instanceId || !instanceToken || !clientToken) {
+    return { success: false, error: 'Z-API não configurada (faltam ZAPI_INSTANCE_ID, TOKEN ou CLIENT_TOKEN).' };
+  }
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-text`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+    body: JSON.stringify({ phone, message }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API ${res.status}: ${body}` };
+  }
+
+  const data = await res.json();
+  return { success: true, messageId: data.messageId, provider: 'z-api' };
+}
+
+/** Envia imagem via Z-API. */
+async function sendImageViaZApi(phone: string, imageBase64: string, caption: string) {
+  // @ts-ignore Deno.env
+  const instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
+  // @ts-ignore Deno.env
+  const instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
+  // @ts-ignore Deno.env
+  const clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+
+  if (!instanceId || !instanceToken || !clientToken) {
+    return { success: false, error: 'Z-API não configurada.' };
+  }
+
+  // Se vier "data:image/png;base64,xxxxx", extrai o xxxxx
+  const base64Data = imageBase64.includes('base64,') ? imageBase64.split('base64,')[1] : imageBase64;
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-image`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+    body: JSON.stringify({
+      phone,
+      image: `data:image/png;base64,${base64Data}`,
+      caption,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API ${res.status}: ${body}` };
+  }
+
+  const data = await res.json();
+  return { success: true, messageId: data.messageId, provider: 'z-api' };
+}
+
 /** Verifica conexão da Evolution API. */
 async function checkEvolutionConnection() {
   // @ts-ignore Deno.env
@@ -138,6 +207,30 @@ async function checkEvolutionConnection() {
   };
 }
 
+/** Verifica conexão da Z-API. */
+async function checkZApiConnection() {
+  // @ts-ignore Deno.env
+  const instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
+  // @ts-ignore Deno.env
+  const instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
+  // @ts-ignore Deno.env
+  const clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+
+  if (!instanceId) return { connected: false, error: 'ZAPI_INSTANCE_ID não configurado.' };
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/status`, {
+    headers: { 'client-token': clientToken },
+  });
+
+  if (!res.ok) return { connected: false, error: `HTTP ${res.status}` };
+
+  const data = await res.json();
+  return {
+    connected: data.connected ?? false,
+    phoneNumber: data.phone,
+  };
+}
+
 serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -157,29 +250,59 @@ serve(async (req: Request) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      if (provider === 'z-api') {
+        const status = await checkZApiConnection();
+        return new Response(JSON.stringify(status), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       return new Response(
         JSON.stringify({ connected: true, provider }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // ── Send message ──
-    const { phone, message } = body;
+    const { phone, message, image, caption, action } = body;
 
-    if (!phone || !message) {
+    if (!phone) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Campos "phone" e "message" são obrigatórios.' }),
+        JSON.stringify({ success: false, error: 'Campo "phone" é obrigatório.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const normalizedPhone = normalizePhone(phone);
-
     let result;
-    if (provider === 'meta-cloud') {
-      result = await sendViaMeta(normalizedPhone, message);
+
+    if (action === 'send-image' || image) {
+      if (!image) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Campo "image" é obrigatório para envio de imagem.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (provider === 'z-api') {
+        result = await sendImageViaZApi(normalizedPhone, image, caption || '');
+      } else {
+        return new Response(
+          JSON.stringify({ success: false, error: `Provedor ${provider} ainda não suporta send-image na Edge Function.` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     } else {
-      result = await sendViaEvolution(normalizedPhone, message);
+      if (!message) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Campo "message" é obrigatório para envio de texto.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (provider === 'meta-cloud') {
+        result = await sendViaMeta(normalizedPhone, message);
+      } else if (provider === 'z-api') {
+        result = await sendViaZApi(normalizedPhone, message);
+      } else {
+        result = await sendViaEvolution(normalizedPhone, message);
+      }
     }
 
     return new Response(JSON.stringify(result), {

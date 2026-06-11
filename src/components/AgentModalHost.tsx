@@ -29,8 +29,9 @@ import TerritoryManager from './TerritoryManager';
 import { WorkbookImportModal } from './WorkbookImportModal';
 import { FloatingPanelShell } from './ui/FloatingPanelShell';
 import { getTodayWeekIdLocal } from '../utils/dateUtils';
+import { ProfileLinksPanel } from './admin/ProfileLinksPanel';
 
-export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | 'workbook_import' | null;
+export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | 'workbook_import' | 'profile_links' | null;
 
 interface Props {
     modal: AgentModalType;
@@ -185,6 +186,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
             case 'local_needs': return '📋 Necessidades Locais';
             case 'territories': return '🗺️ Territórios';
             case 'workbook_import': return '📥 Importar Apostila do JW.org';
+            case 'profile_links': return '🔗 Vínculos Pendentes';
             default: return '';
         }
     };
@@ -297,6 +299,11 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                         onClose={handleClose}
                         onDataChange={onDataChange}
                     />
+                );
+
+            case 'profile_links':
+                return (
+                    <ProfileLinksPanel />
                 );
 
             default:

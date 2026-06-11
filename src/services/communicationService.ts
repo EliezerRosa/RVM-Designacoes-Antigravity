@@ -358,11 +358,10 @@ export const communicationService = {
     },
 
     /**
-     * Notifica o superintendente da RVM sobre uma recusa e sugere substitutos
+     * Monta o texto completo de alerta de recusa com sugestões de substituto
+     * (Puro, sem side-effects como window.open)
      */
-    async notifyOverseerOfRefusal(part: WorkbookPart, reason: string): Promise<void> {
-        console.log('[communicationService] Notificando superintendente da recusa...');
-
+    async buildRefusalAlertMessage(part: WorkbookPart, reason: string): Promise<{ alertMsg: string, srvmPhone: string, bestCandidate: string, srvmName: string }> {
         const publishers = await publisherDirectoryService.loadAllPublishers();
         const history = await loadCompletedParticipations();
 
@@ -372,12 +371,11 @@ export const communicationService = {
         // Buscamos especificamente por Edmardo para evitar pegar outros parentes (Ex: Marilene, Larissa)
         const srvm = publishers.find(p => p.name === 'Edmardo Queiroz' || p.name.includes('Edmardo'));
         const srvmPhone = srvm?.phone || '';
+        const srvmName = srvm?.name || 'Edmardo Queiroz';
 
         // 3. Buscar sugestão de substituto
         const eligible = publishers.filter(p => {
-            // Não sugerir quem acabou de recusar
             if (p.name === publisherName) return false;
-
             const res = checkEligibility(p, part.modalidade as any, part.funcao as any, {
                 date: part.date,
                 secao: part.section
@@ -385,8 +383,6 @@ export const communicationService = {
             return res.eligible;
         });
 
-        // Mesma fonte do painel/agente: filtrar a semana corrente do histórico
-        // e usar a data da parte como referenceDate (não "hoje").
         const refDate = new Date(((part.date || part.weekId) as string) + 'T12:00:00');
         const historyForRanking = history.filter(h => h.weekId !== part.weekId);
         const ranked = getRankedCandidates(eligible, part.modalidade, historyForRanking, undefined, refDate);
@@ -446,11 +442,23 @@ export const communicationService = {
         const baseUrl = getAppBaseUrl();
 
         alertMsg += `👉 *Designar substituto:* ${baseUrl}/?admin=true&action=replace&partId=${part.id}\n\n`;
-        alertMsg += `👤 *Responsável RVM:* Edmardo Queiroz (${srvmPhone})`;
+        alertMsg += `👤 *Responsável RVM:* ${srvmName} (${srvmPhone})`;
 
-        // 5. Abrir WhatsApp para o Ancião
-        const url = this.generateWhatsAppUrl(srvmPhone, alertMsg);
-        window.open(url, '_blank');
+        return { alertMsg, srvmPhone, bestCandidate, srvmName };
+    },
+
+    /**
+     * Notifica o superintendente da RVM sobre uma recusa e sugere substitutos (legado - modo UI)
+     */
+    async notifyOverseerOfRefusal(part: WorkbookPart, reason: string): Promise<void> {
+        console.log('[communicationService] Notificando superintendente da recusa...');
+        const result = await this.buildRefusalAlertMessage(part, reason);
+
+        // Abrir WhatsApp para o Ancião (somente ambiente Web/Navegador)
+        if (typeof window !== 'undefined') {
+            const url = this.generateWhatsAppUrl(result.srvmPhone, result.alertMsg);
+            window.open(url, '_blank');
+        }
     },
 
     /**
