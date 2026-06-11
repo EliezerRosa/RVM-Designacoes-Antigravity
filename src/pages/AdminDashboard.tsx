@@ -21,8 +21,8 @@ import { PermissionManager } from '../components/admin/PermissionManager';
 import { EngineRulesPanel } from '../components/admin/EngineRulesPanel';
 import { PublisherFormLinkManager } from '../components/admin/PublisherFormLinkManager';
 import { AvailabilityLinkManager } from '../components/admin/AvailabilityLinkManager';
-import { OrphanAuditPanel } from '../components/admin/OrphanAuditPanel';
 import { MyAssignmentsPortalManager } from '../components/admin/MyAssignmentsPortalManager';
+import { ZApiConfigPanel } from '../components/admin/ZApiConfigPanel';
 import { useAuth } from '../context/AuthContext';
 
 interface SystemLog {
@@ -33,7 +33,7 @@ interface SystemLog {
     created_at: string;
 }
 
-type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans' | 'my-assignments-portal';
+type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans' | 'my-assignments-portal' | 'zapi';
 
 const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }> = [
     { id: 'overview', label: 'Visão Geral', eyebrow: 'Core' },
@@ -45,6 +45,7 @@ const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }>
     { id: 'availability', label: 'Disponibilidade', eyebrow: 'Links' },
     { id: 'orphans', label: 'Auditoria de Órfãs', eyebrow: 'Importação' },
     { id: 'my-assignments-portal', label: 'Portal Designações', eyebrow: 'Publicadores' },
+    { id: 'zapi', label: 'Config. Z-API', eyebrow: 'Automação' },
 ];
 
 export function AdminDashboard() {
@@ -488,6 +489,15 @@ export function AdminDashboard() {
                                     <div style={{ padding: '16px' }}>
                                         <MyAssignmentsPortalManager adminEmail={profile?.email ?? undefined} />
                                     </div>
+                                </div>
+                            </section>
+
+                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Configuração Z-API">
+                                <div className="table-card admin-panel-card">
+                                    <div className="table-header">
+                                        <h3>🤖 Automação WhatsApp (Z-API)</h3>
+                                    </div>
+                                    <ZApiConfigPanel />
                                 </div>
                             </section>
                         </div>

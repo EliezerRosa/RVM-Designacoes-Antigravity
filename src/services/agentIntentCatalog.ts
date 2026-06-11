@@ -131,6 +131,18 @@ export const WAVE_ONE_INTENTS: AgentIntentContract[] = [
         preview: ['status atual e retorno para aprovada'],
         commit: 'workbookLifecycleService.undoCompletePart(partId)',
         recovery: 'workbookLifecycleService.completePart(partId)'
+    },
+    {
+        intentId: 'resolve-pending-links',
+        title: 'Resolver vínculos pendentes do portal',
+        actionType: 'RESOLVE_PENDING_LINKS',
+        discoveryGate: 'RESOLVE_PENDING_LINKS',
+        visibility: 'scoped-data',
+        phase: 'single-step',
+        risk: 'medium',
+        prepare: ['verificar vínculos não resolvidos'],
+        preview: ['exibir sugestões de vínculos'],
+        commit: 'SHOW_MODAL(profile_links)'
     }
 ];
 

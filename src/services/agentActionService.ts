@@ -69,7 +69,8 @@ export type AgentActionType =
     | 'QUERY_COOLDOWN_STATUS'
     | 'QUERY_LAST_PARTICIPATION'
     | 'QUERY_PENDING_WEEKS'
-    | 'QUERY_ANALYTICS';
+    | 'QUERY_ANALYTICS'
+    | 'RESOLVE_PENDING_LINKS';
 
 export interface AgentAction {
     type: AgentActionType;
@@ -203,6 +204,15 @@ export const agentActionService = {
                         message: 'Modal aberto pelo orquestrador.',
                         data: { modal: action.params?.modal },
                         actionType: 'SHOW_MODAL'
+                    };
+                }
+
+                case 'RESOLVE_PENDING_LINKS': {
+                    return {
+                        success: true,
+                        message: 'Aqui está a lista de vínculos pendentes (já com as sugestões inteligentes).',
+                        data: { modal: 'profile_links' },
+                        actionType: 'SHOW_MODAL' // reaproveitamos a lógica do SHOW_MODAL para abrir a UI de vínculos
                     };
                 }
 
