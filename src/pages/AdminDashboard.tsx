@@ -24,6 +24,7 @@ import { AvailabilityLinkManager } from '../components/admin/AvailabilityLinkMan
 import { OrphanAuditPanel } from '../components/admin/OrphanAuditPanel';
 import { MyAssignmentsPortalManager } from '../components/admin/MyAssignmentsPortalManager';
 import { ZApiConfigPanel } from '../components/admin/ZApiConfigPanel';
+import { ZApiAuditPanel } from '../components/admin/ZApiAuditPanel';
 import { useAuth } from '../context/AuthContext';
 
 interface SystemLog {
@@ -34,7 +35,7 @@ interface SystemLog {
     created_at: string;
 }
 
-type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans' | 'my-assignments-portal' | 'zapi';
+type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans' | 'my-assignments-portal' | 'zapi' | 'zapi-audit';
 
 const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }> = [
     { id: 'overview', label: 'Visão Geral', eyebrow: 'Core' },
@@ -47,6 +48,7 @@ const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }>
     { id: 'orphans', label: 'Auditoria de Órfãs', eyebrow: 'Importação' },
     { id: 'my-assignments-portal', label: 'Portal Designações', eyebrow: 'Publicadores' },
     { id: 'zapi', label: 'Config. Z-API', eyebrow: 'Automação' },
+    { id: 'zapi-audit', label: 'Audit. WhatsApp', eyebrow: 'Logs' },
 ];
 
 export function AdminDashboard() {
@@ -499,6 +501,15 @@ export function AdminDashboard() {
                                         <h3>🤖 Automação WhatsApp (Z-API)</h3>
                                     </div>
                                     <ZApiConfigPanel />
+                                </div>
+                            </section>
+
+                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Audit. WhatsApp">
+                                <div className="table-card admin-panel-card">
+                                    <div className="table-header">
+                                        <h3>📱 Auditoria de Envios WhatsApp</h3>
+                                    </div>
+                                    <ZApiAuditPanel />
                                 </div>
                             </section>
                         </div>
