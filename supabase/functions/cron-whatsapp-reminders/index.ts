@@ -40,6 +40,18 @@ async function sendWhatsApp(phone: string, message: string) {
 }
 
 serve(async (req: Request) => {
+    // Proteção do endpoint (verify_jwt=false → público). Se CRON_SECRET estiver
+    // configurado como secret da função, exige o header x-cron-secret correspondente.
+    // Se não estiver configurado, segue (retrocompatível, não trava o agendador).
+    const expectedSecret = Deno.env.get("CRON_SECRET");
+    if (expectedSecret) {
+        const provided = req.headers.get("x-cron-secret");
+        if (provided !== expectedSecret) {
+            console.log('[cron-whatsapp-reminders] Acesso negado: x-cron-secret inválido.');
+            return new Response("Forbidden", { status: 403 });
+        }
+    }
+
     console.log('[cron-whatsapp-reminders] Iniciando rotina...');
 
     const { data: activeData } = await supabase.from('settings').select('value').eq('key', 'zapi_automation_active').single();
@@ -57,19 +69,19 @@ serve(async (req: Request) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Buscar partes designadas
+    // Buscar partes designadas. Identidade atual: workbook_parts.resolved_publisher_id
+    // (FK workbook_parts_resolved_publisher_id_fkey -> publishers.id). NÃO existe FK
+    // para profiles, então não dá para embutir profiles aqui.
     const { data: parts, error } = await supabase
         .from('workbook_parts')
         .select(`
             id, 
             tipo_parte, 
-            titulo_parte, 
+            part_title, 
             week_id, 
             status, 
             raw_publisher_name,
-            profiles (
-                id, email, full_name, publisher_id
-            )
+            resolved_publisher_id
         `)
         .eq('status', 'DESIGNADA');
 
@@ -77,8 +89,15 @@ serve(async (req: Request) => {
         return new Response("Failed to fetch parts", { status: 500 });
     }
 
-    const { data: publishers } = await supabase.from('publishers').select('id, name, phone');
-    if (!publishers) return new Response("Failed to fetch publishers", { status: 500 });
+    const { data: publishersRaw } = await supabase.from('publishers').select('id, data');
+    if (!publishersRaw) return new Response("Failed to fetch publishers", { status: 500 });
+
+    // Modelo id-only: name/phone vivem dentro de publishers.data (jsonb).
+    const publishers = publishersRaw.map((p: any) => ({
+        id: p.id,
+        name: p.data?.name ?? '',
+        phone: p.data?.phone ?? ''
+    }));
 
     let sentCount = 0;
 
@@ -121,16 +140,16 @@ serve(async (req: Request) => {
         let phone = '';
         let pubName = part.raw_publisher_name || '';
 
-        // Tenta achar via profile associado
-        if (part.profiles && Array.isArray(part.profiles) && part.profiles.length > 0) {
-            const pubId = part.profiles[0].publisher_id;
-            const pub = publishers.find(p => p.id === pubId);
+        // 1) Via resolved_publisher_id (FK -> publishers). Fonte de verdade atual.
+        if (part.resolved_publisher_id) {
+            const pub = publishers.find(p => p.id === part.resolved_publisher_id);
             if (pub?.phone) {
                 phone = pub.phone;
                 pubName = pub.name;
             }
-        } else if (pubName) {
-            // Tenta match por nome
+        }
+        // 2) Fallback: match por nome (partes sem resolved_publisher_id).
+        if (!phone && pubName) {
             const pub = publishers.find(p => p.name.trim() === pubName.trim());
             if (pub?.phone) {
                 phone = pub.phone;
@@ -144,7 +163,7 @@ serve(async (req: Request) => {
         }
 
         // Construir mensagem
-        const msg = `⏳ *Lembrete de Designação*\n\nOlá, ${pubName}!\nLembrando que ${reminderLabel} para sua parte na reunião:\n\n📖 *${part.tipo_parte}*\n${part.titulo_parte ? `🎯 *${part.titulo_parte}*\n` : ''}\nPor favor, garanta que seu preparo ou ensaio estejam em dia. ✨`;
+        const msg = `⏳ *Lembrete de Designação*\n\nOlá, ${pubName}!\nLembrando que ${reminderLabel} para sua parte na reunião:\n\n📖 *${part.tipo_parte}*\n${part.part_title ? `🎯 *${part.part_title}*\n` : ''}\nPor favor, garanta que seu preparo ou ensaio estejam em dia. ✨`;
 
         const success = await sendWhatsApp(phone, msg);
         await logDispatch(part.id, dispatchType, phone, success ? 'SUCCESS' : 'ERROR');
