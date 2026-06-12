@@ -246,6 +246,39 @@ async function checkZApiConnection() {
   };
 }
 
+/** Lista os grupos do WhatsApp via Z-API (capability genérica do provider). */
+async function listZApiGroups() {
+  // @ts-ignore Deno.env
+  const instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
+  // @ts-ignore Deno.env
+  const instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
+  // @ts-ignore Deno.env
+  const clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+
+  if (!instanceId) return { success: false, error: 'ZAPI_INSTANCE_ID não configurado.' };
+
+  const groups: Array<{ id: string; name: string }> = [];
+  // Pagina os chats e filtra isGroup. pageSize alto para reduzir chamadas.
+  for (let page = 1; page <= 20; page++) {
+    const res = await fetch(
+      `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chats?page=${page}&pageSize=100`,
+      { headers: { 'client-token': clientToken } }
+    );
+    if (!res.ok) {
+      const rawBody = await res.text();
+      return { success: false, error: `HTTP ${res.status}`, zapiBody: rawBody };
+    }
+    const chats = await res.json();
+    if (!Array.isArray(chats) || chats.length === 0) break;
+    for (const c of chats) {
+      const isGroup = c.isGroup === true || c.isGroup === 'true';
+      if (isGroup) groups.push({ id: c.phone, name: c.name });
+    }
+    if (chats.length < 100) break;
+  }
+  return { success: true, groups };
+}
+
 serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -275,6 +308,20 @@ serve(async (req: Request) => {
         JSON.stringify({ connected: true, provider }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // ── List groups (capability genérica; usada p/ descobrir o ID do grupo "Avisos") ──
+    if (body.action === 'list-groups') {
+      if (provider !== 'z-api') {
+        return new Response(
+          JSON.stringify({ success: false, error: `list-groups só suportado no provider z-api (atual: ${provider}).` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const result = await listZApiGroups();
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { phone, message, image, caption, action } = body;
