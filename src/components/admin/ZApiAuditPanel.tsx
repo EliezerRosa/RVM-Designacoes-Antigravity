@@ -7,7 +7,7 @@ interface DispatchLog {
   dispatch_type: string;
   recipient_phone: string;
   status: string;
-  created_at: string;
+  dispatched_at: string;
 }
 
 export function ZApiAuditPanel() {
@@ -24,7 +24,7 @@ export function ZApiAuditPanel() {
       const { data, error } = await supabase
         .from('zapi_dispatch_log')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('dispatched_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
@@ -59,7 +59,7 @@ export function ZApiAuditPanel() {
           ) : (
             logs.map(log => (
               <tr key={log.id}>
-                <td>{new Date(log.created_at).toLocaleString()}</td>
+                <td>{new Date(log.dispatched_at).toLocaleString()}</td>
                 <td>
                   <span style={{ 
                     padding: '4px 8px', 
