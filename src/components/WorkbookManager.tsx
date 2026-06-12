@@ -3,7 +3,7 @@
  * Componente principal para upload, CRUD e promoção de partes
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 
@@ -25,6 +25,7 @@ import { TIPO_ORDER, HIDDEN_VIEW_TYPES } from '../constants/mappings';
 import { Tooltip } from './Tooltip';
 import { S140MultiModal } from './S140MultiModal';
 import { WorkbookToolbar } from './WorkbookToolbar';
+import { publishWeek, unpublishWeek, isWeekPublished } from '../services/weekPublishService';
 import { WorkbookTable } from './WorkbookTable';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
@@ -55,6 +56,7 @@ interface Props {
     publishers: Publisher[];
     isActive?: boolean;
     initialPartId?: string;
+    canSendZap?: boolean;
 }
 
 // Colunas esperadas no Excel da apostila (deve corresponder ao extract_detailed_parts.py)
@@ -72,7 +74,7 @@ const EXPECTED_COLUMNS = [
 
 
 
-export function WorkbookManager({ publishers, isActive, initialPartId }: Props) {
+export function WorkbookManager({ publishers, isActive, initialPartId, canSendZap }: Props) {
     // ========================================================================
     // Estado
     // ========================================================================
@@ -118,6 +120,63 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
         });
         return unsubscribe;
     }, []);
+
+    // === PUBLICAR / DESPUBLICAR semana em foco (Z-API, lote desacoplado) ===
+    const [isPublishing, setIsPublishing] = useState(false);
+    const [weekIsPublished, setWeekIsPublished] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!filterWeek) { setWeekIsPublished(false); return; }
+        void isWeekPublished(filterWeek).then(v => { if (!cancelled) setWeekIsPublished(v); });
+        return () => { cancelled = true; };
+    }, [filterWeek]);
+
+    const handlePublishFocusWeek = useCallback(async () => {
+        if (!filterWeek) return;
+        const weekParts = parts.filter(p => p.weekId === filterWeek);
+        if (weekParts.length === 0) {
+            setError('Nenhuma designação encontrada para esta semana.');
+            return;
+        }
+        const confirmMsg = weekIsPublished
+            ? `A semana ${filterWeek} já foi publicada. Republicar reenviará os cartões pendentes. Continuar?`
+            : `Publicar a semana ${filterWeek}? Isso enviará automaticamente, via Z-API:\n• Cartão S-89 (imagem + texto com link) a cada publicador designável\n• S-140 para Ajudante SRVM + SRVM + Grupo`;
+        if (!window.confirm(confirmMsg)) return;
+        try {
+            setIsPublishing(true);
+            const result = await publishWeek(filterWeek, weekParts, publishers);
+            const s140 = result.s140 ? ` | S-140: ${result.s140.ok}/${result.s140.attempted}` : '';
+            let msg = `${result.success ? '✅ Semana publicada' : '⚠️ Publicação com falhas'} — S-89: ${result.s89Sent} enviados, ${result.s89Skipped} já enviados, ${result.s89Failed} falhas${s140}.`;
+            if (result.errors.length > 0) msg += '\nDetalhes: ' + result.errors.slice(0, 5).join(' | ');
+            setSuccessMessage(msg);
+            setWeekIsPublished(true);
+        } catch (err) {
+            setError('Erro ao publicar a semana: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setIsPublishing(false);
+        }
+    }, [filterWeek, parts, publishers, weekIsPublished]);
+
+    const handleUnpublishFocusWeek = useCallback(async () => {
+        if (!filterWeek) return;
+        const weekParts = parts.filter(p => p.weekId === filterWeek);
+        if (!window.confirm(`Despublicar a semana ${filterWeek}? Isso NÃO recolhe mensagens já enviadas, apenas limpa o marcador para permitir reenviar.`)) return;
+        try {
+            setIsPublishing(true);
+            const result = await unpublishWeek(filterWeek, weekParts, publishers);
+            if (result.success) {
+                setSuccessMessage(`✅ Semana ${filterWeek} despublicada (${result.clearedLogs} registro(s) limpos).`);
+                setWeekIsPublished(false);
+            } else {
+                setError('Falha ao despublicar: ' + (result.error || 'erro desconhecido'));
+            }
+        } catch (err) {
+            setError('Erro ao despublicar a semana: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setIsPublishing(false);
+        }
+    }, [filterWeek, parts, publishers]);
 
     // Estado para Relatórios
     const [reportData, setReportData] = useState<AnalyticsSummary | null>(null);
@@ -768,6 +827,39 @@ export function WorkbookManager({ publishers, isActive, initialPartId }: Props) 
                         )}
 
                         {/* Header Unificado: Ações e Filtros */}
+                        {canSendZap && filterWeek && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={() => void handlePublishFocusWeek()}
+                                    disabled={isPublishing}
+                                    title="Envia em lote, via Z-API, o S-89 (com link de confirmação) a cada designado + o S-140 ao Grupo. Não altera o status das partes."
+                                    style={{
+                                        background: '#128C7E', color: '#fff', border: 'none', borderRadius: '6px',
+                                        padding: '8px 14px', fontWeight: 600, cursor: isPublishing ? 'wait' : 'pointer',
+                                        opacity: isPublishing ? 0.7 : 1
+                                    }}
+                                >
+                                    {isPublishing ? 'Publicando…' : `📤 Publicar ${filterWeek}${weekIsPublished ? ' (republicar)' : ''}`}
+                                </button>
+                                {weekIsPublished && (
+                                    <button
+                                        onClick={() => void handleUnpublishFocusWeek()}
+                                        disabled={isPublishing}
+                                        title="Limpa o marcador de publicação para permitir reenviar. Não recolhe mensagens já enviadas."
+                                        style={{
+                                            background: 'transparent', color: '#128C7E', border: '1px solid #128C7E',
+                                            borderRadius: '6px', padding: '8px 14px', fontWeight: 600,
+                                            cursor: isPublishing ? 'wait' : 'pointer'
+                                        }}
+                                    >
+                                        Despublicar
+                                    </button>
+                                )}
+                                {weekIsPublished && (
+                                    <span style={{ fontSize: '12px', color: '#128C7E', fontWeight: 600 }}>✓ Publicada</span>
+                                )}
+                            </div>
+                        )}
                         <WorkbookToolbar
                             loading={loading}
                             canUndo={canUndo}

@@ -23,6 +23,7 @@ import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import type { ActionResult } from '../services/agentActionService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
+import { publishWeek, unpublishWeek, isWeekPublished } from '../services/weekPublishService';
 
 import { specialEventService } from '../services/specialEventService';
 import { localNeedsService } from '../services/localNeedsService';
@@ -644,6 +645,59 @@ export default function TemporalChat({
             setIsGeneratingImage(false);
         }
     };
+
+    // === PUBLICAR / DESPUBLICAR SEMANA (Z-API, lote desacoplado) ===
+    // Envia em lote os cartões S-89 (imagem + texto-com-link) a cada publicador
+    // designável (1x, idempotente) + o S-140 para Ajd SRVM + SRVM + Grupo.
+    // NÃO altera status das partes. Reversível via "Despublicar".
+    const handlePublishWeek = useCallback(async (weekId: string) => {
+        const weekParts = parts.filter(p => p.weekId === weekId);
+        if (weekParts.length === 0) {
+            alert('Nenhuma designação encontrada para esta semana no contexto atual.');
+            return;
+        }
+        const already = await isWeekPublished(weekId);
+        const confirmMsg = already
+            ? `A semana ${weekId} já foi publicada. Republicar reenviará os cartões pendentes. Continuar?`
+            : `Publicar a semana ${weekId}? Isso enviará automaticamente, via Z-API:\n• Cartão S-89 (imagem + texto com link) a cada publicador designável\n• S-140 para Ajudante SRVM + SRVM + Grupo`;
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            setIsGeneratingImage(true);
+            const result = await publishWeek(weekId, weekParts, publishers);
+            const s140 = result.s140 ? ` | S-140: ${result.s140.ok}/${result.s140.attempted}` : '';
+            const head = result.success ? '✅ Semana publicada' : '⚠️ Publicação concluída com falhas';
+            let msg = `${head} — S-89: ${result.s89Sent} enviados, ${result.s89Skipped} já enviados, ${result.s89Failed} falhas${s140}.`;
+            if (result.errors.length > 0) {
+                msg += '\n\nDetalhes:\n' + result.errors.slice(0, 10).map(e => `• ${e}`).join('\n');
+            }
+            alert(msg);
+        } catch (err) {
+            console.error('Erro ao publicar semana:', err);
+            alert('Erro ao publicar a semana: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setIsGeneratingImage(false);
+        }
+    }, [parts, publishers]);
+
+    const handleUnpublishWeek = useCallback(async (weekId: string) => {
+        const weekParts = parts.filter(p => p.weekId === weekId);
+        if (!window.confirm(`Despublicar a semana ${weekId}? Isso NÃO recolhe mensagens já enviadas (o WhatsApp não permite), apenas limpa o marcador de publicação para permitir reenviar ao publicar de novo.`)) return;
+        try {
+            setIsGeneratingImage(true);
+            const result = await unpublishWeek(weekId, weekParts, publishers);
+            if (result.success) {
+                alert(`✅ Semana ${weekId} despublicada (${result.clearedLogs} registro(s) de envio limpos). Você já pode republicar.`);
+            } else {
+                alert('❌ Falha ao despublicar: ' + (result.error || 'erro desconhecido'));
+            }
+        } catch (err) {
+            console.error('Erro ao despublicar semana:', err);
+            alert('Erro ao despublicar a semana: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setIsGeneratingImage(false);
+        }
+    }, [parts, publishers]);
 
     // ... existing useEffects ...
     // Load or create a session on mount
@@ -1458,6 +1512,8 @@ export default function TemporalChat({
         canExecute,
         sendMessage,
         handleShareS140,
+        handlePublishWeek,
+        handleUnpublishWeek,
         executeDirectAction,
         handleApproveProposal,
         handleCompletePart,

@@ -504,3 +504,39 @@ export async function copyS89ToClipboard(
         return false;
     }
 }
+
+/**
+ * Gera a imagem FIEL do cartão S-89 (renderizada do PDF) como string base64
+ * (sem o prefixo data-URL). Pensado para envio headless/em lote via z-api,
+ * reusando exatamente o mesmo pipeline de `copyS89ToClipboard` (generateS89 ->
+ * renderPdfToPngBlob), porém retornando o base64 ao invés de copiar para o
+ * clipboard. NÃO depende do DOM do modal.
+ */
+export async function generateS89PngBase64(
+    part: WorkbookPart,
+    assistantName?: string,
+    meetingDayOfWeek?: number,
+    forStudent: boolean = true
+): Promise<string | null> {
+    try {
+        const resolvedMeetingDayOfWeek = typeof meetingDayOfWeek === 'number'
+            ? normalizeMeetingDayOfWeek(meetingDayOfWeek)
+            : await getMeetingDayOfWeekFromSettings(part.weekId);
+
+        const pdfBytes = await generateS89(part, assistantName, resolvedMeetingDayOfWeek, forStudent);
+        const blob = await renderPdfToPngBlob(pdfBytes);
+        if (!blob) return null;
+
+        const dataUrl: string = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+
+        return dataUrl.includes('base64,') ? dataUrl.split('base64,')[1] : dataUrl;
+    } catch (error) {
+        console.error('Erro ao gerar imagem base64 do S-89:', error);
+        return null;
+    }
+}

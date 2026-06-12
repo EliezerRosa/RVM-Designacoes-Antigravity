@@ -513,6 +513,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
             <WorkbookManager
               publishers={publishers}
               isActive={true}
+              canSendZap={permissions.canSendZap()}
             />
           )}
 
