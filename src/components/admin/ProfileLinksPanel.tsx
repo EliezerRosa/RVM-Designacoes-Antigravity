@@ -20,6 +20,7 @@ export function ProfileLinksPanel() {
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState<'all' | 'unlinked'>('all');
     const [busyProfile, setBusyProfile] = useState<string | null>(null);
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -134,6 +135,20 @@ export function ProfileLinksPanel() {
         }
     };
 
+    const handleDeleteProfile = async (profileId: string, profileEmail: string) => {
+        if (!confirm(`Excluir permanentemente o registro de acesso de ${profileEmail}?\n\nEle precisará logar novamente para criar um novo registro.`)) return;
+        setBusyProfile(profileId);
+        try {
+            const { error } = await supabase.from('profiles').delete().eq('id', profileId);
+            if (error) throw error;
+            await load();
+        } catch (e) {
+            alert('Erro ao excluir: ' + (e instanceof Error ? e.message : String(e)));
+        } finally {
+            setBusyProfile(null);
+        }
+    };
+
     const visible = filter === 'unlinked'
         ? links.filter(l => !l.publisher_id && l.role === 'publicador')
         : links;
@@ -153,12 +168,18 @@ export function ProfileLinksPanel() {
                 >
                     ⚠️ Sem vínculo ({links.filter(l => !l.publisher_id && l.role === 'publicador').length})
                 </button>
+                <button
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    style={{ ...btnStyle, marginLeft: '0.5rem' }}
+                >
+                    {isCollapsed ? '🔽 Expandir Lista' : '🔼 Recolher Lista'}
+                </button>
                 <button onClick={load} style={{ ...btnStyle, marginLeft: 'auto' }}>🔄 Atualizar</button>
             </div>
 
             {loading ? (
                 <div style={{ textAlign: 'center', color: '#475569', padding: '2rem' }}>Carregando…</div>
-            ) : (
+            ) : isCollapsed ? null : (
                 <table style={tableStyle}>
                     <thead>
                         <tr>
@@ -207,11 +228,18 @@ export function ProfileLinksPanel() {
                                                 style={{ ...actionBtnStyle, background: '#dc2626' }}
                                             >Desvincular</button>
                                         ) : (
-                                            <button
-                                                disabled={busyProfile === l.profile_id}
-                                                onClick={() => handleLink(l.profile_id, l.email, l.full_name)}
-                                                style={{ ...actionBtnStyle, background: '#059669' }}
-                                            >Vincular…</button>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button
+                                                    disabled={busyProfile === l.profile_id}
+                                                    onClick={() => handleLink(l.profile_id, l.email, l.full_name)}
+                                                    style={{ ...actionBtnStyle, background: '#059669' }}
+                                                >Vincular…</button>
+                                                <button
+                                                    disabled={busyProfile === l.profile_id}
+                                                    onClick={() => handleDeleteProfile(l.profile_id, l.email)}
+                                                    style={{ ...actionBtnStyle, background: '#ef4444' }}
+                                                >Excluir</button>
+                                            </div>
                                         )
                                     )}
                                 </td>
