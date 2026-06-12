@@ -139,9 +139,21 @@ export function ProfileLinksPanel() {
         if (!confirm(`Excluir permanentemente o registro de acesso de ${profileEmail}?\n\nEle precisará logar novamente para criar um novo registro.`)) return;
         setBusyProfile(profileId);
         try {
-            const { error } = await supabase.from('profiles').delete().eq('id', profileId);
+            const { data, error } = await supabase.rpc('admin_delete_profile', {
+                p_profile_id: profileId,
+            });
             if (error) throw error;
-            await load();
+            const result = (data || {}) as { success?: boolean; error?: string };
+            if (!result.success) {
+                const msg: Record<string, string> = {
+                    cannot_delete_self: 'Você não pode excluir o seu próprio registro de acesso.',
+                    cannot_delete_admin: 'Registros de administrador não podem ser excluídos por esta tela.',
+                    profile_not_found: 'Registro não encontrado (já foi removido?).',
+                };
+                alert('Erro: ' + (msg[result.error || ''] || result.error || 'falha desconhecida'));
+            } else {
+                await load();
+            }
         } catch (e) {
             alert('Erro ao excluir: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
