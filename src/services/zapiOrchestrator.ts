@@ -120,6 +120,42 @@ class ZApiOrchestrator {
     async sendText(phone: string, text: string) {
         return this.waService.sendText(phone, text);
     }
+
+    /**
+     * Envia uma imagem (base64 ou data-URL) para o grupo configurado em
+     * `settings.zapi_group_id`, usando a Edge Function `send-whatsapp`
+     * (action `send-image`). Caminho 100% desacoplado do fluxo manual:
+     * não passa pela validação de telefone BR dos providers client-side
+     * (group ids não são telefones), nem usa `createWhatsAppAutoServiceFromEnv`.
+     */
+    async dispatchGroupImage(imageBase64: string, caption?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+        const groupId = await this.getAdminGroupId();
+        if (!groupId) {
+            return { success: false, error: 'Grupo não configurado (settings.zapi_group_id).' };
+        }
+
+        const base64Data = imageBase64.includes('base64,')
+            ? imageBase64.split('base64,')[1]
+            : imageBase64;
+
+        try {
+            const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+                body: {
+                    action: 'send-image',
+                    phone: groupId,
+                    image: base64Data,
+                    caption: caption || '',
+                },
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+            return { success: data?.success ?? true, messageId: data?.messageId, error: data?.error };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    }
 }
 
 export const zapiOrchestrator = new ZApiOrchestrator();

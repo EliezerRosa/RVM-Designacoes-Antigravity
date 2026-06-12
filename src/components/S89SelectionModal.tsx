@@ -6,6 +6,7 @@ import { copyS89ToClipboard } from '../services/s89Generator';
 import html2canvas from 'html2canvas';
 
 import { communicationService } from '../services/communicationService';
+import { zapiOrchestrator } from '../services/zapiOrchestrator';
 import { api } from '../services/api';
 import { supabase } from '../lib/supabase';
 import type { AvailabilityToken } from './PublisherAvailabilityPortal';
@@ -45,6 +46,9 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const [processingReconfirmIds, setProcessingReconfirmIds] = useState<Set<string>>(new Set());
     const [isSharingS140, setIsSharingS140] = useState(false);
     const [isSharingStatus, setIsSharingStatus] = useState(false);
+    /** Z-API (desacoplado): postar imagens direto no grupo configurado. */
+    const [isPostingS140Group, setIsPostingS140Group] = useState(false);
+    const [isPostingStatusGroup, setIsPostingStatusGroup] = useState(false);
     const [s140HTML, setS140HTML] = useState<string>('');
     const [editingMessages, setEditingMessages] = useState<Record<string, string>>({});
     const [lastMessages, setLastMessages] = useState<Record<string, any>>({});
@@ -753,6 +757,81 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     };
 
+    // --- Z-API (DESACOPLADO): postar imagens direto no grupo "Avisos" ---
+    // Reusa apenas a captura html2canvas dos mesmos refs; não toca no fluxo manual.
+
+    /** Monta a legenda padrão do S-140 (saudação + data da reunião). */
+    const buildS140Caption = (): string => {
+        const hour = new Date().getHours();
+        const greeting = hour < 12 ? 'bom dia' : hour < 18 ? 'boa tarde' : 'boa noite';
+        const [y, m, d] = weekId.split('-').map(Number);
+        const weekDate = new Date(y, m - 1, d);
+        const daysToTarget = (meetingDayOfWeek - weekDate.getDay() + 7) % 7;
+        const targetDate = new Date(weekDate);
+        targetDate.setDate(weekDate.getDate() + daysToTarget);
+        const day = targetDate.getDate();
+        const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const weekDays = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];
+        const dayName = weekDays[targetDate.getDay()] || 'quinta-feira';
+        const month = months[targetDate.getMonth()];
+        const year = targetDate.getFullYear();
+        const formattedDate = `${day} de ${month} de ${year}`;
+        return `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para ${dayName}, dia ${formattedDate}.\n\n(Salmo 90:17)`;
+    };
+
+    const handlePostS140ToGroup = async () => {
+        if (!s140Ref.current) return;
+        setIsPostingS140Group(true);
+        try {
+            const canvas = await html2canvas(s140Ref.current, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                logging: false,
+            });
+            const dataUrl = canvas.toDataURL('image/png');
+            const result = await zapiOrchestrator.dispatchGroupImage(dataUrl, buildS140Caption());
+            if (result.success) {
+                alert('✅ S-140 postado no grupo.');
+            } else {
+                alert('❌ Falha ao postar S-140 no grupo: ' + (result.error || 'erro desconhecido'));
+            }
+        } catch (err) {
+            console.error('Erro ao postar S-140 no grupo:', err);
+            alert('Erro ao gerar/postar imagem S-140 no grupo.');
+        } finally {
+            setIsPostingS140Group(false);
+        }
+    };
+
+    const handlePostStatusToGroup = async () => {
+        if (!statusRef.current) return;
+        setIsPostingStatusGroup(true);
+        try {
+            await loadConfirmationStatuses();
+            await new Promise(r => setTimeout(r, 80));
+            const canvas = await html2canvas(statusRef.current, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                logging: false,
+            });
+            const dataUrl = canvas.toDataURL('image/png');
+            const caption = `Status atual das designações — semana ${weekId}.`;
+            const result = await zapiOrchestrator.dispatchGroupImage(dataUrl, caption);
+            if (result.success) {
+                alert('✅ Status postado no grupo.');
+            } else {
+                alert('❌ Falha ao postar Status no grupo: ' + (result.error || 'erro desconhecido'));
+            }
+        } catch (err) {
+            console.error('Erro ao postar status no grupo:', err);
+            alert('Erro ao gerar/postar imagem do status no grupo.');
+        } finally {
+            setIsPostingStatusGroup(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -986,6 +1065,32 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                 title="Imagem da grade carimbada (ACEITA/REJEITADA/SUBSTITUIÇÃO + última msg)"
                             >
                                 {isSharingStatus ? '⏳...' : 'Status 📊'}
+                            </button>
+                            <button
+                                onClick={handlePostS140ToGroup}
+                                disabled={isPostingS140Group}
+                                style={{
+                                    background: '#25D366', color: 'white', border: 'none',
+                                    padding: '8px 12px', borderRadius: '6px', cursor: isPostingS140Group ? 'wait' : 'pointer',
+                                    fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                    opacity: isPostingS140Group ? 0.7 : 1
+                                }}
+                                title="Posta a imagem do S-140 direto no grupo (Z-API)"
+                            >
+                                {isPostingS140Group ? '⏳...' : 'Grupo S-140 📤'}
+                            </button>
+                            <button
+                                onClick={handlePostStatusToGroup}
+                                disabled={isPostingStatusGroup}
+                                style={{
+                                    background: '#128C7E', color: 'white', border: 'none',
+                                    padding: '8px 12px', borderRadius: '6px', cursor: isPostingStatusGroup ? 'wait' : 'pointer',
+                                    fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                    opacity: isPostingStatusGroup ? 0.7 : 1
+                                }}
+                                title="Posta a imagem do Status direto no grupo (Z-API)"
+                            >
+                                {isPostingStatusGroup ? '⏳...' : 'Grupo Status 📤'}
                             </button>
                         </div>
                     </div>
