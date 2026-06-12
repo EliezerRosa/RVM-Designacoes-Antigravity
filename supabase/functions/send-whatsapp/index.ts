@@ -222,7 +222,10 @@ async function checkZApiConnection() {
     headers: { 'client-token': clientToken },
   });
 
-  if (!res.ok) return { connected: false, error: `HTTP ${res.status}` };
+  if (!res.ok) {
+    const rawBody = await res.text();
+    return { connected: false, error: `HTTP ${res.status}`, zapiBody: rawBody };
+  }
 
   const data = await res.json();
   return {

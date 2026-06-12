@@ -17,6 +17,9 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Rascunhos locais de runbook (placeholders, mas nunca commitar)
+*.local.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
