@@ -28,9 +28,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-/** Normaliza telefone BR. */
+/**
+ * Normaliza o destino. Para telefones BR aplica as regras usuais (55 + DDD).
+ * Para destinos de GRUPO do WhatsApp, preserva o ID — a função permanece
+ * desacoplada (não sabe o que envia), só não mutila um destino de grupo:
+ *  - "<id>@g.us"  -> mantém apenas o ID numérico (formato aceito pela Z-API)
+ *  - "<id>-group" / "<id>-<ts>" (formato legado) -> mantém como veio
+ *  - ID numérico longo (>13 dígitos) -> é grupo, não é telefone BR
+ */
 function normalizePhone(phone: string): string {
-  let digits = (phone || '').replace(/\D/g, '');
+  const raw = (phone || '').trim();
+  if (raw.includes('@g.us')) return raw.split('@')[0].replace(/\D/g, '');
+  if (raw.includes('-')) return raw;
+
+  let digits = raw.replace(/\D/g, '');
+  if (digits.length > 13) return digits; // ID de grupo numérico, não telefone BR
   digits = digits.replace(/^0+/, '');
   if (digits.length <= 11 && !digits.startsWith('55')) {
     digits = '55' + digits;
