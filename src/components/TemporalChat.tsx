@@ -666,8 +666,9 @@ export default function TemporalChat({
             setIsGeneratingImage(true);
             const result = await publishWeek(weekId, weekParts, publishers);
             const s140 = result.s140 ? ` | S-140: ${result.s140.ok}/${result.s140.attempted}` : '';
+            const status = result.status ? ` | Status: ${result.status.ok}/${result.status.attempted}` : '';
             const head = result.success ? '✅ Semana publicada' : '⚠️ Publicação concluída com falhas';
-            let msg = `${head} — S-89: ${result.s89Sent} enviados, ${result.s89Skipped} já enviados, ${result.s89Failed} falhas${s140}.`;
+            let msg = `${head} — S-89: ${result.s89Sent} enviados, ${result.s89Skipped} já enviados, ${result.s89Failed} falhas${s140}${status}.`;
             if (result.errors.length > 0) {
                 msg += '\n\nDetalhes:\n' + result.errors.slice(0, 10).map(e => `• ${e}`).join('\n');
             }

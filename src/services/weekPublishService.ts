@@ -32,7 +32,16 @@ export interface PublishResult {
     s89Skipped: number;
     s89Failed: number;
     s140: { attempted: number; ok: number } | null;
+    status: { attempted: number; ok: number } | null;
     errors: string[];
+}
+
+function escapeHtml(value: unknown): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 function extractPartNumber(titulo?: string): string {
@@ -235,6 +244,134 @@ export async function isWeekPublished(weekId: string): Promise<boolean> {
 }
 
 /**
+ * Gera, HEADLESS, a imagem do "Status Board" (mesma tabela do modal S89SelectionModal:
+ * Parte | Publicador | Status | Última msg-zap), com os carimbos de confirmação
+ * (ACEITA/REJEITADA/AGUARDANDO) vindos da RPC get_portal_responses_for_week e do
+ * histórico de notificações. Renderiza off-screen e captura via html2canvas.
+ * Retorna data-URL PNG (base64) ou null em falha.
+ */
+export async function generateStatusBoardImageBase64(
+    weekId: string,
+    weekParts: WorkbookPart[],
+    publishers: Publisher[]
+): Promise<string | null> {
+    try {
+        const html2canvas = (await import('html2canvas')).default;
+        const cards = await buildDesignatableCards(weekParts, publishers);
+
+        // Respostas do portal (mesma regra do modal)
+        const confirmationStatuses: Record<string, { response: 'accepted' | 'declined'; respondedAt?: string }> = {};
+        try {
+            const { data } = await supabase.rpc('get_portal_responses_for_week', { p_week_id: weekId });
+            for (const row of (data || []) as Array<{ part_id: string; response: string; responded_at?: string }>) {
+                const resp = (row.response || '').toLowerCase();
+                if (resp === 'confirmed') confirmationStatuses[row.part_id] = { response: 'accepted', respondedAt: row.responded_at };
+                else if (resp === 'refused') confirmationStatuses[row.part_id] = { response: 'declined', respondedAt: row.responded_at };
+            }
+        } catch { /* não crítico */ }
+
+        // Última msg-zap + flag de substituição (por parte, mais recente primeiro)
+        const lastMessages: Record<string, { created_at?: string }> = {};
+        const recentSubst = new Set<string>();
+        try {
+            const history = await communicationService.getHistory(500);
+            history.forEach((h) => {
+                const meta = (h.metadata || {}) as { partId?: string; isSubstitution?: boolean };
+                const partId = meta.partId;
+                if (!partId) return;
+                if (!lastMessages[partId]) {
+                    lastMessages[partId] = { created_at: h.created_at as string };
+                    if (meta.isSubstitution) recentSubst.add(partId);
+                }
+            });
+        } catch { /* não crítico */ }
+
+        const rowsHtml = cards.map((part) => {
+            const p = part as WorkbookPart & { resolvedPublisherName?: string };
+            const portal = confirmationStatuses[p.id];
+            let status: { response: 'accepted' | 'declined'; respondedAt?: string } | undefined;
+            if (p.status === 'DESIGNADA') status = { response: 'accepted', respondedAt: portal?.respondedAt };
+            else if (p.status === 'REJEITADA') status = { response: 'declined', respondedAt: portal?.respondedAt };
+            else status = undefined;
+            const isSubst = recentSubst.has(p.id);
+            const last = lastMessages[p.id];
+            const wasSent = !!last;
+
+            let respLabel = '— não enviado —';
+            let respBg = '#E5E7EB';
+            let respFg = '#374151';
+            if (status?.response === 'accepted') { respLabel = '✓ ACEITA'; respBg = '#10B981'; respFg = 'white'; }
+            else if (status?.response === 'declined') { respLabel = '✗ REJEITADA'; respBg = '#EF4444'; respFg = 'white'; }
+            else if (wasSent) { respLabel = '⏳ AGUARDANDO'; respBg = '#FEF3C7'; respFg = '#92400E'; }
+
+            const lastWhen = last?.created_at
+                ? new Date(last.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                : '—';
+            const respondedAtHtml = status?.respondedAt
+                ? `<div style="font-size:10px;color:#6B7280;">Resp: ${escapeHtml(new Date(status.respondedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))}</div>`
+                : '';
+            const substHtml = isSubst
+                ? '<span style="background:#F59E0B;color:white;padding:3px 8px;border-radius:12px;font-weight:700;font-size:11px;letter-spacing:0.4px;white-space:nowrap;">🔄 SUBSTITUIÇÃO</span>'
+                : '';
+            const ajudHtml = p.funcao === 'Ajudante' ? '<span style="margin-left:4px;font-size:10px;color:#3730A3;">(Ajud.)</span>' : '';
+            const tituloHtml = p.tituloParte ? `<div style="font-size:11px;color:#6B7280;">${escapeHtml(p.tituloParte)}</div>` : '';
+
+            return `<tr>
+                <td style="padding:8px;border:1px solid #CBD5E1;"><strong>${escapeHtml(p.tipoParte || '')}</strong>${tituloHtml}</td>
+                <td style="padding:8px;border:1px solid #CBD5E1;">${escapeHtml(p.resolvedPublisherName || p.rawPublisherName || '—')}${ajudHtml}</td>
+                <td style="padding:8px;border:1px solid #CBD5E1;text-align:center;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        ${substHtml}
+                        <span style="background:${respBg};color:${respFg};padding:4px 10px;border-radius:14px;font-weight:700;font-size:12px;letter-spacing:0.4px;white-space:nowrap;">${respLabel}</span>
+                        ${respondedAtHtml}
+                    </div>
+                </td>
+                <td style="padding:8px;border:1px solid #CBD5E1;font-size:12px;">${escapeHtml(lastWhen)}</td>
+            </tr>`;
+        }).join('');
+
+        const boardHtml = `
+            <div style="border-bottom:3px solid #0EA5E9;padding-bottom:8px;margin-bottom:12px;">
+                <h2 style="margin:0;font-size:22px;color:#0C4A6E;">📊 Status das Designações — Semana ${escapeHtml(weekId)}</h2>
+                <div style="font-size:12px;color:#6B7280;">Snapshot gerado em ${escapeHtml(new Date().toLocaleString('pt-BR'))}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead>
+                    <tr style="background:#F1F5F9;">
+                        <th style="text-align:left;padding:8px;border:1px solid #CBD5E1;">Parte</th>
+                        <th style="text-align:left;padding:8px;border:1px solid #CBD5E1;">Publicador</th>
+                        <th style="text-align:center;padding:8px;border:1px solid #CBD5E1;width:150px;">Status</th>
+                        <th style="text-align:left;padding:8px;border:1px solid #CBD5E1;width:170px;">Última msg-zap</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>`;
+
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.top = '-9999px';
+        container.style.left = '-9999px';
+        container.style.width = '900px';
+        container.style.background = 'white';
+        container.style.padding = '24px';
+        container.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+        container.style.color = '#111827';
+        container.innerHTML = boardHtml;
+        document.body.appendChild(container);
+        try {
+            await new Promise(r => setTimeout(r, 60));
+            const canvas = await html2canvas(container, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+            return canvas.toDataURL('image/png');
+        } finally {
+            document.body.removeChild(container);
+        }
+    } catch (err) {
+        console.warn('[weekPublishService] Falha ao gerar status board headless:', err);
+        return null;
+    }
+}
+
+/**
  * Publica a semana: envia S-89 (imagem+texto) a cada publicador designável (1x,
  * idempotente) e o S-140 (imagem+texto) para Ajd SRVM + SRVM + Grupo. Marca a
  * semana como publicada. NÃO altera status das partes.
@@ -245,7 +382,7 @@ export async function publishWeek(
     publishers: Publisher[]
 ): Promise<PublishResult> {
     const result: PublishResult = {
-        success: false, s89Sent: 0, s89Skipped: 0, s89Failed: 0, s140: null, errors: [],
+        success: false, s89Sent: 0, s89Skipped: 0, s89Failed: 0, s140: null, status: null, errors: [],
     };
 
     if (!(await zapiOrchestrator.isAutomationActive())) {
@@ -328,6 +465,24 @@ export async function publishWeek(
         }
     } catch (err) {
         result.errors.push(`S-140: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // 2.5) Status board (imagem) para Ajd SRVM + SRVM + Grupo.
+    try {
+        const recipients = await zapiOrchestrator.getBroadcastRecipients();
+        if (recipients.length > 0) {
+            const statusBase64 = await generateStatusBoardImageBase64(weekId, weekParts, publishers);
+            if (statusBase64) {
+                const caption = `Status atual das designações — semana ${weekId}.`;
+                const rs = await zapiOrchestrator.dispatchImageToRecipients(statusBase64, caption, recipients);
+                result.status = { attempted: rs.length, ok: rs.filter(r => r.success).length };
+                rs.filter(r => !r.success).forEach(r => result.errors.push(`Status ${r.phone}: ${r.error || 'falha'}`));
+            } else {
+                result.errors.push('Status board: falha ao gerar imagem.');
+            }
+        }
+    } catch (err) {
+        result.errors.push(`Status board: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     // 3) Marcar semana como publicada (não altera status das partes).
