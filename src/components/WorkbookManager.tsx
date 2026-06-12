@@ -147,7 +147,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             setIsPublishing(true);
             const result = await publishWeek(filterWeek, weekParts, publishers);
             const s140 = result.s140 ? ` | S-140: ${result.s140.ok}/${result.s140.attempted}` : '';
-            let msg = `${result.success ? '✅ Semana publicada' : '⚠️ Publicação com falhas'} — S-89: ${result.s89Sent} enviados, ${result.s89Skipped} já enviados, ${result.s89Failed} falhas${s140}.`;
+            const status = result.status ? ` | Status: ${result.status.ok}/${result.status.attempted}` : '';
+            let msg = `${result.success ? '✅ Semana publicada' : '⚠️ Publicação com falhas'} — S-89: ${result.s89Sent} enviados, ${result.s89Skipped} já enviados, ${result.s89Failed} falhas${s140}${status}.`;
             if (result.errors.length > 0) msg += '\nDetalhes: ' + result.errors.slice(0, 5).join(' | ');
             setSuccessMessage(msg);
             setWeekIsPublished(true);
