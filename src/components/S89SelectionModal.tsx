@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 
 import type { WorkbookPart, Publisher } from '../types';
 
-import { copyS89ToClipboard } from '../services/s89Generator';
+import { copyS89ToClipboard, generateS89PngBase64 } from '../services/s89Generator';
 import html2canvas from 'html2canvas';
 
 import { communicationService } from '../services/communicationService';
@@ -44,6 +44,8 @@ interface S89SelectionModalProps {
 export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishers }: S89SelectionModalProps) {
     const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
     const [processingReconfirmIds, setProcessingReconfirmIds] = useState<Set<string>>(new Set());
+    /** Z-API (desacoplado): envio individual do cartão S-89 por parte. */
+    const [processingZapiIds, setProcessingZapiIds] = useState<Set<string>>(new Set());
     const [isSharingS140, setIsSharingS140] = useState(false);
     const [isSharingStatus, setIsSharingStatus] = useState(false);
     /** Z-API (desacoplado): postar imagens direto no grupo configurado. */
@@ -656,6 +658,95 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     };
 
+    // --- ENVIO INDIVIDUAL S-89 VIA Z-API (DESACOPLADO) ---
+    // Mesma intenção do botão manual-web (Zap 📤), porém envia o cartão S-89
+    // (imagem) + texto-com-link diretamente ao publicador via Edge Function,
+    // sem abrir o WhatsApp Web nem usar o clipboard. O fluxo manual permanece
+    // intocado.
+    const handleSendS89ViaZApi = async (part: WorkbookPart) => {
+        setProcessingZapiIds(prev => new Set(prev).add(part.id));
+        try {
+            const publisherName = part.resolvedPublisherName || part.rawPublisherName;
+            const foundPublisher = getPublisher(publisherName);
+            const phone = foundPublisher?.phone || (part as any).phone;
+
+            if (!phone || !String(phone).trim()) {
+                alert('Publicador sem telefone cadastrado — não é possível enviar via Z-API.');
+                return;
+            }
+
+            const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part);
+
+            // Texto com link de confirmação (mesma fonte do envio manual).
+            let message = editingMessages[part.id];
+            if (!message || !hasConfirmationLink(message)) {
+                try {
+                    const { content } = await communicationService.prepareS89Message(
+                        part as any, publishers, weekParts,
+                        { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek }
+                    );
+                    message = content;
+                    setEditingMessages(prev => ({ ...prev, [part.id]: content }));
+                } catch (err) {
+                    console.warn('[S89Modal/zapi] Falha ao gerar mensagem com link:', err);
+                }
+            }
+
+            if (!message) {
+                alert('Mensagem ainda não carregada. Aguarde um instante e tente novamente.');
+                return;
+            }
+
+            // Imagem do cartão S-89 (headless, sem clipboard).
+            const imageBase64 = await generateS89PngBase64(partForPdf, assistantName, meetingDayOfWeek, isStudent);
+            if (!imageBase64) {
+                alert('Falha ao gerar a imagem do cartão S-89.');
+                return;
+            }
+
+            // Envio individual (manual): sem idempotência — pode reenviar.
+            const result = await zapiOrchestrator.sendS89Direct(part.id, String(phone), message, imageBase64);
+
+            await communicationService.logNotification({
+                type: 'S89',
+                recipient_name: publisherName,
+                recipient_phone: String(phone),
+                title: `S-89 (Z-API): ${part.tipoParte}`,
+                content: message,
+                status: result.success ? 'SENT' : 'ERROR',
+                metadata: {
+                    weekId,
+                    partId: part.id,
+                    isStudent,
+                    channel: 'z-api',
+                    isSubstitution: substitutionIds.has(part.id)
+                }
+            });
+
+            if (result.success) {
+                const nowIso = new Date().toISOString();
+                setLastMessages(prev => ({ ...prev, [part.id]: { content: message, created_at: nowIso } }));
+                setSendHistory(prev => {
+                    const arr = prev[part.id] ? [...prev[part.id]] : [];
+                    arr.unshift({ sentAt: nowIso, kind: substitutionIds.has(part.id) ? 'substituicao' : 'inicial' });
+                    return { ...prev, [part.id]: arr };
+                });
+                alert('✅ S-89 enviado via Z-API para ' + publisherName + '.');
+            } else {
+                alert('❌ Falha no envio via Z-API: ' + (result.error || 'erro desconhecido'));
+            }
+        } catch (error) {
+            console.error('Erro ao enviar S-89 via Z-API:', error);
+            alert('Erro ao processar envio via Z-API.');
+        } finally {
+            setProcessingZapiIds(prev => {
+                const next = new Set(prev);
+                next.delete(part.id);
+                return next;
+            });
+        }
+    };
+
     // --- S-140 SHARE LOGIC ---
     const handleShareS140 = async () => {
         if (!s140Ref.current) return;
@@ -722,8 +813,6 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
     // --- Item 4: STATUS BOARD SHARE LOGIC ---
     const handleShareStatusBoard = async () => {
-        if (!statusRef.current) return;
-        setIsSharingStatus(true);
         try {
             // Recarregar respostas para snapshot atualizado
             await loadConfirmationStatuses();
@@ -783,6 +872,11 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         if (!s140Ref.current) return;
         setIsPostingS140Group(true);
         try {
+            const recipients = await zapiOrchestrator.getBroadcastRecipients();
+            if (recipients.length === 0) {
+                alert('Nenhum destinatário configurado (SRVM, Ajudante SRVM ou Grupo).');
+                return;
+            }
             const canvas = await html2canvas(s140Ref.current, {
                 scale: 2,
                 backgroundColor: '#ffffff',
@@ -790,15 +884,16 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 logging: false,
             });
             const dataUrl = canvas.toDataURL('image/png');
-            const result = await zapiOrchestrator.dispatchGroupImage(dataUrl, buildS140Caption());
-            if (result.success) {
-                alert('✅ S-140 postado no grupo.');
+            const results = await zapiOrchestrator.dispatchImageToRecipients(dataUrl, buildS140Caption(), recipients);
+            const ok = results.filter(r => r.success).length;
+            if (ok === results.length) {
+                alert(`✅ S-140 enviado via Z-API (${ok}/${results.length} destinatários: Ajd SRVM + SRVM + Grupo).`);
             } else {
-                alert('❌ Falha ao postar S-140 no grupo: ' + (result.error || 'erro desconhecido'));
+                alert(`⚠️ S-140 enviado parcialmente: ${ok}/${results.length}.\n` + results.filter(r => !r.success).map(r => `• ${r.phone}: ${r.error || 'erro'}`).join('\n'));
             }
         } catch (err) {
-            console.error('Erro ao postar S-140 no grupo:', err);
-            alert('Erro ao gerar/postar imagem S-140 no grupo.');
+            console.error('Erro ao enviar S-140 via Z-API:', err);
+            alert('Erro ao gerar/enviar imagem S-140 via Z-API.');
         } finally {
             setIsPostingS140Group(false);
         }
@@ -808,6 +903,11 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         if (!statusRef.current) return;
         setIsPostingStatusGroup(true);
         try {
+            const recipients = await zapiOrchestrator.getBroadcastRecipients();
+            if (recipients.length === 0) {
+                alert('Nenhum destinatário configurado (SRVM, Ajudante SRVM ou Grupo).');
+                return;
+            }
             await loadConfirmationStatuses();
             await new Promise(r => setTimeout(r, 80));
             const canvas = await html2canvas(statusRef.current, {
@@ -818,15 +918,16 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             });
             const dataUrl = canvas.toDataURL('image/png');
             const caption = `Status atual das designações — semana ${weekId}.`;
-            const result = await zapiOrchestrator.dispatchGroupImage(dataUrl, caption);
-            if (result.success) {
-                alert('✅ Status postado no grupo.');
+            const results = await zapiOrchestrator.dispatchImageToRecipients(dataUrl, caption, recipients);
+            const ok = results.filter(r => r.success).length;
+            if (ok === results.length) {
+                alert(`✅ Status enviado via Z-API (${ok}/${results.length} destinatários: Ajd SRVM + SRVM + Grupo).`);
             } else {
-                alert('❌ Falha ao postar Status no grupo: ' + (result.error || 'erro desconhecido'));
+                alert(`⚠️ Status enviado parcialmente: ${ok}/${results.length}.\n` + results.filter(r => !r.success).map(r => `• ${r.phone}: ${r.error || 'erro'}`).join('\n'));
             }
         } catch (err) {
-            console.error('Erro ao postar status no grupo:', err);
-            alert('Erro ao gerar/postar imagem do status no grupo.');
+            console.error('Erro ao enviar status via Z-API:', err);
+            alert('Erro ao gerar/enviar imagem do status via Z-API.');
         } finally {
             setIsPostingStatusGroup(false);
         }
@@ -1075,9 +1176,9 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                     fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
                                     opacity: isPostingS140Group ? 0.7 : 1
                                 }}
-                                title="Posta a imagem do S-140 direto no grupo (Z-API)"
+                                title="Envia a imagem do S-140 via Z-API para Ajd SRVM + SRVM + Grupo"
                             >
-                                {isPostingS140Group ? '⏳...' : 'Grupo S-140 📤'}
+                                {isPostingS140Group ? '⏳...' : 'S-140 z-api 📤'}
                             </button>
                             <button
                                 onClick={handlePostStatusToGroup}
@@ -1088,9 +1189,9 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                     fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
                                     opacity: isPostingStatusGroup ? 0.7 : 1
                                 }}
-                                title="Posta a imagem do Status direto no grupo (Z-API)"
+                                title="Envia a imagem do Status via Z-API para Ajd SRVM + SRVM + Grupo"
                             >
-                                {isPostingStatusGroup ? '⏳...' : 'Grupo Status 📤'}
+                                {isPostingStatusGroup ? '⏳...' : 'Status z-api 📤'}
                             </button>
                         </div>
                     </div>
@@ -1106,6 +1207,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                         validParts.map(part => {
                             const isProcessing = processingIds.has(part.id);
                             const isProcessingReconfirm = processingReconfirmIds.has(part.id);
+                            const isProcessingZapi = processingZapiIds.has(part.id);
                             const lastSent = lastMessages[part.id];
                             return (
                                 <div key={part.id} style={{
@@ -1285,6 +1387,19 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                 }}
                                             >
                                                 {isProcessing ? '⏳...' : 'Zap 📤'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleSendS89ViaZApi(part)}
+                                                disabled={isProcessingZapi}
+                                                style={{
+                                                    background: '#128C7E', color: 'white', border: 'none',
+                                                    padding: '8px 12px', borderRadius: '6px', cursor: isProcessingZapi ? 'wait' : 'pointer',
+                                                    fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
+                                                    opacity: isProcessingZapi ? 0.7 : 1
+                                                }}
+                                                title="Envia o cartão S-89 (imagem + texto com link) direto ao publicador via Z-API"
+                                            >
+                                                {isProcessingZapi ? '⏳...' : 'S-89 z-api 📤'}
                                             </button>
                                         </div>
                                     </div>

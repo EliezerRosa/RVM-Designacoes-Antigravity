@@ -1033,3 +1033,35 @@ export function renderS140ToElement(weekData: S140WeekDataUnified): HTMLElement 
 
     return wrapper;
 }
+
+/**
+ * Gera a imagem PNG (data-URL base64) do S-140 de forma HEADLESS, sem depender
+ * do DOM do modal. Renderiza o elemento off-screen, captura com html2canvas e
+ * remove. Usado pelo fluxo "Publicar" (lote/agente).
+ */
+export async function generateS140ImageBase64(parts: WorkbookPart[], publishers?: Publisher[]): Promise<string | null> {
+    const html2canvas = (await import('html2canvas')).default;
+    const weekData = await prepareS140UnifiedData(parts, publishers);
+    const element = renderS140ToElement(weekData);
+    element.style.position = 'fixed';
+    element.style.left = '-10000px';
+    element.style.top = '0';
+    element.style.zIndex = '-1';
+    document.body.appendChild(element);
+    try {
+        // Pequena espera para o navegador aplicar estilos antes da captura.
+        await new Promise(r => setTimeout(r, 60));
+        const canvas = await html2canvas(element, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+        });
+        return canvas.toDataURL('image/png');
+    } catch (err) {
+        console.error('[s140] Falha ao gerar imagem headless do S-140:', err);
+        return null;
+    } finally {
+        document.body.removeChild(element);
+    }
+}

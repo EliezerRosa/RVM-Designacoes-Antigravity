@@ -25,6 +25,8 @@ interface Params {
     canExecute: (actionType: AgentActionType) => boolean;
     sendMessage: (overrideInput?: string) => Promise<void>;
     handleShareS140: (weekId: string, viewOnly?: boolean) => Promise<void>;
+    handlePublishWeek: (weekId: string) => Promise<void>;
+    handleUnpublishWeek: (weekId: string) => Promise<void>;
     executeDirectAction: (action: AgentAction, nextTopic?: string) => Promise<void>;
     handleApproveProposal: (partId: string) => Promise<void>;
     handleCompletePart: (partId: string) => Promise<void>;
@@ -55,6 +57,8 @@ export function useTemporalChatSemanticControls({
     canExecute,
     sendMessage,
     handleShareS140,
+    handlePublishWeek,
+    handleUnpublishWeek,
     executeDirectAction,
     handleApproveProposal,
     handleCompletePart,
@@ -148,6 +152,15 @@ export function useTemporalChatSemanticControls({
             });
         }
 
+        if (currentWeekId && canSendZap) {
+            chips.push({
+                id: 'chip-publish-week',
+                label: `Publicar ${currentWeekId}`,
+                onClick: () => void handlePublishWeek(currentWeekId),
+                tone: 'accent'
+            });
+        }
+
         if (canExecute('UNDO_LAST')) {
             chips.push({
                 id: 'chip-undo',
@@ -182,7 +195,7 @@ export function useTemporalChatSemanticControls({
         }
 
         return chips;
-    }, [currentWeekId, canSendZap, currentWeekProposals, canSeeApprovalMicroUi, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, canExecute, handleShareS140, executeDirectAction, openApprovalMicroUi, openAvailabilityMicroUi, openCompletionMicroUi, openPublisherEditMicroUi, sendMessage]);
+    }, [currentWeekId, canSendZap, currentWeekProposals, canSeeApprovalMicroUi, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, canExecute, handleShareS140, handlePublishWeek, executeDirectAction, openApprovalMicroUi, openAvailabilityMicroUi, openCompletionMicroUi, openPublisherEditMicroUi, sendMessage]);
 
     const slashCommands = useMemo(() => {
         const allCommands: Array<{
@@ -346,6 +359,28 @@ export function useTemporalChatSemanticControls({
                 }
             },
             {
+                id: 'cmd-publicar',
+                command: '/publicar',
+                description: 'Publica a semana em foco: envia S-89 (com link) a cada designado + S-140 ao Grupo (Z-API, em lote)',
+                onSelect: () => {
+                    setInput('');
+                    if (currentWeekId) {
+                        void handlePublishWeek(currentWeekId);
+                    }
+                }
+            },
+            {
+                id: 'cmd-despublicar',
+                command: '/despublicar',
+                description: 'Despublica a semana em foco (limpa o marcador para permitir reenviar)',
+                onSelect: () => {
+                    setInput('');
+                    if (currentWeekId) {
+                        void handleUnpublishWeek(currentWeekId);
+                    }
+                }
+            },
+            {
                 id: 'cmd-limpar-semana',
                 command: '/limpar-semana',
                 description: 'Remove designações da semana em foco',
@@ -416,7 +451,7 @@ export function useTemporalChatSemanticControls({
         ];
 
         return allCommands.filter(command => !command.requiredAction || canExecute(command.requiredAction));
-    }, [currentWeekId, currentWeekProposals, currentWeekCompletableParts, currentWeekCompletedParts, canExecute, setInput, inputRef, handleApproveProposal, handleCompletePart, handleUndoCompletePart, setProposalRejectFocusId, setActiveTopic, executeDirectAction, handleShareS140]);
+    }, [currentWeekId, currentWeekProposals, currentWeekCompletableParts, currentWeekCompletedParts, canExecute, setInput, inputRef, handleApproveProposal, handleCompletePart, handleUndoCompletePart, setProposalRejectFocusId, setActiveTopic, executeDirectAction, handleShareS140, handlePublishWeek, handleUnpublishWeek]);
 
     const visibleSlashCommands = useMemo<SlashCommandItem[]>(() => {
         if (!input.startsWith('/')) return [];
