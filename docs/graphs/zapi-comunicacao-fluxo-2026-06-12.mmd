@@ -1,0 +1,42 @@
+%% Fluxo de comunicacao Z-API (automatico / semi / manual) — RVM Designacoes
+%% Atualizado em 2026-06-12 apos as 4 fases da feature "Publicar semana".
+%% Caminhos manuais-web permanecem INTOCADOS; caminhos z-api sao desacoplados
+%% e passam sempre pela Edge Function send-whatsapp.
+flowchart TD
+    subgraph Cliente[Browser / App]
+        A[Login 2FA] -->|sendText direto| WA[whatsappAutoService]
+
+        B[Modal S-89: cartao individual] -->|MANUAL: clipboard + WhatsApp Web| MAN[generateWhatsAppUrl]
+        B -->|Z-API: botao S-89 z-api| ORC[zapiOrchestrator]
+        C[Modal S-89: reconfirmacao] -->|MANUAL| MAN
+        D[Modal S-89: S-140/Status z-api] -->|getBroadcastRecipients + dispatchImageToRecipients| ORC
+
+        E[Portal: publicador ACEITA] -->|dispatchS89Receipt| ORC
+        F[Portal: publicador RECUSA] -->|dispatchRefusalAlert| ORC
+
+        P1[Aba Apostila: Publicar / Despublicar semana] --> WPS[weekPublishService]
+        P2[Agente: /publicar, /despublicar + chip] --> WPS
+        WPS -->|S-89 lote idempotente PUBLICACAO_S89| ORC
+        WPS -->|S-140 + Status board headless ao broadcast| ORC
+    end
+
+    subgraph Servidor
+        CRON[pg_cron 09:00 BRT] -->|x-cron-secret| REM[cron-whatsapp-reminders]
+        REM -->|D-7/D-2/D-1| EF[send-whatsapp]
+        ORC --> EF
+        WA --> EF
+        EF -->|client-token| ZAPI[(Z-API REST)]
+    end
+
+    MAN -.->|abre WhatsApp Web, humano cola| Humano
+
+    BC([Destinatarios broadcast = Ajd SRVM + SRVM + Grupo])
+    D -.-> BC
+    WPS -.-> BC
+
+    %% Notas:
+    %% - Idempotencia: /publicar usa sendS89Direct(..., 'PUBLICACAO_S89'), 1x por pub (zapi_dispatch_log).
+    %%   Botao individual do modal NAO e idempotente (envio manual sob demanda).
+    %% - Gates: canSendZap (UI: Admin OU Anciao+SRVM OU SM+Ajd SRVM) + zapi_automation_active (backend, em publishWeek).
+    %% - dispatchGroupImage agora delega a sendImageDirect.
+    %% - Bug pre-existente em aberto: dispatchRefusalAlert ao GRUPO pode falhar isValidBRPhone.

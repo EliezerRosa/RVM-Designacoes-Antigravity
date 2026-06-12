@@ -101,21 +101,32 @@ class ZApiOrchestrator {
         }
 
         const alertData = await communicationService.buildRefusalAlertMessage(part, reason);
-        const adminGroupId = await this.getAdminGroupId();
-        
-        // Se houver um grupo configurado, enviar para o grupo, senão enviar direto para o superintendente
-        const recipient = adminGroupId || alertData.srvmPhone;
-        
-        if (!recipient) {
-            console.error('[zapiOrchestrator] Nenhum destinatário para o alerta de recusa.');
+
+        // Recusa: alertar APENAS SRVM + Ajudante SRVM (telefones individuais), NUNCA o grupo.
+        // O grupo é reservado para a publicação (automática ou manual-z-api no modal).
+        // Caminho desacoplado via Edge Function (sendTextDirect aceita qualquer telefone,
+        // sem a validação BR client-side que barraria — e que antes barrava o group id).
+        const [srvmPhone, ajdPhone] = await Promise.all([
+            this.getSrvmPhone(),
+            this.getAjdSrvmPhone(),
+        ]);
+        const recipients = Array.from(new Set(
+            [srvmPhone, ajdPhone, alertData.srvmPhone].filter((x): x is string => !!x && x.trim().length > 0)
+        ));
+
+        if (recipients.length === 0) {
+            console.error('[zapiOrchestrator] Nenhum destinatário (SRVM/Ajd SRVM) para o alerta de recusa.');
             return false;
         }
 
-        console.log(`[zapiOrchestrator] Enviando alerta de recusa para ${recipient}`);
-        const result = await this.waService.sendText(recipient, alertData.alertMsg);
-        
-        await this.logDispatch(part.id, 'RECUSA_ALERTA', recipient, result.success ? 'SUCCESS' : 'ERROR: ' + result.error);
-        return result.success;
+        let anySuccess = false;
+        for (const recipient of recipients) {
+            console.log(`[zapiOrchestrator] Enviando alerta de recusa para ${recipient}`);
+            const result = await this.sendTextDirect(recipient, alertData.alertMsg);
+            await this.logDispatch(part.id, 'RECUSA_ALERTA', recipient, result.success ? 'SUCCESS' : 'ERROR: ' + result.error);
+            if (result.success) anySuccess = true;
+        }
+        return anySuccess;
     }
     
     async sendText(phone: string, text: string) {
