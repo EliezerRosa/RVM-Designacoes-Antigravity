@@ -1001,12 +1001,13 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                             {validParts.map(part => {
                                 // REGRA AUTORITATIVA: part.status manda.
                                 //   DESIGNADA  → ACEITA
+                                //   CONCLUIDA  → ACEITO (parte já realizada conta como aceite na imagem)
                                 //   REJEITADA  → REJEITADA
                                 //   senão      → AGUARDANDO (se já enviou) / — não enviado —
                                 // portal_response só é usado para preencher respondedAt quando coincide.
                                 const portal = confirmationStatuses[part.id];
                                 let status: PartConfirmationStatus | undefined;
-                                if (part.status === 'DESIGNADA') {
+                                if (part.status === 'DESIGNADA' || part.status === 'CONCLUIDA') {
                                     status = { response: 'accepted', respondedAt: portal?.respondedAt };
                                 } else if (part.status === 'REJEITADA') {
                                     status = { response: 'declined', respondedAt: portal?.respondedAt };
