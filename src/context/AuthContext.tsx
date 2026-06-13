@@ -197,6 +197,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!mounted) return;
           await hydrateSession(session, event);
         }, 0);
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        // If there's no session initially (e.g. invalid token, clock skew, or just not logged in)
+        // we must call updateState to clear isLoading
+        if (mounted) updateState(null, null, null);
       }
     });
 
