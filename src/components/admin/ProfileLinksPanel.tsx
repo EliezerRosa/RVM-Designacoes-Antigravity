@@ -136,10 +136,10 @@ export function ProfileLinksPanel() {
     };
 
     const handleDeleteProfile = async (profileId: string, profileEmail: string) => {
-        if (!confirm(`Excluir permanentemente o registro de acesso de ${profileEmail}?\n\nEle precisará logar novamente para criar um novo registro.`)) return;
+        if (!confirm(`Excluir permanentemente a conta de acesso de ${profileEmail}?\n\nIsso apagará o login da conta Google do sistema. Ele precisará fazer login novamente para criar um novo registro do zero.`)) return;
         setBusyProfile(profileId);
         try {
-            const { data, error } = await supabase.rpc('admin_delete_profile', {
+            const { data, error } = await supabase.rpc('admin_delete_user_completely', {
                 p_profile_id: profileId,
             });
             if (error) throw error;
