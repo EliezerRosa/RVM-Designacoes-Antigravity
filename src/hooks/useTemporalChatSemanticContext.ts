@@ -37,7 +37,7 @@ export function useTemporalChatSemanticContext({
                 }
             }
 
-            publisher.aliases.forEach(alias => {
+            publisher.aliases?.forEach(alias => {
                 const normalizedAlias = normalizeSemanticText(alias);
                 if (normalizedAlias && normalizedText.includes(normalizedAlias)) {
                     if (!currentBest || normalizedAlias.length > currentBest.score) {
