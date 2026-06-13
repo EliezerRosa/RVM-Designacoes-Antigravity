@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export function LoginPage() {
-  const { user, needs2FA, signInWithGoogle, requestWhatsAppCode, verifyWhatsAppCode } = useAuth();
+  const { user, needs2FA, signInWithGoogle, requestWhatsAppCode, verifyWhatsAppCode, signOut } = useAuth();
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +90,13 @@ export function LoginPage() {
               <button type="submit" style={styles.btnBlue}>
                 📱 Solicitar Código
               </button>
+              <button
+                type="button"
+                onClick={() => signOut()}
+                style={styles.btnLinkRed}
+              >
+                Sair / Trocar Conta
+              </button>
             </form>
           ) : (
             <form onSubmit={handleVerifyCode} style={styles.form}>
@@ -115,6 +122,13 @@ export function LoginPage() {
                 style={styles.btnLink}
               >
                 ← Solicitar novo código
+              </button>
+              <button
+                type="button"
+                onClick={() => signOut()}
+                style={{...styles.btnLinkRed, marginTop: 5}}
+              >
+                Sair / Trocar Conta
               </button>
             </form>
           )}
@@ -292,10 +306,19 @@ const styles: Record<string, React.CSSProperties> = {
   btnLink: {
     background: 'none',
     border: 'none',
-    color: '#60a5fa',
-    fontSize: '0.875rem',
+    color: '#3B82F6',
     cursor: 'pointer',
-    padding: '0.5rem',
+    fontSize: '14px',
+    marginTop: '10px',
+  },
+  btnLinkRed: {
+    background: 'none',
+    border: 'none',
+    color: '#EF4444',
+    cursor: 'pointer',
+    fontSize: '14px',
+    marginTop: '10px',
+    padding: '8px',
   },
   footer: {
     color: '#64748b',
