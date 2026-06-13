@@ -212,7 +212,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         await hydrateSession(data.session, 'bootstrap');
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.name === 'AbortError') {
+          console.warn('[Auth] getSession aborted (likely due to concurrent URL fragment parsing). Ignoring.');
+          return;
+        }
         console.error('[Auth] Unexpected bootstrap error:', error);
         if (mounted) {
           updateState(null, null, null);
