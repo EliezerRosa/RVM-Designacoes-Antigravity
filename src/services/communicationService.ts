@@ -579,8 +579,26 @@ export const communicationService = {
         );
 
         if (publisherId) {
-            const confirmationUrl = await this.createConfirmationPortalLink(realPartId, publisherId);
-            if (confirmationUrl) {
+            let finalUrl: string | null = null;
+            
+            // 1. Verificar se o publicador possui um Token VIP pendente
+            const { data: vipToken } = await supabase
+                .from('onboarding_tokens')
+                .select('token')
+                .eq('publisher_id', publisherId)
+                .is('used_at', null)
+                .gte('expires_at', new Date().toISOString())
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (vipToken?.token) {
+                finalUrl = `${getAppBaseUrl()}/?portal=invite&token=${vipToken.token}`;
+            } else {
+                finalUrl = await this.createConfirmationPortalLink(realPartId, publisherId);
+            }
+
+            if (finalUrl) {
                 content = generateWhatsAppMessage(
                     part,
                     recipientGender,
@@ -589,7 +607,7 @@ export const communicationService = {
                     isAjudante,
                     srvmName,
                     srvmPhone,
-                    confirmationUrl,
+                    finalUrl,
                     options.isSubstitution,
                     meetingDayOfWeek
                 );
