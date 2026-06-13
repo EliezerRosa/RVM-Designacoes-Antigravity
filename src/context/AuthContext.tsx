@@ -271,6 +271,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const result = getRpcResult(data);
     if (!result.success) {
+      if (result.error === 'phone_already_in_use') {
+        return { error: 'Este número de WhatsApp já está vinculado a outra conta.' };
+      }
       return { error: 'Falha ao solicitar código.' };
     }
 
@@ -310,11 +313,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = getRpcResult(data);
     if (!result.success) {
       await logAuthEvent(state.user.id, state.user.email || '', '2fa_failed', { code });
-      return {
-        error: result.error === 'invalid_or_expired'
-          ? 'Código inválido ou expirado.'
-          : 'Falha ao verificar o código.',
-      };
+      
+      let errorMsg = 'Falha ao verificar o código.';
+      if (result.error === 'invalid_or_expired') {
+        errorMsg = 'Código inválido ou expirado.';
+      } else if (result.error === 'phone_already_in_use') {
+        errorMsg = 'Este número de WhatsApp já está vinculado a outra conta.';
+      }
+
+      return { error: errorMsg };
     }
 
     await logAuthEvent(state.user.id, state.user.email || '', '2fa_verified', { phone: result.phone });
