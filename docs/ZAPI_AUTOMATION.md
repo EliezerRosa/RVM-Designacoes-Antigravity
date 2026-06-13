@@ -5,7 +5,7 @@ Este documento descreve a infraestrutura estabelecida em Junho de 2026 para auto
 ## 1. Segurança de Identidade (Vínculos 1:1)
 Para evitar que múltiplos emails fossem vinculados ao mesmo Publicador (o que gerava conflitos de ID e permissões duplicadas), implementamos um bloqueio duro a nível de banco de dados:
 - **`idx_profiles_publisher_id`**: Um `UNIQUE INDEX` na tabela `profiles` sobre a coluna `publisher_id`. 
-Isões significa que o banco de dados rejeitará qualquer tentativa de vincular um `publisher_id` que já esteja associado a outro `profile`.
+Isso significa que o banco de dados rejeitará qualquer tentativa de vincular um `publisher_id` que já esteja associado a outro `profile`.
 
 ### 1.1 Resolução em Lote de Vínculos Pendentes
 Quando novos usuários (emails) acessam o sistema, eles podem solicitar vínculo a um nome de publicador. O sistema agora possui um modal de resolução inteligente no componente `AgentModalHost`, acessível pelo botão piscante na aba "Agente IA".
@@ -32,8 +32,22 @@ Foi implantada a função Serverless `cron-whatsapp-reminders` no Supabase, resp
 - Dispara lembretes de D-7, D-2 e D-1 (Amanhã).
 - Após enviar, registra no `zapi_dispatch_log` para não re-enviar.
 
-## 3. UI de Configuração
-Na aba de **Admin Dashboard**, foi adicionada a sub-guia "Config. Z-API", que permite ligar/desligar a automação global de envios em background, além de configurar a rota dos Alertas de Recusa (Z-API Group ID).
+## 3. Carga Inicial: Magic Link Onboarding (Novo - Fase 2)
+Para zerar a barreira de entrada dos publicadores, foi arquitetada a estratégia "Carga Inicial Z-API".
+Em vez de depender do protocolo manual de envio de código de 6 dígitos via 2FA para verificação de celular, o sistema utiliza a automação Z-API para invitar os publicadores de forma preemptiva.
+
+### 3.1 Infraestrutura de Convites
+- **Tabela `onboarding_tokens`**: Registra UUIDs aleatórios com 14 dias de validade, associados a um `publisher_id` e a um `phone`.
+- **Portal VIP (`InvitePortal.tsx`)**: Uma rota de destino oculta `/?portal=invite&token=...`.
+- **Auto-Vínculo (Security Definer)**: A RPC `consume_onboarding_token` tem super-poderes no PostgreSQL para, após o usuário logar no Google pelo Portal VIP, gravar `whatsapp_verified = true` no `profiles` atrelando o número de celular em que ele recebeu o convite.
+
+### 3.2 Graduação de Disparos e Interceptação no S-89
+A emissão dos convites acontece de forma progressiva e "sem sustos":
+1. **Modal de Disparo Gradual**: O painel do Admin não faz envios massivos cegos, ele permite a seleção visual via checkboxes dos publicadores elegíveis (com cel, mas sem 2FA), permitindo dosar envios (ex: lotes de 10) para evitar banimento pelo Z-API.
+2. **Injeção Inteligente no S-89**: A maior via orgânica de convites é através das designações. Durante o "Publicar Semana" (ou envio isolado do S-89 manual na aba agente), se o publicador alvo precisa de um Token VIP, a própria string do S-89 é modificada para carregar o link `portal=invite` em vez do tradicional `portal=confirm`. Assim, ao aceitar ou visualizar a parte mensal, o publicador é instantaneamente "onboarded" de surpresa, eliminando o degrau do 2FA para ele.
+
+## 4. UI de Configuração
+Na aba de **Admin Dashboard**, foi adicionada a sub-guia "Config. Z-API", que permite ligar/desligar a automação global de envios em background, configurar o Z-API Group ID e agora, também abriga o botão **🚀 Carga Inicial** para acionar o modal de disparos graduais de Onboarding.
 
 ## Como Testar ou Manter
 1. Para debugar mensagens, verifique a tabela `zapi_dispatch_log` no Supabase. Lá consta o status e telefone.
