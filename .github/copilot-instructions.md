@@ -4,6 +4,7 @@
 
 A cada conversa neste workspace você DEVE:
 
+0. **ESTADO VIVO (ler PRIMEIRO)** — Existe um arquivo canônico de estado de nome FIXO: `/memories/repo/_ESTADO-ATUAL.md`. Leia-o ANTES de agir, para se posicionar no estado mais recente da conversa e objetivos. Ao fim de cada bloco lógico, atualize-o in-place (substituir, não duplicar; nome perene, nunca datado, nunca descartado).
 1. **No início** — Listar `/memories/`, `/memories/session/` e `/memories/repo/` e ler os arquivos relevantes ao tópico antes de agir.
 2. **Durante** — Manter uma nota viva em `/memories/session/<assunto>.md` com objetivo, decisões, arquivos tocados (links workspace-relative) e próximos passos. Atualizar a cada marco real.
 3. **Ao final de blocos significativos** — Promover aprendizados para:
