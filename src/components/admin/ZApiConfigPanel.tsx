@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
+import { supabase } from '../../lib/supabase';
+import { createWhatsAppAutoServiceFromEnv } from '../../services/whatsappAutoService';
 
 export function ZApiConfigPanel() {
     const [isActive, setIsActive] = useState(false);
@@ -7,6 +8,11 @@ export function ZApiConfigPanel() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
+    
+    // Onboarding State
+    const [onboardingStatus, setOnboardingStatus] = useState<'idle' | 'running' | 'done'>('idle');
+    const [onboardingProgress, setOnboardingProgress] = useState({ total: 0, current: 0 });
+    const [onboardingLogs, setOnboardingLogs] = useState<string[]>([]);
 
     useEffect(() => {
         loadSettings();
@@ -39,6 +45,82 @@ export function ZApiConfigPanel() {
             console.error(err);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleRunOnboarding = async () => {
+        if (!confirm('Esta ação vai disparar mensagens Z-API para dezenas de publicadores. Tem certeza?')) return;
+        
+        setOnboardingStatus('running');
+        setOnboardingLogs(['Iniciando varredura de publicadores...']);
+        
+        try {
+            // 1. Obter todos os publicadores com celular
+            const { data: pubs, error: pubErr } = await supabase.from('publishers').select('*');
+            if (pubErr) throw pubErr;
+            
+            // 2. Obter perfis já validados
+            const { data: profiles, error: profErr } = await supabase.from('profiles').select('publisher_id').eq('whatsapp_verified', true);
+            if (profErr) throw profErr;
+            
+            const verifiedPubIds = new Set(profiles.map(p => p.publisher_id).filter(Boolean));
+            
+            const targetPubs = pubs.filter(p => {
+                if (verifiedPubIds.has(p.id)) return false; // Already verified
+                const phone = p.data?.phone || p.data?.contact_phone;
+                if (!phone || typeof phone !== 'string') return false; // No phone
+                if (phone.replace(/\\D/g, '').length < 10) return false; // Invalid phone
+                return true;
+            });
+            
+            setOnboardingLogs(prev => [...prev, `Encontrados ${targetPubs.length} publicadores elegíveis.`]);
+            setOnboardingProgress({ total: targetPubs.length, current: 0 });
+            
+            if (targetPubs.length === 0) {
+                setOnboardingStatus('done');
+                return;
+            }
+
+            const waService = createWhatsAppAutoServiceFromEnv();
+
+            for (let i = 0; i < targetPubs.length; i++) {
+                const pub = targetPubs[i];
+                const rawPhone = pub.data.phone || pub.data.contact_phone;
+                const cleanPhone = rawPhone.replace(/\\D/g, '');
+                
+                try {
+                    // Generate token by inserting into DB
+                    const { data: tokenData, error: tokenErr } = await supabase
+                        .from('onboarding_tokens')
+                        .insert({ publisher_id: pub.id, phone: cleanPhone })
+                        .select('token')
+                        .single();
+                        
+                    if (tokenErr) throw tokenErr;
+                    
+                    const inviteLink = `${window.location.origin}/?portal=invite&token=${tokenData.token}`;
+                    const msg = `Olá *${pub.data.name}*, tudo bem?\n\nEste é o seu convite VIP para acessar o novo painel do *RVM Designações*.\n\nPara vincular sua conta automaticamente com total segurança, basta clicar no link abaixo e fazer login com o Google:\n\n🔗 ${inviteLink}\n\n_(Este link é de uso único e pessoal)_`;
+                    
+                    const waRes = await waService.sendText(cleanPhone, msg);
+                    if (!waRes.success) {
+                        setOnboardingLogs(prev => [...prev, `⚠️ Falha ao enviar para ${pub.data.name} (${cleanPhone})`]);
+                    } else {
+                        setOnboardingLogs(prev => [...prev, `✅ Enviado para ${pub.data.name}`]);
+                    }
+                } catch (e: any) {
+                    setOnboardingLogs(prev => [...prev, `❌ Erro no pub ${pub.data.name}: ${e.message}`]);
+                }
+                
+                setOnboardingProgress({ total: targetPubs.length, current: i + 1 });
+                // Small delay to avoid rate limiting
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            
+            setOnboardingLogs(prev => [...prev, '🎉 Processo de Onboarding concluído!']);
+        } catch (e: any) {
+            setOnboardingLogs(prev => [...prev, `🔥 Erro fatal: ${e.message}`]);
+        } finally {
+            setOnboardingStatus('done');
         }
     };
 
@@ -77,7 +159,7 @@ export function ZApiConfigPanel() {
                 </p>
             </div>
 
-            <div style={{ marginLeft: '30px' }}>
+            <div style={{ marginLeft: '30px', marginTop: '20px' }}>
                 <button 
                     onClick={handleSave} 
                     disabled={saving}
@@ -86,6 +168,29 @@ export function ZApiConfigPanel() {
                     {saving ? 'Salvando...' : 'Salvar Configurações'}
                 </button>
                 {message && <span style={{ marginLeft: '15px', color: message.includes('Erro') ? '#ef4444' : '#10b981' }}>{message}</span>}
+            </div>
+            
+            <hr style={{ borderColor: '#334155', margin: '40px 0' }} />
+            
+            <div style={{ padding: '20px', background: '#1e293b', borderRadius: '8px', border: '1px solid #334155' }}>
+                <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b' }}>🚀 Carga Inicial (Magic Link Onboarding)</h3>
+                <p style={{ color: '#94a3b8', marginBottom: '20px', lineHeight: 1.5 }}>
+                    Esta ferramenta varre todos os publicadores que ainda não validaram o 2FA, gera um <strong>Token de Uso Único</strong> e dispara um WhatsApp com um convite automático. Ao clicar, o publicador fará login pelo Google e terá o 2FA pulado permanentemente.
+                </p>
+                
+                <button 
+                    onClick={handleRunOnboarding} 
+                    disabled={onboardingStatus === 'running'}
+                    style={{ padding: '12px 24px', background: onboardingStatus === 'running' ? '#64748b' : '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', cursor: onboardingStatus === 'running' ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                >
+                    {onboardingStatus === 'running' ? `Disparando... (${onboardingProgress.current}/${onboardingProgress.total})` : 'Gerar e Disparar Convites Z-API'}
+                </button>
+                
+                {onboardingLogs.length > 0 && (
+                    <div style={{ marginTop: '20px', padding: '15px', background: '#0f172a', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                        {onboardingLogs.map((log, i) => <div key={i} style={{ marginBottom: '4px' }}>{log}</div>)}
+                    </div>
+                )}
             </div>
         </div>
     );

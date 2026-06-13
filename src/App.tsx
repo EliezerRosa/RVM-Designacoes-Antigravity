@@ -13,6 +13,7 @@ import PublisherDuplicateChecker from './components/PublisherDuplicateChecker'
 import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 import { MyAssignmentsPortal } from './components/MyAssignmentsPortal'
+import { InvitePortal } from './components/InvitePortal'
 import { LoginPage } from './components/LoginPage'
 import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
@@ -106,6 +107,15 @@ function App() {
             Solicite um novo link de confirmação gerado pela mensagem S-89 atualizada.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // PORTAL: Convite VIP para onboarding
+  if (portal === 'invite' && portalToken) {
+    return (
+      <div className="app portal-mode">
+        <InvitePortal token={portalToken} />
       </div>
     );
   }
