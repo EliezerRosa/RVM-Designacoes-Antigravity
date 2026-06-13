@@ -204,30 +204,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    void (async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (!mounted) return;
-
-        if (error) {
-          console.error('[Auth] Failed to bootstrap session:', error);
-          updateState(null, null, null);
-          return;
-        }
-
-        await hydrateSession(data.session, 'bootstrap');
-      } catch (error: any) {
-        if (error?.name === 'AbortError') {
-          console.warn('[Auth] getSession aborted (likely due to concurrent URL fragment parsing). Ignoring.');
-          return;
-        }
-        console.error('[Auth] Unexpected bootstrap error:', error);
-        if (mounted) {
-          updateState(null, null, null);
-        }
-      }
-    })();
-
     return () => {
       mounted = false;
       subscription.unsubscribe();
