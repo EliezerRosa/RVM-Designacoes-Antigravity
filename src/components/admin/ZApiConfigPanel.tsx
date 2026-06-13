@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { supabase } from '../../lib/supabase';
 import { createWhatsAppAutoServiceFromEnv } from '../../services/whatsappAutoService';
