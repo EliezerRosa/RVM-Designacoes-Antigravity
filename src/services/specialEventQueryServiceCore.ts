@@ -3,6 +3,7 @@ import type { SpecialEvent } from '../types';
 interface SpecialEventQueryDependencies {
     specialEventClient: {
         getEventsByWeek: (weekId: string) => Promise<SpecialEvent[]>;
+        getAllEvents: () => Promise<SpecialEvent[]>;
     };
 }
 
@@ -14,6 +15,11 @@ export function createSpecialEventQueryService(dependencies: SpecialEventQueryDe
 
         async getAppliedWeekEvents(weekId: string) {
             const events = await dependencies.specialEventClient.getEventsByWeek(weekId);
+            return events.filter(event => event.isApplied);
+        },
+
+        async getActiveEvents() {
+            const events = await dependencies.specialEventClient.getAllEvents();
             return events.filter(event => event.isApplied);
         },
     };
