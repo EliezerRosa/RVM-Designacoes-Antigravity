@@ -110,11 +110,16 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     const [formAssignee, setFormAssignee] = useState('');
     const [formAutoApply, setFormAutoApply] = useState(true);
 
-    // Sub-evento (templates com ADD_PART)
+    // Sub-evento (Injeção Flexível de Parte)
+    const [formInjectPart, setFormInjectPart] = useState(false);
     const [formSubEventDuration, setFormSubEventDuration] = useState(10);
     const [formSubEventTheme, setFormSubEventTheme] = useState('');
     const [formAssigneeIsCustom, setFormAssigneeIsCustom] = useState(false);
     const [formInsertAfterId, setFormInsertAfterId] = useState<string>('');
+
+    // Nota S-140
+    const [formS140Note, setFormS140Note] = useState('');
+    const [prevMachineNote, setPrevMachineNote] = useState('');
 
     // Suporte a Impactos Granulares por Parte
     const [formGranularImpacts, setFormGranularImpacts] = useState<Record<string, { visual: boolean; cancel: boolean; reduceTime: boolean; minutes: number }>>({});
@@ -154,32 +159,17 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
 
     // Auto-abre tutorial na 1ª visita por papel
     useEffect(() => {
-        try {
-            const seen = localStorage.getItem(tourSeenKey(tourKey, role));
-            if (!seen) {
-                const t = setTimeout(() => setShowTour(true), 500);
-                return () => clearTimeout(t);
-            }
-        } catch { /* ignore */ }
+        // [Fase Múltiplos Impactos] Tutoriais desativados temporariamente
     }, [role, tourKey]);
 
     // Auto-abre tutorial do formulário na 1ª vez que abre 'Novo Evento'
     useEffect(() => {
-        if (!showForm) return;
-        // Fecha o tour do modal antes de abrir o do formulário (evita 2 painéis sobrepostos)
-        setShowTour(false);
-        try {
-            const seen = localStorage.getItem(tourSeenKey(tourFormKey, role));
-            if (!seen) {
-                const t = setTimeout(() => setShowFormTour(true), 400);
-                return () => clearTimeout(t);
-            }
-        } catch { /* ignore */ }
+        // [Fase Múltiplos Impactos] Tutoriais desativados temporariamente
     }, [showForm, role, tourFormKey]);
 
     const selectedTemplate = templates.find(t => t.id === formTemplateId);
 
-    const isInAddPartMode = (ADD_PART_TEMPLATE_IDS as readonly string[]).includes(formTemplateId);
+    const isInAddPartMode = formInjectPart;
     const addPartBlockTitle = formTemplateId === 'visita-sc'
         ? 'Parte Especial da Visita'
         : 'Parte a Apresentar';
@@ -252,8 +242,40 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
     useEffect(() => {
         if (selectedTemplate) {
             setFormSubEventDuration(selectedTemplate.defaults.duration || 10);
+            if ((ADD_PART_TEMPLATE_IDS as readonly string[]).includes(formTemplateId)) {
+                setFormInjectPart(true);
+            }
         }
     }, [formTemplateId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Auto-sugestão da nota S-140 baseada nos impactos granulares
+    useEffect(() => {
+        if (allWeekParts.length === 0) return;
+        
+        const canceledParts = allWeekParts.filter(p => formGranularImpacts[p.id]?.cancel);
+        const reducedParts = allWeekParts.filter(p => formGranularImpacts[p.id]?.reduceTime);
+        
+        const autoTexts: string[] = [];
+        if (canceledParts.length > 0) {
+            autoTexts.push(`Cancelado: ${canceledParts.map(p => p.tipoParte || p.title).join(', ')}`);
+        }
+        if (reducedParts.length > 0) {
+            autoTexts.push(`Ajustado: ${reducedParts.map(p => p.tipoParte || p.title).join(', ')}`);
+        }
+        if (formInjectPart) {
+            autoTexts.push(`Adicionado: ${formSubEventTheme || 'Parte extra'}`);
+        }
+        
+        const generatedNote = autoTexts.join('. ').substring(0, 150);
+        
+        setFormS140Note(prev => {
+            if (!prev || prev === prevMachineNote) {
+                setPrevMachineNote(generatedNote);
+                return generatedNote;
+            }
+            return prev;
+        });
+    }, [formGranularImpacts, formInjectPart, formSubEventTheme, allWeekParts, prevMachineNote]);
 
     useEffect(() => {
         if (!isInAddPartMode) {
@@ -297,6 +319,9 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         setFormSubEventTheme('');
         setFormAssigneeIsCustom(false);
         setFormInsertAfterId('');
+        setFormInjectPart(false);
+        setFormS140Note('');
+        setPrevMachineNote('');
     };
 
     const handleSubmit = async () => {
@@ -381,6 +406,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                 reference: formReference || undefined,
                 links: formLinks ? formLinks.split('\n').filter(l => l.trim()) : undefined,
                 linkedEventId: formLinkedEventId || undefined,
+                details: { s140Note: formS140Note.trim() },
             };
 
             let createdEvent: SpecialEvent;
@@ -437,11 +463,14 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
         setFormAssigneeIsCustom(!!assignee && !eldersSMs.some(p => p.name === assignee));
 
         const addPartImpact = event.impacts?.find(imp => imp.action === 'ADD_PART');
+        setFormInjectPart(!!addPartImpact);
         setFormSubEventDuration(
             Number(addPartImpact?.newPartDetails?.duration) || event.duration || 10
         );
         setFormSubEventTheme((addPartImpact?.newPartDetails?.theme || event.theme || '').trim());
         setFormInsertAfterId(addPartImpact?.newPartDetails?.insertAfterId || '');
+        setFormS140Note((event.details?.s140Note as string) || '');
+        setPrevMachineNote((event.details?.s140Note as string) || '');
 
         // Popular impactos granulares a partir do array de impacts do banco
         const granular: Record<string, any> = {};
@@ -731,18 +760,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                             ➕ Novo Evento
                         </button>
                     )}
-                    <button
-                        onClick={() => { setShowFormTour(false); setShowTour(true); }}
-                        title="Ver tutorial guiado deste modal"
-                        data-tour="ev-help"
-                        style={{
-                            border: 'none', background: '#0EA5E9', color: 'white',
-                            cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                            borderRadius: '6px', padding: '6px 10px',
-                        }}
-                    >
-                        ❓ Tutorial
-                    </button>
+                    {/* Tutorial Ocultado Temporariamente */}
                     <button
                         onClick={onClose}
                         style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '20px' }}
@@ -773,15 +791,7 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         <h4 data-tour="evf-title" style={{ margin: 0, color: '#374151' }}>
                             {editingEvent ? 'Editar Evento' : 'Novo Evento'}
                         </h4>
-                        <button
-                            type="button"
-                            onClick={() => { setShowTour(false); setShowFormTour(true); }}
-                            title="Tutorial guiado deste formulário"
-                            data-tour="evf-help"
-                            style={{ ...btnStyle('#0EA5E9'), padding: '4px 10px', fontSize: '12px' }}
-                        >
-                            ❓ Tutorial do Formulário
-                        </button>
+                        {/* Tutorial Ocultado */}
                     </div>
 
                     <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>Tipo de Evento</label>
@@ -819,36 +829,36 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                         ))}
                     </select>
 
-                    {isInAddPartMode && (
-                        <div style={{
-                            marginTop: '12px',
-                            marginBottom: '16px',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            background: '#EFF6FF',
-                            border: '1px solid #BFDBFE'
-                        }}>
-                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1D4ED8', marginBottom: '4px' }}>
-                                📢 {addPartBlockTitle}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#1E40AF', marginBottom: '12px' }}>
-                                {addPartBlockDescription}
-                            </div>
-
-                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                                Responsável
+                    {/* Injeção Flexível de Parte */}
+                    {formWeekId && allWeekParts.length > 0 && (
+                        <div style={{ marginTop: '16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: '600', color: '#166534', fontSize: '13px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={formInjectPart}
+                                    onChange={e => setFormInjectPart(e.target.checked)}
+                                    style={{ width: '16px', height: '16px' }}
+                                />
+                                ➕ Injetar Nova Parte Adicional
                             </label>
+                            
+                            {isInAddPartMode && (
+                                <div data-tour="evf-addpart" style={{ marginTop: '12px', borderTop: '1px dashed #BBF7D0', paddingTop: '12px' }}>
+                                    <h5 style={{ margin: '0 0 4px 0', color: '#15803D', fontSize: '13px' }}>{addPartBlockTitle}</h5>
+                                    <p style={{ margin: '0 0 12px 0', fontSize: '11px', color: '#166534' }}>{addPartBlockDescription}</p>
 
-                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                                Tema da parte adicional
-                            </label>
-                            <input
-                                type="text"
-                                value={formSubEventTheme}
-                                onChange={e => setFormSubEventTheme(e.target.value)}
-                                placeholder="Ex: Visão geral da próxima assembleia"
-                                style={inputStyle}
-                            />
+                                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px' }}>Tema da parte</label>
+                                    <input
+                                        type="text"
+                                        value={formSubEventTheme}
+                                        onChange={e => setFormSubEventTheme(e.target.value)}
+                                        placeholder="Ex: Discurso de Serviço"
+                                        style={inputStyle}
+                                    />
+
+                                    <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '6px', marginTop: '12px' }}>
+                                        Responsável
+                                    </label>
 
                             {formAssigneeIsCustom ? (
                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
@@ -931,6 +941,8 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                 A nova parte será inserida logo após a parte selecionada. Os horários das partes seguintes serão recalculados automaticamente.
                             </div>
                         </div>
+                    )}
+                    </div>
                     )}
 
                     {/* NOVA SEÇÃO: IMPACTOS POR PARTE (Modelagem Granular) */}
@@ -1030,6 +1042,29 @@ export function SpecialEventsManager({ availableWeeks, onClose, onEventApplied, 
                                     </label>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* Novo Campo: Nota de Rodapé do S-140 */}
+                    {allWeekParts.length > 0 && (
+                        <div style={{ marginTop: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#334155', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                <span>📝 Nota de Rodapé (Aparecerá no S-140)</span>
+                                <span style={{ color: formS140Note.length > 150 ? '#EF4444' : '#64748B' }}>
+                                    {formS140Note.length}/150
+                                </span>
+                            </label>
+                            <p style={{ fontSize: '11px', color: '#475569', marginBottom: '8px' }}>
+                                Este texto será impresso no final da folha. A máquina sugere automaticamente com base nos impactos, mas você pode editar livremente.
+                            </p>
+                            <textarea
+                                value={formS140Note}
+                                onChange={e => setFormS140Note(e.target.value)}
+                                maxLength={150}
+                                rows={2}
+                                style={{ ...inputStyle, resize: 'vertical', fontSize: '12px', marginBottom: 0 }}
+                                placeholder="Ex: EBC cancelado devido a visita do SC."
+                            />
                         </div>
                     )}
 

@@ -224,7 +224,10 @@ export interface SpecialEvent {
     };
     isApplied?: boolean;
     appliedAt?: string;
-    details?: Record<string, unknown>;
+    details?: {
+        s140Note?: string;
+        [key: string]: any;
+    };
     createdAt?: string;
     updatedAt?: string;
     createdBy?: string;

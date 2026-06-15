@@ -439,8 +439,17 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             const content = (e as any).content;
             const reference = (e as any).reference;
             let extra = '';
-            if (content) extra += ` — ${content}`;
-            if (reference) extra += ` (Ref: ${reference})`;
+
+            // Nova lógica Híbrida de Nota S-140
+            const customS140Note = (e as any).details?.s140Note;
+            if (customS140Note) {
+                // Se existe uma nota customizada pelo usuário no manager, usamos apenas ela no rodapé.
+                impactDesc = '';
+                extra = ` — ${customS140Note}`;
+            } else {
+                if (content) extra += ` — ${content}`;
+                if (reference) extra += ` (Ref: ${reference})`;
+            }
 
             const icon = (e.templateId === 'anuncio') ? '📢' : (e.templateId === 'notificacao') ? '🔔' : '📌';
 
@@ -487,7 +496,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
         let footnoteSup = '';
         if (part.id && partToFootnotes.has(part.id)) {
             const markers = partToFootnotes.get(part.id)!.map(i => 
-                `<span style="color: #E53E3E; font-size: 10pt; font-weight: bold; vertical-align: super; margin-left: 2px;">*${i}</span>`
+                `<span style="color: #E53E3E; font-size: ${pt(10)}; font-weight: bold; vertical-align: super; margin-left: 2px;">*${i}</span>`
             ).join(', ');
             footnoteSup = `<span style="display: inline-block;">${markers}</span>`;
         }
@@ -500,14 +509,14 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
     initialParts.forEach(part => {
         initialHTML += `
             <tr>
-                <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 12pt; color: #666; width: 55px; text-align: center;">
+                <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(12)}; color: #666; width: 55px; text-align: center;">
                     ${part.time}
                 </td>
-                <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: #333;">
+                <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; color: #333;">
                     ${renderTitle(part, COLORS.TESOUROS_BG)}
                 </td>
                 <td style="padding: 6px 10px;"></td>
-                <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; font-weight: 500; color: #333333; text-align: right;">
+                <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; font-weight: 500; color: #333333; text-align: right;">
                     ${part.mainHallAssignee}
                 </td>
             </tr>
@@ -531,7 +540,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
                         background: ${bgColor}; 
                         color: ${COLORS.WHITE}; 
                         font-family: Calibri, sans-serif;
-                        font-size: 13pt;
+                        font-size: ${pt(13)};
                         font-weight: bold;
                         padding: 8px 12px;
                     ">
@@ -546,7 +555,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
                         background: ${bgColor}; 
                         color: ${COLORS.WHITE}; 
                         font-family: Calibri, sans-serif;
-                        font-size: 13pt;
+                        font-size: ${pt(13)};
                         font-weight: bold;
                         padding: 8px 12px;
                     ">
@@ -556,7 +565,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
                         background: #E3F2FD; 
                         color: ${COLORS.LABEL_TEXT};
                         font-family: Calibri, sans-serif;
-                        font-size: 11pt;
+                        font-size: ${pt(11)};
                         font-weight: bold;
                         text-align: center;
                         padding: 6px;
@@ -567,7 +576,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
                         background: #F5F5F5; 
                         color: ${COLORS.LABEL_TEXT};
                         font-family: Calibri, sans-serif;
-                        font-size: 11pt;
+                        font-size: ${pt(11)};
                         font-weight: bold;
                         text-align: center;
                         padding: 6px;
@@ -591,13 +600,13 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             if (isVidaCrista) {
                 sectionsHTML += `
                     <tr>
-                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 12pt; color: #666; width: 55px; text-align: center;">
+                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(12)}; color: #666; width: 55px; text-align: center;">
                             ${part.duration > 0 ? part.time : ''}
                         </td>
-                        <td colspan="3" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: ${textColor};">
+                        <td colspan="3" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; color: ${textColor};">
                             ${renderTitle(part, bgColor)}
                         </td>
-                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; font-weight: 500; color: #333333; text-align: right;">
+                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; font-weight: 500; color: #333333; text-align: right;">
                             ${mainDisplay}
                         </td>
                     </tr>
@@ -605,16 +614,16 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
             } else {
                 sectionsHTML += `
                     <tr>
-                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 12pt; color: #666; width: 55px; text-align: center;">
+                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(12)}; color: #666; width: 55px; text-align: center;">
                             ${part.duration > 0 ? part.time : ''}
                         </td>
-                        <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: ${textColor};">
+                        <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; color: ${textColor};">
                             ${renderTitle(part, bgColor)}
                         </td>
-                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: #333333; text-align: center; background: ${part.isStudentPart ? '#FAFEFF' : 'transparent'};">
+                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; color: #333333; text-align: center; background: ${part.isStudentPart ? '#FAFEFF' : 'transparent'};">
                             ${part.isStudentPart ? roomBDisplay : ''}
                         </td>
-                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; font-weight: 500; color: #333333; text-align: right; background: ${part.isStudentPart ? '#FAFAFA' : 'transparent'};">
+                        <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; font-weight: 500; color: #333333; text-align: right; background: ${part.isStudentPart ? '#FAFAFA' : 'transparent'};">
                             ${mainDisplay}
                         </td>
                     </tr>
@@ -628,14 +637,14 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
     finalParts.forEach(part => {
         finalHTML += `
             <tr>
-                <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 12pt; color: #666; width: 55px; text-align: center;">
+                <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(12)}; color: #666; width: 55px; text-align: center;">
                     ${part.time}
                 </td>
-                <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; color: #333;">
+                <td colspan="2" style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; color: #333;">
                     ${renderTitle(part, COLORS.VIDA_CRISTA_BG)}
                 </td>
                 <td style="padding: 6px 10px;"></td>
-                <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: 13pt; font-weight: 500; color: #333333; text-align: right;">
+                <td style="padding: 6px 10px; font-family: Calibri, sans-serif; font-size: ${pt(13)}; font-weight: 500; color: #333333; text-align: right;">
                     ${part.mainHallAssignee}
                 </td>
             </tr>
@@ -644,14 +653,14 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
 
     return `
         <div class="header-row">
-            <span class="congregation">${CONGREGATION_NAME}</span>
-            <span class="title-year">Programação da reunião do meio de semana — <strong>${year}</strong></span>
+            <span class="congregation" style="font-size: ${pt(14)}">${CONGREGATION_NAME}</span>
+            <span class="title-year" style="font-size: ${pt(13)}">Programação da reunião do meio de semana — <strong>${year}</strong></span>
         </div>
 
         <div class="week-info">
-            <span class="week-date">${weekData.weekDisplay.toUpperCase()}</span>
-            <span class="president-info">Presidente: ${weekData.president}</span>
-            ${weekData.counselorRoomB ? `<span class="counselor-info">Conselheiro da sala B: ${weekData.counselorRoomB}</span>` : ''}
+            <span class="week-date" style="font-size: ${pt(13)}">${weekData.weekDisplay.toUpperCase()}</span>
+            <span class="president-info" style="font-size: ${pt(10)}">Presidente: ${weekData.president}</span>
+            ${weekData.counselorRoomB ? `<span class="counselor-info" style="font-size: ${pt(10)}">Conselheiro da sala B: ${weekData.counselorRoomB}</span>` : ''}
         </div>
 
         <table>
@@ -792,7 +801,8 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
     wrapper.appendChild(style);
 
     // 2. Construir Página
-    const bodyContent = generateS140BodyContent(weekData);
+    let currentScale = 1.0;
+    let bodyContent = generateS140BodyContent(weekData, currentScale);
     if (!bodyContent) console.error('[S140] Body Content vazio!');
 
     const pageDiv = document.createElement('div');
@@ -838,6 +848,17 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 
     // Delay de estabilização
     await new Promise(resolve => setTimeout(resolve, 500));
+
+    // AUTO-SCALE FONT ALGORITHM: Reduzir fonte até caber em 1 página
+    // A4 (297mm) com as margens tem cerca de 1040px visíveis úteis no html2pdf (dependendo do zoom)
+    // Medimos o scrollHeight do container. Se exceder, reduzimos.
+    const MAX_HEIGHT_PX = 1050; // Limite testado
+    while (contentContainer.scrollHeight > MAX_HEIGHT_PX && currentScale > 0.6) {
+        currentScale -= 0.05;
+        console.log(`[S140] Ajustando fonte para caber (escala: ${currentScale.toFixed(2)})`);
+        pageDiv.innerHTML = generateS140BodyContent(weekData, currentScale);
+        await new Promise(resolve => setTimeout(resolve, 50)); // dar tempo pro reflow
+    }
 
     try {
         const opt = {
@@ -891,11 +912,35 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
     style.innerHTML = cssWithForcedColor;
     wrapper.appendChild(style);
 
-    // 2. Construir Páginas
-    weeksData.forEach((weekData, index) => {
-        const bodyContent = generateS140BodyContent(weekData);
-        if (!bodyContent) console.error('[S140] Body Content vazio na semana', weekData.weekId);
+    // 2. Construir Páginas e Container Interno (A4)
+    const contentContainer = document.createElement('div');
+    contentContainer.className = 's140-wrapper'; // CRÍTICO: Restaurar a classe
+    contentContainer.style.width = '210mm';
+    contentContainer.style.background = 'white';
+    
+    // Configurar Wrapper para Renderização (Visível mas por cima)
+    wrapper.style.position = 'fixed'; 
+    wrapper.style.left = '0';
+    wrapper.style.top = '0';
+    wrapper.style.zIndex = '99999'; 
+    wrapper.style.width = '100vw'; 
+    wrapper.style.height = '100vh';
+    wrapper.style.overflow = 'auto'; 
+    wrapper.style.background = 'white';
+    wrapper.style.display = 'flex';
+    wrapper.style.justifyContent = 'center';
+    wrapper.style.alignItems = 'flex-start';
+    
+    // Anexar o `contentContainer` no `wrapper` imediatamente, e o `wrapper` no corpo do documento
+    // Isso é necessário para que o DOM consiga medir os pixels (scrollHeight).
+    wrapper.appendChild(contentContainer);
+    document.body.appendChild(wrapper);
 
+    // 3. Iterar e Auto-Scale por Semana
+    const MAX_HEIGHT_PX = 1050; // Altura limite por página
+
+    for (let index = 0; index < weeksData.length; index++) {
+        const weekData = weeksData[index];
         const pageDiv = document.createElement('div');
         pageDiv.className = 'container';
 
@@ -903,43 +948,22 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
             pageDiv.classList.add('page-break');
         }
 
-        pageDiv.innerHTML = bodyContent;
-        wrapper.appendChild(pageDiv);
-    });
+        let currentScale = 1.0;
+        pageDiv.innerHTML = generateS140BodyContent(weekData, currentScale);
+        contentContainer.appendChild(pageDiv);
 
-    // 3. Configurar Wrapper para Renderização (Visível)
-    wrapper.style.position = 'fixed'; // Garantir que está na viewport
-    wrapper.style.left = '0';
-    wrapper.style.top = '0';
-    wrapper.style.zIndex = '99999'; // Topo absoluto
-    wrapper.style.width = '100vw'; // Ocupar viewport momentaneamente
-    wrapper.style.height = '100vh';
-    wrapper.style.overflow = 'auto'; // Permitir scroll interno se necessário
-    wrapper.style.background = 'white';
+        // Dar um pequeno tempo para reflow e permitir leitura precisa de layout
+        await new Promise(resolve => setTimeout(resolve, 50));
 
-    // Centralizar conteúdo para melhor visualização durante o flash (opcional, mas bom UX)
-    wrapper.style.display = 'flex';
-    wrapper.style.justifyContent = 'center';
-    wrapper.style.alignItems = 'flex-start';
-
-    // Container interno para o PDF em si (A4)
-    const contentContainer = document.createElement('div');
-    contentContainer.className = 's140-wrapper'; // CRÍTICO: Restaurar a classe
-    contentContainer.style.width = '210mm';
-    contentContainer.style.background = 'white';
-
-    // Mover os filhos do wrapper para o contentContainer
-    while (wrapper.firstChild) {
-        contentContainer.appendChild(wrapper.firstChild);
+        // Auto-Scale Font isolado para a semana atual
+        // Note: pageDiv.scrollHeight mede a altura real preenchida
+        while (pageDiv.scrollHeight > MAX_HEIGHT_PX && currentScale > 0.6) {
+            currentScale -= 0.05;
+            console.log(`[S140 Multi] Ajustando fonte na semana ${weekData.weekId} para caber (escala: ${currentScale.toFixed(2)})`);
+            pageDiv.innerHTML = generateS140BodyContent(weekData, currentScale);
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
     }
-
-    wrapper.innerHTML = '';
-    wrapper.appendChild(contentContainer);
-
-    document.body.appendChild(wrapper);
-
-    // Delay de estabilização
-    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
         const weekRange = weeksData.length > 1
