@@ -4,14 +4,17 @@
  */
 import { useState } from 'react';
 import { workbookService } from '../services/workbookService';
+import { undoService } from '../services/undoService';
+import { type WorkbookPart } from '../types';
 
 interface BulkResetModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    parts: WorkbookPart[];
 }
 
-export function BulkResetModal({ isOpen, onClose, onSuccess }: BulkResetModalProps) {
+export function BulkResetModal({ isOpen, onClose, onSuccess, parts }: BulkResetModalProps) {
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
     const [loading, setLoading] = useState(false);
@@ -45,6 +48,19 @@ export function BulkResetModal({ isOpen, onClose, onSuccess }: BulkResetModalPro
         setResult(null);
 
         try {
+            // [UNDO CAPTURE] Fotografa a semana na memória antes de explodir os dados no banco
+            const partsToReset = parts.filter(p => p.date >= fromDate && p.date <= toDate);
+            if (partsToReset.length > 0) {
+                // Formata a data para ficar amigável no botão (ex: DD/MM/YYYY)
+                const fromDisplay = fromDate.split('-').reverse().join('/');
+                const toDisplay = toDate.split('-').reverse().join('/');
+                const label = fromDate === toDate 
+                    ? `Reset de ${fromDisplay}` 
+                    : `Reset de ${fromDisplay} a ${toDisplay}`;
+                
+                undoService.captureBatch(partsToReset, label);
+            }
+
             const count = await workbookService.resetDateRange(fromDate, toDate);
             setResult(count);
             // Notificar sucesso após 1.5s

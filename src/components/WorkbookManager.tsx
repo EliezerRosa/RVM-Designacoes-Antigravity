@@ -233,7 +233,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             setLoading(true);
             const data = await workbookQueryService.getAllParts(filters);
             setParts(data);
-            
+
             // Buscar eventos para mapear notas de rodapé nas tooltips
             const affectedIds = data.map(p => p.affectedByEventId).filter(Boolean) as string[];
             if (affectedIds.length > 0) {
@@ -948,6 +948,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                         <BulkResetModal
                             isOpen={isBulkResetModalOpen}
                             onClose={() => setIsBulkResetModalOpen(false)}
+                            parts={parts}
                             onSuccess={() => {
                                 // Recarregar partes após reset
                                 loadPartsWithFilters();
