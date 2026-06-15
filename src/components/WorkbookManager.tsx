@@ -13,6 +13,7 @@ import { workbookQueryService } from '../services/workbookQueryService';
 import { workbookImportService } from '../services/workbookImportService';
 import { generationService } from '../services/generationService';
 import { undoService } from '../services/undoService';
+import { specialEventQueryService } from '../services/specialEventQueryService';
 
 
 import { loadCompletedParticipations } from '../services/historyAdapter';
@@ -86,6 +87,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
     // 2026-05-26: Warnings de poluição do parser detectadas na importação
     const [parserWarnings, setParserWarnings] = useState<ImportWarning[]>([]);
     const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
+    const [eventNotesMap, setEventNotesMap] = useState<Record<string, string>>({});
 
     // Filtros - carregar do localStorage para persistência
     const [filterWeek, setFilterWeek] = useState<string>(() => localStorage.getItem('wm_filterWeek') || '');
@@ -231,6 +233,21 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             setLoading(true);
             const data = await workbookQueryService.getAllParts(filters);
             setParts(data);
+            
+            // Buscar eventos para mapear notas de rodapé nas tooltips
+            const affectedIds = data.map(p => p.affectedByEventId).filter(Boolean) as string[];
+            if (affectedIds.length > 0) {
+                const events = await specialEventQueryService.getActiveEvents();
+                const map: Record<string, string> = {};
+                events.forEach(e => {
+                    if (e.details?.s140Note) {
+                        map[e.id] = e.details.s140Note;
+                    }
+                });
+                setEventNotesMap(map);
+            } else {
+                setEventNotesMap({});
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Erro ao carregar partes');
         } finally {
@@ -906,6 +923,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                             currentPage={currentPage}
                             onPublisherSelect={handlePublisherSelect}
                             onEditPart={handleEditPart}
+                            eventNotesMap={eventNotesMap}
                         />
 
                         <PartEditModal
