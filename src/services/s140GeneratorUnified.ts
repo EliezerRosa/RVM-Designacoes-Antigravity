@@ -320,7 +320,8 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?:
  * Gera apenas o CONTEÚDO interno do S-140 (tabelas, header, eventos)
  * Sem as tags <html>, <head>, <body> envolvendo
  */
-export function generateS140BodyContent(weekData: S140WeekDataUnified): string {
+export function generateS140BodyContent(weekData: S140WeekDataUnified, scaleRatio: number = 1.0): string {
+    const pt = (size: number) => (size * scaleRatio).toFixed(1) + 'pt';
     const year = weekData.year;
 
     // Se semana cancelada, mostrar aviso simplificado
