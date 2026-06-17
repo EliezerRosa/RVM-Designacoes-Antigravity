@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import type { WorkbookPart, Publisher } from '../types';
 import { checkEligibility } from '../services/eligibilityService';
 import { getModalidadeFromTipo } from '../constants/mappings';
+import { generateWhatsAppMessage } from '../services/s89Generator';
+import { api } from '../services/api';
 
 interface ReplacementPortalProps {
     partId: string;
@@ -172,14 +174,33 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
 
             if (updateError) throw updateError;
 
-            // 2. Notificar novo designado via Z-API
+            // 2. Notificar novo designado via Z-API usando o template S-89 padrão
             if (candidate.phone) {
-                const honorific = candidate.gender === 'sister' ? 'Irmã' : 'Irmão';
-                const msg = `📋 *Nova Designação — RVM*\n\n${honorific} ${candidate.name}, ` +
-                    `você foi designado(a) para a parte:\n\n` +
-                    `📖 *${part.tipoParte}*\n` +
-                    `${part.tituloParte ? `🎯 *${part.tituloParte}*\n` : ''}` +
-                    `\nPor favor, comece a se preparar. Que Jeová abençoe! 🙏`;
+                let engineConfig: any = null;
+                try {
+                    engineConfig = await api.getSetting('engine_config', null);
+                } catch (e) {
+                    console.warn('[ReplacementPortal] Falha ao carregar engine_config', e);
+                }
+
+                const srvmName = engineConfig?.srvm_name || 'Superintendente';
+                const srvmPhone = engineConfig?.srvm_phone || '';
+                const baseConfirmUrl = window.location.origin;
+
+                const partnerName = ''; // não gerenciamos ajudante no substituto rápido por enquanto
+                const isAssistant = false;
+
+                const msg = generateWhatsAppMessage(
+                    { ...part, resolvedPublisherName: candidate.name, resolvedPublisherId: candidate.id },
+                    candidate.gender,
+                    partnerName,
+                    undefined,
+                    isAssistant,
+                    srvmName,
+                    srvmPhone,
+                    baseConfirmUrl,
+                    true // isSubstitution = true
+                );
 
                 await supabase.functions.invoke('send-whatsapp', {
                     body: { action: 'send-text', phone: candidate.phone, message: msg }
