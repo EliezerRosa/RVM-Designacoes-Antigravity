@@ -235,6 +235,14 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [isChatAgentOpen, setIsChatAgentOpen] = useState(false)
 
+  const handleInitialTabResolved = useCallback((savedTab: AppActiveTab) => {
+    // Evita sobrescrever se uma ação de URL já definiu uma aba específica
+    setActiveTab((current) => {
+      if (current === 'agent') return current; // admin=true já forçou agent
+      return savedTab;
+    });
+  }, []);
+
   const {
     publishers,
     setPublishers,
@@ -245,13 +253,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
     refreshWorkbookParts,
     refreshAllData,
   } = useAuthenticatedAppData({
-    onInitialTabResolved: (savedTab) => {
-      // Evita sobrescrever se uma ação de URL já definiu uma aba específica
-      setActiveTab((current) => {
-        if (current === 'agent') return current; // admin=true já forçou agent
-        return savedTab;
-      });
-    },
+    onInitialTabResolved: handleInitialTabResolved,
     onCriticalError: setStatusMessage,
   })
 
