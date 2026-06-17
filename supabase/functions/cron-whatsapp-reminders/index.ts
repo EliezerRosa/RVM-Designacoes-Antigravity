@@ -62,9 +62,10 @@ serve(async (req: Request) => {
         return new Response("Automation is disabled.", { status: 200 });
     }
 
-    // Carrega o offset de dia da reunião (padrão 4 = quinta)
-    const { data: meetingDayData } = await supabase.from('settings').select('value').eq('key', 's89_meeting_day_by_week').maybeSingle();
-    const meetingDays = meetingDayData?.value || {};
+    // Carrega o dia da reunião por semana a partir de app_settings
+    // (tabela onde o modal zap-s-89 salva). Formato: { "2026-06-15": 5 } onde 5 = sexta.
+    const { data: meetingDayData } = await supabase.from('app_settings').select('value').eq('key', 's89_meeting_day_by_week').maybeSingle();
+    const meetingDays: Record<string, number> = meetingDayData?.value || {};
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -126,9 +127,6 @@ serve(async (req: Request) => {
         } else if (diffDays === 2) {
             dispatchType = 'LEMBRETE_D2';
             reminderLabel = 'faltam 2 dias';
-        } else if (diffDays === 1) {
-            dispatchType = 'LEMBRETE_D1';
-            reminderLabel = 'é amanhã';
         }
 
         if (!dispatchType) continue;
@@ -162,8 +160,12 @@ serve(async (req: Request) => {
             continue;
         }
 
-        // Construir mensagem
-        const msg = `⏳ *Lembrete de Designação*\n\nOlá, ${pubName}!\nLembrando que ${reminderLabel} para sua parte na reunião:\n\n📖 *${part.tipo_parte}*\n${part.part_title ? `🎯 *${part.part_title}*\n` : ''}\nPor favor, garanta que seu preparo ou ensaio estejam em dia. ✨`;
+        // Construir mensagem com dia real da reunião
+        const DIAS_PT = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+        const MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const meetingDayLabel = `${DIAS_PT[meetingDate.getDay()]}, ${meetingDate.getDate()} de ${MESES_PT[meetingDate.getMonth()]}`;
+
+        const msg = `⏳ *Lembrete de Designação*\n\nOlá, ${pubName}!\nLembrando que ${reminderLabel} para sua parte na reunião de *${meetingDayLabel}*:\n\n📖 *${part.tipo_parte}*\n${part.part_title ? `🎯 *${part.part_title}*\n` : ''}\nPor favor, garanta que seu preparo ou ensaio estejam em dia. ✨`;
 
         const success = await sendWhatsApp(phone, msg);
         await logDispatch(part.id, dispatchType, phone, success ? 'SUCCESS' : 'ERROR');
