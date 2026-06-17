@@ -4,7 +4,7 @@ import { communicationService } from './communicationService';
 import { publisherDirectoryService } from './publisherDirectoryService';
 import { WorkbookPart } from '../types';
 
-export type DispatchType = 'RECIBO_S89' | 'LEMBRETE_D7' | 'LEMBRETE_D2' | 'LEMBRETE_D1' | 'RECUSA_ALERTA' | 'PUBLICACAO_S89';
+export type DispatchType = 'RECIBO_S89' | 'LEMBRETE_D7' | 'LEMBRETE_D2' | 'LEMBRETE_D1' | 'RECUSA_ALERTA' | 'PUBLICACAO_S89' | 'COBRANCA_D9';
 
 class ZApiOrchestrator {
     private waService = createWhatsAppAutoServiceFromEnv();

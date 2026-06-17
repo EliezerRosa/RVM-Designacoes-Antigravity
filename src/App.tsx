@@ -14,6 +14,8 @@ import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 import { MyAssignmentsPortal } from './components/MyAssignmentsPortal'
 import { InvitePortal } from './components/InvitePortal'
+import { ReplacementPortal } from './components/ReplacementPortal'
+import { PreferencesPortal } from './components/PreferencesPortal'
 import { LoginPage } from './components/LoginPage'
 import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
@@ -36,10 +38,11 @@ import { findPublisherImpediments, type ImpedimentEntry } from './services/publi
 import { reflectPublisherImpediments } from './services/publisherPrivilegeReflectionService'
 import { PublisherImpedimentModal } from './components/PublisherImpedimentModal'
 import { getTodayWeekIdLocal } from './utils/dateUtils'
+import { useAutoFlags } from './hooks/useAutoFlags'
 
 type ActiveTab = AppActiveTab
 
-function getPortalParams(): { portal: string | null; partId: string | null; publisherId: string | null; token: string | null; mode: string | null } {
+function getPortalParams(): { portal: string | null; partId: string | null; publisherId: string | null; token: string | null; mode: string | null; action: string | null; pubId: string | null } {
   const searchParams = new URLSearchParams(window.location.search)
   const hashValue = window.location.hash || ''
   const hashQueryIndex = hashValue.indexOf('?')
@@ -65,6 +68,8 @@ function getPortalParams(): { portal: string | null; partId: string | null; publ
     publisherId: getFirst('publisherId', 'publisher_id'),
     token: getFirst('token'),
     mode: getFirst('mode'),
+    action: getFirst('action'),
+    pubId: getFirst('pubId'),
   }
 }
 
@@ -76,7 +81,7 @@ function App() {
 
   // PORTAL ROUTING: links públicos de confirmação de designação
   // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
-  const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken, mode: portalMode } = getPortalParams();
+  const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken, mode: portalMode, action: portalAction, pubId: portalPubId } = getPortalParams();
 
   // PORTAL: designações individuais do publicador (acesso por token + Google OAuth)
   if (portal === 'my-assignments') {
@@ -116,6 +121,24 @@ function App() {
     return (
       <div className="app portal-mode">
         <InvitePortal token={portalToken} />
+      </div>
+    );
+  }
+
+  // PORTAL: Substituição rápida (SRVM/Ajudante — acesso autenticado por role)
+  if (portal === 'replace' && portalPartId) {
+    return (
+      <div className="app portal-mode">
+        <ReplacementPortal partId={portalPartId} />
+      </div>
+    );
+  }
+
+  // PORTAL: Preferências do publicador (reversão de opt-out)
+  if (portal === 'preferences' && portalAction) {
+    return (
+      <div className="app portal-mode">
+        <PreferencesPortal action={portalAction} pubId={portalPubId ?? undefined} />
       </div>
     );
   }
@@ -160,6 +183,9 @@ function App() {
 function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; userEmail: string }) {
   const { profile } = useAuth()
   const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
+
+  // Hook de consumo de flags de automação (import/geração mensal via Cron)
+  useAutoFlags();
 
   // Sincroniza singleton de autoria de availability quando o perfil muda.
   // Garante que toda mudança de availability a partir do app admin grave o autor correto.
@@ -219,7 +245,13 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
     refreshWorkbookParts,
     refreshAllData,
   } = useAuthenticatedAppData({
-    onInitialTabResolved: setActiveTab,
+    onInitialTabResolved: (savedTab) => {
+      // Evita sobrescrever se uma ação de URL já definiu uma aba específica
+      setActiveTab((current) => {
+        if (current === 'agent') return current; // admin=true já forçou agent
+        return savedTab;
+      });
+    },
     onCriticalError: setStatusMessage,
   })
 
