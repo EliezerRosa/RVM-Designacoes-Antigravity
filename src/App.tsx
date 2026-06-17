@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, lazy, Suspense, useCallback } from 'react'
 import './App.css'
 import type { HistoryRecord, Publisher, WorkbookPart } from './types'
 import PublisherList from './components/PublisherList'
