@@ -46,8 +46,26 @@ A emissão dos convites acontece de forma progressiva e "sem sustos":
 1. **Modal de Disparo Gradual**: O painel do Admin não faz envios massivos cegos, ele permite a seleção visual via checkboxes dos publicadores elegíveis (com cel, mas sem 2FA), permitindo dosar envios (ex: lotes de 10) para evitar banimento pelo Z-API.
 2. **Injeção Inteligente no S-89**: A maior via orgânica de convites é através das designações. Durante o "Publicar Semana" (ou envio isolado do S-89 manual na aba agente), se o publicador alvo precisa de um Token VIP, a própria string do S-89 é modificada para carregar o link `portal=invite` em vez do tradicional `portal=confirm`. Assim, ao aceitar ou visualizar a parte mensal, o publicador é instantaneamente "onboarded" de surpresa, eliminando o degrau do 2FA para ele.
 
-## 4. UI de Configuração
-Na aba de **Admin Dashboard**, foi adicionada a sub-guia "Config. Z-API", que permite ligar/desligar a automação global de envios em background, configurar o Z-API Group ID e agora, também abriga o botão **🚀 Carga Inicial** para acionar o modal de disparos graduais de Onboarding.
+## 5. Arquitetura Definitiva (Plano Atualizado Jun/2026)
+Uma expansão completa do motor foi projetada (com implementação pendente) para suportar o fluxo definitivo de publicações e recusas:
+
+### 5.1 A Carga Oficial (Auto-Publicação D-15)
+O envio de mensagens passa a ser governado pelo tempo.
+- **Liberação vs Publicação:** O painel "Publicar Semana" agora deve apenas "Liberar" a semana.
+- **O Despachante:** O Cron, ao rodar diariamente, verifica semanas liberadas. Quando a distância da semana for igual ou menor que 15 dias (D-15), ele dispara a "Mensagem Matriz" (S-89) com o Link Mágico de Confirmação e marca a semana como oficialmente publicada.
+- **Relatório de Carga:** Um aviso de lote concluído é enviado para o SRVM.
+
+### 5.2 O Trabalhador Autônomo (Lembretes e Cobranças)
+- **Bloqueio Mestre:** Lembretes (D-7, D-2) agora só atuam em semanas oficialmente processadas pelo D-15. (O aviso de D-1 foi desativado a pedido da liderança).
+- **Cobrança D-9:** Uma cobrança pró-ativa para quem ignorou o S-89 original, focada em arrancar um "Sim" ou "Não".
+- **Regra de Aquiescência:** Partes de Anciãos e Servos (com status PROPOSTA) são tratadas como aceitas tacitamente; as demais não recebem lembretes sem confirmação explícita.
+- **Importante (Bug Fix):** O Cron consulta o dia da reunião semanal da tabela correta `app_settings` (onde o modal de fato salva a key `s89_meeting_day_by_week`), e não `settings`, garantindo cálculos temporais precisos (ex: sexta-feira em vez do fallback para quinta). A mensagem do Cron foi atualizada para incluir textualmente o dia da reunião (ex: "reunião de sexta-feira, 20 de junho") prevenindo ambiguidades.
+
+### 5.3 O Sistema de Recusa Rápida (Portal de Substituição)
+- **Desacoplamento:** O fluxo principal da UI legada não é alterado.
+- **Portal Mobile-first:** A recusa via Z-API encaminhará o alerta não mais para a rota admin padrão, mas para a rota `/?portal=replace&partId=...`.
+- **Top 3 ao Vivo:** Este portal renderizará a parte e 3 sugestões de substitutos calculadas on-the-fly pelo `unifiedRotationService`, permitindo que o SRVM e seus ajudantes aprovem a troca com um clique pelo celular.
+- **Autenticação Direcionada:** O painel exige login do Google apenas para verificar se o e-mail logado possui a `funcao` de Superintendente RVM ou Ajudante RVM no banco de dados, sem exigir flag genérica de "admin" na tabela `profiles`.
 
 ## Como Testar ou Manter
 1. Para debugar mensagens, verifique a tabela `zapi_dispatch_log` no Supabase. Lá consta o status e telefone.
