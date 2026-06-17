@@ -45,12 +45,13 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
             if (!publishers) { setError('Falha ao carregar dados.'); return; }
 
             const userEmail = profile?.email || user?.email || '';
+            const isAdmin = profile?.role === 'admin';
             const matchedPub = publishers.find((p: any) =>
                 p.data?.email?.toLowerCase() === userEmail.toLowerCase() &&
                 SRVM_FUNCOES.includes(p.data?.funcao)
             );
 
-            if (!matchedPub) {
+            if (!matchedPub && !isAdmin) {
                 setIsAuthorized(false);
                 setError(`A conta ${userEmail} não está vinculada a um Superintendente ou Ajudante da RVM.`);
                 setLoading(false);
