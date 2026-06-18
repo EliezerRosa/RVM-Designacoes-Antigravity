@@ -23,6 +23,7 @@ import { getWeekMondayId } from '../services/eligibilityService';
 import { findPublisherImpediments, type ImpedimentEntry } from '../services/publisherImpedimentService';
 import { workbookManagementService } from '../services/workbookManagementService';
 import { PublisherImpedimentModal } from './PublisherImpedimentModal';
+import { zapiOrchestrator } from '../services/zapiOrchestrator';
 import type { Publisher } from '../types';
 
 // ── Token structure (stored in app_settings key 'availability_tokens') ─────
@@ -536,6 +537,8 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                     for (const { part } of pendingImpediments.impediments) {
                         try {
                             await workbookManagementService.updatePart(part.id, { resolvedPublisherName: '', status: 'PENDENTE' });
+                            // NOVO: Dispara alerta Z-API para o SRVM
+                            await zapiOrchestrator.dispatchRefusalAlert(part, 'Indisponibilidade marcada via calendário (Portal de Preferências)');
                         } catch { /* melhor esforço */ }
                     }
                     await pendingImpediments.proceedSave();
