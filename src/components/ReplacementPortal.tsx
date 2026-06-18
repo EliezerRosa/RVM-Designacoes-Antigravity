@@ -10,7 +10,6 @@ import { api } from '../services/api';
 import { communicationService } from '../services/communicationService';
 import { workbookQueryService } from '../services/workbookQueryService';
 import { zapiOrchestrator } from '../services/zapiOrchestrator';
-import { resolvePartPublisherName } from '../services/eligibilityService';
 
 interface ReplacementPortalProps {
     partId: string;
@@ -227,7 +226,12 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
                 });
 
                 if (partnerPart) {
-                    const partnerName = resolvePartPublisherName(partnerPart as any, allPublishers);
+                    let partnerName = partnerPart.resolvedPublisherName || partnerPart.rawPublisherName || '';
+                    if (partnerPart.resolvedPublisherId) {
+                        const found = allPublishers.find(p => p.id === partnerPart.resolvedPublisherId);
+                        if (found) partnerName = found.name;
+                    }
+
                     const partnerPub = partnerName ? allPublishers.find(p => p.name.trim() === partnerName.trim()) : null;
                     if (partnerPub && partnerPub.phone) {
                         await zapiOrchestrator.dispatchPartnerReplacementAlert(
