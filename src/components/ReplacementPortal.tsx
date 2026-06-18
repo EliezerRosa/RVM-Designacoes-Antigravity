@@ -7,6 +7,11 @@ import { getModalidadeFromTipo } from '../constants/mappings';
 import { generateWhatsAppMessage } from '../services/s89Generator';
 import { api } from '../services/api';
 
+import { communicationService } from '../services/communicationService';
+import { workbookQueryService } from '../services/workbookQueryService';
+import { zapiOrchestrator } from '../services/zapiOrchestrator';
+import { resolvePartPublisherName } from '../services/eligibilityService';
+
 interface ReplacementPortalProps {
     partId: string;
 }
@@ -19,6 +24,7 @@ interface CandidateInfo {
 export function ReplacementPortal({ partId }: ReplacementPortalProps) {
     const { user, profile, isLoading: authLoading, signInWithGoogle } = useAuth();
     const [part, setPart] = useState<WorkbookPart | null>(null);
+    const [allPublishers, setAllPublishers] = useState<Publisher[]>([]);
     const [candidates, setCandidates] = useState<CandidateInfo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -121,6 +127,8 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
                 isNotQualified: p.data?.isNotQualified ?? false,
             }));
 
+            setAllPublishers(allPubs);
+
             const modalidade = mappedPart.modalidade || getModalidadeFromTipo(mappedPart.tipoParte, mappedPart.section);
             const eligible: CandidateInfo[] = [];
 
@@ -174,37 +182,67 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
 
             if (updateError) throw updateError;
 
-            // 2. Notificar novo designado via Z-API usando o template S-89 padrão
+            // 2. Notificar novo designado via Z-API usando o template S-89 padrão com link correto
             if (candidate.phone) {
-                let engineConfig: any = null;
+                const updatedPart = { ...part, resolvedPublisherName: candidate.name, resolvedPublisherId: candidate.id };
+                
+                let msg = '';
                 try {
-                    engineConfig = await api.getSetting('engine_config', null);
-                } catch (e) {
-                    console.warn('[ReplacementPortal] Falha ao carregar engine_config', e);
+                    const { content } = await communicationService.prepareS89Message(
+                        updatedPart as any,
+                        allPublishers,
+                        [], 
+                        { isSubstitution: true }
+                    );
+                    msg = content;
+                } catch (err) {
+                    console.error('[ReplacementPortal] Falha ao gerar mensagem S89:', err);
+                    // Fallback de segurança se prepareS89Message falhar
+                    const honorific = candidate.gender === 'sister' ? 'Irmã' : 'Irmão';
+                    msg = `📋 *Nova Designação — RVM*\n\n${honorific} ${candidate.name}, ` +
+                        `você foi designado(a) para a parte:\n\n` +
+                        `📖 *${part.tipoParte}*\n` +
+                        `${part.tituloParte ? `🎯 *${part.tituloParte}*\n` : ''}` +
+                        `\nPor favor, comece a se preparar. Que Jeová abençoe! 🙏`;
                 }
-
-                const srvmName = engineConfig?.srvm_name || 'Superintendente';
-                const srvmPhone = engineConfig?.srvm_phone || '';
-                const baseConfirmUrl = window.location.origin;
-
-                const partnerName = ''; // não gerenciamos ajudante no substituto rápido por enquanto
-                const isAssistant = false;
-
-                const msg = generateWhatsAppMessage(
-                    { ...part, resolvedPublisherName: candidate.name, resolvedPublisherId: candidate.id },
-                    candidate.gender,
-                    partnerName,
-                    undefined,
-                    isAssistant,
-                    srvmName,
-                    srvmPhone,
-                    baseConfirmUrl,
-                    true // isSubstitution = true
-                );
 
                 await supabase.functions.invoke('send-whatsapp', {
                     body: { action: 'send-text', phone: candidate.phone, message: msg }
                 });
+            }
+
+            // 3. Buscar e Notificar Parceiro
+            try {
+                const weekParts = await workbookQueryService.getWeekParts(part.weekId);
+                const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
+                const partNum = partNumMatch ? partNumMatch[1] : null;
+
+                const realSelfIdForRefusal = part.id.replace(/-(titular|ajudante)$/i, '');
+                const partnerPart = weekParts.find(p => {
+                    if (p.id === part.id || p.id === realSelfIdForRefusal) return false;
+                    if (!p.resolvedPublisherName && !p.rawPublisherName && !p.resolvedPublisherId) return false;
+                    const otherNum = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/)?.[1];
+                    if (partNum && otherNum && partNum === otherNum) return p.funcao !== part.funcao;
+                    return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
+                });
+
+                if (partnerPart) {
+                    const partnerName = resolvePartPublisherName(partnerPart as any, allPublishers);
+                    const partnerPub = partnerName ? allPublishers.find(p => p.name.trim() === partnerName.trim()) : null;
+                    if (partnerPub && partnerPub.phone) {
+                        await zapiOrchestrator.dispatchPartnerReplacementAlert(
+                            partnerPub.phone,
+                            partnerName,
+                            part.tipoParte || '',
+                            part.date || '',
+                            candidate.name,
+                            candidate.phone || '',
+                            part.funcao === 'Ajudante'
+                        );
+                    }
+                }
+            } catch (err) {
+                console.error('[ReplacementPortal] Falha ao notificar parceiro:', err);
             }
 
             setSuccess(true);

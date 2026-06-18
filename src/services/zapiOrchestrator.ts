@@ -129,6 +129,34 @@ class ZApiOrchestrator {
         return anySuccess;
     }
     
+    /**
+     * Envia um alerta ao parceiro (Titular ou Ajudante) de que a sua dupla foi trocada
+     * (geralmente usado na Substituição Rápida ou troca manual confirmada).
+     */
+    async dispatchPartnerReplacementAlert(
+        partnerPhone: string,
+        partnerName: string,
+        partType: string,
+        partDate: string,
+        newSubstituteName: string,
+        newSubstitutePhone: string,
+        isNewSubstituteAjudante: boolean
+    ): Promise<boolean> {
+        if (!partnerPhone) return false;
+
+        const roleText = isNewSubstituteAjudante ? 'Ajudante' : 'Titular';
+        const phoneText = newSubstitutePhone ? `\n📞 Contato: ${newSubstitutePhone}` : '';
+
+        const msg = `🔄 *Aviso de Mudança — RVM*\n\n` +
+            `Olá, ${partnerName}! Tudo bem?\n` +
+            `Informamos que houve uma substituição na sua parte de *${partType}* do dia *${partDate}*.\n\n` +
+            `O seu novo ${roleText} será o(a) irmão(ã): *${newSubstituteName}*${phoneText}\n\n` +
+            `Este é apenas um aviso automático para que você possa entrar em contato com sua nova dupla para os ensaios. Que Jeová abençoe! 🙏`;
+
+        const result = await this.sendTextDirect(partnerPhone, msg);
+        return result.success;
+    }
+
     async sendText(phone: string, text: string) {
         return this.waService.sendText(phone, text);
     }
