@@ -176,8 +176,8 @@ export function PreferencesPortal({ action, pubId }: PreferencesPortalProps) {
                     <h2 style={styles.successTitle}>✅ Atualizado!</h2>
                     <p style={styles.successText}>
                         {isRejoin
-                            ? `${publisherName}, você agora voltará a receber designações. Que Jeová abençoe! 🙏`
-                            : `${publisherName}, agora você receberá partes tanto como titular quanto ajudante. Que Jeová abençoe! 🙏`}
+                            ? `Muito obrigado por tomar essa decisão, ${publisherName}! Ficamos muito felizes em saber que você voltará a receber designações. Que Jeová continue abençoando seu espírito excelente! (Filipenses 2:13) 🙏`
+                            : `Muito obrigado por tomar essa decisão, ${publisherName}! Ficamos muito felizes em saber que você voltará a atuar plenamente. Que Jeová continue abençoando seu espírito excelente! (Filipenses 2:13) 🙏`}
                     </p>
                     <p style={styles.notifyText}>O Superintendente já foi notificado desta atualização.</p>
                     <button style={styles.closeBtn} onClick={() => window.close()}>Fechar</button>
