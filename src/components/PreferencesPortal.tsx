@@ -19,6 +19,14 @@ export function PreferencesPortal({ action, pubId }: PreferencesPortalProps) {
     const title = isRejoin
         ? 'Voltar a Receber Designações'
         : 'Participar como Titular e Ajudante';
+
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+    
+    const introText = isRejoin
+        ? `${greeting}! Querido irmã(o), notamos que pediu para não participar nas partes de estudantes na Reunião de Meio de Semana. Por favor, apenas como lembrete, caso queira reconsiderar, clique no botão abaixo. Fique certo do nosso apoio. (Salmo 134:3) Obrigado mesmo!`
+        : `${greeting}! Querido irmã(o), notamos que pediu para participar SÓ COMO AJUDANTE, nas partes de estudantes na Reunião de Meio de Semana. Por favor, apenas como lembrete, caso queira reconsiderar, clique no botão abaixo. Fique certo do nosso apoio. (Salmo 134:3) Obrigado mesmo!`;
+
     const description = isRejoin
         ? 'Ao confirmar, você voltará a receber designações na Reunião Vida e Ministério.'
         : 'Ao confirmar, você passará a receber partes tanto como titular quanto como ajudante.';
@@ -182,6 +190,19 @@ export function PreferencesPortal({ action, pubId }: PreferencesPortalProps) {
         <div style={styles.container}>
             <div style={styles.card}>
                 <h1 style={styles.title}>{title}</h1>
+                <div style={{
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)', 
+                    borderLeft: '4px solid #38bdf8',
+                    padding: '16px', 
+                    borderRadius: '0 12px 12px 0', 
+                    marginBottom: '24px',
+                    textAlign: 'left',
+                    color: '#e2e8f0',
+                    fontSize: '0.95rem',
+                    lineHeight: '1.5'
+                }}>
+                    {introText}
+                </div>
                 <p style={styles.subtitle}>{description}</p>
                 <div style={styles.nameBox}>
                     <span style={styles.nameLabel}>👤 Publicador:</span>
