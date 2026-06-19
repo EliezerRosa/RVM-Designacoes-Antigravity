@@ -1202,6 +1202,29 @@ export const agentActionService = {
                         }
                     }
 
+                    const oldPublisherName = targetPart.resolvedPublisherName || targetPart.rawPublisherName;
+                    if (resolvedName && oldPublisherName && oldPublisherName !== resolvedName) {
+                        const { isWeekPublished } = await import('./weekPublishService');
+                        const isPublished = await isWeekPublished(targetPart.weekId);
+                        if (isPublished) {
+                            return {
+                                success: true,
+                                message: `Preciso de confirmação para sobrescrever a designação de ${oldPublisherName} por ${resolvedName} na parte "${targetPart.tituloParte || targetPart.tipoParte}".`,
+                                data: { 
+                                    modal: 'manual_replacement', 
+                                    params: { 
+                                        partId: targetPart.id, 
+                                        newId: publisherId || '', 
+                                        newName: resolvedName, 
+                                        oldName: oldPublisherName, 
+                                        part: targetPart 
+                                    } 
+                                },
+                                actionType: 'SHOW_MODAL'
+                            };
+                        }
+                    }
+
                     if (resolvedName) {
                         undoService.captureSingle(targetPart, `Agente: Designar ${resolvedName}`);
                     }

@@ -156,6 +156,22 @@ class ZApiOrchestrator {
         const result = await this.sendTextDirect(partnerPhone, msg);
         return result.success;
     }
+    async dispatchManualReplacementAlert(
+        oldPhone: string,
+        oldName: string,
+        partType: string,
+        partDate: string
+    ): Promise<boolean> {
+        if (!oldPhone) return false;
+
+        const msg = `🔄 *Aviso de Ajuste na Tabela — RVM*\n\n` +
+            `Olá, ${oldName}! Tudo bem?\n` +
+            `Informamos que, devido a um ajuste manual na tabela, a sua parte de *${partType}* do dia *${partDate}* foi repassada para outro irmão.\n\n` +
+            `Portanto, você não precisará mais realizar esta parte. Agradecemos a sua compreensão! 🙏`;
+
+        const result = await this.sendTextDirect(oldPhone, msg);
+        return result.success;
+    }
 
     async sendText(phone: string, text: string) {
         return this.waService.sendText(phone, text);

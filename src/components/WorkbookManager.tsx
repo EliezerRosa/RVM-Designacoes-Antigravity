@@ -33,6 +33,10 @@ import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
 import { MyAssignmentsModal } from './MyAssignmentsModal';
 import { useAuth } from '../context/AuthContext';
+import { ManualReplacementModal } from './admin/ManualReplacementModal';
+import { zapiOrchestrator } from '../services/zapiOrchestrator';
+import { generateS89PngBase64, generateWhatsAppMessage } from '../services/s89Generator';
+import { communicationService } from '../services/communicationService';
 
 
 
@@ -113,6 +117,11 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
     // Undo State
     const [canUndo, setCanUndo] = useState(false);
     const [undoDescription, setUndoDescription] = useState<string | undefined>(undefined);
+
+    // Estado do Modal de Substituição Manual (Parte 3)
+    const [replacementModalData, setReplacementModalData] = useState<{
+        partId: string, newId: string, newName: string, oldName: string, part: WorkbookPart
+    } | null>(null);
 
     useEffect(() => {
         // Subscribe to UndoService
@@ -582,6 +591,30 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             const part = parts.find(p => p.id === partId);
             if (!part) return;
 
+            // Interceptação Parte 3: Substituição Manual se a semana já foi publicada
+            const oldPublisherName = part.resolvedPublisherName || part.rawPublisherName;
+            if (oldPublisherName && newName && oldPublisherName !== newName) {
+                const isPublished = await isWeekPublished(part.weekId);
+                if (isPublished) {
+                    // Pausa a execução e abre o modal
+                    setReplacementModalData({ partId, newId, newName, oldName: oldPublisherName, part });
+                    return;
+                }
+            }
+
+            // Executar o update diretamente se não foi interceptado
+            await executePublisherUpdate(partId, newId, newName, part);
+        } catch (e) {
+            console.error('Erro ao atualizar publicador:', e);
+            const msg = e instanceof Error ? e.message : 'Erro desconhecido';
+            setError(msg);
+            alert(`Erro ao salvar: ${msg}`);
+        }
+    };
+
+    const executePublisherUpdate = async (partId: string, newId: string, newName: string, part: WorkbookPart) => {
+        try {
+
             // Determinar novos valores e se precisa mudar status
             const isDesignada = part.status === 'DESIGNADA' || part.status === 'CONCLUIDA' || part.status === 'APROVADA';
 
@@ -654,6 +687,98 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
 
             setError(msg);
             alert(`Erro ao salvar: ${msg}`);
+        }
+    };
+
+    const handleConfirmReplacement = async (options: { notifyOld: boolean; notifyNew: boolean; notifyPartner: boolean }) => {
+        if (!replacementModalData) return;
+        const { partId, newId, newName, oldName, part } = replacementModalData;
+        setReplacementModalData(null); // Fechar modal
+
+        try {
+            // 1. Executar a alteração no banco
+            await executePublisherUpdate(partId, newId, newName, part);
+
+            // Se Z-API estiver desativada globalmente, o orchestrator aborta silenciosamente depois.
+            // Mas vamos buscar detalhes dos publicadores se precisar notificar
+            if (!options.notifyOld && !options.notifyNew && !options.notifyPartner) return;
+
+            const oldPub = publishers.find(p => p.name === oldName || p.id === part.resolvedPublisherId);
+            const newPub = publishers.find(p => p.id === newId || p.name === newName);
+            
+            // Partner lookup (se for dupla)
+            const isAjudante = part.funcao === 'Ajudante';
+            const partnerPart = parts.find(p => 
+                p.weekId === part.weekId && 
+                p.tipoParte === part.tipoParte && 
+                p.id !== part.id &&
+                (isAjudante ? p.funcao === 'Titular' : p.funcao === 'Ajudante')
+            );
+            const partnerPubName = partnerPart?.resolvedPublisherName || partnerPart?.rawPublisherName;
+            const partnerPub = publishers.find(p => p.name === partnerPubName);
+
+            // A. Notificar o Antigo
+            if (options.notifyOld && oldPub?.phone) {
+                await zapiOrchestrator.dispatchManualReplacementAlert(
+                    oldPub.phone,
+                    oldPub.name,
+                    part.tituloParte || part.tipoParte,
+                    part.date || part.weekId
+                );
+            }
+
+            // B. Notificar o Novo (S-89 de Substituição)
+            if (options.notifyNew && newPub?.phone) {
+                // Montar o base64 do cartão
+                const pdfBase64 = await generateS89PngBase64(
+                    { ...part, resolvedPublisherName: newPub.name },
+                    partnerPubName,
+                    undefined,
+                    true
+                );
+
+                if (pdfBase64) {
+                    const confirmUrl = await communicationService.buildConfirmationUrl(partId);
+                    const srvmName = 'Irmão'; // Simplificado
+                    const srvmPhone = ''; // Simplificado
+                    
+                    const msg = generateWhatsAppMessage(
+                        { ...part, resolvedPublisherName: newPub.name },
+                        newPub.gender,
+                        partnerPubName,
+                        partnerPub?.phone,
+                        isAjudante,
+                        srvmName,
+                        srvmPhone,
+                        confirmUrl,
+                        true // isSubstitution!
+                    );
+
+                    await zapiOrchestrator.sendS89Direct(
+                        partId,
+                        newPub.phone,
+                        msg,
+                        pdfBase64
+                    );
+                }
+            }
+
+            // C. Notificar o Parceiro
+            if (options.notifyPartner && partnerPub?.phone && newPub) {
+                await zapiOrchestrator.dispatchPartnerReplacementAlert(
+                    partnerPub.phone,
+                    partnerPub.name,
+                    part.tituloParte || part.tipoParte,
+                    part.date || part.weekId,
+                    newPub.name,
+                    newPub.phone,
+                    isAjudante // se a parte sendo editada era ajudante, o newPub é o ajudante!
+                );
+            }
+
+        } catch (e) {
+            console.error('Erro ao processar substituição manual:', e);
+            setError(e instanceof Error ? e.message : 'Erro desconhecido na substituição');
         }
     };
 
@@ -925,6 +1050,18 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                             onEditPart={handleEditPart}
                             eventNotesMap={eventNotesMap}
                         />
+
+                        {/* Modal de Substituição Manual */}
+                        {replacementModalData && (
+                            <ManualReplacementModal
+                                isOpen={!!replacementModalData}
+                                part={replacementModalData.part}
+                                oldPublisherName={replacementModalData.oldName}
+                                newPublisherName={replacementModalData.newName}
+                                onConfirm={handleConfirmReplacement}
+                                onCancel={() => setReplacementModalData(null)}
+                            />
+                        )}
 
                         <PartEditModal
                             isOpen={isEditModalOpen}
