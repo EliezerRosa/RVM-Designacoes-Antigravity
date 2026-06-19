@@ -634,7 +634,12 @@ export function getWeekMondayId(dateStr: string): string {
  * Mantém compatibilidade retroativa com registros antigos baseados em quinta-feira.
  */
 function isAvailableOnDate(publisher: Publisher, date: string): boolean {
-    const availability = publisher.availability || { mode: 'always', exceptionDates: [], availableDates: [] };
+    const avail = publisher.availability || {};
+    const availability = {
+        mode: avail.mode || 'always',
+        exceptionDates: avail.exceptionDates || [],
+        availableDates: avail.availableDates || []
+    };
 
     const weekId = getWeekMondayId(date);
     // Compatibilidade retroativa: dados antigos podem ter sido salvos como quinta-feira
