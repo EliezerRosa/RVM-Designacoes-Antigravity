@@ -169,7 +169,11 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
     if (p.privileges.canReadCBS) privileges.push('Ler EBC');
     if (p.privileges.canGiveStudentTalks) privileges.push('Estudante');
 
-    const avail = p.availability || { mode: 'always', exceptionDates: [], availableDates: [] };
+    const avail = {
+        mode: p.availability?.mode || 'always',
+        exceptionDates: p.availability?.exceptionDates || [],
+        availableDates: p.availability?.availableDates || []
+    };
 
     const restrictions: string[] = [];
     if (!p.isServing) restrictions.push('Inativo');
