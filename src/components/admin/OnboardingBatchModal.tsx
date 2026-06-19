@@ -39,7 +39,7 @@ export function OnboardingBatchModal({ isOpen, onClose }: OnboardingBatchModalPr
         setLoading(true);
         try {
             // 1. Obter todos os publicadores
-            const { data: pubs, error: pubErr } = await supabase.from('publishers').select('*').order('name', { ascending: true });
+            const { data: pubs, error: pubErr } = await supabase.from('publishers').select('*');
             if (pubErr) throw pubErr;
             
             // 2. Obter perfis já validados
@@ -63,6 +63,8 @@ export function OnboardingBatchModal({ isOpen, onClose }: OnboardingBatchModalPr
                     phone: cleanPhone
                 });
             }
+            
+            eligible.sort((a, b) => a.name.localeCompare(b.name));
             
             setTargets(eligible);
             // Auto-select all by default
