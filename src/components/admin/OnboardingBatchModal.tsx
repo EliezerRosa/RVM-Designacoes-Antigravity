@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { createWhatsAppAutoServiceFromEnv } from '../../services/whatsappAutoService';
 
@@ -148,8 +149,8 @@ export function OnboardingBatchModal({ isOpen, onClose }: OnboardingBatchModalPr
 
     if (!isOpen) return null;
 
-    return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    return createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ background: '#1e293b', width: '90%', maxWidth: '600px', maxHeight: '90vh', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', color: '#e2e8f0', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h2 style={{ margin: 0, color: '#f59e0b', fontSize: '1.4rem' }}>🚀 Carga Inicial Gradual</h2>
@@ -219,6 +220,7 @@ export function OnboardingBatchModal({ isOpen, onClose }: OnboardingBatchModalPr
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
