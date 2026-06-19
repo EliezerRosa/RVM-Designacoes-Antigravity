@@ -169,11 +169,13 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
     if (p.privileges.canReadCBS) privileges.push('Ler EBC');
     if (p.privileges.canGiveStudentTalks) privileges.push('Estudante');
 
+    const avail = p.availability || { mode: 'always', exceptionDates: [], availableDates: [] };
+
     const restrictions: string[] = [];
     if (!p.isServing) restrictions.push('Inativo');
     if (p.isNotQualified) restrictions.push(`ÑQualificado(${p.notQualifiedReason || ''})`);
     if (p.requestedNoParticipation) restrictions.push(`PediuSair(${p.noParticipationReason || ''})`);
-    if (p.availability.mode === 'never') restrictions.push('Indisponível(Geral)');
+    if (avail.mode === 'never') restrictions.push('Indisponível(Geral)');
     if (p.isHelperOnly) restrictions.push('ApenasAjudante');
     if (!p.canPairWithNonParent && p.parentIds.length > 0) restrictions.push('ApenasComPais');
 
@@ -202,15 +204,15 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
         ageGroup: p.ageGroup,
         hasParents: parentNames.length > 0,
         parentNames: parentNames,
-        availability: p.availability.mode === 'always'
-            ? p.availability.exceptionDates.length > 0
-                ? `Sempre (Exceto: [${p.availability.exceptionDates.join(', ')}])`
+        availability: avail.mode === 'always'
+            ? avail.exceptionDates.length > 0
+                ? `Sempre (Exceto: [${avail.exceptionDates.join(', ')}])`
                 : 'Sempre'
-            : p.availability.mode === 'never'
-                ? p.availability.availableDates.length > 0
-                    ? `Apenas: [${p.availability.availableDates.join(', ')}]`
+            : avail.mode === 'never'
+                ? avail.availableDates.length > 0
+                    ? `Apenas: [${avail.availableDates.join(', ')}]`
                     : 'Nunca'
-                : `Apenas: [${p.availability.availableDates.join(', ')}]`,
+                : `Apenas: [${avail.availableDates.join(', ')}]`,
         restrictions
     };
 }
