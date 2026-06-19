@@ -442,7 +442,11 @@ export const communicationService = {
         }
 
         alertMsg += `──────────────────\n`;
-        alertMsg += `💡 *Sugestão de Substituto:* ${bestCandidate}\n`;
+        let candidateStr = bestCandidate;
+        if (ranked[0]?.publisher?.phone) {
+            candidateStr += ` (${ranked[0].publisher.phone})`;
+        }
+        alertMsg += `💡 *Sugestão de Substituto:* ${candidateStr}\n`;
         alertMsg += `──────────────────\n\n`;
 
         const baseUrl = getAppBaseUrl();
