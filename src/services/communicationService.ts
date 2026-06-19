@@ -373,9 +373,16 @@ export const communicationService = {
         const srvmPhone = srvm?.phone || '';
         const srvmName = srvm?.name || 'Edmardo Queiroz';
 
-        // 3. Buscar sugestão de substituto
+        // 3. Buscar todas as partes da semana para evitar sugerir alguém já designado nela
+        const weekParts = await workbookQueryService.getWeekParts(part.weekId);
+        const assignedInWeek = new Set(
+            weekParts.map(wp => resolvePartPublisherName(wp, publishers)?.trim()).filter(Boolean)
+        );
+
+        // 4. Buscar sugestão de substituto
         const eligible = publishers.filter(p => {
             if (p.name === publisherName) return false;
+            if (assignedInWeek.has(p.name.trim())) return false; // Bloqueia quem já tem parte na semana
             const res = checkEligibility(p, part.modalidade as any, part.funcao as any, {
                 date: part.date,
                 secao: part.section
@@ -388,8 +395,7 @@ export const communicationService = {
         const ranked = getRankedCandidates(eligible, part.modalidade, historyForRanking, undefined, refDate);
         const bestCandidate = ranked[0]?.publisher?.name || 'Não encontrado';
 
-        // 4. Buscar parceiro (Titular/Ajudante) da mesma semana
-        const weekParts = await workbookQueryService.getWeekParts(part.weekId);
+        // 5. Buscar parceiro (Titular/Ajudante) da mesma semana
         const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
         const partNum = partNumMatch ? partNumMatch[1] : null;
 
