@@ -67,6 +67,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
     const { profile, isAdmin } = useAuth();
     const [activeModal, setActiveModal] = useState<AgentModalType>(null);
+    const [activeModalParams, setActiveModalParams] = useState<any>(null);
     const [weeklyEvents, setWeeklyEvents] = useState<SpecialEvent[]>([]);
     const [pendingLinksCount, setPendingLinksCount] = useState<number>(0);
 
@@ -175,6 +176,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         // Intercept SHOW_MODAL — it's a UI action, not a data action
         if (result.actionType === 'SHOW_MODAL' && result.data?.modal) {
             console.log('[PowerfulAgent] Opening modal:', result.data.modal);
+            setActiveModalParams(result.data.params || null);
             setActiveModal(result.data.modal as AgentModalType);
             return;
         }
@@ -551,7 +553,8 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
             <AgentModalHost
                 modal={activeModal}
-                onClose={() => setActiveModal(null)}
+                modalParams={activeModalParams}
+                onClose={() => { setActiveModal(null); setActiveModalParams(null); }}
                 publishers={publishers}
                 weekParts={weekParts}
                 weekOrder={weekOrder}

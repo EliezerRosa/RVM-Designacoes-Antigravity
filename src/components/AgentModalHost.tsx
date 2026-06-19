@@ -30,8 +30,9 @@ import { WorkbookImportModal } from './WorkbookImportModal';
 import { FloatingPanelShell } from './ui/FloatingPanelShell';
 import { getTodayWeekIdLocal } from '../utils/dateUtils';
 import { ProfileLinksPanel } from './admin/ProfileLinksPanel';
+import { ManualReplacementModal } from './admin/ManualReplacementModal';
 
-export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | 'workbook_import' | 'profile_links' | null;
+export type AgentModalType = 'publishers' | 'workbook' | 'events' | 'local_needs' | 'territories' | 'workbook_import' | 'profile_links' | 'manual_replacement' | null;
 
 interface Props {
     modal: AgentModalType;
@@ -41,9 +42,10 @@ interface Props {
     weekOrder: string[];
     focusWeekId?: string;
     onDataChange?: () => void;
+    modalParams?: any;
 }
 
-export default function AgentModalHost({ modal, onClose, publishers, weekParts, weekOrder, focusWeekId, onDataChange }: Props) {
+export default function AgentModalHost({ modal, onClose, publishers, weekParts, weekOrder, focusWeekId, onDataChange, modalParams }: Props) {
     // Publisher CRUD state
     const [editingPublisher, setEditingPublisher] = useState<Publisher | null>(null);
     const [showPublisherForm, setShowPublisherForm] = useState(false);
@@ -187,6 +189,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
             case 'territories': return '🗺️ Territórios';
             case 'workbook_import': return '📥 Importar Apostila do JW.org';
             case 'profile_links': return '🔗 Vínculos Pendentes';
+            case 'manual_replacement': return '🔄 Substituição Manual';
             default: return '';
         }
     };
@@ -305,6 +308,72 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                 return (
                     <ProfileLinksPanel />
                 );
+
+            case 'manual_replacement': {
+                if (!modalParams) return null;
+                const { partId, newId, newName, oldName, part } = modalParams;
+
+                const handleConfirmReplacement = async (options: { notifyOld: boolean; notifyNew: boolean; notifyPartner: boolean }) => {
+                    try {
+                        // 1. Executar no banco
+                        await unifiedActionService.executeDesignation(partId, newName, 'MANUAL');
+
+                        // 2. Acionar Z-API Notifications
+                        if (options.notifyOld || options.notifyNew || options.notifyPartner) {
+                            // Dinamicamente importar e disparar, mesma lógica do WorkbookManager
+                            const { zapiOrchestrator } = await import('../services/zapiOrchestrator');
+                            const { generateS89PngBase64, generateWhatsAppMessage } = await import('../services/s89Generator');
+                            const { communicationService } = await import('../services/communicationService');
+
+                            const oldPub = publishers.find(p => p.name === oldName || p.id === part.resolvedPublisherId);
+                            const newPub = publishers.find(p => p.id === newId || p.name === newName);
+                            
+                            const isAjudante = part.funcao === 'Ajudante';
+                            const allParts = Object.values(weekParts).flat();
+                            const partnerPart = allParts.find(p => 
+                                p.weekId === part.weekId && 
+                                p.tipoParte === part.tipoParte && 
+                                p.id !== part.id &&
+                                (isAjudante ? p.funcao === 'Titular' : p.funcao === 'Ajudante')
+                            );
+                            const partnerPubName = partnerPart?.resolvedPublisherName || partnerPart?.rawPublisherName;
+                            const partnerPub = publishers.find(p => p.name === partnerPubName);
+
+                            if (options.notifyOld && oldPub?.phone) {
+                                await zapiOrchestrator.dispatchManualReplacementAlert(oldPub.phone, oldPub.name, part.tituloParte || part.tipoParte, part.date || part.weekId);
+                            }
+                            if (options.notifyNew && newPub?.phone) {
+                                const pdfBase64 = await generateS89PngBase64({ ...part, resolvedPublisherName: newPub.name }, partnerPubName, undefined, true);
+                                if (pdfBase64) {
+                                    const confirmUrl = await communicationService.buildConfirmationUrl(partId);
+                                    const msg = generateWhatsAppMessage({ ...part, resolvedPublisherName: newPub.name }, newPub.gender, partnerPubName, partnerPub?.phone, isAjudante, 'Irmão', '', confirmUrl, true);
+                                    await zapiOrchestrator.sendS89Direct(partId, newPub.phone, msg, pdfBase64);
+                                }
+                            }
+                            if (options.notifyPartner && partnerPub?.phone && newPub) {
+                                await zapiOrchestrator.dispatchPartnerReplacementAlert(partnerPub.phone, partnerPub.name, part.tituloParte || part.tipoParte, part.date || part.weekId, newPub.name, newPub.phone, isAjudante);
+                            }
+                        }
+
+                        if (onDataChange) onDataChange();
+                        handleClose();
+                    } catch (e) {
+                        alert('Erro ao processar substituição: ' + (e instanceof Error ? e.message : String(e)));
+                    }
+                };
+
+                // Requer import de ManualReplacementModal: import { ManualReplacementModal } from './admin/ManualReplacementModal';
+                return (
+                    <ManualReplacementModal
+                        isOpen={true}
+                        part={part}
+                        oldPublisherName={oldName}
+                        newPublisherName={newName}
+                        onConfirm={handleConfirmReplacement}
+                        onCancel={handleClose}
+                    />
+                );
+            }
 
             default:
                 return null;
