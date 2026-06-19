@@ -1128,7 +1128,7 @@ export const workbookService = {
                     String(monday.getMonth() + 1).padStart(2, '0'),
                     String(monday.getDate()).padStart(2, '0'),
                 ].join('-');
-                return meetingDateStr <= today;
+                return meetingDateStr < today;
             })
             .map(p => p.id);
 
