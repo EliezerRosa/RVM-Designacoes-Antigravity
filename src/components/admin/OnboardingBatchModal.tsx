@@ -200,7 +200,7 @@ export function OnboardingBatchModal({ isOpen, onClose }: OnboardingBatchModalPr
                 )}
 
                 {logs.length > 0 && (
-                    <div style={{ marginTop: '16px', background: '#000', padding: '10px', borderRadius: '6px', height: '100px', overflowY: 'auto', fontSize: '0.8rem', fontFamily: 'monospace', color: '#10b981' }}>
+                    <div style={{ marginTop: '16px', background: '#000', padding: '10px', borderRadius: '6px', minHeight: '100px', flexShrink: 0, overflowY: 'auto', fontSize: '0.8rem', fontFamily: 'monospace', color: '#10b981' }}>
                         {logs.map((l, i) => <div key={i}>{l}</div>)}
                     </div>
                 )}
