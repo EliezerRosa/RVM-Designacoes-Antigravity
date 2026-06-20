@@ -92,7 +92,7 @@ VALUES (
 INSERT INTO permission_policies (target_condition, target_funcao, allowed_tabs, allowed_agent_actions, blocked_agent_actions, data_access_level, can_see_sensitive_data, priority)
 VALUES (
     'Ancião', 'Superintendente da Reunião Vida e Ministério',
-    ARRAY['agent'],
+    ARRAY['agent', 'workbook'],
     ARRAY['GENERATE_WEEK','ASSIGN_PART','UNDO_LAST','NAVIGATE_WEEK','VIEW_S140','SHARE_S140_WHATSAPP','CHECK_SCORE','CLEAR_WEEK','UPDATE_PUBLISHER','UPDATE_AVAILABILITY','MANAGE_SPECIAL_EVENT','SEND_S140','SEND_S89','FETCH_DATA','SIMULATE_ASSIGNMENT','NOTIFY_REFUSAL','SHOW_MODAL','MANAGE_LOCAL_NEEDS','GET_ANALYTICS','IMPORT_WORKBOOK','MANAGE_WORKBOOK_PART','MANAGE_WORKBOOK_WEEK'],
     '{}',
     'all', true, 10
@@ -112,7 +112,7 @@ VALUES (
 INSERT INTO permission_policies (target_condition, target_funcao, allowed_tabs, allowed_agent_actions, blocked_agent_actions, data_access_level, can_see_sensitive_data, priority)
 VALUES (
     'Servo Ministerial', 'Ajudante do Superintendente da Reunião Vida e Ministério',
-    ARRAY['agent'],
+    ARRAY['agent', 'workbook'],
     ARRAY['GENERATE_WEEK','ASSIGN_PART','UNDO_LAST','NAVIGATE_WEEK','VIEW_S140','SHARE_S140_WHATSAPP','CHECK_SCORE','FETCH_DATA','SIMULATE_ASSIGNMENT','SHOW_MODAL','MANAGE_LOCAL_NEEDS','GET_ANALYTICS','IMPORT_WORKBOOK','MANAGE_WORKBOOK_PART','MANAGE_WORKBOOK_WEEK','SEND_S140','SEND_S89'],
     '{}',
     'filtered', false, 8
@@ -122,7 +122,7 @@ VALUES (
 INSERT INTO permission_policies (target_condition, target_funcao, allowed_tabs, allowed_agent_actions, blocked_agent_actions, data_access_level, can_see_sensitive_data, priority)
 VALUES (
     'Ancião', 'Ajudante do Superintendente da Reunião Vida e Ministério',
-    ARRAY['agent'],
+    ARRAY['agent', 'workbook'],
     ARRAY['GENERATE_WEEK','ASSIGN_PART','UNDO_LAST','NAVIGATE_WEEK','VIEW_S140','SHARE_S140_WHATSAPP','CHECK_SCORE','CLEAR_WEEK','UPDATE_PUBLISHER','UPDATE_AVAILABILITY','MANAGE_SPECIAL_EVENT','SEND_S140','SEND_S89','FETCH_DATA','SIMULATE_ASSIGNMENT','NOTIFY_REFUSAL','SHOW_MODAL','MANAGE_LOCAL_NEEDS','GET_ANALYTICS','IMPORT_WORKBOOK','MANAGE_WORKBOOK_PART','MANAGE_WORKBOOK_WEEK'],
     '{}',
     'all', true, 10
