@@ -345,11 +345,12 @@ export function createPermissionGate(perms: ResolvedPermissions): PermissionGate
         },
 
         getAllowedAgentActions(): AgentActionType[] {
+            const actions = perms.agentActions || new Set<AgentActionType>();
             if (perms.isAdmin) {
-                return [...perms.agentActions] as AgentActionType[];
+                return [...actions] as AgentActionType[];
             }
-            return [...perms.agentActions]
-                .filter(a => !perms.blockedActions.has(a))
+            return [...actions]
+                .filter(a => !perms.blockedActions?.has(a))
                 .filter(a => !ADMIN_ONLY_ACTIONS.has(a as AgentActionType)) as AgentActionType[];
         },
 

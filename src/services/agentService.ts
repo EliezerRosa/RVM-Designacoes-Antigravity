@@ -1379,7 +1379,7 @@ export async function askAgent(
 
     const gate = createPermissionGate(getPermissions());
     const isAdmin = gate.isFullAdmin();
-    const allowedActions = gate.getAllowedAgentActions();
+    const allowedActions = gate.getAllowedAgentActions() || [];
 
     if (isAdmin) {
       systemPrompt += `\n\nPERMISSÕES: Este usuário é ADMINISTRADOR com acesso TOTAL. Você pode executar QUALQUER ação disponível sem restrição, incluindo: ${allowedActions.join(', ')}. NUNCA diga que não tem permissão — o admin pode tudo.`;
