@@ -181,7 +181,7 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
     if (p.requestedNoParticipation) restrictions.push(`PediuSair(${p.noParticipationReason || ''})`);
     if (avail.mode === 'never') restrictions.push('Indisponível(Geral)');
     if (p.isHelperOnly) restrictions.push('ApenasAjudante');
-    if (!p.canPairWithNonParent && p.parentIds.length > 0) restrictions.push('ApenasComPais');
+    if (!p.canPairWithNonParent && (p.parentIds || []).length > 0) restrictions.push('ApenasComPais');
 
     // Section Privileges (Lockouts)
     if (p.privilegesBySection) {
@@ -191,8 +191,8 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
     }
 
     // Resolve Pais
-    const parentNames = p.parentIds && parentLookup
-        ? p.parentIds.map(id => parentLookup.get(id)).filter(Boolean)
+    const parentNames = (p.parentIds || []) && parentLookup
+        ? (p.parentIds || []).map(id => parentLookup.get(id)).filter(Boolean)
         : [];
 
     return {
@@ -203,7 +203,7 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
         isServing: p.isServing,
         isBaptized: p.isBaptized,
         phone: p.phone,
-        aliases: p.aliases,
+        aliases: p.aliases || [],
         privileges,
         ageGroup: p.ageGroup,
         hasParents: parentNames.length > 0,
