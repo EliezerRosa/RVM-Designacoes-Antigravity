@@ -1455,7 +1455,7 @@ export async function askAgent(
     return {
       success: false,
       message: 'Erro ao conectar com a IA.',
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.stack : String(error),
       actions: []
     };
   }
