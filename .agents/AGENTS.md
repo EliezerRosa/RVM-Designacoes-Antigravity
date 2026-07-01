@@ -39,7 +39,7 @@ Qualquer usuário acessa APENAS os portais/modais devidos para cada link. Portai
 | 8 | S-89 — via WhatsApp Web | Manual (api.whatsapp.com) | Mesmo `?portal=confirm&...` | `DesignationConfirmationPortal` | Google |
 | 9 | Lembretes D-7/D-2 | z-api cron | **SEM link** | — | — |
 | 10 | S-140 — Publicação | z-api auto (grupo) | **SEM link** (só imagem) | — | — |
-| 11 | Alerta de recusa | z-api auto (SRVM) | **SEM link** | — | — |
+| 11 | Alerta de recusa | z-api auto (SRVM) | `?portal=replace&partId=X` | `ReplacementPortal` | Google |
 
 ### Portais existentes não enviados via WhatsApp
 
@@ -47,7 +47,6 @@ Qualquer usuário acessa APENAS os portais/modais devidos para cada link. Portai
 |---|---|---|
 | `?portal=availability&token=X` | `PublisherAvailabilityPortal` | Modal S-89 / Admin |
 | `?portal=my-assignments&publisher_id=X&token=X` | `MyAssignmentsPortal` | Admin |
-| `?portal=replace&partId=X` | `ReplacementPortal` | Alerta recusa (admin) |
 
 ### Regras de Reconvite (cron mensal)
 
