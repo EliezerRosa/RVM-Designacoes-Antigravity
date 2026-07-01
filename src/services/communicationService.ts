@@ -451,7 +451,7 @@ export const communicationService = {
 
         const baseUrl = getAppBaseUrl();
 
-        alertMsg += `👉 *Designar substituto:* ${baseUrl}/?admin=true&action=replace&partId=${part.id}\n\n`;
+        alertMsg += `👉 *Designar substituto:* ${baseUrl}/?portal=replace&partId=${part.id}\n\n`;
         alertMsg += `👤 *Responsável RVM:* ${srvmName} (${srvmPhone})`;
 
         return { alertMsg, srvmPhone, bestCandidate, srvmName };
