@@ -375,7 +375,8 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
     }
 
     // --- M2: RECONVITE — requestedNoParticipation ---
-    const noParticipationPubs = publishers.filter(p => p.requestedNoParticipation && p.phone);
+    // NÃO enviar para quem está com flag NÃO APTO (isNotQualified)
+    const noParticipationPubs = publishers.filter(p => p.requestedNoParticipation && p.phone && !p.isNotQualified);
     for (const pub of noParticipationPubs) {
         const dispatchKey = `RECONVITE_MENSAL_${currentMonth}_${pub.id}`;
         if (await checkDispatched(pub.id, dispatchKey)) continue;
@@ -395,7 +396,8 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
     }
 
     // --- M3: RECONVITE — isHelperOnly ---
-    const helperOnlyPubs = publishers.filter(p => p.isHelperOnly && p.phone);
+    // NÃO enviar para quem está com flag NÃO APTO (isNotQualified)
+    const helperOnlyPubs = publishers.filter(p => p.isHelperOnly && p.phone && !p.isNotQualified);
     for (const pub of helperOnlyPubs) {
         const dispatchKey = `RECONVITE_HELPER_${currentMonth}_${pub.id}`;
         if (await checkDispatched(pub.id, dispatchKey)) continue;

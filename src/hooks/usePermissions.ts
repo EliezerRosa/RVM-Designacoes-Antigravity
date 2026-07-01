@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Profile } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import {
     loadPermissions,
     getPermissions,
@@ -69,6 +70,35 @@ export function usePermissions(profile: Profile | null): UsePermissionsResult {
         setResolved(perms);
         setIsLoading(false);
     }, [profile?.id, profile?.role, profile?.publisher_id]);
+
+    // Realtime subscriptions for immediate permission updates
+    useEffect(() => {
+        if (!profile) return;
+
+        console.log('[PERMISSIONS] Setting up realtime subscriptions...');
+
+        const chPolicies = supabase
+            .channel('policies-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'permission_policies' }, () => {
+                console.log('[PERMISSIONS] Policy changed, reloading...');
+                refresh();
+            })
+            .subscribe();
+
+        const chOverrides = supabase
+            .channel('overrides-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'user_permission_overrides', filter: `profile_id=eq.${profile.id}` }, () => {
+                console.log('[PERMISSIONS] Override changed, reloading...');
+                refresh();
+            })
+            .subscribe();
+
+        return () => {
+            console.log('[PERMISSIONS] Cleaning up realtime subscriptions...');
+            supabase.removeChannel(chPolicies);
+            supabase.removeChannel(chOverrides);
+        };
+    }, [profile?.id, refresh]);
 
     const gate = useMemo<PermissionGate>(() => {
         if (!resolved) return FALLBACK_GATE;
