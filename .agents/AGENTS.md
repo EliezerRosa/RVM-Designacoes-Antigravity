@@ -1,31 +1,65 @@
 # Regras Persistentes — RVM Designações
 
-## Política de Acesso: Publicador Comum (CONDIÇÃO TEMPORÁRIA)
+## Política de Acesso e Visibilidade (CONDIÇÃO TEMPORÁRIA)
 
 > **DATA**: 2026-07-01  
-> **DECISÃO DO USUÁRIO**: Publicador comum NÃO deve ver NADA via acesso direto ao app.  
-> **STATUS**: ⏳ TEMPORÁRIO — até que funcionalidades direcionadas a publicadores sejam implementadas (ex: aba RM).
+> **DECISÃO DO USUÁRIO**: Afora o Admin, só SM Ajd SRVM vê abas. Todos os demais = zero abas.  
+> **STATUS**: ⏳ TEMPORÁRIO — até que funcionalidades direcionadas a outros perfis sejam implementadas.
 
-### Regra
-- Publicadores comuns (condition = `'Publicador'`, sem funcao especial) que façam login direto no app **NÃO devem ver nenhuma aba**.
-- A policy `Publicador` no banco tem `allowed_tabs: []` (array vazio).
-- O `FALLBACK_PERMISSIONS` no código tem `tabs: ['workbook']` — mas políticas específicas prevalecem.
-- Quando nenhuma aba é permitida, o app deve redirecionar para a primeira aba acessível; se nenhuma, exibe tela sem conteúdo.
+### Tabela de Permissões por Policy (banco `permission_policies`)
 
-### Quem vê a aba 🤖 Agente (acesso direto)
-- ✅ **Admin** (profile.role = 'admin') — bypass automático via `FULL_ADMIN_PERMISSIONS`
-- ✅ **Ajudante SRVM** (Servo Ministerial) — policy com `'agent'` no `allowed_tabs`
-- ❌ Todos os demais — **aba oculta + redirect automático**
+| condition | funcao | `allowed_tabs` | Notas |
+|---|---|---|---|
+| **Admin** | _(bypass no código)_ | **TODAS** | `FULL_ADMIN_PERMISSIONS` — sem policy, hardcoded |
+| **Servo Ministerial** | Ajd SRVM | `['workbook','agent']` | Único não-admin com abas |
+| Ancião | SRVM | `[]` | Zero abas (é admin no profile.role) |
+| Ancião | CCA | `[]` | Zero abas |
+| Ancião | Ajd SRVM | `[]` | Zero abas |
+| Ancião | (genérico) | `[]` | Zero abas |
+| Servo Ministerial | (genérico) | `[]` | Zero abas |
+| Publicador | — | `[]` | Zero abas |
 
-### Quem vê o quê via links Z-API
-- Links z-api usam **portal mode** (`?portal=confirm|preferences|invite|form`)
-- Portais renderizam UI **isolada**, sem nav bar, sem abas
-- O publicador NUNCA vê o app principal ao clicar em link z-api
+- O `FALLBACK_PERMISSIONS` no código tem `tabs: ['workbook']` — mas policies específicas sempre prevalecem.
+- Quando nenhuma aba é permitida, o app redireciona para a primeira aba acessível; se nenhuma, exibe tela vazia.
+- Botão da aba 🤖 Agente protegido por `permissions.canViewTab('agent')` em `App.tsx`.
 
-### Quando remover esta condição
-- Quando a aba RM (Relatório Mensal) for implementada e liberada para publicadores
+### Acesso via Links Z-API (Mensagens WhatsApp)
+
+Qualquer usuário acessa APENAS os portais/modais devidos para cada link. Portais são UI isolada, **sem nav bar, sem abas**.
+
+| # | Mensagem | Canal | Link (portal) | Componente | Auth |
+|---|---|---|---|---|---|
+| 1 | S-89 — Publicação lote | z-api auto | `?portal=confirm&partId=X&publisherId=Y&token=Z` | `DesignationConfirmationPortal` | Google |
+| 2 | S-89 — Envio individual | z-api manual | Mesmo `?portal=confirm&...` | `DesignationConfirmationPortal` | Google |
+| 3 | S-89 — com VIP Token | z-api auto | `?portal=invite&token=X` | `InvitePortal` | Token |
+| 4 | Cobrança D-9 | z-api cron | `?portal=confirm&id=X&publisherId=Y&token=auto` | `DesignationConfirmationPortal` | Google |
+| 5 | Reconvite M2 (não participa) | z-api cron mensal | `?portal=preferences&action=rejoin&pubId=X` | `PreferencesPortal` | Google |
+| 6 | Reconvite M3 (só ajudante) | z-api cron mensal | `?portal=preferences&action=full-participation&pubId=X` | `PreferencesPortal` | Google |
+| 7 | Relatório comissão M4 | z-api cron mensal | `?portal=publisher-form` | `PublisherStatusForm` | Token |
+| 8 | S-89 — via WhatsApp Web | Manual (api.whatsapp.com) | Mesmo `?portal=confirm&...` | `DesignationConfirmationPortal` | Google |
+| 9 | Lembretes D-7/D-2 | z-api cron | **SEM link** | — | — |
+| 10 | S-140 — Publicação | z-api auto (grupo) | **SEM link** (só imagem) | — | — |
+| 11 | Alerta de recusa | z-api auto (SRVM) | **SEM link** | — | — |
+
+### Portais existentes não enviados via WhatsApp
+
+| Portal | Componente | Gerado por |
+|---|---|---|
+| `?portal=availability&token=X` | `PublisherAvailabilityPortal` | Modal S-89 / Admin |
+| `?portal=my-assignments&publisher_id=X&token=X` | `MyAssignmentsPortal` | Admin |
+| `?portal=replace&partId=X` | `ReplacementPortal` | Alerta recusa (admin) |
+
+### Regras de Reconvite (cron mensal)
+
+- M2 (requestedNoParticipation): **NÃO enviar** a quem tem `isNotQualified = true`
+- M3 (isHelperOnly): **NÃO enviar** a quem tem `isNotQualified = true`
+- Implementado em `cron-whatsapp-reminders/index.ts` linhas 377-416
+
+### Quando remover esta condição temporária
+
+- Quando a aba RM (Relatório Mensal) for implementada e liberada
 - Quando funcionalidades self-service forem criadas para publicadores
-- A remoção deve atualizar: policy `Publicador` no banco + este documento
+- A remoção deve atualizar: policies no banco + `FALLBACK_PERMISSIONS` no código + este documento
 
 ---
 
