@@ -257,10 +257,13 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
     onCriticalError: setStatusMessage,
   })
 
-  // Redirect to 'agent' tab if current tab is not allowed after permissions load
+  // Redirect to first allowed tab if current tab is not permitted
   useEffect(() => {
     if (!permissionsLoading && !permissions.canViewTab(activeTab)) {
-      setActiveTab('agent')
+      // Find the first tab the user CAN view (fallback order)
+      const FALLBACK_ORDER: ActiveTab[] = ['workbook', 'publishers', 'territories', 'communication', 'backup', 'agent', 'admin'];
+      const firstAllowed = FALLBACK_ORDER.find(t => permissions.canViewTab(t)) || 'workbook';
+      setActiveTab(firstAllowed);
     }
   }, [permissionsLoading])
 
@@ -513,14 +516,16 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           >
             📊 Admin
           </button>}
-          <button
-            className={`nav-btn ${activeTab === 'agent' ? 'active' : ''}`}
-            onClick={() => handleTabChange('agent')}
-            title="Agente Poderoso"
-            style={{ background: activeTab === 'agent' ? '#4F46E5' : 'transparent', border: activeTab === 'agent' ? 'none' : '1px solid #4F46E5' }}
-          >
-            🤖 Agente
-          </button>
+          {permissions.canViewTab('agent') ? (
+            <button
+              className={`nav-btn ${activeTab === 'agent' ? 'active' : ''}`}
+              onClick={() => handleTabChange('agent')}
+              title="Agente Poderoso"
+              style={{ background: activeTab === 'agent' ? '#4F46E5' : 'transparent', border: activeTab === 'agent' ? 'none' : '1px solid #4F46E5' }}
+            >
+              🤖 Agente
+            </button>
+          ) : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto', flexShrink: 0 }}>
           <span style={{ color: '#94a3b8', fontSize: '0.75rem' }} title={userEmail}>
