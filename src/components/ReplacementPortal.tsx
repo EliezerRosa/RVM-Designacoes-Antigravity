@@ -4,8 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import type { WorkbookPart, Publisher } from '../types';
 import { checkEligibility } from '../services/eligibilityService';
 import { getModalidadeFromTipo } from '../constants/mappings';
-import { generateWhatsAppMessage } from '../services/s89Generator';
+import { generateWhatsAppMessage, generateS89PngBase64 } from '../services/s89Generator';
 import { api } from '../services/api';
+import { unifiedActionService } from '../services/unifiedActionService';
 
 import { communicationService } from '../services/communicationService';
 import { workbookQueryService } from '../services/workbookQueryService';
@@ -168,85 +169,116 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
         setSelectedName(candidate.name);
 
         try {
-            // 1. Atualizar a parte no banco
-            const { error: updateError } = await supabase
-                .from('workbook_parts')
-                .update({
-                    resolved_publisher_name: candidate.name,
-                    resolved_publisher_id: candidate.id,
-                    raw_publisher_name: candidate.name,
-                    status: 'DESIGNADA',
-                })
-                .eq('id', part.id);
+            // 1. Executar designação via unifiedActionService (auditoria + validação)
+            const actionResult = await unifiedActionService.executeDesignation(
+                part.id,
+                candidate.name,
+                'MANUAL',
+                'Substituição via Portal de Recusa',
+                candidate.id
+            );
 
-            if (updateError) throw updateError;
-
-            // 2. Notificar novo designado via Z-API usando o template S-89 padrão com link correto
-            if (candidate.phone) {
-                const updatedPart = { ...part, resolvedPublisherName: candidate.name, resolvedPublisherId: candidate.id };
-                
-                let msg = '';
-                try {
-                    const { content } = await communicationService.prepareS89Message(
-                        updatedPart as any,
-                        allPublishers,
-                        [], 
-                        { isSubstitution: true }
-                    );
-                    msg = content;
-                } catch (err) {
-                    console.error('[ReplacementPortal] Falha ao gerar mensagem S89:', err);
-                    // Fallback de segurança se prepareS89Message falhar
-                    const honorific = candidate.gender === 'sister' ? 'Irmã' : 'Irmão';
-                    msg = `📋 *Nova Designação — RVM*\n\n${honorific} ${candidate.name}, ` +
-                        `você foi designado(a) para a parte:\n\n` +
-                        `📖 *${part.tipoParte}*\n` +
-                        `${part.tituloParte ? `🎯 *${part.tituloParte}*\n` : ''}` +
-                        `\nPor favor, comece a se preparar. Que Jeová abençoe! 🙏`;
-                }
-
-                await supabase.functions.invoke('send-whatsapp', {
-                    body: { action: 'send-text', phone: candidate.phone, message: msg }
-                });
+            if (!actionResult.success) {
+                throw new Error(actionResult.error || 'Falha na designação');
             }
 
-            // 3. Buscar e Notificar Parceiro
-            try {
+            // 2. Notificar novo designado via Z-API com imagem S-89 + link de confirmação
+            if (candidate.phone) {
+                const updatedPart = { ...part, resolvedPublisherName: candidate.name, resolvedPublisherId: candidate.id };
+                const isAjudante = part.funcao === 'Ajudante';
+
+                // Buscar parceiro para inclusão na mensagem e na imagem S-89
                 const weekParts = await workbookQueryService.getWeekParts(part.weekId);
                 const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
                 const partNum = partNumMatch ? partNumMatch[1] : null;
-
-                const realSelfIdForRefusal = part.id.replace(/-(titular|ajudante)$/i, '');
+                const realSelfId = part.id.replace(/-(titular|ajudante)$/i, '');
                 const partnerPart = weekParts.find(p => {
-                    if (p.id === part.id || p.id === realSelfIdForRefusal) return false;
+                    if (p.id === part.id || p.id === realSelfId) return false;
                     if (!p.resolvedPublisherName && !p.rawPublisherName && !p.resolvedPublisherId) return false;
                     const otherNum = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/)?.[1];
                     if (partNum && otherNum && partNum === otherNum) return p.funcao !== part.funcao;
                     return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
                 });
+                const partnerPubName = partnerPart?.resolvedPublisherName || partnerPart?.rawPublisherName || undefined;
+                const partnerPub = partnerPubName ? allPublishers.find(p => p.name.trim() === partnerPubName.trim()) : null;
 
-                if (partnerPart) {
-                    let partnerName = partnerPart.resolvedPublisherName || partnerPart.rawPublisherName || '';
-                    if (partnerPart.resolvedPublisherId) {
-                        const found = allPublishers.find(p => p.id === partnerPart.resolvedPublisherId);
-                        if (found) partnerName = found.name;
-                    }
+                // Gerar imagem S-89 PNG
+                const pdfBase64 = await generateS89PngBase64(
+                    { ...updatedPart } as any,
+                    partnerPubName,
+                    undefined,
+                    true // isSubstitution
+                );
 
-                    const partnerPub = partnerName ? allPublishers.find(p => p.name.trim() === partnerName.trim()) : null;
-                    if (partnerPub && partnerPub.phone) {
-                        await zapiOrchestrator.dispatchPartnerReplacementAlert(
-                            partnerPub.phone,
-                            partnerName,
-                            part.tipoParte || '',
-                            part.date || '',
-                            candidate.name,
-                            candidate.phone || '',
-                            part.funcao === 'Ajudante'
-                        );
-                    }
+                // Gerar link de confirmação
+                const confirmUrl = await communicationService.createConfirmationPortalLink(part.id, candidate.id);
+
+                // Gerar mensagem S-89 completa com link de confirmação
+                const msg = generateWhatsAppMessage(
+                    { ...updatedPart } as any,
+                    candidate.gender,
+                    partnerPubName,
+                    partnerPub?.phone,
+                    isAjudante,
+                    'Irmão',
+                    '',
+                    confirmUrl || '',
+                    true // isSubstitution
+                );
+
+                // Enviar com imagem se disponível, senão só texto
+                if (pdfBase64) {
+                    await zapiOrchestrator.sendS89Direct(
+                        part.id,
+                        candidate.phone,
+                        msg,
+                        pdfBase64
+                    );
+                } else {
+                    await supabase.functions.invoke('send-whatsapp', {
+                        body: { action: 'send-text', phone: candidate.phone, message: msg }
+                    });
                 }
-            } catch (err) {
-                console.error('[ReplacementPortal] Falha ao notificar parceiro:', err);
+
+                // 3. Notificar Parceiro (se existir)
+                if (partnerPub && partnerPub.phone) {
+                    await zapiOrchestrator.dispatchPartnerReplacementAlert(
+                        partnerPub.phone,
+                        partnerPubName || '',
+                        part.tipoParte || '',
+                        part.date || '',
+                        candidate.name,
+                        candidate.phone || '',
+                        isAjudante
+                    );
+                }
+            } else {
+                // Sem telefone: só notificar parceiro se possível
+                try {
+                    const weekParts = await workbookQueryService.getWeekParts(part.weekId);
+                    const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
+                    const partNum = partNumMatch ? partNumMatch[1] : null;
+                    const realSelfId = part.id.replace(/-(titular|ajudante)$/i, '');
+                    const partnerPart = weekParts.find(p => {
+                        if (p.id === part.id || p.id === realSelfId) return false;
+                        if (!p.resolvedPublisherName && !p.rawPublisherName && !p.resolvedPublisherId) return false;
+                        const otherNum = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/)?.[1];
+                        if (partNum && otherNum && partNum === otherNum) return p.funcao !== part.funcao;
+                        return p.tipoParte === part.tipoParte && p.funcao !== part.funcao;
+                    });
+                    if (partnerPart) {
+                        const partnerPubName = partnerPart.resolvedPublisherName || partnerPart.rawPublisherName || '';
+                        const partnerPub = partnerPubName ? allPublishers.find(p => p.name.trim() === partnerPubName.trim()) : null;
+                        if (partnerPub?.phone) {
+                            await zapiOrchestrator.dispatchPartnerReplacementAlert(
+                                partnerPub.phone, partnerPubName, part.tipoParte || '', part.date || '',
+                                candidate.name, '', part.funcao === 'Ajudante'
+                            );
+                        }
+                    }
+                } catch (err) {
+                    console.error('[ReplacementPortal] Falha ao notificar parceiro:', err);
+                }
             }
 
             setSuccess(true);
