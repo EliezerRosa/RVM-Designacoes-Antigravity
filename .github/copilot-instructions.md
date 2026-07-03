@@ -35,3 +35,5 @@ A cada conversa neste workspace você DEVE:
 - Auditoria: `auditService.logAction` aceita SOMENTE `operation: 'AGENT_INTENT' | 'MANUAL_OVERRIDE' | 'SCRIPT_EXEC'`.
 - Cases novos no dispatcher seguem padrão `MANAGE_LOCAL_NEEDS` (subAction string).
 - Slash commands usam `requiredAction: AgentActionType` para filtragem via `canExecute()`.
+- Nova aba planejada: `'monthly-reports'` (RM). Ver `/memories/repo/rm-planejamento-fase1-2026-07-03.md`.
+  Fase 1 toca: `useAuthenticatedAppData.ts`, `permissionService.ts`, `App.tsx` (4 pontos); 5 migrations `20260704*`.
