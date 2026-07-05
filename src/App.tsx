@@ -29,6 +29,7 @@ const PowerfulAgentTab = lazy(() => import('./components/PowerfulAgentTab'))
 const TerritoryManager = lazy(() => import('./components/TerritoryManager'))
 const CommunicationTab = lazy(() => import('./components/CommunicationTab').then(m => ({ default: m.CommunicationTab })))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
+const MonthlyReportTab = lazy(() => import('./components/rm/MonthlyReportTab'))
 
 import { publisherMutationService } from './services/publisherMutationService'
 import { workbookService } from './services/workbookService'
@@ -261,7 +262,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
   useEffect(() => {
     if (!permissionsLoading && !permissions.canViewTab(activeTab)) {
       // Find the first tab the user CAN view (fallback order)
-      const FALLBACK_ORDER: ActiveTab[] = ['workbook', 'publishers', 'territories', 'communication', 'backup', 'agent', 'admin'];
+      const FALLBACK_ORDER: ActiveTab[] = ['workbook', 'publishers', 'territories', 'communication', 'monthly-reports', 'backup', 'agent', 'admin'];
       const firstAllowed = FALLBACK_ORDER.find(t => permissions.canViewTab(t)) || 'workbook';
       setActiveTab(firstAllowed);
     }
@@ -504,6 +505,14 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
             💬 Comunicação
           </button>}
 
+          {permissions.canViewTab('monthly-reports') && <button
+            className={`nav-btn ${activeTab === 'monthly-reports' ? 'active' : ''}`}
+            onClick={() => handleTabChange('monthly-reports')}
+            title="Relatório Mensal (RM)"
+          >
+            🗓️ Relatório Mensal
+          </button>}
+
           {permissions.canViewTab('admin') && <button
             className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => handleTabChange('admin')}
@@ -617,6 +626,11 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           {/* Communication */}
           {activeTab === 'communication' && (
             <CommunicationTab />
+          )}
+
+          {/* Monthly Reports (RM) */}
+          {activeTab === 'monthly-reports' && (
+            <MonthlyReportTab />
           )}
 
           {/* Agent Tab */}

@@ -51,7 +51,7 @@ interface UserOverride {
 
 // ===== Constants =====
 
-const ALL_TABS: ActiveTab[] = ['workbook', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication'];
+const ALL_TABS: ActiveTab[] = ['workbook', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication', 'monthly-reports'];
 
 const ALL_ACTIONS = [
     'GENERATE_WEEK', 'ASSIGN_PART', 'APPROVE_PROPOSAL', 'REJECT_PROPOSAL', 'COMPLETE_PART', 'UNDO_COMPLETE_PART', 'UNDO_LAST', 'NAVIGATE_WEEK', 'VIEW_S140',
