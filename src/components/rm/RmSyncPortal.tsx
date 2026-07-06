@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import type { Publisher } from '../../types';
 import { rmService, type RmFieldGroup, type RmPublisher } from '../../services/rm/rmService';
-import { rmSyncService, type RmSyncMapRow } from '../../services/rm/rmSyncService';
+import { rmSyncService, type RmSyncMapRow, type ImportSummary } from '../../services/rm/rmSyncService';
 
 export function RmSyncPortal() {
     const [phase, setPhase] = useState<'A' | 'B'>('A');
@@ -18,6 +18,9 @@ export function RmSyncPortal() {
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [importMsg, setImportMsg] = useState<string | null>(null);
+    const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
 
     const reload = async () => {
         setError(null);
@@ -55,6 +58,18 @@ export function RmSyncPortal() {
         catch (e) { setError(String((e as Error).message ?? e)); }
     };
 
+    const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImporting(true); setImportSummary(null); setError(null); setStatus(null);
+        try {
+            const s = await rmSyncService.importGlideWorkbook(file, setImportMsg);
+            setImportSummary(s);
+            await reload();
+        } catch (err) { setError(String((err as Error).message ?? err)); }
+        finally { setImporting(false); setImportMsg(null); e.target.value = ''; }
+    };
+
     const assignLeader = async (group: RmFieldGroup, publisherId: string, role: 'leader' | 'assistant') => {
         try {
             await rmService.upsertFieldGroup({
@@ -74,6 +89,25 @@ export function RmSyncPortal() {
             <h3>Portal de Sincronização</h3>
             {error && <div style={{ color: '#ef4444', marginBottom: 8 }}>{error}</div>}
             {status && <div style={{ color: '#22c55e', marginBottom: 8 }}>{status}</div>}
+
+            <div style={{ background: '#0b2942', border: '1px solid #1e40af', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <strong>📥 Importar planilha do Glide (.ods / .xlsx / .csv)</strong>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '4px 0 8px' }}>
+                    Upload idempotente: re-enviar a mesma planilha nunca duplica. Ordem de carga:
+                    congregações → grupos → publicadores → relatórios. Líderes de grupo resolvidos automaticamente.
+                </div>
+                <input type="file" accept=".ods,.xlsx,.csv" disabled={importing} onChange={handleImport} />
+                {importing && <span style={{ marginLeft: 8 }}>⏳ {importMsg ?? 'Processando…'}</span>}
+                {importSummary && (
+                    <div style={{ marginTop: 8, fontSize: '0.85rem' }}>
+                        ✅ {importSummary.congregations} congregações, {importSummary.groups} grupos,{' '}
+                        {importSummary.publishers} publicadores, {importSummary.reports} relatórios,{' '}
+                        {importSummary.leaders} líderes resolvidos, {importSummary.skipped} ignorados.
+                        <div style={{ color: '#94a3b8', marginTop: 4 }}>Abas encontradas: {importSummary.sheetsFound.join(', ')}</div>
+                    </div>
+                )}
+            </div>
+
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <button className={phase === 'A' ? 'btn-primary' : 'btn-secondary'} onClick={() => setPhase('A')}>Fase A — Publicadores</button>
                 <button className={phase === 'B' ? 'btn-primary' : 'btn-secondary'} onClick={() => setPhase('B')}>Fase B — Líderes</button>
