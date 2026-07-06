@@ -274,6 +274,14 @@ def _import_reports(cur, xlsx: Path, cong_map, group_map, pub_map) -> int:
         idx -= 1
         return row[idx] if idx < len(row) else None
 
+    # Maps de fallback: publicador -> congregação, e congregação -> nome.
+    # Col A/B da planilha (congregação "quando relatou") vêm nulas em muitas linhas;
+    # nesse caso herdamos a congregação atual do próprio publicador.
+    cur.execute("SELECT id, congregation_id FROM rm.publishers")
+    pub_cong = {r[0]: r[1] for r in cur.fetchall()}
+    cur.execute("SELECT id, name FROM rm.congregations")
+    cong_name = {r[0]: r[1] for r in cur.fetchall()}
+
     n = 0
     for row in rows:
         glide_row_id = cel(row, "AC")
@@ -285,22 +293,31 @@ def _import_reports(cur, xlsx: Path, cong_map, group_map, pub_map) -> int:
         month = cel(row, "M")
         if year is None or month is None:
             continue
-        cong_uuid = cong_map.get(str(cel(row, "A") or "")) or None
+        glide_cong = cel(row, "A")
+        # (1) congregação: A-resolvido; senão herda a do publicador
+        cong_uuid = cong_map.get(str(glide_cong)) if glide_cong else None
+        if cong_uuid is None:
+            cong_uuid = pub_cong.get(pub_uuid)
+        # congregation_at_time: snapshot B; se nulo, usa o nome da congregação resolvida
+        cong_at_time = cel(row, "B") or (cong_name.get(cong_uuid) if cong_uuid else None)
+        # (2) submitted_at: coluna F (data original); COALESCE p/ não violar NOT NULL
+        submitted_at = cel(row, "F")
         group_name = cel(row, "N")
         cur.execute(
             """INSERT INTO rm.monthly_reports
                (publisher_id, congregation_id, congregation_at_time, group_at_time,
                 reference_year, reference_month, service_year, has_preached, hours,
                 bible_studies, modalities, notes, is_late_report, late_consolidation_period,
-                is_auxiliary_pioneer, glide_row_id, glide_congregation_id)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                is_auxiliary_pioneer, glide_row_id, glide_congregation_id, submitted_at)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, COALESCE(%s, now()))
                ON CONFLICT (glide_row_id) DO NOTHING""",
-            (pub_uuid, cong_uuid, cel(row, "B"), group_name,
+            (pub_uuid, cong_uuid, cong_at_time, group_name,
              int(year), int(month), _int_or_none(cel(row, "AE")),
              _to_bool(cel(row, "D")), _num_or_none(cel(row, "R")),
              _int_or_none(cel(row, "Z")) or 0, _modalities(cel(row, "S")),
              cel(row, "AA"), _to_bool(cel(row, "K")), cel(row, "L"),
-             _to_bool(cel(row, "BA")), str(glide_row_id), str(cel(row, "A") or "")),
+             _to_bool(cel(row, "BA")), str(glide_row_id),
+             (str(glide_cong) if glide_cong else None), submitted_at),
         )
         n += 1
     return n

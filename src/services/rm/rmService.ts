@@ -16,6 +16,7 @@ export type Gender = 'M' | 'F';
 
 export interface RmCongregation {
     id: string;
+    glide_id: string | null;
     name: string;
     number: string | null;
     access_pin: string | null;
@@ -26,6 +27,7 @@ export interface RmCongregation {
 
 export interface RmFieldGroup {
     id: string;
+    glide_id: string | null;
     congregation_id: string;
     group_number: number;
     name: string | null;
