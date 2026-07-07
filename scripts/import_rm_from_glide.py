@@ -2,25 +2,25 @@
 """
 import_rm_from_glide.py — Bootstrap one-shot do schema rm.* a partir do export Glide.
 
-Fontes (em docs/RM Desacoplado/):
-  - Congregacao.csv        -> rm.congregations
-  - Grupos.csv             -> rm.field_groups (líderes resolvidos em 2ª passada)
-  - Publicador Real.csv    -> rm.publishers  (grupo/congregação resolvidos por glide id)
-  - Relatorios Glide.xlsx  -> rm.monthly_reports  (OPCIONAL; só roda se --reports informado)
+Fontes:
+  --ods  docs/RM Desacoplado/9fe36d.Relatório Mensal v03 (New).ods  (padrão)
+           aba Congregação    -> rm.congregations
+           aba Grupos         -> rm.field_groups (líderes resolvidos em 2ª passada)
+           aba PublicadorReal -> rm.publishers
+         Fallback se --ods ausente/inexistente: CSVs em --dir
+  --reports  OneDrive/Relatórios Glide.xlsx  -> rm.monthly_reports  (padrão canônico)
 
-Conexão: Postgres DIRETO (psycopg2), que bypassa PostgREST e RLS — portanto NÃO exige
-que o schema `rm` esteja exposto na API para a carga. Use a connection string do
-projeto Supabase (Session pooler ou direct) com credenciais de serviço.
-
+Conexão: Postgres DIRETO (psycopg2), bypassa PostgREST e RLS.
 Env obrigatória:
   RM_DATABASE_URL = postgresql://postgres:<pwd>@<host>:5432/postgres
 
-Dependências (instalar no venv do projeto, NÃO global):
-  pip install psycopg2-binary openpyxl
+Dependências:
+  pip install psycopg2-binary openpyxl odfpy pandas
 
-Uso:
-  python import_rm_from_glide.py --dir "docs/RM Desacoplado"
-  python import_rm_from_glide.py --dir "docs/RM Desacoplado" --reports "docs/RM Desacoplado/Relatorios Glide.xlsx"
+Uso mínimo (usa defaults):
+  python import_rm_from_glide.py
+Uso explícito:
+  python import_rm_from_glide.py --ods "docs/RM Desacoplado/9fe36d.Relatório Mensal v03 (New).ods"
 """
 from __future__ import annotations
 
@@ -37,6 +37,11 @@ try:
     import psycopg2.extras
 except ImportError:
     sys.exit("Falta psycopg2. Rode no venv: pip install psycopg2-binary")
+
+try:
+    import pandas as pd  # noqa: F401  (usado em read_ods_sheet)
+except ImportError:
+    sys.exit("Falta pandas. Rode no venv: pip install pandas odfpy")
 
 
 # ----------------------------------------------------------------------------
@@ -55,6 +60,14 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
         reader = csv.DictReader(fh)
         rows = list(reader)
     return rows
+
+
+def read_ods_sheet(ods_path: Path, sheet_name: str) -> list[dict[str, str]]:
+    """Lê uma aba do .ods e retorna lista de dicts (mesmo formato de read_csv_rows)."""
+    import pandas as pd
+    df = pd.read_excel(ods_path, engine="odf", sheet_name=sheet_name, dtype=str)
+    df = df.where(df.notna(), other="")  # NaN -> string vazia
+    return df.to_dict(orient="records")
 
 
 def col(row: dict[str, str], *candidates: str) -> str | None:
@@ -115,29 +128,58 @@ def status_norm(v: str | None) -> str | None:
 # Carga
 # ----------------------------------------------------------------------------
 def main() -> int:
+    _SCRIPT_DIR  = Path(__file__).resolve().parent
+    _REPO_ROOT   = _SCRIPT_DIR.parent          # rvm-designacoes-unified/
+    _WORKSPACE   = _REPO_ROOT.parent           # Antigravity - RVM Designações/
+    _DEFAULT_ODS = str(_WORKSPACE / "docs" / "RM Desacoplado" / "9fe36d.Relatório Mensal v03 (New).ods")
+
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dir", required=True, help="Pasta com as CSVs do Glide")
-    ap.add_argument("--reports", help="(opcional) Relatorios Glide.xlsx p/ monthly_reports")
+    ap.add_argument(
+        "--ods",
+        default=_DEFAULT_ODS,
+        help="Workbook .ods multi-aba com mestres Glide (padrão: %(default)s)",
+    )
+    ap.add_argument("--dir", default=None, help="(fallback) Pasta com CSVs Glide se --ods não disponível")
+    _DEFAULT_REPORTS = (
+        r"C:\Users\Eliez\OneDrive\Area de Trabalho\PIONEIROS ESPECIAIS"
+        r"\Estância\Sup Serviço\Relatórios Glide.xlsx"
+    )
+    ap.add_argument(
+        "--reports",
+        default=_DEFAULT_REPORTS,
+        help="Relatórios Glide.xlsx p/ monthly_reports "
+             f"(padrão: {_DEFAULT_REPORTS})",
+    )
     ap.add_argument("--dry-run", action="store_true", help="Não grava; só reporta contagens")
     args = ap.parse_args()
 
-    base = Path(args.dir)
+    ods_path = Path(args.ods)
     dburl = os.environ.get("RM_DATABASE_URL")
     if not dburl:
         return _fail("Env RM_DATABASE_URL ausente (connection string Postgres do Supabase).")
 
-    def find(*names: str) -> Path:
-        for n in names:
-            p = base / n
-            if p.exists():
-                return p
-        raise FileNotFoundError(f"Nenhuma das CSVs encontrada: {names}")
-
-    congs = read_csv_rows(find("Congregacao.csv", "Congregação.csv"))
-    groups = read_csv_rows(find("Grupos.csv"))
-    pubs = read_csv_rows(find("Publicador Real.csv"))
-
-    print(f"CSVs: {len(congs)} congregações, {len(groups)} grupos, {len(pubs)} publicadores")
+    # -- Carrega mestres: ODS preferido; fallback para CSVs se ODS ausente
+    if ods_path.exists():
+        print(f"[ODS] {ods_path.name}")
+        congs  = read_ods_sheet(ods_path, "Congregação")
+        groups = read_ods_sheet(ods_path, "Grupos")
+        pubs   = read_ods_sheet(ods_path, "PublicadorReal")
+        print(f"  → {len(congs)} congregações, {len(groups)} grupos, {len(pubs)} publicadores")
+    else:
+        if not args.dir:
+            return _fail(f"ODS não encontrado ({ods_path}) e --dir não informado.")
+        base = Path(args.dir)
+        def find(*names: str) -> Path:
+            for n in names:
+                p = base / n
+                if p.exists():
+                    return p
+            raise FileNotFoundError(f"Nenhuma das CSVs encontrada: {names}")
+        print(f"[CSV fallback] {base}")
+        congs  = read_csv_rows(find("Congregacao.csv", "Congregação.csv"))
+        groups = read_csv_rows(find("Grupos.csv"))
+        pubs   = read_csv_rows(find("Publicador Real.csv"))
+        print(f"  → {len(congs)} congregações, {len(groups)} grupos, {len(pubs)} publicadores")
 
     if args.dry_run:
         print("[dry-run] nada será gravado.")
@@ -237,10 +279,13 @@ def main() -> int:
                ON CONFLICT (rm_publisher_id) DO NOTHING"""
         )
 
-        # 6) monthly_reports (opcional; requer a planilha denormalizada)
+        # 6) monthly_reports (usa planilha canônica OneDrive por padrão)
         reports_n = 0
-        if args.reports:
-            reports_n = _import_reports(cur, Path(args.reports), cong_map, group_map, pub_map)
+        _reports_path = Path(args.reports)
+        if _reports_path.exists():
+            reports_n = _import_reports(cur, _reports_path, cong_map, group_map, pub_map)
+        else:
+            print(f"[AVISO] Planilha de relatórios não encontrada: {_reports_path} — pulando monthly_reports.")
 
         conn.commit()
         print(f"OK: {len(cong_map)} congregações, {len(group_map)} grupos, "
