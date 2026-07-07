@@ -161,6 +161,32 @@ export function normalizeName(raw: string): string {
         .trim();
 }
 
+/** Stop-words que não contribuem para identificação de pessoa. */
+const STOP_WORDS = new Set(['da', 'de', 'do', 'das', 'dos', 'e', 'a', 'o', 'dei']);
+
+/**
+ * Tokeniza nome normalizado removendo stop-words e tokens de 1 caractere.
+ * Ex: "Maria da Silva Santos" → ["maria", "silva", "santos"]
+ */
+export function tokenizeName(name: string): string[] {
+    return normalizeName(name)
+        .split(/\s+/)
+        .filter(t => t.length > 1 && !STOP_WORDS.has(t));
+}
+
+/**
+ * Match fuzzy: primeiro token igual E pelo menos um outro token em comum.
+ * Cobre casos como "Eliezer Rosa" (RVM) ↔ "Eliezer Josias Pereira Rosa" (Glide).
+ */
+export function fuzzyNameMatch(a: string, b: string): boolean {
+    const ta = tokenizeName(a);
+    const tb = tokenizeName(b);
+    if (ta.length === 0 || tb.length === 0) return false;
+    if (ta[0] !== tb[0]) return false;          // primeiro token deve casar
+    const setB = new Set(tb.slice(1));
+    return ta.slice(1).some(t => setB.has(t));  // ao menos 1 token adicional em comum
+}
+
 const LEADER_FUNCS = ['servo de grupo', 'superintendente de grupo'];
 const ASSISTANT_FUNCS = ['ajudante', 'superintendente ajudante do grupo', 'ajudante do grupo'];
 
@@ -362,14 +388,24 @@ export const rmSyncService = {
             existing.filter(r => r.match_status === 'admin-confirmed').map(r => r.rm_publisher_id),
         );
 
-        // Índice de RVM por nome normalizado
+        // Índice de RVM por nome normalizado (exato)
         const rvmByName = new Map<string, { id: string; name: string; funcao: string | null }[]>();
+        // Índice por primeiro token (para fuzzy)
+        const rvmByFirstToken = new Map<string, { id: string; name: string; funcao: string | null }[]>();
         for (const p of rvmPubs) {
             const key = normalizeName(p.name);
             if (!key) continue;
+            const entry = { id: p.id, name: p.name, funcao: p.funcao ?? null };
             const bucket = rvmByName.get(key) ?? [];
-            bucket.push({ id: p.id, name: p.name, funcao: p.funcao ?? null });
+            bucket.push(entry);
             rvmByName.set(key, bucket);
+
+            const firstToken = tokenizeName(p.name)[0];
+            if (firstToken) {
+                const fb = rvmByFirstToken.get(firstToken) ?? [];
+                fb.push(entry);
+                rvmByFirstToken.set(firstToken, fb);
+            }
         }
 
         const counts = { auto: 0, conflict: 0, unmatched: 0 };
@@ -377,7 +413,19 @@ export const rmSyncService = {
 
         for (const rp of rmPubs) {
             if (confirmedIds.has(rp.id)) continue;
-            const matches = rvmByName.get(normalizeName(rp.name)) ?? [];
+
+            // 1ª tentativa: match exato por nome normalizado completo
+            let matches = rvmByName.get(normalizeName(rp.name)) ?? [];
+
+            // 2ª tentativa: fuzzy — primeiro token igual + ao menos 1 token adicional em comum
+            if (matches.length === 0) {
+                const firstToken = tokenizeName(rp.name)[0];
+                if (firstToken) {
+                    const candidates = rvmByFirstToken.get(firstToken) ?? [];
+                    matches = candidates.filter(c => fuzzyNameMatch(rp.name, c.name));
+                }
+            }
+
             let status: MatchStatus;
             let rvmId: string | null = null;
             let matchedName: string | null = null;
