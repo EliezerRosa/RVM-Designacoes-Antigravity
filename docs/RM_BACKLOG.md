@@ -1,8 +1,11 @@
 # RM — Backlog de Intenções Pendentes
 
-> Documento vivo. Última atualização: 2026-07-07.
-> Estado da Fase 1 (schema `rm.*`, aba Relatório Mensal, importador MER‑aware): **concluído e em produção** (HEAD `823ecaa`).
-> **CARGA COMPLETA** (07/07 via MCP): 3 congregações / 7 grupos / 192 publicadores / 192 sync_map. Líderes resolvidos (7/7). Schema `rm` exposto na API.
+> Documento vivo. Última atualização: 2026-07-07 (fim de sessão).
+> **HEAD:** `bcc1c5c`. Schema `rm` exposto + carga completa (192 pubs) + auto-match com fuzzy name matching. Todos pushed + deployed.
+
+## Bugs corrigidos hoje (07/07)
+- `rvm_publisher_id uuid → text` (`ef7de9d`): public.publishers.id é TEXT — migration `20260707000000`.
+- Fuzzy name match (`bcc1c5c`): 1º token igual + ≥1 token adicional, stop-words ignoradas.
 
 ## 1. ✅ Carga de dados — CONCLUÍDA (2026-07-07)
 - Carga realizada via MCP Supabase (`mcp_supabase_execute_sql`).
@@ -13,8 +16,9 @@
 - Gerador SQL idempotente: `scripts/_gen_rm_sql.py`.
 - **monthly_reports**: NÃO importados ainda (requer `RM_DATABASE_URL` e decisão sobre janela de datas).
 
-## 2. Validar UI e UX — "Visão Geral" com gráficos (próximo)
-- Abrir aba Relatórios Mensais → confirmar que publicadores/grupos aparecem corretamente.
+## 2. Validar resultado do auto-match e iniciar UX gráficos (próximo)
+- Eliezer rodará **Rodar auto-match** com o novo fuzzy matching → verificar contagem de `auto` vs `conflict` vs `unmatched`.
+- Confirmar matches corretos manualmente via dropdown "escolher RVM".
 - A UI do Glide para o RM é **analítica**: séries mensais por categoria — **Publicadores (roxo), Auxiliares (verde), Regulares (vermelho), Estudos (azul)** — mais uma seção "AUGES (Anterior)".
 - Replicar no `RmDashboard`: gráficos de tendência mensal a partir de `rm.v_s1_consolidation` (a lib de charts já está no bundle).
 - Respeitar os formulários oficiais **S‑1 / S‑4 / S‑21** como contrato visual (PDFs em `docs/RM Desacoplado/`).
