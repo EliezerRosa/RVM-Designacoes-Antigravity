@@ -1,6 +1,6 @@
 ﻿/**
- * RmDashboard â€” KPIs de consolidaÃ§Ã£o (S-1), progresso de entregas, abrir/fechar mÃªs.
- * VisÃ£o Geral: sÃ©rie anual com grÃ¡ficos BarChart (recharts).
+ * RmDashboard — KPIs de consolidação (S-1), progresso de entregas, abrir/fechar mês.
+ * Visão Geral: série anual com gráficos BarChart (recharts).
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -107,25 +107,25 @@ export function RmDashboard() {
 
     return (
         <div style={{ padding: '1rem' }}>
-            <h3 style={{ marginBottom: 12 }}>Painel â€” RelatÃ³rio Mensal</h3>
+            <h3 style={{ marginBottom: 12 }}>Painel — Relatório Mensal</h3>
             {error && <div style={{ color: '#ef4444', marginBottom: 8 }}>{error}</div>}
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <button style={TAB_STYLE(tab === 'mensal')} onClick={() => setTab('mensal')}>MÃªs Atual</button>
-                <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>VisÃ£o Anual</button>
+                <button style={TAB_STYLE(tab === 'mensal')} onClick={() => setTab('mensal')}>Mês Atual</button>
+                <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>Visão Anual</button>
             </div>
 
             {/* Filtros comuns */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                <label>CongregaÃ§Ã£o
+                <label>Congregação
                     <select value={congId} onChange={e => setCongId(e.target.value)}>
                         {congs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </label>
                 <label>Ano <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} style={{ width: 90 }} /></label>
                 {tab === 'mensal' && (
-                    <label>MÃªs
+                    <label>Mês
                         <select value={month} onChange={e => setMonth(Number(e.target.value))}>
                             {MONTHS_SHORT.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                         </select>
@@ -138,10 +138,10 @@ export function RmDashboard() {
                             background: monthCtl?.is_open === false ? '#7f1d1d' : '#14532d',
                             color: '#fff', fontSize: '0.8rem',
                         }}>
-                            {monthCtl?.is_open === false ? 'MÃªs fechado' : 'MÃªs aberto'}
+                            {monthCtl?.is_open === false ? 'Mês fechado' : 'Mês aberto'}
                         </span>
-                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(true)}>Abrir mÃªs</button>
-                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(false)}>Fechar mÃªs</button>
+                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(true)}>Abrir mês</button>
+                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(false)}>Fechar mês</button>
                     </>
                 )}
             </div>
@@ -173,23 +173,23 @@ export function RmDashboard() {
             {tab === 'anual' && (
                 <div>
                     <h4 style={{ marginBottom: 12, color: '#94a3b8' }}>
-                        {year} â€” {congName}
+                        {year} — {congName}
                     </h4>
                     {!hasSeriesData ? (
                         <div style={{
                             background: '#1e293b', borderRadius: 8, padding: '2rem',
                             textAlign: 'center', color: '#64748b',
                         }}>
-                            <div style={{ fontSize: '2rem', marginBottom: 8 }}>ðŸ“Š</div>
+                            <div style={{ fontSize: '2rem', marginBottom: 8 }}>📊</div>
                             <div>Sem dados para {year}.</div>
                             <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
-                                Importe os relatÃ³rios na aba <strong>SincronizaÃ§Ã£o</strong> para visualizar os grÃ¡ficos.
+                                Importe os relatórios na aba <strong>Sincronização</strong> para visualizar os gráficos.
                             </div>
                         </div>
                     ) : (
                         <>
                             <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 8 }}>
-                                Relatórios entregues, publicadores que pregaram e estudos bÃ­blicos â€” mÃªs a mÃªs.
+                                Relatórios entregues, publicadores que pregaram e estudos bíblicos — mês a mês.
                             </p>
                             <ResponsiveContainer width="100%" height={280}>
                                 <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
