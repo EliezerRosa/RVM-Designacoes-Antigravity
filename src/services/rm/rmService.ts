@@ -219,6 +219,17 @@ export const rmService = {
         return data ?? [];
     },
 
+    /** Série anual: todos os meses de um ano (para gráficos de tendência). */
+    async getConsolidationSeries(year: number, congregationId?: string): Promise<S1ConsolidationRow[]> {
+        let q = rm().from('v_s1_consolidation').select('*')
+            .eq('reference_year', year)
+            .order('reference_month', { ascending: true });
+        if (congregationId) q = q.eq('congregation_id', congregationId);
+        const { data, error } = await q;
+        if (error) throw error;
+        return data ?? [];
+    },
+
     // ===== Month control (RPCs em public) =====
 
     async listMonthControl(congregationId?: string): Promise<RmMonthControl[]> {
