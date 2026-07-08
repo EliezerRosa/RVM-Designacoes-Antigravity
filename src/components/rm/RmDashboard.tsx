@@ -1,6 +1,6 @@
-/**
- * RmDashboard — KPIs de consolidação (S-1), progresso de entregas, abrir/fechar mês.
- * Visão Geral: série anual com gráficos BarChart (recharts).
+﻿/**
+ * RmDashboard â€” KPIs de consolidaÃ§Ã£o (S-1), progresso de entregas, abrir/fechar mÃªs.
+ * VisÃ£o Geral: sÃ©rie anual com grÃ¡ficos BarChart (recharts).
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -107,25 +107,25 @@ export function RmDashboard() {
 
     return (
         <div style={{ padding: '1rem' }}>
-            <h3 style={{ marginBottom: 12 }}>Painel — Relatório Mensal</h3>
+            <h3 style={{ marginBottom: 12 }}>Painel â€” RelatÃ³rio Mensal</h3>
             {error && <div style={{ color: '#ef4444', marginBottom: 8 }}>{error}</div>}
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <button style={TAB_STYLE(tab === 'mensal')} onClick={() => setTab('mensal')}>Mês Atual</button>
-                <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>Visão Anual</button>
+                <button style={TAB_STYLE(tab === 'mensal')} onClick={() => setTab('mensal')}>MÃªs Atual</button>
+                <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>VisÃ£o Anual</button>
             </div>
 
             {/* Filtros comuns */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                <label>Congregação
+                <label>CongregaÃ§Ã£o
                     <select value={congId} onChange={e => setCongId(e.target.value)}>
                         {congs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </label>
                 <label>Ano <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} style={{ width: 90 }} /></label>
                 {tab === 'mensal' && (
-                    <label>Mês
+                    <label>MÃªs
                         <select value={month} onChange={e => setMonth(Number(e.target.value))}>
                             {MONTHS_SHORT.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                         </select>
@@ -138,15 +138,15 @@ export function RmDashboard() {
                             background: monthCtl?.is_open === false ? '#7f1d1d' : '#14532d',
                             color: '#fff', fontSize: '0.8rem',
                         }}>
-                            {monthCtl?.is_open === false ? 'Mês fechado' : 'Mês aberto'}
+                            {monthCtl?.is_open === false ? 'MÃªs fechado' : 'MÃªs aberto'}
                         </span>
-                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(true)}>Abrir mês</button>
-                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(false)}>Fechar mês</button>
+                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(true)}>Abrir mÃªs</button>
+                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(false)}>Fechar mÃªs</button>
                     </>
                 )}
             </div>
 
-            {/* ── Mês Atual ── */}
+            {/* â”€â”€ MÃªs Atual â”€â”€ */}
             {tab === 'mensal' && (
                 <>
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -169,27 +169,27 @@ export function RmDashboard() {
                 </>
             )}
 
-            {/* ── Visão Anual ── */}
+            {/* â”€â”€ VisÃ£o Anual â”€â”€ */}
             {tab === 'anual' && (
                 <div>
                     <h4 style={{ marginBottom: 12, color: '#94a3b8' }}>
-                        {year} — {congName}
+                        {year} â€” {congName}
                     </h4>
                     {!hasSeriesData ? (
                         <div style={{
                             background: '#1e293b', borderRadius: 8, padding: '2rem',
                             textAlign: 'center', color: '#64748b',
                         }}>
-                            <div style={{ fontSize: '2rem', marginBottom: 8 }}>📊</div>
+                            <div style={{ fontSize: '2rem', marginBottom: 8 }}>ðŸ“Š</div>
                             <div>Sem dados para {year}.</div>
                             <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
-                                Importe os relatórios na aba <strong>Sincronização</strong> para visualizar os gráficos.
+                                Importe os relatÃ³rios na aba <strong>SincronizaÃ§Ã£o</strong> para visualizar os grÃ¡ficos.
                             </div>
                         </div>
                     ) : (
                         <>
                             <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 8 }}>
-                                Relatórios entregues, publicadores que pregaram e estudos bíblicos — mês a mês.
+                                Relatórios entregues, publicadores que pregaram e estudos bÃ­blicos â€” mÃªs a mÃªs.
                             </p>
                             <ResponsiveContainer width="100%" height={280}>
                                 <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
@@ -207,116 +207,6 @@ export function RmDashboard() {
                     )}
                 </div>
             )}
-        </div>
-    );
-}
-
-
-const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-function Kpi({ label, value }: { label: string; value: string | number }) {
-    return (
-        <div style={{ background: '#1e293b', borderRadius: 8, padding: '12px 16px', minWidth: 130 }}>
-            <div style={{ fontSize: '1.6rem', fontWeight: 700 }}>{value}</div>
-            <div style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{label}</div>
-        </div>
-    );
-}
-
-export function RmDashboard() {
-    const now = new Date();
-    const [congs, setCongs] = useState<RmCongregation[]>([]);
-    const [congId, setCongId] = useState('');
-    const [year, setYear] = useState(now.getFullYear());
-    const [month, setMonth] = useState(now.getMonth() + 1);
-    const [consolidation, setConsolidation] = useState<S1ConsolidationRow | null>(null);
-    const [activeCount, setActiveCount] = useState(0);
-    const [monthCtl, setMonthCtl] = useState<RmMonthControl | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
-
-    useEffect(() => {
-        rmService.listCongregations().then(c => {
-            setCongs(c);
-            if (!congId && c.length > 0) setCongId(c[0].id);
-        }).catch(e => setError(String((e as Error).message ?? e)));
-    }, []);
-
-    const reload = async () => {
-        if (!congId) return;
-        setError(null);
-        try {
-            const [rows, pubs, controls] = await Promise.all([
-                rmService.getConsolidation(year, month),
-                rmService.listPublishers(congId),
-                rmService.listMonthControl(congId),
-            ]);
-            setConsolidation(rows.find(r => r.congregation_id === congId) ?? null);
-            setActiveCount(pubs.filter(p => p.is_active).length);
-            setMonthCtl(controls.find(c => c.reference_year === year && c.reference_month === month) ?? null);
-        } catch (e) { setError(String((e as Error).message ?? e)); }
-    };
-    useEffect(() => { void reload(); }, [congId, year, month]);
-
-    const submitted = consolidation?.total_reports ?? 0;
-    const pct = useMemo(() => activeCount > 0 ? Math.round((submitted / activeCount) * 100) : 0, [submitted, activeCount]);
-
-    const toggleMonth = async (open: boolean) => {
-        if (!congId) return;
-        setBusy(true); setError(null);
-        try {
-            if (open) await rmService.openMonth(congId, year, month);
-            else await rmService.closeMonth(congId, year, month);
-            await reload();
-        } catch (e) { setError(String((e as Error).message ?? e)); }
-        finally { setBusy(false); }
-    };
-
-    return (
-        <div style={{ padding: '1rem' }}>
-            <h3>Painel — Relatório Mensal</h3>
-            {error && <div style={{ color: '#ef4444', marginBottom: 8 }}>{error}</div>}
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                <label>Congregação
-                    <select value={congId} onChange={e => setCongId(e.target.value)}>
-                        {congs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                </label>
-                <label>Mês
-                    <select value={month} onChange={e => setMonth(Number(e.target.value))}>
-                        {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                    </select>
-                </label>
-                <label>Ano <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} style={{ width: 90 }} /></label>
-                <span style={{
-                    padding: '4px 10px', borderRadius: 6,
-                    background: monthCtl?.is_open === false ? '#7f1d1d' : '#14532d',
-                    color: '#fff', fontSize: '0.8rem',
-                }}>
-                    {monthCtl?.is_open === false ? 'Mês fechado' : 'Mês aberto'}
-                </span>
-                <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(true)}>Abrir mês</button>
-                <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(false)}>Fechar mês</button>
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-                <Kpi label="Relatórios entregues" value={submitted} />
-                <Kpi label="Publicadores ativos" value={activeCount} />
-                <Kpi label="Pregaram" value={consolidation?.total_preached ?? 0} />
-                <Kpi label="Estudos" value={consolidation?.total_studies ?? 0} />
-                <Kpi label="Horas pioneiros" value={consolidation?.pioneer_hours ?? 0} />
-                <Kpi label="Horas auxiliares" value={consolidation?.auxiliary_hours ?? 0} />
-                <Kpi label="Atrasados" value={consolidation?.late_count ?? 0} />
-            </div>
-
-            <div style={{ maxWidth: 480 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: 4 }}>
-                    <span>Progresso de entregas</span><span>{pct}%</span>
-                </div>
-                <div style={{ background: '#334155', borderRadius: 6, height: 14, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: pct >= 100 ? '#22c55e' : '#3b82f6' }} />
-                </div>
-            </div>
         </div>
     );
 }
