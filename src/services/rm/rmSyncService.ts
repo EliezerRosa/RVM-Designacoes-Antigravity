@@ -270,20 +270,26 @@ export const rmSyncService = {
             summary.groups = res.length;
         }
 
-        // 3) Publicadores — preferir aba PublicadorReal; senão derivar da aba Relatórios
+        // 3) Publicadores — preferir aba PublicadorReal; senão carrega mestres do DB (preserva dados)
         let pubRows = getRows('PublicadorReal', 'Publicador Real', 'Publicadores');
         const relRowsRaw = getRows('Relatórios', 'Relatorios', 'Relatório');
         if (!pubRows && relRowsRaw) {
-            // deriva publicadores distintos a partir dos relatórios (colunas denormalizadas)
-            const seen = new Set<string>();
-            pubRows = [];
-            for (const m of relRowsRaw) {
-                const gid = asStr(pick(m, 'idPubEntrada'));
-                if (gid && !seen.has(gid)) {
-                    seen.add(gid);
-                    pubRows.push(m);
-                }
+            // Sem aba PublicadorReal: carrega pubMap/congMap do DB — NÃO deriva/re-upserta.
+            // Re-upsert zeraria congregation_id/current_group_id dos mestres já carregados.
+            log('Sem aba PublicadorReal — carregando mestres do DB…');
+            const [{ data: dbPubs, error: ePubs }, { data: dbCongs, error: eCongs }] = await Promise.all([
+                rm().from('publishers').select('id, glide_id, congregation_id'),
+                rm().from('congregations').select('id, glide_id'),
+            ]);
+            if (ePubs) throw ePubs;
+            if (eCongs) throw eCongs;
+            for (const r of (dbPubs ?? [])) {
+                if (r.glide_id) pubMap.set(r.glide_id, r.id);
+                pubCong.set(r.id, r.congregation_id);
             }
+            for (const r of (dbCongs ?? [])) if (r.glide_id) congMap.set(r.glide_id, r.id);
+            summary.publishers = pubMap.size;
+            log(`  → ${pubMap.size} publicadores, ${congMap.size} congregações carregados do DB`);
         }
         if (pubRows) {
             log('Importando publicadores…');
