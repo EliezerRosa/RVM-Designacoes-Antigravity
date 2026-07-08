@@ -31,11 +31,16 @@ const TAB_STYLE = (active: boolean): React.CSSProperties => ({
 
 export function RmDashboard() {
     const now = new Date();
+    // Mês padrão = mês ANTERIOR (mês pendente de relatórios).
+    // Se hoje é julho/2026 → padrão = junho/2026.
+    const defaultMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+    const defaultYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
     const [tab, setTab] = useState<Tab>('mensal');
     const [congs, setCongs] = useState<RmCongregation[]>([]);
     const [congId, setCongId] = useState('');
-    const [year, setYear] = useState(now.getFullYear());
-    const [month, setMonth] = useState(now.getMonth() + 1);
+    const [year, setYear] = useState(defaultYear);
+    const [month, setMonth] = useState(defaultMonth);
     const [consolidation, setConsolidation] = useState<S1ConsolidationRow | null>(null);
     const [activeCount, setActiveCount] = useState(0);
     const [monthCtl, setMonthCtl] = useState<RmMonthControl | null>(null);
