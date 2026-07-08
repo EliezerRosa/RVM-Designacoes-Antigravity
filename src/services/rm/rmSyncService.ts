@@ -370,7 +370,18 @@ export const rmSyncService = {
                     ...(submitted ? { submitted_at: submitted } : {}),
                 });
             }
-            const res = await upsertChunked('monthly_reports', payload, 'glide_row_id', 'id');
+            // Deduplicar por (publisher_id, reference_year, reference_month): o Glide pode ter
+            // duas linhas para o mesmo publicador+período (relatório emendado = novo glide_row_id).
+            // A última ocorrência vence; duplicatas vão para skipped.
+            const dedupMap = new Map<string, Record<string, unknown>>();
+            for (const row of payload) {
+                const key = `${row.publisher_id}|${row.reference_year}|${row.reference_month}`;
+                dedupMap.set(key, row);
+            }
+            summary.skipped += payload.length - dedupMap.size;
+            const dedupedPayload = Array.from(dedupMap.values());
+
+            const res = await upsertChunked('monthly_reports', dedupedPayload, 'glide_row_id', 'id');
             summary.reports = res.length;
         }
 
