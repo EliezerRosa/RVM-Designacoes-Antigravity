@@ -50,6 +50,9 @@ export function RmReportForm({ onSaved }: Props) {
                 bible_studies: Number(bibleStudies) || 0,
                 modalities,
                 is_auxiliary_pioneer: isAuxiliary,
+                // Snapshot da modalidade de serviço no momento da gravação (dado histórico)
+                is_regular_pioneer: selectedPub?.is_regular_pioneer ?? false,
+                is_special_pioneer: selectedPub?.is_special_pioneer ?? false,
                 notes: notes || null,
             });
             setOk('Relatório salvo.');

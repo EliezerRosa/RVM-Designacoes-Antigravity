@@ -81,7 +81,10 @@ export interface RmMonthlyReport {
     submitted_at: string;
     is_late_report: boolean;
     late_consolidation_period: string | null;
+    /** Snapshot da modalidade de serviço no momento do relatório (dado histórico) */
     is_auxiliary_pioneer: boolean;
+    is_regular_pioneer: boolean;
+    is_special_pioneer: boolean;
     glide_row_id: string | null;
     glide_congregation_id: string | null;
     created_at?: string;
