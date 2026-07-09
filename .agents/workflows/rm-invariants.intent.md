@@ -148,15 +148,26 @@ Para não-pioneiros: `hours = NULL`.
 Função `rm.calculate_publisher_status(publisher_id)` baseada nos últimos 6 meses civis
 (janela relativa ao **dia de hoje**, não ao último relatório do publicador).
 
-### Valores válidos (CHECK constraint)
-| Status | Critério | Prioridade |
-|---|---|---|
-| `RECÉM-CONGREGADO` | `publisher_date` < 1 mês atrás | 1ª (máxima) |
-| `ATIVO` | pregou (`has_preached=true`) em ≥1 mês dos últimos 6 | 2ª |
-| `IRREGULAR` | pregou em 0 dos últimos 6 meses (inclui quem nunca relatou) | 3ª |
+### Valores válidos (CHECK constraint) — v3 (2026-07-09)
+Janela = 6 meses civis completos mais recentes (mês corrente excluído), relativos a HOJE.
+"Pregou" = `has_preached = true` no `monthly_reports` daquele mês.
 
-**Nota:** `INATIVO` e `QUASE-INATIVO` foram **eliminados** (2026-07-09).
-`RECÉM-CONGREGADO` usa `publisher_date` (Data Início Publicador do Glide).
+| Status | Critério | Meses pregados / 6 | Prioridade |
+|---|---|---|---|
+| `RECÉM-CONGREGADO` | `publisher_date` < 1 mês (Data Início Publicador) | n/a | 1ª (máxima) |
+| `INATIVO` | Não pregou em **nenhum** dos últimos 6 | 0 / 6 | 2ª |
+| `IRREGULAR` | Pregou em **alguns** mas faltou ≥1 mês | 1–5 / 6 | 3ª |
+| `ATIVO` | Pregou em **todos** os últimos 6 meses | 6 / 6 | 4ª |
+
+Implementação SQL:
+```sql
+IF    v_months_pre = 0 THEN 'INATIVO'
+ELSIF v_months_pre < 6 THEN 'IRREGULAR'
+ELSE                        'ATIVO'
+END IF;
+```
+
+**Nota:** `QUASE-INATIVO` eliminado. `RECÉM-CONGREGADO` usa `publisher_date` (Data Início Publicador do Glide).
 Enquanto `publisher_date = NULL`, o publicador cai no critério de atividade.
 
 ### Distinção conceitual
