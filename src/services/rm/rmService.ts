@@ -113,6 +113,7 @@ export interface S1ConsolidationRow {
     publisher_count: number;
     auxiliary_pioneer_count: number;
     regular_pioneer_count: number;
+    special_pioneer_count: number;
     total_studies: number;
     pioneer_hours: number;
     auxiliary_hours: number;

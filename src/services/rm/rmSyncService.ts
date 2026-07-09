@@ -304,6 +304,7 @@ export const rmSyncService = {
                     gender: asGender(pick(m, 'Sexo')),
                     birth_date: asISODate(pick(m, 'Data de Nascimento', 'DataNascimento')),
                     funcao: asStr(pick(m, 'Função', 'Funcao', 'Privilégio', 'Privilegio')),
+                    publisher_date: asISODate(pick(m, 'Data Início Publicador', 'DataInicioPublicador', 'DataPublicador')),
                     field_service_status: asStatus(pick(m, 'Status do Último Relatório', 'Status')),
                 };
             }).filter(r => r.glide_id && r.name);

@@ -145,14 +145,34 @@ Para não-pioneiros: `hours = NULL`.
 
 ## I-7. Status de Campo (`field_service_status`) — Cálculo Automático
 
-Função `rm.calculate_publisher_status(publisher_id)` baseada nos últimos 6 meses:
-- `ATIVO`: pregou no último mês
-- `IRREGULAR`: pregou em 3+ dos últimos 6 mas não no último
-- `QUASE-INATIVO`: pregou em 1-2 dos últimos 6
-- `INATIVO`: não pregou em nenhum dos últimos 6
+Função `rm.calculate_publisher_status(publisher_id)` baseada nos últimos 6 meses civis
+(janela relativa ao **dia de hoje**, não ao último relatório do publicador).
 
-**Observação**: Usa meses civis, não ano de serviço. Para publicadores com
-relatórios atrasados, `late_consolidation_period` não é considerado no cálculo.
+### Valores válidos (CHECK constraint)
+| Status | Critério | Prioridade |
+|---|---|---|
+| `RECÉM-CONGREGADO` | `publisher_date` < 1 mês atrás | 1ª (máxima) |
+| `ATIVO` | pregou (`has_preached=true`) em ≥1 mês dos últimos 6 | 2ª |
+| `IRREGULAR` | pregou em 0 dos últimos 6 meses (inclui quem nunca relatou) | 3ª |
+
+**Nota:** `INATIVO` e `QUASE-INATIVO` foram **eliminados** (2026-07-09).
+`RECÉM-CONGREGADO` usa `publisher_date` (Data Início Publicador do Glide).
+Enquanto `publisher_date = NULL`, o publicador cai no critério de atividade.
+
+### Distinção conceitual
+- **Modalidade de serviço** (Publicador/Aux/Regular/Especial) = snapshot do relatório por mês.
+  Critério: flags `is_auxiliary_pioneer`, `is_regular_pioneer`, `is_special_pioneer`.
+  **`has_preached` NÃO é critério de modalidade.**
+- **Status de campo** (ATIVO/IRREGULAR/RECÉM-CONGREGADO) = trajetória do publicador.
+  Critério: `has_preached = true` em janela de 6 meses.
+
+### Implementação
+- ✅ `rm.calculate_publisher_status()` atualizada (migration `rm_status_rules_v2c`)
+- ✅ Trigger `trg_monthly_reports_recalc_status` dispara após INSERT/UPDATE/DELETE
+- ✅ CHECK constraint atualizado para os 3 valores válidos
+- ⚠️ `publisher_date` ainda NULL para todos os publicadores importados do Glide.
+  Será populado quando o import ler `Data Início Publicador` (col 174 do CSV Glide).
+  Até lá, `RECÉM-CONGREGADO` só aparece para publicadores criados manualmente com data preenchida.
 
 ---
 
