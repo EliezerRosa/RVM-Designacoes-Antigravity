@@ -106,6 +106,10 @@ export interface S1ConsolidationRow {
     congregation_id: string;
     total_reports: number;
     total_preached: number;
+    /** Contagens exclusivas por modalidade de serviço */
+    publisher_count: number;
+    auxiliary_pioneer_count: number;
+    regular_pioneer_count: number;
     total_studies: number;
     pioneer_hours: number;
     auxiliary_hours: number;
