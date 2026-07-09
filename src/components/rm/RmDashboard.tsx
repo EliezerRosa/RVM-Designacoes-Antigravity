@@ -88,10 +88,11 @@ export function RmDashboard() {
             const row = series.find(r => r.reference_month === i + 1);
             return {
                 mes,
-                Pregaram: row?.total_preached ?? 0,
-                'P. Auxiliar': row?.auxiliary_hours ?? 0,
-                Estudos: row?.total_studies ?? 0,
                 Relatórios: row?.total_reports ?? 0,
+                Publicadores: row?.publisher_count ?? 0,
+                'P. Auxiliar': row?.auxiliary_pioneer_count ?? 0,
+                'P. Regular': row?.regular_pioneer_count ?? 0,
+                Estudos: row?.total_studies ?? 0,
             };
         }), [series]);
 
@@ -157,10 +158,11 @@ export function RmDashboard() {
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
                         <Kpi label="Relatórios entregues" value={submitted} />
                         <Kpi label="Publicadores ativos" value={activeCount} />
-                        <Kpi label="Pregaram" value={consolidation?.total_preached ?? 0} />
+                        <Kpi label="Publicadores" value={consolidation?.publisher_count ?? 0} />
+                        <Kpi label="P. Auxiliares" value={consolidation?.auxiliary_pioneer_count ?? 0} />
+                        <Kpi label="P. Regulares" value={consolidation?.regular_pioneer_count ?? 0} />
                         <Kpi label="Estudos" value={consolidation?.total_studies ?? 0} />
                         <Kpi label="Horas pioneiros" value={consolidation?.pioneer_hours ?? 0} />
-                        <Kpi label="Horas auxiliares" value={consolidation?.auxiliary_hours ?? 0} />
                         <Kpi label="Atrasados" value={consolidation?.late_count ?? 0} />
                     </div>
                     <div style={{ maxWidth: 480 }}>
@@ -194,7 +196,7 @@ export function RmDashboard() {
                     ) : (
                         <>
                             <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 8 }}>
-                                Relatórios entregues, publicadores que pregaram e estudos bíblicos — mês a mês.
+                                Relatórios e modalidades de serviço por mês — Publicadores, Pioneiros Auxiliares e Regulares.
                             </p>
                             <ResponsiveContainer width="100%" height={280}>
                                 <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
@@ -203,9 +205,10 @@ export function RmDashboard() {
                                     <Tooltip contentStyle={{ background: '#1e293b', border: 'none', fontSize: 12 }} />
                                     <Legend wrapperStyle={{ fontSize: 12 }} />
                                     <Bar dataKey="Relatórios" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="Pregaram" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="Estudos" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="Publicadores" fill="#22c55e" radius={[4, 4, 0, 0]} />
                                     <Bar dataKey="P. Auxiliar" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="P. Regular" fill="#f97316" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="Estudos" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </>
