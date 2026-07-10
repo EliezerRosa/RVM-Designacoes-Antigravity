@@ -182,7 +182,7 @@ export function RmDashboard() {
                         <Kpi label="Atrasados" value={consolidation?.late_count ?? 0} />
                         {(consolidation?.special_pioneer_count ?? 0) > 0 && (
                             <Kpi
-                                label="P. Especiais (circuito)"
+                                label="P. Especiais (Filial)"
                                 value={consolidation?.special_pioneer_count ?? 0}
                             />
                         )}
