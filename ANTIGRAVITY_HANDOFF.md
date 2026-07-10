@@ -64,25 +64,18 @@
 
 ---
 
-## 4. Decisão Pendente (PRINCIPAL — revisar amanhã com Eliezer)
+## 4. Decisões Recentes e Pendências
 
-### P. Especiais (PE) no S-1 congregacional
+### P. Especiais (PE) no S-1 congregacional (RESOLVIDO: Opção A)
 
-**Descoberta:** O Glide exclui P. Especiais do S-1 da congregação local.
-- Glide: "Cartões de Congregados (-2 PE's) = 127" (exclui explicitamente)
-- Relatórios de PE vão para o escritório da Filial, NÃO para a congregação
-- Por isso: Glide mostra 76 relatórios (excluindo 2 PE's que temos no DB)
+**Descoberta:** O Glide exclui P. Especiais do S-1 da congregação local (seus relatórios vão ao escritório da Filial).
+**Decisão:** Eliezer aprovou a Opção A em 2026-07-10.
+- A view `v_s1_consolidation` foi atualizada (`is_special_pioneer = false`).
+- O painel exibe um badge de auditoria indicando que X PE(s) foram excluídos.
 
-**Nosso sistema:** inclui os 2 PE's → 77 relatórios, +6 estudos, +35 horas
-
-**Opções a decidir com Eliezer:**
-- **A** — Excluir PE's do S-1 congregacional (view + KPIs): `is_special_pioneer = false`
-- **B** — Manter tudo mas adicionar KPI "S-1 sem PE" separado
-- **C** — Deixar como está (nossa visão inclui PE's, Glide não)
-
-### Outras pendências descobertas
-1. **1 relatório no Glide** que não está no nosso DB (jun/2026) → alguém entregou após nosso import → re-import do `Relatórios Glide.xlsx` resolverá
-2. **1 publicador no CSV** (193 linhas) que não casou com nenhum dos 192 no DB por `glide_id` → investigar quem é
+### Pendências descobertas
+1. **1 relatório no Glide** que não está no nosso DB (jun/2026) → alguém entregou após nosso import → re-import do `Relatórios Glide.xlsx` resolverá.
+2. ~~**1 publicador no CSV** sem match~~ (Resolvido: Registro órfão no Glide sem dados/nome `w9jNRtMzQiexj1OhJsM2CA`. Já marcado para desativação no Glide).
 3. **`Relatórios Glide.xlsx`** (OneDrive + workspace) tem APENAS aba `Relatórios`, sem `PublicadorReal` → para importar dados de publicadores (Desativado, publisher_date) é preciso subir o arquivo `Publicador Real.csv` de outra forma (hoje foi feito via SQL direto)
 
 ---
@@ -211,9 +204,7 @@ interface S1ConsolidationRow {
 ## 9. Backlog Priorizado
 
 ### Alta prioridade (próxima sessão)
-1. **Decisão PE no S-1** (§4) → impacta view + KPIs
-2. **1 relatório faltante** no DB para jun/2026 → re-import `Relatórios Glide.xlsx` quando atualizado
-3. **1 publicador** no CSV sem match no DB → identificar e corrigir
+1. **1 relatório faltante** no DB para jun/2026 → re-import `Relatórios Glide.xlsx` quando atualizado
 
 ### Média prioridade (Fase 2)
 4. Trigger `is_late_report` automático (I-3 backlog P1)
@@ -326,8 +317,7 @@ main
 | Horas Regulares | 657 | nosso `pioneer_hours` = 692 (diff = PE hours) |
 
 > **Causa das diferenças**: P. Especiais (PE) são excluídos do S-1 congregacional no Glide
-> (seus relatórios vão ao escritório da Filial). Nossa view inclui PE's.
-> **Decisão pendente com Eliezer** (§4): excluir ou não PE's do S-1 congregacional.
+> (seus relatórios vão ao escritório da Filial). Opção A implementada: nossa view agora exclui PEs.
 
 ---
 
