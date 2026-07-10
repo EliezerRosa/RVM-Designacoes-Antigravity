@@ -228,7 +228,107 @@ interface S1ConsolidationRow {
 
 ---
 
-## 10. Âncora de Rollback
+## 12. Acesso ao App Glide (referência de verdade)
+
+### URLs
+
+| Destino | URL |
+|---|---|
+| App principal (Início) | https://relatorio-mensal-v03-new.glide.page/dl/b33482 |
+| App (link direto pós-login) | https://relatorio-mensal-v03-new.glide.page/dl/375e23 |
+| Relatório Para Escritório | https://relatorio-mensal-v03-new.glide.page/dl/d8fc49 |
+
+### Autenticação
+- O Glide usa **email + PIN de congregação** (não senha convencional)
+- O agente NÃO consegue autenticar automaticamente — a sessão ativa é do **Eliezer** no browser do sistema
+- **Procedimento**: Eliezer abre o browser, faz login, depois **compartilha a aba** com o agente Antigravity
+- Após login, o agente pode navegar via ferramentas de browser (Playwright / browser nativo)
+
+### Ferramentas de Browser no Antigravity
+O Antigravity tem acesso às ferramentas Playwright (ou equivalente). Use:
+
+```
+# Navegar para uma URL na aba compartilhada
+navigate_page(pageId, url)
+
+# Tirar screenshot
+screenshot_page(pageId, element)
+
+# Ler acessibilidade da página (melhor que screenshot para extrair dados)
+read_page(pageId)   # retorna árvore de acessibilidade com refs
+
+# Clicar em elemento
+click_element(pageId, ref=e123)   # usar ref da árvore de acessibilidade
+
+# Scroll para elemento
+screenshot_page(pageId, ref=eXXX, scrollIntoViewIfNeeded=True)
+```
+
+### Navegação no Glide
+
+```
+Início → menu "More" (botão com aria-haspopup='menu') → abre menu lateral com:
+  ├─ Publicadores Geral
+  ├─ Relatório Para Escritório   ← S-1 mensal para comparação com nosso sistema
+  ├─ Modalidades Pioneiro
+  └─ ...outros
+
+Aba "Visão Geral" (nav principal) → seções:
+  ├─ Modalidades Congregação    (donut % por tipo de pregação)
+  ├─ Pioneiros Regulares        (donut modalidades dos PEs)
+  ├─ % Informam Modalidades     (linha % por mês)
+  ├─ Campo Por Telefone         (barras: Total/Designados/Ligações/Revisitas)
+  ├─ AUGES (Ano Atual)          ← GRÁFICO PRINCIPAL com Publicadores/Auxiliares/Regulares/Estudos/Inativos
+  └─ AUGES (Anterior)           (mesmo gráfico, ano anterior)
+```
+
+### Extraindo dados do "Relatório Para Escritório"
+
+Após navegar para `dl/d8fc49` e selecionar o mês:
+
+1. `read_page(pageId)` → árvore de acessibilidade revela os valores sem precisar de screenshot
+2. Procurar nos `listitem` refs os campos: "Número de relatórios", "Estudos bíblicos", "Horas"
+3. Estrutura da página (ref names variam a cada carregamento mas a hierarquia é estável):
+
+```
+main
+├─ "CONGREGADOS INATIVOS NO MÊS (N)"  ← congregados que NÃO entregaram naquele mês
+├─ "NÃO CONGREGADOS (N)"              ← is_congregated = false
+├─ listitem "Cartões de Congregados (-2 PE's): N"
+├─ listitem "Publicadores ativos: N"  ← field_service_status calculado pelo Glide
+├─ listitem "Numero de relatórios: N"
+├─ iframe PUBLICADORES
+│   └─ list: Número de relatórios / Estudos bíblicos / Atrasados
+├─ iframe PIONEIROS AUXILIARES
+│   └─ list: Número de relatórios / Horas / Estudos bíblicos / Atrasados
+└─ iframe PIONEIROS REGULARES
+    └─ list: Número de relatórios / Horas / Estudos bíblicos / Atrasados
+```
+
+> **Nota:** Os iframes do Glide têm conteúdo acessível via `read_page` mas os
+> números estão em elementos `paragraph` dentro de `listitem`. Se o conteúdo
+> estiver em iframes cross-origin, use `screenshot_page` com scroll para visualizar.
+
+### Comparação de referência (Junho 2026)
+
+| Campo Glide | Valor | Equivalente nosso |
+|---|---|---|
+| CONGREGADOS INATIVOS NO MÊS | 18 | `Congregados - total_reports` (jun) |
+| NÃO CONGREGADOS | 62 | `COUNT(is_congregated=false)` |
+| Cartões de Congregados (-2 PE's) | 127 | `129 - 2` |
+| Publicadores ativos | 107 | Glide's próprio `field_service_status` ATIVO |
+| Número de relatórios (total) | 76 | nosso 77 (-2 PE's + 1 que ainda não temos) |
+| Publicadores não-pioneiros | 51 | nosso `publisher_count` = 50 |
+| Auxiliares (relatórios) | 6 | nosso `auxiliary_pioneer_count` = 6 ✅ |
+| Regulares (relatórios) | 19 | nosso `regular_pioneer_count` = 19 ✅ |
+| Estudos total | 41 | nosso 47 (diferença = 6 estudos dos 2 PE's) |
+| Horas Auxiliares | 160 | nosso `auxiliary_hours` = 160 ✅ |
+| Horas Regulares | 657 | nosso `pioneer_hours` = 692 (diff = PE hours) |
+
+> **Causa das diferenças**: P. Especiais (PE) são excluídos do S-1 congregacional no Glide
+> (seus relatórios vão ao escritório do circuito). Nossa view inclui PE's.
+> **Decisão pendente com Eliezer** (§4): excluir ou não PE's do S-1 congregacional.
+
 
 ```bash
 # Rollback código (pré-RM):
