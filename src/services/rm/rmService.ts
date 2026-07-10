@@ -58,7 +58,8 @@ export interface RmPublisher {
     pioneer_start_date: string | null;
     is_special_pioneer: boolean;
     field_service_status: FieldServiceStatus | null;
-    is_active: boolean;
+    /** true = membro ativo da congregação; false = "Não Congregado" (saiu/desativado) */
+    is_congregated: boolean;
     created_at?: string;
     updated_at?: string;
 }

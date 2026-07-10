@@ -6,10 +6,57 @@ invariants:
   - "Qualquer alteração de schema rm.* que afete estes invariantes requer migration + test"
 ---
 
-# RM — Invariantes de Negócio (2026-07-08)
+# RM — Invariantes de Negócio (2026-07-09)
 
 > Documento canônico. Toda decisão de implementação do módulo RM deve ser consistente
 > com estas regras. Em caso de conflito, a regra aqui prevalece sobre o código.
+
+---
+
+## I-0. Dois Eixos Ortogonais de Estado do Publicador
+
+**Regra fundamental**: O estado de um publicador tem DOIS eixos independentes que NÃO
+se substituem e NÃO devem ser confundidos.
+
+### Eixo A — Status de Membresia (`is_congregated`)
+**Pergunta**: "Esta pessoa ainda é publicador registrado nesta congregação?"
+
+| Valor | Nome | Significado |
+|---|---|---|
+| `true` | *(membro)* | Congregado — faz parte da congregação |
+| `false` | **Não Congregado** | Saiu da congregação (mudança, desligamento, falecimento) |
+
+- **Fonte**: gerido pelo secretário; importado do campo `Desativado` do Glide (lógica inversa: `is_congregated = NOT Desativado`)
+- **Impacto**: `is_congregated = false` → **excluído de TODAS as estatísticas**, listas e denominadores
+- **Denominador "Congregados"** = `COUNT(publishers WHERE is_congregated = true)`
+- Campo DB: `rm.publishers.is_congregated` (renomeado de `is_active` em 2026-07-09)
+
+### Eixo B — Status de Campo (`field_service_status`)
+**Pergunta**: "Esta pessoa está ativa no ministério de campo?"
+
+| Valor | Critério |
+|---|---|
+| `ATIVO` | Pregou em 6/6 dos últimos 6 meses |
+| `IRREGULAR` | Pregou em 1–5/6 dos últimos 6 meses |
+| `INATIVO` | Pregou em 0/6 dos últimos 6 meses |
+| `RECÉM-CONGREGADO` | `publisher_date` < 1 mês |
+
+- **Fonte**: calculado automaticamente por `rm.calculate_publisher_status()`
+- **Pré-requisito**: `is_congregated = true` (Não Congregados não têm status calculado)
+- `field_service_status = 'INATIVO'` ≠ `is_congregated = false`: são conceitos distintos
+
+### Tabela completa de combinações possíveis
+
+| `is_congregated` | `field_service_status` | Situação |
+|---|---|---|
+| `true` | `ATIVO` | Membro + prega todo mês |
+| `true` | `IRREGULAR` | Membro + prega só alguns meses |
+| `true` | `INATIVO` | Membro + não prega há 6+ meses (ainda acompanhado pelo SEC) |
+| `true` | `RECÉM-CONGREGADO` | Novo membro (< 1 mês) |
+| `false` | `NULL` | **Não Congregado** — fora do sistema |
+
+**INVARIANTE**: Os dois eixos são ORTOGONAIS.
+`INATIVO` (campo) ≠ `Não Congregado` (membresia). Nunca usar um no lugar do outro.
 
 ---
 
