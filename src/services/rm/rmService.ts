@@ -11,7 +11,7 @@ const rm = () => supabase.schema('rm');
 
 // ===== Types =====
 
-export type FieldServiceStatus = 'ATIVO' | 'IRREGULAR' | 'QUASE-INATIVO' | 'INATIVO';
+export type FieldServiceStatus = 'ATIVO' | 'IRREGULAR' | 'INATIVO' | 'RECÉM-CONGREGADO';
 export type Gender = 'M' | 'F';
 
 export interface RmCongregation {
