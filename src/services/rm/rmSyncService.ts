@@ -354,7 +354,10 @@ export const rmSyncService = {
                 }
             }
 
-            const res = await upsertChunked('publishers', finalPayload, 'glide_id', 'id, glide_id');
+            // Remove deactivation_reason before upsert because the column might not exist in the remote DB yet
+            const dbPayload = finalPayload.map(({ deactivation_reason, ...rest }) => rest);
+
+            const res = await upsertChunked('publishers', dbPayload, 'glide_id', 'id, glide_id');
             for (const r of res) if (r.glide_id) pubMap.set(r.glide_id, r.id);
             for (const p of finalPayload) {
                 const uuid = p.glide_id ? pubMap.get(p.glide_id) : null;
