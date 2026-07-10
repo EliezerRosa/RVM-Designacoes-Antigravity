@@ -571,23 +571,36 @@ FUTURO (IDD IDE como plataforma):
   IDD Server compartilhado → revisão de PRs baseada em intenções
 ```
 
-#### Recomendação Financeira Anthropic/Claude (pergunta do Eliezer)
+#### Recomendação Financeira Anthropic/Claude — Duas Fases Distintas
 
-Para desenvolver o IDD-AEON-IDE com Claude, as opções são:
+> ⚠️ **Distinção crítica**: a `ANTHROPIC_API_KEY` no IDD IDE é do **usuário do IDE**,
+> não de Eliezer. O criador e o usuário têm custos separados.
 
-| Opção | Custo | Melhor para |
+**Fase A — Eliezer desenvolvendo o IDD IDE (agora)**
+
+| Ferramenta | Custo | Papel |
 |---|---|---|
-| **Claude.ai Pro** ($20/mês) | Baixo | Desenvolvimento exploratório, conversas longas, sem API |
-| **Anthropic API pay-as-you-go** | Por token | `idd generate` + `idd verify --semantic` no CLI; ~$0.003/1K tokens Sonnet 4 |
-| **Claude Max** ($100/mês) | Moderado | Alto volume de conversas no IDE + API incluída |
-| **Antigravity (atual)** | Incluído no plano | Agente com MCP + ferramentas + memória; ideal para arquitetura e decisões |
+| **Copilot Pro+** (já pago, ~$19/mês) | ✅ Já cobre | Arquitetura, código da extensão/CLI, sessões longas no Antigravity |
+| **Anthropic API pay-as-you-go** | ~$0–5/mês | Testar `idd generate` + `idd verify --semantic` durante desenvolvimento |
+| ~~Claude.ai Pro~~ | ❌ Redundante | Idem ao Copilot Pro+ — não adiciona valor |
 
-**Estratégia recomendada:**
-1. **Antigravity** → decisões de arquitetura, IDD, invariantes, sessões longas de desenvolvimento
-2. **API Anthropic** (pay-as-you-go) → `idd generate` + `idd verify --semantic` no pipeline CI/CD
-3. **Claude.ai Pro** → sessões exploratórias, documentação, análise de código
+→ **Custo incremental para Eliezer: apenas a API para testes** (pay-as-you-go, escala com uso)
 
-O IDD IDE usa `claude-sonnet-4-20250514` por padrão — configurável via `IDD_MODEL`.
+**Fase B — Desenvolvedor usando o IDD IDE (produto distribuído)**
+
+| Quem paga | O quê | Custo |
+|---|---|---|
+| **O usuário do IDE** | `export ANTHROPIC_API_KEY=sk-ant-...` (chave própria) | ~$0.01 por `idd generate` de um módulo |
+| **Eliezer** | Nada | Zero — modelo BYOK (Bring Your Own Key) |
+
+→ **Eliezer não assume custo de operação.** O IDD IDE escala infinitamente sem custo para o criador.
+
+**Estratégia confirmada:**
+```
+Copilot Pro+ (já pago)        → desenvolvimento do IDD IDE (Fase A)
+Anthropic API pay-as-you-go   → testes do CLI durante desenvolvimento (Fase A, uso mínimo)
+Usuário traz a própria chave  → uso em produção (Fase B)
+```
 
 ---
 
