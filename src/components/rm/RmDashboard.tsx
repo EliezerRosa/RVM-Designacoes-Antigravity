@@ -1,4 +1,4 @@
-﻿/**
+/**
  * RmDashboard — KPIs de consolidação (S-1), progresso de entregas, abrir/fechar mês.
  * Visão Geral: série anual com gráficos BarChart (recharts).
  */
@@ -152,9 +152,25 @@ export function RmDashboard() {
                 )}
             </div>
 
-            {/* â”€â”€ MÃªs Atual â”€â”€ */}
+            {/* ── Mês Atual ── */}
             {tab === 'mensal' && (
                 <>
+                    {/* Badge: PE excluídos do S-1 (decisão 2026-07-10) */}
+                    {(consolidation?.special_pioneer_count ?? 0) > 0 && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            background: '#1e293b', border: '1px solid #334155',
+                            borderLeft: '3px solid #f59e0b',
+                            borderRadius: 6, padding: '8px 12px',
+                            fontSize: '0.8rem', color: '#94a3b8', marginBottom: 12,
+                        }}>
+                            <span style={{ color: '#f59e0b', fontWeight: 600 }}>⚠ S-1 congregacional</span>
+                            {' '}—{' '}
+                            <strong style={{ color: '#e2e8f0' }}>{consolidation?.special_pioneer_count} P. {consolidation!.special_pioneer_count === 1 ? 'Especial' : 'Especiais'}</strong>
+                            {' '}excluído{consolidation!.special_pioneer_count === 1 ? '' : 's'} dos totais
+                            (relatórios vão ao escritório do circuito, não à congregação).
+                        </div>
+                    )}
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
                         <Kpi label="Relatórios entregues" value={submitted} />
                         <Kpi label="Congregados" value={activeCount} />
@@ -164,6 +180,12 @@ export function RmDashboard() {
                         <Kpi label="Estudos" value={consolidation?.total_studies ?? 0} />
                         <Kpi label="Horas pioneiros" value={consolidation?.pioneer_hours ?? 0} />
                         <Kpi label="Atrasados" value={consolidation?.late_count ?? 0} />
+                        {(consolidation?.special_pioneer_count ?? 0) > 0 && (
+                            <Kpi
+                                label="P. Especiais (circuito)"
+                                value={consolidation?.special_pioneer_count ?? 0}
+                            />
+                        )}
                     </div>
                     <div style={{ maxWidth: 480 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: 4 }}>
