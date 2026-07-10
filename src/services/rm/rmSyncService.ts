@@ -309,12 +309,52 @@ export const rmSyncService = {
                     publisher_date: asISODate(pick(m, 'Data Início Publicador', 'DataInicioPublicador', 'DataPublicador')),
                     // Desativado (Glide) = lógica inversa de is_congregated
                     is_congregated: !asBool(pick(m, 'Desativado')),
+                    deactivation_reason: asStr(pick(m, 'Motivo', 'Motivo Desativação', 'MotivoDesativacao', 'Motivo da Desativação')),
                     field_service_status: asStatus(pick(m, 'Status do Último Relatório', 'Status')),
                 };
             }).filter(r => r.glide_id && r.name);
-            const res = await upsertChunked('publishers', payload, 'glide_id', 'id, glide_id');
+
+            // Filtro de Expurgo: Desativados > 1 ano por motivo "mudou"
+            const now = new Date();
+            const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1).getTime();
+            
+            const latestReportMap = new Map<string, number>();
+            if (relRowsRaw) {
+                for (const m of relRowsRaw) {
+                    const pubId = asStr(pick(m, 'idPubEntrada', 'id_Publicador'));
+                    const year = asInt(pick(m, 'Ano Ref', 'AnoRef'));
+                    const month = asInt(pick(m, 'MêsNum', 'MesNum'));
+                    if (pubId && year && month) {
+                        const dateVal = new Date(year, month - 1, 1).getTime();
+                        if (dateVal > (latestReportMap.get(pubId) || 0)) {
+                            latestReportMap.set(pubId, dateVal);
+                        }
+                    }
+                }
+            }
+
+            const pubsToDelete: string[] = [];
+            const finalPayload = payload.filter(p => {
+                if (!p.is_congregated && p.deactivation_reason?.toLowerCase().includes('mudou')) {
+                    const latest = latestReportMap.get(p.glide_id!) || 0;
+                    if (latest < twelveMonthsAgo) {
+                        pubsToDelete.push(p.glide_id!);
+                        return false;
+                    }
+                }
+                return true;
+            });
+
+            if (pubsToDelete.length > 0) {
+                log(`Limpando ${pubsToDelete.length} publicadores desativados há >1 ano...`);
+                for (let i = 0; i < pubsToDelete.length; i += 100) {
+                    await rm().from('publishers').delete().in('glide_id', pubsToDelete.slice(i, i + 100));
+                }
+            }
+
+            const res = await upsertChunked('publishers', finalPayload, 'glide_id', 'id, glide_id');
             for (const r of res) if (r.glide_id) pubMap.set(r.glide_id, r.id);
-            for (const p of payload) {
+            for (const p of finalPayload) {
                 const uuid = p.glide_id ? pubMap.get(p.glide_id) : null;
                 if (uuid) pubCong.set(uuid, p.congregation_id);
             }
