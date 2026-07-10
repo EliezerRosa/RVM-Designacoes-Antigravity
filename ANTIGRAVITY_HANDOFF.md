@@ -329,8 +329,140 @@ main
 > (seus relatórios vão ao escritório do circuito). Nossa view inclui PE's.
 > **Decisão pendente com Eliezer** (§4): excluir ou não PE's do S-1 congregacional.
 
+---
 
-```bash
+## 13. IDD Paradigma — Protocolo Formal de Interação
+
+### Fundação Filosófica
+
+IDD (Intent-Driven Development) é o paradigma de colaboração humano-agente adotado
+por Eliezer Rosa. Linhagem: Engelbart (1962) → Kay → Brooks → Berners-Lee → Gruber → IDD.
+
+> "Augmenting ≠ Automating."
+> A simbiose preserva o humano no **comando epistêmico** mesmo quando delega o **operacional**.
+
+### Os Dois Eixos de Autoridade
+
+| Eixo | Quem detém | O que define |
+|---|---|---|
+| **Comando Epistêmico** | **Eliezer** (sempre) | O QUÊ e o POR QUÊ — intenção, invariantes, critérios de sucesso, limites éticos |
+| **Comando Operacional** | **Agente** (delegado) | O COMO — ferramentas, sequência, sintaxe, execução |
+
+- Perder essa fronteira = **credulidade** (confiança sem conhecimento)
+- Mantê-la = **fé bayesiana** (confiança escalada por evidência auditável)
+- O agente pode errar o caminho, mas NUNCA pode violar um invariante sem parar e reportar
+
+### Vocabulário Canônico (usar consistentemente)
+
+| ✅ Usar | ❌ Evitar |
+|---|---|
+| "comando epistêmico" | "o usuário quer" |
+| "comando operacional" | "eu vou fazer" |
+| "invariante" (não negociável) | "regra" (genérico) |
+| "augmenting" | "automation" |
+| "fé bayesiana" | "confia/não confia" |
+| "intenção" | "requisito" |
+| "Não Congregado" | "inativo" (para is_congregated=false) |
+| "INATIVO" (field_service_status) | "inativo" quando se refere a is_congregated=false |
+
+### Protocolo de Intenção (antes de agir)
+
+Eliezer declara a intenção no formato IDD:
+
+```
+WHY   → motivo de negócio / contexto semântico
+WHAT  → resultado esperado / critério de sucesso
+INVARIANTS → o que NUNCA pode ser violado
+AUTH  → confirm-once | per-step | just-do-it
+```
+
+O agente responde com:
+1. **Plano explícito**: O COMO (ferramentas, passos, ordem, impacto)
+2. Aguarda **"go"** do Eliezer (confirm-once) ou executa direto (just-do-it)
+3. **Relatório final**: o que foi feito, o que não foi, o que mudou, pendências
+
+### Modelo de Aprovação
+
+| Modo | Quando usar | Comportamento |
+|---|---|---|
+| `confirm-once` | Sequência definida e reversível | Eliezer diz "go" → agente executa até o fim sem interrupção |
+| `per-step` | Mudanças destrutivas ou irreversíveis | Aprovação explícita a cada fase |
+| `just-do-it` | Operações rotineiras já estabelecidas | Agente age diretamente, reporta depois |
+
+### Runbooks IDD (`.agents/workflows/`)
+
+Operações recorrentes encapsuladas como runbooks em `.agents/workflows/*.intent.md`.
+Estrutura canônica:
+
+```yaml
+---
+description: "descrição curta"
+authorization: confirm-once | per-step | just-do-it
+invariants:
+  - "invariante 1 (não-negociável)"
+rollback: "comando de rollback"
+---
+## WHY / WHAT / PHASES / ADAPTERS / NOTES
+```
+
+**Runbooks existentes:**
+
+| Arquivo | Propósito | Auth |
+|---|---|---|
+| `rm-invariants.intent.md` | Fonte canônica de invariantes RM | per-step |
+| `rm-import-reports.intent.md` | Importar Relatórios Glide → DB | confirm-once |
+| `rm-dashboard-visual.intent.md` | Atualizar gráficos do dashboard RM | confirm-once |
+| `deploy-and-validate.intent.md` | Build + push + deploy + smoke test | just-do-it |
+| `supabase-migration.intent.md` | Aplicar migration Supabase | per-step |
+| `rotate-secrets.intent.md` | Rotação de segredos | per-step |
+
+### Invariantes como Salvaguarda Epistêmica
+
+Os invariantes (em `rm-invariants.intent.md` e nos frontmatters dos runbooks) são a
+**intenção do Eliezer encarnada em restrições de código**. O agente:
+
+- **NUNCA modifica** um invariante sem aprovação explícita do Eliezer
+- **PARA e reporta** se uma ação violaria um invariante
+- **Propõe alternativas** em vez de contornar
+
+Invariantes ativos: `I-0` (dois eixos ortogonais) a `I-8` + pendências `P1–P6` em `rm-invariants.intent.md`.
+
+### Memória Persistente (protocolo obrigatório)
+
+```
+/memories/repo/_ESTADO-ATUAL.md   ← LER PRIMEIRO. ATUALIZAR ao fim de cada bloco.
+/memories/repo/<tema>-YYYY-MM-DD.md ← snapshots datados por tema
+/memories/session/<assunto>.md    ← notas vivas da conversa em curso
+/memories/<tema>.md               ← preferências transversais do Eliezer (auto-carregadas)
+```
+
+Regras:
+- LER `_ESTADO-ATUAL.md` ANTES de qualquer ação
+- ATUALIZAR ao fim de cada bloco lógico (antes de prosseguir)
+- NUNCA esperar pedido explícito de "salvar" — o default é gravar
+- Substituição de memória = CREATE then DELETE (zero janela de perda)
+
+### IDD Aplicado a Este Projeto (síntese)
+
+```
+Eliezer define (epistêmico):
+  ✓ Invariantes de negócio JW (Ano de Serviço, janela de entrega, status de campo...)
+  ✓ Quais métricas o painel deve mostrar (e com qual semântica)
+  ✓ Como calcular o S-1 (com ou sem PE's — decisão pendente §4)
+  ✓ Limites de escopo (congregação vs circuito)
+  ✓ Nomeação de conceitos (is_congregated, INATIVO, Não Congregado...)
+
+Agente executa (operacional):
+  → Migrations SQL (Supabase MCP)
+  → Código TypeScript (views, tipos, componentes React)
+  → Deploy (build + push + gh-pages)
+  → Validação vs Glide (browser, read_page, comparação)
+  → Documentação e memória persistente
+```
+
+---
+
+
 # Rollback código (pré-RM):
 git reset --hard pre-rm-fase1  # tag local @ feed0c5
 
