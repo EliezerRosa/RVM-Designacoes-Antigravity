@@ -388,7 +388,9 @@ export const rmSyncService = {
             summary.skipped += payload.length - dedupMap.size;
             const dedupedPayload = Array.from(dedupMap.values());
 
-            const res = await upsertChunked('monthly_reports', dedupedPayload, 'glide_row_id', 'id');
+            // Conflito na chave civil (publisher_id, year, month) — idempotente mesmo que
+            // o glide_row_id mude (relatório emendado no Glide gera novo row_id mas mesmo período).
+            const res = await upsertChunked('monthly_reports', dedupedPayload, 'publisher_id,reference_year,reference_month', 'id');
             summary.reports = res.length;
         }
 
