@@ -10,6 +10,7 @@ import {
     rmService,
     type RmCongregation, type RmMonthControl, type S1ConsolidationRow,
 } from '../../services/rm/rmService';
+import { RmS1View } from './RmS1View';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -22,7 +23,7 @@ function Kpi({ label, value }: { label: string; value: string | number }) {
     );
 }
 
-type Tab = 'mensal' | 'anual';
+type Tab = 'mensal' | 'anual' | 's1';
 
 const TAB_STYLE = (active: boolean): React.CSSProperties => ({
     padding: '6px 16px', borderRadius: 6, border: 'none', cursor: 'pointer',
@@ -119,6 +120,7 @@ export function RmDashboard() {
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <button style={TAB_STYLE(tab === 'mensal')} onClick={() => setTab('mensal')}>Mês Atual</button>
+                <button style={TAB_STYLE(tab === 's1')} onClick={() => setTab('s1')}>S-1 (Secretário)</button>
                 <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>Visão Anual</button>
             </div>
 
@@ -234,6 +236,19 @@ export function RmDashboard() {
                                 </BarChart>
                             </ResponsiveContainer>
                         </>
+                    )}
+                </div>
+            )}
+
+            {/* ── Visão S-1 Escritório ── */}
+            {tab === 's1' && (
+                <div style={{ marginTop: 16 }}>
+                    {congs.find(c => c.id === congId) && (
+                        <RmS1View 
+                            congregation={congs.find(c => c.id === congId)!}
+                            year={year}
+                            month={month}
+                        />
                     )}
                 </div>
             )}
