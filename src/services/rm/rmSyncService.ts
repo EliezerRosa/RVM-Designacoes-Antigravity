@@ -251,12 +251,31 @@ export const rmSyncService = {
         const groupRows = getRows('Grupos', 'Grupo');
         if (groupRows) {
             log('Importando grupos…');
+            const seenNums = new Set<string>();
+            let fallbackGroupNum = -1;
+
             const payload = groupRows.map(m => {
                 const congGid = asStr(pick(m, 'fk_id_Congregação', 'fk_id_Congregacao'));
+                let gNum = asInt(pick(m, 'Número', 'Numero'));
+                
+                if (gNum === null) {
+                    gNum = fallbackGroupNum--;
+                }
+
+                if (congGid) {
+                    let key = `${congGid}_${gNum}`;
+                    if (seenNums.has(key)) {
+                        while (seenNums.has(`${congGid}_${fallbackGroupNum}`)) fallbackGroupNum--;
+                        gNum = fallbackGroupNum--;
+                        key = `${congGid}_${gNum}`;
+                    }
+                    seenNums.add(key);
+                }
+
                 return {
                     glide_id: asStr(pick(m, 'id_Grupo', 'id')),
                     congregation_id: congGid ? congMap.get(congGid) ?? null : null,
-                    group_number: asInt(pick(m, 'Número', 'Numero')) ?? 0,
+                    group_number: gNum,
                     name: asStr(pick(m, 'Nome do Grupo', 'Nome')),
                     glide_leader_id: asStr(pick(m, 'id_SuperDeGrupo')),
                     glide_assistant_id: asStr(pick(m, 'id_SuperAJDeGrupo')),
