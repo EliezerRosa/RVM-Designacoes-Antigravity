@@ -108,7 +108,9 @@ function asGender(v: unknown): string | null {
 function asStatus(v: unknown): string | null {
     const s = normKey(String(v ?? ''));
     if (!s) return null;
-    if (s.includes('quaseinativo')) return 'QUASE-INATIVO';
+    // QUASE-INATIVO do Glide → IRREGULAR (status eliminado em I-7 v3)
+    if (s.includes('quaseinativo')) return 'IRREGULAR';
+    // RECÉM-CONGREGADO vem do campo publisher_date, não do status Glide
     for (const st of ['inativo', 'irregular', 'ativo']) {
         if (s.includes(st)) return st.toUpperCase();
     }
