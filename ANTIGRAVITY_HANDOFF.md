@@ -70,7 +70,7 @@
 
 **Descoberta:** O Glide exclui P. Especiais do S-1 da congregação local.
 - Glide: "Cartões de Congregados (-2 PE's) = 127" (exclui explicitamente)
-- Relatórios de PE vão para o escritório do circuito, NÃO para a congregação
+- Relatórios de PE vão para o escritório da Filial, NÃO para a congregação
 - Por isso: Glide mostra 76 relatórios (excluindo 2 PE's que temos no DB)
 
 **Nosso sistema:** inclui os 2 PE's → 77 relatórios, +6 estudos, +35 horas
@@ -326,7 +326,7 @@ main
 | Horas Regulares | 657 | nosso `pioneer_hours` = 692 (diff = PE hours) |
 
 > **Causa das diferenças**: P. Especiais (PE) são excluídos do S-1 congregacional no Glide
-> (seus relatórios vão ao escritório do circuito). Nossa view inclui PE's.
+> (seus relatórios vão ao escritório da Filial). Nossa view inclui PE's.
 > **Decisão pendente com Eliezer** (§4): excluir ou não PE's do S-1 congregacional.
 
 ---
