@@ -168,7 +168,7 @@ export function RmDashboard() {
                             {' '}—{' '}
                             <strong style={{ color: '#e2e8f0' }}>{consolidation?.special_pioneer_count} P. {consolidation!.special_pioneer_count === 1 ? 'Especial' : 'Especiais'}</strong>
                             {' '}excluído{consolidation!.special_pioneer_count === 1 ? '' : 's'} dos totais
-                            (relatórios vão ao escritório do circuito, não à congregação).
+                            (relatórios vão ao escritório da Filial, não à congregação).
                         </div>
                     )}
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>

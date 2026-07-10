@@ -6,7 +6,7 @@
 -- snapshots históricos em rm.monthly_reports (não em rm.publishers).
 -- A view deve referenciar r.is_special_pioneer e r.is_regular_pioneer.
 --
--- Fundamento: relatórios de PE vão ao escritório do circuito,
+-- Fundamento: relatórios de PE vão ao escritório da Filial,
 -- NÃO à congregação. O S-1 congregacional deve excluí-los
 -- para alinhar com o Glide.
 --
