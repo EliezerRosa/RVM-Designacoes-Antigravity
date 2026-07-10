@@ -305,6 +305,8 @@ export const rmSyncService = {
                     birth_date: asISODate(pick(m, 'Data de Nascimento', 'DataNascimento')),
                     funcao: asStr(pick(m, 'Função', 'Funcao', 'Privilégio', 'Privilegio')),
                     publisher_date: asISODate(pick(m, 'Data Início Publicador', 'DataInicioPublicador', 'DataPublicador')),
+                    // Desativado (Glide) = lógica inversa de is_congregated
+                    is_congregated: !asBool(pick(m, 'Desativado')),
                     field_service_status: asStatus(pick(m, 'Status do Último Relatório', 'Status')),
                 };
             }).filter(r => r.glide_id && r.name);

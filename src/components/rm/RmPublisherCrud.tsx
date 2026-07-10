@@ -8,7 +8,7 @@ import {
 } from '../../services/rm/rmService';
 
 const emptyForm: Partial<RmPublisher> = {
-    name: '', funcao: '', gender: null, is_regular_pioneer: false, is_special_pioneer: false, is_active: true,
+    name: '', funcao: '', gender: null, is_regular_pioneer: false, is_special_pioneer: false, is_congregated: true,
 };
 
 export function RmPublisherCrud() {

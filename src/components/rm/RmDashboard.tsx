@@ -65,7 +65,7 @@ export function RmDashboard() {
                 rmService.listMonthControl(congId),
             ]);
             setConsolidation(rows.find(r => r.congregation_id === congId) ?? null);
-            setActiveCount(pubs.filter(p => p.is_active).length);
+            setActiveCount(pubs.filter(p => p.is_congregated).length);
             setMonthCtl(controls.find(c => c.reference_year === year && c.reference_month === month) ?? null);
         } catch (e) { setError(String((e as Error).message ?? e)); }
     };
@@ -157,7 +157,7 @@ export function RmDashboard() {
                 <>
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
                         <Kpi label="Relatórios entregues" value={submitted} />
-                        <Kpi label="Publicadores ativos" value={activeCount} />
+                        <Kpi label="Congregados" value={activeCount} />
                         <Kpi label="Publicadores" value={consolidation?.publisher_count ?? 0} />
                         <Kpi label="P. Auxiliares" value={consolidation?.auxiliary_pioneer_count ?? 0} />
                         <Kpi label="P. Regulares" value={consolidation?.regular_pioneer_count ?? 0} />
