@@ -60,6 +60,7 @@ export interface RmPublisher {
     field_service_status: FieldServiceStatus | null;
     /** true = membro ativo da congregação; false = "Não Congregado" (saiu/desativado) */
     is_congregated: boolean;
+    deactivation_reason?: string | null;
     created_at?: string;
     updated_at?: string;
 }

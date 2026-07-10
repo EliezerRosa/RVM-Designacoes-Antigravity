@@ -57,6 +57,11 @@ export function RmSyncPortal() {
         try { await rmSyncService.clearMatch(rmId); await reload(); }
         catch (e) { setError(String((e as Error).message ?? e)); }
     };
+    const deletePublisher = async (rmId: string) => {
+        if (!window.confirm('Excluir este publicador e TODOS os seus relatórios? Esta ação é irreversível.')) return;
+        try { await rmService.deletePublisher(rmId); await reload(); }
+        catch (e) { setError(String((e as Error).message ?? e)); }
+    };
 
     const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -136,11 +141,18 @@ export function RmSyncPortal() {
                                                 <button className="btn-secondary" onClick={() => clear(rp.id)}>Desfazer</button>
                                             ) : (
                                                 <select defaultValue={s?.rvm_publisher_id ?? ''}
-                                                    onChange={e => e.target.value && confirm(rp.id, e.target.value)}>
+                                                    onChange={e => e.target.value && confirm(rp.id, e.target.value)}
+                                                    style={{ marginRight: '8px' }}>
                                                     <option value="">— escolher RVM —</option>
                                                     {rvmPubs.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                                                 </select>
                                             )}
+                                            <button 
+                                                style={{ padding: '2px 6px', fontSize: '0.8rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                                onClick={() => deletePublisher(rp.id)}
+                                                title="Excluir publicador RM e seus relatórios">
+                                                🗑️ Excluir
+                                            </button>
                                         </td>
                                     </tr>
                                 );
