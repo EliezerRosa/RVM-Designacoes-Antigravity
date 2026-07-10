@@ -604,7 +604,10 @@ Usuário traz a própria chave  → uso em produção (Fase B)
 
 ---
 
+## 10. Âncora de Rollback
 
+```bash
+# Rollback código (pré-RM):
 git reset --hard pre-rm-fase1  # tag local @ feed0c5
 
 # Rollback DB:
