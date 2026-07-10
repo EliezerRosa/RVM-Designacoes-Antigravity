@@ -377,9 +377,10 @@ export const rmSyncService = {
                     ...(submitted ? { submitted_at: submitted } : {}),
                 });
             }
-            // Deduplicar por (publisher_id, reference_year, reference_month): o Glide pode ter
-            // duas linhas para o mesmo publicador+período (relatório emendado = novo glide_row_id).
-            // A última ocorrência vence; duplicatas vão para skipped.
+            // Deduplicar por chave civil (publisher_id, year, month) antes do upsert:
+            // se o mesmo publicador aparecer duas vezes no mesmo período no export do Glide
+            // (fenômeno de qualidade de dados, não emenda deliberada — o Glide nunca duplica
+            // glide_row_id), a última ocorrência vence. Duplicatas vão para skipped.
             const dedupMap = new Map<string, Record<string, unknown>>();
             for (const row of payload) {
                 const key = `${row.publisher_id}|${row.reference_year}|${row.reference_month}`;
@@ -388,8 +389,10 @@ export const rmSyncService = {
             summary.skipped += payload.length - dedupMap.size;
             const dedupedPayload = Array.from(dedupMap.values());
 
-            // Conflito na chave civil (publisher_id, year, month) — idempotente mesmo que
-            // o glide_row_id mude (relatório emendado no Glide gera novo row_id mas mesmo período).
+            // Upsert na chave civil (publisher_id, year, month) — chave de negócio canônica
+            // (I-4). Garante idempotência mesmo que dois exports diferentes do Glide tragam
+            // registros para o mesmo período. glide_row_id é artefato técnico Glide, não
+            // chave de negócio do nosso sistema.
             const res = await upsertChunked('monthly_reports', dedupedPayload, 'publisher_id,reference_year,reference_month', 'id');
             summary.reports = res.length;
         }
