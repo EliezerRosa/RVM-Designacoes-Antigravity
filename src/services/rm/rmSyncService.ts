@@ -322,13 +322,29 @@ export const rmSyncService = {
             if (relRowsRaw) {
                 for (const m of relRowsRaw) {
                     const pubId = asStr(pick(m, 'idPubEntrada', 'id_Publicador'));
+                    const dt = asISODateTime(pick(m, 'Data'));
                     const year = asInt(pick(m, 'Ano Ref', 'AnoRef'));
                     const month = asInt(pick(m, 'MêsNum', 'MesNum'));
-                    if (pubId && year && month) {
-                        const dateVal = new Date(year, month - 1, 1).getTime();
-                        if (dateVal > (latestReportMap.get(pubId) || 0)) {
-                            latestReportMap.set(pubId, dateVal);
-                        }
+                    const hasPreached = asBool(pick(m, 'PregouSim'));
+                    const hours = asNum(pick(m, 'Horas')) || 0;
+                    const studies = asInt(pick(m, 'Estudos')) || 0;
+                    const modalities = asStr(pick(m, 'Modalidade')) || '';
+
+                    if (!pubId || year === null || month === null) continue;
+
+                    // Ignora relatórios vazios gerados automaticamente pelo sistema (Não Relatou)
+                    if (!hasPreached && hours === 0 && studies === 0 && modalities === '') continue;
+
+                    // tenta usar Data, senão forja uma data pro fim do mês ref
+                    let ts = 0;
+                    if (dt) {
+                        ts = new Date(dt).getTime();
+                    } else if (year && month) {
+                        ts = new Date(year, month, 0).getTime();
+                    }
+                    
+                    if (ts > (latestReportMap.get(pubId) || 0)) {
+                        latestReportMap.set(pubId, ts);
                     }
                 }
             }
