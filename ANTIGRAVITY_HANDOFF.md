@@ -462,8 +462,136 @@ Agente executa (operacional):
 
 ---
 
+## 14. IDD IDE (idd-ide) — Projeto AEON em Construção
 
-# Rollback código (pré-RM):
+### Repositório
+**`EliezerRosa/idd-ide`** · https://github.com/EliezerRosa/idd-ide · público · MIT
+
+> "Uma IDE onde você declara *o que* o código deve fazer, não *como* implementá-lo."
+
+### O que é
+Fork do **Code-OSS** (VS Code open source) com o paradigma IDD embutido como extensão
+`idd-core` não-removível. O código é um **artefato derivado** da intenção — rastreável
+e verificável continuamente.
+
+### 5 Componentes Centrais
+
+| Componente | Responsabilidade | Arquivo chave |
+|---|---|---|
+| **Intent Capture UI** | Painel de 4 passos: intenção → constraints → critérios → dependências | `IntentCapturePanel.ts` |
+| **Intent Engine** | Parser + Context Manager + Claude API + Output Formatter | `IntentEngine.ts` |
+| **Code Workspace** | Editor aumentado com drift inline por linha, diagnósticos LSP | `extension.ts` |
+| **Intent Graph** | Grafo visual Cytoscape.js de todas as intenções e dependências | `IntentGraphPanel.ts` |
+| **Intent Verifier + Store** | Drift detection (estático + semântico + cascata) + SQLite versionado | `IntentVerifier.ts` |
+
+### Formato `.intent.yaml` (fonte de verdade)
+
+```yaml
+intent: "Autenticar usuário com e-mail e senha, retornando JWT válido por 24h"
+module: auth/login
+
+constraints:
+  - "Senha deve ter mínimo 8 caracteres"
+  - "Bloquear conta após 5 tentativas falhas por 15 minutos"
+  - "Nunca registrar a senha em logs"
+
+acceptance:
+  - "Login válido retorna status 200 e token JWT"
+  - "Senha incorreta retorna 401 sem vazar informações"
+  - "Quinta tentativa falha bloqueia a conta"
+
+depends_on:
+  - users/crud
+
+language: typescript
+```
+
+`idd generate auth/login` → gera `auth/login.ts` + `auth/login.test.ts` + `auth/login.md`
+
+### CLI `idd` — Comandos
+
+| Comando | Descrição |
+|---|---|
+| `idd init` | Inicializa IDD no projeto (`.idd/`, Git hooks, schema, exemplo) |
+| `idd new <mod/sub>` | Cria `.intent.yaml` interativamente |
+| `idd generate [mod/sub]` | Gera código, testes e docs via Claude API |
+| `idd verify [flags]` | Verifica drift entre código e intenções |
+| `idd diff [mod/sub]` | Vista split: intenção vs código atual |
+| `idd graph [flags]` | Grafo de intenções (terminal ou VS Code panel) |
+| `idd store list/history/snapshot` | Gerencia Intent Store SQLite |
+
+### Intent Store (SQLite)
+
+4 tabelas: `intents` / `intent_versions` (semver automático) / `constraints` / `drift_events`
+API interna na porta 4999. Git hooks instalados por `idd init`:
+- `pre-commit` → `idd verify --staged --fail-on=critical`
+- `post-merge` → `idd store sync`
+- `post-tag` → `idd store snapshot --tag=$TAG_NAME`
+
+### Estado do Projeto
+
+| Fase | Status | Destaques |
+|---|---|---|
+| Fase 1 — MVP | ✅ Concluída | 151 testes Vitest; 8 comandos CLI; 6 linguagens; Intent Store SQLite |
+| Fase 2 — Core IDD | 🔄 Em andamento | Context Manager completo; Verifier semântico; Intent Graph interativo |
+| Fase 3 — Produto | 📋 Planejada | `product.json`, branding, Open VSX Marketplace |
+| Fase 4 — Ecossistema | 🔮 Visão | IDD Server, IDD Review, IDD Docs, LSP dedicado |
+
+### Stack
+`Code-OSS · TypeScript 5.3 (strict) · Claude API (claude-sonnet-4-20250514) · YAML + JSON Schema · SQLite (better-sqlite3) · Cytoscape.js · Vitest`
+
+---
+
+### Sincronia IDD IDE ↔ Projeto AEON ↔ RVM Designações
+
+#### O que já converge
+
+| Conceito | IDD IDE | RVM Designações (este repo) | Sincronia |
+|---|---|---|---|
+| Fonte de verdade | `.intent.yaml` | `.agents/workflows/*.intent.md` | Mesmo princípio, formato diferente |
+| Constraints | `constraints:` no yaml | Seções `## I-N.` em `rm-invariants.intent.md` | Migrar para `.intent.yaml` quando AEON amadurecer |
+| Critérios de aceite | `acceptance:` no yaml | Validações SQL em migrations + testes | Formalizar como acceptance criteria |
+| Drift detection | `idd verify` + LLM | Manual (agente compara com Glide) | `idd verify --semantic` poderia automatizar |
+| Dependências | `depends_on:` | Implícito no código | Declarar explicitamente no grafo |
+| Geração de código | `idd generate` via Claude | Claude (Copilot / Antigravity) | IDD IDE é a plataforma; Antigravity é o ambiente atual |
+
+#### Plano de Convergência (para discutir com Eliezer)
+
+```
+AGORA (Antigravity + VS Code Copilot):
+  Eliezer declara intenção em chat → agente gera código → agente valida vs Glide
+  Artefatos: .intent.md + migrations + código TS + deploy
+
+PRÓXIMO PASSO (adicionar IDD CLI ao workflow):
+  Eliezer declara em .intent.yaml → idd generate → idd verify
+  Artefatos: código rastreável à intenção, drift detectado automaticamente
+
+FUTURO (IDD IDE como plataforma):
+  Intent Capture UI → Intent Engine → Code Workspace aumentado
+  IDD Server compartilhado → revisão de PRs baseada em intenções
+```
+
+#### Recomendação Financeira Anthropic/Claude (pergunta do Eliezer)
+
+Para desenvolver o IDD-AEON-IDE com Claude, as opções são:
+
+| Opção | Custo | Melhor para |
+|---|---|---|
+| **Claude.ai Pro** ($20/mês) | Baixo | Desenvolvimento exploratório, conversas longas, sem API |
+| **Anthropic API pay-as-you-go** | Por token | `idd generate` + `idd verify --semantic` no CLI; ~$0.003/1K tokens Sonnet 4 |
+| **Claude Max** ($100/mês) | Moderado | Alto volume de conversas no IDE + API incluída |
+| **Antigravity (atual)** | Incluído no plano | Agente com MCP + ferramentas + memória; ideal para arquitetura e decisões |
+
+**Estratégia recomendada:**
+1. **Antigravity** → decisões de arquitetura, IDD, invariantes, sessões longas de desenvolvimento
+2. **API Anthropic** (pay-as-you-go) → `idd generate` + `idd verify --semantic` no pipeline CI/CD
+3. **Claude.ai Pro** → sessões exploratórias, documentação, análise de código
+
+O IDD IDE usa `claude-sonnet-4-20250514` por padrão — configurável via `IDD_MODEL`.
+
+---
+
+
 git reset --hard pre-rm-fase1  # tag local @ feed0c5
 
 # Rollback DB:
