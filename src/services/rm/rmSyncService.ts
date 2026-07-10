@@ -309,7 +309,7 @@ export const rmSyncService = {
                     publisher_date: asISODate(pick(m, 'Data Início Publicador', 'DataInicioPublicador', 'DataPublicador')),
                     // Desativado (Glide) = lógica inversa de is_congregated
                     is_congregated: !asBool(pick(m, 'Desativado')),
-                    deactivation_reason: asStr(pick(m, 'Motivo', 'Motivo Desativação', 'MotivoDesativacao', 'Motivo da Desativação', 'Motivo Saída', 'Motivo da Saída', 'Observação', 'Obs')),
+                    deactivation_reason: asStr(pick(m, 'Motivo', 'Desativado Motivo', 'Motivo Desativação', 'MotivoDesativacao', 'Motivo da Desativação', 'Motivo Saída', 'Motivo da Saída', 'Observação', 'Obs')),
                     field_service_status: asStatus(pick(m, 'Status do Último Relatório', 'Status')),
                 };
             }).filter(r => r.glide_id && r.name);
