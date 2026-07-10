@@ -309,7 +309,7 @@ export const rmSyncService = {
                     publisher_date: asISODate(pick(m, 'Data Início Publicador', 'DataInicioPublicador', 'DataPublicador')),
                     // Desativado (Glide) = lógica inversa de is_congregated
                     is_congregated: !asBool(pick(m, 'Desativado')),
-                    deactivation_reason: asStr(pick(m, 'Motivo', 'Motivo Desativação', 'MotivoDesativacao', 'Motivo da Desativação')),
+                    deactivation_reason: asStr(pick(m, 'Motivo', 'Motivo Desativação', 'MotivoDesativacao', 'Motivo da Desativação', 'Motivo Saída', 'Motivo da Saída', 'Observação', 'Obs')),
                     field_service_status: asStatus(pick(m, 'Status do Último Relatório', 'Status')),
                 };
             }).filter(r => r.glide_id && r.name);
@@ -335,7 +335,9 @@ export const rmSyncService = {
 
             const pubsToDelete: string[] = [];
             const finalPayload = payload.filter(p => {
-                if (!p.is_congregated && p.deactivation_reason?.toLowerCase().includes('mudou')) {
+                const r = p.deactivation_reason?.toLowerCase() || '';
+                const isMoved = r.includes('mudou') || r.includes('mudança') || r.includes('transferid');
+                if (!p.is_congregated && isMoved) {
                     const latest = latestReportMap.get(p.glide_id!) || 0;
                     if (latest < twelveMonthsAgo) {
                         pubsToDelete.push(p.glide_id!);
