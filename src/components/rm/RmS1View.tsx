@@ -55,8 +55,11 @@ export function RmS1View({ congregation, year, month }: Props) {
     const validReports = reports.filter(r => !r.is_special_pioneer);
     const reportedPubIds = new Set(validReports.map(r => r.publisher_id));
     
-    // Inativos = Congregados (sem PEs) que não entregaram
-    const inactivePubs = congregadosSemPe.filter(p => !reportedPubIds.has(p.id));
+    // Inativos Estruturais = Congregados (sem PEs) com status de INATIVO (0/6 meses)
+    const inactivePubs = congregadosSemPe.filter(p => p.field_service_status === 'INATIVO');
+    
+    // Não Relataram no Mês = Congregados que não entregaram relatório, mas NÃO estão inativos estruturalmente
+    const missedReportPubs = congregadosSemPe.filter(p => !reportedPubIds.has(p.id) && p.field_service_status !== 'INATIVO');
     
     // Não Congregados = false
     const notCongregatedPubs = publishers.filter(p => !p.is_congregated && !p.is_special_pioneer);
@@ -205,10 +208,17 @@ export function RmS1View({ congregation, year, month }: Props) {
                     <div style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: 8 }}>Métricas e Anomalias</div>
                     <div style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 8, marginBottom: 8, minWidth: 300 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>CONGREGADOS INATIVOS NO MÊS</span>
+                            <span>CONGREGADOS INATIVOS</span>
                             <span style={{ fontWeight: 'bold' }}>{inactivePubs.length}</span>
                         </div>
-                        {renderList(inactivePubs, 'Ver inativos', 'inativos', '#94a3b8')}
+                        {renderList(inactivePubs, 'Ver inativos estruturais', 'inativos', '#94a3b8')}
+                    </div>
+                    <div style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 8, marginBottom: 8, minWidth: 300 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>NÃO RELATARAM NO MÊS</span>
+                            <span style={{ fontWeight: 'bold' }}>{missedReportPubs.length}</span>
+                        </div>
+                        {renderList(missedReportPubs, 'Ver quem não relatou', 'nao_relataram', '#f59e0b')}
                     </div>
                     <div style={{ background: '#1e293b', padding: '12px 16px', borderRadius: 8, marginBottom: 8, minWidth: 300 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
