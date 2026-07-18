@@ -158,7 +158,7 @@ export function RmS1View({ congregation, year, month }: Props) {
                             return (
                                 <div key={groupId}>
                                     <div style={{ fontSize: '0.8rem', color: color, marginBottom: 4, fontWeight: 'bold', textTransform: 'uppercase' }}>
-                                        {groupName}
+                                        {groupName} ({groupPubs.length})
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         {groupPubs.map(p => {
