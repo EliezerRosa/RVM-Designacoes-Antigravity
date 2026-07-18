@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { rmService, type RmCongregation, type RmMonthlyReport, type RmPublisher } from '../../services/rm/rmService';
+import { rmService, type RmCongregation, type RmMonthlyReport, type RmPublisher, type RmFieldGroup } from '../../services/rm/rmService';
 import { RmS1PrintTemplate, type S1PrintData } from './RmS1PrintTemplate';
 import { RmS1ReportEditModal } from './RmS1ReportEditModal';
 
@@ -15,6 +15,7 @@ const MONTHS_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', '
 export function RmS1View({ congregation, year, month }: Props) {
     const [publishers, setPublishers] = useState<RmPublisher[]>([]);
     const [reports, setReports] = useState<RmMonthlyReport[]>([]);
+    const [fieldGroups, setFieldGroups] = useState<RmFieldGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [printing, setPrinting] = useState(false);
@@ -30,16 +31,18 @@ export function RmS1View({ congregation, year, month }: Props) {
             setLoading(true);
             setError(null);
             try {
-                const [pubs, reps] = await Promise.all([
+                const [pubs, reps, fGroups] = await Promise.all([
                     rmService.listPublishers(congregation.id),
                     rmService.listReports({
                         reference_year: year,
                         reference_month: month,
                         congregation_id: congregation.id
-                    })
+                    }),
+                    rmService.listFieldGroups(congregation.id)
                 ]);
                 setPublishers(pubs);
                 setReports(reps);
+                setFieldGroups(fGroups);
             } catch (err) {
                 setError(String((err as Error).message ?? err));
             } finally {
@@ -125,28 +128,61 @@ export function RmS1View({ congregation, year, month }: Props) {
 
     const renderList = (pubs: RmPublisher[], title: string, section: string, color: string) => {
         const isExp = expanded[section];
+
+        const grouped = pubs.reduce((acc, p) => {
+            const groupId = p.current_group_id || 'unassigned';
+            if (!acc[groupId]) acc[groupId] = [];
+            acc[groupId].push(p);
+            return acc;
+        }, {} as Record<string, RmPublisher[]>);
+
+        const sortedGroups = Object.keys(grouped).sort((a, b) => {
+            if (a === 'unassigned') return 1;
+            if (b === 'unassigned') return -1;
+            const ga = fieldGroups.find(g => g.id === a);
+            const gb = fieldGroups.find(g => g.id === b);
+            return (ga?.name || '').localeCompare(gb?.name || '');
+        });
+
         return (
             <div style={{ marginTop: 12, borderTop: `1px solid ${color}40`, paddingTop: 12 }}>
                 <button onClick={() => toggleExpand(section)} style={{ background: 'transparent', border: 'none', color, cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6, padding: 0 }}>
                     {isExp ? '▼' : '▶'} {title}
                 </button>
                 {isExp && (
-                    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {pubs.map(p => {
-                            const r = validReports.find(rep => rep.publisher_id === p.id);
+                    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {sortedGroups.map(groupId => {
+                            const groupName = groupId === 'unassigned' ? 'Sem Grupo' : (fieldGroups.find(g => g.id === groupId)?.name || 'Grupo Desconhecido');
+                            const groupPubs = grouped[groupId].sort((a, b) => a.name.localeCompare(b.name));
+                            
                             return (
-                                <div 
-                                    key={p.id} 
-                                    onClick={() => { setEditingPublisher(p); setEditingReport(r || null); }}
-                                    style={{ 
-                                        padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: 6, cursor: 'pointer',
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem'
-                                    }}
-                                >
-                                    <span>{p.name}</span>
-                                    <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
-                                        {r ? `${r.hours ? r.hours + 'h • ' : ''}${r.bible_studies || 0}est` : 'Sem relatório'}
-                                    </span>
+                                <div key={groupId}>
+                                    <div style={{ fontSize: '0.8rem', color: color, marginBottom: 4, fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                        {groupName}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {groupPubs.map(p => {
+                                            const r = validReports.find(rep => rep.publisher_id === p.id);
+                                            return (
+                                                <div 
+                                                    key={p.id} 
+                                                    onClick={() => { setEditingPublisher(p); setEditingReport(r || null); }}
+                                                    style={{ 
+                                                        padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: 6, cursor: 'pointer',
+                                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem'
+                                                    }}
+                                                >
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        {p.name}
+                                                        {p.field_service_status && <span style={{ fontSize: '0.65rem', padding: '2px 4px', borderRadius: 4, background: 'rgba(255,255,255,0.1)' }}>{p.field_service_status}</span>}
+                                                    </span>
+                                                    <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>
+                                                        {r ? `${r.hours ? r.hours + 'h • ' : ''}${r.bible_studies || 0}est` : 'Sem relatório'}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             );
                         })}
