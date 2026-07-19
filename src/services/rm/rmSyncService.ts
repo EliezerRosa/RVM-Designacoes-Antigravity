@@ -379,6 +379,15 @@ export const rmSyncService = {
                         return false;
                     }
                 }
+                
+                // Excluir cartões mockados pelo Glide ("Congregação Geral", etc) 
+                // e qualquer publicador cujo grupo/função inicie com Congrega
+                const groupGid = p.current_group_id ? groupMap.get(p.current_group_id) : null;
+                if (p.name?.toLowerCase().startsWith('congrega') || p.funcao?.toLowerCase().startsWith('congrega')) {
+                    pubsToDelete.push(p.glide_id!);
+                    return false;
+                }
+
                 return true;
             });
 
@@ -431,6 +440,13 @@ export const rmSyncService = {
                     summary.skipped++;
                     continue;
                 }
+                
+                const groupName = asStr(pick(m, 'Grupo'));
+                if (groupName?.toLowerCase().startsWith('congrega')) {
+                    summary.skipped++;
+                    continue;
+                }
+
                 const congGid = asStr(pick(m, 'id_Congregação Qdo Relatou'));
                 const congUuid = (congGid ? congMap.get(congGid) : null) ?? pubCong.get(pubUuid) ?? null;
                 const submitted = asISODateTime(pick(m, 'Data'));
@@ -442,7 +458,7 @@ export const rmSyncService = {
                     reference_year: year,
                     reference_month: month,
                     service_year: asInt(pick(m, 'AnoServiçoQdoRelatou')),
-                    has_preached: asBool(pick(m, 'PregouSim')),
+                    has_preached: asBool(pick(m, 'PregouSim')) || (asNum(pick(m, 'Horas')) ?? 0) > 0 || (asInt(pick(m, 'Estudos')) ?? 0) > 0,
                     hours: asNum(pick(m, 'Horas')),
                     bible_studies: asInt(pick(m, 'Estudos')) ?? 0,
                     modalities: asModalities(pick(m, 'Modalidade')),
