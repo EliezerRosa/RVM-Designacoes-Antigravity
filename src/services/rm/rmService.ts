@@ -173,7 +173,7 @@ export const rmService = {
     // ===== Publishers =====
 
     async listPublishers(congregationId?: string): Promise<RmPublisher[]> {
-        let q = rm().from('publishers').select('*').order('name');
+        let q = rm().from('v_publishers_status').select('*').order('name');
         if (congregationId) q = q.eq('congregation_id', congregationId);
         const { data, error } = await q;
         if (error) throw error;
@@ -181,7 +181,9 @@ export const rmService = {
     },
 
     async upsertPublisher(input: Partial<RmPublisher>): Promise<RmPublisher> {
-        const { data, error } = await rm().from('publishers').upsert(input).select().single();
+        const payload = { ...input };
+        delete payload.field_service_status;
+        const { data, error } = await rm().from('publishers').upsert(payload).select().single();
         if (error) throw error;
         return data as RmPublisher;
     },
