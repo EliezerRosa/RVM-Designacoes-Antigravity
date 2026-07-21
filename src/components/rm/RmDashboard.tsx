@@ -1,10 +1,10 @@
 /**
  * RmDashboard — KPIs de consolidação (S-1), progresso de entregas, abrir/fechar mês.
- * Visão Geral: série anual com gráficos BarChart (recharts).
+ * Visão Geral: série anual de serviço com gráficos BarChart e PieChart (recharts).
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
-    Bar, BarChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
+    Bar, BarChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell
 } from 'recharts';
 import {
     rmService,
@@ -13,6 +13,24 @@ import {
 import { RmS1View } from './RmS1View';
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const MONTHS_SERVICE = ['Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago'];
+
+const MODALITY_COLORS: Record<string, string> = {
+    'Casas': '#7c3aed',
+    'Ruas': '#16a34a',
+    'Comércio': '#d946ef',
+    'Informal': '#ef4444',
+    'TP Local': '#f97316',
+    'TP Betel': '#eab308',
+    'Display': '#84cc16',
+    'Video Conferência': '#06b6d4',
+    'Telefone': '#3b82f6',
+    'Cartas': '#14b8a6',
+    'Mensagens': '#6366f1',
+    'Pesquisa Telefones': '#8b5cf6',
+    'Revisitas': '#ec4899',
+    'Dirigir Estudos': '#f43f5e'
+};
 
 function Kpi({ label, value }: { label: string; value: string | number }) {
     return (
@@ -32,10 +50,8 @@ const TAB_STYLE = (active: boolean): React.CSSProperties => ({
 
 export function RmDashboard() {
     const now = new Date();
-    // Mês padrão = mês ANTERIOR (mês pendente de relatórios).
-    // Se hoje é julho/2026 → padrão = junho/2026.
     const defaultMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-    const defaultYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const defaultYear  = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
 
     const [tab, setTab] = useState<Tab>('mensal');
     const [congs, setCongs] = useState<RmCongregation[]>([]);
@@ -45,7 +61,12 @@ export function RmDashboard() {
     const [consolidation, setConsolidation] = useState<S1ConsolidationRow | null>(null);
     const [activeCount, setActiveCount] = useState(0);
     const [monthCtl, setMonthCtl] = useState<RmMonthControl | null>(null);
+    
+    // Anual Series
     const [series, setSeries] = useState<S1ConsolidationRow[]>([]);
+    const [prevSeries, setPrevSeries] = useState<S1ConsolidationRow[]>([]);
+    const [modalities, setModalities] = useState<any>(null);
+
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
@@ -75,28 +96,45 @@ export function RmDashboard() {
     const reloadSeries = async () => {
         if (!congId) return;
         try {
-            const rows = await rmService.getConsolidationSeries(year, congId);
-            setSeries(rows);
-        } catch { setSeries([]); }
+            const [cur, prev, mods] = await Promise.all([
+                rmService.getServiceYearConsolidationSeries(year, congId),
+                rmService.getServiceYearConsolidationSeries(year - 1, congId),
+                rmService.getServiceYearModalities(year, congId)
+            ]);
+            setSeries(cur);
+            setPrevSeries(prev);
+            setModalities(mods);
+        } catch { 
+            setSeries([]); setPrevSeries([]); setModalities(null); 
+        }
     };
     useEffect(() => { void reloadSeries(); }, [congId, year]);
 
     const submitted = consolidation?.total_reports ?? 0;
     const pct = useMemo(() => activeCount > 0 ? Math.round((submitted / activeCount) * 100) : 0, [submitted, activeCount]);
 
-    const chartData = useMemo(() =>
-        MONTHS_SHORT.map((mes, i) => {
-            const row = series.find(r => r.reference_month === i + 1);
+    const buildChartData = (seriesData: S1ConsolidationRow[]) => {
+        return MONTHS_SERVICE.map((mes, idx) => {
+            const realMonth = idx < 4 ? idx + 9 : idx - 3;
+            const row = seriesData.find(r => r.reference_month === realMonth);
+            if (!row || row.is_closed !== true) return null;
             return {
                 mes,
-                Relatórios: row?.total_reports ?? 0,
-                Publicadores: row?.publisher_count ?? 0,
-                'P. Auxiliar': row?.auxiliary_pioneer_count ?? 0,
-                'P. Regular': row?.regular_pioneer_count ?? 0,
-                Estudos: row?.total_studies ?? 0,
+                Relatórios: row.total_reports ?? 0,
+                Publicadores: row.publisher_count ?? 0,
+                'P. Auxiliar': row.auxiliary_pioneer_count ?? 0,
+                'P. Regular': row.regular_pioneer_count ?? 0,
+                Estudos: row.total_studies ?? 0,
+                Inativos: row.inactive_count ?? 0,
+                Irregulares: row.irregular_count ?? 0,
+                Removidos: row.removed_count ?? 0,
+                Readmitidos: row.readmitted_count ?? 0,
             };
-        }), [series]);
+        }).filter(Boolean);
+    };
 
+    const chartDataCur = useMemo(() => buildChartData(series), [series]);
+    const chartDataPrev = useMemo(() => buildChartData(prevSeries), [prevSeries]);
     const hasSeriesData = series.some(r => r.total_reports > 0);
 
     const toggleMonth = async (open: boolean) => {
@@ -110,7 +148,54 @@ export function RmDashboard() {
         finally { setBusy(false); }
     };
 
-    const congName = congs.find(c => c.id === congId)?.name ?? '';
+    const renderBarChart = (data: any[]) => (
+        <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12, color: '#e2e8f0' }} itemStyle={{ color: '#e2e8f0' }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: '#e2e8f0' }} />
+                {/* <Bar dataKey="Relatórios" fill="#3b82f6" radius={[4, 4, 0, 0]} /> */}
+                <Bar dataKey="Publicadores" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="P. Auxiliar" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="P. Regular" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Estudos" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Inativos" fill="#64748b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Irregulares" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Removidos" fill="#991b1b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Readmitidos" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+        </ResponsiveContainer>
+    );
+
+    const renderPieChart = (dataRecord: Record<string, number> | undefined, title: string) => {
+        if (!dataRecord) return null;
+        const total = Object.values(dataRecord).reduce((a, b) => a + b, 0);
+        if (total === 0) return null;
+
+        const data = Object.entries(dataRecord)
+            .sort((a, b) => b[1] - a[1]) // Sort desc
+            .map(([name, value]) => ({
+                name,
+                value,
+                fill: MODALITY_COLORS[name] || '#64748b' // default fallback
+            }));
+
+        return (
+            <div style={{ flex: 1, minWidth: 300, background: '#1e293b', borderRadius: 8, padding: '1rem', display: 'flex', flexDirection: 'column' }}>
+                <h5 style={{ margin: 0, marginBottom: 8, color: '#e2e8f0', fontSize: '1.05rem', textAlign: 'center' }}>{title}</h5>
+                <ResponsiveContainer width="100%" height={240}>
+                    <PieChart>
+                        <Pie data={data} innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value" stroke="none">
+                            {data.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                        </Pie>
+                        <Tooltip contentStyle={{ background: '#0f172a', border: 'none', borderRadius: 6, color: '#fff' }} itemStyle={{ color: '#fff' }} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+        );
+    };
 
     return (
         <div style={{ padding: '1rem' }}>
@@ -121,7 +206,7 @@ export function RmDashboard() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <button style={TAB_STYLE(tab === 'mensal')} onClick={() => setTab('mensal')}>Mês Atual</button>
                 <button style={TAB_STYLE(tab === 's1')} onClick={() => setTab('s1')}>S-1 (Secretário)</button>
-                <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>Visão Anual</button>
+                <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>Visão Geral</button>
             </div>
 
             {/* Filtros comuns */}
@@ -131,7 +216,7 @@ export function RmDashboard() {
                         {congs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </label>
-                <label>Ano <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} style={{ width: 90 }} /></label>
+                <label>{tab === 'anual' ? 'Ano de Serviço' : 'Ano'} <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} style={{ width: 90 }} /></label>
                 {tab === 'mensal' && (
                     <label>Mês
                         <select value={month} onChange={e => setMonth(Number(e.target.value))}>
@@ -200,42 +285,54 @@ export function RmDashboard() {
                 </>
             )}
 
-            {/* â”€â”€ VisÃ£o Anual â”€â”€ */}
+            {/* ── Visão Anual (Visão Geral Glide) ── */}
             {tab === 'anual' && (
                 <div>
-                    <h4 style={{ marginBottom: 12, color: '#94a3b8' }}>
-                        {year} — {congName}
-                    </h4>
                     {!hasSeriesData ? (
                         <div style={{
                             background: '#1e293b', borderRadius: 8, padding: '2rem',
                             textAlign: 'center', color: '#64748b',
                         }}>
                             <div style={{ fontSize: '2rem', marginBottom: 8 }}>📊</div>
-                            <div>Sem dados para {year}.</div>
+                            <div>Sem dados para o Ano de Serviço de {year}.</div>
                             <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
                                 Importe os relatórios na aba <strong>Sincronização</strong> para visualizar os gráficos.
                             </div>
                         </div>
                     ) : (
-                        <>
-                            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 8 }}>
-                                Relatórios e modalidades de serviço por mês — Publicadores, Pioneiros Auxiliares e Regulares.
-                            </p>
-                            <ResponsiveContainer width="100%" height={280}>
-                                <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                                    <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                                    <YAxis tick={{ fontSize: 12 }} />
-                                    <Tooltip contentStyle={{ background: '#1e293b', border: 'none', fontSize: 12 }} />
-                                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                                    <Bar dataKey="Relatórios" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="Publicadores" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="P. Auxiliar" fill="#a855f7" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="P. Regular" fill="#f97316" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="Estudos" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            {/* Gráfico Atual */}
+                            <div>
+                                <h4 style={{ marginBottom: 4, color: '#e2e8f0', fontSize: '1.2rem' }}>
+                                    Ano de Serviço {year}
+                                </h4>
+                                <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 12 }}>
+                                    Setembro de {year - 1} a Agosto de {year}
+                                </p>
+                                {renderBarChart(chartDataCur)}
+                            </div>
+
+                            {/* Gráfico Anterior */}
+                            <div>
+                                <h4 style={{ marginBottom: 4, color: '#e2e8f0', fontSize: '1.2rem' }}>
+                                    AUGES (Anterior)
+                                </h4>
+                                <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 12 }}>
+                                    Setembro de {year - 2} a Agosto de {year - 1}
+                                </p>
+                                {renderBarChart(chartDataPrev)}
+                            </div>
+
+                            {/* Gráficos de Rosca Modalidades */}
+                            <div>
+                                <h4 style={{ marginBottom: 12, color: '#e2e8f0', fontSize: '1.2rem' }}>
+                                    Modalidades ({year})
+                                </h4>
+                                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                    {renderPieChart(modalities?.general, "Atividades da Congregação (Geral)")}
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
             )}

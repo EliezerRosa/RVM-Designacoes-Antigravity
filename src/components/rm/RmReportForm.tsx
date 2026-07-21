@@ -6,7 +6,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { rmService, type RmPublisher } from '../../services/rm/rmService';
 
 const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-const MODALITY_OPTIONS = ['Casa em casa', 'Testemunho público', 'Cartas', 'Telefone', 'Revisitas', 'Informal'];
+const MODALITY_OPTIONS = [
+    'Casas', 'Ruas', 'Comércio', 'Informal', 'TP Local', 'TP Betel', 'Display', 
+    'Vídeo Conferência', 'Telefone', 'Cartas', 'Mensagens', 'Pesquisa Telefones', 
+    'Revisitas', 'Dirigir Estudos'
+];
 
 interface Props { onSaved?: () => void; }
 

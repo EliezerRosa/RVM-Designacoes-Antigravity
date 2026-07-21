@@ -1,8 +1,8 @@
 /**
- * rmService.ts — Camada de acesso ao schema `rm.*` (Relatório Mensal)
+ * rmService.ts ÔÇö Camada de acesso ao schema `rm.*` (Relat├│rio Mensal)
  *
  * Desacoplado de public.*. Todo acesso via supabase.schema('rm').
- * RLS Fase 1: somente Admin. RPCs de mês vivem em public.rm_open_month/rm_close_month.
+ * RLS Fase 1: somente Admin. RPCs de m├¬s vivem em public.rm_open_month/rm_close_month.
  */
 
 import { supabase } from '../../lib/supabase';
@@ -11,7 +11,7 @@ const rm = () => supabase.schema('rm');
 
 // ===== Types =====
 
-export type FieldServiceStatus = 'ATIVO' | 'IRREGULAR' | 'INATIVO' | 'RECÉM-CONGREGADO';
+export type FieldServiceStatus = 'ATIVO' | 'IRREGULAR' | 'INATIVO' | 'REC├ëM-CONGREGADO';
 export type Gender = 'M' | 'F';
 
 export interface RmCongregation {
@@ -58,7 +58,7 @@ export interface RmPublisher {
     pioneer_start_date: string | null;
     is_special_pioneer: boolean;
     field_service_status: FieldServiceStatus | null;
-    /** true = membro ativo da congregação; false = "Não Congregado" (saiu/desativado) */
+    /** true = membro ativo da congrega├º├úo; false = "N├úo Congregado" (saiu/desativado) */
     is_congregated: boolean;
     deactivation_reason?: string | null;
     created_at?: string;
@@ -83,7 +83,7 @@ export interface RmMonthlyReport {
     submitted_at: string;
     is_late_report: boolean;
     late_consolidation_period: string | null;
-    /** Snapshot da modalidade de serviço no momento do relatório (dado histórico) */
+    /** Snapshot da modalidade de servi├ºo no momento do relat├│rio (dado hist├│rico) */
     is_auxiliary_pioneer: boolean;
     is_regular_pioneer: boolean;
     is_special_pioneer: boolean;
@@ -111,7 +111,7 @@ export interface S1ConsolidationRow {
     congregation_id: string;
     total_reports: number;
     total_preached: number;
-    /** Contagens exclusivas por modalidade de serviço */
+    /** Contagens exclusivas por modalidade de servi├ºo */
     publisher_count: number;
     auxiliary_pioneer_count: number;
     regular_pioneer_count: number;
@@ -120,6 +120,11 @@ export interface S1ConsolidationRow {
     pioneer_hours: number;
     auxiliary_hours: number;
     late_count: number;
+    inactive_count?: number;
+    irregular_count?: number;
+    removed_count?: number;
+    readmitted_count?: number;
+    is_closed?: boolean;
 }
 
 export interface ReportFilter {
@@ -231,15 +236,51 @@ export const rmService = {
         return data ?? [];
     },
 
-    /** Série anual: todos os meses de um ano (para gráficos de tendência). */
-    async getConsolidationSeries(year: number, congregationId?: string): Promise<S1ConsolidationRow[]> {
-        let q = rm().from('v_s1_consolidation').select('*')
-            .eq('reference_year', year)
-            .order('reference_month', { ascending: true });
+    /** Série anual de serviço: todos os meses (Set/ano-1 a Ago/ano) (para gráficos de tendência). */
+    async getServiceYearConsolidationSeries(serviceYear: number, congregationId: string): Promise<S1ConsolidationRow[]> {
+        const { data, error } = await supabase.rpc('rm_get_service_year_stats', {
+            p_service_year: serviceYear,
+            p_congregation_id: congregationId
+        });
+        if (error) throw error;
+        // Ordenar: Setembro a Dezembro do ano-1, seguido de Janeiro a Agosto do ano
+        return (data ?? []).sort((a: any, b: any) => {
+            const aVal = a.reference_year * 100 + a.reference_month;
+            const bVal = b.reference_year * 100 + b.reference_month;
+            return aVal - bVal;
+        });
+    },
+
+    /** Agrega├º├úo de Modalidades para o Ano de Servi├ºo (Geral, N├úo-Pioneiros, Pioneiros) */
+    async getServiceYearModalities(serviceYear: number, congregationId?: string) {
+        let q = rm().from('monthly_reports').select('modalities, is_auxiliary_pioneer, publishers!inner(pioneer_type)')
+            .eq('service_year', serviceYear);
         if (congregationId) q = q.eq('congregation_id', congregationId);
+        
         const { data, error } = await q;
         if (error) throw error;
-        return data ?? [];
+
+        const agg = {
+            general: {} as Record<string, number>,
+            nonPioneers: {} as Record<string, number>,
+            pioneers: {} as Record<string, number>,
+        };
+
+        for (const row of (data ?? [])) {
+            const pType = (row.publishers as any)?.pioneer_type;
+            const isReg = pType === 'regular' || pType === 'special';
+            const isPioneer = isReg || row.is_auxiliary_pioneer;
+            
+            for (const mod of (row.modalities || [])) {
+                agg.general[mod] = (agg.general[mod] || 0) + 1;
+                if (isPioneer) {
+                    agg.pioneers[mod] = (agg.pioneers[mod] || 0) + 1;
+                } else {
+                    agg.nonPioneers[mod] = (agg.nonPioneers[mod] || 0) + 1;
+                }
+            }
+        }
+        return agg;
     },
 
     // ===== Month control (RPCs em public) =====
