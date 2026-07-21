@@ -253,7 +253,7 @@ export const rmService = {
 
     /** Agrega├º├úo de Modalidades para o Ano de Servi├ºo (Geral, N├úo-Pioneiros, Pioneiros) */
     async getServiceYearModalities(serviceYear: number, congregationId?: string) {
-        let q = rm().from('monthly_reports').select('modalities, is_auxiliary_pioneer, publishers!inner(pioneer_type)')
+        let q = rm().from('monthly_reports').select('modalities, is_auxiliary_pioneer, publishers!inner(is_regular_pioneer, is_special_pioneer)')
             .eq('service_year', serviceYear);
         if (congregationId) q = q.eq('congregation_id', congregationId);
         
@@ -267,8 +267,8 @@ export const rmService = {
         };
 
         for (const row of (data ?? [])) {
-            const pType = (row.publishers as any)?.pioneer_type;
-            const isReg = pType === 'regular' || pType === 'special';
+            const pub = row.publishers as any;
+            const isReg = pub?.is_regular_pioneer || pub?.is_special_pioneer;
             const isPioneer = isReg || row.is_auxiliary_pioneer;
             
             for (const mod of (row.modalities || [])) {
