@@ -1,4 +1,4 @@
-/**
+﻿/**
  * rmService.ts ÔÇö Camada de acesso ao schema `rm.*` (Relat├│rio Mensal)
  *
  * Desacoplado de public.*. Todo acesso via supabase.schema('rm').
@@ -120,11 +120,6 @@ export interface S1ConsolidationRow {
     pioneer_hours: number;
     auxiliary_hours: number;
     late_count: number;
-    inactive_count?: number;
-    irregular_count?: number;
-    removed_count?: number;
-    readmitted_count?: number;
-    is_closed?: boolean;
 }
 
 export interface ReportFilter {
@@ -236,15 +231,15 @@ export const rmService = {
         return data ?? [];
     },
 
-    /** Série anual de serviço: todos os meses (Set/ano-1 a Ago/ano) (para gráficos de tendência). */
-    async getServiceYearConsolidationSeries(serviceYear: number, congregationId: string): Promise<S1ConsolidationRow[]> {
-        const { data, error } = await supabase.rpc('rm_get_service_year_stats', {
-            p_service_year: serviceYear,
-            p_congregation_id: congregationId
-        });
+    /** S├®rie anual de servi├ºo: todos os meses (Set/ano-1 a Ago/ano) (para gr├íficos de tend├¬ncia). */
+    async getServiceYearConsolidationSeries(serviceYear: number, congregationId?: string): Promise<S1ConsolidationRow[]> {
+        let q = rm().from('v_s1_consolidation').select('*')
+            .or(`and(reference_year.eq.${serviceYear - 1},reference_month.gte.9),and(reference_year.eq.${serviceYear},reference_month.lte.8)`);
+        if (congregationId) q = q.eq('congregation_id', congregationId);
+        const { data, error } = await q;
         if (error) throw error;
         // Ordenar: Setembro a Dezembro do ano-1, seguido de Janeiro a Agosto do ano
-        return (data ?? []).sort((a: any, b: any) => {
+        return (data ?? []).sort((a, b) => {
             const aVal = a.reference_year * 100 + a.reference_month;
             const bVal = b.reference_year * 100 + b.reference_month;
             return aVal - bVal;

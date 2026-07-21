@@ -1,6 +1,6 @@
-/**
- * RmDashboard — KPIs de consolidação (S-1), progresso de entregas, abrir/fechar mês.
- * Visão Geral: série anual de serviço com gráficos BarChart e PieChart (recharts).
+﻿/**
+ * RmDashboard ÔÇö KPIs de consolida├º├úo (S-1), progresso de entregas, abrir/fechar m├¬s.
+ * Vis├úo Geral: s├®rie anual de servi├ºo com gr├íficos BarChart e PieChart (recharts).
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -18,12 +18,12 @@ const MONTHS_SERVICE = ['Set', 'Out', 'Nov', 'Dez', 'Jan', 'Fev', 'Mar', 'Abr', 
 const MODALITY_COLORS: Record<string, string> = {
     'Casas': '#7c3aed',
     'Ruas': '#16a34a',
-    'Comércio': '#d946ef',
+    'Com├®rcio': '#d946ef',
     'Informal': '#ef4444',
     'TP Local': '#f97316',
     'TP Betel': '#eab308',
     'Display': '#84cc16',
-    'Video Conferência': '#06b6d4',
+    'Video Confer├¬ncia': '#06b6d4',
     'Telefone': '#3b82f6',
     'Cartas': '#14b8a6',
     'Mensagens': '#6366f1',
@@ -117,20 +117,15 @@ export function RmDashboard() {
         return MONTHS_SERVICE.map((mes, idx) => {
             const realMonth = idx < 4 ? idx + 9 : idx - 3;
             const row = seriesData.find(r => r.reference_month === realMonth);
-            if (!row || row.is_closed !== true) return null;
             return {
                 mes,
-                Relatórios: row.total_reports ?? 0,
-                Publicadores: row.publisher_count ?? 0,
-                'P. Auxiliar': row.auxiliary_pioneer_count ?? 0,
-                'P. Regular': row.regular_pioneer_count ?? 0,
-                Estudos: row.total_studies ?? 0,
-                Inativos: row.inactive_count ?? 0,
-                Irregulares: row.irregular_count ?? 0,
-                Removidos: row.removed_count ?? 0,
-                Readmitidos: row.readmitted_count ?? 0,
+                Relat├│rios: row?.total_reports ?? 0,
+                Publicadores: row?.publisher_count ?? 0,
+                'P. Auxiliar': row?.auxiliary_pioneer_count ?? 0,
+                'P. Regular': row?.regular_pioneer_count ?? 0,
+                Estudos: row?.total_studies ?? 0,
             };
-        }).filter(Boolean);
+        });
     };
 
     const chartDataCur = useMemo(() => buildChartData(series), [series]);
@@ -148,6 +143,8 @@ export function RmDashboard() {
         finally { setBusy(false); }
     };
 
+    const congName = congs.find(c => c.id === congId)?.name ?? '';
+
     const renderBarChart = (data: any[]) => (
         <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
@@ -155,15 +152,11 @@ export function RmDashboard() {
                 <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} />
                 <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12, color: '#e2e8f0' }} itemStyle={{ color: '#e2e8f0' }} />
                 <Legend wrapperStyle={{ fontSize: 12, color: '#e2e8f0' }} />
-                {/* <Bar dataKey="Relatórios" fill="#3b82f6" radius={[4, 4, 0, 0]} /> */}
+                {/* <Bar dataKey="Relat├│rios" fill="#3b82f6" radius={[4, 4, 0, 0]} /> */}
                 <Bar dataKey="Publicadores" fill="#7c3aed" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="P. Auxiliar" fill="#16a34a" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="P. Regular" fill="#dc2626" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Estudos" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Inativos" fill="#64748b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Irregulares" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Removidos" fill="#991b1b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Readmitidos" fill="#14b8a6" radius={[4, 4, 0, 0]} />
             </BarChart>
         </ResponsiveContainer>
     );
@@ -199,26 +192,26 @@ export function RmDashboard() {
 
     return (
         <div style={{ padding: '1rem' }}>
-            <h3 style={{ marginBottom: 12 }}>Painel — Relatório Mensal</h3>
+            <h3 style={{ marginBottom: 12 }}>Painel ÔÇö Relat├│rio Mensal</h3>
             {error && <div style={{ color: '#ef4444', marginBottom: 8 }}>{error}</div>}
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <button style={TAB_STYLE(tab === 'mensal')} onClick={() => setTab('mensal')}>Mês Atual</button>
-                <button style={TAB_STYLE(tab === 's1')} onClick={() => setTab('s1')}>S-1 (Secretário)</button>
-                <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>Visão Geral</button>
+                <button style={TAB_STYLE(tab === 'mensal')} onClick={() => setTab('mensal')}>M├¬s Atual</button>
+                <button style={TAB_STYLE(tab === 's1')} onClick={() => setTab('s1')}>S-1 (Secret├írio)</button>
+                <button style={TAB_STYLE(tab === 'anual')} onClick={() => setTab('anual')}>Vis├úo Geral</button>
             </div>
 
             {/* Filtros comuns */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                <label>Congregação
+                <label>Congrega├º├úo
                     <select value={congId} onChange={e => setCongId(e.target.value)}>
                         {congs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </label>
-                <label>{tab === 'anual' ? 'Ano de Serviço' : 'Ano'} <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} style={{ width: 90 }} /></label>
+                <label>{tab === 'anual' ? 'Ano de Servi├ºo' : 'Ano'} <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} style={{ width: 90 }} /></label>
                 {tab === 'mensal' && (
-                    <label>Mês
+                    <label>M├¬s
                         <select value={month} onChange={e => setMonth(Number(e.target.value))}>
                             {MONTHS_SHORT.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                         </select>
@@ -231,18 +224,18 @@ export function RmDashboard() {
                             background: monthCtl?.is_open === false ? '#7f1d1d' : '#14532d',
                             color: '#fff', fontSize: '0.8rem',
                         }}>
-                            {monthCtl?.is_open === false ? 'Mês fechado' : 'Mês aberto'}
+                            {monthCtl?.is_open === false ? 'M├¬s fechado' : 'M├¬s aberto'}
                         </span>
-                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(true)}>Abrir mês</button>
-                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(false)}>Fechar mês</button>
+                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(true)}>Abrir m├¬s</button>
+                        <button className="btn-secondary" disabled={busy} onClick={() => toggleMonth(false)}>Fechar m├¬s</button>
                     </>
                 )}
             </div>
 
-            {/* ── Mês Atual ── */}
+            {/* ÔöÇÔöÇ M├¬s Atual ÔöÇÔöÇ */}
             {tab === 'mensal' && (
                 <>
-                    {/* Badge: PE excluídos do S-1 (decisão 2026-07-10) */}
+                    {/* Badge: PE exclu├¡dos do S-1 (decis├úo 2026-07-10) */}
                     {(consolidation?.special_pioneer_count ?? 0) > 0 && (
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 8,
@@ -251,15 +244,15 @@ export function RmDashboard() {
                             borderRadius: 6, padding: '8px 12px',
                             fontSize: '0.8rem', color: '#94a3b8', marginBottom: 12,
                         }}>
-                            <span style={{ color: '#f59e0b', fontWeight: 600 }}>⚠ S-1 congregacional</span>
-                            {' '}—{' '}
+                            <span style={{ color: '#f59e0b', fontWeight: 600 }}>ÔÜá S-1 congregacional</span>
+                            {' '}ÔÇö{' '}
                             <strong style={{ color: '#e2e8f0' }}>{consolidation?.special_pioneer_count} P. {consolidation!.special_pioneer_count === 1 ? 'Especial' : 'Especiais'}</strong>
-                            {' '}excluído{consolidation!.special_pioneer_count === 1 ? '' : 's'} dos totais
-                            (relatórios vão ao escritório da Filial, não à congregação).
+                            {' '}exclu├¡do{consolidation!.special_pioneer_count === 1 ? '' : 's'} dos totais
+                            (relat├│rios v├úo ao escrit├│rio da Filial, n├úo ├á congrega├º├úo).
                         </div>
                     )}
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-                        <Kpi label="Relatórios entregues" value={submitted} />
+                        <Kpi label="Relat├│rios entregues" value={submitted} />
                         <Kpi label="Congregados" value={activeCount} />
                         <Kpi label="Publicadores" value={consolidation?.publisher_count ?? 0} />
                         <Kpi label="P. Auxiliares" value={consolidation?.auxiliary_pioneer_count ?? 0} />
@@ -285,7 +278,7 @@ export function RmDashboard() {
                 </>
             )}
 
-            {/* ── Visão Anual (Visão Geral Glide) ── */}
+            {/* ÔöÇÔöÇ Vis├úo Anual (Vis├úo Geral Glide) ÔöÇÔöÇ */}
             {tab === 'anual' && (
                 <div>
                     {!hasSeriesData ? (
@@ -293,18 +286,18 @@ export function RmDashboard() {
                             background: '#1e293b', borderRadius: 8, padding: '2rem',
                             textAlign: 'center', color: '#64748b',
                         }}>
-                            <div style={{ fontSize: '2rem', marginBottom: 8 }}>📊</div>
-                            <div>Sem dados para o Ano de Serviço de {year}.</div>
+                            <div style={{ fontSize: '2rem', marginBottom: 8 }}>­ƒôè</div>
+                            <div>Sem dados para o Ano de Servi├ºo de {year}.</div>
                             <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
-                                Importe os relatórios na aba <strong>Sincronização</strong> para visualizar os gráficos.
+                                Importe os relat├│rios na aba <strong>Sincroniza├º├úo</strong> para visualizar os gr├íficos.
                             </div>
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                            {/* Gráfico Atual */}
+                            {/* Gr├ífico Atual */}
                             <div>
                                 <h4 style={{ marginBottom: 4, color: '#e2e8f0', fontSize: '1.2rem' }}>
-                                    Ano de Serviço {year}
+                                    Ano de Servi├ºo {year}
                                 </h4>
                                 <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 12 }}>
                                     Setembro de {year - 1} a Agosto de {year}
@@ -312,7 +305,7 @@ export function RmDashboard() {
                                 {renderBarChart(chartDataCur)}
                             </div>
 
-                            {/* Gráfico Anterior */}
+                            {/* Gr├ífico Anterior */}
                             <div>
                                 <h4 style={{ marginBottom: 4, color: '#e2e8f0', fontSize: '1.2rem' }}>
                                     AUGES (Anterior)
@@ -323,13 +316,15 @@ export function RmDashboard() {
                                 {renderBarChart(chartDataPrev)}
                             </div>
 
-                            {/* Gráficos de Rosca Modalidades */}
+                            {/* Gr├íficos de Rosca Modalidades */}
                             <div>
                                 <h4 style={{ marginBottom: 12, color: '#e2e8f0', fontSize: '1.2rem' }}>
                                     Modalidades ({year})
                                 </h4>
                                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                    {renderPieChart(modalities?.general, "Atividades da Congregação (Geral)")}
+                                    {renderPieChart(modalities?.general, "Geral (Toda a Congrega├º├úo)")}
+                                    {renderPieChart(modalities?.nonPioneers, "N├úo-Pioneiros")}
+                                    {renderPieChart(modalities?.pioneers, "Pioneiros (Reg. + Aux.)")}
                                 </div>
                             </div>
                         </div>
@@ -337,7 +332,7 @@ export function RmDashboard() {
                 </div>
             )}
 
-            {/* ── Visão S-1 Escritório ── */}
+            {/* ÔöÇÔöÇ Vis├úo S-1 Escrit├│rio ÔöÇÔöÇ */}
             {tab === 's1' && (
                 <div style={{ marginTop: 16 }}>
                     {congs.find(c => c.id === congId) && (
