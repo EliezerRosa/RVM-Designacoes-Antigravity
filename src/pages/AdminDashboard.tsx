@@ -17,6 +17,7 @@ import { ELIGIBILITY_RULES_VERSION } from '../services/eligibilityService';
 import { RULES_TEXT_VERSION } from '../services/contextBuilder.ts';
 import { ActionDiagnosticPanel } from '../components/admin/ActionDiagnosticPanel';
 import { AuthLogsPanel } from '../components/admin/AuthLogsPanel';
+import { AuthSystemConfigPanel } from '../components/admin/AuthSystemConfigPanel';
 import { PermissionManager } from '../components/admin/PermissionManager';
 import { EngineRulesPanel } from '../components/admin/EngineRulesPanel';
 import { PublisherFormLinkManager } from '../components/admin/PublisherFormLinkManager';
@@ -425,6 +426,15 @@ export function AdminDashboard() {
                             </section>
 
                             <section className="admin-carousel-panel" role="tabpanel" aria-label="Autenticação">
+                                <div className="table-card admin-panel-card" style={{ marginBottom: '20px' }}>
+                                    <div className="table-header">
+                                        <h3>⚙️ Modo Global de Autenticação</h3>
+                                    </div>
+                                    <div style={{ padding: '16px' }}>
+                                        <AuthSystemConfigPanel />
+                                    </div>
+                                </div>
+
                                 <div className="table-card admin-panel-card">
                                     <div className="table-header">
                                         <h3>🔐 Histórico de Autenticação & Transações</h3>
