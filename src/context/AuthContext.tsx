@@ -3,6 +3,8 @@ import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { createWhatsAppAutoServiceFromEnv } from '../services/whatsappAutoService';
 
+import { deviceAuthService, type AuthSystemMode, type DeviceAuthResult } from '../services/deviceAuthService';
+
 interface RpcResult {
   success?: boolean;
   error?: string;
@@ -27,12 +29,15 @@ interface AuthState {
   isAuthenticated: boolean;
   isAdmin: boolean;
   needs2FA: boolean;
+  authSystemMode: AuthSystemMode;
 }
 
 type SessionSource = 'bootstrap' | 'INITIAL_SESSION' | 'SIGNED_IN' | 'TOKEN_REFRESHED' | 'USER_UPDATED';
 
 interface AuthContextType extends AuthState {
   signInWithGoogle: () => Promise<void>;
+  signInWithDeviceAuth: (email?: string) => Promise<DeviceAuthResult>;
+  registerDeviceAuth: () => Promise<DeviceAuthResult>;
   signOut: () => Promise<void>;
   requestWhatsAppCode: (phone: string) => Promise<{ success?: boolean; error?: string }>;
   verifyWhatsAppCode: (code: string) => Promise<{ success?: boolean; error?: string }>;
@@ -83,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
     isAdmin: false,
     needs2FA: false,
+    authSystemMode: 'flexible',
   });
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
@@ -364,10 +370,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.user]);
 
+  const signInWithDeviceAuth = useCallback(async (email?: string): Promise<DeviceAuthResult> => {
+    const result = await deviceAuthService.authenticate(email);
+    if (result.success && result.email) {
+      await logAuthEvent(state.user?.id ?? null, result.email, 'device_biometric_login');
+    }
+    return result;
+  }, [state.user]);
+
+  const registerDeviceAuth = useCallback(async (): Promise<DeviceAuthResult> => {
+    if (!state.user || !state.profile) {
+      return { success: false, error: 'Usuário não autenticado.' };
+    }
+    const result = await deviceAuthService.registerDevice(state.user.email || '', state.user.id);
+    if (result.success) {
+      await logAuthEvent(state.user.id, state.user.email || '', 'device_biometric_registered');
+    }
+    return result;
+  }, [state.user, state.profile]);
+
   return (
     <AuthContext.Provider value={{
       ...state,
       signInWithGoogle,
+      signInWithDeviceAuth,
+      registerDeviceAuth,
       signOut,
       requestWhatsAppCode,
       verifyWhatsAppCode,
