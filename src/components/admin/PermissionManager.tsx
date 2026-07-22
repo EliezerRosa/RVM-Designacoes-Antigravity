@@ -92,6 +92,7 @@ const TAB_LABELS: Record<string, string> = {
     agent: '🤖 Agente',
     admin: '📊 Admin',
     communication: '💬 Comunicação',
+    'monthly-reports': '📊 Relatório Mensal',
 };
 
 // ===== Styles =====
