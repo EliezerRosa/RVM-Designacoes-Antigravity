@@ -17,6 +17,7 @@ import { InvitePortal } from './components/InvitePortal'
 import { ReplacementPortal } from './components/ReplacementPortal'
 import { PreferencesPortal } from './components/PreferencesPortal'
 import { LoginPage } from './components/LoginPage'
+import { PwaInstallBanner } from './components/ui/PwaInstallBanner'
 import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
 import { usePermissions } from './hooks/usePermissions'
@@ -452,6 +453,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
 
   return (
     <div className="app">
+      <PwaInstallBanner />
       <header className="app-header">
         <div className="logo">
           <h1>RVM Designações</h1>
