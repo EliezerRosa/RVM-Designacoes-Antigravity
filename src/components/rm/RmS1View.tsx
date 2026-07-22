@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { rmService, type RmCongregation, type RmMonthlyReport, type RmPublisher, type RmFieldGroup } from '../../services/rm/rmService';
 import { RmS1PrintTemplate, type S1PrintData } from './RmS1PrintTemplate';
-import { RmS1ReportEditModal } from './RmS1ReportEditModal';
+import { RmS4Modal } from './RmS4Modal';
 
 interface Props {
     congregation: RmCongregation;
@@ -212,7 +212,7 @@ export function RmS1View({ congregation, year, month }: Props) {
     return (
         <div>
             {editingPublisher && (
-                <RmS1ReportEditModal
+                <RmS4Modal
                     publisher={editingPublisher}
                     report={editingReport}
                     year={year}

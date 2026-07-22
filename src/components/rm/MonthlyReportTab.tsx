@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { RmDashboard } from './RmDashboard';
 import { RmReportList } from './RmReportList';
-import { RmReportForm } from './RmReportForm';
+import { RmS4Modal } from './RmS4Modal';
 import { RmPublisherCrud } from './RmPublisherCrud';
 import { RmFieldGroupCrud } from './RmFieldGroupCrud';
 import { RmCongregationCrud } from './RmCongregationCrud';
@@ -26,6 +26,7 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
 
 export default function MonthlyReportTab() {
     const [sub, setSub] = useState<SubTab>('dashboard');
+    const [showS4, setShowS4] = useState(false);
 
     return (
         <div>
@@ -34,18 +35,34 @@ export default function MonthlyReportTab() {
                 borderBottom: '1px solid #334155', position: 'sticky', top: 0, background: '#0f172a', zIndex: 1,
             }}>
                 {SUB_TABS.map(t => (
-                    <button key={t.id} className={sub === t.id ? 'btn-primary' : 'btn-secondary'} onClick={() => setSub(t.id)}>
+                    <button
+                        key={t.id}
+                        className={sub === t.id ? 'btn-primary' : 'btn-secondary'}
+                        onClick={() => {
+                            if (t.id === 'new') {
+                                setShowS4(true);
+                            } else {
+                                setSub(t.id);
+                            }
+                        }}
+                    >
                         {t.label}
                     </button>
                 ))}
             </div>
             {sub === 'dashboard' && <RmDashboard />}
             {sub === 'reports' && <RmReportList />}
-            {sub === 'new' && <RmReportForm />}
             {sub === 'publishers' && <RmPublisherCrud />}
             {sub === 'groups' && <RmFieldGroupCrud />}
             {sub === 'congregations' && <RmCongregationCrud />}
             {sub === 'sync' && <RmSyncPortal />}
+
+            {showS4 && (
+                <RmS4Modal
+                    onClose={() => setShowS4(false)}
+                    onSave={() => { setShowS4(false); }}
+                />
+            )}
         </div>
     );
 }
