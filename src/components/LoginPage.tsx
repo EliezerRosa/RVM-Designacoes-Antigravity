@@ -175,48 +175,23 @@ export function LoginPage() {
 
         {error && <div style={styles.error}>{error}</div>}
 
-        {/* Opção Biometria / PIN do Aparelho */}
+        {/* Opção Biometria / PIN do Aparelho (quando dispositivo já vinculado) */}
         {(effectiveMode === 'device_biometric' || effectiveMode === 'flexible') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
-            {showDeviceEmailInput ? (
-              <form onSubmit={(e) => { e.preventDefault(); handleDeviceLogin(deviceEmail); }} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Seu E-mail da Congregação</label>
-                <input
-                  type="email"
-                  value={deviceEmail}
-                  onChange={(e) => setDeviceEmail(e.target.value)}
-                  placeholder="seu.email@exemplo.com"
-                  required
-                  style={styles.input}
-                />
-                <button
-                  type="submit"
-                  disabled={isLoggingIn}
-                  style={{
-                    ...styles.btnBlue,
-                    opacity: isLoggingIn ? 0.6 : 1,
-                  }}
-                >
-                  🔑 Vincular e Entrar com Biometria
-                </button>
-              </form>
-            ) : (
-              <button
-                onClick={() => handleDeviceLogin()}
-                disabled={isLoggingIn}
-                style={{
-                  ...styles.btnBlue,
-                  opacity: isLoggingIn ? 0.6 : 1,
-                }}
-              >
-                📱 {isLoggingIn ? 'Autenticando...' : 'Entrar com Biometria / PIN do Aparelho'}
-              </button>
-            )}
-          </div>
+          <button
+            onClick={() => handleDeviceLogin()}
+            disabled={isLoggingIn}
+            style={{
+              ...styles.btnBlue,
+              opacity: isLoggingIn ? 0.6 : 1,
+              marginBottom: '10px',
+            }}
+          >
+            📱 {isLoggingIn ? 'Autenticando...' : 'Entrar com Biometria / PIN do Aparelho'}
+          </button>
         )}
 
-        {/* Opção Google OAuth */}
-        {(effectiveMode === 'google_oauth' || effectiveMode === 'google_whatsapp_2fa' || effectiveMode === 'flexible') && (
+        {/* Opção Google OAuth (Para 1º Acesso ou Entrada Padrão) */}
+        {(effectiveMode === 'google_oauth' || effectiveMode === 'google_whatsapp_2fa' || effectiveMode === 'flexible' || showDeviceEmailInput) && (
           <button
             onClick={handleGoogleLogin}
             disabled={isLoggingIn}
@@ -231,7 +206,7 @@ export function LoginPage() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            {isLoggingIn ? 'Conectando...' : 'Entrar com Conta Google'}
+            {isLoggingIn ? 'Conectando...' : 'Entrar com Conta Google (1º Acesso)'}
           </button>
         )}
 
