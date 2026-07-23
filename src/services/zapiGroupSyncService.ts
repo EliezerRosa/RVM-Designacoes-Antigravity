@@ -99,9 +99,9 @@ export const zapiGroupSyncService = {
      */
     async saveZApiCredentials(creds: ZApiCredentials): Promise<void> {
         await supabase.from('app_settings').upsert([
-            { key: 'zapi_instance_id', value: creds.instanceId.trim() },
-            { key: 'zapi_instance_token', value: creds.instanceToken.trim() },
-            { key: 'zapi_client_token', value: creds.clientToken.trim() },
+            { key: 'zapi_instance_id', value: creds.instanceId.trim(), updated_at: new Date().toISOString() },
+            { key: 'zapi_instance_token', value: creds.instanceToken.trim(), updated_at: new Date().toISOString() },
+            { key: 'zapi_client_token', value: creds.clientToken.trim(), updated_at: new Date().toISOString() },
         ], { onConflict: 'key' });
     },
 
@@ -114,7 +114,6 @@ export const zapiGroupSyncService = {
         let waService = createWhatsAppAutoServiceFromEnv();
 
         if (creds && creds.instanceId) {
-            waService = createWhatsAppAutoServiceFromEnv();
             // Se o de env não tiver z-api, instancia explicitamente
             if (!waService.fetchGroupMetadata || waService.providerName !== 'z-api') {
                 const { createWhatsAppAutoService } = await import('./whatsappAutoService');
