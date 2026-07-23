@@ -26,7 +26,7 @@ Este memorando consolida todas as alterações, arquiteturas e melhorias impleme
 
 ### 1.5 Nomes de Perfil `~Nome` (pushName) & Exibição de Telefones Divergentes
 - **Suporte a `pushName` (~Nome)**: Para membros do grupo que não estão salvos na agenda de contatos, o sistema lê e exibe o nome de perfil público retornado do WhatsApp (com a badge `~ Perfil WA`). O prefixo `~` é sanitizado dinamicamente (`cleanWaName`) para realizar o matching por aproximação de nome no cadastro do RVM (ex: `~Gerson Ribeiro` reconciliado com `Gerson Ribeiro Santos`).
-- **Filtro de Telefones/JIDs & Enriquecimento Backend**: A função `cleanParticipantName` ignora strings numéricas e JIDs de WhatsApp (ex: `5527988891292@s.whatsapp.net`), forçando o uso prioritário de `pushName`. A Edge Function `send-whatsapp` cruza os chats da instância Z-API no backend (`enrichZApiParticipants`) garantindo a captura do nome de perfil para todos os contatos.
+- **Parsing de Nomes em Formato Composto (ex: `(27) 98889-1292 ~Gerson Ribeiro`)**: A função `cleanParticipantName` analisa candidatos a nome realizando a extração da porção de perfil após o til (`~`), removendo prefixos de telefone inicial. No backend, a Edge Function foi atualizada com indexação dupla (com e sem DDD/55) para garantir o cruzamento de contatos.
 - **Exibição Clara de Telefones Divergentes (Grupo vs RVM Privado)**: Caso o publicador utilize um número de telefone no grupo do WhatsApp diferente do número cadastrado internamente no RVM, a interface exibe ambos os números em destaque com alerta `⚠️ Números Divergentes` (`• Zap no Grupo` vs `• RVM Privado`), permitindo ao administrador sincronizar e atualizar a ficha do publicador com 1 clique.
 
 ---
