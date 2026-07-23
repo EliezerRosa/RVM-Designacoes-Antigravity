@@ -141,7 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: user?.email 
     });
 
-    setState({
+    setState(prev => ({
+      ...prev,
       user,
       session,
       profile,
@@ -149,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!user && !!profile && (profile.whatsapp_verified || isAdmin),
       isAdmin,
       needs2FA,
-    });
+    }));
   }, []);
 
   const processedSessionKeyRef = useRef<string | null>(null);
@@ -228,6 +229,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, [hydrateSession, updateState]);
+
+  // Load global authSystemMode setting from app_settings
+  useEffect(() => {
+    const loadAuthMode = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'auth_system_mode')
+          .maybeSingle();
+
+        if (data?.value) {
+          const raw = data.value;
+          const parsed = typeof raw === 'string' ? (raw.startsWith('{') ? JSON.parse(raw) : raw) : raw;
+          const modeVal = typeof parsed === 'object' ? parsed.mode : parsed;
+
+          if (modeVal && ['google_oauth', 'google_whatsapp_2fa', 'device_biometric', 'flexible'].includes(modeVal)) {
+            console.log('[Auth] Loaded global auth_system_mode:', modeVal);
+            setState(prev => ({ ...prev, authSystemMode: modeVal as AuthSystemMode }));
+          }
+        }
+      } catch (e) {
+        console.warn('[Auth] Failed to load auth_system_mode setting:', e);
+      }
+    };
+    loadAuthMode();
+  }, []);
 
   const signInWithGoogle = useCallback(async () => {
     // Preservar query params (ex: ?portal=confirm&id=...) para que o usuário

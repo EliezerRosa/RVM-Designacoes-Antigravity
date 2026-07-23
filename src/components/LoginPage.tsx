@@ -153,6 +153,8 @@ export function LoginPage() {
     );
   }
 
+  const effectiveMode = authSystemMode || 'flexible';
+
   // Login inicial (Google)
   return (
     <div style={styles.container}>
@@ -165,14 +167,14 @@ export function LoginPage() {
         {error && <div style={styles.error}>{error}</div>}
 
         {/* Opção Biometria / PIN do Aparelho */}
-        {(authSystemMode === 'device_biometric' || authSystemMode === 'flexible') && (
+        {(effectiveMode === 'device_biometric' || effectiveMode === 'flexible') && (
           <button
             onClick={handleDeviceLogin}
             disabled={isLoggingIn}
             style={{
               ...styles.btnBlue,
               opacity: isLoggingIn ? 0.6 : 1,
-              marginBottom: authSystemMode === 'flexible' ? '10px' : '0',
+              marginBottom: effectiveMode === 'flexible' ? '10px' : '0',
             }}
           >
             📱 {isLoggingIn ? 'Autenticando...' : 'Entrar com Biometria / PIN do Aparelho'}
@@ -180,7 +182,7 @@ export function LoginPage() {
         )}
 
         {/* Opção Google OAuth */}
-        {(authSystemMode === 'google_oauth' || authSystemMode === 'google_whatsapp_2fa' || authSystemMode === 'flexible') && (
+        {(effectiveMode === 'google_oauth' || effectiveMode === 'google_whatsapp_2fa' || effectiveMode === 'flexible') && (
           <button
             onClick={handleGoogleLogin}
             disabled={isLoggingIn}
