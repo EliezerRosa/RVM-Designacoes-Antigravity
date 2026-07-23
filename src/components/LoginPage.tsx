@@ -32,12 +32,8 @@ export function LoginPage() {
       const target = overrideEmail || deviceEmail || localStorage.getItem('rvm_last_device_user') || undefined;
       const res = await signInWithDeviceAuth(target);
       if (!res.success) {
-        if (res.error?.includes('Nenhum usuário registrado neste aparelho') || !target) {
-          setShowDeviceEmailInput(true);
-          setError('Primeiro acesso neste aparelho: informe seu e-mail abaixo ou entre com o Google para vincular o dispositivo.');
-        } else {
-          setError(res.error || 'Falha ao autenticar no dispositivo.');
-        }
+        setShowDeviceEmailInput(true);
+        setError('Este notebook/dispositivo ainda não possui o PIN vinculado. Clique em "Entrar com Conta Google (1º Acesso / Vincular PIN)" abaixo para se conectar e registrar o PIN do seu Windows 11 com 1-clique.');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao autenticar pelo aparelho';
@@ -175,7 +171,7 @@ export function LoginPage() {
 
         {error && <div style={styles.error}>{error}</div>}
 
-        {/* Opção Biometria / PIN do Aparelho (quando dispositivo já vinculado) */}
+        {/* Opção Biometria / PIN do Aparelho */}
         {(effectiveMode === 'device_biometric' || effectiveMode === 'flexible') && (
           <button
             onClick={() => handleDeviceLogin()}
@@ -190,8 +186,8 @@ export function LoginPage() {
           </button>
         )}
 
-        {/* Opção Google OAuth (Para 1º Acesso ou Entrada Padrão) */}
-        {(effectiveMode === 'google_oauth' || effectiveMode === 'google_whatsapp_2fa' || effectiveMode === 'flexible' || showDeviceEmailInput) && (
+        {/* Opção Google OAuth (Para 1º Acesso ou Vincular PIN do Windows 11) */}
+        {(effectiveMode === 'google_oauth' || effectiveMode === 'google_whatsapp_2fa' || effectiveMode === 'flexible' || effectiveMode === 'device_biometric' || showDeviceEmailInput) && (
           <button
             onClick={handleGoogleLogin}
             disabled={isLoggingIn}
@@ -206,7 +202,7 @@ export function LoginPage() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            {isLoggingIn ? 'Conectando...' : 'Entrar com Conta Google (1º Acesso)'}
+            {isLoggingIn ? 'Conectando...' : 'Entrar com Conta Google (1º Acesso / Vincular PIN)'}
           </button>
         )}
 
