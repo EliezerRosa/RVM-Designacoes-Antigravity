@@ -11,9 +11,16 @@ Este memorando consolida todas as alterações, arquiteturas e melhorias impleme
 - **Matching Inteligente**: Reconcilia os números de telefone do WhatsApp com o cadastro de publicadores e perfis do RVM (matching por telefone normalizado e por similaridade NFD de nome).
 - **Aprovação de 2FA em Lote**: Permite atualizar telefones e aprovar o status de verificação de WhatsApp (`whatsapp_verified = true`) em lote para publicadores selecionados com 1 clique.
 
-### 1.2 Persistência e Resolução Dinâmica de Credenciais Z-API
-- **Suporte a `app_settings`**: As chaves Z-API (`zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`) podem ser lidas tanto do arquivo de variáveis de ambiente `.env` (`VITE_ZAPI_*`) quanto da tabela `app_settings` no Supabase.
-- **Configuração no Modal**: Adicionada opção visual no modal para preenchimento e salvamento direto das chaves de instância com timestamp `updated_at`.
+### 1.2 Delegação Backend da Consulta de Grupos (`send-whatsapp` Edge Function)
+- **Consulta via Backend Autônomo**: A consulta de metadados e membros de grupos do Z-API foi inteiramente delegada para o backend via Supabase Edge Function `send-whatsapp` (ação `fetch-group-metadata`).
+- **Resolução de Segredos no Servidor**: A Edge Function consome diretamente as Secrets configuradas no Supabase Cloud (`ZAPI_INSTANCE_ID`, `ZAPI_INSTANCE_TOKEN`, `ZAPI_CLIENT_TOKEN` e `WHATSAPP_PROVIDER=z-api`) com fallback para a tabela `app_settings`, eliminando a necessidade de o usuário inserir credenciais no navegador web.
+
+### 1.3 Sinalização Visual de Resposta prévia a Links de Confirmação (S-89)
+- **Rastreamento de Interações**: Adicionado o campo `hasRespondedLink` na reconciliação de membros do grupo. O sistema consulta dinamicamente se o publicador/telefone já respondeu a um link de confirmação no portal (`confirmation_portal_responses`, `confirmation_portal_tokens` usados, `workbook_parts` confirmadas/recusadas e `zapi_dispatch_log` de recibos).
+- **Indicador no Modal**: Exibição da tag destacada `✨ Já respondeu Link S-89` em roxo no item da lista e adição do contador `✨ Respondeu Link: X` no cabeçalho estatístico do modal.
+
+### 1.4 Persistência e Resolução Dinâmica de Credenciais Z-API
+- **Suporte a `app_settings`**: As chaves Z-API (`zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`) podem ser lidas tanto das variáveis de ambiente `.env` (`VITE_ZAPI_*`) quanto da tabela `app_settings` no Supabase com timestamp `updated_at`.
 - **Limpeza de Instanciações Redundantes**: Refatoração no `zapiGroupSyncService.ts` e `whatsappAutoService.ts` evitando instâncias duplicadas de provedores.
 
 ---
@@ -42,9 +49,4 @@ Este memorando consolida todas as alterações, arquiteturas e melhorias impleme
 - **`verbatimModuleSyntax` em `zapiOrchestrator.ts`**: Corrigida a importação da interface `WorkbookPart` utilizando a sintaxe estrita `import type { WorkbookPart }`, garantindo compilação 100% limpa com `npx tsc --noEmit`.
 
 ---
-
-## 5. Próximos Passos (Backlog Alinhado)
-- **Integração Backend da Consulta de Grupos Z-API**: Delegar a leitura de metadados do grupo (`group-metadata`) inteiramente para a Edge Function `send-whatsapp` para eliminar a necessidade de inserir credenciais no cliente web.
-
----
-*Documento mantido no repositório em `docs/CHECKPOINT_MEMO_2026-07-23.md`.*
+*Documento mantido e atualizado no repositório em `docs/CHECKPOINT_MEMO_2026-07-23.md`.*
