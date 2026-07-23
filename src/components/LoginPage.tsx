@@ -10,6 +10,9 @@ export function LoginPage() {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
 
+  const [deviceEmail, setDeviceEmail] = useState('');
+  const [showDeviceEmailInput, setShowDeviceEmailInput] = useState(false);
+
   const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
     setError(null);
@@ -22,13 +25,19 @@ export function LoginPage() {
     }
   };
 
-  const handleDeviceLogin = async () => {
+  const handleDeviceLogin = async (overrideEmail?: string) => {
     setIsLoggingIn(true);
     setError(null);
     try {
-      const res = await signInWithDeviceAuth();
+      const target = overrideEmail || deviceEmail || localStorage.getItem('rvm_last_device_user') || undefined;
+      const res = await signInWithDeviceAuth(target);
       if (!res.success) {
-        setError(res.error || 'Falha ao autenticar no dispositivo.');
+        if (res.error?.includes('Nenhum usuário registrado neste aparelho') || !target) {
+          setShowDeviceEmailInput(true);
+          setError('Primeiro acesso neste aparelho: informe seu e-mail abaixo ou entre com o Google para vincular o dispositivo.');
+        } else {
+          setError(res.error || 'Falha ao autenticar no dispositivo.');
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao autenticar pelo aparelho';
@@ -168,17 +177,42 @@ export function LoginPage() {
 
         {/* Opção Biometria / PIN do Aparelho */}
         {(effectiveMode === 'device_biometric' || effectiveMode === 'flexible') && (
-          <button
-            onClick={handleDeviceLogin}
-            disabled={isLoggingIn}
-            style={{
-              ...styles.btnBlue,
-              opacity: isLoggingIn ? 0.6 : 1,
-              marginBottom: effectiveMode === 'flexible' ? '10px' : '0',
-            }}
-          >
-            📱 {isLoggingIn ? 'Autenticando...' : 'Entrar com Biometria / PIN do Aparelho'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
+            {showDeviceEmailInput ? (
+              <form onSubmit={(e) => { e.preventDefault(); handleDeviceLogin(deviceEmail); }} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>Seu E-mail da Congregação</label>
+                <input
+                  type="email"
+                  value={deviceEmail}
+                  onChange={(e) => setDeviceEmail(e.target.value)}
+                  placeholder="seu.email@exemplo.com"
+                  required
+                  style={styles.input}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  style={{
+                    ...styles.btnBlue,
+                    opacity: isLoggingIn ? 0.6 : 1,
+                  }}
+                >
+                  🔑 Vincular e Entrar com Biometria
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => handleDeviceLogin()}
+                disabled={isLoggingIn}
+                style={{
+                  ...styles.btnBlue,
+                  opacity: isLoggingIn ? 0.6 : 1,
+                }}
+              >
+                📱 {isLoggingIn ? 'Autenticando...' : 'Entrar com Biometria / PIN do Aparelho'}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Opção Google OAuth */}
