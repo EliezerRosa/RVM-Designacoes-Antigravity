@@ -124,18 +124,59 @@ async function sendViaMeta(phone: string, message: string) {
   };
 }
 
-/** Envia texto via Z-API. */
-async function sendViaZApi(phone: string, message: string) {
+/** Busca credenciais Z-API via Deno.env com fallback para a tabela app_settings. */
+async function getZApiCredentials() {
   // @ts-ignore Deno.env
-  const instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
+  let instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
   // @ts-ignore Deno.env
-  const instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
+  let instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
   // @ts-ignore Deno.env
-  const clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+  let clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+
+  if (instanceId && instanceToken && clientToken) {
+    return { instanceId, instanceToken, clientToken };
+  }
+
+  try {
+    // @ts-ignore Deno.env
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    // @ts-ignore Deno.env
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+    if (supabaseUrl && supabaseKey) {
+      const cleanUrl = supabaseUrl.replace(/\/+$/, '');
+      const res = await fetch(`${cleanUrl}/rest/v1/app_settings?select=key,value&key=in.(zapi_instance_id,zapi_instance_token,zapi_client_token)`, {
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        const map = new Map<string, string>(rows.map((r: any) => [r.key, r.value]));
+        instanceId = instanceId || map.get('zapi_instance_id') || '';
+        instanceToken = instanceToken || map.get('zapi_instance_token') || '';
+        clientToken = clientToken || map.get('zapi_client_token') || '';
+      }
+    }
+  } catch (err) {
+    console.warn('[send-whatsapp] Falha ao carregar credenciais de app_settings:', err);
+  }
 
   if (!instanceId || !instanceToken || !clientToken) {
-    return { success: false, error: 'Z-API não configurada (faltam ZAPI_INSTANCE_ID, TOKEN ou CLIENT_TOKEN).' };
+    return null;
   }
+  return { instanceId, instanceToken, clientToken };
+}
+
+/** Envia texto via Z-API. */
+async function sendViaZApi(phone: string, message: string) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada (chaves ausentes no ambiente ou app_settings).' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
 
   const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-text`, {
     method: 'POST',
@@ -157,16 +198,12 @@ async function sendViaZApi(phone: string, message: string) {
 
 /** Envia imagem via Z-API. */
 async function sendImageViaZApi(phone: string, imageBase64: string, caption: string) {
-  // @ts-ignore Deno.env
-  const instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
-  // @ts-ignore Deno.env
-  const instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
-  // @ts-ignore Deno.env
-  const clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
-
-  if (!instanceId || !instanceToken || !clientToken) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
     return { success: false, error: 'Z-API não configurada.' };
   }
+
+  const { instanceId, instanceToken, clientToken } = creds;
 
   // Se vier "data:image/png;base64,xxxxx", extrai o xxxxx
   const base64Data = imageBase64.includes('base64,') ? imageBase64.split('base64,')[1] : imageBase64;
@@ -221,14 +258,10 @@ async function checkEvolutionConnection() {
 
 /** Verifica conexão da Z-API. */
 async function checkZApiConnection() {
-  // @ts-ignore Deno.env
-  const instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
-  // @ts-ignore Deno.env
-  const instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
-  // @ts-ignore Deno.env
-  const clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+  const creds = await getZApiCredentials();
+  if (!creds) return { connected: false, error: 'Z-API não configurada.' };
 
-  if (!instanceId) return { connected: false, error: 'ZAPI_INSTANCE_ID não configurado.' };
+  const { instanceId, instanceToken, clientToken } = creds;
 
   const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/status`, {
     headers: { 'client-token': clientToken },
@@ -248,14 +281,10 @@ async function checkZApiConnection() {
 
 /** Lista os grupos do WhatsApp via Z-API (capability genérica do provider). */
 async function listZApiGroups() {
-  // @ts-ignore Deno.env
-  const instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
-  // @ts-ignore Deno.env
-  const instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
-  // @ts-ignore Deno.env
-  const clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+  const creds = await getZApiCredentials();
+  if (!creds) return { success: false, error: 'Z-API não configurada.' };
 
-  if (!instanceId) return { success: false, error: 'ZAPI_INSTANCE_ID não configurado.' };
+  const { instanceId, instanceToken, clientToken } = creds;
 
   const groups: Array<{ id: string; name: string }> = [];
   // Pagina os chats e filtra isGroup. pageSize alto para reduzir chamadas.
@@ -279,6 +308,72 @@ async function listZApiGroups() {
   return { success: true, groups };
 }
 
+/** Busca os metadados e membros de um grupo no Z-API por ID ou Nome. */
+async function fetchZApiGroupMetadata(groupQuery: string) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada (chaves ausentes no ambiente ou app_settings).' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
+  const target = (groupQuery || '').trim();
+
+  if (!target) {
+    return { success: false, error: 'Nome ou ID do grupo é obrigatório.' };
+  }
+
+  // 1. Tentar buscar direto se parecer um ID numérico / @g.us
+  try {
+    const directRes = await fetch(
+      `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/group-metadata/${target}`,
+      { headers: { 'client-token': clientToken } }
+    );
+    if (directRes.ok) {
+      const data = await directRes.json();
+      return { success: true, groupName: data.name || data.subject || target, participants: data.participants || [] };
+    }
+  } catch (e) {
+    // Prossegue para busca na lista de chats
+  }
+
+  // 2. Buscar chats para localizar o grupo pelo nome
+  try {
+    const targetLower = target.toLowerCase();
+    for (let page = 1; page <= 10; page++) {
+      const chatsRes = await fetch(
+        `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chats?page=${page}&pageSize=100`,
+        { headers: { 'client-token': clientToken } }
+      );
+      if (!chatsRes.ok) break;
+      const chats = await chatsRes.json();
+      if (!Array.isArray(chats) || chats.length === 0) break;
+
+      const found = chats.find((c: any) =>
+        (c.isGroup === true || c.isGroup === 'true') &&
+        ((c.name || '').toLowerCase().includes(targetLower) || c.phone === target || c.id === target)
+      );
+
+      if (found?.phone || found?.id) {
+        const groupId = found.phone || found.id;
+        const metaRes = await fetch(
+          `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/group-metadata/${groupId}`,
+          { headers: { 'client-token': clientToken } }
+        );
+        if (metaRes.ok) {
+          const data = await metaRes.json();
+          return { success: true, groupName: data.name || found.name || target, participants: data.participants || [] };
+        }
+      }
+
+      if (chats.length < 100) break;
+    }
+  } catch (e) {
+    return { success: false, error: `Erro ao buscar grupo no Z-API: ${(e as Error).message}` };
+  }
+
+  return { success: false, error: `Grupo "${target}" não foi encontrado no Z-API.` };
+}
+
 serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -298,28 +393,26 @@ serve(async (req: Request) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (provider === 'z-api') {
-        const status = await checkZApiConnection();
-        return new Response(JSON.stringify(status), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      return new Response(
-        JSON.stringify({ connected: true, provider }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const status = await checkZApiConnection();
+      return new Response(JSON.stringify(status), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // ── List groups (capability genérica; usada p/ descobrir o ID do grupo "Avisos") ──
+    // ── List groups ──
     if (body.action === 'list-groups') {
-      if (provider !== 'z-api') {
-        return new Response(
-          JSON.stringify({ success: false, error: `list-groups só suportado no provider z-api (atual: ${provider}).` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
       const result = await listZApiGroups();
       return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ── Fetch group metadata & participants ──
+    if (body.action === 'fetch-group-metadata') {
+      const groupQuery = body.groupQuery || body.group || '';
+      const result = await fetchZApiGroupMetadata(groupQuery);
+      return new Response(JSON.stringify(result), {
+        status: result.success ? 200 : 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -343,14 +436,7 @@ serve(async (req: Request) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (provider === 'z-api') {
-        result = await sendImageViaZApi(normalizedPhone, image, caption || '');
-      } else {
-        return new Response(
-          JSON.stringify({ success: false, error: `Provedor ${provider} ainda não suporta send-image na Edge Function.` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      result = await sendImageViaZApi(normalizedPhone, image, caption || '');
     } else {
       if (!message) {
         return new Response(
@@ -378,3 +464,4 @@ serve(async (req: Request) => {
     );
   }
 });
+

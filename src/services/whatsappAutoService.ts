@@ -588,6 +588,25 @@ class EdgeFunctionProvider implements WhatsAppProvider {
       };
     }
   }
+
+  async fetchGroupMetadata(groupIdOrPhone: string): Promise<any> {
+    try {
+      const res = await fetch(
+        `${this.supabaseUrl}/functions/v1/${this.functionName}`,
+        {
+          method: 'POST',
+          headers: this.headers,
+          body: JSON.stringify({ action: 'fetch-group-metadata', groupQuery: groupIdOrPhone }),
+        }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.success ? data : null;
+    } catch (err) {
+      console.error('[EdgeFunctionProvider] Erro ao buscar metadados do grupo:', err);
+      return null;
+    }
+  }
 }
 
 // ─── Provider: Manual (fallback — abre no browser) ──────────────────────────
