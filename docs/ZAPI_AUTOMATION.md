@@ -67,7 +67,14 @@ O envio de mensagens passa a ser governado pelo tempo.
 - **Top 3 ao Vivo:** Este portal renderizará a parte e 3 sugestões de substitutos calculadas on-the-fly pelo `unifiedRotationService`, permitindo que o SRVM e seus ajudantes aprovem a troca com um clique pelo celular.
 - **Autenticação Direcionada:** O painel exige login do Google apenas para verificar se o e-mail logado possui a `funcao` de Superintendente RVM ou Ajudante RVM no banco de dados, sem exigir flag genérica de "admin" na tabela `profiles`.
 
+## 6. Sincronização por Grupo & Reconciliação 2FA em Lote (Julho/2026)
+- **Modal `ZApiGroupSyncModal.tsx`**: Interface administrativa para busca dinâmica de contatos em qualquer grupo Z-API (ex: "Congregação Parque Jacaraípe").
+- **Matching por Telefone e Nome**: Algoritmo de reconciliação no `zapiGroupSyncService.ts` que relaciona contatos do grupo WhatsApp com publicadores RVM e perfis cadastrados.
+- **Liberação 2FA em Lote**: Permite atualizar telefones e validar o status `whatsapp_verified = true` em massa com 1 clique.
+- **Persistência de Credenciais em `app_settings`**: Suporte para salvar e recuperar `zapi_instance_id`, `zapi_instance_token` e `zapi_client_token` diretamente no banco Supabase com marcação de `updated_at`.
+
 ## Como Testar ou Manter
 1. Para debugar mensagens, verifique a tabela `zapi_dispatch_log` no Supabase. Lá consta o status e telefone.
 2. A kill-switch `zapi_automation_active` desativa todos os envios autônomos sem impactar funcionalidades vitais da RVM.
 3. Edge Function Logs: Podem ser acompanhados no painel do Supabase -> Edge Functions -> `cron-whatsapp-reminders`.
+
