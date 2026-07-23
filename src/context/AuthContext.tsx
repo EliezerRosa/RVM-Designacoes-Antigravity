@@ -141,6 +141,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: user?.email 
     });
 
+    if (user?.email) {
+      try {
+        localStorage.setItem('rvm_last_device_user', user.email);
+      } catch (e) { /* ignore */ }
+    }
+
     setState(prev => ({
       ...prev,
       user,
