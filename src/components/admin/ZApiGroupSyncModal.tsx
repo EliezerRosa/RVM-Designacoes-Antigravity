@@ -266,8 +266,27 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                                                 />
                                             </td>
                                             <td style={{ padding: '10px 12px' }}>
-                                                <div style={{ fontWeight: 600, color: '#f8fafc' }}>{item.waName}</div>
-                                                <div style={{ fontSize: '0.78rem', color: '#38bdf8' }}>{item.waPhone}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontWeight: 600, color: '#f8fafc' }}>{item.waName}</span>
+                                                    {item.isPushName && (
+                                                        <span
+                                                            style={{
+                                                                fontSize: '0.7rem',
+                                                                padding: '1px 6px',
+                                                                borderRadius: '4px',
+                                                                background: 'rgba(245, 158, 11, 0.15)',
+                                                                color: '#fbbf24',
+                                                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                            }}
+                                                            title="Contato não salvo na agenda. Nome obtido do perfil público do WhatsApp (~Nome)"
+                                                        >
+                                                            ~ Perfil WA
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={{ fontSize: '0.78rem', color: '#38bdf8', marginTop: '2px' }}>
+                                                    📱 Grupo: {item.waPhone}
+                                                </div>
                                                 {item.hasRespondedLink && (
                                                     <div
                                                         style={{
@@ -292,13 +311,46 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                                             <td style={{ padding: '10px 12px' }}>
                                                 {item.publisherName ? (
                                                     <div>
-                                                        <div style={{ color: '#e2e8f0' }}>{item.publisherName}</div>
-                                                        <div style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
-                                                            Atual: {item.rvmPhone ? item.rvmPhone : '(Sem telefone)'}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                            <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{item.publisherName}</span>
+                                                            {item.matchType === 'NAME_MATCH' && (
+                                                                <span
+                                                                    style={{
+                                                                        fontSize: '0.68rem',
+                                                                        padding: '1px 5px',
+                                                                        borderRadius: '4px',
+                                                                        background: 'rgba(16, 185, 129, 0.15)',
+                                                                        color: '#6ee7b7',
+                                                                        border: '1px solid rgba(16, 185, 129, 0.35)',
+                                                                    }}
+                                                                    title="Publicador encontrado por proximidade do nome de perfil"
+                                                                >
+                                                                    🔍 Match por Nome
+                                                                </span>
+                                                            )}
                                                         </div>
+
+                                                        {/* Exibição de Números Divergentes (Grupo vs RVM Privado) */}
+                                                        {item.hasPhoneMismatch ? (
+                                                            <div style={{ fontSize: '0.74rem', marginTop: '4px', background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                                                <div style={{ color: '#f87171', fontWeight: 600, marginBottom: '2px' }}>
+                                                                    ⚠️ Números Divergentes:
+                                                                </div>
+                                                                <div style={{ color: '#cbd5e1' }}>
+                                                                    • Zap no Grupo: <strong style={{ color: '#38bdf8' }}>{item.waPhone}</strong>
+                                                                </div>
+                                                                <div style={{ color: '#cbd5e1' }}>
+                                                                    • RVM (Privado): <strong style={{ color: '#fca5a5' }}>{item.rvmDispPhone || '(Sem telefone)'}</strong>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ fontSize: '0.76rem', color: '#94a3b8', marginTop: '2px' }}>
+                                                                Tel RVM: {item.rvmDispPhone || item.rvmPhone || '(Sem telefone)'}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ) : (
-                                                    <span style={{ color: '#64748b', italic: 'true' }}>Não identificado</span>
+                                                    <span style={{ color: '#64748b', fontStyle: 'italic' }}>Não identificado no RVM</span>
                                                 )}
                                             </td>
                                             <td style={{ padding: '10px 12px' }}>

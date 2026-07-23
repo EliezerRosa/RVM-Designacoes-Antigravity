@@ -9,18 +9,25 @@ import { createWhatsAppAutoServiceFromEnv } from './whatsappAutoService';
 export interface WaGroupParticipant {
     phone: string;
     name?: string;
+    pushName?: string;
+    notifyName?: string;
     shortName?: string;
     admin?: boolean;
 }
 
 export interface ReconciliationItem {
     id: string;
-    waPhone: string;
-    cleanPhone: string;
-    waName: string;
+    waPhone: string;          // Telefone formatado do grupo Zap
+    cleanPhone: string;       // Telefone limpo do grupo Zap
+    waName: string;           // Nome vindo do WhatsApp
+    waPushName?: string;      // Nome do perfil público (~Nome do WhatsApp)
+    isPushName: boolean;      // True se o nome for de perfil não salvo na agenda (~Nome)
     publisherId: string | null;
     publisherName: string | null;
-    rvmPhone: string | null;
+    rvmPhone: string | null;   // Telefone cadastrado no RVM
+    rvmDispPhone: string | null; // Telefone formatado do RVM
+    hasPhoneMismatch: boolean; // True se o número do grupo for diferente do RVM
+    matchType: 'EXACT_PHONE' | 'NAME_MATCH' | 'UNMATCHED';
     profileId: string | null;
     profileEmail: string | null;
     isVerified2FA: boolean;
@@ -38,6 +45,7 @@ function normalizePhone(phone: string): string {
 }
 
 function formatPhoneDisplay(cleanPhone: string): string {
+    if (!cleanPhone) return '';
     if (cleanPhone.length === 11) {
         return `(${cleanPhone.slice(0, 2)}) ${cleanPhone.slice(2, 7)}-${cleanPhone.slice(7)}`;
     }
@@ -48,7 +56,11 @@ function formatPhoneDisplay(cleanPhone: string): string {
 }
 
 function removeAccents(str: string): string {
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+function cleanWaName(raw: string): string {
+    return removeAccents((raw || '').replace(/^~/, '').trim());
 }
 
 export interface ZApiCredentials {
@@ -148,7 +160,8 @@ export const zapiGroupSyncService = {
                     const groupName = data.name || data.subject || groupQuery;
                     const participants: WaGroupParticipant[] = data.participants.map((p: any) => ({
                         phone: p.phone || p.id || '',
-                        name: p.name || p.pushName || p.shortName || '',
+                        name: p.name || p.pushName || p.notifyName || p.shortName || '',
+                        pushName: p.pushName || p.notifyName || (typeof p.name === 'string' && p.name.startsWith('~') ? p.name : ''),
                         shortName: p.shortName || '',
                         admin: p.admin || p.superAdmin || false,
                     }));
@@ -234,13 +247,19 @@ export const zapiGroupSyncService = {
         participants.forEach((p, idx) => {
             const cleanP = normalizePhone(p.phone);
             const waDispPhone = formatPhoneDisplay(cleanP);
-            const waNameClean = removeAccents(p.name || '');
+
+            const rawWaName = (p.name || p.pushName || p.notifyName || p.shortName || 'Sem Nome').trim();
+            const pushName = (p.pushName || p.notifyName || (p.name?.startsWith('~') ? p.name : '') || '').trim();
+            const isPushName = !!pushName || rawWaName.startsWith('~');
+
+            // Limpa ~ e acentos para fazer match com publicadores do banco RVM
+            const waNameClean = cleanWaName(rawWaName);
 
             let matchedPub = pubMapByPhone.get(cleanP);
             let matchType: 'EXACT_PHONE' | 'NAME_MATCH' | 'UNMATCHED' = matchedPub ? 'EXACT_PHONE' : 'UNMATCHED';
 
             if (!matchedPub && waNameClean) {
-                // Tenta matching por aproximação de nome
+                // Tenta matching por aproximação de nome usando a lista de publicadores
                 (pubs || []).forEach(pub => {
                     const pubNameClean = removeAccents(pub.data?.name || '');
                     if (pubNameClean && (pubNameClean.includes(waNameClean) || waNameClean.includes(pubNameClean))) {
@@ -251,8 +270,13 @@ export const zapiGroupSyncService = {
             }
 
             const pubId = matchedPub?.id || null;
-            const pubName = matchedPub?.data?.name || p.name || null;
+            const pubName = matchedPub?.data?.name || null;
             const rvmPhone = matchedPub?.data?.phone || matchedPub?.data?.contact_phone || null;
+            const rvmDispPhone = rvmPhone ? formatPhoneDisplay(normalizePhone(rvmPhone)) : null;
+
+            // Identifica se o telefone do grupo difere do cadastrado no RVM
+            const currentCleanRvmPhone = normalizePhone(rvmPhone || '');
+            const hasPhoneMismatch = matchedPub && (!currentCleanRvmPhone || currentCleanRvmPhone !== cleanP);
 
             // Busca perfil de usuário associado
             let matchedProfile = pubId ? profileMapByPubId.get(String(pubId)) : null;
@@ -272,9 +296,6 @@ export const zapiGroupSyncService = {
             let selected = false;
 
             if (matchedPub) {
-                const currentCleanRvmPhone = normalizePhone(rvmPhone || '');
-                const hasPhoneMismatch = !currentCleanRvmPhone || currentCleanRvmPhone !== cleanP;
-
                 if (matchedProfile && !isVerified2FA) {
                     status = 'PENDING_2FA';
                     selected = true;
@@ -291,10 +312,15 @@ export const zapiGroupSyncService = {
                 id: `item-${idx}-${cleanP}`,
                 waPhone: waDispPhone,
                 cleanPhone: cleanP,
-                waName: p.name || 'Sem Nome',
+                waName: rawWaName,
+                waPushName: pushName,
+                isPushName,
                 publisherId: pubId,
                 publisherName: pubName,
-                rvmPhone: rvmPhone,
+                rvmPhone,
+                rvmDispPhone,
+                hasPhoneMismatch: !!hasPhoneMismatch,
+                matchType,
                 profileId,
                 profileEmail,
                 isVerified2FA,
