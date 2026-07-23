@@ -18,6 +18,7 @@ Este memorando consolida todas as alterações, arquiteturas e melhorias impleme
 ### 1.3 Sinalização Visual de Resposta prévia a Links de Confirmação (S-89)
 - **Rastreamento de Interações**: Adicionado o campo `hasRespondedLink` na reconciliação de membros do grupo. O sistema consulta dinamicamente se o publicador/telefone já respondeu a um link de confirmação no portal (`confirmation_portal_responses`, `confirmation_portal_tokens` usados, `workbook_parts` confirmadas/recusadas e `zapi_dispatch_log` de recibos).
 - **Indicador no Modal**: Exibição da tag destacada `✨ Já respondeu Link S-89` em roxo no item da lista e adição do contador `✨ Respondeu Link: X` no cabeçalho estatístico do modal.
+- **Políticas RLS & Cast de Tipos**: Habilitadas políticas RLS `SELECT` nas tabelas `confirmation_portal_responses` e `confirmation_portal_tokens` para a role `authenticated`, e aplicado conversão explícita de tipos de `publisher_id` (suportando IDs numéricos e UUIDs), garantindo a contabilização precisa de todos os publicadores com interações prévias.
 
 ### 1.4 Persistência e Resolução Dinâmica de Credenciais Z-API
 - **Suporte a `app_settings`**: As chaves Z-API (`zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`) podem ser lidas tanto das variáveis de ambiente `.env` (`VITE_ZAPI_*`) quanto da tabela `app_settings` no Supabase com timestamp `updated_at`.
