@@ -20,13 +20,57 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [resultMsg, setResultMsg] = useState<string | null>(null);
 
+    // Z-API Credentials state
+    const [showCredsForm, setShowCredsForm] = useState(false);
+    const [instanceId, setInstanceId] = useState('');
+    const [instanceToken, setInstanceToken] = useState('');
+    const [clientToken, setClientToken] = useState('');
+    const [savingCreds, setSavingCreds] = useState(false);
+
     useEffect(() => {
         if (!isOpen) {
             setItems([]);
             setErrorMsg(null);
             setResultMsg(null);
+        } else {
+            checkCredentials();
         }
     }, [isOpen]);
+
+    const checkCredentials = async () => {
+        const creds = await zapiGroupSyncService.getZApiCredentials();
+        if (creds) {
+            setInstanceId(creds.instanceId);
+            setInstanceToken(creds.instanceToken);
+            setClientToken(creds.clientToken);
+            setShowCredsForm(false);
+        } else {
+            setShowCredsForm(true);
+        }
+    };
+
+    const handleSaveCreds = async () => {
+        if (!instanceId.trim() || !instanceToken.trim() || !clientToken.trim()) {
+            setErrorMsg('Preencha todos os campos do Z-API: Instance ID, Instance Token e Client Token.');
+            return;
+        }
+        setSavingCreds(true);
+        setErrorMsg(null);
+        try {
+            await zapiGroupSyncService.saveZApiCredentials({
+                instanceId: instanceId.trim(),
+                instanceToken: instanceToken.trim(),
+                clientToken: clientToken.trim(),
+            });
+            setShowCredsForm(false);
+            setResultMsg('Credenciais do Z-API salvas com sucesso!');
+            handleFetchMembers();
+        } catch (e: any) {
+            setErrorMsg('Erro ao salvar credenciais: ' + (e.message || String(e)));
+        } finally {
+            setSavingCreds(false);
+        }
+    };
 
     const handleFetchMembers = async () => {
         if (!groupInput.trim()) return;
@@ -42,6 +86,9 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
             setItems(reconciled);
         } catch (err: any) {
             console.error('Erro ao buscar membros do grupo:', err);
+            if (err.message?.includes('não configurado')) {
+                setShowCredsForm(true);
+            }
             setErrorMsg(err.message || 'Falha ao buscar grupo no Z-API. Verifique se o Z-API está ativo e conectado.');
         } finally {
             setLoading(false);
@@ -113,8 +160,44 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} disabled={syncing} style={btnCloseStyle}>&times;</button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                            onClick={() => setShowCredsForm(!showCredsForm)}
+                            style={{ ...btnSmallStyle, background: '#334155', color: '#cbd5e1' }}
+                            title="Configurar Chaves Z-API"
+                        >
+                            ⚙️ Chaves Z-API
+                        </button>
+                        <button onClick={onClose} disabled={syncing} style={btnCloseStyle}>&times;</button>
+                    </div>
                 </div>
+
+                {/* Form de Configuração de Credenciais Z-API (Se não configurado) */}
+                {showCredsForm && (
+                    <div style={{ background: '#0f172a', padding: '16px', borderRadius: '8px', border: '1px solid #f59e0b', marginBottom: '16px' }}>
+                        <h4 style={{ margin: '0 0 6px 0', color: '#f59e0b', fontSize: '0.95rem' }}>⚙️ Configurar Chaves Z-API</h4>
+                        <p style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                            Informe os dados da sua conta Z-API (painel <strong>z-api.io</strong>) para permitir a leitura do grupo:
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>Instance ID:</label>
+                                <input type="text" value={instanceId} onChange={e => setInstanceId(e.target.value)} placeholder="Ex: 3A91B..." style={inputStyle} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>Instance Token:</label>
+                                <input type="text" value={instanceToken} onChange={e => setInstanceToken(e.target.value)} placeholder="Ex: F8A72..." style={inputStyle} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>Client Token (Segurança):</label>
+                                <input type="text" value={clientToken} onChange={e => setClientToken(e.target.value)} placeholder="Ex: Sa981..." style={inputStyle} />
+                            </div>
+                        </div>
+                        <button onClick={handleSaveCreds} disabled={savingCreds} style={{ ...btnPrimaryStyle, background: '#f59e0b', color: '#000' }}>
+                            {savingCreds ? 'Salvando...' : '💾 Salvar Chaves e Conectar'}
+                        </button>
+                    </div>
+                )}
 
                 {/* Input de Busca do Grupo */}
                 <div style={{ background: '#0f172a', padding: '14px', borderRadius: '8px', border: '1px solid #334155', marginBottom: '16px' }}>

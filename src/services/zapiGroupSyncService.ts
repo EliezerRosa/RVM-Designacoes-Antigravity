@@ -50,15 +50,85 @@ function removeAccents(str: string): string {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
+export interface ZApiCredentials {
+    instanceId: string;
+    instanceToken: string;
+    clientToken: string;
+}
+
 export const zapiGroupSyncService = {
+    /**
+     * Carrega as credenciais do Z-API a partir das variáveis de ambiente ou do banco de dados (app_settings).
+     */
+    async getZApiCredentials(): Promise<ZApiCredentials | null> {
+        // 1. Variáveis de ambiente
+        const envId = import.meta.env.VITE_ZAPI_INSTANCE_ID;
+        const envToken = import.meta.env.VITE_ZAPI_INSTANCE_TOKEN;
+        const envClient = import.meta.env.VITE_ZAPI_CLIENT_TOKEN;
+
+        if (envId && envToken && envClient) {
+            return { instanceId: envId, instanceToken: envToken, clientToken: envClient };
+        }
+
+        // 2. Busca no banco de dados (app_settings ou settings)
+        try {
+            const { data } = await supabase
+                .from('app_settings')
+                .select('key, value')
+                .in('key', ['zapi_instance_id', 'zapi_instance_token', 'zapi_client_token']);
+
+            if (data && data.length > 0) {
+                const map = new Map(data.map(d => [d.key, d.value]));
+                const id = map.get('zapi_instance_id') || envId;
+                const token = map.get('zapi_instance_token') || envToken;
+                const client = map.get('zapi_client_token') || envClient;
+
+                if (id && token && client) {
+                    return { instanceId: id, instanceToken: token, clientToken: client };
+                }
+            }
+        } catch (e) {
+            console.warn('[zapiGroupSyncService] Falha ao carregar credenciais do banco:', e);
+        }
+
+        return null;
+    },
+
+    /**
+     * Salva as credenciais do Z-API no banco de dados (app_settings).
+     */
+    async saveZApiCredentials(creds: ZApiCredentials): Promise<void> {
+        await supabase.from('app_settings').upsert([
+            { key: 'zapi_instance_id', value: creds.instanceId.trim() },
+            { key: 'zapi_instance_token', value: creds.instanceToken.trim() },
+            { key: 'zapi_client_token', value: creds.clientToken.trim() },
+        ], { onConflict: 'key' });
+    },
+
     /**
      * Busca os membros do grupo do WhatsApp especificado no Z-API.
      */
     async fetchGroupParticipants(groupQuery: string = 'Congregação Parque Jacaraípe'): Promise<{ groupName: string; participants: WaGroupParticipant[] }> {
-        const waService = createWhatsAppAutoServiceFromEnv();
+        const creds = await this.getZApiCredentials();
+
+        let waService = createWhatsAppAutoServiceFromEnv();
+
+        if (creds && creds.instanceId) {
+            waService = createWhatsAppAutoServiceFromEnv();
+            // Se o de env não tiver z-api, instancia explicitamente
+            if (!waService.fetchGroupMetadata || waService.providerName !== 'z-api') {
+                const { createWhatsAppAutoService } = await import('./whatsappAutoService');
+                waService = createWhatsAppAutoService({
+                    provider: 'z-api',
+                    instanceId: creds.instanceId,
+                    instanceToken: creds.instanceToken,
+                    clientToken: creds.clientToken,
+                });
+            }
+        }
         
         if (!waService.fetchGroupMetadata) {
-            throw new Error('Provedor Z-API não configurado ou ativo.');
+            throw new Error('Provedor Z-API não configurado. Informe a Instance ID, Instance Token e Client Token do Z-API.');
         }
 
         const data = await waService.fetchGroupMetadata(groupQuery);
