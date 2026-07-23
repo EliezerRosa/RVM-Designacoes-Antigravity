@@ -141,6 +141,7 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
     const selectedCount = items.filter(i => i.selected).length;
     const pending2FaCount = items.filter(i => i.status === 'PENDING_2FA').length;
     const phoneUpdateCount = items.filter(i => i.status === 'PHONE_UPDATE_NEEDED').length;
+    const respondedLinkCount = items.filter(i => i.hasRespondedLink).length;
 
     return createPortal(
         <div style={modalOverlayStyle}>
@@ -235,6 +236,7 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                             </div>
                             <div style={{ display: 'flex', gap: '12px', color: '#94a3b8' }}>
                                 <span>Total: <strong>{items.length}</strong></span>
+                                <span style={{ color: '#c084fc' }}>✨ Respondeu Link: <strong>{respondedLinkCount}</strong></span>
                                 <span style={{ color: '#fbbf24' }}>🔓 2FA Pendentes: <strong>{pending2FaCount}</strong></span>
                                 <span style={{ color: '#38bdf8' }}>🟡 Atualizações: <strong>{phoneUpdateCount}</strong></span>
                             </div>
@@ -266,6 +268,26 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                                             <td style={{ padding: '10px 12px' }}>
                                                 <div style={{ fontWeight: 600, color: '#f8fafc' }}>{item.waName}</div>
                                                 <div style={{ fontSize: '0.78rem', color: '#38bdf8' }}>{item.waPhone}</div>
+                                                {item.hasRespondedLink && (
+                                                    <div
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            marginTop: '4px',
+                                                            padding: '2px 7px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 600,
+                                                            background: 'rgba(168, 85, 247, 0.18)',
+                                                            color: '#d8b4fe',
+                                                            border: '1px solid rgba(168, 85, 247, 0.4)',
+                                                        }}
+                                                        title="Este membro/publicador já respondeu a um link de confirmação do S-89 pelo menos uma vez no portal"
+                                                    >
+                                                        ✨ Respondeu Link S-89
+                                                    </div>
+                                                )}
                                             </td>
                                             <td style={{ padding: '10px 12px' }}>
                                                 {item.publisherName ? (
