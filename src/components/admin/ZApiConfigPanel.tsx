@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { OnboardingBatchModal } from './OnboardingBatchModal';
+import { ZApiGroupSyncModal } from './ZApiGroupSyncModal';
 
 export function ZApiConfigPanel() {
     const [isActive, setIsActive] = useState(false);
@@ -10,6 +11,7 @@ export function ZApiConfigPanel() {
     const [message, setMessage] = useState('');
     
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isSyncGroupModalOpen, setIsSyncGroupModalOpen] = useState(false);
 
     useEffect(() => {
         loadSettings();
@@ -93,23 +95,50 @@ export function ZApiConfigPanel() {
             
             <hr style={{ borderColor: '#334155', margin: '40px 0' }} />
             
-            <div style={{ padding: '20px', background: '#1e293b', borderRadius: '8px', border: '1px solid #334155' }}>
-                <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b' }}>🚀 Carga Inicial (Magic Link Onboarding)</h3>
-                <p style={{ color: '#94a3b8', marginBottom: '20px', lineHeight: 1.5 }}>
-                    Esta ferramenta varre todos os publicadores que ainda não validaram o 2FA, gera um <strong>Token de Uso Único</strong> e dispara um WhatsApp com um convite automático. Ao clicar, o publicador fará login pelo Google e terá o 2FA pulado permanentemente.
-                </p>
-                
-                <button 
-                    onClick={() => setIsModalOpen(true)}
-                    style={{ padding: '12px 24px', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                    Abrir Painel de Disparo VIP
-                </button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                {/* Sincronização por Grupo WhatsApp */}
+                <div style={{ padding: '20px', background: '#1e293b', borderRadius: '8px', border: '1px solid #334155' }}>
+                    <h3 style={{ margin: '0 0 10px 0', color: '#25d366', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        💬 Sincronização via Grupo do WhatsApp
+                    </h3>
+                    <p style={{ color: '#94a3b8', marginBottom: '20px', lineHeight: 1.5, fontSize: '0.9rem' }}>
+                        Conecta ao grupo <strong>"Congregação Parque Jacaraípe"</strong> via Z-API, lê os telefones de todos os membros e sincroniza em lote com os publicadores no RVM, pré-aprovando o 2FA.
+                    </p>
+                    
+                    <button 
+                        onClick={() => setIsSyncGroupModalOpen(true)}
+                        style={{ padding: '12px 20px', background: '#25d366', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                    >
+                        👥 Abrir Sincronizador de Grupo Z-API
+                    </button>
+                </div>
+
+                {/* Carga Inicial Convite VIP */}
+                <div style={{ padding: '20px', background: '#1e293b', borderRadius: '8px', border: '1px solid #334155' }}>
+                    <h3 style={{ margin: '0 0 10px 0', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🚀 Carga Inicial (Magic Link Onboarding)
+                    </h3>
+                    <p style={{ color: '#94a3b8', marginBottom: '20px', lineHeight: 1.5, fontSize: '0.9rem' }}>
+                        Esta ferramenta varre todos os publicadores sem 2FA, gera um <strong>Token de Uso Único</strong> e dispara um WhatsApp com convite automático.
+                    </p>
+                    
+                    <button 
+                        onClick={() => setIsModalOpen(true)}
+                        style={{ padding: '12px 20px', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                    >
+                        ✉️ Abrir Painel de Disparo VIP
+                    </button>
+                </div>
             </div>
             
             <OnboardingBatchModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
+            />
+
+            <ZApiGroupSyncModal
+                isOpen={isSyncGroupModalOpen}
+                onClose={() => setIsSyncGroupModalOpen(false)}
             />
         </div>
     );
