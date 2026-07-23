@@ -33,20 +33,19 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
             setErrorMsg(null);
             setResultMsg(null);
         } else {
-            checkCredentials();
+            checkCredentialsAndLoad();
         }
     }, [isOpen]);
 
-    const checkCredentials = async () => {
+    const checkCredentialsAndLoad = async () => {
         const creds = await zapiGroupSyncService.getZApiCredentials();
         if (creds) {
             setInstanceId(creds.instanceId);
             setInstanceToken(creds.instanceToken);
             setClientToken(creds.clientToken);
-            setShowCredsForm(false);
-        } else {
-            setShowCredsForm(true);
         }
+        setShowCredsForm(false);
+        handleFetchMembers();
     };
 
     const handleSaveCreds = async () => {

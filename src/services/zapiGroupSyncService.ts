@@ -106,45 +106,57 @@ export const zapiGroupSyncService = {
     },
 
     /**
-     * Busca os membros do grupo do WhatsApp especificado no Z-API.
+     * Busca os membros do grupo do WhatsApp especificado no Z-API via Backend (Edge Function) ou cliente.
      */
     async fetchGroupParticipants(groupQuery: string = 'Congregação Parque Jacaraípe'): Promise<{ groupName: string; participants: WaGroupParticipant[] }> {
-        const creds = await this.getZApiCredentials();
-
+        // 1. Tentar primeiro via Backend Edge Function (send-whatsapp) ou provider padrão do ambiente
         let waService = createWhatsAppAutoServiceFromEnv();
 
-        if (creds && creds.instanceId) {
-            // Se o de env não tiver z-api, instancia explicitamente
-            if (!waService.fetchGroupMetadata || waService.providerName !== 'z-api') {
-                const { createWhatsAppAutoService } = await import('./whatsappAutoService');
-                waService = createWhatsAppAutoService({
-                    provider: 'z-api',
-                    instanceId: creds.instanceId,
-                    instanceToken: creds.instanceToken,
-                    clientToken: creds.clientToken,
-                });
+        if (waService.fetchGroupMetadata) {
+            try {
+                const data = await waService.fetchGroupMetadata(groupQuery);
+                if (data && data.participants && Array.isArray(data.participants)) {
+                    const groupName = data.groupName || data.name || data.subject || groupQuery;
+                    const participants: WaGroupParticipant[] = data.participants.map((p: any) => ({
+                        phone: p.phone || p.id || '',
+                        name: p.name || p.pushName || p.shortName || '',
+                        shortName: p.shortName || '',
+                        admin: p.admin || p.superAdmin || false,
+                    }));
+                    return { groupName, participants };
+                }
+            } catch (err) {
+                console.warn('[zapiGroupSyncService] Falha ao consultar grupo via waService padrão:', err);
             }
         }
-        
-        if (!waService.fetchGroupMetadata) {
-            throw new Error('Provedor Z-API não configurado. Informe a Instance ID, Instance Token e Client Token do Z-API.');
+
+        // 2. Fallback: Se não funcionou pelo waService de env, verifica se há credenciais explícitas
+        const creds = await this.getZApiCredentials();
+        if (creds && creds.instanceId) {
+            const { createWhatsAppAutoService } = await import('./whatsappAutoService');
+            const localZapi = createWhatsAppAutoService({
+                provider: 'z-api',
+                instanceId: creds.instanceId,
+                instanceToken: creds.instanceToken,
+                clientToken: creds.clientToken,
+            });
+
+            if (localZapi.fetchGroupMetadata) {
+                const data = await localZapi.fetchGroupMetadata(groupQuery);
+                if (data && data.participants && Array.isArray(data.participants)) {
+                    const groupName = data.name || data.subject || groupQuery;
+                    const participants: WaGroupParticipant[] = data.participants.map((p: any) => ({
+                        phone: p.phone || p.id || '',
+                        name: p.name || p.pushName || p.shortName || '',
+                        shortName: p.shortName || '',
+                        admin: p.admin || p.superAdmin || false,
+                    }));
+                    return { groupName, participants };
+                }
+            }
         }
 
-        const data = await waService.fetchGroupMetadata(groupQuery);
-        
-        if (!data || !data.participants || !Array.isArray(data.participants)) {
-            throw new Error(`Grupo "${groupQuery}" não encontrado no Z-API ou sem membros acessíveis.`);
-        }
-
-        const groupName = data.name || data.subject || groupQuery;
-        const participants: WaGroupParticipant[] = data.participants.map((p: any) => ({
-            phone: p.phone || p.id || '',
-            name: p.name || p.pushName || p.shortName || '',
-            shortName: p.shortName || '',
-            admin: p.admin || p.superAdmin || false,
-        }));
-
-        return { groupName, participants };
+        throw new Error(`Grupo "${groupQuery}" não encontrado no Z-API ou credenciais do Z-API não configuradas.`);
     },
 
     /**
