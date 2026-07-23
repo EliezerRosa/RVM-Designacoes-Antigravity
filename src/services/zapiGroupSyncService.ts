@@ -24,6 +24,7 @@ export interface ReconciliationItem {
     profileId: string | null;
     profileEmail: string | null;
     isVerified2FA: boolean;
+    hasRespondedLink: boolean;
     status: 'SYNCED' | 'PHONE_UPDATE_NEEDED' | 'PENDING_2FA' | 'UNMATCHED_WA';
     selected: boolean;
 }
@@ -197,6 +198,33 @@ export const zapiGroupSyncService = {
             if (prof.email) profileMapByEmail.set(prof.email.toLowerCase(), prof);
         });
 
+        // 3. Carregar respostas e interações dos links de confirmação
+        const respondedPubIds = new Set<string>();
+        const respondedPhones = new Set<string>();
+
+        try {
+            // 3.1 Respostas registradas no portal de confirmação
+            const { data: portalResp } = await supabase.from('confirmation_portal_responses').select('publisher_id');
+            (portalResp || []).forEach(r => { if (r.publisher_id) respondedPubIds.add(r.publisher_id); });
+
+            // 3.2 Tokens de confirmação já utilizados
+            const { data: usedTokens } = await supabase.from('confirmation_portal_tokens').select('publisher_id').not('used_at', 'is', null);
+            (usedTokens || []).forEach(t => { if (t.publisher_id) respondedPubIds.add(t.publisher_id); });
+
+            // 3.3 Partes da apostila com confirmação ou recusa gravadas
+            const { data: respondedParts } = await supabase.from('workbook_parts').select('resolved_publisher_id').in('status', ['CONFIRMADA', 'RECUSADA']);
+            (respondedParts || []).forEach(p => { if (p.resolved_publisher_id) respondedPubIds.add(p.resolved_publisher_id); });
+
+            // 3.4 Disparos logados de recibos de confirmação (RECIBO_S89) ou alertas de recusa
+            const { data: dispatchLogs } = await supabase.from('zapi_dispatch_log').select('recipient_phone').in('dispatch_type', ['RECIBO_S89', 'RECUSA_ALERTA']);
+            (dispatchLogs || []).forEach(l => {
+                const cP = normalizePhone(l.recipient_phone || '');
+                if (cP) respondedPhones.add(cP);
+            });
+        } catch (e) {
+            console.warn('[zapiGroupSyncService] Falha ao carregar lista de confirmações prévias:', e);
+        }
+
         const items: ReconciliationItem[] = [];
 
         participants.forEach((p, idx) => {
@@ -231,6 +259,7 @@ export const zapiGroupSyncService = {
             const profileId = matchedProfile?.id || null;
             const profileEmail = matchedProfile?.email || null;
             const isVerified2FA = matchedProfile?.whatsapp_verified === true;
+            const hasRespondedLink = (pubId ? respondedPubIds.has(pubId) : false) || respondedPhones.has(cleanP);
 
             let status: ReconciliationItem['status'] = 'UNMATCHED_WA';
             let selected = false;
@@ -262,6 +291,7 @@ export const zapiGroupSyncService = {
                 profileId,
                 profileEmail,
                 isVerified2FA,
+                hasRespondedLink,
                 status,
                 selected,
             });
