@@ -178,7 +178,7 @@ export const zapiGroupSyncService = {
             const rawP = p.data?.phone || p.data?.contact_phone || '';
             const cP = normalizePhone(rawP);
             if (cP) pubMapByPhone.set(cP, p);
-            if (p.data?.name) pubMapMapByName(p, pubMapByName);
+            if (p.data?.name) pubMapByName.set(removeAccents(p.data.name), p);
         });
 
         (rmPubs || []).forEach(p => {
@@ -193,7 +193,7 @@ export const zapiGroupSyncService = {
         const profileMapByEmail = new Map<string, any>();
 
         (profiles || []).forEach(prof => {
-            if (prof.publisher_id) profileMapByPubId.set(prof.publisher_id, prof);
+            if (prof.publisher_id) profileMapByPubId.set(String(prof.publisher_id), prof);
             if (prof.phone) profileMapByPhone.set(normalizePhone(prof.phone), prof);
             if (prof.email) profileMapByEmail.set(prof.email.toLowerCase(), prof);
         });
@@ -201,19 +201,23 @@ export const zapiGroupSyncService = {
         // 3. Carregar respostas e interações dos links de confirmação
         const respondedPubIds = new Set<string>();
         const respondedPhones = new Set<string>();
+        const respondedEmails = new Set<string>();
 
         try {
             // 3.1 Respostas registradas no portal de confirmação
-            const { data: portalResp } = await supabase.from('confirmation_portal_responses').select('publisher_id');
-            (portalResp || []).forEach(r => { if (r.publisher_id) respondedPubIds.add(r.publisher_id); });
+            const { data: portalResp } = await supabase.from('confirmation_portal_responses').select('publisher_id, authenticated_email');
+            (portalResp || []).forEach(r => {
+                if (r.publisher_id) respondedPubIds.add(String(r.publisher_id));
+                if (r.authenticated_email) respondedEmails.add(r.authenticated_email.toLowerCase().trim());
+            });
 
             // 3.2 Tokens de confirmação já utilizados
             const { data: usedTokens } = await supabase.from('confirmation_portal_tokens').select('publisher_id').not('used_at', 'is', null);
-            (usedTokens || []).forEach(t => { if (t.publisher_id) respondedPubIds.add(t.publisher_id); });
+            (usedTokens || []).forEach(t => { if (t.publisher_id) respondedPubIds.add(String(t.publisher_id)); });
 
             // 3.3 Partes da apostila com confirmação ou recusa gravadas
-            const { data: respondedParts } = await supabase.from('workbook_parts').select('resolved_publisher_id').in('status', ['CONFIRMADA', 'RECUSADA']);
-            (respondedParts || []).forEach(p => { if (p.resolved_publisher_id) respondedPubIds.add(p.resolved_publisher_id); });
+            const { data: respondedParts } = await supabase.from('workbook_parts').select('resolved_publisher_id').in('status', ['APROVADA', 'CONCLUIDA', 'CONFIRMADA', 'RECUSADA']);
+            (respondedParts || []).forEach(p => { if (p.resolved_publisher_id) respondedPubIds.add(String(p.resolved_publisher_id)); });
 
             // 3.4 Disparos logados de recibos de confirmação (RECIBO_S89) ou alertas de recusa
             const { data: dispatchLogs } = await supabase.from('zapi_dispatch_log').select('recipient_phone').in('dispatch_type', ['RECIBO_S89', 'RECUSA_ALERTA']);
@@ -251,7 +255,7 @@ export const zapiGroupSyncService = {
             const rvmPhone = matchedPub?.data?.phone || matchedPub?.data?.contact_phone || null;
 
             // Busca perfil de usuário associado
-            let matchedProfile = pubId ? profileMapByPubId.get(pubId) : null;
+            let matchedProfile = pubId ? profileMapByPubId.get(String(pubId)) : null;
             if (!matchedProfile && cleanP) {
                 matchedProfile = profileMapByPhone.get(cleanP);
             }
@@ -259,7 +263,10 @@ export const zapiGroupSyncService = {
             const profileId = matchedProfile?.id || null;
             const profileEmail = matchedProfile?.email || null;
             const isVerified2FA = matchedProfile?.whatsapp_verified === true;
-            const hasRespondedLink = (pubId ? respondedPubIds.has(pubId) : false) || respondedPhones.has(cleanP);
+            const hasRespondedLink =
+                (pubId ? respondedPubIds.has(String(pubId)) : false) ||
+                respondedPhones.has(cleanP) ||
+                (profileEmail ? respondedEmails.has(profileEmail.toLowerCase().trim()) : false);
 
             let status: ReconciliationItem['status'] = 'UNMATCHED_WA';
             let selected = false;
