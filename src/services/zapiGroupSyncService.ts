@@ -64,40 +64,47 @@ function cleanWaName(raw: string): string {
 }
 
 function cleanParticipantName(p: any): { displayName: string; pushName: string; isPushName: boolean } {
-    const rawName = (typeof p.name === 'string' ? p.name.trim() : '');
+    const rawName = typeof p.name === 'string' ? p.name.trim() : '';
     const pushName = (
         typeof p.pushName === 'string' && p.pushName.trim() ? p.pushName.trim() :
         typeof p.notifyName === 'string' && p.notifyName.trim() ? p.notifyName.trim() :
         typeof p.vcardName === 'string' && p.vcardName.trim() ? p.vcardName.trim() : ''
     );
+    const shortName = typeof p.shortName === 'string' ? p.shortName.trim() : '';
 
-    const isPhoneOrJid = (str: string) => {
-        if (!str) return true;
-        if (str.includes('@')) return true;
-        const digits = str.replace(/\D/g, '');
-        return digits.length >= 8 && (str === digits || str.startsWith('+') || str.startsWith('55'));
-    };
+    const candidates = [rawName, pushName, shortName].filter(Boolean);
 
-    let displayName = '';
-    let isPush = false;
+    for (const cand of candidates) {
+        // 1. Se a string contém '~', extrai o nome após o til
+        if (cand.includes('~')) {
+            const parts = cand.split('~');
+            const afterTilde = parts[parts.length - 1].trim();
+            if (afterTilde && /[a-zA-Zà-úÀ-Ú]/.test(afterTilde)) {
+                return {
+                    displayName: `~${afterTilde}`,
+                    pushName: afterTilde,
+                    isPushName: true
+                };
+            }
+        }
 
-    if (rawName && !isPhoneOrJid(rawName)) {
-        displayName = rawName;
-        if (rawName.startsWith('~')) isPush = true;
-    } else if (pushName && !isPhoneOrJid(pushName)) {
-        displayName = pushName.startsWith('~') ? pushName : `~${pushName}`;
-        isPush = true;
-    } else if (p.shortName && !isPhoneOrJid(p.shortName)) {
-        displayName = `~${p.shortName}`;
-        isPush = true;
-    } else {
-        displayName = 'Sem Nome';
+        // 2. Remove parte do telefone inicial (ex: "+55 27 98889-1292 " ou "(27) 98889-1292 ")
+        const cleanCand = cand.replace(/^[\+\d\s\(\)\-\.]+\s*/, '').replace(/@.*$/, '').trim();
+        if (cleanCand && /[a-zA-Zà-úÀ-Ú]/.test(cleanCand)) {
+            const isPush = cand.includes('~') || cleanCand.startsWith('~') || !!pushName;
+            const finalName = cleanCand.replace(/^~/, '').trim();
+            return {
+                displayName: isPush ? `~${finalName}` : finalName,
+                pushName: finalName,
+                isPushName: isPush
+            };
+        }
     }
 
     return {
-        displayName,
-        pushName: pushName || (displayName.startsWith('~') ? displayName : ''),
-        isPushName: isPush
+        displayName: 'Sem Nome',
+        pushName: '',
+        isPushName: false
     };
 }
 

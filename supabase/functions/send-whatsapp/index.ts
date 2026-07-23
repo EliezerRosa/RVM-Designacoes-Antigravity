@@ -315,7 +315,7 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
   const contactsMap = new Map<string, { name?: string; pushName?: string; notifyName?: string }>();
   try {
     const chatsRes = await fetch(
-      `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chats?page=1&pageSize=200`,
+      `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chats?page=1&pageSize=300`,
       { headers: { 'client-token': clientToken } }
     );
     if (chatsRes.ok) {
@@ -323,13 +323,14 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
       if (Array.isArray(chats)) {
         chats.forEach((c: any) => {
           const rawP = (c.phone || c.id || '').replace(/\D/g, '');
-          if (rawP && !c.isGroup) {
-            contactsMap.set(rawP, {
-              name: c.name || c.contactName,
-              pushName: c.pushName || c.notifyName || c.name,
-              notifyName: c.notifyName || c.pushName,
-            });
-          }
+          const cleanP = rawP.startsWith('55') && rawP.length > 11 ? rawP.slice(2) : rawP;
+          const info = {
+            name: c.name || c.contactName,
+            pushName: c.pushName || c.notifyName || c.name,
+            notifyName: c.notifyName || c.pushName,
+          };
+          if (rawP) contactsMap.set(rawP, info);
+          if (cleanP) contactsMap.set(cleanP, info);
         });
       }
     }
@@ -339,7 +340,8 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
 
   return participants.map((p: any) => {
     const rawP = (p.phone || p.id || '').replace(/\D/g, '');
-    const extra = contactsMap.get(rawP);
+    const cleanP = rawP.startsWith('55') && rawP.length > 11 ? rawP.slice(2) : rawP;
+    const extra = contactsMap.get(rawP) || contactsMap.get(cleanP);
     const pName = p.name || p.pushName || p.notifyName || extra?.name || extra?.pushName || '';
     const pPush = p.pushName || p.notifyName || extra?.pushName || extra?.notifyName || (typeof pName === 'string' && pName.startsWith('~') ? pName : '');
     return {
