@@ -24,6 +24,10 @@ Este memorando consolida todas as alterações, arquiteturas e melhorias impleme
 - **Suporte a `app_settings`**: As chaves Z-API (`zapi_instance_id`, `zapi_instance_token`, `zapi_client_token`) podem ser lidas tanto das variáveis de ambiente `.env` (`VITE_ZAPI_*`) quanto da tabela `app_settings` no Supabase com timestamp `updated_at`.
 - **Limpeza de Instanciações Redundantes**: Refatoração no `zapiGroupSyncService.ts` e `whatsappAutoService.ts` evitando instâncias duplicadas de provedores.
 
+### 1.5 Nomes de Perfil `~Nome` (pushName) & Exibição de Telefones Divergentes
+- **Suporte a `pushName` (~Nome)**: Para membros do grupo que não estão salvos na agenda de contatos, o sistema lê e exibe o nome de perfil público retornado do WhatsApp (com a badge `~ Perfil WA`). O prefixo `~` é sanitizado dinamicamente (`cleanWaName`) para realizar o matching por aproximação de nome no cadastro do RVM.
+- **Exibição Clara de Telefones Divergentes (Grupo vs RVM Privado)**: Caso o publicador utilize um número de telefone no grupo do WhatsApp diferente do número cadastrado internamente no RVM, a interface exibe ambos os números em destaque com alerta `⚠️ Números Divergentes` (`• Zap no Grupo` vs `• RVM Privado`), permitindo ao administrador sincronizar e atualizar a ficha do publicador com 1 clique.
+
 ---
 
 ## 2. Autenticação, Biometria & Primeiro Acesso
