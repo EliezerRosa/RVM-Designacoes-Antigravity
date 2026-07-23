@@ -43,9 +43,11 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
             setInstanceId(creds.instanceId);
             setInstanceToken(creds.instanceToken);
             setClientToken(creds.clientToken);
+            setShowCredsForm(false);
+            handleFetchMembers();
+        } else {
+            setShowCredsForm(true);
         }
-        setShowCredsForm(false);
-        handleFetchMembers();
     };
 
     const handleSaveCreds = async () => {
@@ -85,10 +87,11 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
             setItems(reconciled);
         } catch (err: any) {
             console.error('Erro ao buscar membros do grupo:', err);
-            if (err.message?.includes('não configurado')) {
+            const msg = err.message || '';
+            if (msg.includes('não configurad') || msg.includes('chaves ausentes') || msg.includes('não encontrado')) {
                 setShowCredsForm(true);
             }
-            setErrorMsg(err.message || 'Falha ao buscar grupo no Z-API. Verifique se o Z-API está ativo e conectado.');
+            setErrorMsg(msg || 'Falha ao buscar grupo no Z-API. Verifique se o Z-API está ativo e conectado.');
         } finally {
             setLoading(false);
         }
