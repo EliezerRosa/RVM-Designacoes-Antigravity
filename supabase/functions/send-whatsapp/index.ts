@@ -308,6 +308,50 @@ async function listZApiGroups() {
   return { success: true, groups };
 }
 
+/** Enriquece os nomes de perfil (pushName/notifyName) dos participantes usando o cache de chats da Z-API. */
+async function enrichZApiParticipants(instanceId: string, instanceToken: string, clientToken: string, participants: any[]) {
+  if (!Array.isArray(participants) || participants.length === 0) return [];
+  
+  const contactsMap = new Map<string, { name?: string; pushName?: string; notifyName?: string }>();
+  try {
+    const chatsRes = await fetch(
+      `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chats?page=1&pageSize=200`,
+      { headers: { 'client-token': clientToken } }
+    );
+    if (chatsRes.ok) {
+      const chats = await chatsRes.json();
+      if (Array.isArray(chats)) {
+        chats.forEach((c: any) => {
+          const rawP = (c.phone || c.id || '').replace(/\D/g, '');
+          if (rawP && !c.isGroup) {
+            contactsMap.set(rawP, {
+              name: c.name || c.contactName,
+              pushName: c.pushName || c.notifyName || c.name,
+              notifyName: c.notifyName || c.pushName,
+            });
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('Falha ao buscar cache de chats Z-API para enriquecimento:', e);
+  }
+
+  return participants.map((p: any) => {
+    const rawP = (p.phone || p.id || '').replace(/\D/g, '');
+    const extra = contactsMap.get(rawP);
+    const pName = p.name || p.pushName || p.notifyName || extra?.name || extra?.pushName || '';
+    const pPush = p.pushName || p.notifyName || extra?.pushName || extra?.notifyName || (typeof pName === 'string' && pName.startsWith('~') ? pName : '');
+    return {
+      ...p,
+      phone: p.phone || p.id || '',
+      name: pName || pPush || '',
+      pushName: pPush || '',
+      notifyName: p.notifyName || extra?.notifyName || '',
+    };
+  });
+}
+
 /** Busca os metadados e membros de um grupo no Z-API por ID ou Nome. */
 async function fetchZApiGroupMetadata(groupQuery: string) {
   const creds = await getZApiCredentials();
@@ -330,7 +374,8 @@ async function fetchZApiGroupMetadata(groupQuery: string) {
     );
     if (directRes.ok) {
       const data = await directRes.json();
-      return { success: true, groupName: data.name || data.subject || target, participants: data.participants || [] };
+      const enriched = await enrichZApiParticipants(instanceId, instanceToken, clientToken, data.participants || []);
+      return { success: true, groupName: data.name || data.subject || target, participants: enriched };
     }
   } catch (e) {
     // Prossegue para busca na lista de chats
@@ -361,7 +406,8 @@ async function fetchZApiGroupMetadata(groupQuery: string) {
         );
         if (metaRes.ok) {
           const data = await metaRes.json();
-          return { success: true, groupName: data.name || found.name || target, participants: data.participants || [] };
+          const enriched = await enrichZApiParticipants(instanceId, instanceToken, clientToken, data.participants || []);
+          return { success: true, groupName: data.name || found.name || target, participants: enriched };
         }
       }
 

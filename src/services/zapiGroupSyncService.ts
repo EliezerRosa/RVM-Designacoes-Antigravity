@@ -63,6 +63,44 @@ function cleanWaName(raw: string): string {
     return removeAccents((raw || '').replace(/^~/, '').trim());
 }
 
+function cleanParticipantName(p: any): { displayName: string; pushName: string; isPushName: boolean } {
+    const rawName = (typeof p.name === 'string' ? p.name.trim() : '');
+    const pushName = (
+        typeof p.pushName === 'string' && p.pushName.trim() ? p.pushName.trim() :
+        typeof p.notifyName === 'string' && p.notifyName.trim() ? p.notifyName.trim() :
+        typeof p.vcardName === 'string' && p.vcardName.trim() ? p.vcardName.trim() : ''
+    );
+
+    const isPhoneOrJid = (str: string) => {
+        if (!str) return true;
+        if (str.includes('@')) return true;
+        const digits = str.replace(/\D/g, '');
+        return digits.length >= 8 && (str === digits || str.startsWith('+') || str.startsWith('55'));
+    };
+
+    let displayName = '';
+    let isPush = false;
+
+    if (rawName && !isPhoneOrJid(rawName)) {
+        displayName = rawName;
+        if (rawName.startsWith('~')) isPush = true;
+    } else if (pushName && !isPhoneOrJid(pushName)) {
+        displayName = pushName.startsWith('~') ? pushName : `~${pushName}`;
+        isPush = true;
+    } else if (p.shortName && !isPhoneOrJid(p.shortName)) {
+        displayName = `~${p.shortName}`;
+        isPush = true;
+    } else {
+        displayName = 'Sem Nome';
+    }
+
+    return {
+        displayName,
+        pushName: pushName || (displayName.startsWith('~') ? displayName : ''),
+        isPushName: isPush
+    };
+}
+
 export interface ZApiCredentials {
     instanceId: string;
     instanceToken: string;
@@ -248,9 +286,7 @@ export const zapiGroupSyncService = {
             const cleanP = normalizePhone(p.phone);
             const waDispPhone = formatPhoneDisplay(cleanP);
 
-            const rawWaName = (p.name || p.pushName || p.notifyName || p.shortName || 'Sem Nome').trim();
-            const pushName = (p.pushName || p.notifyName || (p.name?.startsWith('~') ? p.name : '') || '').trim();
-            const isPushName = !!pushName || rawWaName.startsWith('~');
+            const { displayName: rawWaName, pushName, isPushName } = cleanParticipantName(p);
 
             // Limpa ~ e acentos para fazer match com publicadores do banco RVM
             const waNameClean = cleanWaName(rawWaName);
