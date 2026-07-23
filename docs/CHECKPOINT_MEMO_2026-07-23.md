@@ -33,13 +33,12 @@ Este memorando consolida todas as alterações, arquiteturas e melhorias impleme
 
 ## 2. Autenticação, Biometria & Primeiro Acesso
 
-### 2.1 Login por Biometria/PIN (WebAuthn / Passkeys)
-- **Painel de Configuração**: Adicionado suporte no Admin para registro e gestão de credenciais biométricas (Touch ID / Face ID / Fingerprint / PIN do aparelho).
-- **Auto-Bind no Primeiro Acesso**: No primeiro acesso em dispositivos móveis, o vínculo de e-mail e biometria é realizado automaticamente no login sem necessidade de digitação repetida de e-mail.
+### 2.1 Login por Biometria/PIN (WebAuthn / Passkeys / Windows Hello)
+- **Pareamento do PIN do Windows 11**: Atualizada a tela de login (`LoginPage.tsx`) para manter visível o botão "Entrar com Conta Google (1º Acesso / Vincular PIN)". Ao realizar o primeiro acesso no notebook, o `AuthContext` ativa a Passkey nativa do Windows 11, solicitando o PIN do aparelho e vinculando-o ao e-mail (`eliezerrosa@outlook.com` / `zico.josias@gmail.com`).
+- **Acessos Futuros em 1-Clique**: Após o pareamento inicial, os próximos acessos liberam a autenticação instantânea pelo botão "Entrar com Biometria / PIN do Aparelho", abrindo direto a janela do Windows Hello no Windows 11.
 
 ### 2.2 Sincronização Global do Modo de Autenticação (`auth_system_mode`)
-- Sincronização em tempo real do modo de autenticação do sistema (`auth_system_mode` em `app_settings`) para todos os dispositivos ativos, com fallback seguro no componente `LoginPage.tsx`.
-- Simplificação do fluxo de primeiro acesso via Google OAuth com 1 toque.
+- Sincronização em tempo real do modo de autenticação do sistema (`auth_system_mode` em `app_settings`) para todos os dispositivos ativos, com fallback seguro para primeiro acesso via Google OAuth.
 
 ---
 
