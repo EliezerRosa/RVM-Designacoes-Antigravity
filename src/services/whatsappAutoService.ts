@@ -655,6 +655,12 @@ export interface WhatsAppAutoService {
     recipients: Array<{ phone: string; message: string }>,
     options?: { delayMs?: number; onProgress?: (index: number, total: number, result: WhatsAppSendResult) => void }
   ): Promise<WhatsAppSendResult[]>;
+
+  /** Lista chats da conta (se suportado pelo provedor). */
+  fetchChats?(): Promise<Array<{ id: string; name: string; isGroup?: boolean }>>;
+
+  /** Busca membros e metadados de um grupo (se suportado pelo provedor). */
+  fetchGroupMetadata?(groupIdOrPhone: string): Promise<any>;
 }
 
 /**
@@ -738,6 +744,20 @@ export function createWhatsAppAutoService(config: WhatsAppAutoConfig): WhatsAppA
       }
 
       return results;
+    },
+
+    async fetchChats() {
+      if (provider.fetchChats) {
+        return provider.fetchChats();
+      }
+      return [];
+    },
+
+    async fetchGroupMetadata(groupIdOrPhone: string) {
+      if (provider.fetchGroupMetadata) {
+        return provider.fetchGroupMetadata(groupIdOrPhone);
+      }
+      return null;
     },
   };
 }
