@@ -39,6 +39,8 @@ export interface WhatsAppProvider {
   sendText(phone: string, message: string): Promise<WhatsAppSendResult>;
   sendImage?(phone: string, imageBase64: string, caption?: string): Promise<WhatsAppSendResult>;
   checkConnection(): Promise<WhatsAppConnectionStatus>;
+  fetchChats?(): Promise<Array<{ id: string; name: string; isGroup?: boolean }>>;
+  fetchGroupMetadata?(groupIdOrPhone: string): Promise<any>;
 }
 
 // ─── Configuração ───────────────────────────────────────────────────────────
@@ -295,6 +297,54 @@ class ZApiProvider implements WhatsAppProvider {
       return { success: true, messageId: data.messageId, provider: this.name };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err), provider: this.name };
+    }
+  }
+
+  async fetchChats(): Promise<Array<{ id: string; name: string; isGroup?: boolean }>> {
+    try {
+      const res = await fetch(`${this.baseUrl}/chats`, {
+        headers: { 'client-token': this.clientToken },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : (data.chats || []);
+    } catch (err) {
+      console.warn('[ZApiProvider] Error fetching chats:', err);
+      return [];
+    }
+  }
+
+  async fetchGroupMetadata(groupIdOrPhone: string): Promise<any> {
+    try {
+      const cleanTarget = groupIdOrPhone.trim();
+      if (!cleanTarget) return null;
+
+      // 1. Tentar buscar metadata direto se parecer um ID de grupo ou número
+      const directRes = await fetch(`${this.baseUrl}/group-metadata/${cleanTarget}`, {
+        headers: { 'client-token': this.clientToken },
+      });
+      if (directRes.ok) {
+        return await directRes.json();
+      }
+
+      // 2. Se falhar ou for busca por nome, listar chats e procurar por parte do nome
+      const chats = await this.fetchChats();
+      const targetLower = cleanTarget.toLowerCase();
+      const found = chats.find(c => (c.name || '').toLowerCase().includes(targetLower) || c.id === cleanTarget);
+      
+      if (found?.id) {
+        const groupRes = await fetch(`${this.baseUrl}/group-metadata/${found.id}`, {
+          headers: { 'client-token': this.clientToken },
+        });
+        if (groupRes.ok) {
+          return await groupRes.json();
+        }
+      }
+
+      return null;
+    } catch (err) {
+      console.error('[ZApiProvider] Error fetching group metadata:', err);
+      return null;
     }
   }
 
