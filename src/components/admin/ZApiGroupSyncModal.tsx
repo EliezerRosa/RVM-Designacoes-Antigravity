@@ -43,11 +43,9 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
             setInstanceId(creds.instanceId);
             setInstanceToken(creds.instanceToken);
             setClientToken(creds.clientToken);
-            setShowCredsForm(false);
-            handleFetchMembers();
-        } else {
-            setShowCredsForm(true);
         }
+        setShowCredsForm(false);
+        handleFetchMembers();
     };
 
     const handleSaveCreds = async () => {
