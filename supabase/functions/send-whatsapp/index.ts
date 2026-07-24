@@ -684,11 +684,16 @@ serve(async (req: Request) => {
         console.warn('[robot] Erro no Passo 3 Auto-Binding:', bindErr);
       }
 
+      const finalUnresolved = participants.filter((p: any) => !p.name && !p.pushName);
+      const unresolvedPhones = finalUnresolved.map((p: any) => (p.phone || p.id || '').replace(/\D/g, ''));
+
       return new Response(JSON.stringify({
         success: result.success,
         groupName: result.groupName,
         totalParticipants: participants.length,
-        unresolvedCount: participants.filter((p: any) => !p.name && !p.pushName).length,
+        unresolvedCount: finalUnresolved.length,
+        unresolvedPhones: unresolvedPhones,
+        needsDomSearch: finalUnresolved.length > 0,
         autoBoundCount: autoBoundCount,
         participants: participants,
         executedAt: new Date().toISOString()
