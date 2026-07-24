@@ -183,6 +183,32 @@ export function ZApiMemberSearchPanel() {
         }
     };
 
+    const handleRunBackendRobot = async () => {
+        setLoading(true);
+        setActionMsg(null);
+        try {
+            const data = await zapiGroupSyncService.runBackendZApiRobot(groupName);
+            setActionMsg({
+                type: 'success',
+                text: `🤖 Robô executado com sucesso no Backend! ${data.totalParticipants} membros analisados no grupo "${data.groupName}".`
+            });
+            if (data.participants && Array.isArray(data.participants)) {
+                const reconciled = await zapiGroupSyncService.reconcileWithRvm(data.participants);
+                setSearchResults(reconciled.map(m => ({
+                    waPhone: m.waPhone,
+                    waName: m.waName,
+                    isPushName: m.isPushName,
+                    matchedPub: m.publisherId ? publishers.find(p => p.id === m.publisherId) : undefined,
+                    status: m.status
+                })));
+            }
+        } catch (err: any) {
+            setActionMsg({ type: 'error', text: 'Erro ao rodar robô no backend: ' + (err.message || String(err)) });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const copyWaWebScript = () => {
         const scriptCode = `(function(){const d=document.querySelector('div[role="dialog"]');if(!d){console.warn('Abra "Pesquisar membros" no WhatsApp Web');return}const items=d.querySelectorAll('div[role="listitem"]');items.forEach(i=>{const t=i.innerText;if(t.includes('~')){console.log('📌 Perfil WA:',t)}});})();`;
         navigator.clipboard.writeText(scriptCode);
@@ -196,21 +222,40 @@ export function ZApiMemberSearchPanel() {
                 <h3 style={{ margin: 0, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     🔍 Consulta & Captura Directa de Perfil WhatsApp Web
                 </h3>
-                <button
-                    onClick={copyWaWebScript}
-                    style={{
-                        padding: '6px 12px',
-                        background: '#334155',
-                        color: '#38bdf8',
-                        border: '1px solid #38bdf8',
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer'
-                    }}
-                    title="Copia um script leve para colar no Console F12 da sua aba do WhatsApp Web"
-                >
-                    {copiedScript ? '✓ Script Copiado!' : '📋 Copiar Script para Console WA Web'}
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={handleRunBackendRobot}
+                        disabled={loading}
+                        style={{
+                            padding: '6px 14px',
+                            background: '#25d366',
+                            color: '#000',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 'bold',
+                            fontSize: '0.82rem',
+                            cursor: loading ? 'not-allowed' : 'pointer'
+                        }}
+                        title="Dispara o robô no backend Z-API para varrer o grupo e enriquecer nomes de perfil"
+                    >
+                        {loading ? '🤖 Robô Rodando...' : '🤖 Executar Robô Z-API (Backend)'}
+                    </button>
+                    <button
+                        onClick={copyWaWebScript}
+                        style={{
+                            padding: '6px 12px',
+                            background: '#334155',
+                            color: '#38bdf8',
+                            border: '1px solid #38bdf8',
+                            borderRadius: '6px',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer'
+                        }}
+                        title="Copia um script leve para colar no Console F12 da sua aba do WhatsApp Web"
+                    >
+                        {copiedScript ? '✓ Script Copiado!' : '📋 Copiar Script WA Web'}
+                    </button>
+                </div>
             </div>
 
             <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '0.88rem', lineHeight: '1.4' }}>

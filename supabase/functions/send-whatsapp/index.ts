@@ -572,6 +572,22 @@ serve(async (req: Request) => {
       });
     }
 
+    // ── Executar Robô de Varredura/Captura Z-API (Backend) ──
+    if (body.action === 'run-zapi-robot') {
+      const groupQuery = body.groupQuery || body.group || 'Congregação Parque Jacaraípe';
+      console.log(`[robot] Executando varredura automatizada backend para grupo: "${groupQuery}"`);
+      const result = await fetchZApiGroupMetadata(groupQuery);
+      return new Response(JSON.stringify({
+        success: result.success,
+        groupName: result.groupName,
+        totalParticipants: result.participants?.length || 0,
+        participants: result.participants,
+        executedAt: new Date().toISOString()
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { phone, message, image, caption, action } = body;
 
     if (!phone) {
