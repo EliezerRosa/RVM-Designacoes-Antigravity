@@ -420,7 +420,7 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
             const res = await fetch(`${baseUrl}/contacts/${phone55}`, { headers });
             if (res.ok) {
               const data = await res.json();
-              console.log(`[enrich] /contacts/${phone55} => notify="${data.notify}", name="${data.name}", short="${data.short}"`);
+              console.log(`[enrich] /contacts/${phone55} raw payload:`, JSON.stringify(data));
               return { phone: p._rawPhone, data };
             } else {
               console.log(`[enrich] /contacts/${phone55} => HTTP ${res.status}`);
@@ -560,6 +560,14 @@ serve(async (req: Request) => {
       const result = await fetchZApiGroupMetadata(groupQuery);
       return new Response(JSON.stringify(result), {
         status: result.success ? 200 : 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ── Update push name from WA Web Robot ──
+    if (body.action === 'update-push-name') {
+      console.log(`[robot] PushName capturado para ${body.phone}: "${body.pushName}"`);
+      return new Response(JSON.stringify({ success: true, phone: body.phone, pushName: body.pushName }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
