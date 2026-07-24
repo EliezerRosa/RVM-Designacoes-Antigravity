@@ -368,36 +368,65 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
   }
 
   // 3. Mapear participantes e buscar individualmente os que ficaram sem nome
+  /** Verifica se a string é apenas um telefone formatado (sem letras) */
+  const isPhoneString = (s: string) => !s || /^[\d\s\+\-\(\)\.\@swhatp:\/net]+$/i.test(s.trim());
+
   const enriched = participants.map((p: any) => {
     const rawP = (p.phone || p.id || '').replace(/\D/g, '');
     const cleanP = rawP.startsWith('55') && rawP.length > 11 ? rawP.slice(2) : rawP;
     const extra = contactsMap.get(rawP) || contactsMap.get(cleanP);
-    const pName = p.name || p.pushName || p.notifyName || extra?.name || extra?.pushName || '';
-    const pPush = p.pushName || p.notifyName || extra?.pushName || extra?.notifyName || (typeof pName === 'string' && pName.startsWith('~') ? pName : '');
+
+    // Filtrar nomes que são na verdade telefones
+    const rawName = (p.name || '');
+    const effectiveName = isPhoneString(rawName) ? '' : rawName;
+    const rawPush = (p.pushName || p.notifyName || '');
+    const effectivePush = isPhoneString(rawPush) ? '' : rawPush;
+    const extraName = (extra?.name || '');
+    const effectiveExtraName = isPhoneString(extraName) ? '' : extraName;
+    const extraPush = (extra?.pushName || '');
+    const effectiveExtraPush = isPhoneString(extraPush) ? '' : extraPush;
+
+    const pName = effectiveName || effectivePush || effectiveExtraName || effectiveExtraPush || '';
+    const pPush = effectivePush || effectiveExtraPush || (extra?.notifyName && !isPhoneString(extra.notifyName) ? extra.notifyName : '') || '';
+
+    const needsFetch = !pName && !pPush;
+    if (needsFetch) {
+      console.log(`[enrich] Participante sem nome: phone=${rawP}, p.name="${p.name}", p.pushName="${p.pushName}", extra=${JSON.stringify(extra)}`);
+    }
+
     return {
       ...p,
       phone: p.phone || p.id || '',
       name: pName || pPush || '',
       pushName: pPush || '',
       notifyName: p.notifyName || extra?.notifyName || '',
-      _needsFetch: !pName && !pPush, // marcar para busca individual
+      _needsFetch: needsFetch,
       _rawPhone: rawP,
     };
   });
 
-  // 4. Buscar perfil individual para participantes sem nome (batch de até 20 por vez)
+  // 4. Buscar perfil individual para participantes sem nome via /contacts/{phone}
   const needsFetch = enriched.filter(p => p._needsFetch && p._rawPhone);
+  console.log(`[enrich] Total participantes: ${enriched.length}, sem nome (needsFetch): ${needsFetch.length}`);
+
   if (needsFetch.length > 0) {
-    const batchSize = 20;
+    const batchSize = 15;
     for (let i = 0; i < needsFetch.length && i < 60; i += batchSize) {
       const batch = needsFetch.slice(i, i + batchSize);
       const results = await Promise.allSettled(
         batch.map(async (p) => {
           const phone55 = p._rawPhone.startsWith('55') ? p._rawPhone : `55${p._rawPhone}`;
-          const res = await fetch(`${baseUrl}/contacts/${phone55}`, { headers });
-          if (res.ok) {
-            const data = await res.json();
-            return { phone: p._rawPhone, data };
+          try {
+            const res = await fetch(`${baseUrl}/contacts/${phone55}`, { headers });
+            if (res.ok) {
+              const data = await res.json();
+              console.log(`[enrich] /contacts/${phone55} => notify="${data.notify}", name="${data.name}", short="${data.short}"`);
+              return { phone: p._rawPhone, data };
+            } else {
+              console.log(`[enrich] /contacts/${phone55} => HTTP ${res.status}`);
+            }
+          } catch (e) {
+            console.warn(`[enrich] /contacts/${phone55} => Error:`, e);
           }
           return null;
         })
@@ -408,9 +437,12 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
           const target = enriched.find(ep => ep._rawPhone === phone);
           if (target) {
             const notify = data.notify || data.pushName || data.name || data.short || '';
-            target.name = notify || data.name || '';
-            target.pushName = notify || '';
-            target.notifyName = data.notify || '';
+            const effectiveNotify = isPhoneString(notify) ? '' : notify;
+            if (effectiveNotify) {
+              target.name = effectiveNotify;
+              target.pushName = effectiveNotify;
+              target.notifyName = data.notify || '';
+            }
           }
         }
       });
