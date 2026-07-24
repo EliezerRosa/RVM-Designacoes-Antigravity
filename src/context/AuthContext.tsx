@@ -226,14 +226,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fallback: if gotrue-js completely crashes internally during initialize (e.g. due to severe clock skew AbortError)
     // and never fires INITIAL_SESSION, we force the loading state to finish after 3 seconds.
     const fallbackTimer = setTimeout(() => {
-      if (mounted) {
+      if (mounted && !processedSessionKeyRef.current && !loggedSessionKeyRef.current) {
         console.warn('[Auth] Fallback timeout reached. Supabase initialize may have crashed. Forcing login screen.');
-        // We only want to force updateState if we haven't processed a session yet
-        if (!processedSessionKeyRef.current && !loggedSessionKeyRef.current) {
-           updateState(null, null, null);
-        }
+        updateState(null, null, null);
       }
-    }, 3000);
+    }, 5000);
 
     return () => {
       mounted = false;
