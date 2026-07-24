@@ -308,37 +308,67 @@ async function listZApiGroups() {
   return { success: true, groups };
 }
 
-/** Enriquece os nomes de perfil (pushName/notifyName) dos participantes usando o cache de chats da Z-API. */
+/** Enriquece os nomes de perfil (pushName/notifyName) dos participantes usando contatos e chats da Z-API. */
 async function enrichZApiParticipants(instanceId: string, instanceToken: string, clientToken: string, participants: any[]) {
   if (!Array.isArray(participants) || participants.length === 0) return [];
   
   const contactsMap = new Map<string, { name?: string; pushName?: string; notifyName?: string }>();
+  const baseUrl = `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}`;
+  const headers = { 'client-token': clientToken };
+
+  // 1. Carregar lista de contatos completa (/contacts) — inclui todos os contatos com "notify" (pushName)
   try {
-    const chatsRes = await fetch(
-      `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chats?page=1&pageSize=300`,
-      { headers: { 'client-token': clientToken } }
-    );
-    if (chatsRes.ok) {
-      const chats = await chatsRes.json();
-      if (Array.isArray(chats)) {
-        chats.forEach((c: any) => {
+    const contactsRes = await fetch(`${baseUrl}/contacts`, { headers });
+    if (contactsRes.ok) {
+      const contacts = await contactsRes.json();
+      if (Array.isArray(contacts)) {
+        contacts.forEach((c: any) => {
           const rawP = (c.phone || c.id || '').replace(/\D/g, '');
           const cleanP = rawP.startsWith('55') && rawP.length > 11 ? rawP.slice(2) : rawP;
           const info = {
-            name: c.name || c.contactName,
-            pushName: c.pushName || c.notifyName || c.name,
-            notifyName: c.notifyName || c.pushName,
+            name: c.name || c.contactName || c.short,
+            pushName: c.notify || c.pushName || c.name,
+            notifyName: c.notify || c.notifyName,
           };
           if (rawP) contactsMap.set(rawP, info);
-          if (cleanP) contactsMap.set(cleanP, info);
+          if (cleanP && cleanP !== rawP) contactsMap.set(cleanP, info);
         });
       }
     }
   } catch (e) {
-    console.warn('Falha ao buscar cache de chats Z-API para enriquecimento:', e);
+    console.warn('[enrich] Falha ao buscar /contacts Z-API:', e);
   }
 
-  return participants.map((p: any) => {
+  // 2. Complementar com cache de chats (captura pushName de conversas recentes)
+  try {
+    const chatsRes = await fetch(`${baseUrl}/chats?page=1&pageSize=300`, { headers });
+    if (chatsRes.ok) {
+      const chats = await chatsRes.json();
+      if (Array.isArray(chats)) {
+        chats.forEach((c: any) => {
+          if (c.isGroup) return;
+          const rawP = (c.phone || c.id || '').replace(/\D/g, '');
+          const cleanP = rawP.startsWith('55') && rawP.length > 11 ? rawP.slice(2) : rawP;
+          if (!rawP) return;
+          // Só preenche se não tiver info de contato melhor
+          if (!contactsMap.has(rawP) && !contactsMap.has(cleanP)) {
+            const info = {
+              name: c.name || c.contactName,
+              pushName: c.pushName || c.notifyName || c.name,
+              notifyName: c.notifyName || c.pushName,
+            };
+            if (rawP) contactsMap.set(rawP, info);
+            if (cleanP && cleanP !== rawP) contactsMap.set(cleanP, info);
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('[enrich] Falha ao buscar /chats Z-API:', e);
+  }
+
+  // 3. Mapear participantes e buscar individualmente os que ficaram sem nome
+  const enriched = participants.map((p: any) => {
     const rawP = (p.phone || p.id || '').replace(/\D/g, '');
     const cleanP = rawP.startsWith('55') && rawP.length > 11 ? rawP.slice(2) : rawP;
     const extra = contactsMap.get(rawP) || contactsMap.get(cleanP);
@@ -350,8 +380,45 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
       name: pName || pPush || '',
       pushName: pPush || '',
       notifyName: p.notifyName || extra?.notifyName || '',
+      _needsFetch: !pName && !pPush, // marcar para busca individual
+      _rawPhone: rawP,
     };
   });
+
+  // 4. Buscar perfil individual para participantes sem nome (batch de até 20 por vez)
+  const needsFetch = enriched.filter(p => p._needsFetch && p._rawPhone);
+  if (needsFetch.length > 0) {
+    const batchSize = 20;
+    for (let i = 0; i < needsFetch.length && i < 60; i += batchSize) {
+      const batch = needsFetch.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(async (p) => {
+          const phone55 = p._rawPhone.startsWith('55') ? p._rawPhone : `55${p._rawPhone}`;
+          const res = await fetch(`${baseUrl}/contacts/${phone55}`, { headers });
+          if (res.ok) {
+            const data = await res.json();
+            return { phone: p._rawPhone, data };
+          }
+          return null;
+        })
+      );
+      results.forEach((r) => {
+        if (r.status === 'fulfilled' && r.value?.data) {
+          const { phone, data } = r.value;
+          const target = enriched.find(ep => ep._rawPhone === phone);
+          if (target) {
+            const notify = data.notify || data.pushName || data.name || data.short || '';
+            target.name = notify || data.name || '';
+            target.pushName = notify || '';
+            target.notifyName = data.notify || '';
+          }
+        }
+      });
+    }
+  }
+
+  // Limpar campos internos antes de retornar
+  return enriched.map(({ _needsFetch, _rawPhone, ...rest }) => rest);
 }
 
 /** Busca os metadados e membros de um grupo no Z-API por ID ou Nome. */
