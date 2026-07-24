@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { OnboardingBatchModal } from './OnboardingBatchModal';
 import { ZApiGroupSyncModal } from './ZApiGroupSyncModal';
+import { ZApiMemberSearchPanel } from './ZApiMemberSearchPanel';
 
 export function ZApiConfigPanel() {
     const [isActive, setIsActive] = useState(false);
@@ -131,6 +132,8 @@ export function ZApiConfigPanel() {
                 </div>
             </div>
             
+            <ZApiMemberSearchPanel />
+
             <OnboardingBatchModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
