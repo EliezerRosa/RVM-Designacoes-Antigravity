@@ -187,7 +187,8 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                 setItems(reconciled);
                 setAllPublishers(pubList);
                 const autoBoundText = data.autoBoundCount > 0 ? ` 🎉 ${data.autoBoundCount} publicador(es) vinculado(s) e gravado(s) automaticamente no banco de dados!` : '';
-                setResultMsg(`✅ Robô Backend concluído com sucesso! ${data.totalParticipants || reconciled.length} membros analisados no grupo "${data.groupName || groupInput}".${autoBoundText}`);
+                const domNotice = data.unresolvedCount > 0 ? ` 💡 (${data.unresolvedCount} contato(s) "Sem Nome" restantes. Use a busca por 8889 ou o botão do Robô Visual para resolver na tela).` : '';
+                setResultMsg(`✅ Robô Backend concluído com sucesso! ${data.totalParticipants || reconciled.length} membros analisados no grupo "${data.groupName || groupInput}".${autoBoundText}${domNotice}`);
             } else {
                 handleFetchMembers();
             }
