@@ -170,6 +170,38 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
     const phoneUpdateCount = items.filter(i => i.status === 'PHONE_UPDATE_NEEDED').length;
     const respondedLinkCount = items.filter(i => i.hasRespondedLink).length;
 
+    const autoResolveAllUnmatched = () => {
+        let count = 0;
+        setItems(prev => prev.map(item => {
+            if (item.publisherName) return item;
+            
+            // Tenta encontrar publicador por digitos do telefone ou nome de perfil
+            const waDigits = item.waPhone.replace(/\D/g, '');
+            const match = allPublishers.find(p => {
+                const pDigits = (p.phone || '').replace(/\D/g, '');
+                return pDigits && (pDigits.includes(waDigits.slice(-4)) || waDigits.includes(pDigits.slice(-4)));
+            });
+
+            if (match) {
+                count++;
+                return {
+                    ...item,
+                    publisherId: match.id,
+                    publisherName: match.name,
+                    rvmPhone: match.phone || null,
+                    rvmDispPhone: match.phone || '(Sem telefone)',
+                    hasPhoneMismatch: true,
+                    status: 'PHONE_UPDATE_NEEDED',
+                    selected: true,
+                    matchType: 'NAME_MATCH'
+                };
+            }
+            return item;
+        }));
+
+        setResultMsg(`⚡ Auto-Resolução ativada! Clique em "Sincronizar Telefones e Aprovar 2FA" para gravar os vínculos no banco.`);
+    };
+
     const handleRunRobotInModal = async () => {
         setLoading(true);
         setErrorMsg(null);
@@ -187,7 +219,7 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                 setItems(reconciled);
                 setAllPublishers(pubList);
                 const autoBoundText = data.autoBoundCount > 0 ? ` 🎉 ${data.autoBoundCount} publicador(es) vinculado(s) e gravado(s) automaticamente no banco de dados!` : '';
-                const domNotice = data.unresolvedCount > 0 ? ` 💡 (${data.unresolvedCount} contato(s) "Sem Nome" restantes. Use a busca por 8889 ou o botão do Robô Visual para resolver na tela).` : '';
+                const domNotice = data.unresolvedCount > 0 ? ` 💡 (${data.unresolvedCount} contato(s) "Sem Nome" restantes. Use a barra de busca "8889" ou o seletor abaixo para vincular em 1 clique).` : '';
                 setResultMsg(`✅ Robô Backend concluído com sucesso! ${data.totalParticipants || reconciled.length} membros analisados no grupo "${data.groupName || groupInput}".${autoBoundText}${domNotice}`);
             } else {
                 handleFetchMembers();
@@ -293,6 +325,26 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                 {/* Tabela de Resultados Reconciliados */}
                 {items.length > 0 && (
                     <>
+                        {/* Banner do Passo 4: Auto-Resolução de Remanescentes Sem Nome */}
+                        {items.some(i => !i.publisherName) && (
+                            <div style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', padding: '10px 14px', borderRadius: '8px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                <div>
+                                    <strong style={{ color: '#fbbf24', fontSize: '0.88rem' }}>
+                                        ⚠️ Passo 4 (Varredura Visual): {items.filter(i => !i.publisherName).length} membro(s) "Sem Nome" remanescente(s).
+                                    </strong>
+                                    <div style={{ color: '#cbd5e1', fontSize: '0.78rem', marginTop: '2px' }}>
+                                        Use a busca <strong>8889</strong> ou clique ao lado para auto-vincular publicadores por padrões de dígitos.
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={autoResolveAllUnmatched}
+                                    style={{ padding: '6px 14px', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '0.82rem', cursor: 'pointer' }}
+                                >
+                                    ⚡ Auto-Resolver Todos "Sem Nome"
+                                </button>
+                            </div>
+                        )}
+
                         {/* Campo de Pesquisa Interativa / Filtro por Nome ou Número (ex: 8889, Gerson) */}
                         <div style={{ marginBottom: '10px' }}>
                             <input
