@@ -418,13 +418,19 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
           const phone55 = p._rawPhone.startsWith('55') ? p._rawPhone : `55${p._rawPhone}`;
           try {
             const res = await fetch(`${baseUrl}/contacts/${phone55}`, { headers });
+            let data: any = null;
             if (res.ok) {
-              const data = await res.json();
-              console.log(`[enrich] /contacts/${phone55} raw payload:`, JSON.stringify(data));
-              return { phone: p._rawPhone, data };
-            } else {
-              console.log(`[enrich] /contacts/${phone55} => HTTP ${res.status}`);
+              data = await res.json();
             }
+            if (!data || (!data.notify && !data.pushName && !data.name)) {
+              // Fallback: Tenta /chats/{phone55} para resgatar pushName/nome de conversa
+              const chatRes = await fetch(`${baseUrl}/chats/${phone55}`, { headers });
+              if (chatRes.ok) {
+                const chatData = await chatRes.json();
+                data = { ...(data || {}), ...chatData };
+              }
+            }
+            return { phone: p._rawPhone, data };
           } catch (e) {
             console.warn(`[enrich] /contacts/${phone55} => Error:`, e);
           }
