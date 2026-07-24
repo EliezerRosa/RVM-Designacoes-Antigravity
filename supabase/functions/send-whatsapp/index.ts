@@ -578,16 +578,54 @@ serve(async (req: Request) => {
       });
     }
 
-    // ── Executar Robô de Varredura/Captura Z-API (Backend) ──
+    // ── Executar Robô de Varredura/Captura Z-API (Backend 2-Pass Deep Resolution) ──
     if (body.action === 'run-zapi-robot') {
       const groupQuery = body.groupQuery || body.group || 'Congregação Parque Jacaraípe';
-      console.log(`[robot] Executando varredura automatizada backend para grupo: "${groupQuery}"`);
+      console.log(`[robot] Executando varredura automatizada backend (Passo 1 + Passo 2 Deep Resolution) para grupo: "${groupQuery}"`);
+      
       const result = await fetchZApiGroupMetadata(groupQuery);
+      const participants = result.participants || [];
+
+      // Identifica participantes que permaneceram sem nome após o Passo 1
+      const unresolved = participants.filter((p: any) => !p.name && !p.pushName);
+      console.log(`[robot] Passo 1 concluído. Total: ${participants.length}, Sem Nome remanescentes: ${unresolved.length}`);
+
+      if (unresolved.length > 0 && result.success) {
+        const creds = await getZApiCredentials();
+        if (creds) {
+          const { instanceId, instanceToken, clientToken } = creds;
+          const headers = { 'client-token': clientToken };
+
+          // Passo 2: Tenta resgatar histórico de mensagens e perfil público para os números não encontrados
+          for (const unres of unresolved) {
+            const cleanP = (unres.phone || unres.id || '').replace(/\D/g, '');
+            const phone55 = cleanP.startsWith('55') ? cleanP : `55${cleanP}`;
+            
+            try {
+              // 1. Tentar buscar /chats/{phone55}
+              const chatRes = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chats/${phone55}`, { headers });
+              if (chatRes.ok) {
+                const cData = await chatRes.json();
+                const notify = cData.name || cData.pushName || cData.notify || '';
+                if (notify && !isPhoneString(notify)) {
+                  unres.name = notify;
+                  unres.pushName = notify;
+                  console.log(`[robot] Passo 2 Deep Resolution encontrou nome para ${cleanP}: "${notify}"`);
+                }
+              }
+            } catch (e) {
+              console.warn(`[robot] Passo 2 erro no telefone ${cleanP}:`, e);
+            }
+          }
+        }
+      }
+
       return new Response(JSON.stringify({
         success: result.success,
         groupName: result.groupName,
-        totalParticipants: result.participants?.length || 0,
-        participants: result.participants,
+        totalParticipants: participants.length,
+        unresolvedCount: participants.filter((p: any) => !p.name && !p.pushName).length,
+        participants: participants,
         executedAt: new Date().toISOString()
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
