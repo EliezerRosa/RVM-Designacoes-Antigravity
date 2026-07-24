@@ -436,6 +436,24 @@ export const zapiGroupSyncService = {
         }
 
         return { updatedPublishers, updatedProfiles, errors };
+    },
+
+    /**
+     * Retorna a lista completa de publicadores do RVM para associacao/vinculacao manual.
+     */
+    async getAllPublishers(): Promise<Array<{ id: string; name: string; phone?: string }>> {
+        const { data: pubs } = await supabase.from('publishers').select('id, data');
+        const list: Array<{ id: string; name: string; phone?: string }> = [];
+
+        (pubs || []).forEach(p => {
+            const name = p.data?.name || '';
+            const phone = p.data?.phone || p.data?.contact_phone || '';
+            if (name) {
+                list.push({ id: p.id, name, phone });
+            }
+        });
+
+        return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     }
 };
 

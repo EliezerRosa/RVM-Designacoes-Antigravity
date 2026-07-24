@@ -37,6 +37,9 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
         }
     }, [isOpen]);
 
+    const [searchFilter, setSearchFilter] = useState('');
+    const [allPublishers, setAllPublishers] = useState<Array<{ id: string; name: string; phone?: string }>>([]);
+
     const checkCredentialsAndLoad = async () => {
         const creds = await zapiGroupSyncService.getZApiCredentials();
         if (creds) {
@@ -81,8 +84,12 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
             const { groupName: gName, participants } = await zapiGroupSyncService.fetchGroupParticipants(groupInput.trim());
             setGroupName(gName);
 
-            const reconciled = await zapiGroupSyncService.reconcileWithRvm(participants);
+            const [reconciled, pubList] = await Promise.all([
+                zapiGroupSyncService.reconcileWithRvm(participants),
+                zapiGroupSyncService.getAllPublishers()
+            ]);
             setItems(reconciled);
+            setAllPublishers(pubList);
         } catch (err: any) {
             console.error('Erro ao buscar membros do grupo:', err);
             const msg = err.message || '';
@@ -93,6 +100,26 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleManualBind = (itemId: string, pubId: string) => {
+        const pub = allPublishers.find(p => p.id === pubId);
+        if (!pub) return;
+
+        setItems(prev => prev.map(item => {
+            if (item.id !== itemId) return item;
+            return {
+                ...item,
+                publisherId: pub.id,
+                publisherName: pub.name,
+                rvmPhone: pub.phone || null,
+                rvmDispPhone: pub.phone ? pub.phone : '(Sem telefone)',
+                hasPhoneMismatch: true,
+                status: 'PHONE_UPDATE_NEEDED',
+                selected: true,
+                matchType: 'NAME_MATCH'
+            };
+        }));
     };
 
     const toggleSelectItem = (id: string) => {
@@ -229,6 +256,26 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                 {/* Tabela de Resultados Reconciliados */}
                 {items.length > 0 && (
                     <>
+                        {/* Campo de Pesquisa Interativa / Filtro por Nome ou Número (ex: 8889, Gerson) */}
+                        <div style={{ marginBottom: '10px' }}>
+                            <input
+                                type="text"
+                                value={searchFilter}
+                                onChange={e => setSearchFilter(e.target.value)}
+                                placeholder="🔍 Pesquisar por número ou nome no grupo (ex: 8889, Gerson, Jacaraípe)..."
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    background: '#0f172a',
+                                    border: '1px solid #6366f1',
+                                    borderRadius: '6px',
+                                    color: '#f8fafc',
+                                    fontSize: '0.85rem',
+                                    boxSizing: 'border-box',
+                                }}
+                            />
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', fontSize: '0.85rem' }}>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button onClick={() => toggleSelectAll(true)} style={btnSmallStyle}>Selecionar Todos</button>
@@ -254,7 +301,18 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {items.map(item => (
+                                    {items
+                                        .filter(item => {
+                                            if (!searchFilter.trim()) return true;
+                                            const q = searchFilter.toLowerCase().trim();
+                                            return (
+                                                (item.waName || '').toLowerCase().includes(q) ||
+                                                (item.waPhone || '').toLowerCase().includes(q) ||
+                                                (item.publisherName || '').toLowerCase().includes(q) ||
+                                                (item.profileEmail || '').toLowerCase().includes(q)
+                                            );
+                                        })
+                                        .map(item => (
                                         <tr key={item.id} style={{ borderBottom: '1px solid #1e293b', background: item.selected ? 'rgba(99, 102, 241, 0.08)' : 'transparent' }}>
                                             <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                                                 <input
@@ -350,7 +408,32 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <span style={{ color: '#64748b', fontStyle: 'italic' }}>Não identificado no RVM</span>
+                                                    <div>
+                                                        <div style={{ color: '#f59e0b', fontSize: '0.78rem', fontStyle: 'italic', marginBottom: '4px' }}>
+                                                            Não identificado no RVM
+                                                        </div>
+                                                        <select
+                                                            onChange={e => handleManualBind(item.id, e.target.value)}
+                                                            defaultValue=""
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '5px 8px',
+                                                                background: '#1e293b',
+                                                                border: '1px solid #6366f1',
+                                                                borderRadius: '6px',
+                                                                color: '#a5b4fc',
+                                                                fontSize: '0.78rem',
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            <option value="" disabled>🔍 Vincular a Publicador RVM...</option>
+                                                            {allPublishers.map(pub => (
+                                                                <option key={pub.id} value={pub.id}>
+                                                                    {pub.name} {pub.phone ? `(${pub.phone})` : '(Sem tel)'}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
                                                 )}
                                             </td>
                                             <td style={{ padding: '10px 12px' }}>
