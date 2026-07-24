@@ -170,6 +170,33 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
     const phoneUpdateCount = items.filter(i => i.status === 'PHONE_UPDATE_NEEDED').length;
     const respondedLinkCount = items.filter(i => i.hasRespondedLink).length;
 
+    const handleRunRobotInModal = async () => {
+        setLoading(true);
+        setErrorMsg(null);
+        setResultMsg(null);
+
+        try {
+            setResultMsg('🤖 Robô acionado no Backend! Analisando participantes e enriquecendo perfis "Sem Nome" (ex: 8889)...');
+            const data = await zapiGroupSyncService.runBackendZApiRobot(groupInput.trim());
+            
+            if (data.participants && Array.isArray(data.participants)) {
+                const [reconciled, pubList] = await Promise.all([
+                    zapiGroupSyncService.reconcileWithRvm(data.participants),
+                    zapiGroupSyncService.getAllPublishers()
+                ]);
+                setItems(reconciled);
+                setAllPublishers(pubList);
+                setResultMsg(`✅ Robô Backend concluído com sucesso! ${data.totalParticipants || reconciled.length} membros analisados no grupo "${data.groupName || groupInput}".`);
+            } else {
+                handleFetchMembers();
+            }
+        } catch (err: any) {
+            setErrorMsg('Erro ao executar robô no backend: ' + (err.message || String(err)));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return createPortal(
         <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -232,13 +259,13 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                     <label style={{ display: 'block', fontSize: '0.85rem', color: '#cbd5e1', fontWeight: 600, marginBottom: '6px' }}>
                         Nome do Grupo no WhatsApp ou ID:
                     </label>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                         <input
                             type="text"
                             value={groupInput}
                             onChange={e => setGroupInput(e.target.value)}
                             placeholder="Ex: Congregação Parque Jacaraípe"
-                            style={inputStyle}
+                            style={{ ...inputStyle, flex: 1, minWidth: '220px' }}
                         />
                         <button
                             onClick={handleFetchMembers}
@@ -246,6 +273,14 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                             style={btnPrimaryStyle}
                         >
                             {loading ? '🔍 Buscando...' : '🔍 Buscar Membros'}
+                        </button>
+                        <button
+                            onClick={handleRunRobotInModal}
+                            disabled={loading || syncing}
+                            style={{ ...btnPrimaryStyle, background: '#25d366', color: '#000' }}
+                            title="Executa a varredura e enriquecimento automatizado dos membros no Backend Z-API"
+                        >
+                            {loading ? '🤖 Robô Rodando...' : '🤖 Executar Robô Z-API (Backend)'}
                         </button>
                     </div>
                 </div>
