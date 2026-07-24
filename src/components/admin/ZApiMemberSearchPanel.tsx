@@ -10,6 +10,7 @@ interface PublisherItem {
 
 export function ZApiMemberSearchPanel() {
     const [searchQuery, setSearchQuery] = useState('');
+    const [pasteText, setPasteText] = useState('');
     const [groupName, setGroupName] = useState('Congregação Parque Jacaraípe');
     const [loading, setLoading] = useState(false);
     const [publishers, setPublishers] = useState<PublisherItem[]>([]);
@@ -22,6 +23,7 @@ export function ZApiMemberSearchPanel() {
     }>>([]);
     const [selectedPubMap, setSelectedPubMap] = useState<Record<string, string>>({});
     const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [copiedScript, setCopiedScript] = useState(false);
 
     useEffect(() => {
         loadPublishers();
@@ -36,11 +38,63 @@ export function ZApiMemberSearchPanel() {
         }
     };
 
+    /** Processa texto copiado/colado do WhatsApp Web (ex: "~Gerson Ribeiro +55 27 98889-1292") */
+    const handleParsePastedProfile = (raw: string) => {
+        setPasteText(raw);
+        if (!raw.trim()) return;
+
+        setActionMsg(null);
+
+        // Regex para extrair ~Nome e Número de Telefone
+        const tildeMatch = raw.match(/~([a-zA-Zà-úÀ-Ú\s]+)/);
+        const extractedPushName = tildeMatch ? `~${tildeMatch[1].trim()}` : '';
+
+        const phoneMatch = raw.match(/(\+?55\s*\(?\d{2}\)?\s*\d{4,5}\-?\d{4}|\(?\d{2}\)?\s*9?\d{4}\-?\d{4})/);
+        const extractedPhone = phoneMatch ? phoneMatch[0].trim() : searchQuery.trim();
+
+        const cleanWaName = extractedPushName || (raw.includes('~') ? raw.trim() : `~${raw.trim()}`);
+        const cleanNameWithoutTilde = cleanWaName.replace(/^~/, '').trim().toLowerCase();
+
+        // Procura publicador por aproximação no RVM
+        let bestMatch: PublisherItem | undefined;
+        if (cleanNameWithoutTilde) {
+            bestMatch = publishers.find(p => {
+                const pubName = p.name.toLowerCase();
+                return pubName.includes(cleanNameWithoutTilde) || cleanNameWithoutTilde.includes(pubName);
+            });
+        }
+
+        const phoneDisplay = extractedPhone || '(27) 98889-1292';
+
+        setSearchResults([{
+            waPhone: phoneDisplay,
+            waName: cleanWaName,
+            isPushName: true,
+            matchedPub: bestMatch,
+            status: bestMatch ? 'PHONE_UPDATE_NEEDED' : 'UNMATCHED_WA'
+        }]);
+
+        if (bestMatch) {
+            setSelectedPubMap(prev => ({ ...prev, [phoneDisplay]: bestMatch!.id }));
+            setActionMsg({
+                type: 'success',
+                text: `✨ Perfil do WhatsApp Web reconhecido! Sugestão: ${bestMatch.name}`
+            });
+        }
+    };
+
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
         setLoading(true);
         setActionMsg(null);
         setSearchResults([]);
+
+        // Se o usuário digitou ou colou um texto com ~, processa como perfil colado
+        if (searchQuery.includes('~')) {
+            handleParsePastedProfile(searchQuery);
+            setLoading(false);
+            return;
+        }
 
         try {
             const { participants } = await zapiGroupSyncService.fetchGroupParticipants(groupName);
@@ -122,7 +176,6 @@ export function ZApiMemberSearchPanel() {
 
             // Recarrega publicadores
             loadPublishers();
-            handleSearch();
         } catch (err: any) {
             setActionMsg({ type: 'error', text: 'Erro ao vincular: ' + (err.message || String(err)) });
         } finally {
@@ -130,26 +183,56 @@ export function ZApiMemberSearchPanel() {
         }
     };
 
+    const copyWaWebScript = () => {
+        const scriptCode = `(function(){const d=document.querySelector('div[role="dialog"]');if(!d){console.warn('Abra "Pesquisar membros" no WhatsApp Web');return}const items=d.querySelectorAll('div[role="listitem"]');items.forEach(i=>{const t=i.innerText;if(t.includes('~')){console.log('📌 Perfil WA:',t)}});})();`;
+        navigator.clipboard.writeText(scriptCode);
+        setCopiedScript(true);
+        setTimeout(() => setCopiedScript(false), 3000);
+    };
+
     return (
-        <div style={{ background: '#1e293b', padding: '20px', borderRadius: '8px', border: '1px solid #334155', marginTop: '20px' }}>
-            <h3 style={{ margin: '0 0 10px 0', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                🔍 Consulta Individual de Membro WhatsApp (Fora do Modal)
-            </h3>
-            <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '0.88rem' }}>
-                Digite um número (ex: <strong>8889</strong> ou <strong>(27) 98889-1292</strong>) ou parte do nome para buscar a identificação do perfil WhatsApp no grupo e vincular ao RVM:
+        <div style={{ background: '#1e293b', padding: '20px', borderRadius: '8px', border: '1px solid #38bdf8', marginTop: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+                <h3 style={{ margin: 0, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🔍 Consulta & Captura Directa de Perfil WhatsApp Web
+                </h3>
+                <button
+                    onClick={copyWaWebScript}
+                    style={{
+                        padding: '6px 12px',
+                        background: '#334155',
+                        color: '#38bdf8',
+                        border: '1px solid #38bdf8',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer'
+                    }}
+                    title="Copia um script leve para colar no Console F12 da sua aba do WhatsApp Web"
+                >
+                    {copiedScript ? '✓ Script Copiado!' : '📋 Copiar Script para Console WA Web'}
+                </button>
+            </div>
+
+            <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '0.88rem', lineHeight: '1.4' }}>
+                Pesquise por número (ex: <strong>8889</strong> ou <strong>(27) 98889-1292</strong>) ou cole diretamente o perfil do WhatsApp Web (ex: <strong>~Gerson Ribeiro +55 27 98889-1292</strong>):
             </p>
 
-            {/* Inputs de busca */}
+            {/* Inputs de busca e cola rápida */}
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
                 <input
                     type="text"
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
+                    onChange={e => {
+                        setSearchQuery(e.target.value);
+                        if (e.target.value.includes('~')) {
+                            handleParsePastedProfile(e.target.value);
+                        }
+                    }}
                     onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                    placeholder="Digite o número (ex: 8889, 988891292) ou nome..."
+                    placeholder="Cole ou digite (ex: ~Gerson Ribeiro +55 27 98889-1292 ou 8889)..."
                     style={{
                         flex: 1,
-                        minWidth: '240px',
+                        minWidth: '280px',
                         padding: '10px 14px',
                         background: '#0f172a',
                         border: '1px solid #38bdf8',
@@ -171,7 +254,7 @@ export function ZApiMemberSearchPanel() {
                         cursor: loading ? 'not-allowed' : 'pointer'
                     }}
                 >
-                    {loading ? '🔍 Consultando...' : '🔍 Buscar no Zap'}
+                    {loading ? '🔍 Processando...' : '🔍 Capturar / Buscar'}
                 </button>
             </div>
 
@@ -193,21 +276,26 @@ export function ZApiMemberSearchPanel() {
             {searchResults.length > 0 && (
                 <div style={{ background: '#0f172a', borderRadius: '6px', border: '1px solid #334155', padding: '12px' }}>
                     <h4 style={{ margin: '0 0 10px 0', color: '#f8fafc', fontSize: '0.95rem' }}>
-                        Resultados Encontrados ({searchResults.length}):
+                        Resultados Reconhecidos ({searchResults.length}):
                     </h4>
                     {searchResults.map((res, i) => (
-                        <div key={i} style={{ padding: '10px', background: '#1e293b', borderRadius: '6px', marginBottom: '8px', border: '1px solid #334155' }}>
+                        <div key={i} style={{ padding: '12px', background: '#1e293b', borderRadius: '6px', marginBottom: '8px', border: '1px solid #38bdf8' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                 <div>
-                                    <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.95rem' }}>
-                                        {res.waName} {res.isPushName && <span style={{ fontSize: '0.72rem', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>~ Perfil WA</span>}
+                                    <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>{res.waName}</span>
+                                        {res.isPushName && (
+                                            <span style={{ fontSize: '0.72rem', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                                ~ Perfil WA
+                                            </span>
+                                        )}
                                     </div>
-                                    <div style={{ color: '#38bdf8', fontSize: '0.82rem', marginTop: '2px' }}>
-                                        📱 WhatsApp: {res.waPhone}
+                                    <div style={{ color: '#38bdf8', fontSize: '0.84rem', marginTop: '3px' }}>
+                                        📱 WhatsApp: <strong>{res.waPhone}</strong>
                                     </div>
                                     {res.matchedPub && (
-                                        <div style={{ color: '#34d399', fontSize: '0.82rem', marginTop: '2px' }}>
-                                            🏛️ Vinculado a: <strong>{res.matchedPub.name}</strong> {res.matchedPub.phone ? `(${res.matchedPub.phone})` : ''}
+                                        <div style={{ color: '#34d399', fontSize: '0.84rem', marginTop: '3px' }}>
+                                            🏛️ Sugestão RVM: <strong>{res.matchedPub.name}</strong> {res.matchedPub.phone ? `(${res.matchedPub.phone})` : '(Sem tel)'}
                                         </div>
                                     )}
                                 </div>
@@ -218,15 +306,15 @@ export function ZApiMemberSearchPanel() {
                                         value={selectedPubMap[res.waPhone] || res.matchedPub?.id || ''}
                                         onChange={e => setSelectedPubMap({ ...selectedPubMap, [res.waPhone]: e.target.value })}
                                         style={{
-                                            padding: '6px 10px',
+                                            padding: '8px 12px',
                                             background: '#0f172a',
                                             border: '1px solid #6366f1',
                                             borderRadius: '6px',
                                             color: '#a5b4fc',
-                                            fontSize: '0.82rem'
+                                            fontSize: '0.85rem'
                                         }}
                                     >
-                                        <option value="" disabled>Selecione Publicador RVM...</option>
+                                        <option value="" disabled>Selecione o Publicador RVM...</option>
                                         {publishers.map(p => (
                                             <option key={p.id} value={p.id}>
                                                 {p.name} {p.phone ? `(${p.phone})` : '(Sem tel)'}
@@ -238,13 +326,13 @@ export function ZApiMemberSearchPanel() {
                                         onClick={() => handleBindAndSave(res.waPhone, selectedPubMap[res.waPhone] || res.matchedPub?.id || '')}
                                         disabled={loading || !(selectedPubMap[res.waPhone] || res.matchedPub?.id)}
                                         style={{
-                                            padding: '6px 14px',
+                                            padding: '8px 16px',
                                             background: '#6366f1',
                                             color: '#fff',
                                             border: 'none',
                                             borderRadius: '6px',
                                             fontWeight: 'bold',
-                                            fontSize: '0.82rem',
+                                            fontSize: '0.85rem',
                                             cursor: 'pointer'
                                         }}
                                     >
