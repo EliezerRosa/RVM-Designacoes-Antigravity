@@ -186,7 +186,8 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
                 ]);
                 setItems(reconciled);
                 setAllPublishers(pubList);
-                setResultMsg(`✅ Robô Backend concluído com sucesso! ${data.totalParticipants || reconciled.length} membros analisados no grupo "${data.groupName || groupInput}".`);
+                const autoBoundText = data.autoBoundCount > 0 ? ` 🎉 ${data.autoBoundCount} publicador(es) vinculado(s) e gravado(s) automaticamente no banco de dados!` : '';
+                setResultMsg(`✅ Robô Backend concluído com sucesso! ${data.totalParticipants || reconciled.length} membros analisados no grupo "${data.groupName || groupInput}".${autoBoundText}`);
             } else {
                 handleFetchMembers();
             }
