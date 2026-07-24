@@ -454,6 +454,17 @@ export const zapiGroupSyncService = {
         });
 
         return list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    },
+
+    /**
+     * Executa o robô de varredura/captura automatizado do Z-API no Backend (Edge Function).
+     */
+    async runBackendZApiRobot(groupQuery: string = 'Congregação Parque Jacaraípe') {
+        const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+            body: { action: 'run-zapi-robot', groupQuery }
+        });
+        if (error) throw new Error(error.message || 'Falha ao executar robô no backend.');
+        return data;
     }
 };
 
