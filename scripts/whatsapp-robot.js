@@ -43,22 +43,12 @@ async function runWhatsAppRobot() {
         await page.goto('https://web.whatsapp.com', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
         console.log('⏳ Aguardando carregamento da sessão do WhatsApp Web...');
-        
-        // Verifica se há tela de QR Code para avisar o usuário
-        const qrCanvas = page.locator('canvas, div[data-ref]').first();
-        if (await qrCanvas.isVisible({ timeout: 5000 }).catch(() => false)) {
-            console.log('💡 [IMPORTANTE] QR Code detectado na janela do Chrome!');
-            console.log('📲 Abra o aplicativo do WhatsApp no celular -> Aparelhos conectados -> Conectar um aparelho para escanear o QR Code.');
-        }
-
-        // Seletor flexível para campo de busca principal do WhatsApp Web
-        const mainSearchSelector = 'div[contenteditable="true"][data-tab="3"], #side div[contenteditable="true"], div[title*="Pesquisar"][contenteditable="true"]';
-        await page.waitForSelector(mainSearchSelector, { timeout: 180000 });
+        await page.waitForSelector('div[contenteditable="true"][data-tab="3"]', { timeout: 120000 });
         console.log('✅ Sessão do WhatsApp Web carregada!');
 
         // 1. Abrir conversa do grupo
         console.log(`🔍 Pesquisando grupo "${TARGET_GROUP}"...`);
-        const mainSearch = page.locator(mainSearchSelector).first();
+        const mainSearch = page.locator('div[contenteditable="true"][data-tab="3"]').first();
         await mainSearch.click();
         await page.keyboard.press('Control+A');
         await page.keyboard.press('Backspace');
