@@ -606,7 +606,7 @@ serve(async (req: Request) => {
           const { instanceId, instanceToken, clientToken } = creds;
           const headers = { 'client-token': clientToken };
 
-          // Passo 2: Tenta resgatar histórico de mensagens e perfil público para os números não encontrados
+          // Passo 2: Tenta resgatar histórico de mensagens e perfil público na Z-API para os números não encontrados
           for (const unres of unresolved) {
             const cleanP = (unres.phone || unres.id || '').replace(/\D/g, '');
             const phone55 = cleanP.startsWith('55') ? cleanP : `55${cleanP}`;
@@ -620,7 +620,25 @@ serve(async (req: Request) => {
                 if (notify && !isPhoneString(notify)) {
                   unres.name = notify;
                   unres.pushName = notify;
-                  console.log(`[robot] Passo 2 Deep Resolution encontrou nome para ${cleanP}: "${notify}"`);
+                  console.log(`[robot] Passo 2 Deep Resolution via /chats encontrou nome para ${cleanP}: "${notify}"`);
+                  continue;
+                }
+              }
+
+              // 2. Tentar resgatar nome do remetente no histórico de mensagens /chat-messages/{phone55}
+              const msgRes = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chat-messages/${phone55}?amount=10`, { headers });
+              if (msgRes.ok) {
+                const msgData = await msgRes.json();
+                if (Array.isArray(msgData)) {
+                  for (const msg of msgData) {
+                    const sender = msg.senderName || msg.pushName || msg.notifyName || '';
+                    if (sender && !isPhoneString(sender)) {
+                      unres.name = sender;
+                      unres.pushName = sender;
+                      console.log(`[robot] Passo 2 Deep Resolution via /chat-messages encontrou nome para ${cleanP}: "${sender}"`);
+                      break;
+                    }
+                  }
                 }
               }
             } catch (e) {
