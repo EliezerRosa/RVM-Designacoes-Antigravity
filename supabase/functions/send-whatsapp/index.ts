@@ -22,11 +22,21 @@
 
 // @ts-ignore Deno import
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+// @ts-ignore Deno import
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+function removeAccents(str: string): string {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
 
 /**
  * Normaliza o destino. Para telefones BR aplica as regras usuais (55 + DDD).
@@ -620,11 +630,66 @@ serve(async (req: Request) => {
         }
       }
 
+      // ── Passo 3: Auto-Binding e Gravacao automatica no Supabase Postgres ──
+      let autoBoundCount = 0;
+      try {
+        // @ts-ignore Deno.env
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        // @ts-ignore Deno.env
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY');
+
+        if (supabaseUrl && supabaseKey) {
+          const supabaseClient = createClient(supabaseUrl, supabaseKey);
+          const { data: pubs } = await supabaseClient.from('publishers').select('id, data');
+          
+          if (pubs && Array.isArray(pubs)) {
+            for (const p of participants) {
+              const pName = (p.name || p.pushName || p.notifyName || '').replace(/^~/, '').trim();
+              const pPhone = (p.phone || p.id || '').replace(/\D/g, '');
+              
+              if (pName && pPhone && !isPhoneString(pName)) {
+                const normName = removeAccents(pName);
+                
+                // Procura publicador por nome correspondente no RVM
+                const matchPub = pubs.find(pub => {
+                  const pubName = removeAccents(pub.data?.name || '');
+                  return pubName && (pubName.includes(normName) || normName.includes(pubName));
+                });
+
+                if (matchPub) {
+                  const currentPhone = (matchPub.data?.phone || matchPub.data?.contact_phone || '').replace(/\D/g, '');
+                  if (!currentPhone || currentPhone !== pPhone) {
+                    const rawPhone = pPhone.startsWith('55') && pPhone.length > 11 ? pPhone.slice(2) : pPhone;
+                    const formattedPhone = rawPhone.length === 11 
+                      ? `(${rawPhone.slice(0,2)}) ${rawPhone.slice(2,7)}-${rawPhone.slice(7)}`
+                      : pPhone;
+
+                    const updatedData = { ...(matchPub.data || {}), phone: formattedPhone, contact_phone: formattedPhone };
+
+                    await supabaseClient.from('publishers').update({ data: updatedData }).eq('id', matchPub.id);
+                    await supabaseClient.from('rm.publishers').update({ phone: formattedPhone }).eq('id', matchPub.id);
+                    
+                    p.matchedPubId = matchPub.id;
+                    p.matchedPubName = matchPub.data?.name;
+                    p.autoBound = true;
+                    autoBoundCount++;
+                    console.log(`[robot] Passo 3 Auto-Bound: Vinculado ${pName} (${formattedPhone}) a ${matchPub.data?.name}`);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (bindErr) {
+        console.warn('[robot] Erro no Passo 3 Auto-Binding:', bindErr);
+      }
+
       return new Response(JSON.stringify({
         success: result.success,
         groupName: result.groupName,
         totalParticipants: participants.length,
         unresolvedCount: participants.filter((p: any) => !p.name && !p.pushName).length,
+        autoBoundCount: autoBoundCount,
         participants: participants,
         executedAt: new Date().toISOString()
       }), {
