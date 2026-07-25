@@ -26,8 +26,9 @@ async function runWhatsAppRobot() {
         fs.mkdirSync(SESSION_DIR, { recursive: true });
     }
 
+    const isHeadless = process.env.HEADLESS !== 'false';
     const context = await chromium.launchPersistentContext(SESSION_DIR, {
-        headless: false, // Abre a janela para visualização
+        headless: isHeadless, // Modo 100% invisível em segundo plano no servidor/backend
         viewport: { width: 1280, height: 800 },
         args: [
             '--no-sandbox',
