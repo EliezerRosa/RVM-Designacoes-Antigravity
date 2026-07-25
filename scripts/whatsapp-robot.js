@@ -26,22 +26,38 @@ async function runWhatsAppRobot() {
         fs.mkdirSync(SESSION_DIR, { recursive: true });
     }
 
-    const isHeadless = process.env.HEADLESS !== 'false';
-    const context = await chromium.launchPersistentContext(SESSION_DIR, {
-        headless: isHeadless, // Modo 100% invisível em segundo plano no servidor/backend
-        viewport: { width: 1280, height: 800 },
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled'
-        ]
-    });
+    const cdpUrl = process.env.CDP_URL || 'http://localhost:9222';
+    let context;
+    let page;
 
-    const page = await context.newPage();
+    // 1. Tentar conectar à sessão ATIVA do Chrome já aberto via CDP
+    try {
+        console.log(`🔌 Tentando conectar à sessão ativa do Chrome em ${cdpUrl}...`);
+        const browser = await chromium.connectOverCDP(cdpUrl);
+        const defaultContext = browser.contexts()[0];
+        page = defaultContext.pages().find(p => p.url().includes('web.whatsapp.com')) || await defaultContext.newPage();
+        console.log('✅ Conectado com sucesso à sessão ativa do WhatsApp Web via CDP!');
+    } catch (e) {
+        console.log('ℹ️ CDP não disponível. Inicializando navegador com perfil de sessão salvo...');
+        const isHeadless = process.env.HEADLESS !== 'false';
+        context = await chromium.launchPersistentContext(SESSION_DIR, {
+            headless: isHeadless,
+            viewport: { width: 1280, height: 800 },
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--remote-debugging-port=9222',
+                '--disable-blink-features=AutomationControlled'
+            ]
+        });
+        page = context.pages()[0] || await context.newPage();
+    }
 
     try {
-        console.log('🌐 Navegando para https://web.whatsapp.com...');
-        await page.goto('https://web.whatsapp.com', { waitUntil: 'domcontentloaded', timeout: 60000 });
+        if (!page.url().includes('web.whatsapp.com')) {
+            console.log('🌐 Navegando para https://web.whatsapp.com...');
+            await page.goto('https://web.whatsapp.com', { waitUntil: 'domcontentloaded', timeout: 60000 });
+        }
 
         console.log('⏳ Aguardando carregamento da sessão do WhatsApp Web...');
         
