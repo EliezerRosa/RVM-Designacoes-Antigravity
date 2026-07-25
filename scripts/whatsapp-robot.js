@@ -44,12 +44,25 @@ async function runWhatsAppRobot() {
         await page.goto('https://web.whatsapp.com', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
         console.log('⏳ Aguardando carregamento da sessão do WhatsApp Web...');
-        await page.waitForSelector('div[contenteditable="true"][data-tab="3"]', { timeout: 120000 });
+        
+        // Verifica se há tela de QR Code para avisar o usuário
+        const qrCanvas = page.locator('canvas, div[data-ref]').first();
+        const hasQr = await qrCanvas.isVisible({ timeout: 5000 }).catch(() => false);
+        
+        if (hasQr) {
+            console.log('\n💡 [PRIMEIRA CONEXÃO DETECTADA] QR Code necessário!');
+            console.log('👉 Para realizar a conexão inicial uma única vez, rode no terminal:');
+            console.log('   HEADLESS=false npm run robot:whatsapp');
+            console.log('📲 Escaneie o QR Code na janela do Chrome. Depois disso, ele rodará 100% invisível em segundo plano!\n');
+        }
+
+        const mainSearchSelector = 'div[contenteditable="true"][data-tab="3"], #side div[contenteditable="true"], div[title*="Pesquisar"][contenteditable="true"]';
+        await page.waitForSelector(mainSearchSelector, { timeout: 180000 });
         console.log('✅ Sessão do WhatsApp Web carregada!');
 
         // 1. Abrir conversa do grupo
         console.log(`🔍 Pesquisando grupo "${TARGET_GROUP}"...`);
-        const mainSearch = page.locator('div[contenteditable="true"][data-tab="3"]').first();
+        const mainSearch = page.locator(mainSearchSelector).first();
         await mainSearch.click();
         await page.keyboard.press('Control+A');
         await page.keyboard.press('Backspace');
