@@ -312,6 +312,19 @@ export const zapiGroupSyncService = {
                 });
             }
 
+            // Se o membro for silencioso (sem pushName), tenta matching por padrao de sufixo de digitos (ex: últimos 4 ou 8 dígitos)
+            if (!matchedPub && cleanP.length >= 8) {
+                const phoneDigits = cleanP.slice(-8); // ex: 988891292 -> 88891292
+                const phoneLast4 = cleanP.slice(-4);  // ex: 8889
+                (pubs || []).forEach(pub => {
+                    const pubPhone = normalizePhone(pub.data?.phone || pub.data?.contact_phone || '');
+                    if (pubPhone && (pubPhone.endsWith(phoneDigits) || pubPhone.endsWith(phoneLast4))) {
+                        matchedPub = pub;
+                        matchType = 'NAME_MATCH';
+                    }
+                });
+            }
+
             const pubId = matchedPub?.id || null;
             const pubName = matchedPub?.data?.name || null;
             const rvmPhone = matchedPub?.data?.phone || matchedPub?.data?.contact_phone || null;
