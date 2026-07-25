@@ -59,6 +59,56 @@ function removeAccents(str: string): string {
     return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
+function levenshtein(a: string, b: string): number {
+    const matrix = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+            );
+        }
+    }
+    return matrix[a.length][b.length];
+}
+
+function cleanTokens(raw: string): string[] {
+    const noiseWords = new Set(['estudante', 'publicador', 'parque', 'jacaraipe', 'estancia', 'sao', 'patricio', 'pioneiro', 'auxiliar', 'regular', 'irmao', 'irma', 'de', 'da', 'do', 'dos', 'das']);
+    const cleaned = removeAccents(raw || '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 1 && !noiseWords.has(w));
+    return cleaned;
+}
+
+function fuzzyMatchName(rawWaName: string, rawPubName: string): boolean {
+    const waTokens = cleanTokens(rawWaName);
+    const pubTokens = cleanTokens(rawPubName);
+
+    if (waTokens.length === 0 || pubTokens.length === 0) return false;
+
+    let matchCount = 0;
+    for (const wToken of waTokens) {
+        for (const pToken of pubTokens) {
+            if (wToken === pToken) {
+                matchCount++;
+                break;
+            } else if (wToken.length >= 4 && pToken.length >= 4 && levenshtein(wToken, pToken) <= 2) {
+                matchCount++;
+                break;
+            }
+        }
+    }
+
+    if (matchCount >= 2) return true;
+    if (matchCount >= 1 && pubTokens.length <= 2) return true;
+    return false;
+}
+
 function cleanWaName(raw: string): string {
     return removeAccents((raw || '').replace(/^~/, '').trim());
 }
@@ -301,24 +351,24 @@ export const zapiGroupSyncService = {
             let matchedPub = pubMapByPhone.get(cleanP);
             let matchType: 'EXACT_PHONE' | 'NAME_MATCH' | 'UNMATCHED' = matchedPub ? 'EXACT_PHONE' : 'UNMATCHED';
 
-            if (!matchedPub && waNameClean) {
-                // Tenta matching por aproximação de nome usando a lista de publicadores
+            if (!matchedPub && rawWaName) {
+                // Tenta matching por aproximação de nome usando Token Fuzzy & Levenshtein
                 (pubs || []).forEach(pub => {
-                    const pubNameClean = removeAccents(pub.data?.name || '');
-                    if (pubNameClean && (pubNameClean.includes(waNameClean) || waNameClean.includes(pubNameClean))) {
+                    const pubName = pub.data?.name || '';
+                    if (pubName && fuzzyMatchName(rawWaName, pubName)) {
                         matchedPub = pub;
                         matchType = 'NAME_MATCH';
                     }
                 });
             }
 
-            // Se o membro for silencioso (sem pushName), tenta matching por padrao de sufixo de digitos (ex: últimos 4 ou 8 dígitos)
-            if (!matchedPub && cleanP.length >= 8) {
-                const phoneDigits = cleanP.slice(-8); // ex: 988891292 -> 88891292
-                const phoneLast4 = cleanP.slice(-4);  // ex: 8889
+            // Se o membro for silencioso (sem pushName), tenta matching por padrao de sufixo de digitos (ex: últimos 4 ou 7 dígitos)
+            if (!matchedPub && cleanP.length >= 7) {
+                const phone7 = cleanP.slice(-7);   // ex: 2462014
+                const phoneLast4 = cleanP.slice(-4);  // ex: 2014
                 (pubs || []).forEach(pub => {
                     const pubPhone = normalizePhone(pub.data?.phone || pub.data?.contact_phone || '');
-                    if (pubPhone && (pubPhone.endsWith(phoneDigits) || pubPhone.endsWith(phoneLast4))) {
+                    if (pubPhone && (pubPhone.endsWith(phone7) || pubPhone.endsWith(phoneLast4))) {
                         matchedPub = pub;
                         matchType = 'NAME_MATCH';
                     }
