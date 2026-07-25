@@ -521,13 +521,41 @@ export const zapiGroupSyncService = {
 
     /**
      * Executa o robô de varredura/captura automatizado do Z-API no Backend (Edge Function).
+     * Inclui resiliência contra 'TypeError: Failed to fetch' com retries automáticos.
      */
     async runBackendZApiRobot(groupQuery: string = 'Congregação Parque Jacaraípe') {
-        const { data, error } = await supabase.functions.invoke('send-whatsapp', {
-            body: { action: 'run-zapi-robot', groupQuery }
-        });
-        if (error) throw new Error(error.message || 'Falha ao executar robô no backend.');
-        return data;
+        const payload = { action: 'run-zapi-robot', groupQuery };
+        
+        // Tentativa 1: Via cliente do Supabase
+        try {
+            const { data, error } = await supabase.functions.invoke('send-whatsapp', { body: payload });
+            if (!error && data) return data;
+            if (error) console.warn('[zapiGroupSyncService] supabase.functions.invoke error:', error);
+        } catch (e) {
+            console.warn('[zapiGroupSyncService] Supabase invoke falhou, tentando fetch direto:', e);
+        }
+
+        // Tentativa 2: Direct HTTP Fetch com Retry Fallback (Resistente a interrupções de rede Vercel)
+        const endpoint = 'https://pevstuyzlewvjidjkmea.supabase.co/functions/v1/send-whatsapp';
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log(`[zapiGroupSyncService] Robô Backend respondeu com sucesso no Direct Fetch (tentativa ${attempt})`);
+                    return data;
+                }
+            } catch (err) {
+                console.warn(`[zapiGroupSyncService] Direct Fetch tentativa ${attempt} falhou:`, err);
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1500));
+            }
+        }
+
+        throw new Error('Falha ao conectar com o Robô Z-API no backend. Verifique a conexão de rede.');
     }
 };
 
