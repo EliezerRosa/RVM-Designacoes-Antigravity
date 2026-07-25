@@ -77,7 +77,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 function cleanTokens(raw: string): string[] {
-    const noiseWords = new Set(['estudante', 'publicador', 'parque', 'jacaraipe', 'estancia', 'sao', 'patricio', 'pioneiro', 'auxiliar', 'regular', 'irmao', 'irma', 'de', 'da', 'do', 'dos', 'das']);
+    const noiseWords = new Set(['sem', 'nome', 'nao', 'identificado', 'estudante', 'publicador', 'parque', 'jacaraipe', 'estancia', 'sao', 'patricio', 'pioneiro', 'auxiliar', 'regular', 'irmao', 'irma', 'de', 'da', 'do', 'dos', 'das']);
     const cleaned = removeAccents(raw || '')
         .replace(/[^a-z0-9\s]/g, ' ')
         .split(/\s+/)
@@ -86,26 +86,34 @@ function cleanTokens(raw: string): string[] {
 }
 
 function fuzzyMatchName(rawWaName: string, rawPubName: string): boolean {
+    if (!rawWaName || rawWaName.trim() === '' || rawWaName.includes('Sem Nome') || rawWaName.includes('Não identificado')) {
+        return false;
+    }
+
     const waTokens = cleanTokens(rawWaName);
     const pubTokens = cleanTokens(rawPubName);
 
     if (waTokens.length === 0 || pubTokens.length === 0) return false;
 
-    let matchCount = 0;
-    for (const wToken of waTokens) {
-        for (const pToken of pubTokens) {
-            if (wToken === pToken) {
-                matchCount++;
-                break;
-            } else if (wToken.length >= 4 && pToken.length >= 4 && levenshtein(wToken, pToken) <= 2) {
-                matchCount++;
+    // Checagem de Primeiro Nome (ex: "eivaldo" vs "gerusa")
+    const waFirst = waTokens[0];
+    const pubFirst = pubTokens[0];
+    const firstMatches = waFirst === pubFirst || (waFirst.length >= 4 && pubFirst.length >= 4 && levenshtein(waFirst, pubFirst) <= 1);
+
+    // Contagem de tokens de Sobrenome
+    let surnameMatchCount = 0;
+    for (let i = 1; i < waTokens.length; i++) {
+        for (let j = 1; j < pubTokens.length; j++) {
+            if (waTokens[i] === pubTokens[j]) {
+                surnameMatchCount++;
                 break;
             }
         }
     }
 
-    if (matchCount >= 2) return true;
-    if (matchCount >= 1 && pubTokens.length <= 2) return true;
+    if (firstMatches && (pubTokens.length <= 2 || surnameMatchCount >= 1)) return true;
+    if (surnameMatchCount >= 2 && firstMatches) return true;
+
     return false;
 }
 
@@ -338,6 +346,14 @@ export const zapiGroupSyncService = {
         }
 
         const items: ReconciliationItem[] = [];
+        const assignedPubIds = new Set<string>();
+
+        // Pre-popula publicadores já casados por telefone exato
+        participants.forEach(p => {
+            const cleanP = normalizePhone(p.phone);
+            const matchedPub = pubMapByPhone.get(cleanP);
+            if (matchedPub) assignedPubIds.add(String(matchedPub.id));
+        });
 
         participants.forEach((p, idx) => {
             const cleanP = normalizePhone(p.phone);
@@ -351,13 +367,15 @@ export const zapiGroupSyncService = {
             let matchedPub = pubMapByPhone.get(cleanP);
             let matchType: 'EXACT_PHONE' | 'NAME_MATCH' | 'UNMATCHED' = matchedPub ? 'EXACT_PHONE' : 'UNMATCHED';
 
-            if (!matchedPub && rawWaName) {
+            if (!matchedPub && rawWaName && rawWaName !== 'Sem Nome') {
                 // Tenta matching por aproximação de nome usando Token Fuzzy & Levenshtein
                 (pubs || []).forEach(pub => {
+                    if (matchedPub || assignedPubIds.has(String(pub.id))) return;
                     const pubName = pub.data?.name || '';
                     if (pubName && fuzzyMatchName(rawWaName, pubName)) {
                         matchedPub = pub;
                         matchType = 'NAME_MATCH';
+                        assignedPubIds.add(String(pub.id));
                     }
                 });
             }
@@ -367,10 +385,12 @@ export const zapiGroupSyncService = {
                 const phone7 = cleanP.slice(-7);   // ex: 2462014
                 const phoneLast4 = cleanP.slice(-4);  // ex: 2014
                 (pubs || []).forEach(pub => {
+                    if (matchedPub || assignedPubIds.has(String(pub.id))) return;
                     const pubPhone = normalizePhone(pub.data?.phone || pub.data?.contact_phone || '');
                     if (pubPhone && (pubPhone.endsWith(phone7) || pubPhone.endsWith(phoneLast4))) {
                         matchedPub = pub;
                         matchType = 'NAME_MATCH';
+                        assignedPubIds.add(String(pub.id));
                     }
                 });
             }
