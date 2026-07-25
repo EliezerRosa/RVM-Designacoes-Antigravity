@@ -54,4 +54,21 @@ Este memorando consolida todas as alterações, arquiteturas e melhorias impleme
 - **`verbatimModuleSyntax` em `zapiOrchestrator.ts`**: Corrigida a importação da interface `WorkbookPart` utilizando a sintaxe estrita `import type { WorkbookPart }`, garantindo compilação 100% limpa com `npx tsc --noEmit`.
 
 ---
+
+## 5. Automação Z-API & Resolução de Identidade em Lote (WhatsApp Web)
+
+### 5.1 Resolução 100% Cloud de `~pushName` sem Contato Salvo (Deno Edge Function)
+- **Extração de Stanzas do Grupo**: A Supabase Edge Function (`send-whatsapp/index.ts`) varre o histórico estendido de mensagens e transmissões coletivas do grupo (`/chat-messages/{groupId}`) no Deno.
+- **Captura de Perfil Público**: Resgata o nó de transmissão com o nome de perfil público (ex: `~Gerson Ribeiro`) associado a contatos sem chat privado prévio ou sem telefone no banco de dados.
+
+### 5.2 Reconciliação por Aproximação & Vínculo em 1-Clique (`ZApiGroupSyncModal.tsx`)
+- **Match por Proximidade**: O `zapiGroupSyncService.ts` limpa acentos/tildes (`gerson ribeiro`) e faz o casamento automático com a lista de publicadores do RVM (`Gerson Ribeiro Santos`).
+- **Passo 4 (Auto-Resolução)**: Adicionado o botão `⚡ Auto-Resolver Todos "Sem Nome"`, associando números remanescentes e marcando os checkboxes de seleção automaticamente.
+- **Gravação e Liberação 2FA**: Com 1 clique no botão `⚡ Sincronizar Telefones e Aprovar 2FA`, o RVM salva os telefones na tabela `publishers` do Supabase Postgres DB e aprova os acessos 2FA.
+
+### 5.3 Robô Playwright com Perfil Persistente (`scripts/whatsapp-robot.js`)
+- **Robô Local**: Desenvolvido script de automação visual em Playwright (`npm run robot:whatsapp`) com Chrome visível e perfil salvo em `./whatsapp_session_data`.
+
+---
 *Documento mantido e atualizado no repositório em `docs/CHECKPOINT_MEMO_2026-07-23.md`.*
+
