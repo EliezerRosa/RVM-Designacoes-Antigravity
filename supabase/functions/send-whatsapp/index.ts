@@ -319,7 +319,7 @@ async function listZApiGroups() {
 }
 
 /** Enriquece os nomes de perfil (pushName/notifyName) dos participantes usando contatos e chats da Z-API. */
-async function enrichZApiParticipants(instanceId: string, instanceToken: string, clientToken: string, participants: any[]) {
+async function enrichZApiParticipants(instanceId: string, instanceToken: string, clientToken: string, participants: any[], groupId?: string) {
   if (!Array.isArray(participants) || participants.length === 0) return [];
   
   const contactsMap = new Map<string, { name?: string; pushName?: string; notifyName?: string }>();
@@ -415,53 +415,85 @@ async function enrichZApiParticipants(instanceId: string, instanceToken: string,
     };
   });
 
-  // 4. Buscar perfil individual para participantes sem nome via /contacts/{phone}
+  // 4. Buscar perfil individual para participantes sem nome via /contacts/{phone} e /chat-messages/{groupId}
   const needsFetch = enriched.filter(p => p._needsFetch && p._rawPhone);
   console.log(`[enrich] Total participantes: ${enriched.length}, sem nome (needsFetch): ${needsFetch.length}`);
 
   if (needsFetch.length > 0) {
-    const batchSize = 15;
-    for (let i = 0; i < needsFetch.length && i < 60; i += batchSize) {
-      const batch = needsFetch.slice(i, i + batchSize);
-      const results = await Promise.allSettled(
-        batch.map(async (p) => {
-          const phone55 = p._rawPhone.startsWith('55') ? p._rawPhone : `55${p._rawPhone}`;
-          try {
-            const res = await fetch(`${baseUrl}/contacts/${phone55}`, { headers });
-            let data: any = null;
-            if (res.ok) {
-              data = await res.json();
-            }
-            if (!data || (!data.notify && !data.pushName && !data.name)) {
-              // Fallback: Tenta /chats/{phone55} para resgatar pushName/nome de conversa
-              const chatRes = await fetch(`${baseUrl}/chats/${phone55}`, { headers });
-              if (chatRes.ok) {
-                const chatData = await chatRes.json();
-                data = { ...(data || {}), ...chatData };
+    // 4a. Tentar resgatar stanzas de pushname no historico do grupo
+    if (groupId) {
+      try {
+        const msgRes = await fetch(`${baseUrl}/chat-messages/${groupId}?amount=200`, { headers });
+        if (msgRes.ok) {
+          const messages = await msgRes.json();
+          if (Array.isArray(messages)) {
+            messages.forEach((msg: any) => {
+              const senderPhone = (msg.participant || msg.author || msg.phone || '').replace(/\D/g, '');
+              const senderPush = msg.senderName || msg.pushName || msg.notifyName || '';
+              if (senderPhone && senderPush && !isPhoneString(senderPush)) {
+                const target = enriched.find(ep => ep._rawPhone && (ep._rawPhone.includes(senderPhone) || senderPhone.includes(ep._rawPhone)));
+                if (target && (!target.name || !target.pushName)) {
+                  target.name = senderPush;
+                  target.pushName = senderPush;
+                  target.notifyName = senderPush;
+                  target._needsFetch = false;
+                  console.log(`[enrich] Encontrado pushName no histórico do grupo para ${senderPhone}: "${senderPush}"`);
+                }
               }
-            }
-            return { phone: p._rawPhone, data };
-          } catch (e) {
-            console.warn(`[enrich] /contacts/${phone55} => Error:`, e);
-          }
-          return null;
-        })
-      );
-      results.forEach((r) => {
-        if (r.status === 'fulfilled' && r.value?.data) {
-          const { phone, data } = r.value;
-          const target = enriched.find(ep => ep._rawPhone === phone);
-          if (target) {
-            const notify = data.notify || data.pushName || data.name || data.short || '';
-            const effectiveNotify = isPhoneString(notify) ? '' : notify;
-            if (effectiveNotify) {
-              target.name = effectiveNotify;
-              target.pushName = effectiveNotify;
-              target.notifyName = data.notify || '';
-            }
+            });
           }
         }
-      });
+      } catch (e) {
+        console.warn('[enrich] Erro ao buscar chat-messages do grupo:', e);
+      }
+    }
+
+    const remainingNeedsFetch = enriched.filter(p => p._needsFetch && p._rawPhone);
+
+    if (remainingNeedsFetch.length > 0) {
+      const batchSize = 15;
+      for (let i = 0; i < remainingNeedsFetch.length && i < 60; i += batchSize) {
+        const batch = remainingNeedsFetch.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map(async (p) => {
+            const phone55 = p._rawPhone.startsWith('55') ? p._rawPhone : `55${p._rawPhone}`;
+            try {
+              const res = await fetch(`${baseUrl}/contacts/${phone55}`, { headers });
+              let data: any = null;
+              if (res.ok) {
+                data = await res.json();
+              }
+              if (!data || (!data.notify && !data.pushName && !data.name)) {
+                // Fallback: Tenta /chats/{phone55} para resgatar pushName/nome de conversa
+                const chatRes = await fetch(`${baseUrl}/chats/${phone55}`, { headers });
+                if (chatRes.ok) {
+                  const chatData = await chatRes.json();
+                  data = { ...(data || {}), ...chatData };
+                }
+              }
+              return { phone: p._rawPhone, data };
+            } catch (e) {
+              console.warn(`[enrich] /contacts/${phone55} => Error:`, e);
+            }
+            return null;
+          })
+        );
+        results.forEach((r) => {
+          if (r.status === 'fulfilled' && r.value?.data) {
+            const { phone, data } = r.value;
+            const target = enriched.find(ep => ep._rawPhone === phone);
+            if (target) {
+              const notify = data.notify || data.pushName || data.name || data.short || '';
+              const effectiveNotify = isPhoneString(notify) ? '' : notify;
+              if (effectiveNotify) {
+                target.name = effectiveNotify;
+                target.pushName = effectiveNotify;
+                target.notifyName = data.notify || '';
+              }
+            }
+          }
+        });
+      }
     }
   }
 
@@ -491,7 +523,7 @@ async function fetchZApiGroupMetadata(groupQuery: string) {
     );
     if (directRes.ok) {
       const data = await directRes.json();
-      const enriched = await enrichZApiParticipants(instanceId, instanceToken, clientToken, data.participants || []);
+      const enriched = await enrichZApiParticipants(instanceId, instanceToken, clientToken, data.participants || [], target);
       return { success: true, groupName: data.name || data.subject || target, participants: enriched };
     }
   } catch (e) {
@@ -523,7 +555,7 @@ async function fetchZApiGroupMetadata(groupQuery: string) {
         );
         if (metaRes.ok) {
           const data = await metaRes.json();
-          const enriched = await enrichZApiParticipants(instanceId, instanceToken, clientToken, data.participants || []);
+          const enriched = await enrichZApiParticipants(instanceId, instanceToken, clientToken, data.participants || [], groupId);
           return { success: true, groupName: data.name || found.name || target, participants: enriched };
         }
       }
