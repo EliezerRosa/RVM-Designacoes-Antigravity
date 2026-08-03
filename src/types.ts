@@ -402,6 +402,14 @@ export interface EngineConfig {
     ROLE_ALTERNATION_WINDOW_WEEKS: number;
     /** Motor — janela (semanas) para vetar repetição do par titular+ajudante em demonstrações. 0 desliga. */
     PAIR_REPETITION_WINDOW_WEEKS: number;
+    /** Habilita soft gate de rotação intra-seção (evita repetição da mesma parte antes de rodar pelas demais partes elegíveis da seção). */
+    ENABLE_SECTION_ROTATION_GATE: boolean;
+    /** Janela de seca FSM em semanas para Anciãos se qualificarem ao Bucket 1. */
+    FSM_ELDER_DROUGHT_WEEKS: number;
+    /** Janela de seca FSM em semanas para Servos Ministeriais se qualificarem ao Bucket 1. */
+    FSM_MS_DROUGHT_WEEKS: number;
+    /** Semanas consecutivas em Bucket 1 FSM sem designação para acionar escalação suave. */
+    FSM_ESCALATION_THRESHOLD_WEEKS: number;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
@@ -418,6 +426,10 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     HEAVY_ROLE_RADIUS: 4,
     ROLE_ALTERNATION_WINDOW_WEEKS: 4,
     PAIR_REPETITION_WINDOW_WEEKS: 4,
+    ENABLE_SECTION_ROTATION_GATE: true,
+    FSM_ELDER_DROUGHT_WEEKS: 13,
+    FSM_MS_DROUGHT_WEEKS: 10,
+    FSM_ESCALATION_THRESHOLD_WEEKS: 4,
 };
 
 export interface RankedCandidate {

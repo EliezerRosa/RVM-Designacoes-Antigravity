@@ -127,6 +127,72 @@ export interface RankedCandidate {
 }
 
 /**
+ * Calcula a dívida de rotação intra-seção (`sectionDebt`) de um candidato para uma parte específica.
+ * Mensura quantas outras partes elegíveis na mesma seção o candidato AINDA NÃO realizou
+ * desde a última vez que realizou a parte-alvo.
+ */
+export function calculateSectionDebt(
+    publisher: Publisher,
+    targetPart: import('../types').WorkbookPart,
+    history: HistoryRecord[],
+    referenceDate: Date = new Date(),
+    eligiblePartTypesForSection: string[] = []
+): { sectionDebt: number; unperformedParts: string[] } {
+    if (!targetPart || !targetPart.section || eligiblePartTypesForSection.length <= 1) {
+        return { sectionDebt: 0, unperformedParts: [] };
+    }
+
+    const refDateStr = referenceDate.toISOString().split('T')[0];
+
+    // 1. Histórico do candidato na mesma seção, estritamente anterior a referenceDate
+    const candidateSectionHistory = history
+        .filter(h => {
+            const matches = h.resolvedPublisherId
+                ? h.resolvedPublisherId === publisher.id
+                : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
+            return matches && (h.date || '') < refDateStr && isStatPart(h.tipoParte || h.funcao);
+        })
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    // 2. Encontrar a última ocorrência da parte-alvo nesta seção
+    const targetNorm = targetPart.tipoParte.toLowerCase().trim();
+    const lastTargetRecord = candidateSectionHistory.find(h => {
+        const hType = (h.tipoParte || '').toLowerCase().trim();
+        return hType === targetNorm || normPartType(hType) === normPartType(targetNorm);
+    });
+
+    // Se nunca fez a parte-alvo, não há "repetição precoce" → dívida zero
+    if (!lastTargetRecord || !lastTargetRecord.date) {
+        return { sectionDebt: 0, unperformedParts: [] };
+    }
+
+    const lastTargetDate = lastTargetRecord.date;
+
+    // 3. Quais OUTRAS partes elegíveis da seção foram realizadas DESDE a última ocorrência da parte-alvo?
+    const performedSinceTarget = new Set<string>();
+    candidateSectionHistory.forEach(h => {
+        if ((h.date || '') > lastTargetDate) {
+            const hTypeNorm = normPartType(h.tipoParte || '');
+            performedSinceTarget.add(hTypeNorm);
+        }
+    });
+
+    // 4. Calcular quais partes elegíveis da seção FALTAM realizar (unperformedParts)
+    const unperformedParts: string[] = [];
+    eligiblePartTypesForSection.forEach(partType => {
+        const partTypeNorm = normPartType(partType);
+        if (partTypeNorm !== normPartType(targetNorm) && !performedSinceTarget.has(partTypeNorm)) {
+            unperformedParts.push(partType);
+        }
+    });
+
+    return {
+        sectionDebt: unperformedParts.length,
+        unperformedParts
+    };
+}
+
+/**
  * Normaliza tipoParte para comparação: remove artigos/preposições comuns (do, da, na, no...)
  * que causam divergência entre o workbook atual ("Dirigente EBC") e registros históricos
  * legados ("Dirigente do EBC", "Discurso na Tesouros", "Parte na Vida Cristã" etc.).
