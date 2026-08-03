@@ -147,7 +147,7 @@ export function EngineRulesPanel() {
                                     <input
                                         type="number"
                                         step="any"
-                                        value={cur}
+                                        value={typeof cur === 'boolean' ? (cur ? 1 : 0) : cur}
                                         onChange={e => handleChange(key, e.target.value)}
                                         style={{ width: 100, padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: 4 }}
                                         disabled={saving}

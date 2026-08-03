@@ -17,6 +17,10 @@ const baseConfig: EngineConfig = {
     HEAVY_ROLE_RADIUS: 4,
     ROLE_ALTERNATION_WINDOW_WEEKS: 4,
     PAIR_REPETITION_WINDOW_WEEKS: 4,
+    ENABLE_SECTION_ROTATION_GATE: true,
+    FSM_ELDER_DROUGHT_WEEKS: 13,
+    FSM_MS_DROUGHT_WEEKS: 10,
+    FSM_ESCALATION_THRESHOLD_WEEKS: 4,
 };
 
 test('updateEngineConfig shallow-merges flat settings, persists merged config and applies runtime delta', async () => {
