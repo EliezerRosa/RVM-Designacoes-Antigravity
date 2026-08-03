@@ -209,9 +209,9 @@ test('CONVERGÊNCIA TOTAL pós-fix: TODOS os 6 caminhos retornam o mesmo score (
 });
 
 test('SANITY: scores corrigidos (A/B/C) refletem decomposição real, sem cooldown loop', () => {
-    // Marcus: timeBonus alto + freq -60 (3 participações últimas 12 sem)
+    // Marcus: timeBonus alto + freq -150 (3 participações últimas 12 sem @ 50 cada)
     assert.match(resMarcus.A.exp, /Tempo Exp: \+\d{3,4}/);
-    assert.match(resMarcus.A.exp, /Freq: -60/);
+    assert.match(resMarcus.A.exp, /Freq: -150/);
     assert.doesNotMatch(resMarcus.A.exp, /Cooldown/, 'após filtrar a semana atual, cooldown não acende');
     // Marcos: timeBonus alto + freq 0 (sem participações recentes)
     assert.match(resMarcos.A.exp, /Freq: -0/);
