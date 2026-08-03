@@ -119,7 +119,7 @@ test('SECTION ROTATION GATE: marca sectionBlocked quando candidato deve outras p
             resolvedPublisherId: mockElder.id,
             resolvedPublisherName: mockElder.name,
             rawPublisherName: mockElder.name,
-            status: 'CONCLUIDA',
+            status: 'CONCLUIDO',
             createdAt: '2026-07-01T00:00:00Z'
         }
     ];
@@ -146,7 +146,7 @@ test('PROMOÇÃO FSM: Ancião em seca (>13 sem sem FSM + cobertura Tesouros/Vida
             resolvedPublisherId: mockElder.id,
             resolvedPublisherName: mockElder.name,
             rawPublisherName: mockElder.name,
-            status: 'CONCLUIDA',
+            status: 'CONCLUIDO',
             createdAt: '2026-05-15T00:00:00Z'
         },
         {
@@ -161,7 +161,7 @@ test('PROMOÇÃO FSM: Ancião em seca (>13 sem sem FSM + cobertura Tesouros/Vida
             resolvedPublisherId: mockElder.id,
             resolvedPublisherName: mockElder.name,
             rawPublisherName: mockElder.name,
-            status: 'CONCLUIDA',
+            status: 'CONCLUIDO',
             createdAt: '2026-06-01T00:00:00Z'
         }
     ];
