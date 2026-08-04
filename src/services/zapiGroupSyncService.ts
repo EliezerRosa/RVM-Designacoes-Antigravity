@@ -281,10 +281,11 @@ export const zapiGroupSyncService = {
      */
     async reconcileWithRvm(participants: WaGroupParticipant[]): Promise<ReconciliationItem[]> {
         // 1. Carregar publicadores do RVM
+        // Nota: rm.publishers (schema RM/Glide) NÃO possui coluna phone e seu id é
+        // um uuid próprio (não o mesmo id text de public.publishers) — não serve
+        // como fonte de telefone, por isso não é consultado aqui.
         const { data: pubs } = await supabase.from('publishers').select('*');
-        const { data: rmPubs, error: rmPubsErr } = await supabase.schema('rm').from('publishers').select('*');
-        if (rmPubsErr) console.warn('[zapiGroupSyncService] Falha ao carregar rm.publishers:', rmPubsErr.message);
-        
+
         // 2. Carregar perfis de acesso (profiles)
         const { data: profiles } = await supabase.from('profiles').select('*');
 
@@ -296,13 +297,6 @@ export const zapiGroupSyncService = {
             const cP = normalizePhone(rawP);
             if (cP) pubMapByPhone.set(cP, p);
             if (p.data?.name) pubMapByName.set(removeAccents(p.data.name), p);
-        });
-
-        (rmPubs || []).forEach(p => {
-            if (p.phone) {
-                const cP = normalizePhone(p.phone);
-                if (cP && !pubMapByPhone.has(cP)) pubMapByPhone.set(cP, { id: p.id, data: { name: p.name, phone: p.phone } });
-            }
         });
 
         const profileMapByPubId = new Map<string, any>();
@@ -498,9 +492,9 @@ export const zapiGroupSyncService = {
                         else updatedPublishers++;
                     }
 
-                    // Espelha o telefone em rm.publishers (schema rm; não bloqueia o fluxo principal se falhar)
-                    const { error: rmErr } = await supabase.schema('rm').from('publishers').update({ phone: item.cleanPhone }).eq('id', item.publisherId);
-                    if (rmErr) console.warn(`[zapiGroupSyncService] Falha ao espelhar telefone em rm.publishers (${item.publisherName}):`, rmErr.message);
+                    // Nota: rm.publishers (schema RM/Glide) não possui coluna phone
+                    // e seu id é um uuid próprio (não o mesmo id text de public.publishers),
+                    // por isso não há espelhamento de telefone nessa tabela.
                 }
 
                 // 2. Resolve o profile existente (se houver)
