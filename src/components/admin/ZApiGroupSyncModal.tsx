@@ -145,18 +145,25 @@ export function ZApiGroupSyncModal({ isOpen, onClose }: ZApiGroupSyncModalProps)
         setResultMsg(null);
 
         try {
-            const { updatedPublishers, updatedProfiles, errors } = await zapiGroupSyncService.executeSync(selectedItems);
+            console.log(`[ZApiGroupSyncModal] Iniciando sincronização de ${selectedItems.length} contato(s) selecionado(s)...`);
+            const { updatedPublishers, updatedProfiles, preapproved, errors } = await zapiGroupSyncService.executeSync(selectedItems);
 
-            let msg = `✅ Sincronização concluída! ${updatedPublishers} telefones de publicadores atualizados e ${updatedProfiles} acessos 2FA liberados.`;
+            let msg = `✅ Sincronização concluída! ${updatedPublishers} telefones de publicadores atualizados, ${updatedProfiles} acessos 2FA liberados agora`;
+            if (preapproved > 0) {
+                msg += ` e ${preapproved} pré-aprovados (serão liberados automaticamente no 1º login, pois ainda não têm perfil)`;
+            }
+            msg += '.';
             if (errors.length > 0) {
                 msg += ` (${errors.length} avisos. Veja o console)`;
-                console.warn('Avisos na sincronização:', errors);
+                console.warn('[ZApiGroupSyncModal] Avisos na sincronização:', errors);
             }
+            console.log(`[ZApiGroupSyncModal] Resultado: publicadores=${updatedPublishers}, perfis2FA=${updatedProfiles}, preAprovados=${preapproved}, erros=${errors.length}`);
             setResultMsg(msg);
 
             // Recarrega reconciliação
             handleFetchMembers();
         } catch (err: any) {
+            console.error('[ZApiGroupSyncModal] Falha ao sincronizar contatos:', err);
             setErrorMsg(err.message || 'Erro ao sincronizar contatos.');
         } finally {
             setSyncing(false);

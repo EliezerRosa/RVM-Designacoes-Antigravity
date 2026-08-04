@@ -166,8 +166,9 @@ export function ZApiMemberSearchPanel() {
 
             await supabase.from('publishers').update({ data: updatedData }).eq('id', pub.id);
 
-            // 2. Atualiza a tabela rm.publishers se existir
-            await supabase.from('rm.publishers').update({ phone: formattedPhone }).eq('id', pub.id);
+            // 2. Atualiza a tabela rm.publishers se existir (schema rm)
+            const { error: rmErr } = await supabase.schema('rm').from('publishers').update({ phone: formattedPhone }).eq('id', pub.id);
+            if (rmErr) console.warn('[ZApiMemberSearchPanel] Falha ao espelhar telefone em rm.publishers:', rmErr.message);
 
             setActionMsg({ 
                 type: 'success', 

@@ -282,7 +282,8 @@ export const zapiGroupSyncService = {
     async reconcileWithRvm(participants: WaGroupParticipant[]): Promise<ReconciliationItem[]> {
         // 1. Carregar publicadores do RVM
         const { data: pubs } = await supabase.from('publishers').select('*');
-        const { data: rmPubs } = await supabase.from('rm.publishers').select('*');
+        const { data: rmPubs, error: rmPubsErr } = await supabase.schema('rm').from('publishers').select('*');
+        if (rmPubsErr) console.warn('[zapiGroupSyncService] Falha ao carregar rm.publishers:', rmPubsErr.message);
         
         // 2. Carregar perfis de acesso (profiles)
         const { data: profiles } = await supabase.from('profiles').select('*');
@@ -467,11 +468,23 @@ export const zapiGroupSyncService = {
 
     /**
      * Executa a sincronização dos telefones e a pré-aprovação de 2FA em lote no banco de dados.
+     *
+     * Caso A — o publicador já tem `profiles` (já logou ao menos 1x): aprova o 2FA
+     * imediatamente (`whatsapp_verified = true`).
+     * Caso B — o publicador foi identificado no grupo do WhatsApp mas nunca logou
+     * (sem `profiles`, que é FK obrigatória para `auth.users`): não há como aprovar
+     * agora, então registramos uma pré-aprovação em `whatsapp_2fa_preapprovals`,
+     * consumida automaticamente pelas RPCs `sync_profile_publisher_link()` /
+     * `admin_link_profile_to_publisher()` assim que o profile vier a existir.
      */
-    async executeSync(selectedItems: ReconciliationItem[]): Promise<{ updatedPublishers: number; updatedProfiles: number; errors: string[] }> {
+    async executeSync(selectedItems: ReconciliationItem[]): Promise<{ updatedPublishers: number; updatedProfiles: number; preapproved: number; errors: string[] }> {
         let updatedPublishers = 0;
         let updatedProfiles = 0;
+        let preapproved = 0;
         const errors: string[] = [];
+
+        const { data: userData } = await supabase.auth.getUser();
+        const adminId = userData?.user?.id || null;
 
         for (const item of selectedItems) {
             try {
@@ -485,40 +498,62 @@ export const zapiGroupSyncService = {
                         else updatedPublishers++;
                     }
 
-                    // Atualiza em rm.publishers
-                    await supabase.from('rm.publishers').update({ phone: item.cleanPhone }).eq('id', item.publisherId);
+                    // Espelha o telefone em rm.publishers (schema rm; não bloqueia o fluxo principal se falhar)
+                    const { error: rmErr } = await supabase.schema('rm').from('publishers').update({ phone: item.cleanPhone }).eq('id', item.publisherId);
+                    if (rmErr) console.warn(`[zapiGroupSyncService] Falha ao espelhar telefone em rm.publishers (${item.publisherName}):`, rmErr.message);
                 }
 
-                // 2. Atualiza e pré-valida 2FA no profile do usuário (libera a tela do 2FA)
-                if (item.profileId || item.publisherId) {
-                    let targetProfileId = item.profileId;
-                    if (!targetProfileId && item.publisherId) {
-                        const { data: pData } = await supabase.from('profiles').select('id').eq('publisher_id', item.publisherId).maybeSingle();
-                        targetProfileId = pData?.id || null;
+                // 2. Resolve o profile existente (se houver)
+                let targetProfileId = item.profileId;
+                if (!targetProfileId && item.publisherId) {
+                    const { data: pData } = await supabase.from('profiles').select('id').eq('publisher_id', item.publisherId).maybeSingle();
+                    targetProfileId = pData?.id || null;
+                }
+
+                if (targetProfileId) {
+                    // Caso A: profile já existe → aprova 2FA agora
+                    const { error: profErr } = await supabase
+                        .from('profiles')
+                        .update({
+                            phone: item.cleanPhone,
+                            whatsapp_verified: true,
+                        })
+                        .eq('id', targetProfileId);
+
+                    if (profErr) {
+                        errors.push(`Erro perfil ${item.profileEmail || item.publisherName}: ${profErr.message}`);
+                    } else {
+                        updatedProfiles++;
+                        console.log(`[zapiGroupSyncService] 2FA aprovado imediatamente para profile ${targetProfileId} (publicador ${item.publisherName})`);
                     }
+                } else if (item.publisherId) {
+                    // Caso B: publicador identificado no grupo, mas sem profile (nunca logou) →
+                    // registra pré-aprovação para ser consumida automaticamente no 1º vínculo.
+                    const { error: preErr } = await supabase
+                        .from('whatsapp_2fa_preapprovals')
+                        .upsert({
+                            publisher_id: item.publisherId,
+                            phone: item.cleanPhone,
+                            preapproved_by: adminId,
+                            reason: 'whatsapp_group_verified',
+                        }, { onConflict: 'publisher_id' });
 
-                    if (targetProfileId) {
-                        const { error: profErr } = await supabase
-                            .from('profiles')
-                            .update({
-                                phone: item.cleanPhone,
-                                whatsapp_verified: true,
-                            })
-                            .eq('id', targetProfileId);
-
-                        if (profErr) {
-                            errors.push(`Erro perfil ${item.profileEmail}: ${profErr.message}`);
-                        } else {
-                            updatedProfiles++;
-                        }
+                    if (preErr) {
+                        errors.push(`Erro pré-aprovação ${item.publisherName}: ${preErr.message}`);
+                    } else {
+                        preapproved++;
+                        console.log(`[zapiGroupSyncService] Pré-aprovação de 2FA registrada para publicador ${item.publisherName} (aguardando 1º login)`);
                     }
                 }
             } catch (err: any) {
+                console.error(`[zapiGroupSyncService] Falha ao processar item ${item.waName}:`, err);
                 errors.push(`Falha no item ${item.waName}: ${err.message}`);
             }
         }
 
-        return { updatedPublishers, updatedProfiles, errors };
+        console.log(`[zapiGroupSyncService] executeSync concluído: ${updatedPublishers} publicadores, ${updatedProfiles} perfis (2FA aprovado agora), ${preapproved} pré-aprovações registradas, ${errors.length} erros.`);
+
+        return { updatedPublishers, updatedProfiles, preapproved, errors };
     },
 
     /**
