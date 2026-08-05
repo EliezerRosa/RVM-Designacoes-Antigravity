@@ -18,13 +18,14 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 import { api } from '../services/api';
 import { getWeekMondayId } from '../services/eligibilityService';
 import { findPublisherImpediments, type ImpedimentEntry } from '../services/publisherImpedimentService';
 import { workbookManagementService } from '../services/workbookManagementService';
 import { PublisherImpedimentModal } from './PublisherImpedimentModal';
 import { zapiOrchestrator } from '../services/zapiOrchestrator';
-import type { Publisher } from '../types';
+import type { Publisher, WorkbookPart } from '../types';
 
 // ── Token structure (stored in app_settings key 'availability_tokens') ─────
 export interface AvailabilityToken {
@@ -154,22 +155,63 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
     const weeks = getUpcomingWeeks(today);
 
     // ── Load and validate token ───────────────────────────────────────────
+    // Fase 1 RLS hardening: usa RPC SECURITY DEFINER authorize_availability_portal
+    // (valida token + devolve dados sanitizados) em vez de acessar
+    // app_settings, publishers e workbook_parts diretamente como anônimo.
     useEffect(() => {
         if (!token) { setStatus('unauthorized'); return; }
 
         (async () => {
             try {
-                const tokens = await api.getSetting<AvailabilityToken[]>('availability_tokens', []);
-                const found = tokens.find(t => t.token === token && t.active);
-                if (!found) { setStatus('unauthorized'); return; }
+                const { data: rpcData, error: rpcError } = await supabase.rpc('authorize_availability_portal', {
+                    p_token: token,
+                });
 
-                const publishers = await api.loadPublishers();
-                const pub = publishers.find(p => p.id === found.publisherId);
-                if (!pub) { setStatus('unauthorized'); return; }
+                if (rpcError) {
+                    console.error('[AvailabilityPortal] RPC error:', rpcError);
+                    setStatus('unauthorized');
+                    return;
+                }
 
-                // Always fetch the freshest single-row state by id to avoid any
-                // staleness from caches or in-flight realtime updates.
-                const fresh = await api.loadPublisherById(found.publisherId) ?? pub;
+                const authResult = rpcData as {
+                    authorized?: boolean;
+                    publisher_id?: string;
+                    publisher_name?: string;
+                    availability?: Publisher['availability'];
+                    meeting_day_by_week?: Record<string, number>;
+                    reason?: string;
+                };
+
+                if (!authResult?.authorized || !authResult.publisher_id) {
+                    console.warn('[AvailabilityPortal] Not authorized:', authResult?.reason);
+                    setStatus('unauthorized');
+                    return;
+                }
+
+                // Constrói um Publisher mínimo com o que precisamos para o save.
+                // O buildUpdatedPublisher só usa id/name/availability para reconstruir
+                // o objeto antes de chamar submit_publisher_availability (que aceita
+                // apenas o campo availability).
+                const fresh: Publisher = {
+                    id: authResult.publisher_id,
+                    name: authResult.publisher_name || '',
+                    gender: 'brother',
+                    condition: 'Publicador',
+                    funcao: null,
+                    phone: '',
+                    isBaptized: true,
+                    isServing: true,
+                    ageGroup: 'Adulto',
+                    parentIds: [],
+                    isHelperOnly: false,
+                    canPairWithNonParent: true,
+                    privileges: { canGiveTalks: false, canConductCBS: false, canReadCBS: false, canPray: false, canPreside: false },
+                    privilegesBySection: { canParticipateInTreasures: true, canParticipateInMinistry: true, canParticipateInLife: true },
+                    availability: authResult.availability || { mode: 'always', exceptionDates: [], availableDates: [] },
+                    aliases: [],
+                    requestedNoParticipation: false,
+                    isNotQualified: false,
+                };
                 setPublisher(fresh);
 
                 // Derive initial week states from BOTH stored lists, independent
@@ -189,19 +231,13 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
                 setWeekStates(initial);
                 setStatus('ready');
 
-                // Carregar dia da reunião global (usa o mesmo setting do S89Modal)
-                try {
-                    const dayMap = await api.getSetting<Record<string, number>>('s89_meeting_day_by_week', {});
-                    // Pegar o valor da semana mais recente disponível, ou o primeiro encontrado
-                    const values = Object.values(dayMap).filter(v => typeof v === 'number' && v >= 0 && v <= 6);
-                    if (values.length > 0) {
-                        // Usar o valor da semana mais próxima se disponível
-                        const upcomingWeekId = weeks.find(w => dayMap[w.weekId] !== undefined)?.weekId;
-                        const day = upcomingWeekId ? dayMap[upcomingWeekId] : values[values.length - 1];
-                        setMeetingDayOfWeek(day);
-                    }
-                } catch {
-                    // mantém padrão quinta-feira (4)
+                // Dia da reunião: usa mapa vindo da RPC
+                const dayMap = authResult.meeting_day_by_week || {};
+                const values = Object.values(dayMap).filter(v => typeof v === 'number' && v >= 0 && v <= 6);
+                if (values.length > 0) {
+                    const upcomingWeekId = weeks.find(w => dayMap[w.weekId] !== undefined)?.weekId;
+                    const day = upcomingWeekId ? dayMap[upcomingWeekId] : values[values.length - 1];
+                    setMeetingDayOfWeek(day);
                 }
             } catch (err) {
                 console.error('[AvailabilityPortal] Load error:', err);
@@ -256,14 +292,42 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
 
     // ── Save ──────────────────────────────────────────────────────────────
     const handleSave = async () => {
-        if (!publisher) return;
+        if (!publisher || !token) return;
         setStatus('saving');
 
         try {
             const updated = buildUpdatedPublisher(publisher);
 
-            // Check impediments in future assigned parts
-            const futureParts = await api.loadFutureWorkbookParts(publisher.name, today);
+            // Fase 1 RLS hardening: RPC SECURITY DEFINER (valida token e devolve
+            // future parts do próprio publisher). Substitui api.loadFutureWorkbookParts
+            // que fazia SELECT direto em workbook_parts, bloqueado para anon na Fase 3.
+            const { data: futurePartsData, error: futureError } = await supabase.rpc(
+                'list_future_parts_for_availability_portal',
+                { p_token: token, p_today: today }
+            );
+            if (futureError) throw futureError;
+            const futureParts: WorkbookPart[] = ((futurePartsData || []) as Array<Record<string, unknown>>).map(row => ({
+                id: row.id as string,
+                weekId: row.week_id as string,
+                weekDisplay: '',
+                date: (row.date as string) || (row.week_id as string),
+                section: (row.section as string) || '',
+                tipoParte: (row.tipo_parte as string) || '',
+                modalidade: (row.modalidade as string) || '',
+                tituloParte: (row.part_title as string) || '',
+                descricaoParte: '',
+                detalhesParte: '',
+                seq: (row.seq as number) || 0,
+                funcao: (row.funcao as string) || 'Titular',
+                duracao: '',
+                horaInicio: '',
+                horaFim: '',
+                rawPublisherName: (row.raw_publisher_name as string) || '',
+                resolvedPublisherName: (row.resolved_publisher_name as string) || '',
+                resolvedPublisherId: '',
+                status: (row.status as string) || '',
+                isManualOverride: Boolean(row.is_manual_override),
+            }));
 
             const impediments = findPublisherImpediments(
                 publisher,
@@ -311,9 +375,17 @@ export function PublisherAvailabilityPortal({ token }: PublisherAvailabilityPort
             return;
         }
 
-        // Confirm by reloading from DB so what the user sees matches what was persisted.
-        const refreshed = await api.loadPublisherById(updated.id);
-        if (refreshed) setPublisher(refreshed);
+        // Confirm by re-reading via the same authorize RPC (not a direct SELECT,
+        // since anon SELECT em publishers será revogado na Fase 3).
+        try {
+            const { data: refreshData } = await supabase.rpc('authorize_availability_portal', { p_token: token });
+            const authResult = refreshData as { authorized?: boolean; availability?: Publisher['availability'] };
+            if (authResult?.authorized && authResult.availability) {
+                setPublisher(prev => prev ? { ...prev, availability: authResult.availability! } : prev);
+            }
+        } catch {
+            // não-crítico; write ok
+        }
 
         setStatus('saved');
         setTimeout(() => setStatus('ready'), 3000);
