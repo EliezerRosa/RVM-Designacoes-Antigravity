@@ -217,20 +217,33 @@ export async function loadPermissions(
 
     try {
         // 1. Get publisher condition + funcao
+        //    Fase 4b RLS hardening (2026-08-05): usar RPC SECURITY DEFINER
+        //    curada em vez de select direto na tabela `publishers`. Isso permite
+        //    que a Fase 4c restrinja SELECT direto a editor-only sem quebrar o
+        //    publicador comum. A RPC entrega apenas os campos computados
+        //    necessários (não expõe pastoral bruto).
         let condition: string | null = null;
         let funcao: string | null = null;
 
         if (publisherId) {
-            const { data: pub } = await supabase
-                .from('publishers')
-                .select('data')
-                .eq('id', publisherId)
-                .maybeSingle();
-            
-            if (pub?.data) {
-                const pubData = pub.data as Record<string, unknown>;
-                condition = (pubData.condition as string) || null;
-                funcao = (pubData.funcao as string) || null;
+            const { data: me, error: meErr } = await supabase.rpc('get_my_permissions');
+            if (meErr) {
+                console.warn('[Permissions] get_my_permissions RPC failed, falling back to direct select:', meErr);
+                // Fallback (pré-Fase 4c ou usuário sem publisher_id linkado)
+                const { data: pub } = await supabase
+                    .from('publishers')
+                    .select('data')
+                    .eq('id', publisherId)
+                    .maybeSingle();
+                if (pub?.data) {
+                    const pubData = pub.data as Record<string, unknown>;
+                    condition = (pubData.condition as string) || null;
+                    funcao = (pubData.funcao as string) || null;
+                }
+            } else if (me) {
+                const meRec = me as Record<string, unknown>;
+                condition = (meRec.condition as string) || null;
+                funcao = (meRec.funcao as string) || null;
             }
         }
 
