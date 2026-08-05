@@ -14,6 +14,26 @@ interface ProfileLink {
     whatsapp_verified: boolean;
 }
 
+// Extrai mensagem legível de qualquer forma de erro (Error, PostgrestError, string, objeto).
+// PostgrestError do supabase-js NÃO estende Error — `e instanceof Error` é false e
+// `String(e)` vira "[object Object]". Este helper cobre { message, details, hint, code }.
+function formatError(e: unknown): string {
+    if (!e) return 'erro desconhecido';
+    if (typeof e === 'string') return e;
+    if (e instanceof Error) return e.message;
+    if (typeof e === 'object') {
+        const o = e as Record<string, unknown>;
+        const parts: string[] = [];
+        if (typeof o.message === 'string' && o.message) parts.push(o.message);
+        if (typeof o.details === 'string' && o.details) parts.push(o.details);
+        if (typeof o.hint === 'string' && o.hint) parts.push(`(dica: ${o.hint})`);
+        if (typeof o.code === 'string' && o.code) parts.push(`[${o.code}]`);
+        if (parts.length) return parts.join(' ');
+        try { return JSON.stringify(e); } catch { return '[erro não serializável]'; }
+    }
+    return String(e);
+}
+
 export function ProfileLinksPanel() {
     const [links, setLinks] = useState<ProfileLink[]>([]);
     const [publishers, setPublishers] = useState<Publisher[]>([]);
@@ -99,16 +119,19 @@ export function ProfileLinksPanel() {
             if (error) throw error;
             const result = (data || {}) as { success?: boolean; error?: string };
             if (!result.success) {
-                if (result.error === 'publisher_already_linked') {
-                    alert('⚠️ Erro de Segurança:\nEste publicador já está vinculado a outro e-mail! Desvincule o e-mail antigo primeiro.');
-                } else {
-                    alert('Erro: ' + (result.error || 'falha desconhecida'));
-                }
+                const errMsg: Record<string, string> = {
+                    publisher_already_linked: '⚠️ Erro de Segurança:\nEste publicador já está vinculado a outro e-mail! Desvincule o e-mail antigo primeiro.',
+                    profile_not_found: 'Perfil não encontrado no banco.',
+                    publisher_not_found: 'Publicador não encontrado no banco.',
+                    not_admin: 'Você precisa de permissão de admin para vincular.',
+                };
+                alert(errMsg[result.error || ''] || ('Erro: ' + (result.error || 'falha desconhecida')));
             } else {
                 await load();
             }
         } catch (e) {
-            alert('Erro: ' + (e instanceof Error ? e.message : String(e)));
+            console.error('admin_link_profile_to_publisher:', e);
+            alert('Erro ao vincular: ' + formatError(e));
         } finally {
             setBusyProfile(null);
         }
@@ -124,12 +147,13 @@ export function ProfileLinksPanel() {
             if (error) throw error;
             const result = (data || {}) as { success?: boolean; error?: string };
             if (!result.success) {
-                alert('Erro: ' + (result.error || 'falha desconhecida'));
+                alert('Erro ao desvincular: ' + (result.error || 'falha desconhecida'));
             } else {
                 await load();
             }
         } catch (e) {
-            alert('Erro: ' + (e instanceof Error ? e.message : String(e)));
+            console.error('admin_unlink_profile:', e);
+            alert('Erro ao desvincular: ' + formatError(e));
         } finally {
             setBusyProfile(null);
         }
@@ -155,7 +179,8 @@ export function ProfileLinksPanel() {
                 await load();
             }
         } catch (e) {
-            alert('Erro ao excluir: ' + (e instanceof Error ? e.message : String(e)));
+            console.error('admin_delete_user_completely:', e);
+            alert('Erro ao excluir: ' + formatError(e));
         } finally {
             setBusyProfile(null);
         }
