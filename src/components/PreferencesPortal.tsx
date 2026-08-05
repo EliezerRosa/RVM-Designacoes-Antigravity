@@ -75,23 +75,27 @@ export function PreferencesPortal({ action, pubId }: PreferencesPortalProps) {
         setIsSubmitting(true);
         try {
             const field = isRejoin ? 'requestedNoParticipation' : 'isHelperOnly';
-            const { data: pub } = await supabase
-                .from('publishers')
-                .select('data')
-                .eq('id', pubId)
-                .single();
 
-            if (!pub) throw new Error('Publicador não encontrado.');
+            // Fase 1 RLS hardening: submit_publisher_preference é SECURITY DEFINER
+            // e valida server-side que auth.uid() é o dono do publisher OU admin.
+            // Fecha vulnerabilidade #3: hoje qualquer usuário logado alterava qualquer pubId.
+            const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_publisher_preference', {
+                p_pub_id: pubId,
+                p_field: field,
+                p_value: false,
+            });
 
-            const updatedData = { ...pub.data, [field]: false };
-            const { error: updateError } = await supabase
-                .from('publishers')
-                .update({ data: updatedData })
-                .eq('id', pubId);
+            if (rpcError) throw rpcError;
+            const result = rpcResult as { ok?: boolean; reason?: string; publisher_name?: string };
+            if (!result?.ok) {
+                if (result?.reason === 'not_authorized') {
+                    throw new Error('Você não tem permissão para alterar essa preferência.');
+                }
+                throw new Error(result?.reason || 'Falha ao atualizar.');
+            }
 
-            if (updateError) throw updateError;
-
-            // Notificar SRVM via Edge Function
+            // Notificar SRVM via Edge Function (leitura de publishers permanece OK sob RLS futura
+            // porque será liberada para authenticated; portal aqui está logado).
             try {
                 const { data: pubs } = await supabase.from('publishers').select('id, data');
                 const srvmPubs = (pubs || []).filter((p: any) =>
@@ -100,7 +104,7 @@ export function PreferencesPortal({ action, pubId }: PreferencesPortalProps) {
                 );
 
                 const actionLabel = isRejoin ? 'voltou a aceitar designações' : 'agora aceita partes como titular';
-                const msg = `🔔 *Atualização de Preferência*\n\n${publisherName} ${actionLabel}.\n\nAtualizado via Portal de Preferências.`;
+                const msg = `🔔 *Atualização de Preferência*\n\n${result.publisher_name || publisherName} ${actionLabel}.\n\nAtualizado via Portal de Preferências.`;
 
                 for (const srvm of srvmPubs) {
                     if (srvm.data?.phone) {
@@ -116,7 +120,7 @@ export function PreferencesPortal({ action, pubId }: PreferencesPortalProps) {
             setSuccess(true);
         } catch (err) {
             console.error('[PreferencesPortal] Erro ao confirmar:', err);
-            setError('Falha ao atualizar sua preferência. Tente novamente.');
+            setError(err instanceof Error ? err.message : 'Falha ao atualizar sua preferência. Tente novamente.');
         } finally {
             setIsSubmitting(false);
         }

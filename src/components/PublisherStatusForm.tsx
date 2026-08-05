@@ -133,18 +133,15 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         setModalDataLoading(true);
         setModalDataError(null);
         try {
-            const { data, error } = await supabase
-                .from('workbook_parts')
-                .select('week_id, date')
-                .order('week_id', { ascending: true });
+            // Fase 1 RLS hardening: RPC SECURITY DEFINER que valida token
+            // OU admin bypass; substitui SELECT direto em workbook_parts
+            // (que será restrito na Fase 3 para anon).
+            const { data, error } = await supabase.rpc('list_workbook_weeks_for_publisher_form', {
+                p_token: token || null,
+            });
             if (error) throw error;
-            const seen = new Map<string, string>();
-            for (const row of (data || []) as Array<{ week_id: string; date: string | null }>) {
-                if (!row.week_id || seen.has(row.week_id)) continue;
-                const year = row.date ? new Date(row.date).getFullYear() : '';
-                seen.set(row.week_id, year ? `${row.week_id} (${year})` : row.week_id);
-            }
-            setModalWeeks(Array.from(seen.entries()).map(([weekId, display]) => ({ weekId, display })));
+            const rows = (data || []) as Array<{ week_id: string; display: string }>;
+            setModalWeeks(rows.map(r => ({ weekId: r.week_id, display: r.display })));
         } catch (err) {
             console.error('[PublisherStatusForm] Erro carregando semanas para NL/Eventos:', err);
             setModalDataError(err instanceof Error ? err.message : 'Erro ao carregar dados.');
