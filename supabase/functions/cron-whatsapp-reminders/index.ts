@@ -374,14 +374,14 @@ async function runDailyCycle(
     return { sentCount, noPhoneList };
 }
 
-async function completePastConfirmedAssignments(
+async function completePastAssignments(
     meetingDays: Record<string, number>,
     today: Date
 ): Promise<number> {
     const { data: candidates, error: fetchError } = await supabase
         .from('workbook_parts')
         .select('id, week_id, status, resolved_publisher_id, resolved_publisher_name, raw_publisher_name')
-        .in('status', ['DESIGNADA', 'APROVADA']);
+        .in('status', ['PROPOSTA', 'DESIGNADA', 'APROVADA']);
 
     if (fetchError || !candidates) {
         console.error('[cron] Falha ao buscar designações para conclusão automática:', fetchError);
@@ -412,7 +412,7 @@ async function completePastConfirmedAssignments(
             updated_at: nowIso,
         })
         .in('id', idsToComplete)
-        .in('status', ['DESIGNADA', 'APROVADA'])
+        .in('status', ['PROPOSTA', 'DESIGNADA', 'APROVADA'])
         .select('id');
 
     if (updateError) {
@@ -624,16 +624,16 @@ serve(async (req: Request) => {
     console.log('[cron-whatsapp-reminders] Iniciando rotina...');
 
     // O ciclo de vida não depende do canal de mensagens. Mesmo com a Z-API
-    // desligada, designações confirmadas de reuniões passadas devem ser fechadas.
+    // desligada, propostas e designações de reuniões passadas devem ser fechadas.
     const { data: meetingDayData } = await supabase.from('app_settings').select('value').eq('key', 's89_meeting_day_by_week').maybeSingle();
     const meetingDays: Record<string, number> = meetingDayData?.value || {};
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const completedCount = await completePastConfirmedAssignments(meetingDays, today);
+    const completedCount = await completePastAssignments(meetingDays, today);
     if (completedCount > 0) {
-        console.log(`[cron] ${completedCount} designação(ões) confirmada(s) marcada(s) como CONCLUIDA.`);
+        console.log(`[cron] ${completedCount} proposta(s)/designação(ões) marcada(s) como CONCLUIDA.`);
     }
 
     // Kill-switch global
