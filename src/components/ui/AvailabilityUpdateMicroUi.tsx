@@ -50,15 +50,12 @@ export function AvailabilityUpdateMicroUi({
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                 <div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#155E75', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Micro-UI de disponibilidade
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#155E75', textTransform: 'uppercase' }}>
+                        Indisponibilidade
                     </div>
                     <div style={{ fontSize: '14px', fontWeight: 600, color: '#164E63' }}>
                         Bloquear uma data para um publicador
                     </div>
-                </div>
-                <div style={{ fontSize: '12px', color: '#0F766E' }}>
-                    Fase {isPreviewing ? '2' : '1'}
                 </div>
             </div>
 
@@ -117,17 +114,14 @@ export function AvailabilityUpdateMicroUi({
                         opacity: !selectedPublisherId || !selectedDate || busy ? 0.6 : 1
                     }}
                 >
-                    Preparar
+                    Revisar
                 </button>
             </div>
 
             {isPreviewing && selectedPublisher && (
                 <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #CFFAFE' }}>
                     <div style={{ fontSize: '12px', color: '#155E75', marginBottom: '6px' }}>
-                        Preview: a data <strong>{selectedDate}</strong> será adicionada às indisponibilidades de <strong>{selectedPublisher.name}</strong>.
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#0F766E', marginBottom: '8px' }}>
-                        Commit via executor tipado de `UPDATE_AVAILABILITY`, com revalidação de permissão no momento da escrita.
+                        A data <strong>{selectedDate}</strong> será adicionada às indisponibilidades de <strong>{selectedPublisher.name}</strong>.
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                         <button

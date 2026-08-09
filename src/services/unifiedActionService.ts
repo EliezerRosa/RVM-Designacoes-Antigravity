@@ -152,7 +152,9 @@ export const unifiedActionService = {
         console.log(`[UnifiedAction] ↩️ Solicitação de Reversão:`, { partId, source, reason });
 
         try {
-            const updatedPart = await workbookLifecycleService.rejectProposal(partId, reason);
+            const updatedPart = await workbookLifecycleService.rejectProposal(partId, reason, {
+                isPublisherRefusal: false
+            });
             console.log(`[UnifiedAction] ✅ Revertido com sucesso: ${updatedPart.tituloParte}`);
             return { success: true, part: updatedPart };
         } catch (error) {

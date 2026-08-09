@@ -7,7 +7,7 @@
  * 3. Painel de Controle (Ações/Explicações)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import S140PreviewCarousel from './S140PreviewCarousel';
 import TemporalChat from './TemporalChat';
@@ -29,8 +29,9 @@ import { LeftPanelActions } from './ui/LeftPanelActions';
 import { RightPanelDetails } from './ui/RightPanelDetails';
 import type { ChatActionChipItem } from './ui/ChatActionChips';
 import type { PostResponseActionItem } from './ui/PostResponseActions';
-import type { SlashCommandItem } from './ui/SlashCommandMenu';
 import type { FloatingMicroUiItem } from './ui/FloatingMicroUiHost';
+import { getTodayWeekIdLocal } from '../utils/dateUtils';
+import { resolveInitialAgentWeekId } from '../utils/agentFocus';
 
 interface Props {
     publishers: Publisher[];
@@ -54,20 +55,36 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     showControlPanel = false,
     canSendZap = false
 }: Props) {
-    // Estado de Navegação Híbrida
-    // Inicializar do localStorage se disponível ou initialWeekId se fornecido
-    const [currentWeekId, setCurrentWeekId] = useState<string | null>(() => {
-        if (initialWeekId) return initialWeekId;
-        const stored = localStorage.getItem('rvm_agent_last_week_id');
-        return stored || weekOrder[0] || null;
-    });
+    const [selectedWeekId, setCurrentWeekId] = useState<string | null>(initialWeekId || null);
+    const defaultWeekId = useMemo(
+        () => resolveInitialAgentWeekId({
+            weekOrder,
+            weekParts,
+            todayWeekId: getTodayWeekIdLocal(),
+            initialWeekId,
+            storedWeekId: localStorage.getItem('rvm_agent_last_week_id'),
+        }),
+        [initialWeekId, weekOrder, weekParts]
+    );
+    const currentWeekId = selectedWeekId && weekOrder.includes(selectedWeekId)
+        ? selectedWeekId
+        : defaultWeekId;
 
     const [showS89Modal, setShowS89Modal] = useState(false);
     const [showMyAssignmentsModal, setShowMyAssignmentsModal] = useState(false);
     const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
+    const focusedPartId = selectedPartId && currentWeekId && weekParts[currentWeekId]?.some(part => part.id === selectedPartId)
+        ? selectedPartId
+        : null;
     const { profile, isAdmin } = useAuth();
+    const actorPublisher = profile?.publisher_id
+        ? publishers.find(publisher => publisher.id === profile.publisher_id)
+        : null;
+    const actorLabel = isAdmin
+        ? 'Administrador'
+        : actorPublisher?.funcao || actorPublisher?.condition || 'Publicador';
     const [activeModal, setActiveModal] = useState<AgentModalType>(null);
-    const [activeModalParams, setActiveModalParams] = useState<any>(null);
+    const [activeModalParams, setActiveModalParams] = useState<unknown>(null);
     const [weeklyEvents, setWeeklyEvents] = useState<SpecialEvent[]>([]);
     const [pendingLinksCount, setPendingLinksCount] = useState<number>(0);
 
@@ -80,7 +97,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 if (!error && data) {
                     setPendingLinksCount(data.length);
                 }
-            } catch (e) { /* ignore */ }
+            } catch { /* ignore */ }
         };
         fetchPendingLinks();
         
@@ -89,24 +106,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         return () => clearInterval(interval);
     }, [isAdmin]);
 
-    // Sync currentWeekId when weekOrder arrives asynchronously OR fallback if stored is invalid
-    // 2026-05-26: também valida currentWeekId hidratado do localStorage contra weekOrder.
-    // Sem isso, um weekId fantasma persistido (ex: erro do agente em sessão anterior)
-    // contamina pill/drawers no boot, mesmo com Ctrl+Shift+R.
-    useEffect(() => {
-        if (initialWeekId) {
-            setCurrentWeekId(initialWeekId);
-        } else if (!currentWeekId && weekOrder.length > 0) {
-            console.log('[AgentTab] Setting initial week to:', weekOrder[0]);
-            setCurrentWeekId(weekOrder[0]);
-        } else if (currentWeekId && weekOrder.length > 0 && !weekOrder.includes(currentWeekId)) {
-            // weekId hidratado é inválido (apostila não cobre). Limpa localStorage e reseta.
-            console.warn(`[AgentTab] currentWeekId hidratado "${currentWeekId}" não está na apostila (range: ${weekOrder[0]} → ${weekOrder[weekOrder.length - 1]}). Resetando para ${weekOrder[0]}.`);
-            try { localStorage.removeItem('rvm_agent_last_week_id'); } catch { /* noop */ }
-            setCurrentWeekId(weekOrder[0]);
-        }
-    }, [weekOrder, currentWeekId, initialWeekId]);
-
     // Persist changes
     useEffect(() => {
         if (currentWeekId) {
@@ -114,7 +113,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         }
     }, [currentWeekId]);
 
-    const [showContextAlert, setShowContextAlert] = useState(false);
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
     const [rateLimitInfo, setRateLimitInfo] = useState<{ remaining: number, max: number, refillInSeconds: number } | null>(null);
     const [, setActiveModel] = useState<string>('gemini-1.5-flash'); // Default model active
@@ -122,19 +120,15 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
     // === IDD drawer ESQ: controles semânticos vindos do TemporalChat.
     const [semanticControls, setSemanticControls] = useState<{
         chips: ChatActionChipItem[];
-        slashCommands: SlashCommandItem[];
         suggestedActions: PostResponseActionItem[];
-    }>({ chips: [], slashCommands: [], suggestedActions: [] });
+    }>({ chips: [], suggestedActions: [] });
 
     // === IDD drawer DIR: micro-UIs ativas + request de auto-open vindas do TemporalChat.
     const [activeMicroUis, setActiveMicroUis] = useState<FloatingMicroUiItem[]>([]);
     const [microUiRequest, setMicroUiRequest] = useState<{ id: string; nonce: number } | null>(null);
-    // Bump nonce para o ChatDrawerShell.forceOpen quando uma nova request chega.
-    const [drawerForceOpen, setDrawerForceOpen] = useState<{ side: 'left' | 'right'; nonce: number } | null>(null);
-    useEffect(() => {
-        if (!microUiRequest) return;
-        setDrawerForceOpen({ side: 'right', nonce: microUiRequest.nonce });
-    }, [microUiRequest]);
+    const drawerForceOpen = microUiRequest
+        ? { side: 'right' as const, nonce: microUiRequest.nonce }
+        : null;
 
     // Sync week navigation with TemporalChat
     useEffect(() => {
@@ -151,25 +145,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
         }
         fetchEvents();
 
-        // Show a simple visual alert for context change instead of adding a message to the chat
-        setShowContextAlert(true);
-        const timer = setTimeout(() => setShowContextAlert(false), 3000);
-        return () => clearTimeout(timer);
     }, [currentWeekId]);
-
-    // Reseta a Seleção de Parte automaticamente ao trocar de semana
-    useEffect(() => {
-        if (currentWeekId && weekParts[currentWeekId]) {
-            const partsList = weekParts[currentWeekId];
-            if (partsList && partsList.length > 0) {
-                // Verificar se a parte atualmente selecionada pertence a esta semana.
-                const isCurrentSelectionValid = partsList.some(p => p.id === selectedPartId);
-                if (!isCurrentSelectionValid) {
-                    setSelectedPartId(partsList[0].id); // Auto select da primeira parte
-                }
-            }
-        }
-    }, [currentWeekId, weekParts, selectedPartId]);
 
     // Handle actions from Chat
     const handleAgentAction = (result: ActionResult) => {
@@ -225,7 +201,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
 
 
             {/* Coluna 1: S-140 Híbrido */}
-            <div className="agent-tab-column">
+            <div className="agent-tab-column agent-tab-column--week">
                 <div className="agent-tab-col-header">
                     <span>📄</span> Visualização Contextual (S-140)
                 </div>
@@ -242,7 +218,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
             </div>
 
             {/* Coluna 2: Chat Temporal */}
-            <div className="agent-tab-column">
+            <div className="agent-tab-column agent-tab-column--chat">
                 <div className="agent-tab-col-header" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <span>🤖</span> Agente RVM
                     
@@ -313,19 +289,18 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                 </div>
                 <div className="agent-tab-col-content" style={{ padding: 0 }}>
                     <ChatDrawerShell
-                        leftRailLabel="Ações"
+                        leftRailLabel="Próximos"
                         leftRailIcon="💡"
                         leftSlots={[
                             {
                                 id: 'suggested-actions',
                                 title: 'Ações',
                                 icon: '💡',
-                                badgeCount: semanticControls.chips.length + semanticControls.suggestedActions.length,
+                                badgeCount: 0,
                                 content: (
                                     <LeftPanelActions
                                         chips={semanticControls.chips}
                                         suggestedActions={semanticControls.suggestedActions}
-                                        slashCommands={semanticControls.slashCommands}
                                     />
                                 ),
                             },
@@ -336,7 +311,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                         rightSlots={activeMicroUis.length > 0 ? [
                             {
                                 id: 'micro-ui',
-                                title: 'Micro-UI Ativa',
+                                title: 'Detalhes e decisões',
                                 icon: '🧩',
                                 badgeCount: activeMicroUis.length,
                                 content: (
@@ -360,7 +335,9 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             isWorkbookLoading={isWorkbookLoading}
                             onRateLimitChange={(remaining, max, refillInSeconds) => setRateLimitInfo({ remaining, max, refillInSeconds })}
                             accessLevel={accessLevel}
+                            actorLabel={actorLabel}
                             canSendZap={canSendZap}
+                            focusedPartId={focusedPartId}
                             onPartFocus={setSelectedPartId}
                             onSemanticControlsChange={setSemanticControls}
                             onActiveMicroUiChange={(items, request) => {
@@ -433,7 +410,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
             </div>
 
             {/* Coluna 3: Painel de Controle — só visível para Anciãos, SM Ajudante SRVM e Admin */}
-            {showControlPanel && (<div className="agent-tab-column">
+            {showControlPanel && (<div className="agent-tab-column agent-tab-column--details">
                 <div className="agent-tab-col-header">
                     <span>⚙️</span> Controle & Explicações
                 </div>
@@ -488,8 +465,8 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                                                             cursor: 'pointer',
                                                             fontSize: '11px',
                                                             borderBottom: '1px solid #F3F4F6',
-                                                            background: selectedPartId === part.id ? '#EEF2FF' : 'transparent',
-                                                            borderLeft: selectedPartId === part.id ? '3px solid #4F46E5' : '3px solid transparent',
+                                                            background: focusedPartId === part.id ? '#EEF2FF' : 'transparent',
+                                                            borderLeft: focusedPartId === part.id ? '3px solid #4F46E5' : '3px solid transparent',
                                                             display: 'flex',
                                                             justifyContent: 'space-between',
                                                             alignItems: 'center',
@@ -515,7 +492,7 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                     {/* Painel de Ações/Explicações — 60% */}
                     <div style={{ flex: '0 0 60%', overflow: 'hidden' }}>
                         <ActionControlPanel
-                            selectedPartId={selectedPartId}
+                            selectedPartId={focusedPartId}
                             parts={parts}
                             publishers={publishers}
                             historyRecords={historyRecords}
@@ -523,15 +500,6 @@ export default function PowerfulAgentTab({ publishers, parts, weekParts, weekOrd
                             onDataChange={onDataChange}
                         />
                     </div>
-                    {showContextAlert && (
-                        <div style={{
-                            position: 'absolute', bottom: 10, left: 0, right: 0, margin: '0 20px', padding: '10px',
-                            background: '#4F46E5', color: '#FFFFFF', borderRadius: '8px', textAlign: 'center',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 1000, fontWeight: '500'
-                        }}>
-                            Naveguei para a semana {currentWeekId}
-                        </div>
-                    )}
                 </div>
             </div>)}
 

@@ -3,7 +3,11 @@ import type { WorkbookPart } from '../types';
 interface WorkbookLifecycleDependencies {
     workbookClient: {
         approveProposal: (partId: string, elderId: string) => Promise<WorkbookPart>;
-        rejectProposal: (partId: string, reason: string) => Promise<WorkbookPart>;
+        rejectProposal: (
+            partId: string,
+            reason: string,
+            options?: { isPublisherRefusal?: boolean }
+        ) => Promise<WorkbookPart>;
         markAsCompleted: (partIds: string[]) => Promise<void>;
         getPartById: (partId: string) => Promise<WorkbookPart | null>;
         undoCompletion: (partId: string) => Promise<WorkbookPart>;
@@ -16,8 +20,8 @@ export function createWorkbookLifecycleService(dependencies: WorkbookLifecycleDe
             return dependencies.workbookClient.approveProposal(partId, elderId);
         },
 
-        rejectProposal(partId: string, reason: string) {
-            return dependencies.workbookClient.rejectProposal(partId, reason);
+        rejectProposal(partId: string, reason: string, options?: { isPublisherRefusal?: boolean }) {
+            return dependencies.workbookClient.rejectProposal(partId, reason, options);
         },
 
         async completePart(partId: string) {

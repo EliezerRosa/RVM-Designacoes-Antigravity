@@ -113,15 +113,12 @@ export function PublisherQuickEditMicroUi({ publishers, defaultPublisherId = nul
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                 <div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Micro-UI de publicador
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                        Ficha do publicador
                     </div>
                     <div style={{ fontSize: '14px', fontWeight: 600, color: '#14532D' }}>
-                        Editar ficha principal com preview curto
+                        Revise somente os dados que precisam mudar
                     </div>
-                </div>
-                <div style={{ fontSize: '12px', color: '#15803D' }}>
-                    Fase {isPreviewing ? '2' : '1'}
                 </div>
             </div>
 
@@ -185,13 +182,13 @@ export function PublisherQuickEditMicroUi({ publishers, defaultPublisherId = nul
                     disabled={busy || changedFields.length === 0}
                     style={{ border: 'none', borderRadius: '8px', padding: '8px 12px', cursor: busy || changedFields.length === 0 ? 'not-allowed' : 'pointer', background: '#166534', color: '#F0FDF4', fontSize: '12px', fontWeight: 600, opacity: busy || changedFields.length === 0 ? 0.6 : 1 }}
                 >
-                    Preparar
+                    Revisar alterações
                 </button>
             </div>
 
             {isPreviewing && (
                 <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #DCFCE7' }}>
-                    <div style={{ fontSize: '12px', color: '#166534', marginBottom: '6px' }}>Preview dos campos alterados:</div>
+                    <div style={{ fontSize: '12px', color: '#166534', marginBottom: '6px' }}>Confira os campos alterados:</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#334155', marginBottom: '8px' }}>
                         {changedFields.map(([key, value]) => (
                             <div key={key}><strong>{FIELD_LABELS[key] || key}</strong>: {String(value || '—')}</div>
@@ -199,7 +196,7 @@ export function PublisherQuickEditMicroUi({ publishers, defaultPublisherId = nul
                     </div>
                     {preview?.renamed && (
                         <div style={{ marginBottom: '10px', padding: '10px', borderRadius: '10px', background: '#ECFCCB', border: '1px solid #BEF264', color: '#3F6212', fontSize: '12px' }}>
-                            <div style={{ fontWeight: 700, marginBottom: '4px' }}>Preview de rename</div>
+                            <div style={{ fontWeight: 700, marginBottom: '4px' }}>Impacto da alteração de nome</div>
                             <div>{selectedPublisher.name} → {updates.name}</div>
                             <div style={{ marginTop: '4px' }}>Impacto previsto: {preview.renameImpact.totalParts} parte(s), sendo {preview.renameImpact.resolvedParts} em resolved e {preview.renameImpact.rawParts} em raw.</div>
                         </div>

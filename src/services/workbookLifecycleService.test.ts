@@ -38,6 +38,34 @@ test('approveProposal delegates to the workbook boundary', async () => {
     assert.deepEqual(calls, [{ partId: 'part-1', elderId: 'elder-1' }]);
 });
 
+test('rejectProposal only forwards publisher refusal when explicitly declared', async () => {
+    const calls: Array<{
+        partId: string;
+        reason: string;
+        options?: { isPublisherRefusal?: boolean };
+    }> = [];
+    const service = createWorkbookLifecycleService({
+        workbookClient: {
+            approveProposal: async () => samplePart,
+            rejectProposal: async (partId, reason, options) => {
+                calls.push({ partId, reason, options });
+                return samplePart;
+            },
+            markAsCompleted: async () => undefined,
+            getPartById: async () => samplePart,
+            undoCompletion: async () => samplePart,
+        },
+    });
+
+    await service.rejectProposal('part-1', 'Correção administrativa');
+    await service.rejectProposal('part-1', 'Não poderei comparecer', { isPublisherRefusal: true });
+
+    assert.deepEqual(calls, [
+        { partId: 'part-1', reason: 'Correção administrativa', options: undefined },
+        { partId: 'part-1', reason: 'Não poderei comparecer', options: { isPublisherRefusal: true } },
+    ]);
+});
+
 test('completePart marks completed and reloads the updated part', async () => {
     const completeCalls: string[][] = [];
     const loadCalls: string[] = [];

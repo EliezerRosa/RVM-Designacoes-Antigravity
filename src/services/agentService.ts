@@ -1318,7 +1318,8 @@ export async function askAgent(
     specialEvents: SpecialEventInput[] = [],
     localNeeds: LocalNeedsInput[] = [],
     focusWeekId?: string,
-    audioData?: { mimeType: string, data: string }
+    audioData?: { mimeType: string, data: string },
+    focusPartId?: string
 ): Promise<AgentResponse> {
     if (!isAgentConfigured()) {
     return { success: false, message: '', error: 'Serviço de IA indisponível.', actions: [] };
@@ -1361,6 +1362,19 @@ export async function askAgent(
 
     let systemPrompt = SYSTEM_PROMPT_BASE;
     let sensitiveContextText = '';
+
+    const focusedPart = focusPartId ? parts.find(part => part.id === focusPartId) : undefined;
+    if (focusedPart) {
+      const assignedPublisher = focusedPart.resolvedPublisherName || focusedPart.rawPublisherName || 'sem designado';
+      systemPrompt += `\n\n== PARTE EM FOCO — ALVO EXPLÍCITO DA INTERFACE ==\n` +
+        `ID: ${focusedPart.id}\n` +
+        `Semana: ${focusedPart.weekId}\n` +
+        `Parte: ${focusedPart.tituloParte || focusedPart.tipoParte}\n` +
+        `Tipo/Função: ${focusedPart.tipoParte} / ${focusedPart.funcao}\n` +
+        `Status: ${focusedPart.status}\n` +
+        `Designado: ${assignedPublisher}\n` +
+        `Quando o usuário disser "esta parte", "ela" ou executar uma ação sem nomear outra parte, use ESTE ID. Não escolha a primeira parte da semana.`;
+    }
 
     if (accessLevel === 'elder') {
       systemPrompt += SYSTEM_PROMPT_ELDER_ADDON;

@@ -18,6 +18,32 @@ export function getTodayWeekIdLocal(now: Date = new Date()): string {
     return toLocalISODate(monday);
 }
 
+export function getMeetingDateForWeek(weekId: string, meetingDayOfWeek = 4): Date | null {
+    const parts = weekId.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(value => !Number.isFinite(value))) return null;
+    if (meetingDayOfWeek < 0 || meetingDayOfWeek > 6) return null;
+
+    const monday = new Date(parts[0], parts[1] - 1, parts[2]);
+    if (Number.isNaN(monday.getTime())) return null;
+
+    const daysToMeeting = (meetingDayOfWeek - monday.getDay() + 7) % 7;
+    const meetingDate = new Date(monday);
+    meetingDate.setDate(monday.getDate() + daysToMeeting);
+    return meetingDate;
+}
+
+export function hasMeetingOccurred(
+    weekId: string,
+    meetingDayOfWeek = 4,
+    now: Date = new Date()
+): boolean {
+    const meetingDate = getMeetingDateForWeek(weekId, meetingDayOfWeek);
+    if (!meetingDate) return false;
+
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return meetingDate.getTime() < today.getTime();
+}
+
 export function isOnOrAfterToday(dateStr: string, now: Date = new Date()): boolean {
     if (!dateStr) return false;
 
