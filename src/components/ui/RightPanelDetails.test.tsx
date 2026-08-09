@@ -16,7 +16,7 @@ test('RightPanelDetails: empty state quando items=[]', () => {
     const dom = installDom();
     try {
         const view = render(<RightPanelDetails items={[]} activeId={null} />);
-        assert.ok(view.container.textContent?.includes('Nenhuma micro-UI'));
+        assert.ok(view.container.textContent?.includes('Selecione uma parte'));
     } finally {
         dom.cleanup();
     }

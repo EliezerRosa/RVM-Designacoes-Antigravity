@@ -23,7 +23,8 @@ import { workbookManagementService } from './workbookManagementService';
 import { specialEventManagementService } from './specialEventManagementService';
 import { permissionPolicyService } from './permissionPolicyService';
 import { isManuallyAssignable } from '../constants/s140Template';
-import { toLocalISODate } from '../utils/dateUtils';
+import { hasMeetingOccurred, toLocalISODate } from '../utils/dateUtils';
+import { api } from './api';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -667,7 +668,9 @@ export const agentActionService = {
                         return { success: false, message: 'Faltam parâmetros: partId e reason.' };
                     }
 
-                    const rejectedPart = await workbookLifecycleService.rejectProposal(partId, reason);
+                    const rejectedPart = await workbookLifecycleService.rejectProposal(partId, reason, {
+                        isPublisherRefusal: false
+                    });
                     return {
                         success: true,
                         message: `Proposta rejeitada para ${rejectedPart.tipoParte}.`,
@@ -683,8 +686,29 @@ export const agentActionService = {
                     }
 
                     const completePartCheck = parts.find(p => p.id === partId);
+                    if (!completePartCheck) {
+                        return { success: false, message: 'Parte não encontrada no contexto atual.' };
+                    }
                     if (completePartCheck && !isManuallyAssignable(completePartCheck.tipoParte)) {
                         return { success: false, message: `"${completePartCheck.tituloParte || completePartCheck.tipoParte}" é automática/não-designável; não requer marcação de conclusão.` };
+                    }
+
+                    if (completePartCheck.status !== 'DESIGNADA' && completePartCheck.status !== 'APROVADA') {
+                        return {
+                            success: false,
+                            message: `A parte está em ${completePartCheck.status}; somente uma designação confirmada pode ser concluída.`,
+                            actionType: 'COMPLETE_PART'
+                        };
+                    }
+
+                    const meetingDays = await api.getSetting<Record<string, number>>('s89_meeting_day_by_week', {});
+                    const meetingDay = meetingDays[completePartCheck.weekId] ?? 4;
+                    if (!hasMeetingOccurred(completePartCheck.weekId, meetingDay)) {
+                        return {
+                            success: false,
+                            message: 'A reunião desta semana ainda não ocorreu. A conclusão será feita automaticamente após a reunião.',
+                            actionType: 'COMPLETE_PART'
+                        };
                     }
 
                     const completedPart = await workbookLifecycleService.completePart(partId);

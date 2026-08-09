@@ -298,8 +298,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'PENDENTE': return <span style={getBadgeStyle('warning')}>⏳ Pendente</span>;
-            case 'CONFIRMED': return <span style={getBadgeStyle('success')}>✅ Confirmada</span>;
-            case 'COMPLETED': return <span style={getBadgeStyle('info')}>✓ Concluída</span>;
+            case 'PROPOSTA': return <span style={getBadgeStyle('warning')}>Aguardando resposta</span>;
+            case 'APROVADA':
+            case 'DESIGNADA': return <span style={getBadgeStyle('success')}>Confirmada</span>;
+            case 'CONCLUIDA': return <span style={getBadgeStyle('info')}>✓ Concluída</span>;
+            case 'REJEITADA': return <span style={getBadgeStyle('error')}>Devolvida</span>;
             case 'CANCELADA': return <span style={getBadgeStyle('error')}>❌ Cancelada</span>;
             default: return <span style={getBadgeStyle('info')}>{status}</span>;
         }
@@ -374,23 +377,21 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 : relation === 0
                     ? 'está designado para realizar'
                     : 'realizou';
-            parts.push(`${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${weekOrDate}; o recomendado é aguardar 3 semanas entre partes principais.`);
+            parts.push(`${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${weekOrDate}; por isso, participou há pouco para receber outra parte importante.`);
         }
 
-        if (scoreData.details.frequencyPenalty > 100) {
-            parts.push(`${firstName} participou bastante nos últimos 3 meses; participação recente pesa mais no cálculo do que a vantagem de ter participado poucas vezes — a prioridade cai de forma mais acentuada.`);
-        } else if (scoreData.details.frequencyPenalty > 0) {
-            parts.push(`${firstName} teve algumas designações recentes; isso foi considerado no cálculo de prioridade.`);
+        if (scoreData.details.recentCount > 0) {
+            parts.push(`${firstName} tem ${scoreData.details.recentCount} participação${scoreData.details.recentCount === 1 ? '' : 'ões'} próxima${scoreData.details.recentCount === 1 ? '' : 's'} a esta semana; isso foi considerado para equilibrar as designações.`);
         } else {
-            parts.push(`${firstName} está com a agenda mais livre nos últimos 3 meses.`);
+            parts.push(`${firstName} está sem outras participações próximas desta semana.`);
         }
 
         if (hasManualOverride && bestCandidate) {
-            parts.push(`O sistema teria indicado ${bestCandidate.name} como mais adequado aos critérios abaixo, mas o SRVM optou por esta designação por decisão manual.`);
+            parts.push(`A primeira opção calculada seria ${bestCandidate.name}, mas esta designação foi escolhida manualmente.`);
         } else if (isAssignedTopScored) {
-            parts.push(`Esta designação corresponde ao candidato de maior pontuação disponível — nenhum outro pontuou acima no contexto atual.`);
+            parts.push('Esta pessoa era a primeira opção indicada para a parte no contexto atual.');
         } else {
-            parts.push(`Pelos critérios abaixo, esta designação está coerente com o quadro atual. Os candidatos mais pontuados estão listados abaixo como alternativas.`);
+            parts.push('A escolha é compatível com as regras atuais; outras opções aparecem abaixo.');
         }
 
         return parts.join(' ');
@@ -616,14 +617,9 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                         ) : selectedPart && isAutoAssignedToChairman(selectedPart.tipoParte) ? (
                                             <span>🤖 Auto-Designação</span>
                                         ) : (
-                                            <span>📊 Análise & Status</span>
+                                            <span>Análise da escolha</span>
                                         )}
                                     </span>
-                                    {scoreData && !isNonDesignatablePart(selectedPart?.tipoParte || '') && (
-                                        <span style={{ fontSize: '9px', color: '#6B7280', background: '#E5E7EB', padding: '1px 4px', borderRadius: '4px' }}>
-                                            Score: {scoreData.score}
-                                        </span>
-                                    )}
                                 </div>
 
                                 {/* Conteúdo da Análise - Bloqueado para partes não designáveis */}
@@ -746,78 +742,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 <div style={{ fontWeight: '700', marginBottom: '1px', color: hasManualOverride ? '#92400E' : '#334155' }}>
                                                     {hasManualOverride ? '✋ Explicação da Designação (com intervenção manual)' : '📋 Explicação da Designação'}
                                                 </div>
-                                                <div style={{ whiteSpace: 'normal' }}>
-                                                    {textualConstraintSummary.active && (
-                                                        <>
-                                                            <span style={{ color: '#7C3AED', fontWeight: 600 }}>
-                                                                Regra textual:
-                                                            </span>{' '}
-                                                            <span>
-                                                                Esta parte pede explicitamente que quem a fizer {textualConstraintSummary.labels.join(', ')}. {' '}
-                                                            </span>
-                                                        </>
-                                                    )}
-
-                                                    {cooldown && (
-                                                        <span style={{ color: cooldown.isInCooldown ? '#B45309' : '#047857', fontWeight: 600 }}>
-                                                            {cooldown.isInCooldown ? 'Intervalo (bloqueio duro):' : 'Última parte principal:'}
-                                                        </span>
-                                                    )}{' '}
-                                                    {cooldown && (
-                                                        <span>
-                                                            {(() => {
-                                                                const targetRef = selectedPart.date || selectedPart.weekId || null;
-                                                                const lastRef = cooldown.lastDate || null;
-                                                                const relation = compareIsoDates(lastRef, targetRef);
-                                                                const verbPhrase = relation >= 0 ? 'está designado para realizar' : 'realizou';
-                                                                const semana = cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '');
-                                                                return cooldown.isInCooldown
-                                                                    ? `${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${semana}, há ${cooldown.weeksSinceLast} semana${cooldown.weeksSinceLast === 1 ? '' : 's'} — DENTRO da zona de bloqueio duro (mínimo 3 semanas entre partes principais). `
-                                                                    : `${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${semana}, há ${cooldown.weeksSinceLast} semanas — FORA da zona de bloqueio duro. `;
-                                                            })()}
-                                                        </span>
-                                                    )}
-
-                                                    <span style={{ color: '#1D4ED8', fontWeight: 600 }}>
-                                                        Carga recente (frequência):
-                                                    </span>{' '}
-                                                    <span>
-                                                        {scoreData
-                                                            ? `${firstName} tem ${scoreData.details.recentCount} parte${scoreData.details.recentCount === 1 ? '' : 's'} (passadas e futuras) na janela de ±12 semanas` +
-                                                              (scoreData.details.recentDates && scoreData.details.recentDates.length > 0
-                                                                ? ` — em ${scoreData.details.recentDates.map(d => { const [y, m, dd] = d.split('-'); return y && m && dd ? `${dd}/${m}/${y}` : d; }).join(', ')}`
-                                                                : '') +
-                                                              (scoreData.details.frequencyPenalty > 0
-                                                                ? ` (−${scoreData.details.frequencyPenalty} pts). Participação recente pesa mais no cálculo do que a vantagem de estar há tempo sem participar. `
-                                                                : `; agenda livre no período — sem penalidade de frequência. `)
-                                                            : ''}
-                                                    </span>
-
-                                                    {scoreData && (
-                                                        <>
-                                                            <span style={{ color: '#B45309', fontWeight: 600 }}>
-                                                                Proximidade de parte (MAIN):
-                                                            </span>{' '}
-                                                            <span>
-                                                                {scoreData.details.mainProximityPenalty > 0
-                                                                    ? `${firstName} teve outra parte designável (MAIN) nas semanas próximas a esta, o que reduziu a prioridade — esta é a chave primária de ordenação (custo ${scoreData.details.proximityCost.toFixed(2)}).`
-                                                                    : `Sem parte MAIN no período adjacente (±4 semanas) — prioridade máxima por proximidade.`}
-                                                                {' '}
-                                                            </span>
-                                                        </>
-                                                    )}
-
-                                                    <span style={{ color: hasManualOverride ? '#B45309' : '#047857', fontWeight: 600 }}>
-                                                        {hasManualOverride ? 'Decisão final do SRVM:' : isAssignedTopScored ? 'Conclusão do sistema:' : 'Conclusão do sistema:'}
-                                                    </span>{' '}
-                                                    <span>
-                                                        {hasManualOverride && bestCandidate
-                                                            ? `O sistema teria indicado ${bestCandidate.name} como mais adequado aos critérios abaixo, mas o SRVM optou por esta designação por decisão manual.`
-                                                            : isAssignedTopScored
-                                                                ? 'Esta designação corresponde ao candidato de maior pontuação disponível — nenhum outro pontuou acima no contexto atual.'
-                                                                : 'Pelos critérios abaixo, esta designação está coerente com o quadro atual. Os candidatos mais pontuados estão listados abaixo como alternativas.'}
-                                                    </span>
-                                                </div>
+                                                <div style={{ whiteSpace: 'normal' }}>{unifiedNarrative}</div>
                                             </div>
                                         )}
 
@@ -835,14 +760,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                     color: '#475569'
                                                 }}>
                                                     <div style={{ fontWeight: 700, marginBottom: '2px', color: '#334155' }}>
-                                                        {isAssignedTopScored ? '👥 Próximas opções (se o top fosse indisponível)' : '⚠️ Candidatos mais pontuados'}
+                                                        Outras opções disponíveis
                                                     </div>
                                                     {alternatives.map((item, idx) => (
                                                         <div key={item.name} style={{ marginBottom: '4px', padding: '2px 0' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                                                                <span style={{ color: isAssignedTopScored ? '#6B7280' : '#DC2626', fontWeight: 600 }}>{idx + 2}. {item.name}</span>
-                                                                <span style={{ fontWeight: 600, color: isAssignedTopScored ? '#6B7280' : '#B91C1C' }}>Score {item.score}</span>
-                                                            </div>
+                                                            <div style={{ fontWeight: 600, color: '#475569' }}>{idx + 1}. {item.name}</div>
                                                             <div style={{ fontSize: '10px', color: '#64748B', marginTop: '1px' }}>
                                                                 {formatCandidateContext(item)}.
                                                             </div>
@@ -851,27 +773,6 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                                                 </div>
                                             );
                                         })()}
-
-                                        {/* 2.2 Critérios Técnicos (Resumo) */}
-                                        {scoreData && (
-                                            <div style={{
-                                                background: '#F8FAFC',
-                                                border: '1px solid #E2E8F0',
-                                                borderRadius: '6px',
-                                                padding: '3px 6px',
-                                                fontSize: '11px',
-                                                color: '#1E293B',
-                                                lineHeight: '1.3'
-                                            }}>
-                                                <div style={{ fontWeight: 700, marginBottom: '1px', color: '#334155' }}>
-                                                    Critérios usados na avaliação
-                                                </div>
-                                                <div><strong style={{ color: '#2563EB' }}>Elegibilidade:</strong> verifica atuação ativa, desqualificação, pedido de não participação, disponibilidade na data, restrição "só ajudante", permissões por seção (Tesouros/Ministério/Vida Cristã), compatibilidade de função (Titular/Ajudante), gênero/batismo e privilégios específicos da modalidade (presidir, orar, ensinar, dirigir/ler EBC, etc.).</div>
-                                                <div><strong style={{ color: '#7C3AED' }}>Intervalo entre partes principais (indicador visual):</strong> partes principais recentes mostram o ícone ⏳, mas o espaçamento é governado pela Proximidade MAIN, não por bloqueio duro.</div>
-                                                <div><strong style={{ color: '#0F766E' }}>Tempo desde a última parte similar:</strong> quanto mais tempo sem parte do mesmo tipo, maior a prioridade.</div>
-                                                <div><strong style={{ color: '#B45309' }}>Carga recente (frequência) — 2º critério:</strong> conta quantas partes (passadas e futuras; todas exceto oração, incl. Ajudante) a pessoa tem na janela de ±12 semanas; usada como desempate após a Proximidade MAIN.</div>                                                <div><strong style={{ color: '#DC2626' }}>Proximidade de parte (MAIN) — chave primária:</strong> qualquer parte designável (exceto Oração Final / auto-presidente / cânticos) nas ±4 semanas reduz a prioridade em gradiente proporcional à proximidade. É o <strong>primeiro</strong> critério de ordenação.</div>                                                <div><strong style={{ color: '#334155' }}>Ordenação:</strong> lexicográfica — Proximidade MAIN ▸ Frequência ▸ desempates. O número ({scoreData.score}) é apenas indicador legado de exibição.</div>
-                                            </div>
-                                        )}
 
                                         {/* Item 4: Histórico desta parte — todos os participantes, ordem data DESC */}
                                         {partTypeHistory.length > 0 && (

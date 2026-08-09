@@ -54,15 +54,12 @@ export function ProposalApprovalMicroUi({
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
                 <div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#9A3412', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Micro-UI de aprovacao
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#9A3412', textTransform: 'uppercase' }}>
+                        Propostas da semana
                     </div>
                     <div style={{ fontSize: '14px', fontWeight: 600, color: '#431407' }}>
                         {proposals.length} proposta{proposals.length > 1 ? 's' : ''} pendente{proposals.length > 1 ? 's' : ''} na semana em foco
                     </div>
-                </div>
-                <div style={{ fontSize: '12px', color: '#7C2D12' }}>
-                    Fase 1: preview e decisao
                 </div>
             </div>
 
@@ -125,7 +122,7 @@ export function ProposalApprovalMicroUi({
                                                 opacity: isBusy ? 0.7 : 1
                                             }}
                                         >
-                                            Rejeitar
+                                            Devolver
                                         </button>
                                     )}
                                 </div>
@@ -134,12 +131,12 @@ export function ProposalApprovalMicroUi({
                             {isRejecting && canReject && (
                                 <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #FED7AA' }}>
                                     <div style={{ fontSize: '12px', color: '#7F1D1D', marginBottom: '6px' }}>
-                                        Fase 2: informe o motivo antes do commit.
+                                        Informe por que esta proposta deve voltar para pendente.
                                     </div>
                                     <textarea
                                         value={rejectReason}
                                         onChange={(event) => setRejectReason(event.target.value)}
-                                        placeholder="Motivo curto da rejeicao"
+                                        placeholder="Motivo da devolução"
                                         rows={2}
                                         style={{
                                             width: '100%',
@@ -154,7 +151,7 @@ export function ProposalApprovalMicroUi({
                                     />
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
                                         <div style={{ fontSize: '11px', color: '#7C2D12' }}>
-                                            Preview: a parte volta para pendente e a designacao atual sera removida.
+                                            A designação atual será removida e a parte voltará para pendente.
                                         </div>
                                         <button
                                             onClick={() => void handleReject(part.id)}
@@ -171,7 +168,7 @@ export function ProposalApprovalMicroUi({
                                                 opacity: isBusy || !rejectReason.trim() ? 0.6 : 1
                                             }}
                                         >
-                                            Confirmar rejeicao
+                                            Confirmar devolução
                                         </button>
                                     </div>
                                 </div>
@@ -183,7 +180,7 @@ export function ProposalApprovalMicroUi({
 
             {proposals.length > visibleProposals.length && (
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#9A3412' }}>
-                    Mais {proposals.length - visibleProposals.length} proposta(s) aguardam contexto ou uma proxima iteracao da micro-UI.
+                    Há mais {proposals.length - visibleProposals.length} proposta(s) nesta semana.
                 </div>
             )}
         </div>

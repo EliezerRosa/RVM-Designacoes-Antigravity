@@ -6,6 +6,8 @@ import type { WorkbookPart } from '../types';
 import type { ChatActionChipItem } from '../components/ui/ChatActionChips';
 import type { PostResponseActionItem } from '../components/ui/PostResponseActions';
 import type { SlashCommandItem } from '../components/ui/SlashCommandMenu';
+import { getTodayWeekIdLocal } from '../utils/dateUtils';
+import { resolveAgentActionState } from '../utils/agentFocus';
 
 interface Params {
     input: string;
@@ -14,14 +16,14 @@ interface Params {
     currentWeekId?: string;
     canSendZap: boolean;
     canSeeApprovalMicroUi: boolean;
-    accessLevel: 'elder' | 'publisher';
+    focusedPublisherId?: string | null;
+    focusedPart?: WorkbookPart | null;
+    currentWeekParts: WorkbookPart[];
     currentWeekProposals: WorkbookPart[];
-    currentWeekCompletableParts: WorkbookPart[];
     currentWeekCompletedParts: WorkbookPart[];
     shouldShowAvailabilityMicroUi: boolean;
     shouldShowPublisherEditMicroUi: boolean;
     messages: ChatMessage[];
-    lastUserPrompt: string;
     canExecute: (actionType: AgentActionType) => boolean;
     sendMessage: (overrideInput?: string) => Promise<void>;
     handleShareS140: (weekId: string, viewOnly?: boolean) => Promise<void>;
@@ -29,14 +31,12 @@ interface Params {
     handleUnpublishWeek: (weekId: string) => Promise<void>;
     executeDirectAction: (action: AgentAction, nextTopic?: string) => Promise<void>;
     handleApproveProposal: (partId: string) => Promise<void>;
-    handleCompletePart: (partId: string) => Promise<void>;
     handleUndoCompletePart: (partId: string) => Promise<void>;
     setProposalRejectFocusId: (partId: string | null) => void;
     setActiveTopic: (topic: string) => void;
     openApprovalMicroUi: () => void;
     openAvailabilityMicroUi: () => void;
     openPublisherEditMicroUi: () => void;
-    openCompletionMicroUi: () => void;
 }
 
 export function useTemporalChatSemanticControls({
@@ -46,14 +46,14 @@ export function useTemporalChatSemanticControls({
     currentWeekId,
     canSendZap,
     canSeeApprovalMicroUi,
-    accessLevel,
+    focusedPublisherId,
+    focusedPart,
+    currentWeekParts,
     currentWeekProposals,
-    currentWeekCompletableParts,
     currentWeekCompletedParts,
     shouldShowAvailabilityMicroUi,
     shouldShowPublisherEditMicroUi,
     messages,
-    lastUserPrompt,
     canExecute,
     sendMessage,
     handleShareS140,
@@ -61,34 +61,33 @@ export function useTemporalChatSemanticControls({
     handleUnpublishWeek,
     executeDirectAction,
     handleApproveProposal,
-    handleCompletePart,
     handleUndoCompletePart,
     setProposalRejectFocusId,
     setActiveTopic,
     openApprovalMicroUi,
     openAvailabilityMicroUi,
     openPublisherEditMicroUi,
-    openCompletionMicroUi,
 }: Params) {
+    const focusedProposal = focusedPart?.status === 'PROPOSTA' ? focusedPart : null;
+    const focusedCompletedPart = focusedPart && currentWeekCompletedParts.some(part => part.id === focusedPart.id)
+        ? focusedPart
+        : null;
+    const {
+        isOperationalWeek,
+        hasVacantParts,
+        hasPublishableAssignments,
+        canRankFocusedPart,
+    } = resolveAgentActionState({
+        currentWeekId,
+        currentWeekParts,
+        focusedPart,
+        todayWeekId: getTodayWeekIdLocal(),
+    });
+
     const contextualChips = useMemo<ChatActionChipItem[]>(() => {
         const chips: ChatActionChipItem[] = [];
 
-        if (currentWeekId) {
-            chips.push({
-                id: 'chip-status',
-                label: `Status ${currentWeekId}`,
-                onClick: () => sendMessage(`Resuma o estado da semana ${currentWeekId} e destaque pendências e conflitos.`)
-            });
-
-            chips.push({
-                id: 'chip-s140-view',
-                label: 'Ver S-140',
-                onClick: () => void handleShareS140(currentWeekId, true),
-                tone: 'accent'
-            });
-        }
-
-        if (currentWeekId && canExecute('GENERATE_WEEK')) {
+        if (currentWeekId && isOperationalWeek && hasVacantParts && canExecute('GENERATE_WEEK')) {
             chips.push({
                 id: 'chip-generate-week',
                 label: 'Gerar semana',
@@ -110,7 +109,7 @@ export function useTemporalChatSemanticControls({
             });
         }
 
-        if (shouldShowAvailabilityMicroUi) {
+        if (shouldShowAvailabilityMicroUi && focusedPublisherId) {
             chips.push({
                 id: 'chip-availability',
                 label: 'Bloquear data',
@@ -118,7 +117,7 @@ export function useTemporalChatSemanticControls({
             });
         }
 
-        if (shouldShowPublisherEditMicroUi) {
+        if (shouldShowPublisherEditMicroUi && focusedPublisherId) {
             chips.push({
                 id: 'chip-publisher-edit',
                 label: 'Editar ficha',
@@ -127,32 +126,15 @@ export function useTemporalChatSemanticControls({
             });
         }
 
-        if (currentWeekCompletableParts.length > 0 && canExecute('COMPLETE_PART')) {
-            chips.push({
-                id: 'chip-complete-part',
-                label: 'Concluir parte',
-                onClick: openCompletionMicroUi
-            });
-        }
-
-        if (currentWeekId) {
+        if (currentWeekId && focusedPart && canRankFocusedPart) {
             chips.push({
                 id: 'chip-ranking',
-                label: 'Ver ranking',
-                onClick: () => sendMessage(`Mostre o ranking dos melhores candidatos para as partes pendentes da semana ${currentWeekId}.`)
+                label: 'Ver opções para esta parte',
+                onClick: () => sendMessage(`Mostre as melhores opções para a parte em foco da semana ${currentWeekId}.`)
             });
         }
 
-        if (currentWeekId && canSendZap) {
-            chips.push({
-                id: 'chip-share-s140',
-                label: 'Compartilhar S-140',
-                onClick: () => void handleShareS140(currentWeekId, false),
-                tone: 'accent'
-            });
-        }
-
-        if (currentWeekId && canSendZap) {
+        if (currentWeekId && canSendZap && hasPublishableAssignments) {
             chips.push({
                 id: 'chip-publish-week',
                 label: `Publicar ${currentWeekId}`,
@@ -161,41 +143,8 @@ export function useTemporalChatSemanticControls({
             });
         }
 
-        if (canExecute('UNDO_LAST')) {
-            chips.push({
-                id: 'chip-undo',
-                label: 'Desfazer última',
-                onClick: () => void executeDirectAction({
-                    type: 'UNDO_LAST',
-                    params: {},
-                    description: 'Desfazendo última ação'
-                }, 'Recuperação e ajuste')
-            });
-        }
-
-        if (canExecute('MANAGE_PERMISSIONS')) {
-            chips.push({
-                id: 'chip-list-policies',
-                label: 'Políticas',
-                onClick: () => void executeDirectAction({
-                    type: 'MANAGE_PERMISSIONS',
-                    params: { target: 'policy', subAction: 'LIST' },
-                    description: 'Listando políticas de permissão'
-                }, 'Permissões e visibilidade')
-            });
-            chips.push({
-                id: 'chip-list-overrides',
-                label: 'Overrides',
-                onClick: () => void executeDirectAction({
-                    type: 'MANAGE_PERMISSIONS',
-                    params: { target: 'override', subAction: 'LIST' },
-                    description: 'Listando overrides de permissão'
-                }, 'Permissões e visibilidade')
-            });
-        }
-
         return chips;
-    }, [currentWeekId, canSendZap, currentWeekProposals, canSeeApprovalMicroUi, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, canExecute, handleShareS140, handlePublishWeek, executeDirectAction, openApprovalMicroUi, openAvailabilityMicroUi, openCompletionMicroUi, openPublisherEditMicroUi, sendMessage]);
+    }, [currentWeekId, isOperationalWeek, hasVacantParts, hasPublishableAssignments, canSendZap, currentWeekProposals, canSeeApprovalMicroUi, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, focusedPublisherId, focusedPart, canRankFocusedPart, canExecute, handlePublishWeek, executeDirectAction, openApprovalMicroUi, openAvailabilityMicroUi, openPublisherEditMicroUi, sendMessage]);
 
     const slashCommands = useMemo(() => {
         const allCommands: Array<{
@@ -203,6 +152,7 @@ export function useTemporalChatSemanticControls({
             command: string;
             description: string;
             requiredAction?: AgentActionType;
+            isAvailable?: boolean;
             onSelect: () => void;
         }> = [
             {
@@ -237,33 +187,37 @@ export function useTemporalChatSemanticControls({
                 command: '/propostas',
                 description: 'Resume propostas pendentes de aprovação na semana em foco',
                 requiredAction: 'APPROVE_PROPOSAL',
+                isAvailable: currentWeekProposals.length > 0,
                 onSelect: () => {
                     setInput(`Mostre as propostas pendentes da semana ${currentWeekId || ''} com um resumo pronto para aprovar ou rejeitar.`.trim());
                     inputRef.current?.focus();
                 }
             },
             {
-                id: 'cmd-aprovar-primeira-proposta',
-                command: '/aprovar-primeira-proposta',
-                description: 'Aprova a primeira proposta pendente da semana em foco',
+                id: 'cmd-aprovar-parte',
+                command: '/aprovar-parte',
+                description: 'Aprova a proposta da parte explicitamente focada',
                 requiredAction: 'APPROVE_PROPOSAL',
+                isAvailable: Boolean(focusedProposal),
                 onSelect: () => {
                     setInput('');
-                    if (currentWeekProposals[0]) {
-                        void handleApproveProposal(currentWeekProposals[0].id);
+                    if (focusedProposal) {
+                        void handleApproveProposal(focusedProposal.id);
                     }
                 }
             },
             {
-                id: 'cmd-rejeitar-primeira-proposta',
-                command: '/rejeitar-primeira-proposta',
-                description: 'Abre a rejeição da primeira proposta pendente da semana em foco',
+                id: 'cmd-rejeitar-parte',
+                command: '/rejeitar-parte',
+                description: 'Abre a rejeição da proposta da parte explicitamente focada',
                 requiredAction: 'REJECT_PROPOSAL',
+                isAvailable: Boolean(focusedProposal),
                 onSelect: () => {
                     setInput('');
-                    if (currentWeekProposals[0]) {
-                        setProposalRejectFocusId(currentWeekProposals[0].id);
+                    if (focusedProposal) {
+                        setProposalRejectFocusId(focusedProposal.id);
                         setActiveTopic('Aprovação de designações');
+                        openApprovalMicroUi();
                     }
                 }
             },
@@ -272,9 +226,10 @@ export function useTemporalChatSemanticControls({
                 command: '/bloquear-data',
                 description: 'Abre a micro-UI de indisponibilidade para o publicador em foco',
                 requiredAction: 'UPDATE_AVAILABILITY',
+                isAvailable: Boolean(focusedPublisherId),
                 onSelect: () => {
                     setInput('');
-                    setActiveTopic('Publicadores e elegibilidade');
+                    openAvailabilityMicroUi();
                 }
             },
             {
@@ -282,32 +237,22 @@ export function useTemporalChatSemanticControls({
                 command: '/editar-publicador',
                 description: 'Abre a micro-UI curta da ficha principal do publicador em foco',
                 requiredAction: 'UPDATE_PUBLISHER',
+                isAvailable: Boolean(focusedPublisherId),
                 onSelect: () => {
                     setInput('');
-                    setActiveTopic('Publicadores e elegibilidade');
-                }
-            },
-            {
-                id: 'cmd-concluir-primeira-parte',
-                command: '/concluir-primeira-parte',
-                description: 'Conclui a primeira parte pronta da semana em foco',
-                requiredAction: 'COMPLETE_PART',
-                onSelect: () => {
-                    setInput('');
-                    if (currentWeekCompletableParts[0]) {
-                        void handleCompletePart(currentWeekCompletableParts[0].id);
-                    }
+                    openPublisherEditMicroUi();
                 }
             },
             {
                 id: 'cmd-desfazer-conclusao',
                 command: '/desfazer-conclusao',
-                description: 'Desfaz a conclusão da primeira parte concluída na semana em foco',
+                description: 'Desfaz a conclusão da parte explicitamente focada',
                 requiredAction: 'UNDO_COMPLETE_PART',
+                isAvailable: Boolean(focusedCompletedPart),
                 onSelect: () => {
                     setInput('');
-                    if (currentWeekCompletedParts[0]) {
-                        void handleUndoCompletePart(currentWeekCompletedParts[0].id);
+                    if (focusedCompletedPart) {
+                        void handleUndoCompletePart(focusedCompletedPart.id);
                     }
                 }
             },
@@ -325,6 +270,7 @@ export function useTemporalChatSemanticControls({
                 command: '/gerar-semana',
                 description: 'Executa geração da semana em foco',
                 requiredAction: 'GENERATE_WEEK',
+                isAvailable: isOperationalWeek && hasVacantParts,
                 onSelect: () => {
                     setInput('');
                     if (currentWeekId) {
@@ -351,6 +297,7 @@ export function useTemporalChatSemanticControls({
                 id: 'cmd-compartilhar-s140',
                 command: '/compartilhar-s140',
                 description: 'Abre fluxo de compartilhamento do S-140',
+                isAvailable: canSendZap,
                 onSelect: () => {
                     setInput('');
                     if (currentWeekId) {
@@ -362,6 +309,7 @@ export function useTemporalChatSemanticControls({
                 id: 'cmd-publicar',
                 command: '/publicar',
                 description: 'Publica a semana em foco: envia S-89 (com link) a cada designado + S-140 ao Grupo (Z-API, em lote)',
+                isAvailable: canSendZap && hasPublishableAssignments,
                 onSelect: () => {
                     setInput('');
                     if (currentWeekId) {
@@ -373,6 +321,7 @@ export function useTemporalChatSemanticControls({
                 id: 'cmd-despublicar',
                 command: '/despublicar',
                 description: 'Despublica a semana em foco (limpa o marcador para permitir reenviar)',
+                isAvailable: canSendZap,
                 onSelect: () => {
                     setInput('');
                     if (currentWeekId) {
@@ -450,8 +399,10 @@ export function useTemporalChatSemanticControls({
             }
         ];
 
-        return allCommands.filter(command => !command.requiredAction || canExecute(command.requiredAction));
-    }, [currentWeekId, currentWeekProposals, currentWeekCompletableParts, currentWeekCompletedParts, canExecute, setInput, inputRef, handleApproveProposal, handleCompletePart, handleUndoCompletePart, setProposalRejectFocusId, setActiveTopic, executeDirectAction, handleShareS140, handlePublishWeek, handleUnpublishWeek]);
+        return allCommands.filter(command =>
+            command.isAvailable !== false && (!command.requiredAction || canExecute(command.requiredAction))
+        );
+    }, [currentWeekId, currentWeekProposals, focusedProposal, focusedCompletedPart, focusedPublisherId, isOperationalWeek, hasVacantParts, hasPublishableAssignments, canSendZap, canExecute, setInput, inputRef, handleApproveProposal, handleUndoCompletePart, setProposalRejectFocusId, setActiveTopic, openApprovalMicroUi, openAvailabilityMicroUi, openPublisherEditMicroUi, executeDirectAction, handleShareS140, handlePublishWeek, handleUnpublishWeek]);
 
     const visibleSlashCommands = useMemo<SlashCommandItem[]>(() => {
         if (!input.startsWith('/')) return [];
@@ -472,66 +423,31 @@ export function useTemporalChatSemanticControls({
         if (msg.role !== 'assistant') return [];
 
         const isLastAssistant = idx === [...messages].map((message, messageIndex) => ({ message, messageIndex })).filter(entry => entry.message.role === 'assistant').slice(-1)[0]?.messageIndex;
-        const actions: PostResponseActionItem[] = [
-            {
-                id: `copy-${idx}`,
-                label: 'Copiar',
-                onClick: async () => {
-                    await navigator.clipboard.writeText(msg.content);
-                },
-                variant: 'subtle'
-            },
-            {
-                id: `refine-${idx}`,
-                label: 'Refinar',
-                onClick: () => {
-                    setInput(`Refine a resposta anterior considerando o contexto atual da semana ${currentWeekId || ''}.`);
-                    inputRef.current?.focus();
-                }
-            }
-        ];
+        const actions: PostResponseActionItem[] = [];
 
         if (isLastAssistant) {
-            if (lastUserPrompt) {
-                actions.push({
-                    id: `retry-${idx}`,
-                    label: 'Tentar de novo',
-                    onClick: () => void sendMessage(lastUserPrompt),
-                    variant: 'subtle'
-                });
-            }
-
-            if (currentWeekId) {
-                actions.push({
-                    id: `view-s140-${idx}`,
-                    label: 'Ver S-140',
-                    onClick: () => void handleShareS140(currentWeekId, true),
-                    variant: 'primary'
-                });
-            }
-
-            if (currentWeekProposals.length > 0 && canExecute('APPROVE_PROPOSAL')) {
+            if (focusedProposal && canExecute('APPROVE_PROPOSAL')) {
                 actions.push({
                     id: `approve-proposal-${idx}`,
-                    label: 'Aprovar 1a proposta',
-                    onClick: () => void handleApproveProposal(currentWeekProposals[0].id),
+                    label: 'Aprovar parte em foco',
+                    onClick: () => void handleApproveProposal(focusedProposal.id),
                     variant: 'primary'
                 });
             }
 
-            if (currentWeekProposals.length > 0 && canExecute('REJECT_PROPOSAL')) {
+            if (focusedProposal && canExecute('REJECT_PROPOSAL')) {
                 actions.push({
                     id: `review-proposals-${idx}`,
-                    label: 'Rever propostas',
+                    label: 'Rever parte em foco',
                     onClick: () => {
-                        setProposalRejectFocusId(currentWeekProposals[0].id);
+                        setProposalRejectFocusId(focusedProposal.id);
                         openApprovalMicroUi();
                     },
                     variant: 'subtle'
                 });
             }
 
-            if (shouldShowAvailabilityMicroUi) {
+            if (shouldShowAvailabilityMicroUi && focusedPublisherId) {
                 actions.push({
                     id: `availability-${idx}`,
                     label: 'Bloquear data',
@@ -540,7 +456,7 @@ export function useTemporalChatSemanticControls({
                 });
             }
 
-            if (shouldShowPublisherEditMicroUi) {
+            if (shouldShowPublisherEditMicroUi && focusedPublisherId) {
                 actions.push({
                     id: `publisher-edit-${idx}`,
                     label: 'Editar ficha',
@@ -549,71 +465,19 @@ export function useTemporalChatSemanticControls({
                 });
             }
 
-            if (currentWeekCompletableParts.length > 0 && canExecute('COMPLETE_PART')) {
-                actions.push({
-                    id: `complete-part-${idx}`,
-                    label: 'Concluir 1a parte',
-                    onClick: () => void handleCompletePart(currentWeekCompletableParts[0].id),
-                    variant: 'primary'
-                });
-            }
-
-            if (currentWeekCompletedParts.length > 0 && canExecute('UNDO_COMPLETE_PART')) {
+            if (focusedCompletedPart && canExecute('UNDO_COMPLETE_PART')) {
                 actions.push({
                     id: `undo-complete-part-${idx}`,
                     label: 'Desfazer conclusão',
-                    onClick: () => void handleUndoCompletePart(currentWeekCompletedParts[0].id),
+                    onClick: () => void handleUndoCompletePart(focusedCompletedPart.id),
                     variant: 'subtle'
                 });
             }
 
-            if (currentWeekId && canExecute('GENERATE_WEEK')) {
-                actions.push({
-                    id: `generate-week-${idx}`,
-                    label: 'Gerar semana',
-                    onClick: () => void executeDirectAction({
-                        type: 'GENERATE_WEEK',
-                        params: { weekId: currentWeekId },
-                        description: `Gerando designações da semana ${currentWeekId}`
-                    }, 'Designações da semana'),
-                    variant: 'primary'
-                });
-            }
-
-            if (currentWeekId && canExecute('CLEAR_WEEK')) {
-                actions.push({
-                    id: `clear-week-${idx}`,
-                    label: 'Limpar semana',
-                    onClick: () => void executeDirectAction({
-                        type: 'CLEAR_WEEK',
-                        params: { weekId: currentWeekId },
-                        description: `Limpando designações da semana ${currentWeekId}`
-                    }, 'Designações da semana'),
-                    variant: 'subtle'
-                });
-            }
-
-            if (currentWeekId && canSendZap) {
-                actions.push({
-                    id: `share-s140-${idx}`,
-                    label: 'Compartilhar S-140',
-                    onClick: () => void handleShareS140(currentWeekId, false),
-                    variant: 'primary'
-                });
-            }
-
-            if (accessLevel === 'elder') {
-                actions.push({
-                    id: `undo-${idx}`,
-                    label: 'Desfazer última',
-                    onClick: () => void sendMessage('desfaça a última ação executada'),
-                    variant: 'subtle'
-                });
-            }
         }
 
         return actions;
-    }, [messages, setInput, currentWeekId, inputRef, lastUserPrompt, sendMessage, handleShareS140, currentWeekProposals, canExecute, handleApproveProposal, setProposalRejectFocusId, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, currentWeekCompletableParts, handleCompletePart, currentWeekCompletedParts, handleUndoCompletePart, executeDirectAction, canSendZap, accessLevel, openApprovalMicroUi, openAvailabilityMicroUi, openPublisherEditMicroUi]);
+    }, [messages, focusedProposal, canExecute, handleApproveProposal, setProposalRejectFocusId, shouldShowAvailabilityMicroUi, shouldShowPublisherEditMicroUi, focusedPublisherId, focusedCompletedPart, handleUndoCompletePart, openApprovalMicroUi, openAvailabilityMicroUi, openPublisherEditMicroUi]);
 
     return {
         contextualChips,

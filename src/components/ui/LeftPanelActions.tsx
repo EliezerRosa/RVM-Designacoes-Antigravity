@@ -9,26 +9,22 @@
  * Blocos:
  *   1. "Para esta semana"      — contextualChips do hook semanticControls.
  *   2. "Ações sugeridas"       — postResponseActions da última msg do agente.
- *   3. "Comandos rápidos"      — visibleSlashCommands (catálogo de slashes).
- *
  * Cada bloco é colapsável e some quando vazio.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
 import type { ChatActionChipItem } from './ChatActionChips';
 import type { PostResponseActionItem } from './PostResponseActions';
-import type { SlashCommandItem } from './SlashCommandMenu';
 void React;
 
 export interface LeftPanelActionsProps {
     chips: ChatActionChipItem[];
     suggestedActions: PostResponseActionItem[];
-    slashCommands: SlashCommandItem[];
     /** Callback opcional para o trilho exibir badge de total. */
     onBadgeCountChange?: (count: number) => void;
 }
 
-type BlockId = 'week' | 'suggested' | 'commands';
+type BlockId = 'week' | 'suggested';
 
 interface BlockSpec {
     id: BlockId;
@@ -41,14 +37,12 @@ interface BlockSpec {
 export function LeftPanelActions({
     chips,
     suggestedActions,
-    slashCommands,
     onBadgeCountChange,
 }: LeftPanelActionsProps) {
     // Por padrão: blocos com itens começam abertos.
     const [collapsed, setCollapsed] = useState<Record<BlockId, boolean>>({
         week: false,
         suggested: false,
-        commands: true, // catálogo grande — começa fechado
     });
 
     const totalCount = chips.length + suggestedActions.length;
@@ -104,36 +98,8 @@ export function LeftPanelActions({
             });
         }
 
-        if (slashCommands.length > 0) {
-            list.push({
-                id: 'commands',
-                title: 'Comandos rápidos',
-                icon: '⌘',
-                count: slashCommands.length,
-                body: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {slashCommands.map(cmd => (
-                            <button
-                                key={cmd.id}
-                                onClick={cmd.onSelect}
-                                style={slashBtnStyle}
-                                title={cmd.description}
-                            >
-                                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#3730A3' }}>
-                                    {cmd.command}
-                                </span>
-                                <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '8px' }}>
-                                    {cmd.description}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                ),
-            });
-        }
-
         return list;
-    }, [chips, suggestedActions, slashCommands]);
+    }, [chips, suggestedActions]);
 
     if (blocks.length === 0) {
         return (
@@ -220,7 +186,6 @@ function chipBtnStyle(accent: boolean): React.CSSProperties {
         cursor: 'pointer',
     };
 }
-
 function postActionBtnStyle(variant?: 'default' | 'primary' | 'subtle'): React.CSSProperties {
     const isPrimary = variant === 'primary';
     const isSubtle = variant === 'subtle';
@@ -237,13 +202,4 @@ function postActionBtnStyle(variant?: 'default' | 'primary' | 'subtle'): React.C
     };
 }
 
-const slashBtnStyle: React.CSSProperties = {
-    textAlign: 'left',
-    padding: '6px 8px',
-    borderRadius: '4px',
-    border: '1px solid transparent',
-    background: 'transparent',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'baseline',
-};
+export default LeftPanelActions;

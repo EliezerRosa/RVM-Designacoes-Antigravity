@@ -967,7 +967,12 @@ export const workbookService = {
      * Rejeita uma proposta ou Cancela uma designação (STATUS -> PENDENTE)
      * Funciona para: PROPOSTA, APROVADA, DESIGNADA, CONCLUIDA (em caso de erro)
      */
-    async rejectProposal(partId: string, reason: string): Promise<WorkbookPart> {
+    async rejectProposal(
+        partId: string,
+        reason: string,
+        options: { isPublisherRefusal?: boolean } = {}
+    ): Promise<WorkbookPart> {
+        const isPublisherRefusal = options.isPublisherRefusal === true;
         // Primeiro, buscar a parte para saber quem estava designado (para log)
         const { data: currentPart } = await supabase
             .from('workbook_parts')
@@ -975,8 +980,8 @@ export const workbookService = {
             .eq('id', partId)
             .single();
 
-        // 2. Registrar no log de recusas (tabela específica para histórico persistente)
-        if (currentPart) {
+        // Só uma recusa declarada pelo publicador entra no histórico de recusas.
+        if (currentPart && isPublisherRefusal) {
             const { error: logError } = await supabase
                 .from('refusal_logs')
                 .insert({
@@ -992,29 +997,30 @@ export const workbookService = {
             }
         }
 
-        let enhancedReason = reason;
-        if (currentPart?.resolved_publisher_name) {
+        let enhancedReason = `[${new Date().toLocaleDateString()}] Cancelado/corrigido: ${reason}`;
+        if (isPublisherRefusal && currentPart?.resolved_publisher_name) {
             enhancedReason = `[${new Date().toLocaleDateString()}] Recusado por ${currentPart.resolved_publisher_name}: ${reason}`;
         }
 
         const nowIso = new Date().toISOString();
+        const updates: Record<string, unknown> = {
+            status: WorkbookStatus.PENDENTE,
+            rejected_reason: enhancedReason,
+            resolved_publisher_id: null,
+            resolved_publisher_name: null,
+            updated_at: nowIso,
+            status_changed_at: nowIso,
+            approved_by_id: null,
+            approved_at: null,
+            completed_at: null
+        };
+        if (isPublisherRefusal) {
+            updates.had_refusal = true;
+        }
+
         const { data, error } = await supabase
             .from('workbook_parts')
-            .update({
-                status: WorkbookStatus.PENDENTE,
-                rejected_reason: enhancedReason,
-                // Limpar a designação ao rejeitar
-                resolved_publisher_id: null,
-                resolved_publisher_name: null,
-                updated_at: nowIso,
-                // Ciclo simplificado: marca histórico de recusa (consistente com RPC do portal)
-                had_refusal: true,
-                status_changed_at: nowIso,
-                // Limpar metadados de aprovação/conclusão para resetar ciclo
-                approved_by_id: null,
-                approved_at: null,
-                completed_at: null
-            })
+            .update(updates)
             .eq('id', partId)
             // Aceita rejeitar de qualquer status avançado (incluindo APROVADA legado)
             .in('status', [

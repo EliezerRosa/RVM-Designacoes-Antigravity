@@ -3,12 +3,10 @@ import { ChatMessageBubble } from './ui/ChatMessageBubble';
 // IDD: ChatActionChips inline removidos da Coluna 2 — chips agora ficam no drawer ESQ (LeftPanelActions).
 // Mantemos o import-only do tipo via `import('./ui/ChatActionChips').ChatActionChipItem` na prop onSemanticControlsChange.
 import { IntentContextBar } from './ui/IntentContextBar';
-import { PostResponseActions } from './ui/PostResponseActions';
 import { SlashCommandMenu } from './ui/SlashCommandMenu';
 import { ProposalApprovalMicroUi } from './ui/ProposalApprovalMicroUi';
 import { AvailabilityUpdateMicroUi } from './ui/AvailabilityUpdateMicroUi';
 import { PublisherQuickEditMicroUi } from './ui/PublisherQuickEditMicroUi';
-import { PartCompletionMicroUi } from './ui/PartCompletionMicroUi';
 // IDD: FloatingMicroUiHost removido do render — micro-UIs agora vivem no
 // drawer DIR (RightPanelDetails) via onActiveMicroUiChange. Importamos só o
 // type FloatingMicroUiItem inline na prop. O componente segue existindo como
@@ -50,7 +48,9 @@ interface TemporalChatProps {
     isWorkbookLoading?: boolean;
     onRateLimitChange?: (remaining: number, max: number, refillInSeconds: number) => void;
     accessLevel?: 'elder' | 'publisher';
+    actorLabel?: string;
     canSendZap?: boolean;
+    focusedPartId?: string | null;
     onPartFocus?: (partId: string) => void;
     /**
      * Emitido sempre que os controles semânticos derivados (chips contextuais,
@@ -60,7 +60,6 @@ interface TemporalChatProps {
      */
     onSemanticControlsChange?: (controls: {
         chips: import('./ui/ChatActionChips').ChatActionChipItem[];
-        slashCommands: import('./ui/SlashCommandMenu').SlashCommandItem[];
         suggestedActions: import('./ui/PostResponseActions').PostResponseActionItem[];
     }) => void;
     /**
@@ -88,7 +87,9 @@ export default function TemporalChat({
     isWorkbookLoading = false,
     onRateLimitChange,
     accessLevel = 'publisher',
+    actorLabel,
     canSendZap = false,
+    focusedPartId = null,
     onPartFocus,
     onSemanticControlsChange,
     onActiveMicroUiChange
@@ -139,7 +140,6 @@ export default function TemporalChat({
     const [proposalRejectFocusId, setProposalRejectFocusId] = useState<string | null>(null);
     const [availabilityBusy, setAvailabilityBusy] = useState(false);
     const [publisherEditBusy, setPublisherEditBusy] = useState(false);
-    const [completionBusyPartId, setCompletionBusyPartId] = useState<string | null>(null);
     const [microUiOpenRequest, setMicroUiOpenRequest] = useState<{ id: string; nonce: number } | null>(null);
 
     const permissionGate = useMemo(() => createPermissionGate(getPermissions()), [accessLevel, canSendZap]);
@@ -322,15 +322,17 @@ export default function TemporalChat({
     const canSeeApprovalMicroUi = permissionGate.getAccessLevel() === 'elder';
     const {
         focusedPublisherId,
+        focusedPart,
         shouldShowAvailabilityMicroUi,
         shouldShowPublisherEditMicroUi,
+        currentWeekParts,
         currentWeekProposals,
-        currentWeekCompletableParts,
         currentWeekCompletedParts,
     } = useTemporalChatSemanticContext({
         publishers,
         parts,
         currentWeekId,
+        focusedPartId,
         lastUserPrompt,
         activeTopic,
         canUpdateAvailability: canExecute('UPDATE_AVAILABILITY'),
@@ -361,7 +363,6 @@ export default function TemporalChat({
     const openApprovalMicroUi = () => requestMicroUiOpen('approval', 'Aprovação de designações');
     const openAvailabilityMicroUi = () => requestMicroUiOpen('availability', 'Publicadores e elegibilidade');
     const openPublisherEditMicroUi = () => requestMicroUiOpen('publisher-edit', 'Publicadores e elegibilidade');
-    const openCompletionMicroUi = () => requestMicroUiOpen('completion', 'Designações da semana');
 
     const executeDirectAction = async (action: AgentAction, nextTopic?: string) => {
         if (isLoading) return;
@@ -496,24 +497,12 @@ export default function TemporalChat({
         return publisherMutationService.previewSavePublisher({ ...publisher, ...updates }, publisher);
     };
 
-    const handleCompletePart = async (partId: string) => {
-        setCompletionBusyPartId(partId);
-        await executeDirectAction({
-            type: 'COMPLETE_PART',
-            params: { partId },
-            description: 'Marcando parte como concluída'
-        }, 'Designações da semana');
-        setCompletionBusyPartId(null);
-    };
-
     const handleUndoCompletePart = async (partId: string) => {
-        setCompletionBusyPartId(partId);
         await executeDirectAction({
             type: 'UNDO_COMPLETE_PART',
             params: { partId },
             description: 'Desfazendo conclusão da parte'
         }, 'Designações da semana');
-        setCompletionBusyPartId(null);
     };
 
     const inferTopicFromText = (text: string): string => {
@@ -1135,7 +1124,8 @@ export default function TemporalChat({
                 specialEventsCtx, // specialEvents
                 localNeedsCtx, // localNeeds
                 currentWeekId, // FOCUS WEEK ID provided by Parent (WorkbookManager)
-                audioData // 👈 Injecting Multimodal Audio Base64
+                audioData, // 👈 Injecting Multimodal Audio Base64
+                focusedPartId || undefined
             );
 
             // Strip JSON action blocks for clean LN display, and remove any leaked UUIDs.
@@ -1502,14 +1492,15 @@ export default function TemporalChat({
         currentWeekId,
         canSendZap,
         canSeeApprovalMicroUi,
-        accessLevel,
+        focusedPublisherId,
+        focusedPart,
+        currentWeekParts,
         currentWeekProposals,
         currentWeekCompletableParts,
         currentWeekCompletedParts,
         shouldShowAvailabilityMicroUi,
         shouldShowPublisherEditMicroUi,
         messages,
-        lastUserPrompt,
         canExecute,
         sendMessage,
         handleShareS140,
@@ -1517,14 +1508,12 @@ export default function TemporalChat({
         handleUnpublishWeek,
         executeDirectAction,
         handleApproveProposal,
-        handleCompletePart,
         handleUndoCompletePart,
         setProposalRejectFocusId,
         setActiveTopic,
         openApprovalMicroUi,
         openAvailabilityMicroUi,
         openPublisherEditMicroUi,
-        openCompletionMicroUi,
     });
 
     // === IDD: emite controles sem\u00e2nticos para o pai (PowerfulAgentTab) renderizar
@@ -1543,7 +1532,6 @@ export default function TemporalChat({
         if (!onSemanticControlsChange) return;
         onSemanticControlsChange({
             chips: contextualChips,
-            slashCommands: visibleSlashCommands,
             suggestedActions: suggestedActionsForPanel,
         });
     }, [contextualChips, visibleSlashCommands, suggestedActionsForPanel, onSemanticControlsChange]);
@@ -1572,7 +1560,7 @@ export default function TemporalChat({
             });
         }
 
-        if (shouldShowAvailabilityMicroUi) {
+        if (shouldShowAvailabilityMicroUi && focusedPublisherId) {
             items.push({
                 id: 'availability',
                 title: 'Bloquear data',
@@ -1590,7 +1578,7 @@ export default function TemporalChat({
             });
         }
 
-        if (shouldShowPublisherEditMicroUi) {
+        if (shouldShowPublisherEditMicroUi && focusedPublisherId) {
             items.push({
                 id: 'publisher-edit',
                 title: 'Editar ficha',
@@ -1608,40 +1596,16 @@ export default function TemporalChat({
             });
         }
 
-        if ((currentWeekCompletableParts.length > 0 || currentWeekCompletedParts.length > 0) && (canExecute('COMPLETE_PART') || canExecute('UNDO_COMPLETE_PART'))) {
-            items.push({
-                id: 'completion',
-                title: 'Concluir partes',
-                subtitle: 'Fechamento rápido da semana',
-                badge: currentWeekCompletableParts.length > 0 ? `${currentWeekCompletableParts.length} pronta(s)` : `${currentWeekCompletedParts.length} concluída(s)`,
-                accent: '#2563EB',
-                content: (
-                    <PartCompletionMicroUi
-                        completableParts={currentWeekCompletableParts}
-                        completedParts={currentWeekCompletedParts}
-                        canComplete={canExecute('COMPLETE_PART')}
-                        canUndo={canExecute('UNDO_COMPLETE_PART')}
-                        busyPartId={completionBusyPartId}
-                        onComplete={handleCompletePart}
-                        onUndo={handleUndoCompletePart}
-                    />
-                )
-            });
-        }
-
         return items;
     }, [
         availabilityBusy,
         canExecute,
         canSeeApprovalMicroUi,
-        completionBusyPartId,
         currentWeekCompletedParts,
-        currentWeekCompletableParts,
         currentWeekId,
         currentWeekProposals,
         focusedPublisherId,
         handleApproveProposal,
-        handleCompletePart,
         handlePreviewPublisherEdit,
         handleQuickEditPublisher,
         handleRejectProposal,
@@ -1703,8 +1667,10 @@ export default function TemporalChat({
             <IntentContextBar
                 currentWeekId={currentWeekId}
                 accessLevel={accessLevel}
+                actorLabel={actorLabel}
                 activeTopic={activeTopic}
                 stage={interactionStage}
+                focusedPart={focusedPart}
             />
 
             <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 50 }}>
@@ -1761,13 +1727,6 @@ export default function TemporalChat({
                                 setTimeout(() => sendMessage('continue'), 100);
                             }}
                         />
-                        {msg.role === 'assistant' && (() => {
-                            // IDD: ações pós-resposta migraram para o drawer ESQ.
-                            // Mantém inline apenas ações URGENTES (variant=primary).
-                            const all = buildPostResponseActions(msg, idx);
-                            const urgent = all.filter(a => a.variant === 'primary');
-                            return urgent.length > 0 ? <PostResponseActions actions={urgent} /> : null;
-                        })()}
                     </div>
                 ))}
                 {isLoading && (

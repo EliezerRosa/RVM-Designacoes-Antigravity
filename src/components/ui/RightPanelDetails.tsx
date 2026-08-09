@@ -35,9 +35,8 @@ export function RightPanelDetails({ items, activeId }: RightPanelDetailsProps) {
     if (items.length === 0) {
         return (
             <div style={{ fontSize: '12px', opacity: 0.7, padding: '8px 4px', lineHeight: 1.5 }}>
-                Nenhuma micro-UI ativa no momento. Edições rápidas (publicador,
-                disponibilidade, conclusão de parte, aprovação de propostas)
-                aparecem aqui quando o agente as oferece ou você as solicita.
+                Selecione uma parte ou peça uma alteração ao agente. Os detalhes
+                e decisões disponíveis aparecerão aqui.
             </div>
         );
     }

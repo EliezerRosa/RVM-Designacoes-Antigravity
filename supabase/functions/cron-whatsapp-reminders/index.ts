@@ -48,6 +48,7 @@ interface PartData {
     funcao: string;               // 'Titular' | 'Ajudante'
     raw_publisher_name: string;
     resolved_publisher_id: string | null;
+    resolved_publisher_name: string | null;
     section: string;
 }
 
@@ -85,6 +86,39 @@ async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
         body: JSON.stringify({ phone, message })
     });
     return res.ok;
+}
+
+async function getOrCreateConfirmationToken(partId: string, publisherId: string): Promise<string | null> {
+    const nowIso = new Date().toISOString();
+    const { data: existing, error: existingError } = await supabase
+        .from('confirmation_portal_tokens')
+        .select('token')
+        .eq('part_id', partId)
+        .eq('publisher_id', publisherId)
+        .is('used_at', null)
+        .gt('expires_at', nowIso)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (existingError) {
+        console.error(`[cron] Falha ao buscar token de confirmação para a parte ${partId}:`, existingError);
+        return null;
+    }
+    if (existing?.token) return String(existing.token);
+
+    const { data: created, error: createError } = await supabase
+        .from('confirmation_portal_tokens')
+        .insert({ part_id: partId, publisher_id: publisherId })
+        .select('token')
+        .single();
+
+    if (createError || !created?.token) {
+        console.error(`[cron] Falha ao criar token de confirmação para a parte ${partId}:`, createError);
+        return null;
+    }
+
+    return String(created.token);
 }
 
 /** Verifica se um tipo de parte é "ruído" (não recebe lembretes individuais) */
@@ -237,7 +271,16 @@ async function runDailyCycle(
             if (await checkDispatched(part.id, 'COBRANCA_D9')) continue;
             if (!pub.phone) { noPhoneList.push(`${pub.name} — ${part.tipo_parte} (D-9)`); continue; }
 
-            const confirmLink = `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=confirm&id=${part.id}&publisherId=${pub.id}&token=auto`;
+            const confirmationToken = await getOrCreateConfirmationToken(part.id, pub.id);
+            if (!confirmationToken) continue;
+
+            const confirmParams = new URLSearchParams({
+                portal: 'confirm',
+                partId: part.id,
+                publisherId: pub.id,
+                token: confirmationToken,
+            });
+            const confirmLink = `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?${confirmParams.toString()}`;
             const msg = buildChargeD9Message(part, pub, meetingDateLabel, confirmLink);
             const success = await sendWhatsApp(pub.phone, msg);
             await logDispatch(part.id, 'COBRANCA_D9', pub.phone, success ? 'SUCCESS' : 'ERROR');
@@ -329,6 +372,55 @@ async function runDailyCycle(
     }
 
     return { sentCount, noPhoneList };
+}
+
+async function completePastConfirmedAssignments(
+    meetingDays: Record<string, number>,
+    today: Date
+): Promise<number> {
+    const { data: candidates, error: fetchError } = await supabase
+        .from('workbook_parts')
+        .select('id, week_id, status, resolved_publisher_id, resolved_publisher_name, raw_publisher_name')
+        .in('status', ['DESIGNADA', 'APROVADA']);
+
+    if (fetchError || !candidates) {
+        console.error('[cron] Falha ao buscar designações para conclusão automática:', fetchError);
+        return 0;
+    }
+
+    const idsToComplete = candidates
+        .filter((part: any) => Boolean(
+            part.resolved_publisher_id ||
+            part.resolved_publisher_name ||
+            part.raw_publisher_name
+        ))
+        .filter((part: any) => {
+            const meetingDate = calculateMeetingDate(part.week_id, meetingDays);
+            return Boolean(meetingDate && meetingDate.getTime() < today.getTime());
+        })
+        .map((part: any) => part.id);
+
+    if (idsToComplete.length === 0) return 0;
+
+    const nowIso = new Date().toISOString();
+    const { data: completed, error: updateError } = await supabase
+        .from('workbook_parts')
+        .update({
+            status: 'CONCLUIDA',
+            completed_at: nowIso,
+            status_changed_at: nowIso,
+            updated_at: nowIso,
+        })
+        .in('id', idsToComplete)
+        .in('status', ['DESIGNADA', 'APROVADA'])
+        .select('id');
+
+    if (updateError) {
+        console.error('[cron] Falha na conclusão automática:', updateError);
+        return 0;
+    }
+
+    return completed?.length || 0;
 }
 
 // ============================================================================
@@ -550,7 +642,7 @@ serve(async (req: Request) => {
     // Buscar partes — agora inclui PROPOSTA além de DESIGNADA
     const { data: rawParts, error } = await supabase
         .from('workbook_parts')
-        .select(`id, tipo_parte, part_title, week_id, status, funcao, raw_publisher_name, resolved_publisher_id, section`)
+        .select(`id, tipo_parte, part_title, week_id, status, funcao, raw_publisher_name, resolved_publisher_id, resolved_publisher_name, section`)
         .in('status', ['DESIGNADA', 'PROPOSTA']);
 
     if (error || !rawParts) {
@@ -583,6 +675,13 @@ serve(async (req: Request) => {
     // ============================
     const { sentCount, noPhoneList } = await runDailyCycle(parts, publishers, meetingDays, today);
 
+    // Designações confirmadas são concluídas no primeiro ciclo após a reunião.
+    // PROPOSTA não é concluída automaticamente: permanece como exceção para revisão humana.
+    const completedCount = await completePastConfirmedAssignments(meetingDays, today);
+    if (completedCount > 0) {
+        console.log(`[cron] ${completedCount} designação(ões) confirmada(s) marcada(s) como CONCLUIDA.`);
+    }
+
     // ============================
     // CICLO MENSAL (só dia 1º)
     // ============================
@@ -597,9 +696,9 @@ serve(async (req: Request) => {
     // ============================
     await sendDailyReport(publishers, sentCount, noPhoneList, monthlyReports);
 
-    console.log(`[cron-whatsapp-reminders] Finalizado. ${sentCount} mensagens enviadas.`);
+    console.log(`[cron-whatsapp-reminders] Finalizado. ${sentCount} mensagens enviadas; ${completedCount} designações concluídas.`);
 
-    return new Response(JSON.stringify({ success: true, sentCount, monthlyReports }), {
+    return new Response(JSON.stringify({ success: true, sentCount, completedCount, monthlyReports }), {
         headers: { 'Content-Type': 'application/json' }
     });
 });

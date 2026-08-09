@@ -23,7 +23,11 @@ export async function reflectPublisherImpediments(
 
     const settled = await Promise.allSettled(
         unique.map(({ part, reason }) =>
-            workbookService.rejectProposal(part.id, buildReflectionReason(publisherName, reason))
+            workbookService.rejectProposal(
+                part.id,
+                buildReflectionReason(publisherName, reason),
+                { isPublisherRefusal: false }
+            )
         )
     );
 
