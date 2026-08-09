@@ -623,21 +623,34 @@ serve(async (req: Request) => {
 
     console.log('[cron-whatsapp-reminders] Iniciando rotina...');
 
+    // O ciclo de vida não depende do canal de mensagens. Mesmo com a Z-API
+    // desligada, designações confirmadas de reuniões passadas devem ser fechadas.
+    const { data: meetingDayData } = await supabase.from('app_settings').select('value').eq('key', 's89_meeting_day_by_week').maybeSingle();
+    const meetingDays: Record<string, number> = meetingDayData?.value || {};
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const completedCount = await completePastConfirmedAssignments(meetingDays, today);
+    if (completedCount > 0) {
+        console.log(`[cron] ${completedCount} designação(ões) confirmada(s) marcada(s) como CONCLUIDA.`);
+    }
+
     // Kill-switch global
     const { data: activeData } = await supabase.from('settings').select('value').eq('key', 'zapi_automation_active').single();
     const isActive = activeData?.value === 'true' || activeData?.value === true;
     
     if (!isActive) {
         console.log('Automação Z-API está desativada.');
-        return new Response("Automation is disabled.", { status: 200 });
+        return new Response(JSON.stringify({
+            success: true,
+            automationDisabled: true,
+            completedCount,
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
     }
-
-    // Carregar dia da reunião por semana (app_settings, não settings)
-    const { data: meetingDayData } = await supabase.from('app_settings').select('value').eq('key', 's89_meeting_day_by_week').maybeSingle();
-    const meetingDays: Record<string, number> = meetingDayData?.value || {};
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
     // Buscar partes — agora inclui PROPOSTA além de DESIGNADA
     const { data: rawParts, error } = await supabase
@@ -674,13 +687,6 @@ serve(async (req: Request) => {
     // CICLO DIÁRIO
     // ============================
     const { sentCount, noPhoneList } = await runDailyCycle(parts, publishers, meetingDays, today);
-
-    // Designações confirmadas são concluídas no primeiro ciclo após a reunião.
-    // PROPOSTA não é concluída automaticamente: permanece como exceção para revisão humana.
-    const completedCount = await completePastConfirmedAssignments(meetingDays, today);
-    if (completedCount > 0) {
-        console.log(`[cron] ${completedCount} designação(ões) confirmada(s) marcada(s) como CONCLUIDA.`);
-    }
 
     // ============================
     // CICLO MENSAL (só dia 1º)
