@@ -1496,7 +1496,6 @@ export default function TemporalChat({
         focusedPart,
         currentWeekParts,
         currentWeekProposals,
-        currentWeekCompletableParts,
         currentWeekCompletedParts,
         shouldShowAvailabilityMicroUi,
         shouldShowPublisherEditMicroUi,
