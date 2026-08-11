@@ -187,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void logAuthEvent(session.user.id, session.user.email || '', 'login');
     }
 
-    if (source === 'TOKEN_REFRESHED' && stateRef.current.user?.id === session.user.id && stateRef.current.profile) {
+    if (source === 'TOKEN_REFRESHED' && stateRef.current.user?.id === session.user.id) {
       console.log('[Auth] Silent session update for TOKEN_REFRESHED (skipping profile refetch)');
       setState(prev => ({ ...prev, session }));
       return;

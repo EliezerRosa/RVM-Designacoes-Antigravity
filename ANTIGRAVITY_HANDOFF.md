@@ -40,6 +40,8 @@
 | Import `Desativado` → `is_congregated` + `publisher_date` | ✅ code deployed | aguarda re-import |
 | `is_congregated` + `publisher_date` populados via SQL direto | ✅ DB | via MCP migration |
 | Upsert monthly_reports por chave civil `(publisher_id, year, month)` | ✅ deployed | `8baf5f9` |
+| `VERCEL_TOKEN` configurado no ambiente de sistema Windows | ✅ permanente | `[Environment]::SetEnvironmentVariable` |
+| Higienização de OAuth hash obsoleto em `src/lib/supabase.ts` (Resolução do Patrick) | ✅ deployed | `src/lib/supabase.ts` |
 
 ### Dados no banco (2026-07-09)
 - 3 congregações · 7 grupos · **192 publicadores** (129 `is_congregated=true`, 63 `false`)

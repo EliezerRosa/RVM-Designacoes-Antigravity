@@ -78,3 +78,12 @@ Técnica: `pdf-lib` overlay sobre o PDF original (mesmo padrão do S-89_T já im
 > **DECISÃO DO USUÁRIO**: Todos os usuários usarão a aba Agente para interagir com RVM+RM.
 
 O chat-agente NÃO recebe mudança de código para suportar RM. Novas ações RM são adicionadas APENAS como novos valores no union `AgentActionType` e novos `AgentIntentContract` em `agentIntentCatalog.ts`. O sistema de permissões controla visibilidade por contexto de usuário logado. **Zero mudança em TemporalChat.tsx ou ChatAgent.tsx.**
+
+---
+
+## Autenticação Vercel CLI / MCP e Supabase OAuth Hash (INVARIANTE 2026-08-11)
+
+> **DATA**: 2026-08-11  
+> **ESTADO-ATUAL CONSOLIDADO**:
+> 1. **Vercel CLI / Deploy Auth**: A variável de ambiente do sistema Windows `VERCEL_TOKEN` deve ser mantida com Personal Access Token ativo. Comandos de deploy via CLI/MCP usam o token diretamente sem interrupções de login de navegador ou solicitações de 2FA.
+> 2. **Prevenção de Loop de Renovação Supabase (`src/lib/supabase.ts`)**: Antes da inicialização do client Supabase (`createClient`), o arquivo `src/lib/supabase.ts` deve SEMPRE manter a higienização de URL hash que identifica e limpa via `window.history.replaceState` qualquer hash OAuth obsoleto/salvo em favoritos (`#access_token=...` com `iat > 60s` ou `isExpired`). Isso impede loops de renovação acelerados que acionavam HTTP 429 no Supabase Auth e derrubavam usuários (como publicadores) para a tela de login.
