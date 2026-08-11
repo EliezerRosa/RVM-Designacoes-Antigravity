@@ -367,6 +367,12 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
         const parts: string[] = [];
 
+        // 1. Time bonus / Esquecimento
+        if (scoreData.details.timeBonus > 0) {
+            parts.push(`Faz um bom tempo que ${firstName} não recebe uma designação, o que aumentou suas chances de ser escolhido(a) agora.`);
+        }
+
+        // 2. Cooldown / Descanso direto
         if (cooldown?.isInCooldown) {
             const weekOrDate = cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '') || formatDate(cooldown.lastDate);
             const targetRef = selectedPart.date || selectedPart.weekId || null;
@@ -377,21 +383,40 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 : relation === 0
                     ? 'está designado para realizar'
                     : 'realizou';
-            parts.push(`${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${weekOrDate}; por isso, participou há pouco para receber outra parte importante.`);
+            parts.push(`${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${weekOrDate}; por isso, está no período de descanso recomendado e idealmente não receberia esta parte.`);
+        } else if (scoreData.details.cooldownPenalty > 0) {
+            parts.push(`${firstName} realizou partes há pouco tempo, o que sugere que um descanso seria bem-vindo.`);
         }
 
+        // 3. Proximidade com outras partes principais
+        if (scoreData.details.mainProximityPenalty > 0) {
+            parts.push(`Notamos que ${firstName} tem outras participações principais marcadas em datas muito próximas a esta semana, o que sobrecarrega um pouco a agenda.`);
+        }
+
+        // 4. Contagem geral de partes
         if (scoreData.details.recentCount > 0) {
-            parts.push(`${firstName} tem ${scoreData.details.recentCount} participação${scoreData.details.recentCount === 1 ? '' : 'ões'} próxima${scoreData.details.recentCount === 1 ? '' : 's'} a esta semana; isso foi considerado para equilibrar as designações.`);
-        } else {
-            parts.push(`${firstName} está sem outras participações próximas desta semana.`);
+            parts.push(`${firstName} tem ${scoreData.details.recentCount} participação${scoreData.details.recentCount === 1 ? '' : 'ões'} nos arredores desta semana. O sistema procurou equilibrar isso.`);
+        } else if (scoreData.details.timeBonus === 0) {
+            parts.push(`${firstName} está com a agenda livre nas proximidades desta semana.`);
         }
 
+        // 5. Ajustes e bônus de papel
+        if (scoreData.details.roleBonus > 0) {
+            parts.push(`As habilidades e privilégios de ${firstName} combinam perfeitamente com o que esta parte exige.`);
+        }
+        
+        // 6. Regras manuais / custom
+        if (scoreData.details.specificAdjustments && scoreData.details.specificAdjustments.length > 0) {
+            parts.push(`A escolha considerou algumas regras locais da congregação: ${scoreData.details.specificAdjustments.join(', ')}.`);
+        }
+
+        // 7. Manual override ou adequação
         if (hasManualOverride && bestCandidate) {
-            parts.push(`A primeira opção calculada seria ${bestCandidate.name}, mas esta designação foi escolhida manualmente.`);
+            parts.push(`O sistema indicaria preferencialmente ${bestCandidate.name} para o momento, mas esta designação foi escolhida manualmente por você.`);
         } else if (isAssignedTopScored) {
-            parts.push('Esta pessoa era a primeira opção indicada para a parte no contexto atual.');
+            parts.push(`Analisando tudo, ${firstName} é a indicação ideal e mais equilibrada para assumir esta parte agora.`);
         } else {
-            parts.push('A escolha é compatível com as regras atuais; outras opções aparecem abaixo.');
+            parts.push(`A escolha é adequada e compatível com as regras da congregação. Outras opções viáveis estão listadas abaixo.`);
         }
 
         return parts.join(' ');
