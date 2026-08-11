@@ -212,11 +212,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session) {
+        // Clean up OAuth hash parameters if present to prevent gotrue-js stale token loops on refresh/bookmark
+        if (window.location.hash.includes('access_token=') || window.location.hash.includes('error=')) {
+          try {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          } catch { /* ignore */ }
+        }
         setTimeout(async () => {
           if (!mounted) return;
           await hydrateSession(session, event);
         }, 0);
       } else if (event === 'INITIAL_SESSION' && !session) {
+        if (window.location.hash.includes('access_token=') || window.location.hash.includes('error=')) {
+          try {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          } catch { /* ignore */ }
+        }
         // If there's no session initially (e.g. invalid token, clock skew, or just not logged in)
         // we must call updateState to clear isLoading
         if (mounted) updateState(null, null, null);
