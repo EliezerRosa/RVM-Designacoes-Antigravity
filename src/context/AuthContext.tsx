@@ -165,6 +165,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   const processedSessionKeyRef = useRef<string | null>(null);
   const loggedSessionKeyRef = useRef<string | null>(null);
 
@@ -180,6 +185,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (source === 'SIGNED_IN' && loggedSessionKeyRef.current !== sessionKey) {
       loggedSessionKeyRef.current = sessionKey;
       void logAuthEvent(session.user.id, session.user.email || '', 'login');
+    }
+
+    if (source === 'TOKEN_REFRESHED' && stateRef.current.user?.id === session.user.id && stateRef.current.profile) {
+      console.log('[Auth] Silent session update for TOKEN_REFRESHED (skipping profile refetch)');
+      setState(prev => ({ ...prev, session }));
+      return;
     }
 
     if (processedSessionKeyRef.current === sessionKey) {
