@@ -19,6 +19,25 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 const resolvedUrl = SUPABASE_URL || 'http://127.0.0.1:54321';
 const resolvedAnonKey = SUPABASE_ANON_KEY || 'test-anon-key';
 
+// CRITICAL FIX: Clean stale/expired OAuth hash from URL BEFORE createClient initializes gotrue-js.
+// If a user saved a bookmark containing /#access_token=..., gotrue-js will parse it synchronously on client creation.
+// If the token in the hash is expired, gotrue-js triggers an infinite token refresh loop resulting in HTTP 429 Too Many Requests and a forced SIGNED_OUT.
+if (typeof window !== 'undefined' && window.location && window.location.hash && window.location.hash.includes('access_token=')) {
+    try {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const expiresAt = parseInt(hashParams.get('expires_at') || '0', 10);
+        const nowInSec = Math.floor(Date.now() / 1000);
+        if (expiresAt === 0 || expiresAt <= nowInSec) {
+            console.warn('[Supabase] Stripping stale/expired OAuth hash from URL before client initialization');
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+    } catch {
+        try {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        } catch { /* ignore */ }
+    }
+}
+
 export const supabase = createClient(resolvedUrl, resolvedAnonKey, {
         auth: {
             persistSession: true,
