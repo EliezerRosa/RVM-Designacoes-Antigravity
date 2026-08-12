@@ -26,18 +26,26 @@ if (typeof window !== 'undefined' && window.location && window.location.hash && 
     try {
         const rawHash = window.location.hash.replace(/^[\/#]+/, '');
         const hashParams = new URLSearchParams(rawHash);
-        const expiresAt = parseInt(hashParams.get('expires_at') || '0', 10);
-        const iat = parseInt(hashParams.get('iat') || '0', 10);
-        const nowInSec = Math.floor(Date.now() / 1000);
+        const accessToken = hashParams.get('access_token');
+        let isExpired = false;
 
-        // If the token in the URL hash is expired OR was issued over 60 seconds ago (stale bookmark/reload),
-        // strip it BEFORE gotrue-js attempts to process it and trigger a 429 refresh loop.
-        const isExpired = expiresAt > 0 && expiresAt <= nowInSec;
-        const isStale = iat > 0 && (nowInSec - iat) > 60;
-        const noTimestamps = expiresAt === 0 && iat === 0;
+        if (accessToken) {
+            try {
+                // Decode the JWT payload to get the actual expiration time
+                const payloadStr = atob(accessToken.split('.')[1]);
+                const payload = JSON.parse(payloadStr);
+                if (payload.exp) {
+                    const nowInSec = Math.floor(Date.now() / 1000);
+                    // Consider it expired if it's past the exp time, or very close to it
+                    isExpired = payload.exp <= nowInSec;
+                }
+            } catch (e) {
+                console.warn('[Supabase] Failed to decode JWT in URL hash', e);
+            }
+        }
 
-        if (isExpired || isStale || noTimestamps) {
-            console.warn('[Supabase] Stripping stale/expired OAuth hash from URL before client initialization', { isExpired, isStale, noTimestamps });
+        if (isExpired) {
+            console.warn('[Supabase] Stripping stale/expired OAuth hash from URL before client initialization');
             window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
     } catch (e) {

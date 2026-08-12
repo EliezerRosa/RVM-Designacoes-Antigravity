@@ -52,7 +52,7 @@ export function PublisherHomeView({ onSignOut, userEmail }: PublisherHomeViewPro
                 const { data: myParts, error } = await supabase
                     .from('workbook_parts')
                     .select('*')
-                    .or(`data->>rawPublisherName.eq.${publisherName},data->>rawPublisherName.eq.${profile.full_name}`)
+                    .or(`data->>resolvedPublisherId.eq.${profile.publisher_id},data->>rawPublisherName.eq.${publisherName},data->>rawPublisherName.eq.${profile.full_name}`)
                     .order('data->>weekId', { ascending: true });
 
                 if (!error && myParts) {
