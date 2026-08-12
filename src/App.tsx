@@ -16,6 +16,7 @@ import { MyAssignmentsPortal } from './components/MyAssignmentsPortal'
 import { InvitePortal } from './components/InvitePortal'
 import { ReplacementPortal } from './components/ReplacementPortal'
 import { PreferencesPortal } from './components/PreferencesPortal'
+import { PublisherHomeView } from './components/PublisherHomeView'
 import { LoginPage } from './components/LoginPage'
 import { PwaInstallBanner } from './components/ui/PwaInstallBanner'
 import { useAuth } from './context/AuthContext'
@@ -261,11 +262,11 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
 
   // Redirect to first allowed tab if current tab is not permitted
   useEffect(() => {
-    if (!permissionsLoading && !permissions.canViewTab(activeTab)) {
+    if (!permissionsLoading && !permissions.hasNoTabs() && !permissions.canViewTab(activeTab)) {
       // Find the first tab the user CAN view (fallback order)
       const FALLBACK_ORDER: ActiveTab[] = ['workbook', 'publishers', 'territories', 'communication', 'monthly-reports', 'backup', 'agent', 'admin'];
-      const firstAllowed = FALLBACK_ORDER.find(t => permissions.canViewTab(t)) || 'workbook';
-      setActiveTab(firstAllowed);
+      const firstAllowed = FALLBACK_ORDER.find(t => permissions.canViewTab(t));
+      if (firstAllowed) setActiveTab(firstAllowed);
     }
   }, [permissionsLoading])
 
@@ -441,6 +442,11 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
     // Clear pending to avoid re-resolution
     pendingReplacePartIdRef.current = null;
   }, [workbookParts]); // Stage 2: Runs when data becomes available
+
+  // Guard: publicador comum sem nenhuma aba admin → view simplificada
+  if (!permissionsLoading && permissions.hasNoTabs()) {
+    return <PublisherHomeView onSignOut={onSignOut} userEmail={userEmail} />;
+  }
 
   if (isLoading) {
     return (

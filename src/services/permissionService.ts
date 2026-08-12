@@ -44,6 +44,8 @@ export interface PermissionGate {
     getAllowedAgentActions(): AgentActionType[];
     isFullAdmin(): boolean;
     isLoaded(): boolean;
+    /** True when the user has NO visible tabs (publicador comum). */
+    hasNoTabs(): boolean;
 }
 
 interface PermissionPolicy {
@@ -91,7 +93,7 @@ export const ADMIN_ONLY_ACTIONS: ReadonlySet<AgentActionType> = new Set<AgentAct
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const FALLBACK_PERMISSIONS: ResolvedPermissions = {
-    tabs: new Set<ActiveTab>(['workbook']),
+    tabs: new Set<ActiveTab>([]),
     agentActions: new Set(['CHECK_SCORE', 'EXPLAIN_SCORE', 'EXPLAIN_PART', 'EXPLAIN_RANKING', 'GET_ENGINE_RULES', 'GET_ELIGIBILITY_VERSION', 'FETCH_DATA', 'GET_ANALYTICS', 'NAVIGATE_WEEK', 'VIEW_S140', 'SHOW_MODAL', 'QUERY_PUBLISHER_ASSIGNMENTS', 'QUERY_WEEK_ASSIGNMENTS', 'QUERY_VACANT_PARTS', 'QUERY_ELIGIBILITY', 'QUERY_PUBLISHER_PROFILE', 'QUERY_PUBLISHER_LIST']),
     blockedActions: new Set(),
     dataAccessLevel: 'self',
@@ -384,6 +386,11 @@ export function createPermissionGate(perms: ResolvedPermissions): PermissionGate
 
         isLoaded(): boolean {
             return perms.resolvedAt > 0;
+        },
+
+        hasNoTabs(): boolean {
+            if (perms.isAdmin) return false;
+            return perms.tabs.size === 0;
         },
     };
 }
