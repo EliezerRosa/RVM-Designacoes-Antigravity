@@ -10,7 +10,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { WorkbookPart } from '../types';
-import { getModalidadeFromTipo } from '../constants/mappings';
+import { getModalidadeFromTipo } from '../utils/assignmentUtils';
+import { workbookService } from '../services/workbookService';
+import { getTodayWeekIdLocal } from '../utils/dateUtils';
 import { PwaInstallBanner } from './ui/PwaInstallBanner';
 
 interface PublisherHomeViewProps {
@@ -48,38 +50,39 @@ export function PublisherHomeView({ onSignOut, userEmail }: PublisherHomeViewPro
                     setPublisherName((pubData.name as string) || profile.full_name || null);
                 }
 
-                // Fetch my upcoming assignments
-                const { data: myParts, error } = await supabase
-                    .from('workbook_parts')
-                    .select('*')
-                    .or(`data->>resolvedPublisherId.eq.${profile.publisher_id},data->>rawPublisherName.eq.${publisherName},data->>rawPublisherName.eq.${profile.full_name}`)
-                    .order('data->>weekId', { ascending: true });
+                // Fetch my upcoming assignments using the proper domain service
+                const todayWeekId = getTodayWeekIdLocal();
+                const allParts = await workbookService.getByStatus(['PROPOSTA', 'DESIGNADA'] as any, todayWeekId);
 
-                if (!error && myParts) {
-                    const mapped = myParts.map(p => {
-                        const d = p.data as Record<string, unknown>;
-                        return {
-                            id: p.id,
-                            weekId: (d.weekId as string) || '',
-                            weekDisplay: (d.weekDisplay as string) || '',
-                            date: (d.date as string) || '',
-                            section: (d.section as string) || '',
-                            tipoParte: (d.tipoParte as string) || '',
-                            tituloParte: (d.tituloParte as string) || '',
-                            descricaoParte: (d.descricaoParte as string) || '',
-                            detalhesParte: (d.detalhesParte as string) || '',
-                            duracao: (d.duracao as string) || '',
-                            funcao: (d.funcao as string) || '',
-                            horaInicio: (d.horaInicio as string) || '',
-                            horaFim: (d.horaFim as string) || '',
-                            rawPublisherName: (d.rawPublisherName as string) || '',
-                            status: (d.status as string) || 'pending',
-                            seq: (d.seq as number) || 0,
-                            modalidade: (d.modalidade as string) || getModalidadeFromTipo((d.tipoParte as string) || ''),
-                        } as PartWithDetails;
-                    });
-                    setParts(mapped);
-                }
+                // Filter parts for this publisher
+                const myParts = allParts.filter(
+                    p => 
+                        p.resolvedPublisherId === profile.publisher_id ||
+                        p.rawPublisherName === publisherName ||
+                        p.rawPublisherName === profile.full_name
+                );
+
+                const mapped = myParts.map(p => ({
+                    id: p.id,
+                    weekId: p.weekId,
+                    weekDisplay: p.weekDisplay || '',
+                    date: p.date || '',
+                    section: p.section || '',
+                    tipoParte: p.tipoParte || '',
+                    tituloParte: p.tituloParte || '',
+                    descricaoParte: p.descricaoParte || '',
+                    detalhesParte: p.detalhesParte || '',
+                    duracao: String(p.duracao || ''),
+                    funcao: p.funcao || '',
+                    horaInicio: p.horaInicio || '',
+                    horaFim: p.horaFim || '',
+                    rawPublisherName: p.rawPublisherName || '',
+                    status: p.status || 'pending',
+                    seq: p.seq || 0,
+                    modalidade: p.modalidade || getModalidadeFromTipo(p.tipoParte || ''),
+                })) as PartWithDetails[];
+                
+                setParts(mapped);
             } catch (err) {
                 console.warn('[PublisherHome] Failed to load assignments:', err);
             } finally {
