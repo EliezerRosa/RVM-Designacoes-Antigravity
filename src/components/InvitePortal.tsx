@@ -27,10 +27,8 @@ export function InvitePortal({ token }: InvitePortalProps) {
 
         setStatus('success');
         
-        // Wait a few seconds then redirect to home
-        setTimeout(() => {
-          window.location.href = window.location.origin;
-        }, 3000);
+        // Não redirecionar automaticamente — o publicador verá a PublisherHomeView
+        // ao clicar no botão abaixo, onde o guard hasNoTabs() garantirá segurança.
         
       } catch (err: any) {
         console.error('Failed to consume token:', err);
@@ -76,8 +74,24 @@ export function InvitePortal({ token }: InvitePortalProps) {
             <div style={{ fontSize: '3rem', margin: '24px 0' }}>✅</div>
             <h3 style={{ color: '#10b981' }}>Conta Vinculada com Sucesso!</h3>
             <p style={{ color: '#94a3b8', marginTop: '12px' }}>
-              Seu acesso foi configurado. Redirecionando você para o sistema...
+              Seu acesso foi configurado. Clique abaixo para ver suas designações.
             </p>
+            <button
+              onClick={handleGoHome}
+              style={{
+                marginTop: '20px',
+                padding: '14px 28px',
+                background: '#10b981',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              📋 Ver Minhas Designações
+            </button>
           </div>
         ) : status === 'error' ? (
           <div>
