@@ -1,0 +1,7 @@
+-- NO-OP RESERVADO (histórico).
+-- Esta versão já está registrada em supabase_migrations.schema_migrations com
+-- statements = NULL desde o push original. O conteúdo real relacionado a
+-- territories/map urls acabou aplicado em 20250307172854_add_territory_map_urls.sql
+-- (ver commit 38b0f97: rename de duplicate timestamp).
+-- Mantido vazio propositalmente para preservar 1:1 entre repo e schema_migrations
+-- do Supabase de produção. Não adicionar DDL aqui.

@@ -1,0 +1,8 @@
+-- NO-OP RESERVADO (histórico).
+-- Esta versão já está registrada em supabase_migrations.schema_migrations com
+-- statements = NULL desde o push original. O conteúdo real (ALTER TABLE
+-- public.territories ADD COLUMN image_url/google_maps_url) foi aplicado em
+-- 20250307172854_add_territory_map_urls.sql após o rename de colisão feito no
+-- commit 38b0f97.
+-- Mantido vazio propositalmente para preservar 1:1 entre repo e schema_migrations
+-- do Supabase de produção. Não adicionar DDL aqui.
