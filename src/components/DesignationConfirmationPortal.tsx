@@ -160,10 +160,6 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
                 throw new Error(submitResult.error || 'Falha ao processar sua resposta.');
             }
 
-            if (submitResult.authenticated_email) {
-                setAuthenticatedEmail(submitResult.authenticated_email);
-            }
-
             if (submitResult.already_processed && submitResult.response_status) {
                 setAlreadyResponded(submitResult.response_status);
                 await loadPart();
