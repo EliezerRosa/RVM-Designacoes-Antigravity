@@ -46,20 +46,30 @@ const emptyPublisher: Publisher = {
     requestedNoParticipation: false,
 }
 
+// Defensivo: dados legados podem nao ter availability ou subcampos completos.
+function normalizePublisher(p: Publisher): Publisher {
+    return {
+        ...emptyPublisher,
+        ...p,
+        privileges: { ...defaultPrivileges, ...p.privileges },
+        privilegesBySection: { ...defaultPrivilegesBySection, ...p.privilegesBySection },
+        availability: {
+            mode: p.availability?.mode ?? 'always',
+            exceptionDates: p.availability?.exceptionDates ?? [],
+            availableDates: p.availability?.availableDates ?? [],
+        },
+    }
+}
+
 export default function PublisherForm({ publisher, publishers, onSave, onCancel }: PublisherFormProps) {
-    const [formData, setFormData] = useState<Publisher>(publisher || { ...emptyPublisher })
+    const [formData, setFormData] = useState<Publisher>(publisher ? normalizePublisher(publisher) : { ...emptyPublisher })
     const [newExceptionDate, setNewExceptionDate] = useState('')
     const [newAvailableDate, setNewAvailableDate] = useState('')
     const [newAlias, setNewAlias] = useState('')
 
     useEffect(() => {
         if (publisher) {
-            setFormData({
-                ...emptyPublisher,
-                ...publisher,
-                privileges: { ...defaultPrivileges, ...publisher.privileges },
-                privilegesBySection: { ...defaultPrivilegesBySection, ...publisher.privilegesBySection },
-            })
+            setFormData(normalizePublisher(publisher))
         }
     }, [publisher])
 
