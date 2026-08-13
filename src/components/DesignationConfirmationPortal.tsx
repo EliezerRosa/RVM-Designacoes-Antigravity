@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getModalidadeFromTipo } from '../constants/mappings';
 import { publisherDirectoryService } from '../services/publisherDirectoryService';
-import { workbookService } from '../services/workbookService';
+import { workbookService, mapDbToWorkbookPart } from '../services/workbookService';
 import { api } from '../services/api';
 import { zapiOrchestrator } from '../services/zapiOrchestrator';
 import { EnumModalidade, WorkbookStatus, type WorkbookPart } from '../types';
@@ -167,76 +167,44 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
 
     const loadPart = async (cancelled = false) => {
         try {
-            const found = await workbookService.getPartById(partId);
+            const { data, error } = await supabase.rpc('get_portal_part_data', {
+                p_part_id: partId,
+                p_publisher_id: publisherId,
+                p_token: token
+            });
 
             if (cancelled) {
                 return;
             }
 
-            if (!found) {
+            if (error || !data || data.error) {
+                console.error('[Portal] Erro na RPC get_portal_part_data:', error || data?.error);
                 setError('Designação não encontrada ou expirada.');
-            } else {
-                // Guard: Verificar se já foi respondido (proteção contra dupla submissão)
-                const currentStatus = found.status;
-                if (currentStatus === WorkbookStatus.DESIGNADA || currentStatus === WorkbookStatus.CONCLUIDA) {
-                    setAlreadyResponded('confirmed');
-                } else if (currentStatus === WorkbookStatus.REJEITADA || currentStatus === WorkbookStatus.CANCELADA) {
-                    setAlreadyResponded('refused');
-                }
-                setPart(found);
-
-                // Carregar dia da reunião persistido para esta semana
-                try {
-                    const dayMap = await api.getSetting<Record<string, number>>('s89_meeting_day_by_week', {});
-                    const savedDay = dayMap[found.weekId];
-                    if (!cancelled) {
-                        setMeetingDayOfWeek(typeof savedDay === 'number' && savedDay >= 0 && savedDay <= 6 ? savedDay : 4);
-                    }
-                } catch {
-                    // mantém padrão quinta-feira (4)
-                }
-
-                // Carregar parceiro (Titular/Ajudante) da mesma semana
-                try {
-                    const weekParts = await workbookService.getPartsByWeekId(found.weekId);
-                    const partNumMatch = (found.tituloParte || found.tipoParte || '').match(/^(\d+)/);
-                    const partNum = partNumMatch ? partNumMatch[1] : null;
-
-                    const partner = weekParts.find(p => {
-                        if (p.id === found.id) return false;
-                        if (!p.resolvedPublisherName && !p.rawPublisherName) return false;
-                        const otherNumMatch = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/);
-                        const otherNum = otherNumMatch ? otherNumMatch[1] : null;
-                        if (partNum && otherNum && partNum === otherNum) return p.funcao !== found.funcao;
-                        return p.tipoParte === found.tipoParte && p.funcao !== found.funcao;
-                    });
-
-                    // Verificar se é parte solo
-                    let isValidPartner = !!partner;
-                    if (partner) {
-                        const titularPart = found.funcao === 'Ajudante' ? partner : found;
-                        const titularMod = titularPart.modalidade || getModalidadeFromTipo(titularPart.tipoParte, titularPart.section);
-                        const soloModalidades = [EnumModalidade.DISCURSO_ESTUDANTE, EnumModalidade.LEITURA_ESTUDANTE];
-                        if (soloModalidades.includes(titularMod as any)) {
-                            isValidPartner = false;
-                        }
-                    }
-
-                    if (isValidPartner && partner) {
-                        const partnerName = partner.resolvedPublisherName || partner.rawPublisherName || '';
-                        // Buscar telefone do parceiro
-                        const publishers = await api.loadPublishers();
-                        const partnerPub = publishers.find(pub => pub.name.trim() === partnerName.trim());
-                        setPartnerInfo({
-                            name: partnerName,
-                            phone: partnerPub?.phone,
-                            funcao: partner.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'
-                        });
-                    }
-                } catch (partnerErr) {
-                    console.warn('[Portal] Não foi possível carregar parceiro:', partnerErr);
-                }
+                return;
             }
+
+            const found = mapDbToWorkbookPart(data.part);
+
+            // Guard: Verificar se já foi respondido (proteção contra dupla submissão)
+            const currentStatus = found.status;
+            if (currentStatus === WorkbookStatus.DESIGNADA || currentStatus === WorkbookStatus.CONCLUIDA) {
+                setAlreadyResponded('confirmed');
+            } else if (currentStatus === WorkbookStatus.REJEITADA || currentStatus === WorkbookStatus.CANCELADA) {
+                setAlreadyResponded('refused');
+            }
+            setPart(found);
+            
+            // Usar o meetingDay da RPC (ou fallback para 4)
+            setMeetingDayOfWeek(typeof data.meetingDay === 'number' && data.meetingDay >= 0 && data.meetingDay <= 6 ? data.meetingDay : 4);
+
+            if (data.partner) {
+                setPartnerInfo({
+                    name: data.partner.name || '',
+                    phone: data.partner.phone || '',
+                    funcao: data.partner.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'
+                });
+            }
+
         } catch (err) {
             console.error('Erro ao carregar designação:', err);
             if (!cancelled) {

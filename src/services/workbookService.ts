@@ -113,7 +113,7 @@ export interface WorkbookExcelRow {
 }
 
 // Converter snake_case do banco para camelCase do TS
-function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
+export function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart {
     return {
         id: row.id as string,
         batch_id: row.batch_id as string,

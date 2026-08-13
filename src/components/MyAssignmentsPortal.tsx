@@ -24,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { authorizeMyAssignmentsPortal } from '../services/myAssignmentsPortalService';
 import { copyS89ToClipboard } from '../services/s89Generator';
 import { getTodayWeekIdLocal } from '../utils/dateUtils';
-import { workbookService } from '../services/workbookService';
+import { workbookService, mapDbToWorkbookPart } from '../services/workbookService';
 import type { WorkbookPart, Publisher } from '../types';
 import type { AvailabilityToken } from './PublisherAvailabilityPortal';
 
@@ -209,10 +209,13 @@ export function MyAssignmentsPortal({ publisherId, token }: Props) {
         if (!isAuthorized) return;
         setDataLoading(true);
         try {
-            const [allParts, pubs] = await Promise.all([
-                workbookService.getByStatus(['PROPOSTA', 'DESIGNADA'] as any, todayWeekId),
-                api.loadPublishers(),
-            ]);
+            const { data: myPartsData, error: partsError } = await supabase.rpc('get_my_workbook_parts');
+            
+            if (partsError) {
+                throw new Error('Falha ao buscar designações: ' + partsError.message);
+            }
+
+            const allParts = (myPartsData || []).map(row => mapDbToWorkbookPart(row as any));
 
             const myParts = allParts.filter(
                 p =>
@@ -222,7 +225,6 @@ export function MyAssignmentsPortal({ publisherId, token }: Props) {
             );
 
             setParts(myParts);
-            setPublishers(pubs);
 
             // Derive ordered week list from parts
             const weeks = [...new Set(myParts.map(p => p.weekId))].sort();

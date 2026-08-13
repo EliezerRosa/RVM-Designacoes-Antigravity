@@ -10,8 +10,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { WorkbookPart } from '../types';
-import { getModalidadeFromTipo } from '../utils/assignmentUtils';
-import { workbookService } from '../services/workbookService';
+import { getModalidadeFromTipo } from '../constants/mappings';
+import { mapDbToWorkbookPart } from '../services/workbookService';
 import { getTodayWeekIdLocal } from '../utils/dateUtils';
 import { PwaInstallBanner } from './ui/PwaInstallBanner';
 
@@ -50,17 +50,18 @@ export function PublisherHomeView({ onSignOut, userEmail }: PublisherHomeViewPro
                     setPublisherName((pubData.name as string) || profile.full_name || null);
                 }
 
-                // Fetch my upcoming assignments using the proper domain service
+                // Fetch my upcoming assignments using the proper RPC
                 const todayWeekId = getTodayWeekIdLocal();
-                const allParts = await workbookService.getByStatus(['PROPOSTA', 'DESIGNADA'] as any, todayWeekId);
+                const { data: myPartsData, error: partsError } = await supabase.rpc('get_my_workbook_parts');
+                
+                if (partsError) {
+                    throw new Error('Falha ao buscar designações: ' + partsError.message);
+                }
 
-                // Filter parts for this publisher
-                const myParts = allParts.filter(
-                    p => 
-                        p.resolvedPublisherId === profile.publisher_id ||
-                        p.rawPublisherName === publisherName ||
-                        p.rawPublisherName === profile.full_name
-                );
+                // A RPC já retorna apenas as partes do usuário, mas precisamos filtrar status e data
+                const myParts = (myPartsData || [])
+                    .map(row => mapDbToWorkbookPart(row as any))
+                    .filter(p => (p.status === 'PROPOSTA' || p.status === 'DESIGNADA') && p.weekId >= todayWeekId);
 
                 const mapped = myParts.map(p => ({
                     id: p.id,
