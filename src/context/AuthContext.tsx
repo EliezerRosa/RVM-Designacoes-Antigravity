@@ -141,12 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: user?.email 
     });
 
-    if (user?.email) {
-      try {
-        localStorage.setItem('rvm_last_device_user', user.email);
-        // [Fase 1 WebAuthn]: Removido loop oculto que forçava registro de biometria "teatro" a cada login.
-      } catch (e) { /* ignore */ }
-    }
+    // [Fase 1 WebAuthn]: Removido o overwrite automatico do rvm_last_device_user
+    // Apenas o deviceAuthService.ts (no registro/login) atualiza essa chave agora.
 
     setState(prev => ({
       ...prev,

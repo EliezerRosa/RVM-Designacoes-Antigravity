@@ -24,35 +24,27 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Buscar o ID do usuário (profile)
+    // 1. Buscar a credencial específica que o navegador enviou (ignora o e-mail que o frontend acha que é)
+    const { data: usedCredential, error: credError } = await supabaseAdmin
+      .from('webauthn_credentials')
+      .select('*')
+      .eq('id', authenticationResponse.id)
+      .single();
+
+    if (credError || !usedCredential) {
+      const errDetail = credError ? credError.message : '0 records';
+      return new Response(JSON.stringify({ error: 'Nenhuma credencial WebAuthn encontrada para este aparelho. Cadastre novamente. (' + errDetail + ')' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // 2. Buscar o ID do usuário (profile) a partir da credencial encontrada
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('id, email')
-      .eq('email', email)
+      .eq('id', usedCredential.profile_id)
       .single();
 
     if (!profile) {
-      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
-    }
-
-    // Buscar as credenciais registradas do usuário (todas)
-    const { data: credentials, error: credError } = await supabaseAdmin
-      .from('webauthn_credentials')
-      .select('*')
-      .eq('profile_id', profile.id);
-
-    if (credError || !credentials || credentials.length === 0) {
-      const errDetail = credError ? credError.message : '0 records';
-      return new Response(JSON.stringify({ error: 'Nenhuma credencial WebAuthn encontrada para este usuario. Cadastre novamente. (' + errDetail + ')' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
-    }
-
-    // Identificar qual credencial foi usada
-    const usedCredential = credentials.find(c => c.id === authenticationResponse.id);
-    
-    // Se não achou por ID direto (pode ter diferença de encoding base64 vs base64url, hex)
-    // Para simplificar, vou confiar na validação matemática do simplewebauthn se eu passar a primeira ou iterar
-    if (!usedCredential) {
-       return new Response(JSON.stringify({ error: 'Credencial utilizada não corresponde as registradas' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Usuario dono desta credencial nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Pegar o último challenge gravado (ordenado por created_at)
