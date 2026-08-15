@@ -42,7 +42,8 @@ serve(async (req) => {
       .eq('profile_id', profile.id);
 
     if (credError || !credentials || credentials.length === 0) {
-      return new Response(JSON.stringify({ error: 'Nenhuma credencial WebAuthn encontrada para este usuario. Cadastre novamente.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      const errDetail = credError ? credError.message : '0 records';
+      return new Response(JSON.stringify({ error: 'Nenhuma credencial WebAuthn encontrada para este usuario. Cadastre novamente. (' + errDetail + ')' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Identificar qual credencial foi usada
