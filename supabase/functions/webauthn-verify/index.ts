@@ -15,6 +15,7 @@ serve(async (req) => {
   try {
     const { email, authenticationResponse, rpID } = await req.json();
 
+    if (!email || !authenticationResponse) {
       return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
