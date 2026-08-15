@@ -6,6 +6,7 @@ import { copyS89ToClipboard } from '../services/s89Generator';
 // Removed unused type import
 import type { AuditRecord } from '../services/auditService';
 import { supabase } from '../lib/supabase';
+import { PushSubscribeButton } from './PushSubscribeButton';
 
 export function CommunicationTab() {
     const [history, setHistory] = useState<NotificationRecord[]>([]);
@@ -272,6 +273,11 @@ export function CommunicationTab() {
                         🔄 Atualizar
                     </button>
                 </div>
+            </div>
+
+            {/* Web Push Subscription for Admins */}
+            <div style={{ marginBottom: '24px' }}>
+                <PushSubscribeButton />
             </div>
 
             {/* Log de Atividades (NOVO) */}
