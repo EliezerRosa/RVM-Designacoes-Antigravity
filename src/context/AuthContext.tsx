@@ -144,12 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user?.email) {
       try {
         localStorage.setItem('rvm_last_device_user', user.email);
-        const hasDeviceAuth = localStorage.getItem(`rvm_device_auth_${user.email}`);
-        if (!hasDeviceAuth && user.id) {
-          import('../services/deviceAuthService').then(({ deviceAuthService }) => {
-            deviceAuthService.registerDevice(user.email!, user.id);
-          });
-        }
+        // [Fase 1 WebAuthn]: Removido loop oculto que forçava registro de biometria "teatro" a cada login.
       } catch (e) { /* ignore */ }
     }
 
