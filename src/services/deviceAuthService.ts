@@ -60,7 +60,7 @@ export const deviceAuthService = {
             // 2. Acionar a janela de Passkey nativa do OS/Navegador
             let attResp;
             try {
-                attResp = await startRegistration(challengeData);
+                attResp = await startRegistration({ optionsJSON: challengeData });
             } catch (error: any) {
                 if (error.name === 'NotAllowedError') {
                     return { success: false, error: 'Registro cancelado pelo usuário.' };
@@ -116,7 +116,7 @@ export const deviceAuthService = {
             // 2. Acionar a janela de Passkey nativa do OS/Navegador
             let asseResp;
             try {
-                asseResp = await startAuthentication(challengeData);
+                asseResp = await startAuthentication({ optionsJSON: challengeData });
             } catch (error: any) {
                 if (error.name === 'NotAllowedError') {
                     return { success: false, error: 'Autenticação cancelada pelo usuário.' };

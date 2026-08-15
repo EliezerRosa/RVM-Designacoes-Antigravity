@@ -15,8 +15,7 @@ serve(async (req) => {
   try {
     const { email, authenticationResponse, rpID } = await req.json();
 
-    if (!email || !authenticationResponse) {
-      return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const supabaseAdmin = createClient(
@@ -32,7 +31,7 @@ serve(async (req) => {
       .single();
 
     if (!profile) {
-      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 });
+      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Buscar as credenciais registradas do usuário (todas)
@@ -42,7 +41,7 @@ serve(async (req) => {
       .eq('profile_id', profile.id);
 
     if (credError || !credentials || credentials.length === 0) {
-      return new Response(JSON.stringify({ error: 'Nenhuma credencial WebAuthn encontrada para este usuario' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Nenhuma credencial WebAuthn encontrada para este usuario. Cadastre novamente.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Identificar qual credencial foi usada
@@ -51,7 +50,7 @@ serve(async (req) => {
     // Se não achou por ID direto (pode ter diferença de encoding base64 vs base64url, hex)
     // Para simplificar, vou confiar na validação matemática do simplewebauthn se eu passar a primeira ou iterar
     if (!usedCredential) {
-       return new Response(JSON.stringify({ error: 'Credencial utilizada não corresponde as registradas' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+       return new Response(JSON.stringify({ error: 'Credencial utilizada não corresponde as registradas' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Pegar o último challenge gravado (ordenado por created_at)
@@ -64,7 +63,7 @@ serve(async (req) => {
       .single();
 
     if (challengeError || !challengeData) {
-      return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     let verification;
@@ -75,7 +74,7 @@ serve(async (req) => {
         expectedOrigin: req.headers.get('origin') || '',
         expectedRPID: rpID || 'localhost',
         authenticator: {
-          credentialID: new Uint8Array(usedCredential.id.match(/.{1,2}/g).map(byte => parseInt(byte, 16))),
+          credentialID: new Uint8Array(usedCredential.id.match(/.{1,2}/g).map((byte: string) => parseInt(byte, 16))),
           credentialPublicKey: Uint8Array.from(atob(usedCredential.public_key), c => c.charCodeAt(0)),
           counter: usedCredential.counter,
           transports: usedCredential.transports || [],
@@ -84,11 +83,11 @@ serve(async (req) => {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      return new Response(JSON.stringify({ error: 'Falha na verificacao criptografica: ' + msg }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Falha na verificacao criptografica: ' + msg }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     if (!verification.verified || !verification.authenticationInfo) {
-      return new Response(JSON.stringify({ error: 'Verificacao falhou' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Verificacao falhou' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Atualizar counter
