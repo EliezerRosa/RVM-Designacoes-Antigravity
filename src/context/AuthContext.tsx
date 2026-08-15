@@ -428,6 +428,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await deviceAuthService.authenticate(email);
     if (result.success && result.email) {
       await logAuthEvent(state.user?.id ?? null, result.email, 'device_biometric_login');
+      if (result.token) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: result.token,
+          type: 'magiclink',
+        });
+        if (error) {
+          return { success: false, error: 'Falha ao processar token seguro do dispositivo.' };
+        }
+      }
     }
     return result;
   }, [state.user]);
