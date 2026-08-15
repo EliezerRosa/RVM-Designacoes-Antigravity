@@ -74,9 +74,9 @@ serve(async (req) => {
         expectedChallenge: challengeData.challenge,
         expectedOrigin: req.headers.get('origin') || '',
         expectedRPID: rpID || 'localhost',
-        authenticator: {
-          credentialID: new Uint8Array(usedCredential.id.match(/.{1,2}/g).map((byte: string) => parseInt(byte, 16))),
-          credentialPublicKey: Uint8Array.from(atob(usedCredential.public_key), c => c.charCodeAt(0)),
+        credential: {
+          id: usedCredential.id,
+          publicKey: Uint8Array.from(atob(usedCredential.public_key), c => c.charCodeAt(0)),
           counter: usedCredential.counter,
           transports: usedCredential.transports || [],
         },
