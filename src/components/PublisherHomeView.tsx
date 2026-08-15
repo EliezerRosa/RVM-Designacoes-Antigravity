@@ -14,6 +14,7 @@ import { getModalidadeFromTipo } from '../constants/mappings';
 import { mapDbToWorkbookPart } from '../services/workbookService';
 import { getTodayWeekIdLocal } from '../utils/dateUtils';
 import { PwaInstallBanner } from './ui/PwaInstallBanner';
+import { PushSubscribeButton } from './PushSubscribeButton';
 
 interface PublisherHomeViewProps {
     onSignOut: () => void;
@@ -124,6 +125,7 @@ export function PublisherHomeView({ onSignOut, userEmail }: PublisherHomeViewPro
     return (
         <div style={{ minHeight: '100vh', background: '#0f172a', color: '#e2e8f0' }}>
             <PwaInstallBanner />
+            <PushSubscribeButton />
             
             {/* Header */}
             <header style={{
