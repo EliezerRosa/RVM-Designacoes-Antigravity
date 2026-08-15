@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { subscribeToWebPush } from '../services/pushService';
 import { supabase } from '../lib/supabase';
 
@@ -10,6 +10,20 @@ export const PushSubscribeButton: React.FC = () => {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return null;
   }
+
+  useEffect(() => {
+    // Check if already subscribed
+    navigator.serviceWorker.ready.then(async (registration) => {
+      try {
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription && Notification.permission === 'granted') {
+          setStatus('success');
+        }
+      } catch (err) {
+        console.error('Erro ao verificar inscricao Push:', err);
+      }
+    });
+  }, []);
 
   const handleSubscribe = async () => {
     setStatus('loading');
