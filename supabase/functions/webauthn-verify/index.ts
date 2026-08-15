@@ -129,7 +129,7 @@ serve(async (req) => {
     const e = error as Error;
     return new Response(JSON.stringify({ error: e.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 200,
     });
   }
 });

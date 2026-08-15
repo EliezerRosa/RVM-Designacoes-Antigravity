@@ -59,10 +59,10 @@ serve(async (req) => {
        return new Response(JSON.stringify({ error: 'Acao invalida' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // Armazenar o challenge no banco
+    // Armazenar o challenge no banco usando UPSERT para evitar erros de chave duplicada
     const { error: insertError } = await supabaseAdmin
       .from('webauthn_challenges')
-      .insert({
+      .upsert({
         profile_id: profile.id,
         challenge: options.challenge
       });
@@ -79,7 +79,7 @@ serve(async (req) => {
     const e = error as Error;
     return new Response(JSON.stringify({ error: e.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 200,
     });
   }
 });
