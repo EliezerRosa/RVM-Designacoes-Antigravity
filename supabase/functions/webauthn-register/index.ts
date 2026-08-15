@@ -16,7 +16,7 @@ serve(async (req) => {
     const { email, registrationResponse, rpID } = await req.json();
 
     if (!email || !registrationResponse) {
-      return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const supabaseAdmin = createClient(
@@ -32,7 +32,7 @@ serve(async (req) => {
       .single();
 
     if (!profile) {
-      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 });
+      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Pegar o último challenge gravado (ordenado por created_at)
@@ -45,7 +45,7 @@ serve(async (req) => {
       .single();
 
     if (challengeError || !challengeData) {
-      return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     let verification;
@@ -59,26 +59,36 @@ serve(async (req) => {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      return new Response(JSON.stringify({ error: 'Falha na verificacao criptografica: ' + msg }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Falha na verificacao criptografica: ' + msg }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     if (!verification.verified || !verification.registrationInfo) {
-      return new Response(JSON.stringify({ error: 'Verificacao falhou' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Verificacao falhou' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    const { credentialPublicKey, credentialID, counter, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+    const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+
+    // Helper para converter Uint8Array para base64 em Deno sem usar Buffer
+    function uint8ArrayToBase64(bytes: Uint8Array) {
+        let binary = '';
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
 
     // Salvar no BD
     const { error: insertError } = await supabaseAdmin
       .from('webauthn_credentials')
       .insert({
-        id: Array.from(credentialID).map(b => b.toString(16).padStart(2, '0')).join(''), // store as hex or base64url
+        id: credential.id, // v10 uses string
         profile_id: profile.id,
-        public_key: Buffer.from(credentialPublicKey).toString('base64'),
-        counter: counter,
+        public_key: uint8ArrayToBase64(credential.publicKey),
+        counter: credential.counter,
         device_type: credentialDeviceType,
         backed_up: credentialBackedUp,
-        transports: registrationResponse.response.transports || [],
+        transports: credential.transports || registrationResponse.response.transports || [],
       });
 
     if (insertError) {
@@ -96,7 +106,7 @@ serve(async (req) => {
     const e = error as Error;
     return new Response(JSON.stringify({ error: e.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 200,
     });
   }
 });
