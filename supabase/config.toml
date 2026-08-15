@@ -9,3 +9,14 @@ entrypoint = "./functions/cron-whatsapp-reminders/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/cron-whatsapp-reminders/*.html" ]
+
+[functions.webauthn-test]
+enabled = true
+verify_jwt = false
+import_map = "./functions/webauthn-test/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/webauthn-test/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/webauthn-test/*.html" ]

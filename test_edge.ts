@@ -1,11 +1,11 @@
-const { generateRegistrationOptions } = require("@simplewebauthn/server");
+import { generateRegistrationOptions } from "npm:@simplewebauthn/server";
 
 async function test() {
   try {
     const options = await generateRegistrationOptions({
         rpName: 'Test',
         rpID: 'localhost',
-        userID: new TextEncoder().encode('12345'), // v10 uses Uint8Array
+        userID: new TextEncoder().encode('12345'),
         userName: 'test@test.com',
         attestationType: 'none',
         authenticatorSelection: {
@@ -13,9 +13,9 @@ async function test() {
           userVerification: 'preferred',
         },
       });
-      console.log("Success:", !!options);
+      console.log(options);
   } catch(e) {
-      console.error("Error generating options:", e.message);
+      console.error(e);
   }
 }
 test();
