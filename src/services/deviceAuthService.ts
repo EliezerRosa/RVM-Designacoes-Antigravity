@@ -8,6 +8,9 @@
  * Totalmente desacoplado de Google OAuth e WhatsApp 2FA.
  */
 
+import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
+import { supabase } from './../lib/supabase'; // Ajuste o caminho se necessário
+
 export type AuthSystemMode = 'google_oauth' | 'google_whatsapp_2fa' | 'device_biometric' | 'flexible';
 
 export interface DeviceAuthResult {
@@ -36,65 +39,48 @@ export const deviceAuthService = {
 
     /**
      * Registra o dispositivo do usuário para login biométrico futuro (WebAuthn Passkey)
+     * Chama as Edge Functions: webauthn-challenge e webauthn-register
      */
     async registerDevice(userEmail: string, userId: string): Promise<DeviceAuthResult> {
         try {
             const isAvailable = await this.isWebAuthnAvailable();
-
-            if (isAvailable && window.PublicKeyCredential) {
-                // Desafio de registro WebAuthn
-                const challenge = new Uint8Array(32);
-                window.crypto.getRandomValues(challenge);
-
-                const userIdBuffer = new TextEncoder().encode(userId);
-
-                const credential = await navigator.credentials.create({
-                    publicKey: {
-                        challenge,
-                        rp: {
-                            name: 'RVM Designações',
-                            id: window.location.hostname,
-                        },
-                        user: {
-                            id: userIdBuffer,
-                            name: userEmail,
-                            displayName: userEmail.split('@')[0],
-                        },
-                        pubKeyCredParams: [
-                            { alg: -7, type: 'public-key' },  // ES256
-                            { alg: -257, type: 'public-key' }, // RS256
-                        ],
-                        authenticatorSelection: {
-                            authenticatorAttachment: 'platform',
-                            userVerification: 'preferred',
-                        },
-                        timeout: 60000,
-                    },
-                }) as PublicKeyCredential | null;
-
-                if (credential) {
-                    // Armazena identificação de registro biométrico no storage local
-                    localStorage.setItem(`rvm_device_auth_${userEmail}`, JSON.stringify({
-                        credentialId: credential.id,
-                        registeredAt: new Date().toISOString(),
-                        userEmail,
-                        userId,
-                    }));
-
-                    return { success: true, email: userEmail };
-                }
+            if (!isAvailable) {
+                return { success: false, error: 'Dispositivo ou navegador não suporta Biometria/Passkeys.' };
             }
 
-            // Fallback para dispositivos sem WebAuthn: armazena token de dispositivo local criptografado
-            localStorage.setItem(`rvm_device_auth_${userEmail}`, JSON.stringify({
-                credentialId: `legacy_${Date.now()}`,
-                registeredAt: new Date().toISOString(),
-                userEmail,
-                userId,
-                isLegacy: true,
-            }));
+            // 1. Obter o Challenge (Opções de Registro) da Edge Function
+            const { data: challengeData, error: challengeError } = await supabase.functions.invoke('webauthn-challenge', {
+                body: { action: 'register', email: userEmail, rpID: window.location.hostname }
+            });
 
+            if (challengeError || !challengeData || challengeData.error) {
+                throw new Error(challengeError?.message || challengeData?.error || 'Falha ao gerar desafio.');
+            }
+
+            // 2. Acionar a janela de Passkey nativa do OS/Navegador
+            let attResp;
+            try {
+                attResp = await startRegistration(challengeData);
+            } catch (error: any) {
+                if (error.name === 'NotAllowedError') {
+                    return { success: false, error: 'Registro cancelado pelo usuário.' };
+                }
+                throw error;
+            }
+
+            // 3. Enviar a resposta (Assinatura) para validação na Edge Function
+            const { data: verificationData, error: verificationError } = await supabase.functions.invoke('webauthn-register', {
+                body: { email: userEmail, registrationResponse: attResp, rpID: window.location.hostname }
+            });
+
+            if (verificationError || !verificationData || !verificationData.success) {
+                throw new Error(verificationError?.message || verificationData?.error || 'Falha na verificação da biometria.');
+            }
+
+            // Sucesso! Gravar o último usuário no localStorage apenas para preencher o e-mail no login
+            localStorage.setItem('rvm_last_device_user', userEmail);
             return { success: true, email: userEmail };
+
         } catch (e) {
             const msg = e instanceof Error ? e.message : 'Falha ao registrar biometria do aparelho.';
             console.error('[DeviceAuth] Registration error:', e);
@@ -104,42 +90,53 @@ export const deviceAuthService = {
 
     /**
      * Autentica o usuário utilizando o autenticador biométrico/PIN nativo do aparelho
+     * Chama as Edge Functions: webauthn-challenge e webauthn-verify
      */
-    async authenticate(userEmail?: string): Promise<DeviceAuthResult> {
+    async authenticate(userEmail?: string): Promise<DeviceAuthResult & { token?: string }> {
         try {
             const targetEmail = userEmail || localStorage.getItem('rvm_last_device_user');
             if (!targetEmail) {
                 return { success: false, error: 'Nenhum usuário registrado neste aparelho.' };
             }
 
-            const storedKey = localStorage.getItem(`rvm_device_auth_${targetEmail}`);
-            if (!storedKey) {
-                return { success: false, error: 'Biometria/PIN não configurada para este e-mail no dispositivo.' };
-            }
-
             const isAvailable = await this.isWebAuthnAvailable();
-
-            if (isAvailable && window.PublicKeyCredential) {
-                const challenge = new Uint8Array(32);
-                window.crypto.getRandomValues(challenge);
-
-                const credential = await navigator.credentials.get({
-                    publicKey: {
-                        challenge,
-                        userVerification: 'preferred',
-                        timeout: 60000,
-                    },
-                }) as PublicKeyCredential | null;
-
-                if (credential) {
-                    localStorage.setItem('rvm_last_device_user', targetEmail);
-                    return { success: true, email: targetEmail };
-                }
+            if (!isAvailable) {
+                 return { success: false, error: 'Dispositivo ou navegador não suporta Biometria/Passkeys.' };
             }
 
-            // Fallback: Autenticação rápida em dispositivo confiável previamente registrado
+            // 1. Obter o Challenge (Opções de Autenticação) da Edge Function
+            const { data: challengeData, error: challengeError } = await supabase.functions.invoke('webauthn-challenge', {
+                body: { action: 'authenticate', email: targetEmail, rpID: window.location.hostname }
+            });
+
+            if (challengeError || !challengeData || challengeData.error) {
+                throw new Error(challengeError?.message || challengeData?.error || 'Falha ao gerar desafio de autenticação.');
+            }
+
+            // 2. Acionar a janela de Passkey nativa do OS/Navegador
+            let asseResp;
+            try {
+                asseResp = await startAuthentication(challengeData);
+            } catch (error: any) {
+                if (error.name === 'NotAllowedError') {
+                    return { success: false, error: 'Autenticação cancelada pelo usuário.' };
+                }
+                throw error;
+            }
+
+            // 3. Enviar a resposta (Assinatura) para validação na Edge Function
+            const { data: verificationData, error: verificationError } = await supabase.functions.invoke('webauthn-verify', {
+                body: { email: targetEmail, authenticationResponse: asseResp, rpID: window.location.hostname }
+            });
+
+            if (verificationError || !verificationData || !verificationData.success) {
+                throw new Error(verificationError?.message || verificationData?.error || 'Falha na verificação da biometria.');
+            }
+
+            // Sucesso! A Edge Function gerou um Magic Link Token seguro
             localStorage.setItem('rvm_last_device_user', targetEmail);
-            return { success: true, email: targetEmail };
+            return { success: true, email: targetEmail, token: verificationData.hashed_token };
+
         } catch (e) {
             const msg = e instanceof Error ? e.message : 'Autenticação cancelada pelo usuário ou falha na biometria.';
             console.error('[DeviceAuth] Authentication error:', e);
