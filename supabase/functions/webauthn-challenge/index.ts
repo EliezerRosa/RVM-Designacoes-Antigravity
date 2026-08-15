@@ -16,7 +16,7 @@ serve(async (req) => {
     const { action, email, rpID } = await req.json();
 
     if (!action || !email) {
-      return new Response(JSON.stringify({ error: 'Faltam parametros action ou email' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ error: 'Faltam parametros action ou email' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const supabaseAdmin = createClient(
@@ -32,7 +32,7 @@ serve(async (req) => {
       .single();
 
     if (!profile) {
-      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 });
+      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const rpName = 'RVM Designacoes';
@@ -56,7 +56,7 @@ serve(async (req) => {
         userVerification: 'preferred',
       });
     } else {
-       return new Response(JSON.stringify({ error: 'Acao invalida' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+       return new Response(JSON.stringify({ error: 'Acao invalida' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Armazenar o challenge no banco
