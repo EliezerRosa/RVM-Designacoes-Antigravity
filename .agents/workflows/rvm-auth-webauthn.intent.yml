@@ -1,0 +1,398 @@
+# =============================================================================
+# rvm-auth-webauthn.intent.yml
+# =============================================================================
+# PoC de Intent-Driven Development com governança YAML estrita.
+# Escopo: refatoração do fluxo de login RVM Designacoes para WebAuthn/Passkey
+# real (Token-Only com Step-up), substituindo o teatro atual do modo
+# `device_biometric` que valida biometria localmente sem gerar sessão Supabase.
+#
+# Autoridade epistêmica: Eliezer (autoriza uma vez, revê no final).
+# Autoridade operacional: agente executor (Claude) sob restrições deste YAML.
+# Este arquivo é o CONTRATO. Qualquer desvio => parar e perguntar.
+# =============================================================================
+
+meta:
+  id: rvm-auth-webauthn
+  version: 1.0
+  created_at: 2026-08-14
+  author: Eliezer + Claude (Copilot / Antigravity)
+  paradigm: IDD (Intent-Driven Development)
+  authorization_model: confirm-once
+  status: awaiting-approval  # -> in-progress -> completed | aborted
+
+# -----------------------------------------------------------------------------
+# CONTEXTO
+# -----------------------------------------------------------------------------
+context:
+  problem: |
+    O modo `device_biometric` atual em src/services/deviceAuthService.ts
+    é teatro de seguranca: (1) navigator.credentials.get() valida biometria
+    localmente no navegador; (2) retorna {success:true} SEM criar sessao
+    Supabase; (3) credenciais residem so em localStorage; (4) challenge e
+    validacao nunca envolvem servidor. Usuario aparenta "logar" apenas
+    porque o supabase-js recupera JWT residual em cache. Se limpar cache
+    ou trocar navegador, biometria vira loop de erro "PIN nao vinculado".
+    Diagnostico completo em memoria: audit auth 2026-08-13.
+
+  target_state: |
+    Passkey WebAuthn real com validacao server-side:
+      - Tabelas SQL webauthn_credentials + webauthn_challenges com RLS.
+      - Edge Functions Deno: webauthn-register, webauthn-challenge,
+        webauthn-verify (biblioteca @simplewebauthn/server).
+      - Passkey login retorna sessao Supabase REAL via caminho
+        admin.generateLink -> verifyOtp (unica rota aprovada; ver I-1).
+      - Frontend nunca finge sucesso: se WebAuthn indisponivel, botao
+        biometria OCULTO; se disponivel-mas-sem-credencial, redirect para
+        Google (Step-up); se credencial existe, habilita.
+
+  step_up_semantics: |
+    Passkey e caminho preferencial (Token-Only). Google Login vira Step-up
+    para casos: (a) primeiro acesso ao dispositivo, (b) credencial perdida
+    ou revogada, (c) usuario admin quer trocar de conta, (d) recuperacao
+    apos limpar cache. Google NUNCA e obstaculo se passkey funciona.
+
+  scope_boundaries:
+    preserve_at_all_costs:
+      - src/components/DesignationConfirmationPortal.tsx
+      - src/App.tsx (roteamento de ?portal=...)
+      - supabase/migrations/20260812214500_portal_part_data_rpc.sql
+      - supabase/migrations/20260813144955_fix_portal_part_data_token_only_no_auth.sql
+      - supabase/migrations/20260813165452_portal_token_only_step_up_phase1.sql
+      - Todas as policies RLS Fase 4 em publishers e workbook_parts
+      - RPCs get_portal_part_data e submit_confirmation_portal_response
+      - Fluxo 2FA WhatsApp existente (create_whatsapp_auth_request +
+        verify_whatsapp_auth_code)
+    modify_scope:
+      - src/services/deviceAuthService.ts (reescrever)
+      - src/context/AuthContext.tsx (signInWithDeviceAuth + updateState)
+      - src/components/LoginPage.tsx (renderizacao condicional)
+    create_scope:
+      - supabase/migrations/<timestamp>_webauthn_credentials.sql
+      - supabase/functions/webauthn-register/index.ts
+      - supabase/functions/webauthn-challenge/index.ts
+      - supabase/functions/webauthn-verify/index.ts
+
+# -----------------------------------------------------------------------------
+# FERRAMENTAS (whitelist explicita + blacklist explicita)
+# -----------------------------------------------------------------------------
+tools_allowed:
+  read_and_search:
+    - read_file
+    - grep_search
+    - file_search
+    - list_dir
+    - semantic_search
+    - get_errors
+  edit_files:
+    - create_file          # apenas em modify_scope e create_scope
+    - replace_string_in_file
+    - multi_replace_string_in_file
+  terminal:
+    - run_in_terminal      # comandos permitidos abaixo
+  memory:
+    - memory (view / str_replace / insert / create em /memories/**)
+  supabase_readonly:
+    - mcp_supabase_list_tables
+    - mcp_supabase_list_migrations
+    - mcp_supabase_get_advisors
+    - mcp_supabase_generate_typescript_types
+    - mcp_supabase_execute_sql        # SOMENTE SELECT (verificar visualmente)
+    - mcp_supabase_search_docs
+
+tools_forbidden:
+  supabase_destructive:
+    - mcp_supabase_apply_migration    # PROIBIDO. Migration vai como arquivo
+                                       # em supabase/migrations/. Aplicacao
+                                       # sera feita depois via git+deploy
+                                       # ou pelo Eliezer manualmente.
+    - mcp_supabase_execute_sql com INSERT / UPDATE / DELETE / DROP / ALTER
+    - mcp_supabase_deploy_edge_function  # deploy sai por CLI local do Eliezer
+    - mcp_supabase_reset_branch
+    - mcp_supabase_delete_branch
+    - mcp_supabase_merge_branch
+  git_destructive:
+    - git push --force
+    - git reset --hard em branches remotas
+    - git rebase interativo em main
+    - git commit --amend em commits ja pushed
+  code_traps:
+    - supabase.auth.signInWithIdToken com token custom / provider != oauth
+    - supabase.auth.admin.createUser com senha ficticia
+    - Qualquer flag --no-verify em git
+    - Hardcoded secrets em cliente OU em migration
+  ambient:
+    - Alteracao em qualquer arquivo fora de modify_scope + create_scope
+    - Instalacao de pacotes npm sem justificativa e aprovacao em CP
+    - Rodar comandos que exigem elevacao (UAC / sudo)
+
+# -----------------------------------------------------------------------------
+# INVARIANTES (5 regras inquebraveis)
+# -----------------------------------------------------------------------------
+invariants:
+
+  I-1_supabase_session_via_verifyOtp:
+    statement: |
+      Toda sessao autenticada por Passkey DEVE ser sessao Supabase real,
+      criada exclusivamente via o caminho:
+        Edge Function webauthn-verify chama
+        supabase.auth.admin.generateLink({type:'magiclink', email})
+        -> retorna {hashed_token}
+        -> cliente chama supabase.auth.verifyOtp({token_hash, type:'magiclink'})
+        -> gotrue-js emite SIGNED_IN.
+    forbidden_paths:
+      - signInWithIdToken com JWT custom (nao funciona; arma programador)
+      - admin.createSession (nao existe API publica)
+      - Criacao manual de JWT assinado com JWT_SECRET
+      - Sessao "confiavel" apenas no state do React sem token real
+    verifier: |
+      Grep no diretorio supabase/functions/webauthn-verify/ deve conter
+      literal "admin.generateLink" e "magiclink". Grep no cliente deve
+      conter "verifyOtp" apenas em caminho de passkey. Nao deve existir
+      signInWithIdToken em nenhum arquivo modificado.
+
+  I-2_credenciais_persistidas_em_sql:
+    statement: |
+      Credenciais WebAuthn (credential_id, public_key COSE, counter,
+      transports, authenticator_attachment, friendly_name) DEVEM residir
+      exclusivamente na tabela public.webauthn_credentials, com RLS
+      restrita: SELECT/DELETE apenas para auth.uid()=profile_id;
+      INSERT/UPDATE apenas via Edge Function SECURITY DEFINER usando
+      service_role_key. localStorage pode conter apenas email + booleano
+      "tem credencial neste dispositivo" para UX.
+    forbidden_paths:
+      - Persistir public_key ou counter em localStorage
+      - RLS aberta a anon ou authenticated sem filtro
+      - Client escrever direto em webauthn_credentials
+    verifier: |
+      Migration cria tabela + policies. Test SQL: SELECT count(*) FROM
+      webauthn_credentials como anon retorna 0 ou permission denied.
+      Como user autenticado retorna apenas suas credenciais.
+
+  I-3_challenge_server_side_single_use:
+    statement: |
+      Challenge WebAuthn DEVE ser gerado no servidor pela Edge Function
+      webauthn-challenge (usando crypto.getRandomValues do Deno), gravado
+      em public.webauthn_challenges com expires_at = now() + interval
+      '5 minutes', flow in ('registration','assertion'). Verificacao em
+      webauthn-verify DEVE marcar consumed_at e recusar reuso.
+    forbidden_paths:
+      - Challenge gerado no cliente
+      - TTL > 5min
+      - Challenge sem coluna consumed_at (multi-uso)
+      - Aceitar assertion sem verificar challenge_id contra tabela
+    verifier: |
+      Grep na Edge Function webauthn-challenge por "INSERT INTO
+      webauthn_challenges". Grep em webauthn-verify por "UPDATE
+      webauthn_challenges SET consumed_at". TTL configurado em <= 5 min.
+
+  I-4_zero_regressao_no_portal_e_rls:
+    statement: |
+      Portal Token-Only Fase 1 (get_portal_part_data,
+      submit_confirmation_portal_response, roteamento ?portal=confirm) e
+      RLS Fase 4 em publishers/workbook_parts NAO podem ser modificados,
+      afrouxados, wrapped, override ou tocados de qualquer forma. Novo
+      fluxo de auth e ORTOGONAL ao portal.
+    forbidden_paths:
+      - Editar DesignationConfirmationPortal.tsx
+      - Editar migrations 20260812214500 ou 20260813144955 ou 20260813165452
+      - Adicionar ou remover policies em publishers ou workbook_parts
+      - Alterar comportamento de authorize_confirmation_portal
+    verifier: |
+      git diff antes de commit deve mostrar ZERO alteracoes em:
+        - src/components/DesignationConfirmationPortal.tsx
+        - src/App.tsx
+        - supabase/migrations/20260812* 20260813*
+      Comando local: git status --short | Select-String
+      -NotMatch 'DesignationConfirmationPortal|App.tsx|20260812|20260813'
+
+  I-5_zero_secret_em_cliente_e_migration:
+    statement: |
+      Nenhum secret (API key, service_role_key, JWT secret, rp_id em
+      producao) pode aparecer em codigo do cliente NEM em migration SQL.
+      Cliente le apenas a chave publishable de Supabase que ja e publica
+      por design. Edge Functions leem via Deno.env.get. rp_id pode vir
+      de app_settings SQL row lida em runtime.
+    forbidden_paths:
+      - process.env em codigo do browser (Vite ja proibe, mas reforcar)
+      - String literal parecendo JWT (regex "eyJ[A-Za-z0-9_-]+\.eyJ")
+      - Migration com valor de token embutido
+      - console.log(challenge) ou console.log(publicKey) em qualquer lado
+    verifier: |
+      Grep em modify_scope + create_scope por regex secret patterns.
+      Retorno esperado: zero matches.
+
+# -----------------------------------------------------------------------------
+# ORACLE GATES (comandos locais obrigatorios, sem CI global)
+# -----------------------------------------------------------------------------
+oracle_gates:
+
+  gate_typecheck:
+    trigger: apos_qualquer_edicao_ts_ou_tsx
+    command: npx tsc --noEmit
+    working_dir: rvm-designacoes-unified
+    pass_criterion: exit code 0, zero errors
+    on_failure: |
+      Reverter ultima edicao. NAO commit. Reportar o erro exato ao Eliezer
+      com hipotese de correcao. NAO tentar corrigir cegamente.
+
+  gate_get_errors:
+    trigger: apos_qualquer_edicao_ts_ou_tsx
+    command: get_errors tool nos arquivos tocados
+    pass_criterion: zero diagnostics
+    on_failure: mesmo protocolo do typecheck
+
+  gate_build:
+    trigger: antes_do_commit_final
+    command: npm run build
+    working_dir: rvm-designacoes-unified
+    pass_criterion: exit code 0; bundle gerado em dist/
+    on_failure: reverter para HEAD anterior; investigar
+
+  gate_migration_syntax:
+    trigger: apos_criar_migration_sql
+    command: |
+      Get-Content supabase/migrations/*_webauthn_credentials.sql |
+      Select-String -Pattern 'CREATE TABLE IF NOT EXISTS|CREATE POLICY|ALTER TABLE'
+    pass_criterion: |
+      Deve conter CREATE TABLE IF NOT EXISTS (idempotencia).
+      Deve conter CREATE POLICY para SELECT, INSERT, UPDATE, DELETE.
+      NAO deve conter DROP TABLE em producao.
+    on_failure: reescrever migration seguindo padrao idempotente do repo
+
+  gate_scope_diff:
+    trigger: antes_do_commit_final
+    command: git status --short
+    pass_criterion: |
+      Todos os arquivos modificados devem estar em modify_scope.
+      Todos os arquivos novos devem estar em create_scope.
+      Zero arquivos em preserve_at_all_costs.
+    on_failure: reverter arquivos fora de escopo; reportar
+
+  gate_invariant_grep:
+    trigger: antes_do_commit_final
+    checks:
+      - name: I-1
+        cmd: grep -r "signInWithIdToken" src/ supabase/functions/
+        expected: nenhum match em contexto novo
+      - name: I-1_positivo
+        cmd: grep -r "verifyOtp\|admin.generateLink" src/services/deviceAuthService.ts supabase/functions/webauthn-verify/
+        expected: pelo menos 1 match em cada
+      - name: I-5
+        cmd: grep -rE "eyJ[A-Za-z0-9_-]+\.eyJ" src/ supabase/
+        expected: zero matches
+      - name: I-4
+        cmd: git diff --name-only | grep -E "DesignationConfirmationPortal|App.tsx|20260812|20260813"
+        expected: zero matches
+
+  gate_readback_files:
+    trigger: apos_edicao_de_arquivo_critico
+    action: |
+      Reler o arquivo completo apos edicao para confirmar que o resultado
+      corresponde a intencao. Nao confiar cegamente no diff.
+
+# -----------------------------------------------------------------------------
+# CHECKPOINTS (pontos de reaprovacao humana)
+# -----------------------------------------------------------------------------
+checkpoints:
+
+  CP-1_apos_plano:
+    when: apos_produzir_plano_detalhado
+    before: qualquer_edicao_de_arquivo
+    require_human_approval: true
+    output_expected: |
+      Resumo em portugues do plano contendo:
+      - Lista ordenada de acoes por arquivo (create/update)
+      - Ordem de execucao com justificativa
+      - Riscos identificados e mitigacoes
+      - Confirmacao de que preserve_at_all_costs sera respeitado
+      Perguntar: "Aprovado para CP-2 (migration+edge functions)?"
+
+  CP-2_apos_backend:
+    when: apos_migration_e_3_edge_functions_criadas
+    before: tocar_frontend
+    require_human_approval: true
+    output_expected: |
+      - Path e sha1 de cada arquivo criado
+      - gate_migration_syntax: PASS
+      - Verificacao visual da RLS (mostrar policies)
+      - Perguntar: "Aprovado para CP-3 (frontend)?"
+
+  CP-3_apos_frontend:
+    when: apos_reescrever_deviceAuthService_AuthContext_LoginPage
+    before: reflection_final_e_commit
+    require_human_approval: true
+    output_expected: |
+      - Diff resumido por arquivo
+      - gate_typecheck: PASS
+      - gate_get_errors: PASS
+      - gate_scope_diff: PASS
+      - Perguntar: "Aprovado para gate_build + reflection final?"
+
+  CP-final_apos_reflection:
+    when: apos_apresentar_reflection_com_5_invariantes
+    before: git_commit + git_push
+    require_human_approval: true
+    output_expected: |
+      Tabela de reflection preenchida (ver reflection_template).
+      Perguntar: "Aprovado para commit e push? Mensagem sugerida: ..."
+
+# -----------------------------------------------------------------------------
+# TEMPLATE DE REFLECTION FINAL
+# -----------------------------------------------------------------------------
+reflection_template:
+  format: |
+    ## Reflection Final — rvm-auth-webauthn PoC IDD
+
+    ### Tabela de invariantes
+
+    | Inv | Statement (resumo) | Status | Evidencia | Justificativa |
+    |---|---|:---:|---|---|
+    | I-1 | Session via generateLink+verifyOtp | ✅/❌ | <grep output> | <por que passa> |
+    | I-2 | Credenciais em SQL com RLS | ✅/❌ | <SQL result> | ... |
+    | I-3 | Challenge server-side single-use | ✅/❌ | <grep output> | ... |
+    | I-4 | Zero regressao no portal / RLS | ✅/❌ | <git diff> | ... |
+    | I-5 | Zero secret em cliente/migration | ✅/❌ | <grep output> | ... |
+
+    ### Oracle gates executados
+
+    | Gate | Comando | Resultado |
+    |---|---|---|
+    | typecheck | npx tsc --noEmit | PASS / FAIL |
+    | build | npm run build | PASS / FAIL |
+    | migration_syntax | grep IF NOT EXISTS | PASS |
+    | scope_diff | git status vs escopo | PASS |
+    | invariant_grep | multiplos | PASS |
+
+    ### Arquivos entregues
+
+    - CREATE: <lista>
+    - UPDATE: <lista>
+    - DELETE: <lista> (esperado: vazio)
+
+    ### Riscos residuais conhecidos
+
+    - <riscos que sobraram e por que sao aceitaveis>
+
+    ### Proximos passos sugeridos (fora deste PoC)
+
+    - <ex: adicionar painel admin de gerenciamento; adicionar rate limit;
+      escrever testes E2E>
+
+# -----------------------------------------------------------------------------
+# TERMOS DE ENCERRAMENTO
+# -----------------------------------------------------------------------------
+closure_conditions:
+  success: |
+    Todas 5 invariantes com ✅ + todos os oracle_gates PASS + aprovacao
+    humana em CP-final + commit + push OK.
+  abort: |
+    Qualquer invariante ❌ que nao possa ser corrigida sem violar outra.
+    Nesse caso: git stash + reportar razao + aguardar decisao do Eliezer.
+
+memory_write_on_close:
+  - path: /memories/repo/rvm-auth-webauthn-poc-idd-2026-08-14.md
+    content: |
+      Snapshot do que foi feito, invariantes finais, comandos executados,
+      links para arquivos alterados e commits produzidos.
+  - update: /memories/repo/_ESTADO-ATUAL.md
+    section: ultima_atualizacao
