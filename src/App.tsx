@@ -184,7 +184,7 @@ function App() {
 }
 
 function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; userEmail: string }) {
-  const { profile } = useAuth()
+  const { profile, registerDeviceAuth } = useAuth()
   const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
 
   // Hook de consumo de flags de automação (import/geração mensal via Cron)
@@ -548,6 +548,29 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           <span style={{ color: '#94a3b8', fontSize: '0.75rem' }} title={userEmail}>
             👤 {userEmail.split('@')[0]}
           </span>
+          <button
+            onClick={async () => {
+              const res = await registerDeviceAuth();
+              if (res.success) {
+                alert('Biometria registrada com sucesso no seu aparelho!');
+              } else {
+                alert('Falha ao registrar biometria: ' + res.error);
+              }
+            }}
+            style={{
+              background: 'transparent',
+              border: '1px solid #3b82f6',
+              color: '#3b82f6',
+              borderRadius: '0.5rem',
+              padding: '0.35rem 0.75rem',
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+            title="Registrar Biometria/PIN neste aparelho"
+          >
+            🔒 Ativar Biometria
+          </button>
           <button
             onClick={onSignOut}
             style={{
