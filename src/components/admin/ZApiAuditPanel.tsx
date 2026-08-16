@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { CustomPushModal } from './CustomPushModal';
 
 interface DispatchLog {
   id: string;
@@ -13,6 +14,8 @@ interface DispatchLog {
 export function ZApiAuditPanel() {
   const [logs, setLogs] = useState<DispatchLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRetesting, setIsRetesting] = useState<string | null>(null);
+  const [showCustomModal, setShowCustomModal] = useState(false);
 
   useEffect(() => {
     loadLogs();
@@ -36,13 +39,44 @@ export function ZApiAuditPanel() {
     }
   };
 
+  const handleRetestPush = async (logId: string) => {
+    try {
+      setIsRetesting(logId);
+      
+      // 1. Apaga da tabela push_dispatch_log via RPC
+      const { error: rpcErr } = await supabase.rpc('reset_push_dispatch_log', { p_zapi_log_id: logId });
+      if (rpcErr) throw rpcErr;
+
+      // 2. Chama o cron-web-push para re-processar
+      const { error: invokeErr } = await supabase.functions.invoke('cron-web-push');
+      if (invokeErr) throw invokeErr;
+
+      alert('Sinal enviado ao Cron Web Push com sucesso!');
+    } catch (err: any) {
+      console.error('Erro ao retestar push:', err);
+      alert('Erro: ' + err.message);
+    } finally {
+      setIsRetesting(null);
+    }
+  };
+
   if (isLoading) return <div>Carregando auditoria...</div>;
 
   return (
     <div style={{ padding: '20px' }}>
-      <button onClick={loadLogs} style={{ marginBottom: '15px', padding: '8px 16px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-        Atualizar Agora
-      </button>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+        <button onClick={loadLogs} style={{ padding: '8px 16px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          Atualizar Agora
+        </button>
+        
+        <button onClick={() => setShowCustomModal(true)} style={{ padding: '8px 16px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          📣 Novo Aviso Web Push (Megafone)
+        </button>
+      </div>
+
+      {showCustomModal && (
+        <CustomPushModal onClose={() => setShowCustomModal(false)} />
+      )}
 
       <table className="modern-table">
         <thead>
@@ -72,10 +106,23 @@ export function ZApiAuditPanel() {
                   </span>
                 </td>
                 <td>{log.recipient_phone}</td>
-                <td>
+                <td style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <span style={{ color: log.status === 'SUCCESS' ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
                     {log.status}
                   </span>
+                  {log.status === 'SUCCESS' && (
+                    <button 
+                      onClick={() => handleRetestPush(log.id)}
+                      disabled={isRetesting === log.id}
+                      style={{
+                        padding: '4px 8px', fontSize: '0.8rem', background: '#475569', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer',
+                        opacity: isRetesting === log.id ? 0.5 : 1
+                      }}
+                      title="Apaga o log de PWA e chama o cron novamente para forçar o reenvio"
+                    >
+                      {isRetesting === log.id ? 'Testando...' : 'Retestar PWA (Barreira)'}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))
