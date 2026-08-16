@@ -43,8 +43,9 @@ serve(async (req: Request) => {
 
     webPush.setVapidDetails(subject, publicVapidKey, privateVapidKey);
 
-    // 1. O Postgres faz a fora bruta: retorna apenas as endpoints que precisam receber alerta hoje.
-    const { data: alerts, error } = await supabase.rpc('get_pending_push_alerts');
+    // 1. O Postgres faz o JOIN: retorna apenas os eventos do zapi_dispatch_log
+    // que ainda não foram notificados via Web Push.
+    const { data: alerts, error } = await supabase.rpc('get_pending_push_events');
     
     if (error) {
         console.error("Erro ao puxar alertas:", error);
@@ -70,16 +71,37 @@ serve(async (req: Request) => {
             }
         };
 
-        const payload = JSON.stringify({
-            title: `RVM Designaes: Alerta ${alert.alert_type}`,
-            body: alert.message,
-            data: { url: '/?portal=my-assignments' }
-        });
+        let title = 'RVM Designações';
+        let body = `Sua designação:\\n📖 ${alert.part_title}\\n📍 ${alert.section}`;
+        let url = '/';
+
+        if (alert.dispatch_type.startsWith('PUBLICACAO')) {
+            title = 'Nova designação (Ação necessária)';
+            body = `Você tem uma nova parte:\\n📖 ${alert.part_title}\\nPor favor, confirme no aplicativo.`;
+            if (alert.token) url = `/?portal=confirm&id=${alert.part_id}&publisherId=${alert.publisher_id}&token=${alert.token}`;
+        } else if (alert.dispatch_type.startsWith('COBRANCA')) {
+            title = 'Confirmação Pendente!';
+            body = `Você ainda não confirmou sua parte:\\n📖 ${alert.part_title}\\nClique aqui para confirmar.`;
+            if (alert.token) url = `/?portal=confirm&id=${alert.part_id}&publisherId=${alert.publisher_id}&token=${alert.token}`;
+        } else if (alert.dispatch_type.startsWith('LEMBRETE')) {
+            title = 'Lembrete de Reunião';
+        }
+
+        const payload = JSON.stringify({ title, body, data: { url } });
 
         try {
             await webPush.sendNotification(pushSubscription, payload);
             sentCount++;
-            // TODO: Inserir em alert_notification_log marcando o alert_key como enviado para evitar duplicata.
+            
+            // Registra o envio para não duplicar
+            const { error: insertErr } = await supabase.from('push_dispatch_log').insert({
+                zapi_log_id: alert.zapi_log_id,
+                part_id: alert.part_id,
+                dispatch_type: alert.dispatch_type,
+                publisher_id: alert.publisher_id,
+                endpoint: alert.endpoint
+            });
+            if (insertErr) console.error('Erro ao registrar push_dispatch_log:', insertErr);
         } catch (err: any) {
             console.error(`Erro ao enviar para ${alert.endpoint}:`, err);
             // Se o usurio revogou ou desinstalou o PWA, o endpoint expira (statusCode 404/410)
