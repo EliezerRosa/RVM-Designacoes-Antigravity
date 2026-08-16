@@ -22,6 +22,7 @@ import { PwaInstallBanner } from './components/ui/PwaInstallBanner'
 import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
 import { usePermissions } from './hooks/usePermissions'
+import { ForceBiometricModal } from './components/ForceBiometricModal'
 
 // Lazy-loaded tabs (code splitting)
 const WorkbookManager = lazy(() => import('./components/WorkbookManager'))
@@ -741,7 +742,11 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
         publishers={publishers}
         parts={workbookParts}
         history={historyRecords} // Passando histórico completo
+        initialCommand={initialAgentCommand}
+        initialWeekId={initialAgentWeekId}
       />
+
+      <ForceBiometricModal />
 
       {/* Floating Chat Button (Hidden in Agent Tab) */}
       {activeTab !== 'agent' && (
