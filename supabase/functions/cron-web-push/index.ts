@@ -26,11 +26,25 @@ const supabase = createClient(
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
 );
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+};
+
 serve(async (req: Request) => {
+    // Handle CORS
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders });
+    }
+
     // FAIL-CLOSED: exige secret configurado
     const expectedSecret = Deno.env.get("CRON_SECRET");
-    if (!expectedSecret || req.headers.get("x-cron-secret") !== expectedSecret) {
-        return new Response("Forbidden", { status: 403 });
+    const isCronRequest = req.headers.get("x-cron-secret") === expectedSecret;
+    const authHeader = req.headers.get("authorization");
+
+    // Permite invocações do Frontend (com Authorization) ou do Cron (com secret)
+    if (!expectedSecret || (!isCronRequest && !authHeader)) {
+        return new Response("Forbidden", { status: 403, headers: corsHeaders });
     }
 
     const publicVapidKey = Deno.env.get("VAPID_PUBLIC_KEY");
@@ -49,12 +63,12 @@ serve(async (req: Request) => {
     
     if (error) {
         console.error("Erro ao puxar alertas:", error);
-        return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
     }
 
     if (!alerts || alerts.length === 0) {
         return new Response(JSON.stringify({ success: true, sent: 0, reason: 'no pending alerts' }), {
-            status: 200, headers: { 'Content-Type': 'application/json' },
+            status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
     }
 

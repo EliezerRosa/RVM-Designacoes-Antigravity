@@ -738,7 +738,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                 );
 
                 if (pdfBase64) {
-                    const confirmUrl = await communicationService.buildConfirmationUrl(partId);
+                    const confirmUrl = await communicationService.createConfirmationPortalLink(partId, newPub.id);
                     const srvmName = 'Irmão'; // Simplificado
                     const srvmPhone = ''; // Simplificado
                     
