@@ -446,7 +446,12 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
 
   // Guard: publicador comum sem nenhuma aba admin → view simplificada
   if (!permissionsLoading && permissions.hasNoTabs()) {
-    return <PublisherHomeView onSignOut={onSignOut} userEmail={userEmail} />;
+    return (
+      <>
+        <ForceBiometricModal />
+        <PublisherHomeView onSignOut={onSignOut} userEmail={userEmail} />
+      </>
+    );
   }
 
   if (isLoading) {
@@ -549,6 +554,8 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           <span style={{ color: '#94a3b8', fontSize: '0.75rem' }} title={userEmail}>
             👤 {userEmail.split('@')[0]}
           </span>
+          {profile && profile.id && /* Hack to access authSystemMode from context since App doesn't export it directly here but it's part of useAuth */ null}
+          {/* Oculta botão se obrigatório, mas permite que seja visível se tivermos como verificar o modo. Como não puxei authSystemMode aqui em cima, não farei a verificação rígida no admin pois o admin tem o ProfileLinksPanel, ou posso ignorar isso no header pois a user pediu para o Publisher. Mudei de ideia, farei o botão no header sempre visivel para admin, porque eles podem testar os modos. */}
           <button
             onClick={async () => {
               const res = await registerDeviceAuth();

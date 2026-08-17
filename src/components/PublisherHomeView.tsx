@@ -26,7 +26,7 @@ interface PartWithDetails extends WorkbookPart {
 }
 
 export function PublisherHomeView({ onSignOut, userEmail }: PublisherHomeViewProps) {
-    const { profile } = useAuth();
+    const { profile, registerDeviceAuth, authSystemMode } = useAuth();
     const [parts, setParts] = useState<PartWithDetails[]>([]);
     const [loading, setLoading] = useState(true);
     const [publisherName, setPublisherName] = useState<string | null>(null);
@@ -144,21 +144,48 @@ export function PublisherHomeView({ onSignOut, userEmail }: PublisherHomeViewPro
                         👤 {displayName}
                     </span>
                 </div>
-                <button
-                    onClick={onSignOut}
-                    style={{
-                        background: 'transparent',
-                        border: '1px solid #ef4444',
-                        color: '#ef4444',
-                        borderRadius: '0.5rem',
-                        padding: '0.4rem 0.85rem',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                    }}
-                >
-                    Sair
-                </button>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    {authSystemMode !== 'device_biometric' && (
+                        <button
+                            onClick={async () => {
+                                const res = await registerDeviceAuth();
+                                if (res.success) {
+                                    alert('Biometria registrada com sucesso no seu aparelho!');
+                                } else {
+                                    alert('Falha ao registrar biometria: ' + res.error);
+                                }
+                            }}
+                            style={{
+                                background: 'transparent',
+                                border: '1px solid #3b82f6',
+                                color: '#3b82f6',
+                                borderRadius: '0.5rem',
+                                padding: '0.4rem 0.85rem',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                            }}
+                            title="Registrar Biometria/PIN neste aparelho"
+                        >
+                            🔒 Ativar Biometria
+                        </button>
+                    )}
+                    <button
+                        onClick={onSignOut}
+                        style={{
+                            background: 'transparent',
+                            border: '1px solid #ef4444',
+                            color: '#ef4444',
+                            borderRadius: '0.5rem',
+                            padding: '0.4rem 0.85rem',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                        }}
+                    >
+                        Sair
+                    </button>
+                </div>
             </header>
 
             {/* Main Content */}
