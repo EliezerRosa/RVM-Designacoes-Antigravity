@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export function LoginPage() {
@@ -12,6 +12,20 @@ export function LoginPage() {
 
   const [deviceEmail, setDeviceEmail] = useState('');
   const [showDeviceEmailInput, setShowDeviceEmailInput] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorDesc = params.get('error_description');
+    if (errorDesc) {
+      if (errorDesc.includes('OAuth state has expired') || errorDesc.includes('bad_oauth_state')) {
+        setError('A sessão de login com o Google expirou ou foi interrompida. Por favor, clique em "Entrar com Conta Google" novamente.');
+      } else {
+        setError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')));
+      }
+      // Limpar a URL para não travar em reloads futuros
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
