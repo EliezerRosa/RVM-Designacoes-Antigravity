@@ -24,8 +24,12 @@ serve(async (req) => {
     );
     
     // Auth check
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) throw new Error('Não autenticado');
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) throw new Error('Cabeçalho de Authorization ausente');
+
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
+    if (userError || !user) throw new Error('Não autenticado: ' + (userError?.message || 'Token inválido'));
     
     const { data: profile } = await supabaseClient.from('profiles').select('role').eq('id', user.id).single();
     if (profile?.role !== 'admin') throw new Error('Acesso negado');
