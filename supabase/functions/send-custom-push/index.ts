@@ -42,22 +42,31 @@ serve(async (req) => {
     });
     if (insertErr) console.warn('Erro ao salvar no histórico:', insertErr);
 
-    // Buscar subscriptions usando Service Role para ignorar RLS e poder pegar os publishers
+    // Buscar subscriptions ignorando RLS (sem FK para publishers)
     const adminClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    let query = adminClient.from('push_subscriptions').select('*, publishers(role, id)');
-    
-    const { data: subs, error: subsErr } = await query;
+    const { data: subs, error: subsErr } = await adminClient.from('push_subscriptions').select('*');
     if (subsErr) throw subsErr;
 
     let targetSubs = subs || [];
+
     if (target_publisher_id) {
-        targetSubs = targetSubs.filter((s: any) => s.publishers?.id === target_publisher_id);
+        targetSubs = targetSubs.filter((s: any) => s.publisher_id === target_publisher_id);
     } else if (target_role && target_role !== 'all') {
-        targetSubs = targetSubs.filter((s: any) => s.publishers?.role === target_role);
+        // Busca os papéis dos publicadores manualmente já que não há FK direta
+        const { data: pubs, error: pubErr } = await adminClient.from('publishers').select('id, role');
+        if (pubErr) throw pubErr;
+
+        const roleMap = new Map();
+        pubs.forEach((p: any) => roleMap.set(p.id, p.role));
+
+        targetSubs = targetSubs.filter((s: any) => {
+            const role = roleMap.get(s.publisher_id);
+            return role === target_role;
+        });
     }
 
     if (targetSubs.length === 0) {
@@ -98,8 +107,9 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
   } catch (error: any) {
+    // Retorna 200 para que o cliente supabase-js não oculte o corpo (payload) do erro num status 400 (FunctionsHttpError)
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: 200,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
     });
   }
