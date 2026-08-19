@@ -19,10 +19,40 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Faltam parametros action ou email' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // [SECURITY] Validar formato de e-mail básico
+    if (typeof email !== 'string' || !email.includes('@') || email.length > 320) {
+      return new Response(JSON.stringify({ error: 'Email invalido' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // [SECURITY] Para REGISTRO, exigir que o chamador esteja autenticado
+    if (action === 'register') {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Autenticacao necessaria para registrar dispositivo' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      }
+
+      const userClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { auth: { persistSession: false } }
+      );
+      const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+      const { data: { user }, error: userErr } = await userClient.auth.getUser(jwt);
+
+      if (userErr || !user) {
+        return new Response(JSON.stringify({ error: 'Token invalido ou expirado. Faca login novamente.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      }
+
+      // Garantir que o e-mail no request bate com o e-mail do token
+      if (user.email?.toLowerCase() !== email.toLowerCase()) {
+        return new Response(JSON.stringify({ error: 'Email nao corresponde ao token de autenticacao' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      }
+    }
 
     // Buscar o ID do usuário (profile)
     const { data: profile } = await supabaseAdmin
@@ -59,12 +89,19 @@ serve(async (req) => {
        return new Response(JSON.stringify({ error: 'Acao invalida' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // Armazenar o challenge no banco usando UPSERT para evitar erros de chave duplicada
+    // Armazenar o challenge com expiração (5 minutos)
+    // Limpar challenges antigos primeiro
+    await supabaseAdmin
+      .from('webauthn_challenges')
+      .delete()
+      .eq('profile_id', profile.id);
+
     const { error: insertError } = await supabaseAdmin
       .from('webauthn_challenges')
-      .upsert({
+      .insert({
         profile_id: profile.id,
-        challenge: options.challenge
+        challenge: options.challenge,
+        expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
       });
 
     if (insertError) {
