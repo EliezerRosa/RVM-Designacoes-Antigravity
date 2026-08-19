@@ -50,7 +50,7 @@ serve(async (req) => {
     // Pegar o último challenge gravado (ordenado por created_at)
     const { data: challengeData, error: challengeError } = await supabaseAdmin
       .from('webauthn_challenges')
-      .select('id, challenge')
+      .select('id, challenge, expires_at')
       .eq('profile_id', profile.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -58,6 +58,12 @@ serve(async (req) => {
 
     if (challengeError || !challengeData) {
       return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // [SECURITY] Verificar expiração do challenge
+    if (challengeData.expires_at && new Date(challengeData.expires_at) < new Date()) {
+      await supabaseAdmin.from('webauthn_challenges').delete().eq('id', challengeData.id);
+      return new Response(JSON.stringify({ error: 'Challenge expirado. Tente novamente.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     let verification;

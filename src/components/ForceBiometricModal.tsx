@@ -32,18 +32,35 @@ export function ForceBiometricModal() {
         return () => { mounted = false; };
     }, []);
 
-    // Se o modal foi resolvido com sucesso, não exibe mais nada.
-    if (isDismissed) return null;
-    
-    // Mostra spinner enquanto verifica suporte
-    if (isChecking) return null;
-
     // Regras de disparo
     const isTargetMode = authSystemMode === 'device_biometric' || authSystemMode === 'flexible';
     const email = user?.email;
     const lastDeviceUser = localStorage.getItem('rvm_last_device_user');
     
     const isAlreadyRegisteredHere = email && lastDeviceUser === email;
+
+    // Log de fallback para dispositivos não suportados
+    useEffect(() => {
+        if (!isChecking && isAvailable === false && isTargetMode && email) {
+            const logKey = `logged_unsupported_${email}`;
+            if (!sessionStorage.getItem(logKey)) {
+                sessionStorage.setItem(logKey, '1');
+                import('../context/AuthContext').then(({ logAuthEvent }) => {
+                    logAuthEvent(user?.id || null, email, 'webauthn_unsupported', { 
+                        userAgent: navigator.userAgent 
+                    }).catch(console.error);
+                });
+            }
+        }
+    }, [isChecking, isAvailable, isTargetMode, email, user?.id]);
+
+    // Se o modal foi resolvido com sucesso, não exibe mais nada.
+    if (isDismissed) return null;
+    
+    // Mostra spinner enquanto verifica suporte
+    if (isChecking) return null;
+
+    // isTargetMode, email, etc já extraídos acima
 
     if (!isTargetMode || isAlreadyRegisteredHere || !isAvailable || !email) {
         // Não é alvo desse bloqueio

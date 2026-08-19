@@ -19,10 +19,33 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
+    // [SECURITY] Exigir autenticação para registro
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Autenticacao necessaria para registrar dispositivo' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Validar JWT do chamador
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { auth: { persistSession: false } }
+    );
+    const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const { data: { user }, error: userErr } = await userClient.auth.getUser(jwt);
+
+    if (userErr || !user) {
+      return new Response(JSON.stringify({ error: 'Token invalido ou expirado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    if (user.email?.toLowerCase() !== email.toLowerCase()) {
+      return new Response(JSON.stringify({ error: 'Email nao corresponde ao token' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
 
     // Buscar o ID do usuário (profile)
     const { data: profile } = await supabaseAdmin
@@ -35,10 +58,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
-    // Pegar o último challenge gravado (ordenado por created_at)
+    // Pegar o último challenge gravado (com verificação de expiração)
     const { data: challengeData, error: challengeError } = await supabaseAdmin
       .from('webauthn_challenges')
-      .select('id, challenge')
+      .select('id, challenge, expires_at')
       .eq('profile_id', profile.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -46,6 +69,12 @@ serve(async (req) => {
 
     if (challengeError || !challengeData) {
       return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+    // [SECURITY] Verificar expiração do challenge
+    if (challengeData.expires_at && new Date(challengeData.expires_at) < new Date()) {
+      await supabaseAdmin.from('webauthn_challenges').delete().eq('id', challengeData.id);
+      return new Response(JSON.stringify({ error: 'Challenge expirado. Tente novamente.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     let verification;

@@ -30,7 +30,11 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Cabeçalho de Authorization ausente');
 
-    const jwt = authHeader.replace('Bearer ', '');
+    const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!jwt || jwt === 'null' || jwt === 'undefined') {
+        throw new Error(`Token vazio ou nulo! Header puro enviado pelo App: "${authHeader}"`);
+    }
+
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
     if (userError || !user) throw new Error('Não autenticado: ' + (userError?.message || 'Token inválido'));
     

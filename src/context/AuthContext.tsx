@@ -9,6 +9,8 @@ interface RpcResult {
   success?: boolean;
   error?: string;
   phone?: string;
+  code?: string;
+  message?: string;
 }
 
 export interface Profile {
@@ -53,7 +55,7 @@ export function useAuth() {
   return ctx;
 }
 
-async function logAuthEvent(
+export async function logAuthEvent(
   profileId: string | null,
   email: string,
   eventType: string,
@@ -310,11 +312,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const requestWhatsAppCode = useCallback(async (phone: string) => {
     if (!state.user) return { error: 'Não autenticado.' };
 
-    const code = String(100000 + Math.floor(Math.random() * 900000));
-
+    // [SECURITY] Código agora é gerado pelo SERVIDOR (CSPRNG), não pelo navegador
     const { data, error } = await supabase.rpc('create_whatsapp_auth_request', {
       p_phone: phone,
-      p_code: code,
     });
 
     if (error) {
@@ -327,19 +327,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.error === 'phone_already_in_use') {
         return { error: 'Este número de WhatsApp já está vinculado a outra conta.' };
       }
+      if (result.error === 'rate_limited') {
+        return { error: result.message || 'Aguarde 2 minutos antes de solicitar um novo código.' };
+      }
       return { error: 'Falha ao solicitar código.' };
     }
 
-    console.log(`[2FA] Código para ${phone}: ${code} (Enviando via whatsappAutoService)`);
+    // O código agora vem do servidor
+    const serverCode = result.code;
+    if (!serverCode) {
+      console.error('[2FA] Servidor não retornou o código');
+      return { error: 'Erro interno: código não gerado.' };
+    }
+
+    console.log(`[2FA] Código gerado pelo servidor para ${phone} (Enviando via whatsappAutoService)`);
 
     try {
       const wa = createWhatsAppAutoServiceFromEnv();
-      const msg = `*RVM Designações*\n\nSeu código de acesso é: *${code}*\n\n_Não compartilhe este código com ninguém._`;
+      const msg = `*RVM Designações*\n\nSeu código de acesso é: *${serverCode}*\n\n_Não compartilhe este código com ninguém._`;
       const sendResult = await wa.sendText(phone, msg);
       
       if (!sendResult.success && !sendResult.manual) {
         console.warn('[2FA] Aviso: falha no envio automático, admin pode ver o código no painel.', sendResult.error);
-        // Não falhamos o login aqui para permitir que o admin repasse manualmente
       }
     } catch (e) {
       console.error('[2FA] Erro ao instanciar ou enviar via whatsappAutoService:', e);
