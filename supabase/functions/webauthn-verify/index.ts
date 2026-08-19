@@ -2,21 +2,26 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { verifyAuthenticationResponse } from "npm:@simplewebauthn/server";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const getCorsHeaders = (req: Request) => {
+  const origin = req.headers.get('Origin') || '';
+  const allowedOrigins = ['https://rvm-designacoes-antigravity.vercel.app', 'http://localhost:5173'];
+  const allowOrigin = allowedOrigins.includes(origin) ? origin : 'https://rvm-designacoes-antigravity.vercel.app';
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   try {
     const { email, authenticationResponse, rpID } = await req.json();
 
     if (!email || !authenticationResponse) {
-      return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const supabaseAdmin = createClient(
@@ -33,7 +38,7 @@ serve(async (req) => {
 
     if (credError || !usedCredential) {
       const errDetail = credError ? credError.message : '0 records';
-      return new Response(JSON.stringify({ error: 'Nenhuma credencial WebAuthn encontrada para este aparelho. Cadastre novamente. (' + errDetail + ')' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Nenhuma credencial WebAuthn encontrada para este aparelho. Cadastre novamente. (' + errDetail + ')' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // 2. Buscar o ID do usuário (profile) a partir da credencial encontrada
@@ -44,7 +49,7 @@ serve(async (req) => {
       .single();
 
     if (!profile) {
-      return new Response(JSON.stringify({ error: 'Usuario dono desta credencial nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Usuario dono desta credencial nao encontrado' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Pegar o último challenge gravado (ordenado por created_at)
@@ -57,13 +62,13 @@ serve(async (req) => {
       .single();
 
     if (challengeError || !challengeData) {
-      return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // [SECURITY] Verificar expiração do challenge
     if (challengeData.expires_at && new Date(challengeData.expires_at) < new Date()) {
       await supabaseAdmin.from('webauthn_challenges').delete().eq('id', challengeData.id);
-      return new Response(JSON.stringify({ error: 'Challenge expirado. Tente novamente.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Challenge expirado. Tente novamente.' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     let verification;
@@ -83,11 +88,11 @@ serve(async (req) => {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      return new Response(JSON.stringify({ error: 'Falha na verificacao criptografica: ' + msg }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Falha na verificacao criptografica: ' + msg }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     if (!verification.verified || !verification.authenticationInfo) {
-      return new Response(JSON.stringify({ error: 'Verificacao falhou' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Verificacao falhou' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Atualizar counter
@@ -121,7 +126,7 @@ serve(async (req) => {
       hashed_token, 
       type: 'magiclink' 
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
 
   } catch (error) {

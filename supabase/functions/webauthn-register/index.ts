@@ -2,27 +2,32 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { verifyRegistrationResponse } from "npm:@simplewebauthn/server";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const getCorsHeaders = (req: Request) => {
+  const origin = req.headers.get('Origin') || '';
+  const allowedOrigins = ['https://rvm-designacoes-antigravity.vercel.app', 'http://localhost:5173'];
+  const allowOrigin = allowedOrigins.includes(origin) ? origin : 'https://rvm-designacoes-antigravity.vercel.app';
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   try {
     const { email, registrationResponse, rpID } = await req.json();
 
     if (!email || !registrationResponse) {
-      return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Faltam parametros' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // [SECURITY] Exigir autenticação para registro
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Autenticacao necessaria para registrar dispositivo' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Autenticacao necessaria para registrar dispositivo' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const supabaseAdmin = createClient(
@@ -40,11 +45,11 @@ serve(async (req) => {
     const { data: { user }, error: userErr } = await userClient.auth.getUser(jwt);
 
     if (userErr || !user) {
-      return new Response(JSON.stringify({ error: 'Token invalido ou expirado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Token invalido ou expirado' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     if (user.email?.toLowerCase() !== email.toLowerCase()) {
-      return new Response(JSON.stringify({ error: 'Email nao corresponde ao token' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Email nao corresponde ao token' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Buscar o ID do usuário (profile)
@@ -55,7 +60,7 @@ serve(async (req) => {
       .single();
 
     if (!profile) {
-      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Pegar o último challenge gravado (com verificação de expiração)
@@ -68,13 +73,13 @@ serve(async (req) => {
       .single();
 
     if (challengeError || !challengeData) {
-      return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Challenge expirado ou não encontrado' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // [SECURITY] Verificar expiração do challenge
     if (challengeData.expires_at && new Date(challengeData.expires_at) < new Date()) {
       await supabaseAdmin.from('webauthn_challenges').delete().eq('id', challengeData.id);
-      return new Response(JSON.stringify({ error: 'Challenge expirado. Tente novamente.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Challenge expirado. Tente novamente.' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     let verification;
@@ -88,11 +93,11 @@ serve(async (req) => {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      return new Response(JSON.stringify({ error: 'Falha na verificacao criptografica: ' + msg }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Falha na verificacao criptografica: ' + msg }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     if (!verification.verified || !verification.registrationInfo) {
-      return new Response(JSON.stringify({ error: 'Verificacao falhou' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Verificacao falhou' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;

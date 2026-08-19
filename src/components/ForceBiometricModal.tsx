@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { deviceAuthService } from '../services/deviceAuthService';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export function ForceBiometricModal() {
     const { user, authSystemMode, registerDeviceAuth, signOut } = useAuth();
@@ -10,6 +11,7 @@ export function ForceBiometricModal() {
     const [isRegistering, setIsRegistering] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isDismissed, setIsDismissed] = useState(false);
+    const [hasServerCredential, setHasServerCredential] = useState<boolean | null>(null);
 
     useEffect(() => {
         let mounted = true;
@@ -32,12 +34,33 @@ export function ForceBiometricModal() {
         return () => { mounted = false; };
     }, []);
 
+    useEffect(() => {
+        let mounted = true;
+        async function checkServer() {
+            if (!user?.id) {
+                if (mounted) setHasServerCredential(false);
+                return;
+            }
+            try {
+                const { data, error } = await supabase.rpc('has_webauthn_credential', { p_profile_id: user.id });
+                if (mounted) {
+                    setHasServerCredential(data === true);
+                }
+            } catch (err) {
+                if (mounted) setHasServerCredential(false);
+            }
+        }
+        checkServer();
+        return () => { mounted = false; };
+    }, [user?.id]);
+
     // Regras de disparo
     const isTargetMode = authSystemMode === 'device_biometric' || authSystemMode === 'flexible';
     const email = user?.email;
     const lastDeviceUser = localStorage.getItem('rvm_last_device_user');
     
-    const isAlreadyRegisteredHere = email && lastDeviceUser === email;
+    // [SECURITY] Apenas considerar registrado se o servidor confirmar a existência da credencial
+    const isAlreadyRegisteredHere = email && lastDeviceUser === email && hasServerCredential === true;
 
     // Log de fallback para dispositivos não suportados
     useEffect(() => {
@@ -57,8 +80,10 @@ export function ForceBiometricModal() {
     // Se o modal foi resolvido com sucesso, não exibe mais nada.
     if (isDismissed) return null;
     
-    // Mostra spinner enquanto verifica suporte
-    if (isChecking) return null;
+    // Mostra spinner enquanto verifica suporte ou checa o servidor
+    if (isChecking || hasServerCredential === null) {
+        return null;
+    }
 
     // isTargetMode, email, etc já extraídos acima
 
