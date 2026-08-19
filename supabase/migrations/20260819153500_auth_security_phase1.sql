@@ -21,7 +21,7 @@ CREATE OR REPLACE FUNCTION create_whatsapp_auth_request(p_phone text)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
     v_code text;
