@@ -2,26 +2,31 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { generateRegistrationOptions, generateAuthenticationOptions } from "npm:@simplewebauthn/server";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const getCorsHeaders = (req: Request) => {
+  const origin = req.headers.get('Origin') || '';
+  const allowedOrigins = ['https://rvm-designacoes-antigravity.vercel.app', 'http://localhost:5173'];
+  const allowOrigin = allowedOrigins.includes(origin) ? origin : 'https://rvm-designacoes-antigravity.vercel.app';
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   try {
     const { action, email, rpID } = await req.json();
 
     if (!action || !email) {
-      return new Response(JSON.stringify({ error: 'Faltam parametros action ou email' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Faltam parametros action ou email' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // [SECURITY] Validar formato de e-mail básico
     if (typeof email !== 'string' || !email.includes('@') || email.length > 320) {
-      return new Response(JSON.stringify({ error: 'Email invalido' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Email invalido' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const supabaseAdmin = createClient(
@@ -33,7 +38,7 @@ serve(async (req) => {
     if (action === 'register') {
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
-        return new Response(JSON.stringify({ error: 'Autenticacao necessaria para registrar dispositivo' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        return new Response(JSON.stringify({ error: 'Autenticacao necessaria para registrar dispositivo' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
       }
 
       const userClient = createClient(
@@ -45,12 +50,12 @@ serve(async (req) => {
       const { data: { user }, error: userErr } = await userClient.auth.getUser(jwt);
 
       if (userErr || !user) {
-        return new Response(JSON.stringify({ error: 'Token invalido ou expirado. Faca login novamente.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        return new Response(JSON.stringify({ error: 'Token invalido ou expirado. Faca login novamente.' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
       }
 
       // Garantir que o e-mail no request bate com o e-mail do token
       if (user.email?.toLowerCase() !== email.toLowerCase()) {
-        return new Response(JSON.stringify({ error: 'Email nao corresponde ao token de autenticacao' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+        return new Response(JSON.stringify({ error: 'Email nao corresponde ao token de autenticacao' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
       }
     }
 
@@ -62,7 +67,7 @@ serve(async (req) => {
       .single();
 
     if (!profile) {
-      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+      return new Response(JSON.stringify({ error: 'Usuario nao encontrado' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const rpName = 'RVM Designacoes';
@@ -86,7 +91,7 @@ serve(async (req) => {
         userVerification: 'preferred',
       });
     } else {
-       return new Response(JSON.stringify({ error: 'Acao invalida' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+       return new Response(JSON.stringify({ error: 'Acao invalida' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
     }
 
     // Armazenar o challenge com expiração (5 minutos)
@@ -109,13 +114,13 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify(options), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     const e = error as Error;
     return new Response(JSON.stringify({ error: e.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       status: 200,
     });
   }
