@@ -27,6 +27,8 @@ interface PublisherSelectProps {
     allParts?: WorkbookPart[];
     /** Notificacoes de mudanca de perfil carregadas pelo painel pai (evita subscricao por linha). */
     profileChangeNotifications?: PublisherProfileChangeNotification[];
+    /** Ignorar janelas de bloqueio duro do motor */
+    ignoreEngineRules?: boolean;
 }
 
 // Importar mapeamento centralizado (substitui definição local)
@@ -39,7 +41,7 @@ const getModalidade = (part: WorkbookPart): string => {
     return getModalidadeFromTipo(part.tipoParte, part.section);
 };
 
-export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts, history, profileChangeNotifications = [] }: PublisherSelectProps) => {
+export const PublisherSelect = ({ part, publishers, value, displayName, onChange, disabled, style, weekParts, allParts, history, profileChangeNotifications = [], ignoreEngineRules = false }: PublisherSelectProps) => {
 
     // Converter allParts para HistoryRecord[] (Memoizado para uso geral)
     // Se history já for fornecido (preferencial), usa ele.
@@ -60,10 +62,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Memoizar a lista sorted para evitar recálculo excessivo
     const sortedOptions = useMemo(() => {
         return getRankedEligibleForPart(part, weekPartsSnapshot, publishers, historyRecords, {
-            applyEngineRules: true,
+            applyEngineRules: !ignoreEngineRules,
             excludeAssignedInSameWeek: true,
         }).allCandidates;
-    }, [part, publishers, weekPartsSnapshot, historyRecords]);
+    }, [part, publishers, weekPartsSnapshot, historyRecords, ignoreEngineRules]);
 
     const visibleOptions = useMemo(() => sortedOptions.filter(o => o.eligible), [sortedOptions]);
     const selectedIneligibleOption = useMemo(
