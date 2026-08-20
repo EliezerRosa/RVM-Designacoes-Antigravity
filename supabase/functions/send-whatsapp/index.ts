@@ -25,10 +25,100 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 // @ts-ignore Deno import
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// [SECURITY] Restricted CORS — only our app origins may call this function
+const ALLOWED_ORIGINS = [
+  'https://rvm-designacoes-antigravity.vercel.app',
+  'http://localhost:5173',
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') || '';
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0]; // default to production
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
+
+/**
+ * [SECURITY] Verifica se o chamador tem uma sessão Supabase válida E é editor/admin.
+ * Chamadas de cron (Edge Functions internas) usam service_role e não passam por aqui.
+ * Retorna { authorized: true, userId, email } ou { authorized: false, error }.
+ */
+async function verifyCallerIsEditor(req: Request): Promise<{ authorized: boolean; userId?: string; email?: string; error?: string }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { authorized: false, error: 'Missing Authorization header' };
+  }
+  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!jwt) {
+    return { authorized: false, error: 'Empty Bearer token' };
+  }
+
+  // @ts-ignore Deno.env
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  // @ts-ignore Deno.env
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
+  const { data: { user }, error: userErr } = await userClient.auth.getUser(jwt);
+
+  if (userErr || !user) {
+    return { authorized: false, error: 'Invalid or expired token' };
+  }
+
+  // Check if user is editor via RPC (which checks profile role + publisher funcao)
+  // @ts-ignore Deno.env
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+  const { data: isEditorResult } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  // Allow admin always; for non-admin, check is_editor via direct query
+  if (isEditorResult?.role === 'admin') {
+    return { authorized: true, userId: user.id, email: user.email };
+  }
+
+  // Check is_editor for non-admins
+  const { data: editorCheck } = await adminClient.rpc('is_editor_for_user', { p_user_id: user.id }).maybeSingle();
+  // Fallback: if the RPC doesn't exist yet, check profiles.publisher_id linkage
+  if (editorCheck === true || editorCheck?.result === true) {
+    return { authorized: true, userId: user.id, email: user.email };
+  }
+
+  // Simpler fallback: check publisher funcao directly
+  const { data: profileData } = await adminClient
+    .from('profiles')
+    .select('publisher_id')
+    .eq('id', user.id)
+    .single();
+
+  if (profileData?.publisher_id) {
+    const { data: pubData } = await adminClient
+      .from('publishers')
+      .select('data')
+      .eq('id', profileData.publisher_id)
+      .single();
+
+    const funcao = pubData?.data?.funcao || '';
+    const editorFuncoes = [
+      'Superintendente da Reunião Vida e Ministério',
+      'Ajudante do Superintendente da Reunião Vida e Ministério',
+      'Coordenador do Corpo de Anciãos',
+    ];
+    if (editorFuncoes.includes(funcao)) {
+      return { authorized: true, userId: user.id, email: user.email };
+    }
+  }
+
+  return { authorized: false, error: 'User is not an editor or admin' };
+}
 
 function removeAccents(str: string): string {
   return (str || '')
@@ -572,7 +662,7 @@ async function fetchZApiGroupMetadata(groupQuery: string) {
 serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -580,17 +670,30 @@ serve(async (req: Request) => {
     // @ts-ignore Deno.env
     const provider = Deno.env.get('WHATSAPP_PROVIDER') || 'evolution';
 
+    // Se não for cron com service_role (que passa sem JWT na autorização padrão, ou com JWT admin),
+    // verifica via `verifyCallerIsEditor`
+    const origin = req.headers.get('Origin') || '';
+    if (origin || req.headers.has('Authorization')) {
+      const authRes = await verifyCallerIsEditor(req);
+      if (!authRes.authorized) {
+        return new Response(
+          JSON.stringify({ success: false, error: authRes.error }),
+          { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // ── Check connection ──
     if (body.action === 'check-connection') {
       if (provider === 'evolution') {
         const status = await checkEvolutionConnection();
         return new Response(JSON.stringify(status), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
       const status = await checkZApiConnection();
       return new Response(JSON.stringify(status), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -598,7 +701,7 @@ serve(async (req: Request) => {
     if (body.action === 'list-groups') {
       const result = await listZApiGroups();
       return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -608,7 +711,7 @@ serve(async (req: Request) => {
       const result = await fetchZApiGroupMetadata(groupQuery);
       return new Response(JSON.stringify(result), {
         status: result.success ? 200 : 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -616,7 +719,7 @@ serve(async (req: Request) => {
     if (body.action === 'update-push-name') {
       console.log(`[robot] PushName capturado para ${body.phone}: "${body.pushName}"`);
       return new Response(JSON.stringify({ success: true, phone: body.phone, pushName: body.pushName }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -748,7 +851,7 @@ serve(async (req: Request) => {
         participants: participants,
         executedAt: new Date().toISOString()
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }
 
@@ -757,7 +860,7 @@ serve(async (req: Request) => {
     if (!phone) {
       return new Response(
         JSON.stringify({ success: false, error: 'Campo "phone" é obrigatório.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -768,7 +871,7 @@ serve(async (req: Request) => {
       if (!image) {
         return new Response(
           JSON.stringify({ success: false, error: 'Campo "image" é obrigatório para envio de imagem.' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
       result = await sendImageViaZApi(normalizedPhone, image, caption || '');
@@ -776,7 +879,7 @@ serve(async (req: Request) => {
       if (!message) {
         return new Response(
           JSON.stringify({ success: false, error: 'Campo "message" é obrigatório para envio de texto.' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
       if (provider === 'meta-cloud') {
@@ -790,12 +893,12 @@ serve(async (req: Request) => {
 
     return new Response(JSON.stringify(result), {
       status: result.success ? 200 : 502,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   } catch (err) {
     return new Response(
       JSON.stringify({ success: false, error: (err as Error).message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -790,13 +790,10 @@ export function createWhatsAppAutoService(config: WhatsAppAutoConfig): WhatsAppA
  * Prioridade: Evolution > Meta Cloud > Edge Function > Manual
  *
  * Variáveis esperadas:
- *   VITE_WHATSAPP_PROVIDER        — 'evolution' | 'z-api' | 'meta-cloud' | 'edge-function' | 'manual'
+ *   VITE_WHATSAPP_PROVIDER        — 'evolution' | 'meta-cloud' | 'z-api' | 'edge-function'
  *   VITE_EVOLUTION_BASE_URL       — URL da Evolution API
- *   VITE_EVOLUTION_API_KEY        — Chave da Evolution API
- *   VITE_EVOLUTION_INSTANCE       — Nome da instância
- *   VITE_ZAPI_INSTANCE_ID         — ID da instância Z-API
- *   VITE_ZAPI_INSTANCE_TOKEN      — Token da instância Z-API
- *   VITE_ZAPI_CLIENT_TOKEN        — Client Token Z-API
+ *   VITE_EVOLUTION_API_KEY        — Chave de acesso Evolution
+ *   VITE_EVOLUTION_INSTANCE       — Nome da instância (ex: Default)
  *   VITE_META_WA_ACCESS_TOKEN     — Token da Meta Cloud API
  *   VITE_META_WA_PHONE_NUMBER_ID  — Phone Number ID da Meta
  *   VITE_SUPABASE_URL             — (reusa do app)
@@ -815,19 +812,6 @@ export function createWhatsAppAutoServiceFromEnv(): WhatsAppAutoService {
       baseUrl: import.meta.env.VITE_EVOLUTION_BASE_URL || '',
       apiKey: import.meta.env.VITE_EVOLUTION_API_KEY || '',
       instanceName: import.meta.env.VITE_EVOLUTION_INSTANCE || 'default',
-    });
-  }
-
-  // Z-API
-  if (
-    explicit === 'z-api' ||
-    (!explicit && import.meta.env.VITE_ZAPI_INSTANCE_ID)
-  ) {
-    return createWhatsAppAutoService({
-      provider: 'z-api',
-      instanceId: import.meta.env.VITE_ZAPI_INSTANCE_ID || '',
-      instanceToken: import.meta.env.VITE_ZAPI_INSTANCE_TOKEN || '',
-      clientToken: import.meta.env.VITE_ZAPI_CLIENT_TOKEN || '',
     });
   }
 
