@@ -41,6 +41,7 @@ export interface EligibilityContext {
     titularParentIds?: string[];           // IDs dos pais do titular (para bypass pai/filho)
     titularChildIds?: string[];            // IDs dos filhos do titular (para bypass pai/filho reverso)
     presidentName?: string;  // Nome do presidente da semana (para bloquear na oração final)
+    ignoreTextualConstraints?: boolean; // Se verdadeiro, ignora filtros baseados em texto da apostila
 }
 
 // Imports necessários para o helper (se ainda não importados)
@@ -291,7 +292,7 @@ export function checkEligibility(
     context: EligibilityContext = {}
 ): EligibilityResult {
 
-    const textualConstraints = parseTextualConstraints(context);
+    const textualConstraints = context.ignoreTextualConstraints ? {} : parseTextualConstraints(context);
 
     // Regra de exceção (acordada 2026-05-11): para Discurso de Ensino na seção
     // Tesouros (ex.: "Discurso Tesouros", "Joias Espirituais"), Servo Ministerial
