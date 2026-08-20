@@ -281,6 +281,7 @@ export function getRankedEligibleForPart(
     const modalidade = targetPart.modalidade || getModalidadeFromTipo(targetPart.tipoParte, targetPart.section);
     const funcao = targetPart.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
     const eligibilityContext = buildEligibilityContext(targetPart, allWeekParts, publishers);
+    eligibilityContext.ignoreTextualConstraints = !applyEngineRules;
     const referenceDate = toReferenceDate(targetPart);
     const historyForScoring = history.filter(record => record.weekId !== targetPart.weekId);
     const currentPresident = resolveCurrentPresident(allWeekParts, options.currentPresident);
