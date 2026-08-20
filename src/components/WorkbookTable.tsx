@@ -3,7 +3,7 @@
  * Extraído de WorkbookManager.tsx (Fase 5C da Auditoria)
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
@@ -63,6 +63,17 @@ export function WorkbookTable({
     eventNotesMap = {},
 }: WorkbookTableProps) {
     // Paginação por semana
+    const [unlockedParts, setUnlockedParts] = useState<Set<string>>(new Set());
+
+    const togglePartLock = (partId: string) => {
+        setUnlockedParts(prev => {
+            const next = new Set(prev);
+            if (next.has(partId)) next.delete(partId);
+            else next.add(partId);
+            return next;
+        });
+    };
+    
     const currentFilteredWeeks = [...new Set(filteredParts.map(p => p.weekId))].sort().reverse();
     const totalPages = currentFilteredWeeks.length || 1;
     const safePage = Math.min(Math.max(currentPage, 1), totalPages);
@@ -162,17 +173,36 @@ export function WorkbookTable({
                                 </td>
                                 <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>{part.funcao}</td>
                                 <td style={{ padding: '8px' }}>
-                                    <PublisherSelect
-                                        part={part}
-                                        publishers={publishers}
-                                        value={currentPubId}
-                                        displayName={displayRaw}
-                                        onChange={(newId, newName) => onPublisherSelect(part.id, newId, newName)}
-                                        weekParts={partsToRender}
-                                        allParts={filteredParts}
-                                        history={historyRecords}
-                                        style={{ width: '100%', border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
-                                    />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <PublisherSelect
+                                            part={part}
+                                            publishers={publishers}
+                                            value={currentPubId}
+                                            displayName={displayRaw}
+                                            onChange={(newId, newName) => onPublisherSelect(part.id, newId, newName)}
+                                            weekParts={partsToRender}
+                                            allParts={filteredParts}
+                                            history={historyRecords}
+                                            ignoreEngineRules={unlockedParts.has(part.id)}
+                                            style={{ flex: 1, border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
+                                        />
+                                        <Tooltip content={unlockedParts.has(part.id) ? "Restaurar regras estritas" : "Ignorar regras do motor e exibir todos"}>
+                                            <button
+                                                onClick={() => togglePartLock(part.id)}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    fontSize: '14px',
+                                                    opacity: unlockedParts.has(part.id) ? 1 : 0.4,
+                                                    transition: 'opacity 0.2s',
+                                                    padding: '4px'
+                                                }}
+                                            >
+                                                {unlockedParts.has(part.id) ? '🔓' : '🔒'}
+                                            </button>
+                                        </Tooltip>
+                                    </div>
                                 </td>
                                 <td style={{ padding: '4px', textAlign: 'center' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
