@@ -280,6 +280,7 @@ export function getRankedEligibleForPart(
 ): RankedEligibleResult {
     const modalidade = targetPart.modalidade || getModalidadeFromTipo(targetPart.tipoParte, targetPart.section);
     const funcao = targetPart.funcao === 'Ajudante' ? EnumFuncao.AJUDANTE : EnumFuncao.TITULAR;
+    const applyEngineRules = options.applyEngineRules ?? true;
     const eligibilityContext = buildEligibilityContext(targetPart, allWeekParts, publishers);
     eligibilityContext.ignoreTextualConstraints = !applyEngineRules;
     const referenceDate = toReferenceDate(targetPart);
@@ -287,7 +288,6 @@ export function getRankedEligibleForPart(
     const currentPresident = resolveCurrentPresident(allWeekParts, options.currentPresident);
     const scoringPartType = resolveScoringPartType(targetPart, modalidade);
     const inWeekMap = buildInWeekMap(targetPart, allWeekParts);
-    const applyEngineRules = options.applyEngineRules ?? true;
     const excludeAssignedInSameWeek = options.excludeAssignedInSameWeek ?? true;
 
     const config = getRotationConfig();
