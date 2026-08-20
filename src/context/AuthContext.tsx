@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { createWhatsAppAutoServiceFromEnv } from '../services/whatsappAutoService';
 
 import { deviceAuthService, type AuthSystemMode, type DeviceAuthResult } from '../services/deviceAuthService';
 
@@ -312,51 +311,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const requestWhatsAppCode = useCallback(async (phone: string) => {
     if (!state.user) return { error: 'Não autenticado.' };
 
-    // [SECURITY] Código agora é gerado pelo SERVIDOR (CSPRNG), não pelo navegador
-    const { data, error } = await supabase.rpc('create_whatsapp_auth_request', {
-      p_phone: phone,
-    });
-
-    if (error) {
-      console.error('[Auth] Error creating 2FA request:', error);
-      return { error: 'Falha ao solicitar código.' };
-    }
-
-    const result = getRpcResult(data);
-    if (!result.success) {
-      if (result.error === 'phone_already_in_use') {
-        return { error: 'Este número de WhatsApp já está vinculado a outra conta.' };
-      }
-      if (result.error === 'rate_limited') {
-        return { error: result.message || 'Aguarde 2 minutos antes de solicitar um novo código.' };
-      }
-      return { error: 'Falha ao solicitar código.' };
-    }
-
-    // O código agora vem do servidor
-    const serverCode = result.code;
-    if (!serverCode) {
-      console.error('[2FA] Servidor não retornou o código');
-      return { error: 'Erro interno: código não gerado.' };
-    }
-
-    console.log(`[2FA] Código gerado pelo servidor para ${phone} (Enviando via whatsappAutoService)`);
-
+    // [SECURITY] O código OTP é gerado e enviado inteiramente pelo SERVIDOR.
+    // O front-end nunca vê o código — apenas recebe { success: true }.
     try {
-      const wa = createWhatsAppAutoServiceFromEnv();
-      const msg = `*RVM Designações*\n\nSeu código de acesso é: *${serverCode}*\n\n_Não compartilhe este código com ninguém._`;
-      const sendResult = await wa.sendText(phone, msg);
-      
-      if (!sendResult.success && !sendResult.manual) {
-        console.warn('[2FA] Aviso: falha no envio automático, admin pode ver o código no painel.', sendResult.error);
+      const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+        body: { action: 'request_2fa', phone },
+      });
+
+      if (error) {
+        console.error('[Auth] Edge Function 2FA error:', error);
+        return { error: 'Falha ao solicitar código.' };
       }
+
+      const result = (data || {}) as { success?: boolean; error?: string; message?: string; warning?: string };
+
+      if (!result.success) {
+        if (result.error === 'phone_already_in_use') {
+          return { error: 'Este número de WhatsApp já está vinculado a outra conta.' };
+        }
+        if (result.error === 'rate_limited') {
+          return { error: result.message || 'Aguarde 2 minutos antes de solicitar um novo código.' };
+        }
+        return { error: result.message || 'Falha ao solicitar código.' };
+      }
+
+      // Warn if delivery failed (admin can still see code in DB if needed)
+      if (result.warning === 'send_failed') {
+        console.warn('[2FA] OTP generated but delivery failed. Admin may need to relay manually.');
+      }
+
+      await logAuthEvent(state.user.id, state.user.email || '', '2fa_request', { phone });
+
+      return { success: true };
     } catch (e) {
-      console.error('[2FA] Erro ao instanciar ou enviar via whatsappAutoService:', e);
+      console.error('[Auth] 2FA request failed:', e);
+      return { error: 'Falha na comunicação com o servidor.' };
     }
-
-    await logAuthEvent(state.user.id, state.user.email || '', '2fa_request', { phone });
-
-    return { success: true };
   }, [state.user]);
 
   const verifyWhatsAppCode = useCallback(async (code: string) => {

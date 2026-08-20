@@ -186,6 +186,36 @@ export function ProfileLinksPanel() {
         }
     };
 
+    const handleResetSecurity = async (profileId: string, profileEmail: string) => {
+        if (!confirm(`⚠️ ATENÇÃO: Resetar Segurança de ${profileEmail}?\n\nIsso irá:\n• Desvincular o WhatsApp verificado\n• Apagar TODAS as chaves Passkeys/Biometria\n• Forçar re-verificação no próximo login\n\nDeseja continuar?`)) return;
+        if (!confirm(`🔴 CONFIRMAÇÃO FINAL\n\nVocê está prestes a resetar TODA a segurança de:\n${profileEmail}\n\nEsta ação NÃO pode ser desfeita. Prosseguir?`)) return;
+
+        setBusyProfile(profileId);
+        try {
+            const { data, error } = await supabase.rpc('admin_reset_user_security', {
+                target_user_id: profileId,
+            });
+            if (error) throw error;
+            const result = (data || {}) as { success?: boolean; error?: string; target_email?: string; webauthn_keys_removed?: number; auth_requests_removed?: number };
+            if (!result.success) {
+                const msg: Record<string, string> = {
+                    not_admin: 'Você precisa de permissão de admin.',
+                    cannot_reset_self: 'Você não pode resetar sua própria segurança.',
+                    profile_not_found: 'Perfil não encontrado.',
+                };
+                alert('Erro: ' + (msg[result.error || ''] || result.error || 'falha desconhecida'));
+            } else {
+                alert(`✅ Segurança resetada com sucesso!\n\n${result.target_email}:\n• ${result.webauthn_keys_removed || 0} chave(s) Passkey removida(s)\n• ${result.auth_requests_removed || 0} solicitação(ões) 2FA removida(s)\n\nO usuário precisará re-verificar o WhatsApp no próximo acesso.`);
+                await load();
+            }
+        } catch (e) {
+            console.error('admin_reset_user_security:', e);
+            alert('Erro ao resetar segurança: ' + formatError(e));
+        } finally {
+            setBusyProfile(null);
+        }
+    };
+
     const visible = filter === 'unlinked'
         ? links.filter(l => !l.publisher_id && l.role === 'publicador')
         : links;
@@ -258,26 +288,34 @@ export function ProfileLinksPanel() {
                                 </td>
                                 <td style={tdStyle}>
                                     {l.role !== 'admin' && (
-                                        l.publisher_id ? (
+                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                            {l.publisher_id ? (
+                                                <button
+                                                    disabled={busyProfile === l.profile_id}
+                                                    onClick={() => handleUnlink(l.profile_id, l.email)}
+                                                    style={{ ...actionBtnStyle, background: '#dc2626' }}
+                                                >Desvincular</button>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        disabled={busyProfile === l.profile_id}
+                                                        onClick={() => handleLink(l.profile_id, l.email, l.full_name)}
+                                                        style={{ ...actionBtnStyle, background: '#059669' }}
+                                                    >Vincular…</button>
+                                                    <button
+                                                        disabled={busyProfile === l.profile_id}
+                                                        onClick={() => handleDeleteProfile(l.profile_id, l.email)}
+                                                        style={{ ...actionBtnStyle, background: '#ef4444' }}
+                                                    >Excluir</button>
+                                                </>
+                                            )}
                                             <button
                                                 disabled={busyProfile === l.profile_id}
-                                                onClick={() => handleUnlink(l.profile_id, l.email)}
-                                                style={{ ...actionBtnStyle, background: '#dc2626' }}
-                                            >Desvincular</button>
-                                        ) : (
-                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <button
-                                                    disabled={busyProfile === l.profile_id}
-                                                    onClick={() => handleLink(l.profile_id, l.email, l.full_name)}
-                                                    style={{ ...actionBtnStyle, background: '#059669' }}
-                                                >Vincular…</button>
-                                                <button
-                                                    disabled={busyProfile === l.profile_id}
-                                                    onClick={() => handleDeleteProfile(l.profile_id, l.email)}
-                                                    style={{ ...actionBtnStyle, background: '#ef4444' }}
-                                                >Excluir</button>
-                                            </div>
-                                        )
+                                                onClick={() => handleResetSecurity(l.profile_id, l.email)}
+                                                title="Resetar WhatsApp 2FA e Passkeys deste usuário"
+                                                style={{ ...actionBtnStyle, background: '#7c3aed' }}
+                                            >🛡️ Reset</button>
+                                        </div>
                                     )}
                                 </td>
                             </tr>
