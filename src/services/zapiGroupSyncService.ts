@@ -174,44 +174,8 @@ export interface ZApiCredentials {
 
 export const zapiGroupSyncService = {
     /**
-     * Carrega as credenciais do Z-API a partir das variáveis de ambiente ou do banco de dados (app_settings).
-     */
-    async getZApiCredentials(): Promise<ZApiCredentials | null> {
-        // 1. Variáveis de ambiente
-        const envId = import.meta.env.VITE_ZAPI_INSTANCE_ID;
-        const envToken = import.meta.env.VITE_ZAPI_INSTANCE_TOKEN;
-        const envClient = import.meta.env.VITE_ZAPI_CLIENT_TOKEN;
-
-        if (envId && envToken && envClient) {
-            return { instanceId: envId, instanceToken: envToken, clientToken: envClient };
-        }
-
-        // 2. Busca no banco de dados (app_settings ou settings)
-        try {
-            const { data } = await supabase
-                .from('app_settings')
-                .select('key, value')
-                .in('key', ['zapi_instance_id', 'zapi_instance_token', 'zapi_client_token']);
-
-            if (data && data.length > 0) {
-                const map = new Map(data.map(d => [d.key, d.value]));
-                const id = map.get('zapi_instance_id') || envId;
-                const token = map.get('zapi_instance_token') || envToken;
-                const client = map.get('zapi_client_token') || envClient;
-
-                if (id && token && client) {
-                    return { instanceId: id, instanceToken: token, clientToken: client };
-                }
-            }
-        } catch (e) {
-            console.warn('[zapiGroupSyncService] Falha ao carregar credenciais do banco:', e);
-        }
-
-        return null;
-    },
-
-    /**
      * Salva as credenciais do Z-API no banco de dados (app_settings).
+     * Nota: A partir do Security Hotfix 1, apenas a Edge Function deve usar isso.
      */
     async saveZApiCredentials(creds: ZApiCredentials): Promise<void> {
         await supabase.from('app_settings').upsert([
@@ -246,34 +210,7 @@ export const zapiGroupSyncService = {
             }
         }
 
-        // 2. Fallback: Se não funcionou pelo waService de env, verifica se há credenciais explícitas
-        const creds = await this.getZApiCredentials();
-        if (creds && creds.instanceId) {
-            const { createWhatsAppAutoService } = await import('./whatsappAutoService');
-            const localZapi = createWhatsAppAutoService({
-                provider: 'z-api',
-                instanceId: creds.instanceId,
-                instanceToken: creds.instanceToken,
-                clientToken: creds.clientToken,
-            });
-
-            if (localZapi.fetchGroupMetadata) {
-                const data = await localZapi.fetchGroupMetadata(groupQuery);
-                if (data && data.participants && Array.isArray(data.participants)) {
-                    const groupName = data.name || data.subject || groupQuery;
-                    const participants: WaGroupParticipant[] = data.participants.map((p: any) => ({
-                        phone: p.phone || p.id || '',
-                        name: p.name || p.pushName || p.notifyName || p.shortName || '',
-                        pushName: p.pushName || p.notifyName || (typeof p.name === 'string' && p.name.startsWith('~') ? p.name : ''),
-                        shortName: p.shortName || '',
-                        admin: p.admin || p.superAdmin || false,
-                    }));
-                    return { groupName, participants };
-                }
-            }
-        }
-
-        throw new Error(`Grupo "${groupQuery}" não encontrado no Z-API ou credenciais do Z-API não configuradas.`);
+        throw new Error(`Grupo "${groupQuery}" não encontrado no Z-API ou credenciais não estão respondendo via Edge Function.`);
     },
 
     /**
