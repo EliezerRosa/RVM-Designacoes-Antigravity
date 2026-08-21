@@ -753,9 +753,13 @@ serve(async (req: Request) => {
     }
 
     let isEditor = false;
+    let authErrorDetail = '';
     if (isBrowserRequest) {
       const authRes = await verifyCallerIsEditor(req);
       isEditor = authRes.authorized;
+      if (!isEditor) {
+        authErrorDetail = authRes.error || 'Unknown auth error';
+      }
     } else {
       isEditor = true; // Internal chron jobs
     }
@@ -973,7 +977,10 @@ serve(async (req: Request) => {
       // Se for mensagem de grupo (length > 13) e não editor, bloquear.
       if (!isVerifiedTarget || cleanPhone.length > 13) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Unauthorized to message this destination' }),
+          JSON.stringify({ 
+            success: false, 
+            error: `Unauthorized to message this destination. Editor check failed because: ${authErrorDetail}`
+          }),
           { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
