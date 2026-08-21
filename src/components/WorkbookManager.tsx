@@ -699,9 +699,14 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             // 1. Executar a alteração no banco
             await executePublisherUpdate(partId, newId, newName, part);
 
+            console.log('[ManualReplacement] Update no banco concluído. Opções:', options);
+
             // Se Z-API estiver desativada globalmente, o orchestrator aborta silenciosamente depois.
             // Mas vamos buscar detalhes dos publicadores se precisar notificar
-            if (!options.notifyOld && !options.notifyNew && !options.notifyPartner) return;
+            if (!options.notifyOld && !options.notifyNew && !options.notifyPartner) {
+                console.log('[ManualReplacement] Todas as opções de notificação estão falsas. Abortando Z-API.');
+                return;
+            }
 
             const oldPub = publishers.find(p => p.name === oldName || p.id === part.resolvedPublisherId);
             const newPub = publishers.find(p => p.id === newId || p.name === newName);
@@ -717,18 +722,23 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             const partnerPubName = partnerPart?.resolvedPublisherName || partnerPart?.rawPublisherName;
             const partnerPub = publishers.find(p => p.name === partnerPubName);
 
+            console.log(`[ManualReplacement] oldPub: ${oldPub?.name} (${oldPub?.phone}), newPub: ${newPub?.name} (${newPub?.phone}), partner: ${partnerPub?.name} (${partnerPub?.phone})`);
+
             // A. Notificar o Antigo
             if (options.notifyOld && oldPub?.phone) {
-                await zapiOrchestrator.dispatchManualReplacementAlert(
+                console.log(`[ManualReplacement] Disparando alerta de substituição para antigo publicador: ${oldPub.phone}`);
+                const rOld = await zapiOrchestrator.dispatchManualReplacementAlert(
                     oldPub.phone,
                     oldPub.name,
                     part.tituloParte || part.tipoParte,
                     part.date || part.weekId
                 );
+                console.log(`[ManualReplacement] Resultado notificação antigo:`, rOld);
             }
 
             // B. Notificar o Novo (S-89 de Substituição)
             if (options.notifyNew && newPub?.phone) {
+                console.log(`[ManualReplacement] Gerando S-89 para novo publicador: ${newPub.name}`);
                 // Montar o base64 do cartão
                 const pdfBase64 = await generateS89PngBase64(
                     { ...part, resolvedPublisherName: newPub.name },
@@ -754,18 +764,23 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                         true // isSubstitution!
                     );
 
-                    await zapiOrchestrator.sendS89Direct(
+                    console.log(`[ManualReplacement] Enviando S-89 via Z-API para: ${newPub.phone}`);
+                    const rNew = await zapiOrchestrator.sendS89Direct(
                         partId,
                         newPub.phone,
                         msg,
                         pdfBase64
                     );
+                    console.log(`[ManualReplacement] Resultado S-89:`, rNew);
+                } else {
+                    console.warn('[ManualReplacement] pdfBase64 não foi gerado!');
                 }
             }
 
             // C. Notificar o Parceiro
             if (options.notifyPartner && partnerPub?.phone && newPub) {
-                await zapiOrchestrator.dispatchPartnerReplacementAlert(
+                console.log(`[ManualReplacement] Avisando parceiro ${partnerPub.name} sobre a troca`);
+                const rPart = await zapiOrchestrator.dispatchPartnerReplacementAlert(
                     partnerPub.phone,
                     partnerPub.name,
                     part.tituloParte || part.tipoParte,
@@ -774,6 +789,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                     newPub.phone,
                     isAjudante // se a parte sendo editada era ajudante, o newPub é o ajudante!
                 );
+                console.log(`[ManualReplacement] Resultado notificação parceiro:`, rPart);
             }
 
         } catch (e) {
