@@ -85,6 +85,8 @@ export interface EdgeFunctionConfig {
   functionName?: string;
   /** Bearer token (se autenticado) — opcional, usa anon se omitido */
   accessToken?: string;
+  /** Callback para obter token assincronamente (útil para sessões ativas do Supabase) */
+  getAccessToken?: () => Promise<string | undefined>;
 }
 
 export interface ManualConfig {
@@ -470,19 +472,26 @@ class EdgeFunctionProvider implements WhatsAppProvider {
   private readonly supabaseAnonKey: string;
   private readonly functionName: string;
   private readonly accessToken?: string;
+  private readonly getAccessToken?: () => Promise<string | undefined>;
 
   constructor(config: EdgeFunctionConfig) {
     this.supabaseUrl = config.supabaseUrl.replace(/\/+$/, '');
     this.supabaseAnonKey = config.supabaseAnonKey;
     this.functionName = config.functionName || 'send-whatsapp';
     this.accessToken = config.accessToken;
+    this.getAccessToken = config.getAccessToken;
   }
 
-  private get headers(): Record<string, string> {
+  private async getHeaders(): Promise<Record<string, string>> {
+    let token = this.accessToken;
+    if (this.getAccessToken) {
+      const dynamicToken = await this.getAccessToken();
+      if (dynamicToken) token = dynamicToken;
+    }
     return {
       'Content-Type': 'application/json',
       apikey: this.supabaseAnonKey,
-      Authorization: `Bearer ${this.accessToken || this.supabaseAnonKey}`,
+      Authorization: `Bearer ${token || this.supabaseAnonKey}`,
     };
   }
 
@@ -493,11 +502,12 @@ class EdgeFunctionProvider implements WhatsAppProvider {
     }
 
     try {
+      const hdrs = await this.getHeaders();
       const res = await fetch(
         `${this.supabaseUrl}/functions/v1/${this.functionName}`,
         {
           method: 'POST',
-          headers: this.headers,
+          headers: hdrs,
           body: JSON.stringify({ phone: number, message }),
         }
       );
@@ -534,11 +544,12 @@ class EdgeFunctionProvider implements WhatsAppProvider {
     }
 
     try {
+      const hdrs = await this.getHeaders();
       const res = await fetch(
         `${this.supabaseUrl}/functions/v1/${this.functionName}`,
         {
           method: 'POST',
-          headers: this.headers,
+          headers: hdrs,
           body: JSON.stringify({
             phone: number,
             image: imageBase64,
@@ -562,11 +573,12 @@ class EdgeFunctionProvider implements WhatsAppProvider {
 
   async checkConnection(): Promise<WhatsAppConnectionStatus> {
     try {
+      const hdrs = await this.getHeaders();
       const res = await fetch(
         `${this.supabaseUrl}/functions/v1/${this.functionName}`,
         {
           method: 'POST',
-          headers: this.headers,
+          headers: hdrs,
           body: JSON.stringify({ action: 'check-connection' }),
         }
       );
@@ -591,11 +603,12 @@ class EdgeFunctionProvider implements WhatsAppProvider {
 
   async fetchGroupMetadata(groupIdOrPhone: string): Promise<any> {
     try {
+      const hdrs = await this.getHeaders();
       const res = await fetch(
         `${this.supabaseUrl}/functions/v1/${this.functionName}`,
         {
           method: 'POST',
-          headers: this.headers,
+          headers: hdrs,
           body: JSON.stringify({ action: 'fetch-group-metadata', groupQuery: groupIdOrPhone }),
         }
       );
@@ -836,6 +849,16 @@ export function createWhatsAppAutoServiceFromEnv(): WhatsAppAutoService {
       provider: 'edge-function',
       supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
       supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+      getAccessToken: async () => {
+        try {
+          const { supabase } = await import('../lib/supabase');
+          const { data } = await supabase.auth.getSession();
+          return data.session?.access_token;
+        } catch (e) {
+          console.warn('[WhatsAppAutoService] Failed to load supabase session token', e);
+          return undefined;
+        }
+      }
     });
   }
 
