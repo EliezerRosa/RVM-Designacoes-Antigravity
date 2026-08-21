@@ -763,7 +763,7 @@ serve(async (req: Request) => {
     // ── Check connection ──
     if (body.action === 'check-connection') {
       if (!isEditor) {
-        return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
       if (provider === 'evolution') {
         const status = await checkEvolutionConnection();
@@ -780,7 +780,7 @@ serve(async (req: Request) => {
     // ── List groups ──
     if (body.action === 'list-groups') {
       if (!isEditor) {
-        return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
       const result = await listZApiGroups();
       return new Response(JSON.stringify(result), {
@@ -946,7 +946,7 @@ serve(async (req: Request) => {
     if (!phone) {
       return new Response(
         JSON.stringify({ success: false, error: 'Campo "phone" é obrigatório.' }),
-        { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -974,7 +974,7 @@ serve(async (req: Request) => {
       if (!isVerifiedTarget || cleanPhone.length > 13) {
         return new Response(
           JSON.stringify({ success: false, error: 'Unauthorized to message this destination' }),
-          { status: 401, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
     }
@@ -985,7 +985,7 @@ serve(async (req: Request) => {
       if (!image) {
         return new Response(
           JSON.stringify({ success: false, error: 'Campo "image" é obrigatório para envio de imagem.' }),
-          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
       result = await sendImageViaZApi(normalizedPhone, image, caption || '');
@@ -993,7 +993,7 @@ serve(async (req: Request) => {
       if (!message) {
         return new Response(
           JSON.stringify({ success: false, error: 'Campo "message" é obrigatório para envio de texto.' }),
-          { status: 400, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
       if (provider === 'meta-cloud') {
