@@ -49,7 +49,7 @@ BEGIN
     -- Se a configuração não existir (ex: rodando localmente sem a config setada), 
     -- tenta uma URL padrão para fallback local do Supabase CLI
     IF webhook_url IS NULL OR webhook_url = '/webhook-whatsapp-orchestrator' THEN
-      webhook_url := 'http://kong:8000/functions/v1/webhook-whatsapp-orchestrator';
+      webhook_url := 'https://pevstuyzlewvjidjkmea.supabase.co/functions/v1/webhook-whatsapp-orchestrator';
     END IF;
 
     IF webhook_secret IS NOT NULL THEN
