@@ -230,11 +230,11 @@ async function sendViaMeta(phone: string, message: string) {
 /** Busca credenciais Z-API via Deno.env com fallback para a tabela app_settings. */
 async function getZApiCredentials() {
   // @ts-ignore Deno.env
-  let instanceId = Deno.env.get('ZAPI_INSTANCE_ID') || '';
+  let instanceId = Deno.env.get('VITE_ZAPI_INSTANCE_ID') || Deno.env.get('ZAPI_INSTANCE_ID') || '';
   // @ts-ignore Deno.env
-  let instanceToken = Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
+  let instanceToken = Deno.env.get('VITE_ZAPI_INSTANCE_TOKEN') || Deno.env.get('ZAPI_INSTANCE_TOKEN') || '';
   // @ts-ignore Deno.env
-  let clientToken = Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
+  let clientToken = Deno.env.get('VITE_ZAPI_CLIENT_TOKEN') || Deno.env.get('ZAPI_CLIENT_TOKEN') || '';
 
   if (instanceId && instanceToken && clientToken) {
     return { instanceId, instanceToken, clientToken };
