@@ -708,8 +708,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                 return;
             }
 
-            const oldPub = publishers.find(p => p.name === oldName || p.id === part.resolvedPublisherId);
-            const newPub = publishers.find(p => p.id === newId || p.name === newName);
+            const oldPub = publishers.find(p => p.name === oldName || (part.resolvedPublisherId && p.id === part.resolvedPublisherId));
+            const newPub = publishers.find(p => (newId && p.id === newId) || p.name === newName);
             
             // Partner lookup (se for dupla)
             const isAjudante = part.funcao === 'Ajudante';
