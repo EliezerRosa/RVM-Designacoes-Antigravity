@@ -662,7 +662,7 @@ async function fetchZApiGroupMetadata(groupQuery: string) {
 serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: getCorsHeaders(req) });
+    return new Response(JSON.stringify({ success: true, message: 'CORS OK' }), { headers: getCorsHeaders(req), status: 200 });
   }
 
   try {
@@ -755,10 +755,15 @@ serve(async (req: Request) => {
     let isEditor = false;
     let authErrorDetail = '';
     if (isBrowserRequest) {
-      const authRes = await verifyCallerIsEditor(req);
-      isEditor = authRes.authorized;
-      if (!isEditor) {
-        authErrorDetail = authRes.error || 'Unknown auth error';
+      try {
+        const authRes = await verifyCallerIsEditor(req);
+        isEditor = authRes.authorized;
+        if (!isEditor) {
+          authErrorDetail = authRes.error || 'Unknown auth error';
+        }
+      } catch (err) {
+        isEditor = false;
+        authErrorDetail = err instanceof Error ? err.message : String(err);
       }
     } else {
       isEditor = true; // Internal chron jobs
@@ -1013,14 +1018,14 @@ serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify(result), {
-      status: result.success ? 200 : 502,
+      status: 200,
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
-  } catch (err) {
+  } catch (error) {
+    console.error('Error no envio via WhatsApp:', error);
     return new Response(
-      JSON.stringify({ success: false, error: (err as Error).message }),
-      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }),
+      { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });
-
