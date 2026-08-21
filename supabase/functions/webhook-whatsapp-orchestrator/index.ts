@@ -65,7 +65,7 @@ serve(async (req: Request) => {
         .single();
       
       const reason = confLog?.notes || 'Motivo não informado.';
-      const alertMsg = `⚠️ *Alerta de Recusa de Designação*\n\nO(a) publicador(a) *${pubName}* informou que NÃO poderá fazer a parte: *${record.tipo_parte || 'Designação'}*.\n\n*Motivo:* ${reason}\n\nPor favor, providencie um substituto via Painel RM.`;
+      const alertMsg = `⚠️ *Alerta de Recusa de Designação*\n\nO(a) publicador(a) *${pubName}* informou que NÃO poderá fazer a parte: *${record.tipo_parte || 'Designação'}*.\n\n*Motivo:* ${reason}\n\nPor favor, providencie um substituto via Painel de Designações.`;
 
       let sentCount = 0;
       if (admins && admins.length > 0) {
