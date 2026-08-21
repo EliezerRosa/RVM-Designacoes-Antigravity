@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 
 -- Criação da função de trigger
-CREATE OR REPLACE FUNCTION rm.fn_webhook_whatsapp_orchestrator()
+CREATE OR REPLACE FUNCTION public.fn_webhook_whatsapp_orchestrator()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -21,7 +21,7 @@ BEGIN
     payload := jsonb_build_object(
       'type', 'UPDATE',
       'table', 'workbook_parts',
-      'schema', 'rm',
+      'schema', 'public',
       'record', row_to_json(NEW),
       'old_record', row_to_json(OLD)
     );
@@ -70,9 +70,9 @@ END;
 $$;
 
 -- Criar (ou recriar) o Trigger na tabela
-DROP TRIGGER IF EXISTS trg_webhook_whatsapp_orchestrator ON rm.workbook_parts;
+DROP TRIGGER IF EXISTS trg_webhook_whatsapp_orchestrator ON public.workbook_parts;
 
 CREATE TRIGGER trg_webhook_whatsapp_orchestrator
-AFTER UPDATE OF status ON rm.workbook_parts
+AFTER UPDATE OF status ON public.workbook_parts
 FOR EACH ROW
-EXECUTE FUNCTION rm.fn_webhook_whatsapp_orchestrator();
+EXECUTE FUNCTION public.fn_webhook_whatsapp_orchestrator();
