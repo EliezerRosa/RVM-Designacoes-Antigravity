@@ -67,3 +67,51 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// ==========================================
+// WEB PUSH EVENTS (Absurdamente isolados)
+// ==========================================
+
+self.addEventListener('push', function(event) {
+  if (!event.data) return;
+
+  try {
+    const data = event.data.json();
+    const title = data.title || 'Novo Alerta - RVM';
+    const options = {
+      body: data.body || 'Voc tem uma nova notificao no RVM Designaes.',
+      icon: './vite.svg',
+      badge: './vite.svg',
+      data: data.data || { url: '/' },
+      vibrate: [200, 100, 200]
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+  } catch (err) {
+    console.error('[Service Worker] Erro ao parsear push payload', err);
+  }
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  
+  const targetUrl = event.notification.data && event.notification.data.url 
+    ? event.notification.data.url 
+    : '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      // Se j houver uma aba aberta com a URL, foca nela
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url.includes(targetUrl) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Se no, abre uma nova janela
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
