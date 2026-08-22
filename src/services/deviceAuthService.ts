@@ -79,6 +79,7 @@ export const deviceAuthService = {
 
             // Sucesso! Gravar o último usuário no localStorage apenas para preencher o e-mail no login
             localStorage.setItem('rvm_last_device_user', userEmail);
+            localStorage.setItem('rvm_device_registered_' + userEmail, 'true');
             return { success: true, email: userEmail };
 
         } catch (e) {
@@ -149,6 +150,7 @@ export const deviceAuthService = {
      */
     clearDeviceRegistration(userEmail: string): void {
         localStorage.removeItem(`rvm_device_auth_${userEmail}`);
+        localStorage.removeItem(`rvm_device_registered_${userEmail}`);
         if (localStorage.getItem('rvm_last_device_user') === userEmail) {
             localStorage.removeItem('rvm_last_device_user');
         }

@@ -57,10 +57,11 @@ export function ForceBiometricModal() {
     // Regras de disparo
     const isTargetMode = authSystemMode === 'device_biometric' || authSystemMode === 'flexible';
     const email = user?.email;
-    const lastDeviceUser = localStorage.getItem('rvm_last_device_user');
     
-    // [SECURITY] Apenas considerar registrado se o servidor confirmar a existência da credencial
-    const isAlreadyRegisteredHere = email && lastDeviceUser === email && hasServerCredential === true;
+    // [SECURITY] Verificar se a credencial no servidor existe
+    // E verificar se ESTE aparelho está registrado no localStorage
+    const isDeviceRegisteredLocally = email ? localStorage.getItem(`rvm_device_registered_${email}`) === 'true' : false;
+    const isAlreadyRegisteredHere = email && hasServerCredential === true && isDeviceRegisteredLocally;
 
     // Log de fallback para dispositivos não suportados
     useEffect(() => {
@@ -136,7 +137,9 @@ export function ForceBiometricModal() {
 
                 <div style={{ padding: '24px', color: '#CBD5E1', fontSize: '1rem', lineHeight: 1.6 }}>
                     <p style={{ margin: '0 0 16px 0' }}>
-                        Para garantir a segurança do sistema e facilitar seus próximos acessos, é necessário cadastrar este aparelho.
+                        {hasServerCredential 
+                            ? 'Você já possui a biometria cadastrada no servidor, mas precisamos registrar ESTE aparelho atual para liberar seu acesso rápido sem senhas.'
+                            : 'Para garantir a segurança do sistema e facilitar seus próximos acessos, é necessário cadastrar este aparelho.'}
                     </p>
                     <p style={{ margin: '0 0 24px 0', color: '#94A3B8' }}>
                         Isto ativará o login por <strong>PIN, Face ID ou Digital</strong> do seu celular ou computador.

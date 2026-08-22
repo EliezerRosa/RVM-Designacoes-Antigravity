@@ -23,6 +23,7 @@ import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
 import { usePermissions } from './hooks/usePermissions'
 import { ForceBiometricModal } from './components/ForceBiometricModal'
+import { AppLockScreen } from './components/AppLockScreen'
 
 // Lazy-loaded tabs (code splitting)
 const WorkbookManager = lazy(() => import('./components/WorkbookManager'))
@@ -185,8 +186,12 @@ function App() {
 }
 
 function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; userEmail: string }) {
-  const { profile, registerDeviceAuth } = useAuth()
+  const { profile, registerDeviceAuth, isAppUnlocked } = useAuth()
   const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
+
+  if (!isAppUnlocked) {
+    return <AppLockScreen />;
+  }
 
   // Hook de consumo de flags de automação (import/geração mensal via Cron)
   useAutoFlags();
