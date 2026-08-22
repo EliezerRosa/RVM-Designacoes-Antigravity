@@ -131,7 +131,11 @@ export const deviceAuthService = {
             });
 
             if (verificationError || !verificationData || !verificationData.success) {
-                throw new Error(verificationError?.message || verificationData?.error || 'Falha na verificação da biometria.');
+                const errorMsg = verificationError?.message || verificationData?.error || 'Falha na verificação da biometria.';
+                if (errorMsg.includes('Nenhuma credencial WebAuthn encontrada')) {
+                    this.clearDeviceRegistration(targetEmail);
+                }
+                throw new Error(errorMsg);
             }
 
             // Sucesso! A Edge Function gerou um Magic Link Token seguro
