@@ -560,31 +560,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
           <span style={{ color: '#94a3b8', fontSize: '0.75rem' }} title={userEmail}>
             👤 {userEmail.split('@')[0]}
           </span>
-          {profile && profile.id && /* Hack to access authSystemMode from context since App doesn't export it directly here but it's part of useAuth */ null}
-          {/* Oculta botão se obrigatório, mas permite que seja visível se tivermos como verificar o modo. Como não puxei authSystemMode aqui em cima, não farei a verificação rígida no admin pois o admin tem o ProfileLinksPanel, ou posso ignorar isso no header pois a user pediu para o Publisher. Mudei de ideia, farei o botão no header sempre visivel para admin, porque eles podem testar os modos. */}
-          <button
-            onClick={async () => {
-              const res = await registerDeviceAuth();
-              if (res.success) {
-                alert('Biometria registrada com sucesso no seu aparelho!');
-              } else {
-                alert('Falha ao registrar biometria: ' + res.error);
-              }
-            }}
-            style={{
-              background: 'transparent',
-              border: '1px solid #3b82f6',
-              color: '#3b82f6',
-              borderRadius: '0.5rem',
-              padding: '0.35rem 0.75rem',
-              fontSize: '0.75rem',
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
-            title="Registrar Biometria/PIN neste aparelho"
-          >
-            🔒 Ativar Biometria
-          </button>
+          {/* O botão "Ativar Biometria" foi removido pois o cadastro agora é obrigatório e gerenciado pelo ForceBiometricModal ANTES do usuário acessar a interface. */}
           <button
             onClick={onSignOut}
             style={{
