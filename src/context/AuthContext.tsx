@@ -31,6 +31,7 @@ interface AuthState {
   isAdmin: boolean;
   needs2FA: boolean;
   authSystemMode: AuthSystemMode;
+  isAppUnlocked: boolean;
 }
 
 type SessionSource = 'bootstrap' | 'INITIAL_SESSION' | 'SIGNED_IN' | 'TOKEN_REFRESHED' | 'USER_UPDATED';
@@ -44,6 +45,7 @@ interface AuthContextType extends AuthState {
   verifyWhatsAppCode: (code: string) => Promise<{ success?: boolean; error?: string }>;
   refreshProfile: () => Promise<void>;
   logTransaction: (action: string, entityType: string, entityId?: string, description?: string, oldData?: unknown, newData?: unknown) => Promise<void>;
+  markAppUnlocked: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -90,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin: false,
     needs2FA: false,
     authSystemMode: 'flexible',
+    isAppUnlocked: false,
   });
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
@@ -154,6 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!user && !!profile && (profile.whatsapp_verified || isAdmin),
       isAdmin,
       needs2FA,
+      // Se não havia restrição biométrica, ou se já estava unlocked, ou se o usuário acabou de logar via google, mantemos unlocked.
+      // O AppLockScreen será responsável por travar se isAppUnlocked for false.
     }));
   }, []);
 
@@ -192,6 +197,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     processedSessionKeyRef.current = sessionKey;
     const profile = await fetchProfile(session.user.id);
+    
+    // Check lock state
+    const isUnlocked = sessionStorage.getItem('rvm_unlocked') === 'true';
+    const isDeviceRegistered = localStorage.getItem('rvm_device_registered_' + session.user.email) === 'true';
+    // Se o aparelho não é registrado, destravamos automaticamente para permitir que o ForceBiometricModal atue.
+    const finalUnlocked = isUnlocked || !isDeviceRegistered;
+
+    setState(prev => ({
+        ...prev,
+        isAppUnlocked: finalUnlocked
+    }));
+
     updateState(session.user, session, profile);
   }, [fetchProfile, updateState]);
 
@@ -287,6 +304,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ? `${window.location.origin}${window.location.pathname}${window.location.search}`
       : `${window.location.origin}`;
 
+    // Marca como desbloqueado na sessão (sobrevive ao redirecionamento OAuth)
+    sessionStorage.setItem('rvm_unlocked', 'true');
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -301,10 +321,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (state.user) {
       await logAuthEvent(state.user.id, state.user.email || '', 'logout');
     }
+    // Logout explícito: limpa o usuário salvo para forçar reinício pelo Google
+    localStorage.removeItem('rvm_last_device_user');
+    sessionStorage.removeItem('rvm_unlocked');
+    
     await supabase.auth.signOut();
     setState({
       user: null, session: null, profile: null,
       isLoading: false, isAuthenticated: false, isAdmin: false, needs2FA: false,
+      isAppUnlocked: false,
     });
   }, [state.user]);
 
@@ -436,6 +461,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, [state.user]);
 
+  const markAppUnlocked = useCallback(() => {
+    sessionStorage.setItem('rvm_unlocked', 'true');
+    setState(prev => ({ ...prev, isAppUnlocked: true }));
+  }, []);
+
   const registerDeviceAuth = useCallback(async (): Promise<DeviceAuthResult> => {
     if (!state.user || !state.profile) {
       return { success: false, error: 'Usuário não autenticado.' };
@@ -458,6 +488,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       verifyWhatsAppCode,
       refreshProfile,
       logTransaction,
+      markAppUnlocked,
     }}>
       {children}
     </AuthContext.Provider>

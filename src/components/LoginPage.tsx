@@ -179,6 +179,8 @@ export function LoginPage() {
   const effectiveMode = authSystemMode || 'flexible';
 
   // Login inicial (Google)
+  const hasLastUser = !!localStorage.getItem('rvm_last_device_user');
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -190,7 +192,7 @@ export function LoginPage() {
         {error && <div style={styles.error}>{error}</div>}
 
         {/* Opção Biometria / PIN do Aparelho */}
-        {(effectiveMode === 'device_biometric' || effectiveMode === 'flexible') && (
+        {hasLastUser && (effectiveMode === 'device_biometric' || effectiveMode === 'flexible') && (
           <button
             onClick={() => handleDeviceLogin()}
             disabled={isLoggingIn}

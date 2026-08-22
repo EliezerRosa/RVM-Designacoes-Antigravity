@@ -133,13 +133,13 @@ serve(async (req) => {
     await supabaseAdmin.from('webauthn_challenges').delete().eq('profile_id', profile.id);
 
     return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     const e = error as Error;
     return new Response(JSON.stringify({ error: e.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       status: 200,
     });
   }
