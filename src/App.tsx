@@ -189,10 +189,6 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
   const { profile, registerDeviceAuth, isAppUnlocked } = useAuth()
   const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
 
-  if (!isAppUnlocked) {
-    return <AppLockScreen />;
-  }
-
   // Hook de consumo de flags de automação (import/geração mensal via Cron)
   useAutoFlags();
 
@@ -448,6 +444,11 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
     // Clear pending to avoid re-resolution
     pendingReplacePartIdRef.current = null;
   }, [workbookParts]); // Stage 2: Runs when data becomes available
+
+  // Guard: Bloqueio Biométrico (deve vir ANTES das views, mas DEPOIS de todos os hooks para evitar React Error 310)
+  if (!isAppUnlocked) {
+    return <AppLockScreen />;
+  }
 
   // Guard: publicador comum sem nenhuma aba admin → view simplificada
   if (!permissionsLoading && permissions.hasNoTabs()) {
