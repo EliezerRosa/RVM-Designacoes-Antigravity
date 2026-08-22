@@ -25,7 +25,7 @@ export const deviceAuthService = {
      */
     async isWebAuthnAvailable(): Promise<boolean> {
         try {
-            if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+            if (typeof window === 'undefined' || !window.PublicKeyCredential || !window.isSecureContext) {
                 return false;
             }
             if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
