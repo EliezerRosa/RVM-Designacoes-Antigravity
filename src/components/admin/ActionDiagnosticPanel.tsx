@@ -6,7 +6,8 @@
  * Inclui tab de Testes Visuais com captura de tela + validação Gemini Vision.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import { runDiagnostic, type DiagnosticReport, type ActionDiagnostic, type DiagnosticStatus } from '../../services/actionDiagnosticAgent';
 import { runVisualDiagnostic, getVisualActionTypes, type VisualDiagnosticReport, type VisualTestResult } from '../../services/visualDiagnosticService';
 import type { AgentActionType } from '../../services/agentActionService';
@@ -34,7 +35,7 @@ const STATUS_COLORS: Record<DiagnosticStatus, string> = {
 };
 
 export function ActionDiagnosticPanel() {
-    const [activeTab, setActiveTab] = useState<'actions' | 'visual'>('actions');
+    const [activeTab, setActiveTab] = useState<'actions' | 'visual' | 'e2e'>('actions');
     const [selectedAction, setSelectedAction] = useState<AgentActionType | 'ALL'>('ALL');
     const [report, setReport] = useState<DiagnosticReport | null>(null);
     const [isRunning, setIsRunning] = useState(false);
@@ -46,6 +47,52 @@ export function ActionDiagnosticPanel() {
     const [isVisualRunning, setIsVisualRunning] = useState(false);
     const [expandedVisualRows, setExpandedVisualRows] = useState<Set<string>>(new Set());
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+    // E2E tab state
+    const [isE2eRunning, setIsE2eRunning] = useState(false);
+    const [e2eStatus, setE2eStatus] = useState<any>(null);
+
+    useEffect(() => {
+        if (activeTab === 'e2e' && !e2eStatus) {
+            pollE2eStatus();
+        }
+    }, [activeTab]);
+
+    const handleRunE2e = async () => {
+        setIsE2eRunning(true);
+        try {
+            const { error } = await supabase.functions.invoke('trigger-github-workflow', {
+                body: { action: 'trigger' }
+            });
+            if (error) throw error;
+            setTimeout(pollE2eStatus, 3000); // Wait 3s before polling to ensure GH action registered
+        } catch (err) {
+            console.error('Error triggering E2E:', err);
+            setIsE2eRunning(false);
+            alert('Erro ao disparar Teste E2E. Verifique os logs no Console.');
+        }
+    };
+
+    const pollE2eStatus = async () => {
+        try {
+            const { data, error } = await supabase.functions.invoke('trigger-github-workflow', {
+                body: { action: 'status' }
+            });
+            if (!error && data?.run) {
+                setE2eStatus(data.run);
+                if (data.run.status === 'in_progress' || data.run.status === 'queued') {
+                    setTimeout(pollE2eStatus, 10000); // Poll every 10s
+                } else {
+                    setIsE2eRunning(false);
+                }
+            } else {
+                setIsE2eRunning(false);
+            }
+        } catch (err) {
+            console.error('Error polling E2E status:', err);
+            setIsE2eRunning(false);
+        }
+    };
 
     const toggleRow = (key: string) => setExpandedRows(prev => {
         const next = new Set(prev);
@@ -136,6 +183,16 @@ export function ActionDiagnosticPanel() {
                     }}
                 >
                     👁️ Testes Visuais + Gemini Vision ({visualActionTypes.length} ações)
+                </button>
+                <button
+                    onClick={() => setActiveTab('e2e')}
+                    style={{
+                        flex: 1, padding: '8px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+                        background: activeTab === 'e2e' ? '#10B981' : 'transparent',
+                        color: activeTab === 'e2e' ? '#fff' : '#94A3B8',
+                    }}
+                >
+                    🌍 Testes E2E (Playwright)
                 </button>
             </div>
 
@@ -365,6 +422,82 @@ export function ActionDiagnosticPanel() {
                 </div>
             )}
             </>)}
+
+            {/* ===== TAB: Testes E2E (Playwright) ===== */}
+            {activeTab === 'e2e' && (
+                <div style={{ background: '#1E293B', borderRadius: '8px', padding: '20px', border: '1px solid #334155' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                            <h4 style={{ margin: 0, color: '#F8FAFC', fontSize: '15px' }}>Playwright E2E Suite</h4>
+                            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94A3B8' }}>
+                                Dispara os testes de Login, WebAuthn e RLS no GitHub Actions (Ambiente Linux Isolado).
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleRunE2e}
+                            disabled={isE2eRunning}
+                            style={{
+                                background: isE2eRunning ? '#334155' : '#10B981', color: '#fff', border: 'none',
+                                borderRadius: '8px', padding: '8px 20px', fontSize: '13px', fontWeight: '600',
+                                cursor: isE2eRunning ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                            }}
+                        >
+                            {isE2eRunning ? (
+                                <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Solicitando Execução Remota...</>
+                            ) : (
+                                <>▶ Executar Suíte Playwright</>
+                            )}
+                        </button>
+                    </div>
+
+                    <div style={{ background: '#0F172A', padding: '16px', borderRadius: '8px', border: '1px solid #475569' }}>
+                        <h5 style={{ margin: '0 0 12px 0', color: '#CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span>Status da Execução Remota (GitHub)</span>
+                            <button onClick={pollE2eStatus} style={{ background: 'transparent', border: 'none', color: '#3B82F6', cursor: 'pointer', fontSize: '12px' }}>↻ Atualizar</button>
+                        </h5>
+                        
+                        {!e2eStatus ? (
+                            <div style={{ color: '#64748B', fontSize: '12px' }}>
+                                Nenhum status encontrado ou carregando...<br/><br/>
+                                <strong>Setup Inicial:</strong> O Supabase precisa de um secret `GITHUB_PAT` (Personal Access Token) para autorizar a API do GitHub. Sem ele, a Edge Function retornará erro.
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1E293B', paddingBottom: '6px' }}>
+                                    <span style={{ color: '#94A3B8' }}>Status:</span>
+                                    <span style={{ fontWeight: '600', color: e2eStatus.status === 'completed' ? (e2eStatus.conclusion === 'success' ? '#10B981' : '#EF4444') : '#F59E0B' }}>
+                                        {e2eStatus.status === 'completed' ? `Finalizado (${e2eStatus.conclusion})` : 'Em Andamento / Na Fila...'}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1E293B', paddingBottom: '6px' }}>
+                                    <span style={{ color: '#94A3B8' }}>Início do Teste:</span>
+                                    <span style={{ color: '#E2E8F0' }}>{new Date(e2eStatus.created_at).toLocaleString()}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: '#94A3B8' }}>Última Atualização:</span>
+                                    <span style={{ color: '#E2E8F0' }}>{new Date(e2eStatus.updated_at).toLocaleString()}</span>
+                                </div>
+                                
+                                {e2eStatus.status === 'completed' && (
+                                    <div style={{ marginTop: '16px', textAlign: 'center', background: '#1E293B', padding: '12px', borderRadius: '6px' }}>
+                                        <a 
+                                            href={e2eStatus.html_url} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            style={{ color: '#3B82F6', textDecoration: 'none', fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                        >
+                                            🔗 Abrir Relatório HTML e Logs no GitHub Actions 
+                                        </a>
+                                        <div style={{ fontSize: '10px', color: '#64748B', marginTop: '6px' }}>
+                                            No GitHub, role até o final da página e baixe o artefato "playwright-report" para ver os HTMLs visuais, ou veja os logs diretamente.
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Image Preview Modal */}
             {previewImage && (
