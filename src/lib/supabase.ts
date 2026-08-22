@@ -32,12 +32,17 @@ if (typeof window !== 'undefined' && window.location && window.location.hash && 
         if (accessToken) {
             try {
                 // Decode the JWT payload to get the actual expiration time
-                const payloadStr = atob(accessToken.split('.')[1]);
-                const payload = JSON.parse(payloadStr);
-                if (payload.exp) {
-                    const nowInSec = Math.floor(Date.now() / 1000);
-                    // Consider it expired if it's past the exp time, or very close to it
-                    isExpired = payload.exp <= nowInSec;
+                const base64Url = accessToken.split('.')[1];
+                if (base64Url) {
+                    // Convert Base64Url to Base64
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const payloadStr = atob(base64);
+                    const payload = JSON.parse(payloadStr);
+                    if (payload.exp) {
+                        const nowInSec = Math.floor(Date.now() / 1000);
+                        // Consider it expired if it's past the exp time, or very close to it
+                        isExpired = payload.exp <= nowInSec;
+                    }
                 }
             } catch (e) {
                 console.warn('[Supabase] Failed to decode JWT in URL hash', e);

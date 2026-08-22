@@ -11,7 +11,7 @@ export function LoginPage() {
   const [code, setCode] = useState('');
 
   const [deviceEmail, setDeviceEmail] = useState('');
-  const [showDeviceEmailInput, setShowDeviceEmailInput] = useState(false);
+  const [showFallbackGoogleLogin, setShowFallbackGoogleLogin] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -46,8 +46,12 @@ export function LoginPage() {
       const target = overrideEmail || deviceEmail || localStorage.getItem('rvm_last_device_user') || undefined;
       const res = await signInWithDeviceAuth(target);
       if (!res.success) {
-        setShowDeviceEmailInput(true);
-        setError('Este notebook/dispositivo ainda não possui o PIN vinculado. Clique em "Entrar com Conta Google (1º Acesso / Vincular PIN)" abaixo para se conectar e registrar o PIN do seu Windows 11 com 1-clique.');
+        setShowFallbackGoogleLogin(true);
+        if (res.error === 'Dispositivo ou navegador não suporta Biometria/Passkeys.') {
+          setError('Biometria não suportada neste navegador ou conexão não segura. Use a opção do Google abaixo.');
+        } else {
+          setError('Este notebook/dispositivo ainda não possui o PIN vinculado. Clique em "Entrar com Conta Google (1º Acesso / Vincular PIN)" abaixo para se conectar e registrar o PIN do seu Windows 11 com 1-clique.');
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao autenticar pelo aparelho';
@@ -201,7 +205,7 @@ export function LoginPage() {
         )}
 
         {/* Opção Google OAuth (Para 1º Acesso ou Vincular PIN do Windows 11) */}
-        {(effectiveMode === 'google_oauth' || effectiveMode === 'google_whatsapp_2fa' || effectiveMode === 'flexible' || effectiveMode === 'device_biometric' || showDeviceEmailInput) && (
+        {(effectiveMode === 'google_oauth' || effectiveMode === 'google_whatsapp_2fa' || effectiveMode === 'flexible' || effectiveMode === 'device_biometric' || showFallbackGoogleLogin) && (
           <button
             onClick={handleGoogleLogin}
             disabled={isLoggingIn}
