@@ -86,9 +86,21 @@ serve(async (req) => {
         },
       });
     } else if (action === 'authenticate') {
+      const { data: credentials } = await supabaseAdmin
+        .from('webauthn_credentials')
+        .select('id, transports')
+        .eq('profile_id', profile.id);
+
+      const allowCredentials = credentials?.map((cred: any) => ({
+        id: cred.id,
+        type: 'public-key',
+        transports: cred.transports || [],
+      })) || [];
+
       options = await generateAuthenticationOptions({
         rpID: rpID || 'localhost',
         userVerification: 'preferred',
+        allowCredentials: allowCredentials.length > 0 ? allowCredentials : undefined,
       });
     } else {
        return new Response(JSON.stringify({ error: 'Acao invalida' }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }, status: 200 });
