@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { deviceAuthService } from '../services/deviceAuthService';
 
 export function AppLockScreen() {
     const { user, signInWithDeviceAuth, signOut, markAppUnlocked } = useAuth();
@@ -41,6 +42,10 @@ export function AppLockScreen() {
     };
 
     const handleSignOut = async () => {
+        const email = user?.email || localStorage.getItem('rvm_last_device_user');
+        if (email) {
+            deviceAuthService.clearDeviceRegistration(email);
+        }
         await signOut();
     };
 
