@@ -304,8 +304,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ? `${window.location.origin}${window.location.pathname}${window.location.search}`
       : `${window.location.origin}`;
 
-    // Marca como desbloqueado na sessão (sobrevive ao redirecionamento OAuth)
-    sessionStorage.setItem('rvm_unlocked', 'true');
+    // Não marcamos mais como unlocked aqui.
+    // Se o aparelho já for conhecido (isDeviceRegistered), o AppLockScreen vai forçar a validação biométrica após o retorno do OAuth.
+    // Se for aparelho novo, o finalUnlocked (isUnlocked || !isDeviceRegistered) libera o app para o ForceBiometricModal atuar.
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
