@@ -67,6 +67,8 @@ export function WorkbookTable({
 }: WorkbookTableProps) {
     // Paginação por semana
     const [unlockedParts, setUnlockedParts] = useState<Set<string>>(new Set());
+    // Focused part for SemanticSidecar auto-expand
+    const [focusedPartId, setFocusedPartId] = useState<string | null>(null);
 
     const togglePartLock = (partId: string) => {
         setUnlockedParts(prev => {
@@ -91,6 +93,7 @@ export function WorkbookTable({
                     parts={partsToRender}
                     publishers={publishers}
                     onPublisherSelect={onPublisherSelect}
+                    focusedPartId={focusedPartId}
                 />
             )}
             
@@ -139,8 +142,11 @@ export function WorkbookTable({
                                 style={{
                                     background: SECTION_COLORS[part.section] || 'white',
                                     color: '#1f2937',
-                                    borderLeft: isPast ? '3px solid #9CA3AF' : 'none'
+                                    borderLeft: isPast ? '3px solid #9CA3AF' : 'none',
+                                    boxShadow: focusedPartId === part.id ? 'inset 2px 0 0 0 #4F46E5' : 'none',
+                                    transition: 'background-color 0.2s'
                                 }}
+                                onMouseEnter={() => setFocusedPartId(part.id)}
                                 title={isPast ? '📅 Semana passada' : ''}
                             >
                                 <td style={{ padding: '4px', color: '#1f2937', fontWeight: '500' }}>
