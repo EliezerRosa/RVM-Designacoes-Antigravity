@@ -103,9 +103,10 @@ export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule)
     let hasRules = false;
     
     // 1. Demografia (Jovens vs Idosos)
+    const ageGroup = (publisher.ageGroup || '').toLowerCase();
+    
     if (rule.demografia_alvo === 'jovens' || rule.demografia_alvo === 'jovem') {
         hasRules = true;
-        const ageGroup = getPublisherField(publisher, 'age_group') || '';
         if (ageGroup === 'jovem') {
             score += 50;
             matches.push('Jovem');
@@ -114,9 +115,8 @@ export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule)
         }
     }
     
-    if (rule.demografia_alvo === 'idosos') {
+    if (rule.demografia_alvo === 'idosos' || rule.demografia_alvo === 'idoso') {
         hasRules = true;
-        const ageGroup = getPublisherField(publisher, 'age_group') || '';
         if (ageGroup === 'idoso') {
             score += 50;
             matches.push('Idoso');
@@ -126,14 +126,16 @@ export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule)
     }
 
     // 2. Perfil Familiar
-    if (rule.perfil_familiar === 'pai_ou_mae') {
+    if (rule.perfil_familiar === 'pai_ou_mae' || rule.perfil_familiar === 'casais') {
         hasRules = true;
-        const hasChildren = getPublisherField(publisher, 'has_children') === true;
-        if (hasChildren) {
+        // Approximation: if they have a spouse, they are at least a family/couple.
+        // True "has_children" requires a DB relation we don't have in this context.
+        const isFamily = !!publisher.spouseId || ageGroup === 'adulto'; 
+        if (isFamily) {
             score += 50;
-            matches.push('Pai/Mãe');
+            matches.push('Perfil Familiar');
         } else {
-            misses.push('Falta: Ter filhos');
+            misses.push('Falta: Perfil Familiar');
         }
     }
 
@@ -182,6 +184,8 @@ export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule)
  * (Como o app usa um type flexível para Publisher, alguns campos podem estar em metadata ou direto no objeto)
  */
 function getPublisherField(publisher: any, field: string): any {
+    if (field === 'age_group') return publisher.ageGroup;
+    if (field === 'has_children') return !!publisher.spouseId;
     if (publisher.metadata && publisher.metadata[field] !== undefined) return publisher.metadata[field];
     return publisher[field];
 }
