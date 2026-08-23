@@ -40,6 +40,8 @@ import { communicationService } from '../services/communicationService';
 
 
 
+import { SemanticDraggableGenerator } from './ui/SemanticDraggableGenerator';
+
 import { ReportsTab } from './ReportsTab';
 import { ParticipationAnalytics } from './ParticipationAnalytics';
 import { generateSessionReport, type AnalyticsSummary } from '../services/analyticsService';
@@ -204,10 +206,13 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
     const [isMyAssignmentsOpen, setIsMyAssignmentsOpen] = useState(false);
 
     // Auth (para gating do botão Minhas Designações)
-    const { profile, isAdmin } = useAuth();
+    const { profile, isAdmin, isEditor } = useAuth();
+    const canGenerateRules = isAdmin || isEditor;
 
     // Paginação
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState<number>(() => {
+        return parseInt(localStorage.getItem('wm_currentPage') || '1', 10);
+    });
 
     // Toggle para exibir partes ocultas (Cânticos, Comentários, Oração Inicial, Elogios)
     const [showHiddenParts, setShowHiddenParts] = useState(false);
@@ -223,6 +228,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
         localStorage.setItem('wm_filterStatus', filterStatus);
         localStorage.setItem('wm_filterFuncao', filterFuncao);
         localStorage.setItem('wm_searchText', searchText);
+        localStorage.setItem('wm_currentPage', currentPage.toString());
         setCurrentPage(1); // Resetar página ao filtrar
     }, [filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText]);
 
@@ -1065,6 +1071,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                             onPublisherSelect={handlePublisherSelect}
                             onEditPart={handleEditPart}
                             eventNotesMap={eventNotesMap}
+                            canGenerateRules={canGenerateRules}
                         />
 
                         {/* Modal de Substituição Manual */}
