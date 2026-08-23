@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { generateSemanticRulesForWeek, saveSemanticRulesToDb } from '../../services/semanticAgentService';
 import { fetchSemanticRulesForWeek, calculateSemanticScore, SemanticRule, SemanticScoreResult } from '../../services/semanticRulesService';
 import type { WorkbookPart, Publisher } from '../../types';
@@ -31,39 +31,27 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     const [message, setMessage] = useState('');
     const [isExpanded, setIsExpanded] = useState(true);
     
-    // State to hold the analysis for each part
     const [analyses, setAnalyses] = useState<PartAnalysis[]>([]);
-    
-    // Controls which accordion section is open
     const [activePartId, setActivePartId] = useState<string | null>(null);
 
-    // Auto-expand when a part is focused in the table
     useEffect(() => {
         if (focusedPartId) {
             setActivePartId(focusedPartId);
-            setIsExpanded(true); // Ensure sidecar is open
+            setIsExpanded(true);
         }
     }, [focusedPartId]);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         setIsDragging(true);
-        setDragStart({
-            x: e.clientX - position.x,
-            y: e.clientY - position.y
-        });
+        setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
     };
 
     const handleMouseMove = (e: MouseEvent) => {
         if (!isDragging) return;
-        setPosition({
-            x: e.clientX - dragStart.x,
-            y: e.clientY - dragStart.y
-        });
+        setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
     };
 
-    const handleMouseUp = () => {
-        setIsDragging(false);
-    };
+    const handleMouseUp = () => setIsDragging(false);
 
     useEffect(() => {
         if (isDragging) {
@@ -87,7 +75,6 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         const newAnalyses: PartAnalysis[] = [];
 
         parts.forEach(part => {
-            // Find rule by part title
             let rule: SemanticRule | null = null;
             for (const [key, r] of Object.entries(weekRules)) {
                 if (part.tituloParte.includes(key) || key.includes(part.tituloParte)) {
@@ -112,8 +99,6 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         });
 
         setAnalyses(newAnalyses);
-        
-        // Se houver análises, abra a primeira por padrão caso nenhuma esteja selecionada
         if (newAnalyses.length > 0 && !activePartId && !focusedPartId) {
             setActivePartId(newAnalyses[0].part.id);
         }
@@ -131,23 +116,17 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         
         try {
             const yamlContent = await generateSemanticRulesForWeek(weekId, parts);
-            
             await saveSemanticRulesToDb(weekId, yamlContent);
-
             setStatus('success');
             setMessage('Regras Semânticas geradas e ativas para esta semana!');
-            
-            // Re-fetch to parse correctly and run analysis
             const rules = await fetchSemanticRulesForWeek(weekId);
             runAnalysis(rules);
-            
         } catch (err: any) {
             setStatus('error');
             setMessage(`Falha: ${err.message || String(err)}`);
         }
     };
 
-    // Disparo automático ao mudar de semana
     useEffect(() => {
         let isMounted = true;
         setAnalyses([]);
@@ -155,14 +134,11 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         
         async function checkAndGenerate() {
             if (!weekId) return;
-            
-            // Verifica se a semana já tem regras
             const rules = await fetchSemanticRulesForWeek(weekId);
             const weekKey = `semana_${weekId}`;
             const hasRules = !!rules[weekKey];
             
             if (!hasRules && isMounted) {
-                // Se não tem, dispara a geração automática
                 handleGenerate();
             } else if (hasRules && isMounted) {
                 setStatus('success');
@@ -172,16 +148,17 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         }
         
         checkAndGenerate();
-        
         return () => { isMounted = false; };
     }, [weekId, parts, publishers]);
 
     if (!weekId) return null;
 
-    // Componente interno para renderizar tags com cor
     const RuleBadge = ({ label, value, colorClass, bgColor }: { label: string, value: string, colorClass: string, bgColor: string }) => (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border" style={{ backgroundColor: bgColor, color: colorClass, borderColor: `${bgColor}darken` }}>
-            <span className="opacity-75">{label}:</span> {value}
+        <span style={{ 
+            display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '4px',
+            fontSize: '10px', fontWeight: '500', backgroundColor: bgColor, color: colorClass, border: `1px solid ${colorClass}40` 
+        }}>
+            <span style={{ opacity: 0.75 }}>{label}:</span> {value}
         </span>
     );
 
@@ -196,23 +173,32 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                 maxHeight: '85vh',
                 backgroundColor: '#ffffff',
                 boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+                borderRadius: '8px',
+                border: '1px solid #a5b4fc',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                fontFamily: 'system-ui, -apple-system, sans-serif'
             }}
-            className="border border-indigo-300 rounded-lg overflow-hidden flex flex-col transition-all duration-300"
         >
             {/* Header / Drag Handle */}
             <div 
-                className="px-3 py-2 flex items-center justify-between cursor-move"
-                style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}
+                style={{ 
+                    padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    cursor: 'move', backgroundColor: '#4f46e5', color: '#ffffff' 
+                }}
                 onMouseDown={handleMouseDown}
             >
-                <div className="flex items-center gap-2">
-                    <span>🧠</span>
-                    <span className="font-semibold text-sm tracking-wide text-white">Agente Curador IA</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>🧠</span>
+                    <span style={{ fontWeight: '600', fontSize: '14px', letterSpacing: '0.025em' }}>Agente Curador IA</span>
                 </div>
                 <button 
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="text-white hover:text-indigo-200 focus:outline-none"
-                    style={{ color: '#ffffff' }}
+                    style={{ 
+                        color: '#ffffff', background: 'transparent', border: 'none', cursor: 'pointer',
+                        padding: '4px', fontSize: '14px' 
+                    }}
                     title={isExpanded ? 'Minimizar' : 'Expandir'}
                 >
                     {isExpanded ? '▼' : '▲'}
@@ -221,28 +207,25 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
 
             {/* Body */}
             {isExpanded && (
-                <div className="flex flex-col h-full overflow-hidden" style={{ maxHeight: 'calc(85vh - 40px)' }}>
-                    <div className="p-4 flex flex-col gap-2 shrink-0 border-b border-gray-100">
-                        <div className="flex justify-between items-center">
-                            <div className="text-xs text-gray-700" style={{ color: '#374151' }}>
-                                Análise Ativa para a semana:
-                            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxHeight: 'calc(85vh - 40px)', overflow: 'hidden' }}>
+                    <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontSize: '12px', color: '#374151' }}>Análise Ativa para a semana:</div>
                         </div>
-                        <div className="font-bold text-indigo-900" style={{ color: '#312e81' }}>{weekId}</div>
+                        <div style={{ fontWeight: '700', color: '#312e81', fontSize: '16px' }}>{weekId}</div>
 
                         {status === 'loading' && (
-                            <div className="flex items-center gap-2 text-sm text-indigo-700 bg-indigo-50 p-2 rounded">
-                                <div className="animate-spin h-4 w-4 border-2 border-indigo-500 rounded-full border-t-transparent"></div>
-                                Extraindo regras e critérios da apostila...
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#4338ca', backgroundColor: '#eef2ff', padding: '8px', borderRadius: '4px' }}>
+                                Processando IA...
                             </div>
                         )}
 
                         {status === 'error' && (
-                            <div className="text-xs p-3 rounded-md border shadow-sm leading-relaxed bg-red-50 text-red-800 border-red-300" style={{ wordBreak: 'break-word' }}>
+                            <div style={{ fontSize: '12px', padding: '12px', borderRadius: '6px', border: '1px solid #fca5a5', backgroundColor: '#fef2f2', color: '#991b1b', wordBreak: 'break-word' }}>
                                 {message}
                                 <button
                                     onClick={handleGenerate}
-                                    className="mt-2 w-full py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded font-semibold transition-colors"
+                                    style={{ marginTop: '8px', width: '100%', padding: '6px', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '4px', fontWeight: '600', cursor: 'pointer' }}
                                 >
                                     Tentar Novamente
                                 </button>
@@ -252,37 +235,39 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
 
                     {/* Scrollable Accordion Analyses */}
                     {status === 'success' && analyses.length > 0 && (
-                        <div className="overflow-y-auto flex flex-col flex-1 bg-gray-50/50 pb-2">
+                        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', flex: 1, backgroundColor: '#f9fafb', paddingBottom: '8px' }}>
                             {analyses.map((analysis, idx) => {
                                 const isOpen = activePartId === analysis.part.id;
                                 
                                 return (
-                                    <div key={idx} className="border-b border-gray-200 bg-white">
+                                    <div key={idx} style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff' }}>
                                         {/* Accordion Header */}
                                         <button 
                                             onClick={() => setActivePartId(isOpen ? null : analysis.part.id)}
-                                            className={`w-full text-left px-4 py-3 flex items-center justify-between transition-colors focus:outline-none ${isOpen ? 'bg-indigo-50/50' : 'hover:bg-gray-50'}`}
-                                            style={{ backgroundColor: isOpen ? '#f5f7ff' : '#ffffff' }}
+                                            style={{ 
+                                                width: '100%', textAlign: 'left', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                backgroundColor: isOpen ? '#f5f7ff' : '#ffffff', border: 'none', cursor: 'pointer'
+                                            }}
                                         >
-                                            <div className="flex items-center gap-2">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <span style={{ fontSize: '16px' }}>{isOpen ? '📖' : '📘'}</span>
-                                                <h4 className="text-sm font-semibold leading-tight truncate max-w-[280px]" style={{ color: isOpen ? '#312e81' : '#4b5563' }}>
+                                                <h4 style={{ fontSize: '14px', fontWeight: '600', color: isOpen ? '#312e81' : '#4b5563', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '280px' }}>
                                                     {analysis.part.tituloParte}
                                                 </h4>
                                             </div>
-                                            <span className="text-xs" style={{ color: '#9ca3af' }}>{isOpen ? '▼' : '▶'}</span>
+                                            <span style={{ fontSize: '12px', color: '#9ca3af' }}>{isOpen ? '▼' : '►'}</span>
                                         </button>
 
                                         {/* Accordion Body */}
                                         {isOpen && (
-                                            <div className="p-4 pt-2 border-t border-indigo-100/50" style={{ backgroundColor: '#ffffff' }}>
+                                            <div style={{ padding: '8px 16px 16px', borderTop: '1px solid #e0e7ff', backgroundColor: '#ffffff' }}>
                                                 {/* Regras e Critérios */}
-                                                <div className="mb-4">
-                                                    <div className="flex items-center gap-1 mb-2">
-                                                        <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#4338ca' }}>🎯 Critérios da IA</span>
+                                                <div style={{ marginBottom: '16px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+                                                        <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#4338ca' }}>🎯 Critérios da IA</span>
                                                     </div>
                                                     
-                                                    <div className="flex flex-wrap gap-1.5 mb-2">
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
                                                         {analysis.rule.demografia_alvo && <RuleBadge label="Alvo" value={analysis.rule.demografia_alvo} colorClass="#047857" bgColor="#d1fae5" />}
                                                         {analysis.rule.perfil_familiar && <RuleBadge label="Perfil" value={analysis.rule.perfil_familiar} colorClass="#b45309" bgColor="#fef3c7" />}
                                                         {analysis.rule.emocional && <RuleBadge label="Tom" value={analysis.rule.emocional} colorClass="#6d28d9" bgColor="#ede9fe" />}
@@ -290,49 +275,48 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                                         {analysis.rule.criterio_exato && <RuleBadge label="Exato" value={analysis.rule.criterio_exato} colorClass="#be123c" bgColor="#ffe4e6" />}
                                                     </div>
 
-                                                    <p className="text-xs mt-2 p-2 rounded" style={{ color: '#374151', backgroundColor: '#f9fafb', borderLeft: '2px solid #6366f1' }}>
-                                                        <span className="font-semibold" style={{ color: '#312e81' }}>Estratégia: </span> 
+                                                    <p style={{ fontSize: '12px', marginTop: '8px', padding: '8px', borderRadius: '4px', color: '#374151', backgroundColor: '#f9fafb', borderLeft: '2px solid #6366f1', margin: '8px 0 0 0' }}>
+                                                        <span style={{ fontWeight: '600', color: '#312e81' }}>Estratégia: </span> 
                                                         {analysis.rule.sugestao}
                                                     </p>
                                                     
                                                     {analysis.rule.texto_original && (
-                                                        <p className="text-[10px] mt-2 italic" style={{ color: '#6b7280' }}>
-                                                            <span className="font-semibold">Contexto:</span> "{analysis.rule.texto_original}"
+                                                        <p style={{ fontSize: '10px', marginTop: '8px', fontStyle: 'italic', color: '#6b7280', margin: '8px 0 0 0' }}>
+                                                            <span style={{ fontWeight: '600' }}>Contexto:</span> "{analysis.rule.texto_original}"
                                                         </p>
                                                     )}
                                                 </div>
 
                                                 {/* Top Matches */}
                                                 <div>
-                                                    <div className="flex items-center justify-between mb-2 pb-1 border-b" style={{ borderColor: '#e5e7eb' }}>
-                                                        <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#059669' }}>🏆 Melhores Escolhas</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '4px', borderBottom: '1px solid #e5e7eb' }}>
+                                                        <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#059669' }}>🏆 Melhores Escolhas</span>
                                                     </div>
                                                     {analysis.topSuggestions.length > 0 ? (
-                                                        <div className="flex flex-col gap-2">
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                             {analysis.topSuggestions.map(({ publisher, result }) => (
-                                                                <div key={publisher.id} className="flex flex-col rounded-md border p-2 text-sm transition-all" style={{ backgroundColor: result.isPerfectMatch ? '#f0fdf4' : '#ffffff', borderColor: result.isPerfectMatch ? '#6ee7b7' : '#e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                                                                    <div className="flex items-center justify-between mb-1">
-                                                                        <div className="flex items-center gap-1">
-                                                                            <span className="font-medium" style={{ color: '#1f2937' }}>{publisher.name}</span>
-                                                                            {result.isPerfectMatch && <span title="Match Perfeito!" className="text-xs">✅</span>}
+                                                                <div key={publisher.id} style={{ display: 'flex', flexDirection: 'column', borderRadius: '6px', border: `1px solid ${result.isPerfectMatch ? '#6ee7b7' : '#e5e7eb'}`, padding: '8px', backgroundColor: result.isPerfectMatch ? '#f0fdf4' : '#ffffff', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                            <span style={{ fontWeight: '500', color: '#1f2937', fontSize: '14px' }}>{publisher.name}</span>
+                                                                            {result.isPerfectMatch && <span title="Match Perfeito!" style={{ fontSize: '12px' }}>✅</span>}
                                                                         </div>
                                                                         <button
                                                                             onClick={() => onPublisherSelect(analysis.part.id, publisher.id, publisher.name)}
-                                                                            className="px-3 py-1 rounded text-[11px] font-bold transition-colors focus:outline-none hover:opacity-90"
-                                                                            style={{ color: '#ffffff', backgroundColor: '#4f46e5', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
+                                                                            style={{ padding: '4px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', color: '#ffffff', backgroundColor: '#4f46e5', border: 'none', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
                                                                         >
                                                                             Designar
                                                                         </button>
                                                                     </div>
                                                                     
-                                                                    <div className="flex flex-col gap-0.5 mt-1 pt-1" style={{ borderTop: '1px dashed #e5e7eb' }}>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #e5e7eb' }}>
                                                                         {result.matches.length > 0 && (
-                                                                            <span className="text-[10px] flex items-center gap-1" style={{ color: '#059669' }}>
+                                                                            <span style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', color: '#059669' }}>
                                                                                 <span>✓</span> {result.matches.join(', ')}
                                                                             </span>
                                                                         )}
                                                                         {result.misses.length > 0 && (
-                                                                            <span className="text-[10px] flex items-center gap-1" style={{ color: '#ea580c' }}>
+                                                                            <span style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', color: '#ea580c' }}>
                                                                                 <span>⚠️</span> {result.misses.join(', ')}
                                                                             </span>
                                                                         )}
@@ -341,7 +325,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                                             ))}
                                                         </div>
                                                     ) : (
-                                                        <div className="mt-2 text-xs p-2 rounded border text-center" style={{ color: '#4b5563', backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}>
+                                                        <div style={{ marginTop: '8px', fontSize: '12px', padding: '8px', borderRadius: '4px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#4b5563', backgroundColor: '#f9fafb' }}>
                                                             Nenhum publicador atende fortemente a estes critérios.
                                                         </div>
                                                     )}
