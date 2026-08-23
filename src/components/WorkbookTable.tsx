@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { PublisherSelect } from './PublisherSelect';
 import { SemanticDraggableGenerator } from './ui/SemanticDraggableGenerator';
+import { getStatusConfig } from '../constants/status';
 import { Tooltip } from './Tooltip';
 void React;
 
