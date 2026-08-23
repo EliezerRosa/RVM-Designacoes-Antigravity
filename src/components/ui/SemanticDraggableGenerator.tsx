@@ -231,18 +231,18 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                     <div className="flex items-start gap-2 mb-2">
                                         <span className="text-xl" title="Sugestão da IA">💡</span>
                                         <div>
-                                            <h4 className="text-sm font-semibold text-indigo-900 leading-tight">
+                                            <h4 className="text-sm font-semibold leading-tight" style={{ color: '#312e81' }}>
                                                 {analysis.part.tituloParte}
                                             </h4>
-                                            <p className="text-xs text-indigo-700 italic mt-1">
+                                            <p className="text-xs italic mt-1" style={{ color: '#4338ca' }}>
                                                 {analysis.rule.sugestao}
                                             </p>
                                         </div>
                                     </div>
 
                                     {analysis.rule.texto_original && (
-                                        <div className="mb-3 px-3 py-2 bg-indigo-900/5 rounded border-l-2 border-indigo-300 text-xs text-indigo-900/80 italic shadow-inner">
-                                            <span className="font-semibold block mb-1">Texto da apostila:</span>
+                                        <div className="mb-3 px-3 py-2 rounded shadow-inner" style={{ backgroundColor: '#eef2ff', borderLeft: '2px solid #a5b4fc', color: '#3730a3', fontSize: '11px', fontStyle: 'italic' }}>
+                                            <span className="font-semibold block mb-1" style={{ color: '#312e81' }}>Texto da apostila:</span>
                                             "{analysis.rule.texto_original}"
                                         </div>
                                     )}
@@ -250,32 +250,32 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                     {analysis.topSuggestions.length > 0 ? (
                                         <div className="mt-2 flex flex-col gap-2">
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[11px] font-medium text-indigo-400 uppercase tracking-wider">Top Matches</span>
+                                                <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: '#6366f1' }}>Top Matches</span>
                                             </div>
                                             {analysis.topSuggestions.map(({ publisher, result }) => (
-                                                <div key={publisher.id} className={`flex flex-col bg-white rounded border p-2 text-sm transition-colors ${result.isPerfectMatch ? 'border-green-300 bg-green-50/30' : 'border-indigo-50'}`}>
+                                                <div key={publisher.id} className="flex flex-col rounded border p-2 text-sm transition-colors" style={{ backgroundColor: result.isPerfectMatch ? '#ecfdf5' : '#ffffff', borderColor: result.isPerfectMatch ? '#6ee7b7' : '#e0e7ff' }}>
                                                     <div className="flex items-center justify-between mb-1">
                                                         <div className="flex items-center gap-1">
-                                                            <span className="font-medium text-gray-800" style={{ color: '#1f2937' }}>{publisher.name}</span>
+                                                            <span className="font-medium" style={{ color: '#1f2937' }}>{publisher.name}</span>
                                                             {result.isPerfectMatch && <span title="Match Perfeito!" className="text-xs">✅</span>}
                                                         </div>
                                                         <button
                                                             onClick={() => onPublisherSelect(analysis.part.id, publisher.id, publisher.name)}
-                                                            className="px-2 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded text-xs font-semibold transition-colors focus:outline-none"
-                                                            style={{ color: '#4338ca', backgroundColor: '#e0e7ff' }}
+                                                            className="px-3 py-1 rounded text-xs font-bold transition-colors focus:outline-none"
+                                                            style={{ color: '#ffffff', backgroundColor: '#4f46e5', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
                                                         >
                                                             Aceitar
                                                         </button>
                                                     </div>
                                                     
-                                                    <div className="flex flex-col gap-0.5 mt-1 border-t border-gray-100 pt-1">
+                                                    <div className="flex flex-col gap-0.5 mt-1 pt-1" style={{ borderTop: '1px solid #f3f4f6' }}>
                                                         {result.matches.length > 0 && (
-                                                            <span className="text-[10px] text-green-600 flex items-center gap-1">
+                                                            <span className="text-[10px] flex items-center gap-1" style={{ color: '#059669' }}>
                                                                 <span>✓</span> Atende: {result.matches.join(', ')}
                                                             </span>
                                                         )}
                                                         {result.misses.length > 0 && (
-                                                            <span className="text-[10px] text-orange-500 flex items-center gap-1">
+                                                            <span className="text-[10px] flex items-center gap-1" style={{ color: '#ea580c' }}>
                                                                 <span>⚠️</span> Faltou: {result.misses.join(', ')}
                                                             </span>
                                                         )}
@@ -284,7 +284,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="mt-2 text-xs text-indigo-600 bg-indigo-50/50 p-2 rounded border border-indigo-50">
+                                        <div className="mt-2 text-xs p-2 rounded border" style={{ color: '#4f46e5', backgroundColor: '#eef2ff', borderColor: '#e0e7ff' }}>
                                             Nenhum match forte na congregação.
                                         </div>
                                     )}
