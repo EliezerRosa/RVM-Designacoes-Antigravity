@@ -119,16 +119,18 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts }) =
         >
             {/* Header / Drag Handle */}
             <div 
-                className="bg-indigo-600 text-white px-3 py-2 flex items-center justify-between cursor-move"
+                className="px-3 py-2 flex items-center justify-between cursor-move"
+                style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}
                 onMouseDown={handleMouseDown}
             >
                 <div className="flex items-center gap-2">
                     <span>💡</span>
-                    <span className="font-semibold text-sm tracking-wide">Agente Especialista</span>
+                    <span className="font-semibold text-sm tracking-wide text-white">Agente Especialista</span>
                 </div>
                 <button 
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="text-white hover:text-indigo-200 focus:outline-none"
+                    style={{ color: '#ffffff' }}
                     title={isExpanded ? 'Minimizar' : 'Expandir'}
                 >
                     {isExpanded ? '▼' : '▲'}
@@ -162,11 +164,12 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts }) =
                     </button>
 
                     {message && (
-                        <div className={`text-xs p-2 rounded border ${
-                            status === 'error' ? 'bg-red-50 text-red-700 border-red-200' :
-                            status === 'success' ? 'bg-green-50 text-green-700 border-green-200' :
-                            'bg-blue-50 text-blue-700 border-blue-200'
-                        }`}>
+                        <div className={`text-xs p-3 mt-1 rounded-md border shadow-sm leading-relaxed ${
+                            status === 'error' ? 'bg-red-50 text-red-800 border-red-300' :
+                            status === 'success' ? 'bg-green-50 text-green-800 border-green-300' :
+                            'bg-blue-50 text-blue-800 border-blue-300'
+                        }`}
+                        style={{ wordBreak: 'break-word' }}>
                             {message}
                         </div>
                     )}

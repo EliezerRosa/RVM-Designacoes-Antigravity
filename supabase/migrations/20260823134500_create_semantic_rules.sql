@@ -1,4 +1,6 @@
 -- Criação da tabela para armazenar as regras semânticas geradas pela IA
+CREATE EXTENSION IF NOT EXISTS moddatetime SCHEMA extensions;
+
 CREATE TABLE IF NOT EXISTS public.semantic_rules (
     week_id text PRIMARY KEY,
     rule_yaml text NOT NULL,
@@ -31,4 +33,4 @@ CREATE POLICY "Editores podem atualizar regras"
 CREATE TRIGGER handle_updated_at_semantic_rules
     BEFORE UPDATE ON public.semantic_rules
     FOR EACH ROW
-    EXECUTE FUNCTION public.moddatetime (updated_at);
+    EXECUTE FUNCTION extensions.moddatetime (updated_at);
