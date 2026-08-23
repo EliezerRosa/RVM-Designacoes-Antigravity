@@ -8,6 +8,8 @@ import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { PublisherSelect } from './PublisherSelect';
 import { Tooltip } from './Tooltip';
 import { getStatusConfig } from '../constants/status';
+import { SemanticAssistantPanel } from './ui/SemanticAssistantPanel';
+import { SemanticDraggableGenerator } from './ui/SemanticDraggableGenerator';
 void React;
 
 /** Cores por seção da reunião */
@@ -51,6 +53,7 @@ interface WorkbookTableProps {
     onPublisherSelect: (partId: string, newId: string, newName: string) => void;
     onEditPart: (part: WorkbookPart) => void;
     eventNotesMap?: Record<string, string>;
+    canGenerateRules?: boolean;
 }
 
 export function WorkbookTable({
@@ -61,9 +64,11 @@ export function WorkbookTable({
     onPublisherSelect,
     onEditPart,
     eventNotesMap = {},
+    canGenerateRules = false,
 }: WorkbookTableProps) {
     // Paginação por semana
     const [unlockedParts, setUnlockedParts] = useState<Set<string>>(new Set());
+    const [activeSmartPanelPartId, setActiveSmartPanelPartId] = useState<string | null>(null);
 
     const togglePartLock = (partId: string) => {
         setUnlockedParts(prev => {
@@ -81,7 +86,15 @@ export function WorkbookTable({
     const partsToRender = targetWeekId ? filteredParts.filter(p => p.weekId === targetWeekId) : [];
 
     return (
-        <div style={{ overflowX: 'auto', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
+        <div style={{ position: 'relative' }}>
+            {canGenerateRules && targetWeekId && (
+                <SemanticDraggableGenerator 
+                    weekId={targetWeekId} 
+                    parts={partsToRender} 
+                />
+            )}
+            
+            <div style={{ overflowX: 'auto', maxHeight: '80vh', overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: '6px' }}>
             <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '12px' }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <tr style={{ background: '#4F46E5', color: 'white' }}>
@@ -186,24 +199,52 @@ export function WorkbookTable({
                                             ignoreEngineRules={unlockedParts.has(part.id)}
                                             style={{ flex: 1, border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
                                         />
-                                        <Tooltip content={unlockedParts.has(part.id) ? "Restaurar regras estritas" : "Ignorar regras do motor e exibir todos"}>
-                                            <button
-                                                onClick={() => togglePartLock(part.id)}
-                                                style={{
-                                                    background: 'transparent',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    fontSize: '14px',
-                                                    opacity: unlockedParts.has(part.id) ? 1 : 0.4,
-                                                    transition: 'opacity 0.2s',
-                                                    padding: '4px'
-                                                }}
-                                            >
-                                                {unlockedParts.has(part.id) ? '🔓' : '🔒'}
-                                            </button>
-                                        </Tooltip>
-                                    </div>
-                                </td>
+                                            <Tooltip content={unlockedParts.has(part.id) ? "Restaurar regras estritas" : "Ignorar regras do motor e exibir todos"}>
+                                                <button
+                                                    onClick={() => togglePartLock(part.id)}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        fontSize: '14px',
+                                                        opacity: unlockedParts.has(part.id) ? 1 : 0.4,
+                                                        transition: 'opacity 0.2s',
+                                                        padding: '4px'
+                                                    }}
+                                                >
+                                                    🔓
+                                                </button>
+                                            </Tooltip>
+                                            <Tooltip content="Consultar Especialista IA">
+                                                <button
+                                                    onClick={() => setActiveSmartPanelPartId(prev => prev === part.id ? null : part.id)}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        fontSize: '14px',
+                                                        padding: '4px'
+                                                    }}
+                                                >
+                                                    💡
+                                                </button>
+                                            </Tooltip>
+                                        </div>
+                                        {activeSmartPanelPartId === part.id && (
+                                            <div style={{ marginTop: '8px' }}>
+                                                <SemanticAssistantPanel
+                                                    weekId={part.weekId}
+                                                    partTitle={part.tituloParte}
+                                                    eligiblePublishers={publishers}
+                                                    onAcceptSuggestion={(newId, newName) => {
+                                                        onPublisherSelect(part.id, newId, newName);
+                                                        setActiveSmartPanelPartId(null);
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                    </td>
+
                                 <td style={{ padding: '4px', textAlign: 'center' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
                                         <StatusBadge part={part} eventNotesMap={eventNotesMap} />
@@ -222,6 +263,7 @@ export function WorkbookTable({
                     })}
                 </tbody>
             </table>
+        </div>
         </div>
     );
 }

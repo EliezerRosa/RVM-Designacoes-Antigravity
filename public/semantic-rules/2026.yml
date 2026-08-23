@@ -1,0 +1,51 @@
+# Regras Semânticas Deduzidas pela IA (Exemplo 2026)
+
+semana_2026-08-31:
+  "5. Iniciando conversas":
+    demografia_alvo: "jovens"
+    boost_tags: ["jovem"]
+    sugestao: "Esta parte envolve um 'colega de escola'. Sugerimos designar jovens para maior realismo."
+    texto_original: "Um colega de escola pergunta: Por que você não canta o hino nacional?"
+
+semana_2026-10-05:
+  "5. Cultivando o interesse":
+    perfil_familiar: "pai_ou_mae"
+    sugestao: "O cenário pede para falar com um pai ou mãe. Recomendado usar publicadores com filhos."
+    texto_original: "Um pai ou mãe está preocupado com o futuro dos filhos."
+
+semana_2026-10-26:
+  "5. Iniciando conversas":
+    emocional: "irritada"
+    boost_tags: ["experiente", "maduro"]
+    sugestao: "O morador está irritado. Priorize publicadores com experiência ou pioneiros."
+    texto_original: "O morador está irritado porque o cachorro do vizinho não para de latir."
+  "6. Iniciando conversas":
+    emocional: "triste"
+    boost_tags: ["empatia", "maduro"]
+    sugestao: "Lidar com alguém triste exige empatia e experiência de vida."
+
+semana_2026-11-16:
+  "5. Iniciando conversas":
+    objeção: "forte"
+    boost_tags: ["ancião", "pioneiro", "experiente"]
+    sugestao: "O morador discorda que Jesus é o Filho de Deus. Designar publicadores muito experientes ou pioneiros."
+    texto_original: "O morador diz que não concorda com a nossa crença de que Jesus é o Filho de Deus."
+  "7. Nossos donativos dão glória ao belo nome de Jeová":
+    criterio_exato: "ancião"
+    sugestao: "A apostila exige explicitamente que esta parte seja feita por um ancião."
+
+semana_2026-11-23:
+  "7. Não se esqueça de nossos irmãos e irmãs inativos":
+    foco: "pastoreio"
+    boost_tags: ["ancião", "experiente"]
+    sugestao: "Tema delicado sobre inativos. Fortemente recomendado para anciãos ou irmãos mais velhos."
+
+semana_2026-11-30:
+  "6. Discurso":
+    demografia_alvo: "idosos"
+    boost_tags: ["ancião", "maduro", "experiente"]
+    sugestao: "O tema foca em idosos. Sugerido irmão com maturidade espiritual e empatia."
+  "7. Ajude os cuidadores a não desanimar":
+    foco: "pastoreio_cuidadores"
+    boost_tags: ["ancião", "experiente"]
+    sugestao: "Outro tema pastoral e emocional. Usar publicadores experientes."
