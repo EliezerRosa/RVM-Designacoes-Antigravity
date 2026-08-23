@@ -41,9 +41,17 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         partsTextContext += `TEXTO: ${part.descricaoParte || ''} ${part.detalhesParte || ''}\n\n`;
     });
 
-    const messages = [
-        { role: 'user', content: `${SYSTEM_PROMPT}\n\nAqui estão as partes da semana. Gere o YAML com as regras semânticas.\n\n${partsTextContext}` }
-    ];
+    const payload = {
+        systemInstruction: {
+            parts: [{ text: SYSTEM_PROMPT }]
+        },
+        contents: [
+            {
+                role: 'user',
+                parts: [{ text: `Aqui estão as partes da semana. Gere o YAML com as regras semânticas.\n\n${partsTextContext}` }]
+            }
+        ]
+    };
 
     try {
         const response = await fetch(proxyUrl, {
@@ -51,14 +59,20 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ messages })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
             throw new Error(`Erro na API Gemini: ${response.status} ${response.statusText}`);
         }
 
-        const rawResult = await response.text();
+        const data = await response.json();
+        
+        let rawResult = '';
+        if (data && data.candidates && data.candidates.length > 0) {
+            const parts = data.candidates[0].content?.parts || [];
+            rawResult = parts.map((p: any) => p.text).join('');
+        }
         
         // Limpar possíveis marcações de markdown retornadas pelo LLM
         let cleanYaml = rawResult.trim();
