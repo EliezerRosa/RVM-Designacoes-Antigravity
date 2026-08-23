@@ -6,10 +6,8 @@
 import React, { useState } from 'react';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { PublisherSelect } from './PublisherSelect';
-import { Tooltip } from './Tooltip';
-import { getStatusConfig } from '../constants/status';
-import { SemanticAssistantPanel } from './ui/SemanticAssistantPanel';
 import { SemanticDraggableGenerator } from './ui/SemanticDraggableGenerator';
+import { Tooltip } from './Tooltip';
 void React;
 
 /** Cores por seção da reunião */
@@ -68,7 +66,6 @@ export function WorkbookTable({
 }: WorkbookTableProps) {
     // Paginação por semana
     const [unlockedParts, setUnlockedParts] = useState<Set<string>>(new Set());
-    const [activeSmartPanelPartId, setActiveSmartPanelPartId] = useState<string | null>(null);
 
     const togglePartLock = (partId: string) => {
         setUnlockedParts(prev => {
@@ -90,7 +87,9 @@ export function WorkbookTable({
             {canGenerateRules && targetWeekId && (
                 <SemanticDraggableGenerator 
                     weekId={targetWeekId} 
-                    parts={partsToRender} 
+                    parts={partsToRender}
+                    publishers={publishers}
+                    onPublisherSelect={onPublisherSelect}
                 />
             )}
             
@@ -215,34 +214,7 @@ export function WorkbookTable({
                                                     🔓
                                                 </button>
                                             </Tooltip>
-                                            <Tooltip content="Consultar Especialista IA">
-                                                <button
-                                                    onClick={() => setActiveSmartPanelPartId(prev => prev === part.id ? null : part.id)}
-                                                    style={{
-                                                        background: 'transparent',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        fontSize: '14px',
-                                                        padding: '4px'
-                                                    }}
-                                                >
-                                                    💡
-                                                </button>
-                                            </Tooltip>
                                         </div>
-                                        {activeSmartPanelPartId === part.id && (
-                                            <div style={{ marginTop: '8px' }}>
-                                                <SemanticAssistantPanel
-                                                    weekId={part.weekId}
-                                                    partTitle={part.tituloParte}
-                                                    eligiblePublishers={publishers}
-                                                    onAcceptSuggestion={(newId, newName) => {
-                                                        onPublisherSelect(part.id, newId, newName);
-                                                        setActiveSmartPanelPartId(null);
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
                                     </td>
 
                                 <td style={{ padding: '4px', textAlign: 'center' }}>
