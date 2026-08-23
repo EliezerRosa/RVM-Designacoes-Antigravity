@@ -10,7 +10,7 @@ interface Props {
 
 export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts }) => {
     const [isDragging, setIsDragging] = useState(false);
-    const [position, setPosition] = useState({ x: window.innerWidth - 350, y: 100 });
+    const [position, setPosition] = useState({ x: window.innerWidth - 350, y: window.innerHeight - 250 });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
