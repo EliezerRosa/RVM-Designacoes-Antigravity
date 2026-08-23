@@ -112,9 +112,10 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts }) =
                 top: `${position.y}px`,
                 zIndex: 9999,
                 width: '320px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                backgroundColor: '#ffffff',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
             }}
-            className="bg-white border border-indigo-200 rounded-lg overflow-hidden flex flex-col"
+            className="border border-indigo-300 rounded-lg overflow-hidden flex flex-col"
         >
             {/* Header / Drag Handle */}
             <div 
@@ -137,9 +138,9 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts }) =
             {/* Body */}
             {isExpanded && (
                 <div className="p-4 flex flex-col gap-3">
-                    <div className="text-xs text-gray-600">
+                    <div className="text-xs text-gray-700" style={{ color: '#374151' }}>
                         Gerar regras semânticas (YAML) via Gemini para a semana:
-                        <div className="font-bold text-indigo-900 mt-1">{weekId}</div>
+                        <div className="font-bold text-indigo-900 mt-1" style={{ color: '#312e81' }}>{weekId}</div>
                     </div>
 
                     <button
