@@ -42,8 +42,7 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
     });
 
     const messages = [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Aqui estão as partes da semana. Gere o YAML com as regras semânticas.\n\n${partsTextContext}` }
+        { role: 'user', content: `${SYSTEM_PROMPT}\n\nAqui estão as partes da semana. Gere o YAML com as regras semânticas.\n\n${partsTextContext}` }
     ];
 
     try {
