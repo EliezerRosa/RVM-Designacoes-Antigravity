@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateSemanticRulesForWeek, saveSemanticRulesToDb } from '../../services/semanticAgentService';
 import { fetchSemanticRulesForWeek, calculateSemanticScore, SemanticRule, SemanticScoreResult } from '../../services/semanticRulesService';
+import { participationAnalyticsService, PublisherStats } from '../../services/participationAnalyticsService';
 import type { WorkbookPart, Publisher } from '../../types';
 
 interface Props {
@@ -33,6 +34,29 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     
     const [analyses, setAnalyses] = useState<PartAnalysis[]>([]);
     const [activePartId, setActivePartId] = useState<string | null>(null);
+    const [affinityMap, setAffinityMap] = useState<Record<string, PublisherStats>>({});
+
+    // Carrega histórico para cálculo de afinidade
+    useEffect(() => {
+        const fetchHistory = async () => {
+            const endDate = new Date().toISOString().split('T')[0];
+            const startDateObj = new Date();
+            startDateObj.setFullYear(startDateObj.getFullYear() - 1); // 1 ano de histórico
+            const startDate = startDateObj.toISOString().split('T')[0];
+
+            const comparisonData = await participationAnalyticsService.getComparisonData({
+                startDate,
+                endDate
+            });
+
+            const map: Record<string, PublisherStats> = {};
+            comparisonData.publishers.forEach(p => {
+                map[p.name] = p;
+            });
+            setAffinityMap(map);
+        };
+        fetchHistory();
+    }, []);
 
     useEffect(() => {
         if (focusedPartId) {
@@ -67,6 +91,8 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         };
     }, [isDragging]);
 
+    // Passar affinityMap para a função, precisamos dela como dependência ou apenas capturar no closure.
+    // Como runAnalysis é engatilhado por botões, ele vai ver o state atual.
     const runAnalysis = (rulesData: any) => {
         const weekKey = `semana_${weekId}`;
         const weekRules = rulesData[weekKey];
@@ -86,7 +112,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             if (rule) {
                 const ranked: RankedSuggestion[] = publishers.map(pub => ({
                     publisher: pub,
-                    result: calculateSemanticScore(pub, rule as SemanticRule, publishers)
+                    result: calculateSemanticScore(pub, rule as SemanticRule, publishers, affinityMap)
                 }));
 
                 const topSuggestions = ranked
@@ -268,7 +294,11 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                                     </div>
                                                     
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                                                        {analysis.rule.perfil_sintetico && <RuleBadge label="Sintético" value={analysis.rule.perfil_sintetico} colorClass="#db2777" bgColor="#fce7f3" />}
+                                                        {analysis.rule.afinidade_tipo_parte && <RuleBadge label="Afinidade" value={analysis.rule.afinidade_tipo_parte} colorClass="#059669" bgColor="#d1fae5" />}
                                                         {analysis.rule.demografia_alvo && <RuleBadge label="Alvo" value={analysis.rule.demografia_alvo} colorClass="#047857" bgColor="#d1fae5" />}
+                                                        {analysis.rule.genero_alvo && <RuleBadge label="Gênero" value={analysis.rule.genero_alvo} colorClass="#4338ca" bgColor="#e0e7ff" />}
+                                                        {analysis.rule.foco_treinamento && <RuleBadge label="Treinamento" value={analysis.rule.foco_treinamento} colorClass="#b45309" bgColor="#fef3c7" />}
                                                         {analysis.rule.perfil_familiar && <RuleBadge label="Perfil" value={analysis.rule.perfil_familiar} colorClass="#b45309" bgColor="#fef3c7" />}
                                                         {analysis.rule.emocional && <RuleBadge label="Tom" value={analysis.rule.emocional} colorClass="#6d28d9" bgColor="#ede9fe" />}
                                                         {analysis.rule.foco && <RuleBadge label="Foco" value={analysis.rule.foco} colorClass="#1d4ed8" bgColor="#dbeafe" />}
@@ -309,16 +339,44 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                                                         </button>
                                                                     </div>
                                                                     
-                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #e5e7eb' }}>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #e5e7eb' }}>
                                                                         {result.matches.length > 0 && (
-                                                                            <span style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', color: '#059669' }}>
-                                                                                <span>✓</span> {result.matches.join(', ')}
-                                                                            </span>
+                                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                                                {result.matches.map((matchStr, i) => {
+                                                                                    const isSynthetic = ['Conselheiro Experiente', 'Jovem Promissor', 'Apologista Maduro', 'Mentoria Feminina', 'Família Base', 'Jovem em Treinamento'].includes(matchStr);
+                                                                                    const isAffinity = matchStr.includes('Afinidade Histórica');
+                                                                                    
+                                                                                    let bg = '#d1fae5';
+                                                                                    let color = '#059669';
+                                                                                    let icon = '✓';
+                                                                                    
+                                                                                    if (isSynthetic) {
+                                                                                        bg = '#fce7f3';
+                                                                                        color = '#db2777';
+                                                                                        icon = '💎';
+                                                                                    } else if (isAffinity) {
+                                                                                        bg = '#e0e7ff';
+                                                                                        color = '#4338ca';
+                                                                                        icon = '📈';
+                                                                                    }
+                                                                                    
+                                                                                    return (
+                                                                                        <span key={i} style={{ 
+                                                                                            fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px', 
+                                                                                            color, backgroundColor: bg, padding: '2px 6px', borderRadius: '4px', fontWeight: '500' 
+                                                                                        }}>
+                                                                                            <span>{icon}</span> {matchStr}
+                                                                                        </span>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
                                                                         )}
                                                                         {result.misses.length > 0 && (
-                                                                            <span style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', color: '#ea580c' }}>
-                                                                                <span>⚠️</span> {result.misses.join(', ')}
-                                                                            </span>
+                                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                                                                                <span style={{ fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', color: '#ea580c' }}>
+                                                                                    <span>⚠️</span> Falta: {result.misses.map(m => m.replace('Falta: ', '')).join(', ')}
+                                                                                </span>
+                                                                            </div>
                                                                         )}
                                                                     </div>
                                                                 </div>
