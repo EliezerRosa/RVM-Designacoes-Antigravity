@@ -86,7 +86,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             if (rule) {
                 const ranked: RankedSuggestion[] = publishers.map(pub => ({
                     publisher: pub,
-                    result: calculateSemanticScore(pub, rule as SemanticRule)
+                    result: calculateSemanticScore(pub, rule as SemanticRule, publishers)
                 }));
 
                 const topSuggestions = ranked

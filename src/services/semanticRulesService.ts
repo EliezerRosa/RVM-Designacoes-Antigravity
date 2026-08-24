@@ -96,7 +96,7 @@ export interface SemanticScoreResult {
  * Função inteligente de Score: Avalia o perfil de um publicador contra a regra semântica.
  * O Curador usa os `matches` e `misses` para auditar a indicação.
  */
-export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule): SemanticScoreResult {
+export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule, allPublishers?: Publisher[]): SemanticScoreResult {
     let score = 0;
     const matches: string[] = [];
     const misses: string[] = [];
@@ -128,14 +128,24 @@ export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule)
     // 2. Perfil Familiar
     if (rule.perfil_familiar === 'pai_ou_mae' || rule.perfil_familiar === 'casais') {
         hasRules = true;
-        // Approximation: if they have a spouse, they are at least a family/couple.
-        // True "has_children" requires a DB relation we don't have in this context.
-        const isFamily = !!publisher.spouseId || ageGroup === 'adulto'; 
-        if (isFamily) {
-            score += 50;
-            matches.push('Perfil Familiar');
-        } else {
-            misses.push('Falta: Perfil Familiar');
+        
+        const hasSpouse = !!publisher.spouseId;
+        const hasChildren = allPublishers ? allPublishers.some(p => p.parentIds && p.parentIds.includes(publisher.id)) : false;
+        
+        if (rule.perfil_familiar === 'pai_ou_mae') {
+            if (hasChildren) {
+                score += 50;
+                matches.push('Pai/Mãe');
+            } else {
+                misses.push('Falta: Perfil Pai/Mãe (Filhos)');
+            }
+        } else if (rule.perfil_familiar === 'casais') {
+            if (hasSpouse) {
+                score += 50;
+                matches.push('Casal');
+            } else {
+                misses.push('Falta: Cônjuge vinculado');
+            }
         }
     }
 
