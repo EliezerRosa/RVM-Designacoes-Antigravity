@@ -1,9 +1,14 @@
 import yaml from 'yaml';
 import type { Publisher } from '../types';
 import { supabase } from '../lib/supabase';
+import type { PublisherStats } from './participationAnalyticsService';
 
 export interface SemanticRule {
+    perfil_sintetico?: string;
+    afinidade_tipo_parte?: string;
     demografia_alvo?: string;
+    genero_alvo?: string;
+    foco_treinamento?: string;
     perfil_familiar?: string;
     emocional?: string;
     objeção?: string;
@@ -96,36 +101,143 @@ export interface SemanticScoreResult {
  * Função inteligente de Score: Avalia o perfil de um publicador contra a regra semântica.
  * O Curador usa os `matches` e `misses` para auditar a indicação.
  */
-export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule, allPublishers?: Publisher[]): SemanticScoreResult {
+export function calculateSemanticScore(
+    publisher: Publisher, 
+    rule: SemanticRule, 
+    allPublishers?: Publisher[],
+    affinityMap?: Record<string, PublisherStats>
+): SemanticScoreResult {
     let score = 0;
     const matches: string[] = [];
     const misses: string[] = [];
     let hasRules = false;
     
-    // 1. Demografia (Jovens vs Idosos)
     const ageGroup = (publisher.ageGroup || '').toLowerCase();
-    
-    if (rule.demografia_alvo === 'jovens' || rule.demografia_alvo === 'jovem') {
+    const gender = (publisher.gender || '').toLowerCase();
+    const condition = (publisher.condition || '').toLowerCase();
+    const isElder = condition === 'ancião' || condition === 'anciao';
+    const isMS = condition === 'servo ministerial' || condition === 'servo';
+    const isPioneer = publisher.funcao?.toLowerCase().includes('pioneiro regular');
+    const isBaptized = publisher.isBaptized !== false; // assume true if undefined
+
+    // 0. Perfil Sintético (Cruzamentos Inteligentes)
+    if (rule.perfil_sintetico) {
         hasRules = true;
-        if (ageGroup === 'jovem') {
-            score += 50;
-            matches.push('Jovem');
-        } else {
-            misses.push('Falta: Perfil Jovem');
-        }
-    }
-    
-    if (rule.demografia_alvo === 'idosos' || rule.demografia_alvo === 'idoso') {
-        hasRules = true;
-        if (ageGroup === 'idoso') {
-            score += 50;
-            matches.push('Idoso');
-        } else {
-            misses.push('Falta: Perfil Idoso');
+        const perfil = rule.perfil_sintetico.toLowerCase();
+        
+        if (perfil === 'conselheiro_experiente') {
+            if (ageGroup === 'idoso' && isElder) {
+                score += 75;
+                matches.push('Conselheiro Experiente');
+            } else {
+                misses.push('Falta: Conselheiro Experiente (Idoso+Ancião)');
+            }
+        } else if (perfil === 'jovem_promissor') {
+            if (ageGroup === 'jovem' && isBaptized && !isElder) {
+                score += 75;
+                matches.push('Jovem Promissor');
+            } else {
+                misses.push('Falta: Jovem Promissor (Jovem Batizado não Ancião)');
+            }
+        } else if (perfil === 'apologista_maduro') {
+            if (gender === 'masculino' && (isElder || isMS || isPioneer)) {
+                score += 75;
+                matches.push('Apologista Maduro');
+            } else {
+                misses.push('Falta: Apologista Maduro (Irmão Experiente)');
+            }
+        } else if (perfil === 'mentoria_feminina') {
+            if (gender === 'feminino' && (isPioneer || ageGroup === 'idoso' || ageGroup === 'adulto')) {
+                score += 75;
+                matches.push('Mentoria Feminina');
+            } else {
+                misses.push('Falta: Mentoria Feminina (Irmã Experiente)');
+            }
+        } else if (perfil === 'familia_base') {
+            const hasSpouse = !!publisher.spouseId;
+            const hasChildren = allPublishers ? allPublishers.some(p => p.parentIds && p.parentIds.includes(publisher.id)) : false;
+            if (hasSpouse && hasChildren) {
+                score += 75;
+                matches.push('Família Base');
+            } else {
+                misses.push('Falta: Família (Casado com filhos)');
+            }
+        } else if (perfil === 'jovem_treinamento') {
+            if ((ageGroup === 'jovem' || ageGroup === 'crianca') && !isBaptized) {
+                score += 50;
+                matches.push('Jovem em Treinamento');
+            } else {
+                misses.push('Falta: Jovem/Criança Não Batizado');
+            }
         }
     }
 
-    // 2. Perfil Familiar
+    // 0.5 Afinidade Histórica (O "Currículo")
+    if (rule.afinidade_tipo_parte && affinityMap) {
+        hasRules = true;
+        const stats = affinityMap[publisher.name];
+        if (stats && stats.byTipoParte) {
+            // Check if they have history in this specific part type
+            // rule.afinidade_tipo_parte might be "Discurso", "Iniciando conversas", etc.
+            const targetType = rule.afinidade_tipo_parte.toLowerCase();
+            let affinityCount = 0;
+            
+            for (const [tipo, count] of Object.entries(stats.byTipoParte)) {
+                if (tipo.toLowerCase().includes(targetType) || targetType.includes(tipo.toLowerCase())) {
+                    affinityCount += count;
+                }
+            }
+
+            if (affinityCount > 0) {
+                const bonus = affinityCount * 10;
+                score += bonus;
+                matches.push(`Afinidade Histórica: ${affinityCount}x ${rule.afinidade_tipo_parte} (+${bonus})`);
+            } else {
+                misses.push(`Falta: Sem histórico recente de ${rule.afinidade_tipo_parte}`);
+            }
+        }
+    }
+
+    // 1. Demografia
+    if (rule.demografia_alvo) {
+        hasRules = true;
+        const target = rule.demografia_alvo.toLowerCase();
+        
+        if (target.includes('jovem') && ageGroup === 'jovem') {
+            score += 50; matches.push('Jovem');
+        } else if (target.includes('idoso') && ageGroup === 'idoso') {
+            score += 50; matches.push('Idoso');
+        } else if (target.includes('crianca') && ageGroup === 'crianca') {
+            score += 50; matches.push('Criança');
+        } else if (target.includes('adulto') && ageGroup === 'adulto') {
+            score += 50; matches.push('Adulto');
+        } else {
+            misses.push(`Falta: Perfil ${rule.demografia_alvo}`);
+        }
+    }
+
+    // 1.5 Gênero e Foco de Treinamento
+    if (rule.genero_alvo) {
+        hasRules = true;
+        if (gender === rule.genero_alvo.toLowerCase()) {
+            score += 30; matches.push(`Gênero: ${rule.genero_alvo}`);
+        } else {
+            misses.push(`Falta: Gênero ${rule.genero_alvo}`);
+        }
+    }
+
+    if (rule.foco_treinamento) {
+        hasRules = true;
+        if (rule.foco_treinamento === 'batizado' && isBaptized) {
+            score += 30; matches.push('Batizado');
+        } else if (rule.foco_treinamento === 'nao_batizado' && !isBaptized) {
+            score += 30; matches.push('Não Batizado');
+        } else {
+            misses.push(`Falta: ${rule.foco_treinamento}`);
+        }
+    }
+
+    // 2. Perfil Familiar (Legado)
     if (rule.perfil_familiar === 'pai_ou_mae' || rule.perfil_familiar === 'casais') {
         hasRules = true;
         
@@ -149,20 +261,9 @@ export function calculateSemanticScore(publisher: Publisher, rule: SemanticRule,
         }
     }
 
-    // 3. Critério Exato e Boost Tags
+    // 3. Fallbacks (Boost Tags e Critérios exatos)
     if (rule.boost_tags && rule.boost_tags.length > 0) {
         hasRules = true;
-        const isElder = publisher.condition === 'Ancião' || publisher.condition === 'Anciao';
-        const isMS = publisher.condition === 'Servo Ministerial' || publisher.condition === 'Servo ministerial';
-        const isPioneer = publisher.modalidade?.toLowerCase().includes('pioneiro regular');
-        const isMature = isElder || isMS || isPioneer;
-        
-        let tagsMatched = 0;
-        if (rule.boost_tags.includes('ancião') && isElder) { score += 40; matches.push('Ancião'); tagsMatched++; }
-        if (rule.boost_tags.includes('experiente') && isMature) { score += 30; matches.push('Experiente'); tagsMatched++; }
-        if (rule.boost_tags.includes('maduro') && isMature) { score += 30; matches.push('Maduro'); tagsMatched++; }
-        if (rule.boost_tags.includes('pioneiro') && isPioneer) { score += 30; matches.push('Pioneiro'); tagsMatched++; }
-
         if (tagsMatched === 0) {
             misses.push(`Falta tags: ${rule.boost_tags.join(', ')}`);
         }
