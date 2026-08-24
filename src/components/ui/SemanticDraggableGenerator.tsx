@@ -39,24 +39,32 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     // Carrega histórico para cálculo de afinidade
     useEffect(() => {
         const fetchHistory = async () => {
+            if (!publishers || publishers.length === 0) return;
+            
             const endDate = new Date().toISOString().split('T')[0];
             const startDateObj = new Date();
             startDateObj.setFullYear(startDateObj.getFullYear() - 1); // 1 ano de histórico
             const startDate = startDateObj.toISOString().split('T')[0];
 
-            const comparisonData = await participationAnalyticsService.getComparisonData({
-                startDate,
-                endDate
-            });
+            const names = publishers.map(p => p.name);
 
-            const map: Record<string, PublisherStats> = {};
-            comparisonData.publishers.forEach(p => {
-                map[p.name] = p;
-            });
-            setAffinityMap(map);
+            try {
+                const comparisonData = await participationAnalyticsService.comparePublishers(names, {
+                    startDate,
+                    endDate
+                });
+
+                const map: Record<string, PublisherStats> = {};
+                comparisonData.publishers.forEach(p => {
+                    map[p.name] = p;
+                });
+                setAffinityMap(map);
+            } catch (err) {
+                console.error('[SemanticDraggable] Error fetching affinity map:', err);
+            }
         };
         fetchHistory();
-    }, []);
+    }, [publishers]);
 
     useEffect(() => {
         if (focusedPartId) {
