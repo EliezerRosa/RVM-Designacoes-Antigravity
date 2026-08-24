@@ -30,6 +30,7 @@ export interface PublisherStats {
     byModalidade: Record<string, number>;
     byTipoParte: Record<string, number>;
     timeline: { date: string; count: number }[];
+    recentParticipations: { tipoParte: string; date: string }[];
 }
 
 export interface ComparisonData {
@@ -138,6 +139,7 @@ export const participationAnalyticsService = {
         const byModalidade: Record<string, number> = {};
         const byTipoParte: Record<string, number> = {};
         const byDate: Record<string, number> = {};
+        const recentParticipations: { tipoParte: string; date: string }[] = [];
 
         let asTitular = 0;
         let asAjudante = 0;
@@ -158,6 +160,10 @@ export const participationAnalyticsService = {
             // Timeline (por mês/ano)
             const monthKey = p.date?.substring(0, 7) || 'unknown'; // YYYY-MM
             byDate[monthKey] = (byDate[monthKey] || 0) + 1;
+
+            if (p.date) {
+                recentParticipations.push({ tipoParte: tipo, date: p.date });
+            }
         });
 
         // Ordenar timeline
@@ -176,7 +182,8 @@ export const participationAnalyticsService = {
             lastParticipation,
             byModalidade,
             byTipoParte,
-            timeline
+            timeline,
+            recentParticipations
         };
     },
 

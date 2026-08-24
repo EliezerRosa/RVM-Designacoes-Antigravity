@@ -3,9 +3,14 @@ import type { Publisher } from '../types';
 import { supabase } from '../lib/supabase';
 import type { PublisherStats } from './participationAnalyticsService';
 
+export interface DynamicWeight {
+    tipo: string;
+    peso: 'MANDATORIO' | 'DESEJAVEL';
+}
+
 export interface SemanticRule {
-    perfil_sintetico?: string;
-    afinidade_tipo_parte?: string;
+    perfil_sintetico?: DynamicWeight | string;
+    afinidade_tipo_parte?: DynamicWeight | string;
     demografia_alvo?: string;
     genero_alvo?: string;
     foco_treinamento?: string;
@@ -43,7 +48,12 @@ export async function fetchSemanticRulesForWeek(weekId: string): Promise<Semanti
             return fetchFallbackRules();
         }
 
-        const parsed = yaml.parse(data.rule_yaml) as SemanticRulesDict;
+        let parsed: SemanticRulesDict;
+        try {
+            parsed = JSON.parse(data.rule_yaml);
+        } catch {
+            parsed = yaml.parse(data.rule_yaml) as SemanticRulesDict;
+        }
         return parsed;
     } catch (err) {
         console.error('[SemanticRules] Erro ao carregar regras DB:', err);
@@ -123,33 +133,38 @@ export function calculateSemanticScore(
     // 0. Perfil Sintético (Cruzamentos Inteligentes)
     if (rule.perfil_sintetico) {
         hasRules = true;
-        const perfil = rule.perfil_sintetico.toLowerCase();
+        const perfilObj = typeof rule.perfil_sintetico === 'string'
+            ? { tipo: rule.perfil_sintetico, peso: 'DESEJAVEL' }
+            : rule.perfil_sintetico;
+            
+        const perfil = perfilObj.tipo.toLowerCase();
+        const pts = perfilObj.peso === 'MANDATORIO' ? 1000 : 75;
         
         if (perfil === 'conselheiro_experiente') {
             if (ageGroup === 'idoso' && isElder) {
-                score += 75;
-                matches.push('Conselheiro Experiente');
+                score += pts;
+                matches.push(`Conselheiro Experiente (+${pts})`);
             } else {
                 misses.push('Falta: Conselheiro Experiente (Idoso+Ancião)');
             }
         } else if (perfil === 'jovem_promissor') {
             if (ageGroup === 'jovem' && isBaptized && !isElder) {
-                score += 75;
-                matches.push('Jovem Promissor');
+                score += pts;
+                matches.push(`Jovem Promissor (+${pts})`);
             } else {
                 misses.push('Falta: Jovem Promissor (Jovem Batizado não Ancião)');
             }
         } else if (perfil === 'apologista_maduro') {
             if (gender === 'masculino' && (isElder || isMS || isPioneer)) {
-                score += 75;
-                matches.push('Apologista Maduro');
+                score += pts;
+                matches.push(`Apologista Maduro (+${pts})`);
             } else {
                 misses.push('Falta: Apologista Maduro (Irmão Experiente)');
             }
         } else if (perfil === 'mentoria_feminina') {
             if (gender === 'feminino' && (isPioneer || ageGroup === 'idoso' || ageGroup === 'adulto')) {
-                score += 75;
-                matches.push('Mentoria Feminina');
+                score += pts;
+                matches.push(`Mentoria Feminina (+${pts})`);
             } else {
                 misses.push('Falta: Mentoria Feminina (Irmã Experiente)');
             }
@@ -157,43 +172,65 @@ export function calculateSemanticScore(
             const hasSpouse = !!publisher.spouseId;
             const hasChildren = allPublishers ? allPublishers.some(p => p.parentIds && p.parentIds.includes(publisher.id)) : false;
             if (hasSpouse && hasChildren) {
-                score += 75;
-                matches.push('Família Base');
+                score += pts;
+                matches.push(`Família Base (+${pts})`);
             } else {
                 misses.push('Falta: Família (Casado com filhos)');
             }
         } else if (perfil === 'jovem_treinamento') {
             if ((ageGroup === 'jovem' || ageGroup === 'crianca') && !isBaptized) {
-                score += 50;
-                matches.push('Jovem em Treinamento');
+                score += pts;
+                matches.push(`Jovem em Treinamento (+${pts})`);
             } else {
                 misses.push('Falta: Jovem/Criança Não Batizado');
             }
+        } else if (perfil !== 'nenhum' && perfil !== '') {
+            // Se a IA gerou um perfil que não conhecemos mas mandou dar peso, ignoramos com log
+            console.warn(`[Semantic] Perfil sintético desconhecido: ${perfil}`);
         }
     }
 
-    // 0.5 Afinidade Histórica (O "Currículo")
+    // 0.5 Afinidade Histórica (O "Currículo" com Time-Decay)
     if (rule.afinidade_tipo_parte && affinityMap) {
         hasRules = true;
         const stats = affinityMap[publisher.name];
-        if (stats && stats.byTipoParte) {
-            // Check if they have history in this specific part type
-            // rule.afinidade_tipo_parte might be "Discurso", "Iniciando conversas", etc.
-            const targetType = rule.afinidade_tipo_parte.toLowerCase();
-            let affinityCount = 0;
+        
+        const afinidadeObj = typeof rule.afinidade_tipo_parte === 'string'
+            ? { tipo: rule.afinidade_tipo_parte, peso: 'DESEJAVEL' }
+            : rule.afinidade_tipo_parte;
             
-            for (const [tipo, count] of Object.entries(stats.byTipoParte)) {
-                if (tipo.toLowerCase().includes(targetType) || targetType.includes(tipo.toLowerCase())) {
-                    affinityCount += count;
+        const targetType = afinidadeObj.tipo.toLowerCase();
+        
+        if (stats && stats.recentParticipations) {
+            let affinityBonus = 0;
+            let matchCount = 0;
+            const now = new Date();
+            
+            for (const part of stats.recentParticipations) {
+                if (part.tipoParte.toLowerCase().includes(targetType) || targetType.includes(part.tipoParte.toLowerCase())) {
+                    matchCount++;
+                    const partDate = new Date(part.date);
+                    const monthsAgo = (now.getFullYear() - partDate.getFullYear()) * 12 + (now.getMonth() - partDate.getMonth());
+                    
+                    if (monthsAgo <= 1) affinityBonus += 15;
+                    else if (monthsAgo <= 6) affinityBonus += 5;
+                    else affinityBonus += 1;
                 }
             }
 
-            if (affinityCount > 0) {
-                const bonus = affinityCount * 10;
-                score += bonus;
-                matches.push(`Afinidade Histórica: ${affinityCount}x ${rule.afinidade_tipo_parte} (+${bonus})`);
+            if (afinidadeObj.peso === 'MANDATORIO' && matchCount === 0) {
+                // Se é mandatório e não tem histórico, derruba a nota
+                score -= 500;
+                misses.push(`Veto: Sem histórico Mandatório de ${afinidadeObj.tipo}`);
+            } else if (matchCount > 0) {
+                // Se é mandatório, dá um bônus absurdo caso tenha experiência
+                if (afinidadeObj.peso === 'MANDATORIO') {
+                    affinityBonus += 500;
+                }
+                score += affinityBonus;
+                matches.push(`Afinidade Histórica: ${matchCount}x ${afinidadeObj.tipo} (+${affinityBonus})`);
             } else {
-                misses.push(`Falta: Sem histórico recente de ${rule.afinidade_tipo_parte}`);
+                misses.push(`Falta: Sem histórico recente de ${afinidadeObj.tipo}`);
             }
         }
     }

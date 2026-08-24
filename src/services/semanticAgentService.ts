@@ -9,25 +9,57 @@ export interface AgentGenerationStatus {
 
 const SYSTEM_PROMPT = `
 Você é o Agente Especialista de Critérios para a Reunião Vida e Ministério ("Casting Director").
-Sua missão é ler as partes da reunião de uma semana e gerar um YAML com os critérios de busca semânticos, focando na especialidade, perfil familiar e capacidade dos publicadores.
+Sua missão é ler as partes da reunião de uma semana e gerar regras semânticas determinísticas (Pesos Dinâmicos e Perfis Sintéticos).
+Você NÃO precisa se preocupar com fadiga ou frequência, seu foco é 100% no "Curriculo" e "Perfil" ideal para a parte.
 
-As chaves do YAML devem ser os títulos das partes.
-Para cada parte pertinente, retorne APENAS um objeto contendo:
-- perfil_sintetico: (Exija um arquétipo cruzado se aplicável. Opções: "conselheiro_experiente", "jovem_promissor", "apologista_maduro", "mentoria_feminina", "familia_base", "jovem_treinamento". Ou omita).
-- afinidade_tipo_parte: (O tema/tipo com o qual este cenário mais ressoa, para buscarmos um especialista histórico. Ex: "Iniciando conversas", "Discurso", "Cultivando o interesse". Ou omita).
-- demografia_alvo: (ex: "crianca", "jovem", "adulto", "idoso" ou omita)
-- genero_alvo: (ex: "masculino", "feminino", ou omita. Só use se a parte for fortemente inclinada a um gênero).
-- perfil_familiar: (ex: "pai_ou_mae", "casais", ou omita)
-- foco_treinamento: (ex: "batizado", "nao_batizado", ou omita)
-- boost_tags: [array de strings genéricas para fallback, ex: "ancião", "empatia"]
-- sugestao: "Uma breve frase explicando a escolha do perfil sintético ou demografia com base no texto."
-- texto_original: "O trecho da apostila que motivou essa regra."
+EXEMPLO 1: Parte sobre defender a fé na escola.
+Regra Ideal: perfil_sintetico: jovem_promissor (MANDATÓRIO), afinidade: "Discurso" (DESEJAVEL).
+Sugestão: "A parte envolve ambiente escolar, ideal para um jovem dar o exemplo."
 
-Regras estritas:
-1. Retorne APENAS um bloco YAML válido, sem blocos de código markdown ao redor.
-2. Seja MUITO conservador. Se a parte for leitura da Bíblia ou genérica (qualquer um pode fazer), NÃO GERE regra para ela. Gere apenas para partes que claramente se beneficiam de uma demografia ou perfil específico.
-3. Use a chave raiz com o formato "semana_YYYY-MM-DD" e dentro dela as partes.
+EXEMPLO 2: Parte de demonstração sobre iniciar conversa com o cônjuge descrente.
+Regra Ideal: perfil_familiar: casais, perfil_sintetico: conselheiro_experiente (MANDATÓRIO), afinidade: "Iniciando Conversas" (MANDATÓRIO).
+
+Seja conservador: partes genéricas (como Leitura da Bíblia) não precisam de regras complexas, a menos que o tema exija.
+Para campos que não se aplicam, retorne 'nenhum'.
 `;
+
+const RESPONSE_SCHEMA = {
+    type: 'object',
+    properties: {
+        regras: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    titulo_parte: { type: 'string' },
+                    perfil_sintetico: {
+                        type: 'object',
+                        properties: {
+                            tipo: { type: 'string', enum: ['conselheiro_experiente', 'jovem_promissor', 'apologista_maduro', 'mentoria_feminina', 'familia_base', 'jovem_treinamento', 'nenhum'] },
+                            peso: { type: 'string', enum: ['MANDATORIO', 'DESEJAVEL'] }
+                        }
+                    },
+                    afinidade_tipo_parte: {
+                        type: 'object',
+                        properties: {
+                            tipo: { type: 'string' },
+                            peso: { type: 'string', enum: ['MANDATORIO', 'DESEJAVEL'] }
+                        }
+                    },
+                    demografia_alvo: { type: 'string', enum: ['crianca', 'jovem', 'adulto', 'idoso', 'nenhum'] },
+                    genero_alvo: { type: 'string', enum: ['masculino', 'feminino', 'nenhum'] },
+                    foco_treinamento: { type: 'string', enum: ['batizado', 'nao_batizado', 'nenhum'] },
+                    perfil_familiar: { type: 'string', enum: ['pai_ou_mae', 'casais', 'nenhum'] },
+                    boost_tags: { type: 'array', items: { type: 'string' } },
+                    sugestao: { type: 'string' },
+                    texto_original: { type: 'string' }
+                },
+                required: ["titulo_parte", "sugestao"]
+            }
+        }
+    },
+    required: ["regras"]
+};
 
 export async function generateSemanticRulesForWeek(weekId: string, parts: WorkbookPart[]): Promise<string> {
     const proxyUrl = getAiProxyUrl();
@@ -48,9 +80,14 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         contents: [
             {
                 role: 'user',
-                parts: [{ text: `Aqui estão as partes da semana. Gere o YAML com as regras semânticas.\n\n${partsTextContext}` }]
+                parts: [{ text: `Aqui estão as partes da semana. Analise e retorne estritamente o JSON seguindo o schema.\n\n${partsTextContext}` }]
             }
-        ]
+        ],
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: RESPONSE_SCHEMA,
+            temperature: 0.1 // Força determinismo
+        }
     };
 
     try {
@@ -68,25 +105,32 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
 
         const data = await response.json();
         
-        let rawResult = '';
+        let rawResult = '{}';
         if (data && data.candidates && data.candidates.length > 0) {
             const parts = data.candidates[0].content?.parts || [];
             rawResult = parts.map((p: any) => p.text).join('');
         }
         
-        // Limpar possíveis marcações de markdown retornadas pelo LLM
-        let cleanYaml = rawResult.trim();
-        if (cleanYaml.startsWith('\`\`\`yaml')) {
-            cleanYaml = cleanYaml.replace(/^\`\`\`yaml\n?/, '');
-        }
-        if (cleanYaml.startsWith('\`\`\`')) {
-            cleanYaml = cleanYaml.replace(/^\`\`\`\n?/, '');
-        }
-        if (cleanYaml.endsWith('\`\`\`')) {
-            cleanYaml = cleanYaml.replace(/\n?\`\`\`$/, '');
+        const parsedAi = JSON.parse(rawResult);
+        const dict: any = { [weekId]: {} };
+        
+        if (parsedAi.regras && Array.isArray(parsedAi.regras)) {
+            for (const rule of parsedAi.regras) {
+                const { titulo_parte, ...ruleData } = rule;
+                
+                // Limpar campos "nenhum" para manter a estrutura limpa
+                for (const key of Object.keys(ruleData)) {
+                    const val = ruleData[key];
+                    if (val === 'nenhum' || val?.tipo === 'nenhum') {
+                        delete ruleData[key];
+                    }
+                }
+                
+                dict[weekId][titulo_parte] = ruleData;
+            }
         }
 
-        return cleanYaml.trim();
+        return JSON.stringify(dict, null, 2);
     } catch (err) {
         console.error('[semanticAgentService] Falha ao gerar regras:', err);
         throw err;
