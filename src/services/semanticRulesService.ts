@@ -264,6 +264,25 @@ export function calculateSemanticScore(
     // 3. Fallbacks (Boost Tags e Critérios exatos)
     if (rule.boost_tags && rule.boost_tags.length > 0) {
         hasRules = true;
+        let tagsMatched = 0;
+        for (const tag of rule.boost_tags) {
+            const t = tag.toLowerCase();
+            if (t.includes('ancião') && isElder) {
+                score += 40; matches.push('Tag: Ancião'); tagsMatched++;
+            }
+            else if (t.includes('pioneiro') && isPioneer) {
+                score += 30; matches.push('Tag: Pioneiro'); tagsMatched++;
+            }
+            else if (t.includes('maduro') && (isElder || isMS || isPioneer)) {
+                score += 30; matches.push('Tag: Maduro'); tagsMatched++;
+            }
+            else if (t.includes('experiente') && (isElder || isMS || isPioneer)) {
+                score += 30; matches.push('Tag: Experiente'); tagsMatched++;
+            }
+            else if (t.includes('jovem') && ageGroup === 'jovem') {
+                score += 30; matches.push('Tag: Jovem'); tagsMatched++;
+            }
+        }
         if (tagsMatched === 0) {
             misses.push(`Falta tags: ${rule.boost_tags.join(', ')}`);
         }
