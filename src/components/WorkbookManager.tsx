@@ -750,7 +750,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                     { ...part, resolvedPublisherName: newPub.name },
                     partnerPubName,
                     undefined,
-                    true
+                    false
                 );
 
                 if (pdfBase64) {
@@ -758,7 +758,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                     const srvmName = 'Irmão'; // Simplificado
                     const srvmPhone = ''; // Simplificado
                     
-                    const msg = generateWhatsAppMessage(
+                    const baseMsg = generateWhatsAppMessage(
                         { ...part, resolvedPublisherName: newPub.name },
                         newPub.gender,
                         partnerPubName,
@@ -767,14 +767,16 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                         srvmName,
                         srvmPhone,
                         confirmUrl,
-                        true // isSubstitution!
+                        false
                     );
+
+                    const finalMsg = `⚠️ *AVISO IMPORTANTE: SUBSTITUIÇÃO DE DESIGNAÇÃO!*\n_Você foi designado para substituir outro publicador nesta parte._\n\n` + baseMsg;
 
                     console.log(`[ManualReplacement] Enviando S-89 via Z-API para: ${newPub.phone}`);
                     const rNew = await zapiOrchestrator.sendS89Direct(
                         partId,
                         newPub.phone,
-                        msg,
+                        finalMsg,
                         pdfBase64
                     );
                     console.log(`[ManualReplacement] Resultado S-89:`, rNew);
@@ -786,16 +788,47 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             // C. Notificar o Parceiro
             if (options.notifyPartner && partnerPub?.phone && newPub) {
                 console.log(`[ManualReplacement] Avisando parceiro ${partnerPub.name} sobre a troca`);
-                const rPart = await zapiOrchestrator.dispatchPartnerReplacementAlert(
-                    partnerPub.phone,
-                    partnerPub.name,
-                    part.tituloParte || part.tipoParte,
-                    part.date || part.weekId,
+                
+                // O Parceiro pode ser Titular ou Ajudante em relação à parte editada
+                const partnerIsAjudante = !isAjudante; // Se quem foi trocado era titular, o parceiro é ajudante.
+
+                // Montar o base64 do cartão para o Parceiro (idêntico ao envio inicial)
+                const pdfBase64Partner = await generateS89PngBase64(
+                    { ...part, resolvedPublisherName: partnerPub.name },
                     newPub.name,
-                    newPub.phone,
-                    isAjudante // se a parte sendo editada era ajudante, o newPub é o ajudante!
+                    undefined,
+                    false
                 );
-                console.log(`[ManualReplacement] Resultado notificação parceiro:`, rPart);
+
+                if (pdfBase64Partner) {
+                    const confirmUrl = await communicationService.createConfirmationPortalLink(partnerPart?.id || partId, partnerPub.id);
+                    const srvmName = 'Irmão';
+                    const srvmPhone = '';
+                    
+                    const baseMsgPartner = generateWhatsAppMessage(
+                        { ...part, resolvedPublisherName: partnerPub.name },
+                        partnerPub.gender,
+                        newPub.name,
+                        newPub?.phone,
+                        partnerIsAjudante,
+                        srvmName,
+                        srvmPhone,
+                        confirmUrl,
+                        false
+                    );
+
+                    const rolePartnerChanged = isAjudante ? 'Ajudante' : 'Titular';
+                    const finalMsgPartner = `⚠️ *AVISO IMPORTANTE: MUDANÇA DE PARCEIRO(A)!*\n_Houve uma substituição e o seu ${rolePartnerChanged} para esta parte mudou._\n\n` + baseMsgPartner;
+
+                    console.log(`[ManualReplacement] Enviando S-89 via Z-API para Parceiro: ${partnerPub.phone}`);
+                    const rPart = await zapiOrchestrator.sendS89Direct(
+                        partnerPart?.id || partId,
+                        partnerPub.phone,
+                        finalMsgPartner,
+                        pdfBase64Partner
+                    );
+                    console.log(`[ManualReplacement] Resultado notificação parceiro:`, rPart);
+                }
             }
 
         } catch (e) {
