@@ -166,8 +166,10 @@ class ZApiOrchestrator {
 
         const msg = `🔄 *Aviso de Ajuste na Tabela — RVM*\n\n` +
             `Olá, ${oldName}! Tudo bem?\n` +
-            `Informamos que, devido a um ajuste manual na tabela, a sua parte de *${partType}* do dia *${partDate}* foi repassada para outro irmão.\n\n` +
-            `Portanto, você não precisará mais realizar esta parte. Agradecemos a sua compreensão! 🙏`;
+            `Informamos que, devido a um ajuste manual na tabela, houve uma alteração na sua designação:\n\n` +
+            `📝 *Parte:* ${partType}\n` +
+            `📅 *Data:* ${partDate}\n\n` +
+            `Esta parte foi repassada para outro irmão. Portanto, você não precisará mais realizá-la. Agradecemos a sua compreensão e apoio! 🙏`;
 
         const result = await this.sendTextDirect(oldPhone, msg);
         return result.success;
