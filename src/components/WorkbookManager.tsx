@@ -755,8 +755,9 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
 
                 if (pdfBase64) {
                     const confirmUrl = await communicationService.createConfirmationPortalLink(partId, newPub.id);
-                    const srvmName = 'Irmão'; // Simplificado
-                    const srvmPhone = ''; // Simplificado
+                    const srvm = publishers.find(p => p.name.includes('Edmardo'));
+                    const srvmName = srvm?.name || 'Edmardo Queiroz';
+                    const srvmPhone = srvm?.phone || '';
                     
                     const baseMsg = generateWhatsAppMessage(
                         { ...part, resolvedPublisherName: newPub.name },
@@ -802,8 +803,9 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
 
                 if (pdfBase64Partner) {
                     const confirmUrl = await communicationService.createConfirmationPortalLink(partnerPart?.id || partId, partnerPub.id);
-                    const srvmName = 'Irmão';
-                    const srvmPhone = '';
+                    const srvm = publishers.find(p => p.name.includes('Edmardo'));
+                    const srvmName = srvm?.name || 'Edmardo Queiroz';
+                    const srvmPhone = srvm?.phone || '';
                     
                     const baseMsgPartner = generateWhatsAppMessage(
                         { ...part, resolvedPublisherName: partnerPub.name },
