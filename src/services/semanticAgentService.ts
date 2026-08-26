@@ -112,7 +112,8 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         }
         
         const parsedAi = JSON.parse(rawResult);
-        const dict: any = { [weekId]: {} };
+        const weekKey = `semana_${weekId}`;
+        const dict: any = { [weekKey]: {} };
         
         if (parsedAi.regras && Array.isArray(parsedAi.regras)) {
             for (const rule of parsedAi.regras) {
@@ -126,7 +127,7 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
                     }
                 }
                 
-                dict[weekId][titulo_parte] = ruleData;
+                dict[weekKey][titulo_parte] = ruleData;
             }
         }
 

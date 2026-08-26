@@ -90,6 +90,27 @@ class ZApiOrchestrator {
         return result.success;
     }
 
+    async getAdminPhones(): Promise<string[]> {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('email')
+                .eq('role', 'admin');
+            if (error || !data) return [];
+            const adminEmails = data.map(d => d.email).filter(Boolean);
+            
+            const { data: pubData, error: pubError } = await supabase
+                .from('publishers')
+                .select('phone')
+                .in('email', adminEmails);
+            
+            if (pubError || !pubData) return [];
+            return pubData.map(p => p.phone).filter(Boolean) as string[];
+        } catch {
+            return [];
+        }
+    }
+
     async dispatchRefusalAlert(part: WorkbookPart, reason: string): Promise<boolean> {
         if (!(await this.isAutomationActive())) {
             return false;
@@ -102,20 +123,19 @@ class ZApiOrchestrator {
 
         const alertData = await communicationService.buildRefusalAlertMessage(part, reason);
 
-        // Recusa: alertar APENAS SRVM + Ajudante SRVM (telefones individuais), NUNCA o grupo.
-        // O grupo é reservado para a publicação (automática ou manual-z-api no modal).
-        // Caminho desacoplado via Edge Function (sendTextDirect aceita qualquer telefone,
-        // sem a validação BR client-side que barraria — e que antes barrava o group id).
-        const [srvmPhone, ajdPhone] = await Promise.all([
+        // Recusa: alertar SRVM, Ajudante SRVM, e todos os Admins do sistema.
+        const [srvmPhone, ajdPhone, adminPhones] = await Promise.all([
             this.getSrvmPhone(),
             this.getAjdSrvmPhone(),
+            this.getAdminPhones()
         ]);
+        
         const recipients = Array.from(new Set(
-            [srvmPhone, ajdPhone, alertData.srvmPhone].filter((x): x is string => !!x && x.trim().length > 0)
+            [srvmPhone, ajdPhone, alertData.srvmPhone, ...adminPhones].filter((x): x is string => !!x && x.trim().length > 0)
         ));
 
         if (recipients.length === 0) {
-            console.error('[zapiOrchestrator] Nenhum destinatário (SRVM/Ajd SRVM) para o alerta de recusa.');
+            console.error('[zapiOrchestrator] Nenhum destinatário para o alerta de recusa.');
             return false;
         }
 

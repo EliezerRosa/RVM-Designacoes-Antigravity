@@ -63,6 +63,7 @@ interface Props {
     publishers: Publisher[];
     isActive?: boolean;
     initialPartId?: string;
+    focusPartId?: string;
     canSendZap?: boolean;
 }
 
@@ -81,7 +82,7 @@ const EXPECTED_COLUMNS = [
 
 
 
-export function WorkbookManager({ publishers, isActive, initialPartId, canSendZap }: Props) {
+export function WorkbookManager({ publishers, isActive, initialPartId, focusPartId, canSendZap }: Props) {
     // ========================================================================
     // Estado
     // ========================================================================
@@ -293,20 +294,23 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
     // NEW: Handle initialPartId from URL action links
     useEffect(() => {
         if (initialPartId && parts.length > 0) {
-            // Find the part in the loaded list
             const part = parts.find(p => p.id === initialPartId);
             if (part) {
                 console.log(`[WorkbookManager] Auto-opening modal for initialPartId: ${initialPartId}`);
                 handleEditPart(part);
-
-                // Optional: Scroll to it if it's in the list
-                // (Modal opens over the list, so it's already "focused")
-            } else {
-                console.log(`[WorkbookManager] initialPartId ${initialPartId} not found in current loaded parts (${parts.length})`);
-                // If not found, maybe it's very old or the ID is wrong
             }
         }
-    }, [initialPartId, parts.length > 0]); // Only trigger when initialPartId is present and parts are loaded
+    }, [initialPartId, parts]);
+
+    // NEW: Modo Foco - Ajusta a semana e desativa filtros
+    useEffect(() => {
+        if (focusPartId && parts.length > 0) {
+            const part = parts.find(p => p.id === focusPartId);
+            if (part && part.weekId !== filterWeek) {
+                setFilterWeek(part.weekId);
+            }
+        }
+    }, [focusPartId, parts]);
 
     // Recarregar dados quando filtros server-side mudarem
     // Debounce para evitar muitas requisições
@@ -560,7 +564,15 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
         });
     }, [parts]);
 
+    // ========================================================================
+    // Filtragem Local
+    // ========================================================================
+
     const filteredParts = useMemo(() => {
+        if (focusPartId) {
+            return parts.filter(p => p.id === focusPartId);
+        }
+
         return parts.filter(p => {
             // OCULTAR partes secundárias (a menos que showHiddenParts esteja ativo)
             if (!showHiddenParts && HIDDEN_VIEW_TYPES.includes(p.tipoParte)) {
@@ -581,7 +593,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             }
             return true;
         });
-    }, [parts, filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText, showHiddenParts]);
+    }, [parts, filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText, showHiddenParts, focusPartId]);
 
     // ========================================================================
     // Estilos inline
@@ -1023,7 +1035,6 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                 ) : (
                     <div style={{ padding: '0 16px 8px', maxWidth: '1600px', width: '100%', margin: '0 auto', minHeight: '100%' }}>
 
-
                         {/* Mensagens */}
                         {error && (
                             <div style={{ padding: '12px', background: '#FEE2E2', color: '#B91C1C', borderRadius: '8px', marginBottom: '16px' }}>
@@ -1112,42 +1123,60 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                                 )}
                             </div>
                         )}
-                        <WorkbookToolbar
-                            loading={loading}
-                            canUndo={canUndo}
-                            undoDescription={undoDescription}
-                            showHiddenParts={showHiddenParts}
-                            searchText={searchText}
-                            filterWeek={filterWeek}
-                            filterSection={filterSection}
-                            filterFuncao={filterFuncao}
-                            filterTipo={filterTipo}
-                            filterStatus={filterStatus}
-                            filteredParts={filteredParts}
-                            parts={parts}
-                            publishers={publishers}
-                            currentPage={currentPage}
-                            uniqueWeeks={uniqueWeeks}
-                            uniqueSections={uniqueSections}
-                            uniqueTipos={uniqueTipos}
-                            onSearchTextChange={setSearchText}
-                            onFilterWeekChange={setFilterWeek}
-                            onFilterSectionChange={setFilterSection}
-                            onFilterFuncaoChange={setFilterFuncao}
-                            onFilterTipoChange={setFilterTipo}
-                            onFilterStatusChange={setFilterStatus}
-                            onShowHiddenPartsChange={setShowHiddenParts}
-                            onCurrentPageChange={setCurrentPage}
-                            onFileUpload={handleFileUpload}
-                            onRefresh={() => loadPartsWithFilters()}
-                            onOpenGeneration={() => setIsGenerationModalOpen(true)}
-                            onOpenLocalNeeds={() => setIsLocalNeedsQueueOpen(true)}
-                            onOpenEvents={() => setIsEventsModalOpen(true)}
-                            onOpenBulkReset={() => setIsBulkResetModalOpen(true)}
-                            onOpenS140Multi={() => setIsS140MultiModalOpen(true)}
-                            setLoading={setLoading}
-                            setSuccessMessage={setSuccessMessage}
-                        />
+                        
+                        {focusPartId ? (
+                            <div style={{ 
+                                padding: '12px 24px', 
+                                background: '#FEF3C7', 
+                                color: '#92400E', 
+                                border: '1px solid #FCD34D',
+                                borderRadius: '8px',
+                                marginBottom: '16px',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                ⚠️ Modo Foco: Visualizando apenas a parte recusada. (As ferramentas de filtro da semana estão ocultas).
+                            </div>
+                        ) : (
+                            <WorkbookToolbar
+                                loading={loading}
+                                canUndo={canUndo}
+                                undoDescription={undoDescription}
+                                showHiddenParts={showHiddenParts}
+                                searchText={searchText}
+                                filterWeek={filterWeek}
+                                filterSection={filterSection}
+                                filterFuncao={filterFuncao}
+                                filterTipo={filterTipo}
+                                filterStatus={filterStatus}
+                                filteredParts={filteredParts}
+                                parts={parts}
+                                publishers={publishers}
+                                currentPage={currentPage}
+                                uniqueWeeks={uniqueWeeks}
+                                uniqueSections={uniqueSections}
+                                uniqueTipos={uniqueTipos}
+                                onSearchTextChange={setSearchText}
+                                onFilterWeekChange={setFilterWeek}
+                                onFilterSectionChange={setFilterSection}
+                                onFilterFuncaoChange={setFilterFuncao}
+                                onFilterTipoChange={setFilterTipo}
+                                onFilterStatusChange={setFilterStatus}
+                                onShowHiddenPartsChange={setShowHiddenParts}
+                                onCurrentPageChange={setCurrentPage}
+                                onFileUpload={handleFileUpload}
+                                onRefresh={() => loadPartsWithFilters()}
+                                onOpenGeneration={() => setIsGenerationModalOpen(true)}
+                                onOpenLocalNeeds={() => setIsLocalNeedsQueueOpen(true)}
+                                onOpenEvents={() => setIsEventsModalOpen(true)}
+                                onOpenBulkReset={() => setIsBulkResetModalOpen(true)}
+                                onOpenS140Multi={() => setIsS140MultiModalOpen(true)}
+                                setLoading={setLoading}
+                                setSuccessMessage={setSuccessMessage}
+                            />
+                        )}
 
                         {/* Tabela */}
                         <WorkbookTable

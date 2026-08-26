@@ -52,12 +52,27 @@ export async function fetchSemanticRulesForWeek(weekId: string): Promise<Semanti
         try {
             parsed = JSON.parse(data.rule_yaml);
         } catch {
-            parsed = yaml.parse(data.rule_yaml) as SemanticRulesDict;
+            try {
+                parsed = yaml.parse(data.rule_yaml) as SemanticRulesDict;
+            } catch (yamlErr) {
+                console.warn('[SemanticRules] Falha no yaml.parse. Tentando sanitizar YAML...', yamlErr);
+                try {
+                    // Tenta remover linhas problemáticas como texto_original
+                    const sanitized = data.rule_yaml
+                        .split('\n')
+                        .filter(line => !line.trim().startsWith('texto_original:'))
+                        .join('\n');
+                    parsed = yaml.parse(sanitized) as SemanticRulesDict;
+                } catch (sanitizedErr) {
+                    console.error('[SemanticRules] YAML corrompido, ativando fallback rules para evitar loop de IA.', sanitizedErr);
+                    return fetchFallbackRules();
+                }
+            }
         }
         return parsed;
     } catch (err) {
         console.error('[SemanticRules] Erro ao carregar regras DB:', err);
-        return {};
+        return fetchFallbackRules();
     }
 }
 

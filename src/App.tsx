@@ -182,10 +182,12 @@ function App() {
     return <LoginPage />;
   }
 
-  return <AuthenticatedApp onSignOut={signOut} userEmail={profile?.email || ''} />;
+  const isFocusMode = portalAction === 'focus_part' && !!portalPartId;
+
+  return <AuthenticatedApp onSignOut={signOut} userEmail={profile?.email || ''} isFocusMode={isFocusMode} focusPartId={isFocusMode ? portalPartId! : undefined} />;
 }
 
-function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; userEmail: string }) {
+function AuthenticatedApp({ onSignOut, userEmail, isFocusMode, focusPartId }: { onSignOut: () => void; userEmail: string, isFocusMode?: boolean, focusPartId?: string }) {
   const { profile, registerDeviceAuth, isAppUnlocked } = useAuth()
   const { permissions, isLoading: permissionsLoading } = usePermissions(profile)
 
@@ -243,10 +245,15 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
   const handleInitialTabResolved = useCallback((savedTab: AppActiveTab) => {
     // Evita sobrescrever se uma ação de URL já definiu uma aba específica
     setActiveTab((current) => {
+      if (isFocusMode) return 'workbook';
       if (current === 'agent') return current; // admin=true já forçou agent
       return savedTab;
     });
-  }, []);
+  }, [isFocusMode]);
+
+  useEffect(() => {
+    if (isFocusMode) setActiveTab('workbook');
+  }, [isFocusMode]);
 
   const {
     publishers,
@@ -278,6 +285,10 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
 
   // Persist active tab to Supabase
   const handleTabChange = async (tab: ActiveTab) => {
+    if (isFocusMode) {
+      alert("Você está no Modo Foco (através de um link de recusa). Remova o link da URL para navegar normalmente.");
+      return;
+    }
     setActiveTab(tab)
     try {
       await api.setSetting('activeTab', tab)
@@ -593,6 +604,7 @@ function AuthenticatedApp({ onSignOut, userEmail }: { onSignOut: () => void; use
               publishers={publishers}
               isActive={true}
               canSendZap={permissions.canSendZap()}
+              focusPartId={focusPartId}
             />
           )}
 
