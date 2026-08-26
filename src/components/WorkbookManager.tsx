@@ -720,15 +720,34 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             // Partner lookup (se for dupla)
             const isAjudante = part.funcao === 'Ajudante';
             const findPartnerPart = () => {
+                const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
+                const partNum = partNumMatch ? partNumMatch[1] : null;
+                const partIsSalaB = part.modalidade?.toLowerCase().includes('b') || false;
+                
                 const isLeitorEBC = part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc');
                 const isDirigenteEBC = part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc');
+
                 return parts.find(p => {
                     if (p.weekId !== part.weekId || p.id === part.id) return false;
+                    if (!p.resolvedPublisherName && !p.rawPublisherName && !p.resolvedPublisherId) return false;
+
+                    const otherNumMatch = (p.tituloParte || p.tipoParte || '').match(/^(\d+)/);
+                    const otherNum = otherNumMatch ? otherNumMatch[1] : null;
+                    const pIsSalaB = p.modalidade?.toLowerCase().includes('b') || false;
+
+                    if (partNum && otherNum) {
+                        if (partNum === otherNum) {
+                            return p.funcao !== part.funcao && pIsSalaB === partIsSalaB;
+                        }
+                        return false;
+                    }
+
                     const pIsLeitorEBC = p.tipoParte?.toLowerCase().includes('leitor') && p.tipoParte?.toLowerCase().includes('ebc');
                     const pIsDirigenteEBC = p.tipoParte?.toLowerCase().includes('dirigente') && p.tipoParte?.toLowerCase().includes('ebc');
                     if (isLeitorEBC && pIsDirigenteEBC) return true;
                     if (isDirigenteEBC && pIsLeitorEBC) return true;
-                    return p.tipoParte === part.tipoParte && p.modalidade === part.modalidade && (isAjudante ? p.funcao === 'Titular' : p.funcao === 'Ajudante');
+
+                    return p.tipoParte === part.tipoParte && p.funcao !== part.funcao && pIsSalaB === partIsSalaB;
                 });
             };
             const partnerPart = findPartnerPart();
