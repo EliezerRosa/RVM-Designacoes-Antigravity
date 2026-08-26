@@ -719,12 +719,19 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
             
             // Partner lookup (se for dupla)
             const isAjudante = part.funcao === 'Ajudante';
-            const partnerPart = parts.find(p => 
-                p.weekId === part.weekId && 
-                p.tipoParte === part.tipoParte && 
-                p.id !== part.id &&
-                (isAjudante ? p.funcao === 'Titular' : p.funcao === 'Ajudante')
-            );
+            const findPartnerPart = () => {
+                const isLeitorEBC = part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc');
+                const isDirigenteEBC = part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc');
+                return parts.find(p => {
+                    if (p.weekId !== part.weekId || p.id === part.id) return false;
+                    const pIsLeitorEBC = p.tipoParte?.toLowerCase().includes('leitor') && p.tipoParte?.toLowerCase().includes('ebc');
+                    const pIsDirigenteEBC = p.tipoParte?.toLowerCase().includes('dirigente') && p.tipoParte?.toLowerCase().includes('ebc');
+                    if (isLeitorEBC && pIsDirigenteEBC) return true;
+                    if (isDirigenteEBC && pIsLeitorEBC) return true;
+                    return p.tipoParte === part.tipoParte && p.modalidade === part.modalidade && (isAjudante ? p.funcao === 'Titular' : p.funcao === 'Ajudante');
+                });
+            };
+            const partnerPart = findPartnerPart();
             const partnerPubName = partnerPart?.resolvedPublisherName || partnerPart?.rawPublisherName;
             const partnerPub = publishers.find(p => p.name === partnerPubName);
 
@@ -742,15 +749,39 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                 console.log(`[ManualReplacement] Resultado notificação antigo:`, rOld);
             }
 
+            // Resolve common PDF parameters ensuring Titular is ALWAYS partForPdf and Assistant is ALWAYS assistantName
+            let titularPartForPdf: WorkbookPart;
+            let assistantNameForPdf: string | undefined;
+
+            if (isAjudante) {
+                titularPartForPdf = partnerPart 
+                    ? { ...partnerPart, resolvedPublisherName: partnerPubName }
+                    : { ...part, resolvedPublisherName: partnerPubName };
+                assistantNameForPdf = newPub?.name;
+            } else {
+                titularPartForPdf = { ...part, resolvedPublisherName: newPub?.name };
+                assistantNameForPdf = partnerPubName;
+            }
+
+            const pType = (part.tipoParte || '').toLowerCase();
+            const pSection = (part.section || '').toLowerCase();
+            const isStudent = pSection.includes('ministério') ||
+                pSection.includes('ministerio') ||
+                pType.includes('leitura') ||
+                pType.includes('conversa') ||
+                pType.includes('revisita') ||
+                pType.includes('estudo');
+
             // B. Notificar o Novo (S-89 de Substituição)
             if (options.notifyNew && newPub?.phone) {
-                console.log(`[ManualReplacement] Gerando S-89 para novo publicador: ${newPub.name}`);
+                console.log(`[ManualReplacement] Avisando novo publicador ${newPub.name} (Substituição)`);
+                
                 // Montar o base64 do cartão
                 const pdfBase64 = await generateS89PngBase64(
-                    { ...part, resolvedPublisherName: newPub.name },
-                    partnerPubName,
+                    titularPartForPdf,
+                    assistantNameForPdf,
                     undefined,
-                    false
+                    isStudent
                 );
 
                 if (pdfBase64) {
@@ -771,7 +802,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                         false
                     );
 
-                    const finalMsg = `⚠️ *AVISO IMPORTANTE: SUBSTITUIÇÃO DE DESIGNAÇÃO!*\n_Você foi designado para substituir outro publicador nesta parte._\n\n` + baseMsg;
+                    const finalMsg = `⚠️ *AVISO IMPORTANTE: SUBSTITUIÇÃO DE DESIGNAÇÃO!*\n_Você foi designado(a) para cobrir a parte de outro publicador._\n\n` + baseMsg;
 
                     console.log(`[ManualReplacement] Enviando S-89 via Z-API para: ${newPub.phone}`);
                     const rNew = await zapiOrchestrator.sendS89Direct(
@@ -795,10 +826,10 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
 
                 // Montar o base64 do cartão para o Parceiro (idêntico ao envio inicial)
                 const pdfBase64Partner = await generateS89PngBase64(
-                    { ...part, resolvedPublisherName: partnerPub.name },
-                    newPub.name,
+                    titularPartForPdf,
+                    assistantNameForPdf,
                     undefined,
-                    false
+                    isStudent
                 );
 
                 if (pdfBase64Partner) {
@@ -807,8 +838,10 @@ export function WorkbookManager({ publishers, isActive, initialPartId, canSendZa
                     const srvmName = srvm?.name || 'Edmardo Queiroz';
                     const srvmPhone = srvm?.phone || '';
                     
+                    const partnerPartObjForMsg = partnerPart || part;
+
                     const baseMsgPartner = generateWhatsAppMessage(
-                        { ...part, resolvedPublisherName: partnerPub.name },
+                        { ...partnerPartObjForMsg, resolvedPublisherName: partnerPub.name },
                         partnerPub.gender,
                         newPub.name,
                         newPub?.phone,
