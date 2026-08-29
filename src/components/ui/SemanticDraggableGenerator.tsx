@@ -113,6 +113,9 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             // Busca primária pelo ID exato
             if (weekRules[part.id]) {
                 rule = weekRules[part.id] as SemanticRule;
+            } else if (weekRules[`[PART_ID: ${part.id}]`]) {
+                // Retrocompatibilidade imediata caso a IA tenha gravado o bracket literalmente
+                rule = weekRules[`[PART_ID: ${part.id}]`] as SemanticRule;
             } else {
                 // Fallback para fuzzy matching (títulos) para regras antigas gravadas no banco
                 for (const [key, r] of Object.entries(weekRules)) {
