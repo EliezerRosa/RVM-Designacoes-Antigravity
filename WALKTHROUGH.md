@@ -186,3 +186,10 @@ O "Presidente" agora será analisado sob a perspectiva do *tema da semana*, em v
 - **O que mudou**: Antes de enviar as partes para a IA, o sistema varre a semana e captura os títulos da **Leitura da Bíblia**, do primeiro **Discurso de Tesouros** e da primeira **Parte de Nossa Vida Cristã**.
 - **Como a IA usa isso**: O sistema injeta um bloco `TEMÁTICA GERAL DA REUNIÃO` no prompt, e instrui a IA explicitamente: *"Para a parte de 'Presidente da Reunião', analise a TEMÁTICA GERAL da reunião e defina um perfil_sintetico e foco alinhados ao tema."*
 - **Resultado Prático**: Você começará a ver a IA sugerindo presidentes com o perfil "Conselheiro Experiente" se o tema da reunião for família, ou "Apologista Maduro" se for defesa da fé, embasado nos temas dos discursos daquela semana.
+
+### 3. Blindagem contra Alucinações de Perfis Sintéticos (Fase 6c)
+Quando a API principal (Gemini) falha por limite de cota, o orquestrador (`api/chat.ts`) redireciona o prompt para modelos de fallback (como o Mistral). Como o Mistral possui um parsing mais flexível das instruções, ele ocasionalmente inventa `perfis_sinteticos` que não estão mapeados no sistema (ex: `pesquisador_entusiasta`, `apoio_organizado`).
+
+- **O Problema**: A UI e o motor recebiam esse perfil desconhecido, e como não havia lógica para ele, a pontuação retornada para os publicadores era `0`. Com todos os publicadores zerados, a UI não exibia nenhuma sugestão (lista vazia).
+- **A Solução**: O motor (`semanticRulesService.ts`) agora intercepta "perfis alucinados". Se ele detectar um nome não oficial no schema, em vez de retornar zero, ele aplica um bônus dinâmico de mitigação (fallback genérico).
+- **Resultado Prático**: A IA continuará gerando designações robustas mesmo nos cenários em que inventa parâmetros devido a fallbacks de proxy, garantindo que o secretário sempre receba sugestões válidas na UI e o Card não fique sem resultados.
