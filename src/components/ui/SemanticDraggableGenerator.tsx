@@ -177,6 +177,8 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         
         async function checkAndGenerate() {
             if (!weekId) return;
+            if (!parts || parts.length === 0) return; // Não iniciar IA sem dados da apostila carregados
+
             const rules = await fetchSemanticRulesForWeek(weekId);
             const weekKey = `semana_${weekId}`;
             const hasRules = !!rules[weekKey];
@@ -272,6 +274,20 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                 >
                                     Tentar Novamente
                                 </button>
+                            </div>
+                        )}
+
+                        {status === 'idle' && (
+                            <div style={{ fontSize: '13px', padding: '12px', borderRadius: '6px', backgroundColor: '#f3f4f6', color: '#4b5563', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>Aguardando dados...</span>
+                                <button onClick={handleGenerate} style={{ padding: '6px 12px', backgroundColor: '#4f46e5', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Gerar Regras</button>
+                            </div>
+                        )}
+
+                        {status === 'success' && analyses.length === 0 && (
+                            <div style={{ fontSize: '13px', padding: '12px', borderRadius: '6px', backgroundColor: '#f3f4f6', color: '#4b5563' }}>
+                                <div>Nenhuma recomendação aplicável.</div>
+                                <button onClick={handleGenerate} style={{ marginTop: '8px', width: '100%', padding: '6px', backgroundColor: '#e5e7eb', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Forçar Regeneração</button>
                             </div>
                         )}
                     </div>
