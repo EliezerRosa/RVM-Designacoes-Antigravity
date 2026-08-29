@@ -23,9 +23,22 @@
 - **Injeção Temática para Presidente**: O prompt agora avalia o tema central da semana (Leitura da Bíblia, primeiro Tesouros e primeiro Vida Cristã) para definir o perfil sintético do Presidente da Reunião (ex: "Apologista Maduro").
 - **Liberação de Tokens**: "Cânticos" e "Orações" foram retirados da análise, evitando cortes de limite de tamanho nas últimas partes da reunião (o bug das partes "Sempre Parando na 8").
 - **Fix de Regras Não Renderizadas (Bug Silencioso)**: 
-  - **Problema**: O Gemini retornava literalmente `"[PART_ID: uuid]"` no JSON, o que quebrava o matching do frontend que esperava apenas `"uuid"`.
-  - **Solução**: `semanticAgentService.ts` sanitiza agressivamente as chaves recebidas, removendo os brackets. Para retrocompatibilidade imediata (para dados já bugados no DB), `SemanticDraggableGenerator.tsx` faz fallback e busca também usando os brackets.
+  - **Componente:** `SemanticDraggableGenerator.tsx` e `semanticAgentService.ts`
+  - **Causa:** A UI tentava acionar a geração de regras antes das partes da apostila carregarem, enviando uma lista vazia e salvando regras vazias no Supabase. Além disso, a IA às vezes omitia partes "genéricas" (como Leitura da Bíblia), o que fazia a UI ocultá-las.
+  - **Solução:** 
+    - Trava no `useEffect` aguardando as `parts` estarem populadas.
+    - Omissões da IA agora renderizam com uma regra fallback (`Sem restrições da IA. Usando compatibilidade histórica e função.`).
+    - Adicionado no Prompt de Sistema da IA a `REGRA DE OURO` forçando a emissão de 1 regra por parte.
+    - Implementados os *Empty States* na interface para permitir Forçar Regeneração caso os dados no banco já estivessem corrompidos (vazios).
   - **Resultado**: Recomendações voltaram a ser populadas instantaneamente.
+
+### 📌 Fase 6b — Diagnóstico Profundo e Blindagem do Pipeline do Curador IA
+- **Diagnóstico**: O proxy multi-provider (`api/chat.ts`) faz fallback para Mistral/DeepSeek quando o Gemini está em 429, mas esses providers **ignoram `responseSchema`** (exclusivo do Gemini). O resultado é prosa livre que não parseia como JSON, e o erro era engolido silenciosamente.
+- **4 Etapas Implementadas**:
+  1. **Instrumentação Completa**: 12+ `console.log` estratégicos em todo o pipeline (partes filtradas → modelo usado → resposta bruta → regras parseadas → dict final → salvamento DB → renderização UI).
+  2. **Validação Pós-Proxy**: Se a IA retornar 0 regras (ex: provider não-Gemini sem suporte a schema), o sistema **rejeita** a resposta e lança erro explicativo em vez de salvar lixo no banco.
+  3. **`hasRules` Robusto**: `checkAndGenerate()` agora verifica `Object.keys(weekData).length > 0` em vez de `!!rules[weekKey]`, evitando que dicionários vazios `{}` sejam aceitos como "já tem regras".
+  4. **`thinking_level: 'LOW'`**: Payload do Curador agora força o proxy a priorizar o Gemini Flash (único provider que suporta `responseSchema`).
 
 ### 📌 Resolução da Desconexão de Publicadores (Caso Patrick - 2026-08-11)
 - **Problema Solucionado**: Sessões sendo derrubadas por hash OAuth obsoletos na URL.
