@@ -419,7 +419,22 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         }
 
         // tipo e needsHelper já classificados acima (antes da extração de duração)
-        const modalidade = TIPO_TO_MODALIDADE[tipo] || 'Demonstração';
+        // PÓS-CORREÇÃO: "Explicando Suas Crenças" pode ser Demonstração (com ajudante)
+        // ou Discurso de Estudante (só titular, só irmãos). O título H3 raramente
+        // contém "discurso"; a palavra costuma aparecer na descrição/siblings.
+        // Quando detectamos "discurso" na descrição, reclassificamos.
+        let finalTipo = tipo;
+        let finalNeedsHelper = needsHelper;
+        if (tipo === 'Explicando Suas Crenças') {
+            const allText = `${descricao} ${detalhes}`.toLowerCase();
+            const descSaysDiscurso = allText.includes('discurso');
+            if (descSaysDiscurso) {
+                finalTipo = 'Discurso de Estudante';
+                finalNeedsHelper = false;
+                console.log(`[jwOrgService] Reclassificação: "${title}" → Discurso de Estudante (descrição contém "discurso")`);
+            }
+        }
+        const modalidade = TIPO_TO_MODALIDADE[finalTipo] || 'Demonstração';
 
         // Titular record
         parts.push({
@@ -428,7 +443,7 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
             weekDisplay,
             date: weekId,
             section: currentSection,
-            tipoParte: tipo,
+            tipoParte: finalTipo,
             modalidade,
             tituloParte: `${partNum}. ${title}`,
             descricaoParte: descricao.substring(0, 500),
@@ -445,14 +460,14 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         seq += 1;
 
         // Ajudante record for parts that need helpers
-        if (needsHelper) {
+        if (finalNeedsHelper) {
             parts.push({
                 year,
                 weekId,
                 weekDisplay,
                 date: weekId,
                 section: currentSection,
-                tipoParte: `${tipo} (Ajudante)`,
+                tipoParte: `${finalTipo} (Ajudante)`,
                 modalidade,
                 tituloParte: `${partNum}. ${title} - Ajudante`,
                 descricaoParte: '',
