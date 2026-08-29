@@ -84,6 +84,11 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         !p.modalidade.toLowerCase().includes('oração') && 
         !p.modalidade.toLowerCase().includes('cântico')
     );
+
+    console.log(`[SemanticAgent] weekId=${weekId}, totalParts=${parts.length}, filteredParts=${weekParts.length}`);
+    if (weekParts.length === 0) {
+        throw new Error(`Nenhuma parte filtrável para a semana ${weekId}. Verifique se a apostila foi importada.`);
+    }
     
     let partsTextContext = `Semana: ${weekId}\n\n`;
     if (meetingThemeContext) {
@@ -110,7 +115,8 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
             responseMimeType: "application/json",
             responseSchema: RESPONSE_SCHEMA,
             temperature: 0.1 // Força determinismo
-        }
+        },
+        thinking_level: 'LOW' // Força Gemini Flash (único que suporta responseSchema)
     };
 
     try {
@@ -122,8 +128,13 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
             body: JSON.stringify(payload)
         });
 
+        const modelUsed = response.headers.get('X-RVM-Model-Used') || 'unknown';
+        console.log(`[SemanticAgent] Proxy respondeu: status=${response.status}, model=${modelUsed}`);
+
         if (!response.ok) {
-            throw new Error(`Erro na API Gemini: ${response.status} ${response.statusText}`);
+            const errorBody = await response.text();
+            console.error(`[SemanticAgent] Erro do proxy:`, errorBody.substring(0, 300));
+            throw new Error(`Erro na API: ${response.status} (${modelUsed}) ${errorBody.substring(0, 100)}`);
         }
 
         const data = await response.json();
@@ -133,6 +144,7 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
             const parts = data.candidates[0].content?.parts || [];
             rawResult = parts.map((p: any) => p.text).join('');
         }
+        console.log(`[SemanticAgent] rawResult.length=${rawResult.length}, preview=${rawResult.substring(0, 120)}`);
         
         // Remove blocos de markdown que a IA pode retornar (ex: ```json ... ```)
         let cleanedResult = rawResult.trim();
@@ -147,6 +159,14 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         cleanedResult = cleanedResult.trim();
         
         const parsedAi = JSON.parse(cleanedResult);
+
+        // ETAPA 2: Validar que a IA retornou regras válidas antes de salvar lixo no banco
+        if (!parsedAi.regras || !Array.isArray(parsedAi.regras) || parsedAi.regras.length === 0) {
+            console.error('[SemanticAgent] IA retornou JSON sem regras válidas:', cleanedResult.substring(0, 200));
+            throw new Error(`IA retornou 0 regras (modelo=${modelUsed}). Resposta pode ser de provider não-Gemini sem suporte a responseSchema. Tente novamente.`);
+        }
+        console.log(`[SemanticAgent] IA retornou ${parsedAi.regras.length} regras (modelo=${modelUsed})`);
+
         const weekKey = `semana_${weekId}`;
         const dict: any = { [weekKey]: {} };
         
@@ -176,6 +196,12 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
             }
         }
 
+        const rulesCount = Object.keys(dict[weekKey]).length;
+        console.log(`[SemanticAgent] Dict final: ${rulesCount} regras mapeadas para semana ${weekId}`);
+        if (rulesCount === 0) {
+            throw new Error(`Nenhuma regra foi mapeada após processar ${parsedAi.regras.length} itens da IA. Verifique part_id.`);
+        }
+
         return JSON.stringify(dict, null, 2);
     } catch (err) {
         console.error('[semanticAgentService] Falha ao gerar regras:', err);
@@ -184,6 +210,7 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
 }
 
 export async function saveSemanticRulesToDb(weekId: string, yamlContent: string): Promise<void> {
+    console.log(`[SemanticAgent] Salvando regras no Supabase para weekId=${weekId} (${yamlContent.length} bytes)`);
     const { error } = await supabase
         .from('semantic_rules')
         .upsert(
@@ -195,6 +222,8 @@ export async function saveSemanticRulesToDb(weekId: string, yamlContent: string)
         );
 
     if (error) {
+        console.error(`[SemanticAgent] Erro ao salvar no Supabase:`, error);
         throw new Error(`Erro ao salvar no banco: ${error.message}`);
     }
+    console.log(`[SemanticAgent] Regras salvas com sucesso para ${weekId}`);
 }

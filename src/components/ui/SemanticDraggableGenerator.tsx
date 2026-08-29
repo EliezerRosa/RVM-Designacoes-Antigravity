@@ -104,7 +104,12 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     const runAnalysis = (rulesData: any) => {
         const weekKey = `semana_${weekId}`;
         const weekRules = rulesData[weekKey];
-        if (!weekRules) return;
+        if (!weekRules) {
+            console.warn(`[SemanticUI] runAnalysis: nenhuma weekRules para key=${weekKey}`);
+            return;
+        }
+        const ruleKeys = Object.keys(weekRules);
+        console.log(`[SemanticUI] runAnalysis: ${ruleKeys.length} regras no dict, ${parts.length} partes na UI`);
 
         const newAnalyses: PartAnalysis[] = [];
 
@@ -148,6 +153,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         });
 
         setAnalyses(newAnalyses);
+        console.log(`[SemanticUI] runAnalysis concluído: ${newAnalyses.length} análises, ${newAnalyses.filter(a => a.topSuggestions.length > 0).length} com sugestões`);
         if (newAnalyses.length > 0 && !activePartId && !focusedPartId) {
             setActivePartId(newAnalyses[0].part.id);
         }
@@ -160,6 +166,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             return;
         }
 
+        console.log(`[SemanticUI] handleGenerate disparado: weekId=${weekId}, parts.length=${parts.length}`);
         setStatus('loading');
         setMessage('Lendo partes da apostila e acionando IA...');
         
@@ -185,11 +192,17 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             if (!weekId) return;
             if (!parts || parts.length === 0) return; // Não iniciar IA sem dados da apostila carregados
 
+            console.log(`[SemanticUI] checkAndGenerate: weekId=${weekId}, parts=${parts.length}`);
+
             const rules = await fetchSemanticRulesForWeek(weekId);
             const weekKey = `semana_${weekId}`;
-            const hasRules = !!rules[weekKey];
+            // ETAPA 3: Validar que tem regras REAIS (não apenas {} vazio)
+            const weekData = rules[weekKey];
+            const hasRules = !!weekData && Object.keys(weekData).length > 0;
+            console.log(`[SemanticUI] checkAndGenerate: hasRules=${hasRules}, keys=${weekData ? Object.keys(weekData).length : 0}`);
             
             if (!hasRules && isMounted) {
+                console.log(`[SemanticUI] Sem regras no banco, disparando handleGenerate()`);
                 handleGenerate();
             } else if (hasRules && isMounted) {
                 setStatus('success');
