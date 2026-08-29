@@ -19,6 +19,8 @@ Sugestão: "A parte envolve ambiente escolar, ideal para um jovem dar o exemplo.
 EXEMPLO 2: Parte de demonstração sobre iniciar conversa com o cônjuge descrente.
 Regra Ideal: perfil_familiar: casais, perfil_sintetico: conselheiro_experiente (MANDATÓRIO), afinidade: "Iniciando Conversas" (MANDATÓRIO).
 
+Para a parte de 'Presidente da Reunião', analise a TEMÁTICA GERAL da reunião (se fornecida) e defina um perfil_sintetico e foco alinhados ao tema.
+
 Seja conservador: partes genéricas (como Leitura da Bíblia) não precisam de regras complexas, a menos que o tema exija.
 Para campos que não se aplicam, retorne 'nenhum'.
 `;
@@ -31,6 +33,7 @@ const RESPONSE_SCHEMA = {
             items: {
                 type: 'object',
                 properties: {
+                    part_id: { type: 'string' },
                     titulo_parte: { type: 'string' },
                     perfil_sintetico: {
                         type: 'object',
@@ -54,7 +57,7 @@ const RESPONSE_SCHEMA = {
                     sugestao: { type: 'string' },
                     texto_original: { type: 'string' }
                 },
-                required: ["titulo_parte", "sugestao"]
+                required: ["part_id", "titulo_parte", "sugestao"]
             }
         }
     },
@@ -64,12 +67,31 @@ const RESPONSE_SCHEMA = {
 export async function generateSemanticRulesForWeek(weekId: string, parts: WorkbookPart[]): Promise<string> {
     const proxyUrl = getAiProxyUrl();
 
-    // Filtra apenas as partes da semana solicitada que não são cânticos/orações
-    const weekParts = parts.filter(p => p.weekId === weekId && !p.tituloParte.toLowerCase().includes('oração'));
+    // Extrair "Tema da Reunião" baseado nas partes chaves
+    const bibleReading = parts.find(p => p.modalidade === 'Leitura de Estudante');
+    const firstTreasures = parts.find(p => p.section === 'Tesouros da Palavra de Deus' && p.modalidade === 'Discurso de Ensino');
+    const firstLife = parts.find(p => p.section === 'Nossa Vida Cristã' && p.modalidade === 'Discurso de Ensino');
+    
+    let meetingThemeContext = '';
+    if (bibleReading) meetingThemeContext += `Leitura da Bíblia: ${bibleReading.tituloParte}. `;
+    if (firstTreasures) meetingThemeContext += `Tesouros: ${firstTreasures.tituloParte}. `;
+    if (firstLife) meetingThemeContext += `Vida Cristã: ${firstLife.tituloParte}.`;
+
+    // Filtra cânticos e orações da análise para poupar tokens
+    const weekParts = parts.filter(p => 
+        p.weekId === weekId && 
+        !p.modalidade.toLowerCase().includes('oração') && 
+        !p.modalidade.toLowerCase().includes('cântico')
+    );
     
     let partsTextContext = `Semana: ${weekId}\n\n`;
+    if (meetingThemeContext) {
+        partsTextContext += `TEMÁTICA GERAL DA REUNIÃO: ${meetingThemeContext}\n\n`;
+    }
+
     weekParts.forEach(part => {
-        partsTextContext += `[PARTE: ${part.tituloParte}]\n`;
+        partsTextContext += `[PART_ID: ${part.id}]\n`;
+        partsTextContext += `TÍTULO: ${part.tituloParte}\n`;
         partsTextContext += `TEXTO: ${part.descricaoParte || ''} ${part.detalhesParte || ''}\n\n`;
     });
 
@@ -117,7 +139,7 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         
         if (parsedAi.regras && Array.isArray(parsedAi.regras)) {
             for (const rule of parsedAi.regras) {
-                const { titulo_parte, ...ruleData } = rule;
+                const { titulo_parte, part_id, ...ruleData } = rule;
                 
                 // Limpar campos "nenhum" para manter a estrutura limpa
                 for (const key of Object.keys(ruleData)) {
@@ -127,7 +149,11 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
                     }
                 }
                 
-                dict[weekKey][titulo_parte] = ruleData;
+                // Gravar usando part_id como chave principal (fallback para titulo para retrocompatibilidade temporária se faltar id)
+                const key = part_id || titulo_parte;
+                if (key) {
+                    dict[weekKey][key] = ruleData;
+                }
             }
         }
 
