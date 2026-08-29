@@ -133,7 +133,19 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
             rawResult = parts.map((p: any) => p.text).join('');
         }
         
-        const parsedAi = JSON.parse(rawResult);
+        // Remove blocos de markdown que a IA pode retornar (ex: ```json ... ```)
+        let cleanedResult = rawResult.trim();
+        if (cleanedResult.startsWith('```json')) {
+            cleanedResult = cleanedResult.substring(7);
+        } else if (cleanedResult.startsWith('```')) {
+            cleanedResult = cleanedResult.substring(3);
+        }
+        if (cleanedResult.endsWith('```')) {
+            cleanedResult = cleanedResult.substring(0, cleanedResult.length - 3);
+        }
+        cleanedResult = cleanedResult.trim();
+        
+        const parsedAi = JSON.parse(cleanedResult);
         const weekKey = `semana_${weekId}`;
         const dict: any = { [weekKey]: {} };
         
