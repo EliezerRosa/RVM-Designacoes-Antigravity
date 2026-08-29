@@ -205,8 +205,12 @@ export function calculateSemanticScore(
                 misses.push('Falta: Jovem/Criança Não Batizado');
             }
         } else if (perfil !== 'nenhum' && perfil !== '') {
-            // Se a IA gerou um perfil que não conhecemos mas mandou dar peso, ignoramos com log
-            console.warn(`[Semantic] Perfil sintético desconhecido: ${perfil}`);
+            // Se a IA gerou um perfil que não conhecemos (ex: Mistral inventando 'pesquisador_entusiasta')
+            // Damos um bônus genérico de fallback para NÃO zerar todo mundo e causar lista vazia.
+            console.warn(`[Semantic] Perfil sintético desconhecido/alucinado: ${perfil}`);
+            const fallbackPts = Math.max(Math.floor(pts / 5), 10);
+            score += fallbackPts;
+            matches.push(`Perfil Sintético: ${perfilObj.tipo} (+${fallbackPts})`);
         }
     }
 
