@@ -93,9 +93,9 @@ async function fetchFallbackRules(): Promise<SemanticRulesDict> {
 }
 
 /**
- * Retorna as regras específicas para uma semana e uma parte (baseada no título ou ID)
+ * Retorna as regras específicas para uma semana e uma parte (baseada no ID exato ou título)
  */
-export async function getRuleForPart(weekId: string, partTitle: string): Promise<SemanticRule | null> {
+export async function getRuleForPart(weekId: string, partTitle: string, partId?: string): Promise<SemanticRule | null> {
     const rules = await fetchSemanticRulesForWeek(weekId);
     
     // Normalizar weekId para encontrar no formato "semana_YYYY-MM-DD"
@@ -104,11 +104,16 @@ export async function getRuleForPart(weekId: string, partTitle: string): Promise
     
     if (!weekRules) return null;
 
-    // Buscar a regra pelo título da parte
+    // 1. Busca pelo ID exato (Formato novo)
+    if (partId && weekRules[partId]) {
+        return weekRules[partId] as SemanticRule;
+    }
+
+    // 2. Busca pelo título da parte (Fallback legado)
     // Como os títulos podem variar sutilmente, fazemos uma busca parcial
     for (const [key, rule] of Object.entries(weekRules)) {
         if (partTitle.includes(key) || key.includes(partTitle)) {
-            return rule;
+            return rule as SemanticRule;
         }
     }
 

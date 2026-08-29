@@ -110,10 +110,16 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
 
         parts.forEach(part => {
             let rule: SemanticRule | null = null;
-            for (const [key, r] of Object.entries(weekRules)) {
-                if (part.tituloParte.includes(key) || key.includes(part.tituloParte)) {
-                    rule = r as SemanticRule;
-                    break;
+            // Busca primária pelo ID exato
+            if (weekRules[part.id]) {
+                rule = weekRules[part.id] as SemanticRule;
+            } else {
+                // Fallback para fuzzy matching (títulos) para regras antigas gravadas no banco
+                for (const [key, r] of Object.entries(weekRules)) {
+                    if (part.tituloParte.includes(key) || key.includes(part.tituloParte)) {
+                        rule = r as SemanticRule;
+                        break;
+                    }
                 }
             }
 
