@@ -161,8 +161,14 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
                     }
                 }
                 
+                // Tratar caso a IA retorne a string bruta "[PART_ID: 12345]" em vez de apenas "12345"
+                let cleanPartId = part_id;
+                if (typeof cleanPartId === 'string' && cleanPartId.includes('[PART_ID:')) {
+                    cleanPartId = cleanPartId.replace(/\[PART_ID:\s*/i, '').replace(/\]/g, '').trim();
+                }
+                
                 // Gravar usando part_id como chave principal (fallback para titulo para retrocompatibilidade temporária se faltar id)
-                const key = part_id || titulo_parte;
+                const key = cleanPartId || titulo_parte;
                 if (key) {
                     dict[weekKey][key] = ruleData;
                 }

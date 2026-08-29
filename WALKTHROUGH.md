@@ -166,3 +166,23 @@ A Fase 5.b expandiu a arquitetura N-N dos Eventos Especiais para permitir maior 
 - **Validação Cruzada Múltipla**: Partes canceladas por impacto principal (`REPLACE_PART`) na UI agora ficam imediatamente inativas (rasuradas) para os selectores secundários de redução de tempo dentro do mesmo evento.
 - **Impacto Neutro / Invisível**: A opção informativa "Nenhum Impacto" foi otimizada para ser a principal de _templates_ como Anúncios e Notificações, preenchendo as comunicações, mas ignorando alterações nos blocos reais da apostila.
 - **Campo `Observações`**: Uma propriedade formal de notas de rodapé opcional, injetada em S-89/S-140 via geradores do `communicationService`.
+
+---
+
+## Fase 6 — Melhorias no Agente Curador IA (Analista Semântico)
+
+As correções no Agente Curador IA (Analista Semântico) foram implementadas e enviadas para produção. Abaixo está o resumo das entregas e como elas afetam o funcionamento do sistema:
+
+### 1. Problema das Partes "Sempre Parando na 8" Resolvido
+O "buraco negro" que engolia as últimas partes da reunião ou criava blocos em branco foi corrigido substituindo a lógica frágil de "Fuzzy Matching" de títulos por um mapeamento exato usando `part_id`.
+
+- **O que mudou**: A IA agora é instruída a ler o `ID` exato de cada parte e retornar esse `ID` no JSON de recomendação. 
+- **Como a UI reage**: O frontend no `SemanticDraggableGenerator` agora primeiro busca a regra pelo ID exato da parte (`weekRules[part.id]`), garantindo que não importa quão genérico seja o título retornado pela IA, ela sempre vai preencher o card correto.
+- **Performance**: Retiramos os "Cânticos" da análise, o que libera tokens (espaço de texto) para a IA processar partes mais úteis, evitando que ela "corte" a resposta por limite de tamanho nas últimas partes.
+
+### 2. Injeção Temática para o "Presidente"
+O "Presidente" agora será analisado sob a perspectiva do *tema da semana*, em vez de ser lido como uma função cega.
+
+- **O que mudou**: Antes de enviar as partes para a IA, o sistema varre a semana e captura os títulos da **Leitura da Bíblia**, do primeiro **Discurso de Tesouros** e da primeira **Parte de Nossa Vida Cristã**.
+- **Como a IA usa isso**: O sistema injeta um bloco `TEMÁTICA GERAL DA REUNIÃO` no prompt, e instrui a IA explicitamente: *"Para a parte de 'Presidente da Reunião', analise a TEMÁTICA GERAL da reunião e defina um perfil_sintetico e foco alinhados ao tema."*
+- **Resultado Prático**: Você começará a ver a IA sugerindo presidentes com o perfil "Conselheiro Experiente" se o tema da reunião for família, ou "Apologista Maduro" se for defesa da fé, embasado nos temas dos discursos daquela semana.
