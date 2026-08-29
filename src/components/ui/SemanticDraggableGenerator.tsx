@@ -125,20 +125,26 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                     }
                 }
             }
+            
+            // Sempre adiciona a parte à análise, mesmo se a IA não retornou regra específica.
+            // Cria uma regra default para evitar quebras de renderização (analysis.rule.property)
+            const finalRule = rule || ({
+                part_id: part.id,
+                titulo_parte: part.tituloParte,
+                sugestao: 'Sem restrições da IA. Usando compatibilidade histórica e função.'
+            } as SemanticRule);
 
-            if (rule) {
-                const ranked: RankedSuggestion[] = publishers.map(pub => ({
-                    publisher: pub,
-                    result: calculateSemanticScore(pub, rule as SemanticRule, publishers, affinityMap)
-                }));
+            const ranked: RankedSuggestion[] = publishers.map(pub => ({
+                publisher: pub,
+                result: calculateSemanticScore(pub, finalRule, publishers, affinityMap)
+            }));
 
-                const topSuggestions = ranked
-                    .filter(r => r.result.score > 0)
-                    .sort((a, b) => b.result.score - a.result.score)
-                    .slice(0, 3);
+            const topSuggestions = ranked
+                .filter(r => r.result.score > 0)
+                .sort((a, b) => b.result.score - a.result.score)
+                .slice(0, 3);
 
-                newAnalyses.push({ part, rule, topSuggestions });
-            }
+            newAnalyses.push({ part, rule: finalRule, topSuggestions });
         });
 
         setAnalyses(newAnalyses);

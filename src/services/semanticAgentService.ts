@@ -21,7 +21,8 @@ Regra Ideal: perfil_familiar: casais, perfil_sintetico: conselheiro_experiente (
 
 Para a parte de 'Presidente da Reunião', analise a TEMÁTICA GERAL da reunião (se fornecida) e defina um perfil_sintetico e foco alinhados ao tema.
 
-Seja conservador: partes genéricas (como Leitura da Bíblia) não precisam de regras complexas, a menos que o tema exija.
+REGRA DE OURO: Você OBRIGATORIAMENTE deve retornar um objeto de regra dentro do array 'regras' para CADA UMA das partes que receber no prompt. NENHUMA parte pode ficar de fora do JSON.
+Se uma parte for muito genérica (ex: Leitura da Bíblia) e não exigir restrições complexas, preencha os campos de perfil com 'nenhum', mas SEMPRE forneça uma 'sugestao' genérica (ex: "Qualquer leitor qualificado").
 Para campos que não se aplicam, retorne 'nenhum'.
 `;
 
