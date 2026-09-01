@@ -1,11 +1,12 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 interface AutomationScheduleModalProps {
     onClose: () => void;
 }
 
 export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = ({ onClose }) => {
-    return (
+    return createPortal(
         <div className="modal-overlay">
             <div className="modal" style={{ maxWidth: '600px' }}>
                 <div className="modal-header">
@@ -67,6 +68,7 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
