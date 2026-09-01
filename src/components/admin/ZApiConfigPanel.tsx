@@ -3,6 +3,7 @@ import { api } from '../../services/api';
 import { OnboardingBatchModal } from './OnboardingBatchModal';
 import { ZApiGroupSyncModal } from './ZApiGroupSyncModal';
 import { ZApiMemberSearchPanel } from './ZApiMemberSearchPanel';
+import { AutomationScheduleModal } from './AutomationScheduleModal';
 
 export function ZApiConfigPanel() {
     const [isActive, setIsActive] = useState(false);
@@ -13,6 +14,7 @@ export function ZApiConfigPanel() {
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSyncGroupModalOpen, setIsSyncGroupModalOpen] = useState(false);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
     useEffect(() => {
         loadSettings();
@@ -127,7 +129,24 @@ export function ZApiConfigPanel() {
                         onClick={() => setIsModalOpen(true)}
                         style={{ padding: '12px 20px', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
                     >
-                        ✉️ Abrir Painel de Disparo VIP
+                        🪄 Iniciar Disparo em Lote
+                    </button>
+                </div>
+                
+                {/* Agenda de Automação */}
+                <div style={{ padding: '20px', background: '#1e293b', borderRadius: '8px', border: '1px solid #334155' }}>
+                    <h3 style={{ margin: '0 0 10px 0', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🕒 Agenda de Automação
+                    </h3>
+                    <p style={{ color: '#94a3b8', marginBottom: '20px', lineHeight: 1.5, fontSize: '0.9rem' }}>
+                        Visualize os dias e horários em que o <strong>Robô RVM</strong> e os alertas via Cron executam tarefas de auto-designação e envio em background.
+                    </p>
+                    
+                    <button 
+                        onClick={() => setIsScheduleModalOpen(true)}
+                        style={{ padding: '12px 20px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                    >
+                        Ver Horários Automáticos
                     </button>
                 </div>
             </div>
@@ -143,6 +162,10 @@ export function ZApiConfigPanel() {
                 isOpen={isSyncGroupModalOpen}
                 onClose={() => setIsSyncGroupModalOpen(false)}
             />
+            
+            {isScheduleModalOpen && (
+                <AutomationScheduleModal onClose={() => setIsScheduleModalOpen(false)} />
+            )}
         </div>
     );
 }
