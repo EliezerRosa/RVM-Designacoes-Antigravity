@@ -24,6 +24,7 @@ import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthentic
 import { usePermissions } from './hooks/usePermissions'
 import { ForceBiometricModal } from './components/ForceBiometricModal'
 import { AppLockScreen } from './components/AppLockScreen'
+import { AutomationWorker } from './components/AutomationWorker'
 
 // Lazy-loaded tabs (code splitting)
 const WorkbookManager = lazy(() => import('./components/WorkbookManager'))
@@ -87,6 +88,11 @@ function App() {
   // PORTAL ROUTING: links públicos de confirmação de designação
   // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
   const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken, mode: portalMode, action: portalAction, pubId: portalPubId } = getPortalParams();
+
+  // PORTAL: worker invisível para automação D-30 / D-21
+  if (portal === 'automation-worker') {
+    return <AutomationWorker token={portalToken} />;
+  }
 
   // PORTAL: designações individuais do publicador (acesso por token + Google OAuth)
   if (portal === 'my-assignments') {
