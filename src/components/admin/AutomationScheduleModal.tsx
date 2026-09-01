@@ -11,6 +11,9 @@ interface ScheduleInfo {
     weekDateStr: string;
     d30Date: Date | null;
     d21Date: Date | null;
+    d9Date: Date | null;
+    d7Date: Date | null;
+    d2Date: Date | null;
 }
 
 export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = ({ onClose }) => {
@@ -54,6 +57,13 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
 
                 if (error) throw error;
 
+                const { data: settingsData } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 's89_meeting_day_by_week')
+                    .maybeSingle();
+                const meetingDays = settingsData?.value || {};
+
                 // Agrupar por semana
                 const weeksMap = new Map<string, string>();
                 if (data) {
@@ -66,8 +76,6 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
 
                 const scheds: ScheduleInfo[] = [];
                 for (const [weekId, dateStr] of weeksMap.entries()) {
-                    // Cuidado com o timezone ao criar a data: usar UTC ou adicionar timezone
-                    // As datas no Supabase estão como YYYY-MM-DD
                     const weekDate = new Date(dateStr + 'T12:00:00Z'); 
                     
                     const d30 = new Date(weekDate);
@@ -76,11 +84,25 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                     const d21 = new Date(weekDate);
                     d21.setDate(d21.getDate() - 21);
 
+                    const dp = weekId.split('-');
+                    const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]), 12, 0, 0);
+                    const dow = meetingDays[weekId] ?? 4;
+                    const daysToMeeting = (dow - baseDate.getDay() + 7) % 7;
+                    const meetingDate = new Date(baseDate);
+                    meetingDate.setDate(meetingDate.getDate() + daysToMeeting);
+
+                    const d9 = new Date(meetingDate); d9.setDate(d9.getDate() - 9);
+                    const d7 = new Date(meetingDate); d7.setDate(d7.getDate() - 7);
+                    const d2 = new Date(meetingDate); d2.setDate(d2.getDate() - 2);
+
                     scheds.push({
                         weekId,
                         weekDateStr: dateStr,
                         d30Date: d30 >= today ? d30 : null,
                         d21Date: d21 >= today ? d21 : null,
+                        d9Date: d9 >= today ? d9 : null,
+                        d7Date: d7 >= today ? d7 : null,
+                        d2Date: d2 >= today ? d2 : null,
                     });
                 }
 
@@ -131,6 +153,9 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                                                     <th style={{ padding: '8px 4px' }}>Semana (Reunião)</th>
                                                     <th style={{ padding: '8px 4px' }}>D-30 (Auto-Designação)</th>
                                                     <th style={{ padding: '8px 4px' }}>D-21 (Auto-Publicação)</th>
+                                                    <th style={{ padding: '8px 4px', borderLeft: '1px solid var(--border-color)' }}>D-9 (Cobrança)</th>
+                                                    <th style={{ padding: '8px 4px' }}>D-7 (Lembrete 1)</th>
+                                                    <th style={{ padding: '8px 4px' }}>D-2 (Lembrete 2)</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -145,6 +170,15 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                                                         <td style={{ padding: '8px 4px', color: s.d21Date ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                                                             {formatDate(s.d21Date)}
                                                         </td>
+                                                        <td style={{ padding: '8px 4px', borderLeft: '1px solid var(--border-color)', color: s.d9Date ? 'var(--color-warning)' : 'var(--text-muted)' }}>
+                                                            {formatDate(s.d9Date)}
+                                                        </td>
+                                                        <td style={{ padding: '8px 4px', color: s.d7Date ? 'var(--color-success)' : 'var(--text-muted)' }}>
+                                                            {formatDate(s.d7Date)}
+                                                        </td>
+                                                        <td style={{ padding: '8px 4px', color: s.d2Date ? 'var(--color-success)' : 'var(--text-muted)' }}>
+                                                            {formatDate(s.d2Date)}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -155,18 +189,18 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
 
                             <div style={{ marginBottom: '20px', padding: '15px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                                 <h3 style={{ color: 'var(--color-success)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span>🔔</span> Lembretes Recorrentes (Z-API)
+                                    <span>🔔</span> Relatórios Mensais e Semanais (Z-API)
                                 </h3>
                                 <ul style={{ paddingLeft: '20px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     <li>
-                                        <strong>Próxima Sexta-feira:</strong> {formatDate(nextFriday)}
+                                        <strong>Dia 1º do Mês:</strong>
                                         <br/>
-                                        <span style={{ color: 'var(--text-muted)' }}>Dispara lembretes automáticos no WhatsApp dos publicadores (Tema e Horário).</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>Relatório para a Comissão de Serviço informando irmãos com restrições / pedido de pausa. Além de Re-Convite (Magic Link) individual.</span>
                                     </li>
                                     <li>
-                                        <strong>Próximo Sábado:</strong> {formatDate(nextSaturday)}
+                                        <strong>Todo Sábado:</strong> {formatDate(nextSaturday)}
                                         <br/>
-                                        <span style={{ color: 'var(--text-muted)' }}>Envia aos admins o relatório semanal informando quem está "Pausado (Admin)".</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>Envia aos admins o relatório semanal informando quem está com a flag "Pausado (Admin)".</span>
                                     </li>
                                 </ul>
                             </div>
