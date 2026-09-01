@@ -44,6 +44,8 @@ const emptyPublisher: Publisher = {
     aliases: [],
     isNotQualified: false,
     requestedNoParticipation: false,
+    isIndefinitelyPaused: false,
+    indefinitePauseReason: '',
 }
 
 // Defensivo: dados legados podem nao ter availability ou subcampos completos.
@@ -315,8 +317,32 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                     />
                                     🙅 Pediu para Não Participar
                                 </label>
+                                <label className="checkbox-item" style={{ color: formData.isIndefinitelyPaused ? 'var(--color-error)' : 'inherit' }}>
+                                    <input
+                                        type="checkbox"
+                                        name="isIndefinitelyPaused"
+                                        checked={formData.isIndefinitelyPaused || false}
+                                        onChange={handleChange}
+                                    />
+                                    ⏸️ Pausado (Admin)
+                                </label>
                             </div>
                         </div>
+
+                        {formData.isIndefinitelyPaused && (
+                            <div className="form-group" style={{ marginTop: '-10px' }}>
+                                <label style={{ color: 'var(--color-error)' }}>Motivo da Pausa (Admin) *</label>
+                                <input
+                                    type="text"
+                                    name="indefinitePauseReason"
+                                    value={formData.indefinitePauseReason || ''}
+                                    onChange={handleChange}
+                                    required={formData.isIndefinitelyPaused}
+                                    placeholder="Ex: Mudança temporária, Viagem longa..."
+                                    style={{ borderColor: 'var(--color-error)' }}
+                                />
+                            </div>
+                        )}
 
                         {/* Youth & Parent Settings - only visible for non-adults */}
                         {(formData.ageGroup === 'Jovem' || formData.ageGroup === 'Crianca') && (
