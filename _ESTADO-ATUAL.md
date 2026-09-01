@@ -58,3 +58,13 @@
 
 1. Manter monitoramento do acesso dos publicadores via portal e links Z-API.
 2. Re-importar `Relatórios Glide.xlsx` quando houver novos dados para sincronização.
+
+---
+
+## 5. Desenvolvimento em Progresso (2026-08-31)
+
+### 📌 Flag: Pausa por Tempo Indeterminado
+- **Status:** Em desenvolvimento (Checkpoint criado).
+- **Objetivo:** Permitir que o Admin marque um publicador como "Pausado por tempo indeterminado".
+- **Comportamento:** O publicador deixa de ser elegível para designações, mas nenhuma flag pré-existente (`requestedNoParticipation`, etc.) é afetada (dados intocados). O publicador não será notificado sobre a ativação desta flag.
+- **Automação:** Todo sábado, o robô (Cron) enviará um lembrete apenas para o Admin listando quem está pausado.

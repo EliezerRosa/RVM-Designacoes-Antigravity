@@ -600,6 +600,8 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                         <th style={{ ...thStyle, minWidth: '140px' }}>Motivo (Não Apto)</th>
                                         <th style={thStyle} data-tour="col-noParticip">Pediu Não Participar</th>
                                         <th style={{ ...thStyle, minWidth: '140px' }}>Motivo (Não Participar)</th>
+                                        <th style={thStyle} data-tour="col-indefinitelyPaused">Pausado (Admin)</th>
+                                        <th style={{ ...thStyle, minWidth: '140px' }}>Motivo (Pausa)</th>
                                         <th style={thStyle} data-tour="col-helperOnly">Só Ajudante</th>
                                     </>}
                                     {section === 'privileges' && <>
@@ -682,6 +684,24 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                                         onChange={e => setField(pub.id, 'noParticipationReason', e.target.value)}
                                                         disabled={!canEditNonParticip || !eff.requestedNoParticipation}
                                                         style={reasonInputStyle(!canEditNonParticip || !eff.requestedNoParticipation)}
+                                                    />
+                                                </td>
+                                                <td style={tdCenter}>
+                                                    <Toggle
+                                                        value={!!eff.isIndefinitelyPaused}
+                                                        onChange={v => setField(pub.id, 'isIndefinitelyPaused', v)}
+                                                        activeColor="#F43F5E"
+                                                        disabled={!canEditOtherStatus}
+                                                    />
+                                                </td>
+                                                <td style={tdStyle}>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Motivo..."
+                                                        value={eff.indefinitePauseReason || ''}
+                                                        onChange={e => setField(pub.id, 'indefinitePauseReason', e.target.value)}
+                                                        disabled={!canEditOtherStatus || !eff.isIndefinitelyPaused}
+                                                        style={reasonInputStyle(!canEditOtherStatus || !eff.isIndefinitelyPaused)}
                                                     />
                                                 </td>
                                                 <td style={tdCenter}>

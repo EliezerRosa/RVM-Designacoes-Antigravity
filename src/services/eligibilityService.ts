@@ -325,6 +325,11 @@ export function checkEligibility(
         return { eligible: false, reason: 'Publicador pediu para não participar' };
     }
 
+    // Regra de pausa por tempo indeterminado
+    if (publisher.isIndefinitelyPaused) {
+        return { eligible: false, reason: 'Pausado por tempo indeterminado (Admin)' };
+    }
+
     // Regra 2: Não designar em datas indisponíveis
     // IMPORTANTE: Só verifica disponibilidade para semanas FUTURAS.
     // Para semanas passadas, o histórico factual é preservado.
