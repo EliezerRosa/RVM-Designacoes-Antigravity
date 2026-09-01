@@ -37,6 +37,9 @@ interface PublisherData {
     isNotQualified: boolean;
     notQualifiedReason: string;
     noParticipationReason: string;
+    isIndefinitelyPaused: boolean;
+    indefinitePauseReason: string;
+    role: string;
 }
 
 interface PartData {
@@ -569,6 +572,53 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
 }
 
 // ============================================================================
+// CICLO SEMANAL (só roda aos sábados)
+// ============================================================================
+
+async function runWeeklyCycle(publishers: PublisherData[]): Promise<string[]> {
+    const reports: string[] = [];
+    
+    // Buscar todos os pausados por tempo indeterminado
+    const pausados = publishers.filter(p => p.isIndefinitelyPaused);
+    if (pausados.length === 0) return reports;
+
+    let report = `⏸️ *Lembrete Semanal — Publicadores Pausados*\n\n`;
+    report += `Os seguintes publicadores estão atualmente pausados por tempo indeterminado e não receberão designações:\n\n`;
+    
+    pausados.forEach(p => {
+        report += `• ${p.name}${p.indefinitePauseReason ? ` — ${p.indefinitePauseReason}` : ''}\n`;
+    });
+    
+    report += `\nPara reativá-los, acesse o painel Admin:`;
+    report += `\n🔗 https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-status`;
+
+    // Enviar apenas para Admins (role === 'admin' ou Coordenador/SRVM se não houver role explícita)
+    let admins = publishers.filter(p => p.role === 'admin');
+    if (admins.length === 0) {
+        // Fallback para administradores de fato
+        admins = publishers.filter(p => 
+            p.funcao === 'Superintendente da Reunião Vida e Ministério' || 
+            p.funcao === 'Coordenador do Corpo de Anciãos'
+        );
+    }
+    
+    const uniqueRecipients = Array.from(new Map(admins.map(p => [p.id, p])).values());
+    const currentWeek = new Date().toISOString().slice(0, 10);
+    
+    for (const member of uniqueRecipients) {
+        if (!member.phone) continue;
+        const dispatchKey = `LEMBRETE_PAUSADOS_${currentWeek}_${member.id}`;
+        if (await checkDispatched(member.id, dispatchKey)) continue;
+
+        const success = await sendWhatsApp(member.phone, report);
+        await logDispatch(member.id, dispatchKey, member.phone, success ? 'SUCCESS' : 'ERROR');
+        if (success) reports.push(`⏸️ Lembrete de pausados enviado para Admin ${member.name}.`);
+    }
+
+    return reports;
+}
+
+// ============================================================================
 // RELATÓRIO DIÁRIO CONSOLIDADO
 // ============================================================================
 
@@ -681,6 +731,9 @@ serve(async (req: Request) => {
         isNotQualified: p.data?.isNotQualified === true,
         notQualifiedReason: p.data?.notQualifiedReason ?? '',
         noParticipationReason: p.data?.noParticipationReason ?? '',
+        isIndefinitelyPaused: p.data?.isIndefinitelyPaused === true,
+        indefinitePauseReason: p.data?.indefinitePauseReason ?? '',
+        role: p.data?.role ?? '',
     }));
 
     // ============================
@@ -698,9 +751,18 @@ serve(async (req: Request) => {
     }
 
     // ============================
+    // CICLO SEMANAL (só aos sábados)
+    // ============================
+    let weeklyReports: string[] = [];
+    if (today.getDay() === 6) { // 6 = Sábado
+        console.log('[cron] Sábado — executando ciclo semanal...');
+        weeklyReports = await runWeeklyCycle(publishers);
+    }
+
+    // ============================
     // RELATÓRIO DIÁRIO
     // ============================
-    await sendDailyReport(publishers, sentCount, noPhoneList, monthlyReports);
+    await sendDailyReport(publishers, sentCount, noPhoneList, [...monthlyReports, ...weeklyReports]);
 
     console.log(`[cron-whatsapp-reminders] Finalizado. ${sentCount} mensagens enviadas; ${completedCount} designações concluídas.`);
 

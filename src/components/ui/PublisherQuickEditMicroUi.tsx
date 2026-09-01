@@ -27,6 +27,8 @@ const FIELD_LABELS: Record<string, string> = {
     funcao: 'Função',
     isNotQualified: 'Não apto',
     notQualifiedReason: 'Motivo',
+    isIndefinitelyPaused: 'Pausado (Admin)',
+    indefinitePauseReason: 'Motivo da pausa',
 };
 
 const getPublisherFieldValue = <K extends keyof Publisher>(publisher: Publisher, key: K) => publisher[key];
@@ -39,6 +41,8 @@ export function PublisherQuickEditMicroUi({ publishers, defaultPublisherId = nul
     const [funcao, setFuncao] = useState<Funcao>(null);
     const [isNotQualified, setIsNotQualified] = useState(false);
     const [notQualifiedReason, setNotQualifiedReason] = useState('');
+    const [isIndefinitelyPaused, setIsIndefinitelyPaused] = useState(false);
+    const [indefinitePauseReason, setIndefinitePauseReason] = useState('');
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [preview, setPreview] = useState<PublisherMutationPreview | null>(null);
     const [previewError, setPreviewError] = useState<string | null>(null);
@@ -62,6 +66,8 @@ export function PublisherQuickEditMicroUi({ publishers, defaultPublisherId = nul
         setFuncao(selectedPublisher.funcao);
         setIsNotQualified(Boolean(selectedPublisher.isNotQualified));
         setNotQualifiedReason(selectedPublisher.notQualifiedReason || '');
+        setIsIndefinitelyPaused(Boolean(selectedPublisher.isIndefinitelyPaused));
+        setIndefinitePauseReason(selectedPublisher.indefinitePauseReason || '');
         setIsPreviewing(false);
         setPreview(null);
         setPreviewError(null);
@@ -78,6 +84,8 @@ export function PublisherQuickEditMicroUi({ publishers, defaultPublisherId = nul
         funcao,
         isNotQualified,
         notQualifiedReason: isNotQualified ? notQualifiedReason.trim() : '',
+        isIndefinitelyPaused,
+        indefinitePauseReason: isIndefinitelyPaused ? indefinitePauseReason.trim() : '',
     };
 
     const changedFields = (Object.entries(updates) as Array<[keyof Publisher, Publisher[keyof Publisher]]>)
@@ -164,6 +172,20 @@ export function PublisherQuickEditMicroUi({ publishers, defaultPublisherId = nul
                 <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#334155', marginBottom: '8px' }}>
                     Motivo
                     <input value={notQualifiedReason} onChange={(event) => handleFieldMutation(() => setNotQualifiedReason(event.target.value))} style={{ borderRadius: '8px', border: '1px solid #86EFAC', padding: '8px 10px', fontSize: '12px' }} />
+                </label>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', marginBottom: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', fontSize: '12px', color: '#334155', paddingBottom: '8px' }}>
+                    <input type="checkbox" checked={isIndefinitelyPaused} onChange={(event) => handleFieldMutation(() => setIsIndefinitelyPaused(event.target.checked))} />
+                    Pausado por tempo indeterminado (Admin)
+                </label>
+            </div>
+
+            {isIndefinitelyPaused && (
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', color: '#334155', marginBottom: '8px' }}>
+                    Motivo da Pausa
+                    <input value={indefinitePauseReason} onChange={(event) => handleFieldMutation(() => setIndefinitePauseReason(event.target.value))} style={{ borderRadius: '8px', border: '1px solid #86EFAC', padding: '8px 10px', fontSize: '12px' }} />
                 </label>
             )}
 

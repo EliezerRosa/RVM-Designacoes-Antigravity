@@ -12,7 +12,7 @@ interface PublisherListProps {
 type FilterCondition = 'all' | 'Ancião' | 'Servo Ministerial' | 'Publicador';
 type FilterGender = 'all' | 'brother' | 'sister';
 type FilterStatus = 'all' | 'active' | 'inactive';
-type FilterFlag = 'all' | 'notQualified' | 'noParticipation' | 'normal';
+type FilterFlag = 'all' | 'notQualified' | 'noParticipation' | 'indefinitelyPaused' | 'normal';
 type FilterHelper = 'all' | 'helperOnly' | 'fullParticipation';
 type FilterAgeGroup = 'all' | 'Adulto' | 'Jovem' | 'Crianca';
 type SortField = 'name' | 'condition' | 'gender' | 'ageGroup' | 'source';
@@ -52,7 +52,8 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
         const matchesFlag = filterFlag === 'all' ||
             (filterFlag === 'notQualified' && p.isNotQualified) ||
             (filterFlag === 'noParticipation' && p.requestedNoParticipation) ||
-            (filterFlag === 'normal' && !p.isNotQualified && !p.requestedNoParticipation);
+            (filterFlag === 'indefinitelyPaused' && p.isIndefinitelyPaused) ||
+            (filterFlag === 'normal' && !p.isNotQualified && !p.requestedNoParticipation && !p.isIndefinitelyPaused);
 
         // Helper filter
         const matchesHelper = filterHelper === 'all' ||
@@ -233,6 +234,7 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                 <option value="normal">✅ Normal</option>
                                 <option value="notQualified">⚠️ Não Apto</option>
                                 <option value="noParticipation">🙅 Não Participa</option>
+                                <option value="indefinitelyPaused">⏸️ Pausado (Admin)</option>
                             </select>
                         </div>
 
@@ -447,6 +449,23 @@ export default function PublisherList({ publishers, onEdit, onDelete }: Publishe
                                         title={publisher.noParticipationReason || 'Publicador pediu para não participar'}
                                     >
                                         🙅 Não Participa{publisher.noParticipationReason ? '*' : ''}
+                                    </span>
+                                )}
+
+                                {/* Indefinitely Paused - with reason tooltip */}
+                                {publisher.isIndefinitelyPaused && (
+                                    <span
+                                        style={{
+                                            color: '#E11D48',
+                                            background: '#FFE4E6',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.75rem',
+                                            cursor: publisher.indefinitePauseReason ? 'help' : 'default'
+                                        }}
+                                        title={publisher.indefinitePauseReason || 'Pausado por tempo indeterminado pelo Admin'}
+                                    >
+                                        ⏸️ Pausado (Admin){publisher.indefinitePauseReason ? '*' : ''}
                                     </span>
                                 )}
 

@@ -2207,6 +2207,7 @@ export const agentActionService = {
 
                     const restrictions: string[] = [];
                     if (pub.isNotQualified) restrictions.push(`ÑQualificado${pub.notQualifiedReason ? ': ' + pub.notQualifiedReason : ''}`);
+                    if (pub.isIndefinitelyPaused) restrictions.push(`Pausado(Admin)${pub.indefinitePauseReason ? ': ' + pub.indefinitePauseReason : ''}`);
                     if (pub.requestedNoParticipation) restrictions.push(`Sem participação${(pub as any).noParticipationReason ? ': ' + (pub as any).noParticipationReason : ''}`);
                     if (pub.isHelperOnly) restrictions.push('Apenas ajudante');
                     if (pub.privilegesBySection?.canParticipateInTreasures === false) restrictions.push('Bloq.Tesouros');
@@ -2251,8 +2252,8 @@ export const agentActionService = {
                     let filtered = [...publishers];
                     if (['active', 'ativos', 'ativo'].includes(f)) filtered = filtered.filter(p => p.isServing !== false);
                     else if (['inactive', 'inativos', 'inativo'].includes(f)) filtered = filtered.filter(p => p.isServing === false);
-                    else if (['qualified', 'qualificados', 'aptos'].includes(f)) filtered = filtered.filter(p => !p.isNotQualified);
-                    else if (['unqualified', 'nao_qualificados', 'inaptos', 'inqualificados'].includes(f)) filtered = filtered.filter(p => p.isNotQualified);
+                    else if (['qualified', 'qualificados', 'aptos'].includes(f)) filtered = filtered.filter(p => !p.isNotQualified && !p.isIndefinitelyPaused);
+                    else if (['unqualified', 'nao_qualificados', 'inaptos', 'inqualificados'].includes(f)) filtered = filtered.filter(p => p.isNotQualified || p.isIndefinitelyPaused);
                     else if (['male', 'irmaos', 'irmaos', 'brother'].includes(f)) filtered = filtered.filter(p => p.gender === 'brother');
                     else if (['female', 'irmas', 'irmas', 'sister'].includes(f)) filtered = filtered.filter(p => p.gender === 'sister');
                     else if (['baptized', 'batizados'].includes(f)) filtered = filtered.filter(p => p.isBaptized);
@@ -2271,6 +2272,7 @@ export const agentActionService = {
                         if (p.isNotQualified) r.push('ÑQualif');
                         if (p.isHelperOnly) r.push('SóAj');
                         if (p.requestedNoParticipation) r.push('SemPartic');
+                        if (p.isIndefinitelyPaused) r.push('Pausado');
                         return `| ${g} ${p.name} | ${p.condition || '—'} | ${s} | ${p.phone || '—'} | ${r.join(', ') || '—'} |`;
                     });
 
@@ -2541,6 +2543,7 @@ export const agentActionService = {
                         if (pub.isServing === false) return false;
                         if ((pub as any).requestedNoParticipation === true) return false;
                         if ((pub as any).isNotQualified === true) return false;
+                        if ((pub as any).isIndefinitelyPaused === true) return false;
                         const cpm = (pub as any)?.privilegesBySection?.canParticipateInMinistry;
                         if (cpm === false) return false;
                         return true;

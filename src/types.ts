@@ -75,6 +75,8 @@ export interface Publisher {
     notQualifiedReason?: string;        // Motivo da não qualificação (ex: "Necessita treinamento")
     requestedNoParticipation?: boolean; // "PEDIRAM PARA NÃO PARTICIPAR"
     noParticipationReason?: string;     // Motivo (ex: "Viagem", "Problemas pessoais")
+    isIndefinitelyPaused?: boolean;     // Pausa por tempo indeterminado (definido pelo admin)
+    indefinitePauseReason?: string;     // Motivo da pausa por tempo indeterminado
     // Data origin tracking
     source?: 'manual' | 'import' | 'sync' | 'initial'; // Onde o registro foi criado
     createdAt?: string;  // ISO timestamp of creation

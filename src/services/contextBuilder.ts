@@ -179,6 +179,7 @@ function summarizePublisher(p: Publisher, parentLookup?: Map<string, string>): a
     if (!p.isServing) restrictions.push('Inativo');
     if (p.isNotQualified) restrictions.push(`ÑQualificado(${p.notQualifiedReason || ''})`);
     if (p.requestedNoParticipation) restrictions.push(`PediuSair(${p.noParticipationReason || ''})`);
+    if (p.isIndefinitelyPaused) restrictions.push(`Pausado(${p.indefinitePauseReason || 'Admin'})`);
     if (avail.mode === 'never') restrictions.push('Indisponível(Geral)');
     if (p.isHelperOnly) restrictions.push('ApenasAjudante');
     if (!p.canPairWithNonParent && (p.parentIds || []).length > 0) restrictions.push('ApenasComPais');
