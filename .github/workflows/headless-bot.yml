@@ -1,0 +1,28 @@
+name: Automation Bot (Headless)
+
+on:
+  schedule:
+    # Roda diariamente as 11:00 UTC (08:00 BRT)
+    - cron: '0 11 * * *'
+  workflow_dispatch: # Permite rodar manualmente pelo painel do GitHub
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install puppeteer
+
+      - name: Run headless bot
+        env:
+          # O token e a URL devem ser configurados nos Secrets do repositório
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+        run: node scripts/headless-bot.js
