@@ -37,6 +37,7 @@ import { ManualReplacementModal } from './admin/ManualReplacementModal';
 import { zapiOrchestrator } from '../services/zapiOrchestrator';
 import { generateS89PngBase64, generateWhatsAppMessage } from '../services/s89Generator';
 import { communicationService } from '../services/communicationService';
+import { CSClearanceModal } from './admin/CSClearanceModal';
 
 
 
@@ -1022,6 +1023,11 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                                     📋 Minhas Designações
                                 </button>
                             )}
+                            {isAdmin && (
+                                <button onClick={() => setIsCSClearanceModalOpen(true)} style={{ padding: '8px 16px', background: '#0EA5E9', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    ✅ Solicitar Liberação CS
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -1402,6 +1408,10 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                 publishers={publishers}
                 weekOrder={uniqueWeeks.map(w => w.weekId)}
             />
+
+            {isCSClearanceModalOpen && (
+                <CSClearanceModal onClose={() => setIsCSClearanceModalOpen(false)} />
+            )}
 
             {/* Modal de Geração Inteligente */}
             <GenerationModal
