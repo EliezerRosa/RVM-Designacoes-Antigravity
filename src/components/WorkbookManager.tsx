@@ -206,6 +206,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
 
     // Estado do Modal de Minhas Designações
     const [isMyAssignmentsOpen, setIsMyAssignmentsOpen] = useState(false);
+    const [isCSClearanceModalOpen, setIsCSClearanceModalOpen] = useState(false);
 
     // Auth (para gating do botão Minhas Designações)
     const { profile, isAdmin, isEditor } = useAuth();
