@@ -38,6 +38,13 @@ interface AuthRequest {
   expires_at: string | null;
 }
 
+interface HealthStats {
+  logins_24h: number;
+  failures_2fa_24h: number;
+  unsupported_webauthn_24h: number;
+  pending_challenges: number;
+}
+
 type TabType = 'auth_logs' | 'transactions' | '2fa_requests' | 'links';
 
 export function AuthLogsPanel() {
@@ -45,6 +52,7 @@ export function AuthLogsPanel() {
   const [authLogs, setAuthLogs] = useState<AuthLog[]>([]);
   const [transactions, setTransactions] = useState<TransactionLog[]>([]);
   const [authRequests, setAuthRequests] = useState<AuthRequest[]>([]);
+  const [healthStats, setHealthStats] = useState<HealthStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sending2FA, setSending2FA] = useState<Record<string, boolean>>({});
 
@@ -72,8 +80,19 @@ export function AuthLogsPanel() {
   };
 
   const fetchData = useCallback(async () => {
-    if (activeTab === 'links') return;
     setIsLoading(true);
+    try {
+      const { data: statsData } = await supabase.rpc('admin_get_auth_health_stats');
+      if (statsData) setHealthStats(statsData as HealthStats);
+    } catch (e) {
+      console.error('[AuthLogsPanel] health_stats error:', e);
+    }
+
+    if (activeTab === 'links') {
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       if (activeTab === 'auth_logs') {
         const { data, error } = await supabase.rpc('admin_list_auth_logs', { p_limit: 200 });
@@ -117,7 +136,29 @@ export function AuthLogsPanel() {
 
   return (
     <div style={{ padding: '1rem' }}>
-      <h3 style={{ color: '#1e293b', marginBottom: '1rem' }}>🔐 Histórico de Autenticação & Transações</h3>
+      <h3 style={{ color: '#1e293b', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span>🔐</span> Histórico de Autenticação & Transações
+      </h3>
+
+      {/* Health Dashboard (Fase 4) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div style={{ padding: '1rem', background: '#ecfdf5', border: '1px solid #10b981', borderRadius: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 600, textTransform: 'uppercase' }}>Logins (24h)</div>
+          <div style={{ fontSize: '1.5rem', color: '#064e3b', fontWeight: 700 }}>{healthStats?.logins_24h ?? '-'}</div>
+        </div>
+        <div style={{ padding: '1rem', background: '#fef2f2', border: '1px solid #ef4444', borderRadius: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: 600, textTransform: 'uppercase' }}>Falhas 2FA (24h)</div>
+          <div style={{ fontSize: '1.5rem', color: '#7f1d1d', fontWeight: 700 }}>{healthStats?.failures_2fa_24h ?? '-'}</div>
+        </div>
+        <div style={{ padding: '1rem', background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: '#b45309', fontWeight: 600, textTransform: 'uppercase' }}>Sem WebAuthn (24h)</div>
+          <div style={{ fontSize: '1.5rem', color: '#78350f', fontWeight: 700 }}>{healthStats?.unsupported_webauthn_24h ?? '-'}</div>
+        </div>
+        <div style={{ padding: '1rem', background: '#eff6ff', border: '1px solid #3b82f6', borderRadius: '0.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: '#1d4ed8', fontWeight: 600, textTransform: 'uppercase' }}>Challenges Pendentes</div>
+          <div style={{ fontSize: '1.5rem', color: '#1e3a8a', fontWeight: 700 }}>{healthStats?.pending_challenges ?? '-'}</div>
+        </div>
+      </div>
 
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
