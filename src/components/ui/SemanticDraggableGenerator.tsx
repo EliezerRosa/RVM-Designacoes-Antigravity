@@ -25,12 +25,12 @@ interface PartAnalysis {
 
 export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, publishers, onPublisherSelect, focusedPartId }) => {
     const [isDragging, setIsDragging] = useState(false);
-    const [position, setPosition] = useState({ x: window.innerWidth - 450, y: 100 });
+    const [position, setPosition] = useState({ x: 24, y: Math.max(70, (typeof window !== 'undefined' ? window.innerHeight : 800) - 580) });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
-    const [isExpanded, setIsExpanded] = useState(true);
+    const [isExpanded, setIsExpanded] = useState(false);
     
     const [analyses, setAnalyses] = useState<PartAnalysis[]>([]);
     const [activePartId, setActivePartId] = useState<string | null>(null);
@@ -70,7 +70,6 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     useEffect(() => {
         if (focusedPartId) {
             setActivePartId(focusedPartId);
-            setIsExpanded(true);
         }
     }, [focusedPartId]);
 
@@ -254,6 +253,56 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         </span>
     );
 
+    if (!isExpanded) {
+        return (
+            <button 
+                onClick={() => setIsExpanded(true)}
+                title="Expandir Agente Curador IA"
+                style={{
+                    position: 'fixed',
+                    left: '24px',
+                    bottom: '24px',
+                    zIndex: 9999,
+                    background: 'linear-gradient(135deg, #4F46E5 0%, #3730A3 100%)',
+                    color: '#ffffff',
+                    border: '1px solid #818CF8',
+                    borderRadius: '9999px',
+                    padding: '10px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    boxShadow: '0 10px 25px -5px rgba(79, 70, 229, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                }}
+            >
+                <span style={{ fontSize: '18px' }}>🧠</span>
+                <span>Agente Curador IA</span>
+                {status === 'loading' && (
+                    <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
+                        ⏳ Analisando...
+                    </span>
+                )}
+                {status === 'success' && analyses.length > 0 && (
+                    <span style={{
+                        background: '#10B981',
+                        color: 'white',
+                        borderRadius: '9999px',
+                        padding: '2px 8px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                    }}>
+                        {analyses.length}
+                    </span>
+                )}
+                <span style={{ fontSize: '12px', opacity: 0.85, marginLeft: '2px' }}>▲</span>
+            </button>
+        );
+    }
+
     return (
         <div 
             style={{
@@ -264,9 +313,9 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                 width: '420px',
                 maxHeight: '85vh',
                 backgroundColor: '#ffffff',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
-                borderRadius: '8px',
-                border: '1px solid #a5b4fc',
+                boxShadow: '0 20px 35px -5px rgba(0, 0, 0, 0.35), 0 10px 15px -5px rgba(0, 0, 0, 0.2)',
+                borderRadius: '12px',
+                border: '1px solid #818CF8',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
@@ -276,30 +325,30 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             {/* Header / Drag Handle */}
             <div 
                 style={{ 
-                    padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     cursor: 'move', backgroundColor: '#4f46e5', color: '#ffffff' 
                 }}
                 onMouseDown={handleMouseDown}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '16px' }}>🧠</span>
+                    <span style={{ fontSize: '18px' }}>🧠</span>
                     <span style={{ fontWeight: '600', fontSize: '14px', letterSpacing: '0.025em' }}>Agente Curador IA</span>
                 </div>
                 <button 
-                    onClick={() => setIsExpanded(!isExpanded)}
+                    onClick={() => setIsExpanded(false)}
                     style={{ 
-                        color: '#ffffff', background: 'transparent', border: 'none', cursor: 'pointer',
-                        padding: '4px', fontSize: '14px' 
+                        color: '#ffffff', background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer',
+                        padding: '4px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px'
                     }}
-                    title={isExpanded ? 'Minimizar' : 'Expandir'}
+                    title="Recolher para o rodapé"
                 >
-                    {isExpanded ? '▼' : '▲'}
+                    <span>▼</span>
+                    <span>Recolher</span>
                 </button>
             </div>
 
             {/* Body */}
-            {isExpanded && (
-                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxHeight: 'calc(85vh - 40px)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxHeight: 'calc(85vh - 40px)', overflow: 'hidden' }}>
                     <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ fontSize: '12px', color: '#374151' }}>Análise Ativa para a semana:</div>
@@ -476,7 +525,6 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                         </div>
                     )}
                 </div>
-            )}
         </div>
     );
 };
