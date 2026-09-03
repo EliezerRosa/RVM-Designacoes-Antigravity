@@ -382,15 +382,45 @@ async function checkZApiConnection() {
   };
 }
 
-/** Lista os grupos do WhatsApp via Z-API (capability genérica do provider). */
+/** Lista os grupos e listas de transmissão do WhatsApp via Z-API. */
 async function listZApiGroups() {
   const creds = await getZApiCredentials();
   if (!creds) return { success: false, error: 'Z-API não configurada.' };
 
   const { instanceId, instanceToken, clientToken } = creds;
 
-  const groups: Array<{ id: string; name: string }> = [];
-  // Pagina os chats e filtra isGroup. pageSize alto para reduzir chamadas.
+  const groups: Array<{ id: string; name: string; type?: 'group' | 'broadcast' }> = [];
+  const seenIds = new Set<string>();
+
+  // 1. Tentar consultar endpoint específico de broadcasts/listas da Z-API (se habilitado)
+  try {
+    const broadcastEndpoints = [
+      `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/broadcasts`,
+      `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/broadcast`,
+    ];
+    for (const bUrl of broadcastEndpoints) {
+      const bRes = await fetch(bUrl, { headers: { 'client-token': clientToken } });
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        const bList = Array.isArray(bData) ? bData : (bData.broadcasts || bData.data || bData.items || []);
+        if (Array.isArray(bList) && bList.length > 0) {
+          for (const b of bList) {
+            const id = b.phone || b.id || b.broadcastId;
+            const name = b.name || b.nameList || b.subject || 'Lista de Transmissão';
+            if (id && !seenIds.has(id)) {
+              seenIds.add(id);
+              groups.push({ id, name: `📢 [Lista] ${name}`, type: 'broadcast' });
+            }
+          }
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[listZApiGroups] Falha opcional ao consultar endpoint de broadcasts:', e);
+  }
+
+  // 2. Pagina os chats e captura tanto grupos (isGroup) quanto listas de transmissão (@broadcast ou isBroadcast)
   for (let page = 1; page <= 20; page++) {
     const res = await fetch(
       `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/chats?page=${page}&pageSize=100`,
@@ -404,7 +434,24 @@ async function listZApiGroups() {
     if (!Array.isArray(chats) || chats.length === 0) break;
     for (const c of chats) {
       const isGroup = c.isGroup === true || c.isGroup === 'true';
-      if (isGroup) groups.push({ id: c.phone, name: c.name });
+      const phoneStr = String(c.phone || c.id || '');
+      const isBroadcast = c.isBroadcast === true || 
+                          c.isBroadcast === 'true' || 
+                          c.broadcast === true ||
+                          phoneStr.toLowerCase().includes('broadcast');
+
+      if (isGroup || isBroadcast) {
+        const id = c.phone || c.id;
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id);
+          const prefix = isBroadcast ? '📢 [Lista] ' : '👥 [Grupo] ';
+          groups.push({ 
+            id, 
+            name: `${prefix}${c.name || 'Sem Nome'}`, 
+            type: isBroadcast ? 'broadcast' : 'group' 
+          });
+        }
+      }
     }
     if (chats.length < 100) break;
   }

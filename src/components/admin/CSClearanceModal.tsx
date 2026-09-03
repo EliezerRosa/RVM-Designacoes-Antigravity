@@ -18,6 +18,9 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
   const [searchTerm, setSearchTerm] = useState('');
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [isManualDestination, setIsManualDestination] = useState(false);
+  const [manualDestinationId, setManualDestinationId] = useState('');
+  const [loadingGroups, setLoadingGroups] = useState(false);
   const [observations, setObservations] = useState('');
   const [loading, setLoading] = useState(!initialPublishers || initialPublishers.length === 0);
   const [sending, setSending] = useState(false);
@@ -81,30 +84,37 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
     });
   }, [weekParts, publishers]);
 
-  // 4. Carregar Grupos do Z-API
-  useEffect(() => {
-    async function loadGroups() {
-      try {
-        const { data: res } = await supabase.functions.invoke('send-whatsapp', {
-          body: { action: 'list-groups' }
+  // 4. Carregar Grupos e Listas de Transmissão do Z-API
+  const loadGroups = async () => {
+    try {
+      setLoadingGroups(true);
+      const { data: res } = await supabase.functions.invoke('send-whatsapp', {
+        body: { action: 'list-groups' }
+      });
+
+      if (res && res.groups && Array.isArray(res.groups)) {
+        setGroups(res.groups);
+        // Tentar pré-selecionar o grupo ou lista da CS
+        const csDestination = res.groups.find((g: any) => {
+          const name = (g.name || '').toLowerCase();
+          return name.includes('comissão de serviço') || 
+                 name.includes('comissao de servico') || 
+                 name.includes('comissão') ||
+                 name.includes('comissao') ||
+                 name.includes('cs');
         });
-
-        if (res && res.groups && Array.isArray(res.groups)) {
-          setGroups(res.groups);
-          // Tentar pré-selecionar o grupo da CS
-          const csGroup = res.groups.find((g: any) => {
-            const name = (g.name || '').toLowerCase();
-            return name.includes('comissão de serviço') || name.includes('comissao de servico') || name === 'cs';
-          });
-          if (csGroup) {
-            setSelectedGroupId(csGroup.id);
-          }
+        if (csDestination && !selectedGroupId) {
+          setSelectedGroupId(csDestination.id);
         }
-      } catch (err) {
-        console.error('Erro ao carregar grupos Z-API:', err);
       }
+    } catch (err) {
+      console.error('Erro ao carregar grupos e listas Z-API:', err);
+    } finally {
+      setLoadingGroups(false);
     }
+  };
 
+  useEffect(() => {
     loadGroups();
   }, []);
 
@@ -144,7 +154,10 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
 
   const handleSend = async () => {
     if (selectedIds.size === 0) return alert('Selecione ao menos um publicador para confirmação.');
-    if (!selectedGroupId) return alert('Selecione o Grupo ou Destino da CS via Z-API.');
+    const effectiveTarget = isManualDestination ? manualDestinationId.trim() : selectedGroupId;
+    if (!effectiveTarget) {
+      return alert(isManualDestination ? 'Informe o ID do Grupo ou Lista de Transmissão.' : 'Selecione o Grupo ou Lista de Transmissão da CS.');
+    }
 
     setSending(true);
     try {
@@ -201,12 +214,12 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
       message += `\nPor favor, confirmem ou atualizem eventuais restrições acessando o link seguro abaixo:\n${updateUrl}\n\nAgradecemos pela colaboração! 🙏`;
 
       // 4. Enviar Mensagem via Z-API (Edge Function send-whatsapp com fallback seguro)
-      let res: { success: boolean; error?: string } = await zapiOrchestrator.sendTextDirect(selectedGroupId, message);
+      let res: { success: boolean; error?: string } = await zapiOrchestrator.sendTextDirect(effectiveTarget, message);
 
       if (!res.success) {
         console.warn('[CSClearanceModal] Tentando via waService direto:', res.error);
         const wa = createWhatsAppAutoServiceFromEnv();
-        const waRes = await wa.sendText(selectedGroupId, message);
+        const waRes = await wa.sendText(effectiveTarget, message);
         res = { success: waRes.success, error: waRes.error };
       }
 
@@ -277,24 +290,64 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
               )}
             </div>
 
-            {/* 2. Seleção de Destino Z-API */}
+            {/* 2. Seleção de Destino Z-API (Grupos ou Listas de Transmissão) */}
             <div style={sectionStyle}>
-              <label style={labelStyle}>1. Selecionar Destino (Z-API)</label>
-              <select 
-                value={selectedGroupId} 
-                onChange={e => setSelectedGroupId(e.target.value)}
-                style={inputStyle}
-              >
-                <option value="">-- Selecione o Grupo da Comissão de Serviço --</option>
-                {groups.map(g => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={labelStyle}>1. Destino Z-API (Grupo ou Lista de Transmissão)</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsManualDestination(!isManualDestination)}
+                    style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    {isManualDestination ? '📋 Escolher da Lista' : '✍️ Digitar ID Manual'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadGroups}
+                    disabled={loadingGroups}
+                    style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px' }}
+                    title="Recarregar grupos e listas de transmissão da Z-API"
+                  >
+                    {loadingGroups ? '⏳' : '🔄'} {loadingGroups ? 'Carregando...' : 'Atualizar'}
+                  </button>
+                </div>
+              </div>
+
+              {isManualDestination ? (
+                <div>
+                  <input 
+                    type="text"
+                    placeholder="Ex: 120363426023919801-group ou 1624901640@broadcast"
+                    value={manualDestinationId}
+                    onChange={e => setManualDestinationId(e.target.value)}
+                    style={inputStyle}
+                  />
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                    Cole o ID do Grupo (`...-group`) ou da Lista de Transmissão (`...@broadcast`).
+                  </span>
+                </div>
+              ) : (
+                <select 
+                  value={selectedGroupId} 
+                  onChange={e => setSelectedGroupId(e.target.value)}
+                  style={inputStyle}
+                  disabled={loadingGroups}
+                >
+                  <option value="">
+                    {loadingGroups ? 'Carregando destinos Z-API...' : '-- Selecione o Grupo ou Lista de Transmissão --'}
                   </option>
-                ))}
-              </select>
-              {groups.length === 0 && (
-                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                  Nenhum grupo do Z-API retornado automaticamente ou aguardando resposta.
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {!isManualDestination && groups.length === 0 && !loadingGroups && (
+                <span style={{ fontSize: '0.75rem', color: '#b45309' }}>
+                  Nenhum destino detectado automaticamente. Você pode clicar em "✍️ Digitar ID Manual" para inserir o ID da lista/grupo diretamente.
                 </span>
               )}
             </div>
@@ -412,11 +465,11 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
             {/* Botão de Envio */}
             <button 
               onClick={handleSend} 
-              disabled={sending || selectedIds.size === 0 || !selectedGroupId}
+              disabled={sending || selectedIds.size === 0 || (!isManualDestination && !selectedGroupId) || (isManualDestination && !manualDestinationId.trim())}
               style={{
                 ...primaryBtnStyle,
-                opacity: (sending || selectedIds.size === 0 || !selectedGroupId) ? 0.6 : 1,
-                cursor: (sending || selectedIds.size === 0 || !selectedGroupId) ? 'not-allowed' : 'pointer'
+                opacity: (sending || selectedIds.size === 0 || (!isManualDestination && !selectedGroupId) || (isManualDestination && !manualDestinationId.trim())) ? 0.6 : 1,
+                cursor: (sending || selectedIds.size === 0 || (!isManualDestination && !selectedGroupId) || (isManualDestination && !manualDestinationId.trim())) ? 'not-allowed' : 'pointer'
               }}
             >
               {sending ? 'Enviando via Z-API...' : `Enviar Solicitação (${selectedIds.size} selecionado${selectedIds.size === 1 ? '' : 's'})`}
