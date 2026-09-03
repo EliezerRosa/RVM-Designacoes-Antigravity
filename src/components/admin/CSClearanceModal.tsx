@@ -270,7 +270,9 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
         }
       }
 
-      const updateUrl = `${window.location.origin}/update-publishers?token=${tokenValue}`;
+      const base = window.location.origin + window.location.pathname;
+      const cleanBase = base.replace(/\/+$/, '');
+      const updateUrl = `${cleanBase}?portal=publisher-form&token=${tokenValue}`;
 
       // 2. Saudação baseada na hora do dia e nomes da CS
       const hour = new Date().getHours();
