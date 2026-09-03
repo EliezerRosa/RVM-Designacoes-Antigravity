@@ -102,8 +102,18 @@ export type WhatsAppAutoConfig =
 
 // ─── Utilitários internos ───────────────────────────────────────────────────
 
-/** Normaliza telefone brasileiro para formato internacional sem +. */
+/** Verifica se o identificador informado é um ID de grupo ou transmissão do WhatsApp/Z-API/Evolution. */
+export function isWhatsAppGroup(phone: string): boolean {
+  if (!phone || typeof phone !== 'string') return false;
+  const p = phone.trim().toLowerCase();
+  return p.endsWith('-group') || p.endsWith('@g.us') || p.includes('@broadcast');
+}
+
+/** Normaliza telefone brasileiro para formato internacional sem +. Para grupos, preserva o ID intacto. */
 export function normalizePhoneBR(phone: string): string {
+  if (isWhatsAppGroup(phone)) {
+    return phone.trim();
+  }
   let digits = (phone || '').replace(/\D/g, '');
   // Remove + ou 0 inicial
   digits = digits.replace(/^0+/, '');
@@ -114,8 +124,11 @@ export function normalizePhoneBR(phone: string): string {
   return digits;
 }
 
-/** Valida se o número normalizado parece um celular BR válido. */
+/** Valida se o número normalizado parece um celular BR válido ou se é um grupo de WhatsApp. */
 export function isValidBRPhone(phone: string): boolean {
+  if (isWhatsAppGroup(phone)) {
+    return true;
+  }
   const digits = normalizePhoneBR(phone);
   // 55 + 2 DDD + 9 celular = 13 dígitos, ou 55 + 2 DDD + 8 fixo = 12
   return digits.length >= 12 && digits.length <= 13 && digits.startsWith('55');
