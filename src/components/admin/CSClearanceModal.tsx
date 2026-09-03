@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { api } from '../../services/api';
 import { createWhatsAppAutoServiceFromEnv } from '../../services/whatsappAutoService';
+import { zapiOrchestrator } from '../../services/zapiOrchestrator';
 import type { Publisher, WorkbookPart } from '../../types';
 
 interface CSClearanceModalProps {
@@ -199,9 +200,15 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
 
       message += `\nPor favor, confirmem ou atualizem eventuais restrições acessando o link seguro abaixo:\n${updateUrl}\n\nAgradecemos pela colaboração! 🙏`;
 
-      // 4. Enviar Mensagem via Z-API
-      const wa = createWhatsAppAutoServiceFromEnv();
-      const res = await wa.sendText(selectedGroupId, message);
+      // 4. Enviar Mensagem via Z-API (Edge Function send-whatsapp com fallback seguro)
+      let res: { success: boolean; error?: string } = await zapiOrchestrator.sendTextDirect(selectedGroupId, message);
+
+      if (!res.success) {
+        console.warn('[CSClearanceModal] Tentando via waService direto:', res.error);
+        const wa = createWhatsAppAutoServiceFromEnv();
+        const waRes = await wa.sendText(selectedGroupId, message);
+        res = { success: waRes.success, error: waRes.error };
+      }
 
       if (res.success) {
         alert('✅ Mensagem enviada com sucesso para a Comissão de Serviço via WhatsApp!');
