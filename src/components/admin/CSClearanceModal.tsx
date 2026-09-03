@@ -30,15 +30,15 @@ export function CSClearanceModal({ onClose }: CSClearanceModalProps) {
         if (pubs) {
           setPublishers(pubs as Publisher[]);
           
-          // Filtrar membros da CS (privilégios: coordenador, secretario, sup. de servico)
+          // Filtrar membros da CS (funções: coordenador, secretário, sup. de serviço)
           const cs = pubs.filter(p => {
-            const privs = (p.privileges || []).map((pr: string) => pr.toLowerCase());
-            return privs.some((pr: string) => 
-              pr.includes('coordenador') || 
-              pr.includes('secretário') || 
-              pr.includes('secretario') || 
-              pr.includes('serviço') ||
-              pr.includes('servico')
+            const funcao = (p.funcao || '').toLowerCase();
+            return (
+              funcao.includes('coordenador') || 
+              funcao.includes('secretário') || 
+              funcao.includes('secretario') || 
+              funcao.includes('serviço') ||
+              funcao.includes('servico')
             );
           });
           setCsMembers(cs.map(p => p.name.split(' ')[0])); // Apenas o primeiro nome
@@ -52,7 +52,7 @@ export function CSClearanceModal({ onClose }: CSClearanceModalProps) {
         if (res && res.groups) {
           setGroups(res.groups);
           // Tentar pre-selecionar o grupo da CS
-          const csGroup = res.groups.find((g: any) => g.name.toLowerCase().includes('comissão de serviço') || g.name.toLowerCase().includes('comissao de servico') || g.name.toLowerCase() === 'cs');
+          const csGroup = res.groups.find((g: any) => g.name?.toLowerCase().includes('comissão de serviço') || g.name?.toLowerCase().includes('comissao de servico') || g.name?.toLowerCase() === 'cs');
           if (csGroup) setSelectedGroupId(csGroup.id);
         }
 
