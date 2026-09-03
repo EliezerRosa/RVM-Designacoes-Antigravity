@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { generateSemanticRulesForWeek, saveSemanticRulesToDb } from '../../services/semanticAgentService';
 import { fetchSemanticRulesForWeek, calculateSemanticScore, SemanticRule, SemanticScoreResult } from '../../services/semanticRulesService';
 import { participationAnalyticsService, PublisherStats } from '../../services/participationAnalyticsService';
@@ -35,6 +35,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     const [analyses, setAnalyses] = useState<PartAnalysis[]>([]);
     const [activePartId, setActivePartId] = useState<string | null>(null);
     const [affinityMap, setAffinityMap] = useState<Record<string, PublisherStats>>({});
+    const lastAnalyzedWeekRef = useRef<string | null>(null);
 
     // Carrega histórico para cálculo de afinidade
     useEffect(() => {
@@ -173,6 +174,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         try {
             const yamlContent = await generateSemanticRulesForWeek(weekId, parts);
             await saveSemanticRulesToDb(weekId, yamlContent);
+            lastAnalyzedWeekRef.current = weekId;
             setStatus('success');
             setMessage('Regras Semânticas geradas e ativas para esta semana!');
             const rules = await fetchSemanticRulesForWeek(weekId);
@@ -184,34 +186,60 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     };
 
     useEffect(() => {
+        // Se mudou de semana, limpa o estado anterior
+        if (weekId !== lastAnalyzedWeekRef.current) {
+            setAnalyses([]);
+            setActivePartId(null);
+            setStatus('idle');
+            setMessage('');
+        }
+
+        // Regra de Ouro: O Agente Curador só deve executar análise UMA VEZ na entrada na semana.
+        // Se a semana atual já foi analisada, ignora re-renderizações subsequentes de parts e publishers.
+        if (!weekId || lastAnalyzedWeekRef.current === weekId) {
+            return;
+        }
+
+        // Aguarda carregar as partes da apostila da semana antes de disparar
+        if (!parts || parts.length === 0) {
+            return;
+        }
+
         let isMounted = true;
-        setAnalyses([]);
-        setActivePartId(null);
-        
-        async function checkAndGenerate() {
+        lastAnalyzedWeekRef.current = weekId;
+
+        async function checkAndGenerateOnce() {
             if (!weekId) return;
-            if (!parts || parts.length === 0) return; // Não iniciar IA sem dados da apostila carregados
 
-            console.log(`[SemanticUI] checkAndGenerate: weekId=${weekId}, parts=${parts.length}`);
+            console.log(`[SemanticUI] Análise inicial única na entrada da semana: weekId=${weekId}, parts=${parts.length}`);
 
-            const rules = await fetchSemanticRulesForWeek(weekId);
-            const weekKey = `semana_${weekId}`;
-            // ETAPA 3: Validar que tem regras REAIS (não apenas {} vazio)
-            const weekData = rules[weekKey];
-            const hasRules = !!weekData && Object.keys(weekData).length > 0;
-            console.log(`[SemanticUI] checkAndGenerate: hasRules=${hasRules}, keys=${weekData ? Object.keys(weekData).length : 0}`);
-            
-            if (!hasRules && isMounted) {
-                console.log(`[SemanticUI] Sem regras no banco, disparando handleGenerate()`);
-                handleGenerate();
-            } else if (hasRules && isMounted) {
-                setStatus('success');
-                setMessage('Regras Semânticas ativas para esta semana.');
-                runAnalysis(rules);
+            try {
+                const rules = await fetchSemanticRulesForWeek(weekId);
+                const weekKey = `semana_${weekId}`;
+                const weekData = rules[weekKey];
+                const hasRules = !!weekData && Object.keys(weekData).length > 0;
+                console.log(`[SemanticUI] checkAndGenerateOnce: hasRules=${hasRules}, keys=${weekData ? Object.keys(weekData).length : 0}`);
+
+                if (!isMounted) return;
+
+                if (!hasRules) {
+                    console.log(`[SemanticUI] Sem regras salvas, gerando regras via IA uma única vez...`);
+                    await handleGenerate();
+                } else {
+                    setStatus('success');
+                    setMessage('Regras Semânticas ativas para esta semana.');
+                    runAnalysis(rules);
+                }
+            } catch (err: any) {
+                console.error('[SemanticUI] Erro na análise única da semana:', err);
+                if (isMounted) {
+                    setStatus('error');
+                    setMessage(`Falha: ${err.message || String(err)}`);
+                }
             }
         }
-        
-        checkAndGenerate();
+
+        checkAndGenerateOnce();
         return () => { isMounted = false; };
     }, [weekId, parts, publishers]);
 
