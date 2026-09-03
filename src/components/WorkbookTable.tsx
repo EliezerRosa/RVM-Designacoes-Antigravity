@@ -92,7 +92,14 @@ export function WorkbookTable({
                     weekId={targetWeekId} 
                     parts={partsToRender}
                     publishers={publishers}
-                    onPublisherSelect={onPublisherSelect}
+                    history={historyRecords}
+                    onPublisherSelect={(partId, pubId, pubName) => {
+                        // O Curador desbloqueia a parte na tabela para aceitar a designação recomendada
+                        if (!unlockedParts.has(partId)) {
+                            setUnlockedParts(prev => new Set(prev).add(partId));
+                        }
+                        onPublisherSelect(partId, pubId, pubName);
+                    }}
                     focusedPartId={focusedPartId}
                 />
             )}

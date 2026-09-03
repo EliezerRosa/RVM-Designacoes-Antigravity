@@ -160,12 +160,25 @@ export function calculateSemanticScore(
         const perfil = perfilObj.tipo.toLowerCase();
         const pts = perfilObj.peso === 'MANDATORIO' ? 1000 : 75;
         
-        if (perfil === 'conselheiro_experiente') {
+        if (perfil === 'conselheiro_experiente' || perfil === 'conselheiro_reflexivo' || perfil === 'conselheiro_empatico') {
             if (ageGroup === 'idoso' && isElder) {
                 score += pts;
                 matches.push(`Conselheiro Experiente (+${pts})`);
+            } else if (isElder || (ageGroup === 'idoso' && isMS)) {
+                score += Math.floor(pts * 0.8);
+                matches.push(`Conselheiro Maduro (+${Math.floor(pts * 0.8)})`);
             } else {
                 misses.push('Falta: Conselheiro Experiente (Idoso+Ancião)');
+            }
+        } else if (perfil === 'consolador_empatico' || perfil === 'consolador_experiente') {
+            if ((ageGroup === 'idoso' || ageGroup === 'adulto') && (isElder || isPioneer || !!publisher.spouseId)) {
+                score += pts;
+                matches.push(`Consolador Empático (+${pts})`);
+            } else if (ageGroup === 'adulto' || ageGroup === 'idoso') {
+                score += Math.floor(pts * 0.7);
+                matches.push(`Perfil Maduro/Empático (+${Math.floor(pts * 0.7)})`);
+            } else {
+                misses.push('Falta: Maturidade/Empatia para Consolo');
             }
         } else if (perfil === 'jovem_promissor') {
             if (ageGroup === 'jovem' && isBaptized && !isElder) {
@@ -174,17 +187,44 @@ export function calculateSemanticScore(
             } else {
                 misses.push('Falta: Jovem Promissor (Jovem Batizado não Ancião)');
             }
-        } else if (perfil === 'apologista_maduro') {
+        } else if (perfil === 'jovem_treinamento' || perfil === 'iniciador_conversas' || perfil === 'iniciador_de_conversas' || perfil === 'iniciador_entusiasmado' || perfil === 'iniciador_criativo') {
+            if ((ageGroup === 'jovem' || ageGroup === 'crianca') && !isBaptized) {
+                score += pts;
+                matches.push(`Iniciante em Treinamento (+${pts})`);
+            } else if (!isElder || ageGroup === 'jovem' || isPioneer) {
+                score += Math.floor(pts * 0.85);
+                matches.push(`Iniciador de Conversas (+${Math.floor(pts * 0.85)})`);
+            } else {
+                score += Math.floor(pts * 0.5);
+                matches.push(`Publicador Apto (+${Math.floor(pts * 0.5)})`);
+            }
+        } else if (perfil === 'cultivador_discipulador' || perfil === 'cultivador_de_interesse' || perfil === 'cultivador_persuasivo' || perfil === 'discipulador_experiente') {
+            if (isPioneer || isElder || isMS) {
+                score += pts;
+                matches.push(`Discipulador Experiente (+${pts})`);
+            } else if (isBaptized && ageGroup !== 'crianca') {
+                score += Math.floor(pts * 0.75);
+                matches.push(`Cultivador de Interesse (+${Math.floor(pts * 0.75)})`);
+            } else {
+                misses.push('Falta: Experiência em Fazer Discípulos');
+            }
+        } else if (perfil === 'defensor_da_fe' || perfil === 'defensor_da_neutralidade' || perfil === 'apologista_maduro') {
             if (gender === 'masculino' && (isElder || isMS || isPioneer)) {
                 score += pts;
-                matches.push(`Apologista Maduro (+${pts})`);
+                matches.push(`Defensor da Fé (+${pts})`);
+            } else if (isBaptized && ageGroup !== 'crianca') {
+                score += Math.floor(pts * 0.75);
+                matches.push(`Fé e Firmeza (+${Math.floor(pts * 0.75)})`);
             } else {
-                misses.push('Falta: Apologista Maduro (Irmão Experiente)');
+                misses.push('Falta: Apologista Maduro / Defensor da Fé');
             }
-        } else if (perfil === 'mentoria_feminina') {
+        } else if (perfil === 'mentoria_feminina' || perfil === 'ajudante_empático' || perfil === 'apoio_persuasivo' || perfil === 'apoio_criativo') {
             if (gender === 'feminino' && (isPioneer || ageGroup === 'idoso' || ageGroup === 'adulto')) {
                 score += pts;
                 matches.push(`Mentoria Feminina (+${pts})`);
+            } else if (gender === 'feminino') {
+                score += Math.floor(pts * 0.7);
+                matches.push(`Irmã Qualificada (+${Math.floor(pts * 0.7)})`);
             } else {
                 misses.push('Falta: Mentoria Feminina (Irmã Experiente)');
             }
@@ -194,23 +234,52 @@ export function calculateSemanticScore(
             if (hasSpouse && hasChildren) {
                 score += pts;
                 matches.push(`Família Base (+${pts})`);
+            } else if (hasSpouse) {
+                score += Math.floor(pts * 0.8);
+                matches.push(`Casal (+${Math.floor(pts * 0.8)})`);
             } else {
                 misses.push('Falta: Família (Casado com filhos)');
             }
-        } else if (perfil === 'jovem_treinamento') {
-            if ((ageGroup === 'jovem' || ageGroup === 'crianca') && !isBaptized) {
+        } else if (perfil === 'leitor_qualificado' || perfil === 'leitor_experiente') {
+            if (gender === 'masculino' && isBaptized && (publisher.privileges?.canReadCBS || publisher.privileges?.canGiveStudentTalks !== false)) {
                 score += pts;
-                matches.push(`Jovem em Treinamento (+${pts})`);
+                matches.push(`Leitor Qualificado (+${pts})`);
             } else {
-                misses.push('Falta: Jovem/Criança Não Batizado');
+                misses.push('Falta: Privilégio de Leitura Bíblica');
+            }
+        } else if (perfil === 'pastor_instrutor' || perfil === 'expositor_inspirador' || perfil === 'apresentador_inspirador') {
+            if (isElder || (isMS && publisher.privileges?.canGiveTalks)) {
+                score += pts;
+                matches.push(`Pastor Instrutor (+${pts})`);
+            } else {
+                misses.push('Falta: Ancião / Servo Instrutor');
+            }
+        } else if (perfil === 'dirigente_pastoral' || perfil === 'mediador_equilibrado') {
+            if (isElder && publisher.privileges?.canConductCBS) {
+                score += pts;
+                matches.push(`Dirigente Pastoral (+${pts})`);
+            } else {
+                misses.push('Falta: Ancião Dirigente de EBC');
+            }
+        } else if (perfil === 'organizador_pratico' || perfil === 'planejador_eficiente' || perfil === 'apoio_organizado' || perfil === 'apoiador_organizacional') {
+            if (isMS || isElder || isPioneer || (isBaptized && ageGroup === 'adulto')) {
+                score += pts;
+                matches.push(`Organizador Prático (+${pts})`);
+            } else {
+                misses.push('Falta: Perfil Prático Organizacional');
+            }
+        } else if (perfil === 'pesquisador_entusiasta' || perfil === 'pesquisador_espiritual' || perfil === 'estudioso_da_biblia') {
+            if (isBaptized && (isPioneer || isMS || isElder || ageGroup !== 'crianca')) {
+                score += pts;
+                matches.push(`Pesquisador Espiritual (+${pts})`);
+            } else {
+                misses.push('Falta: Pesquisador Espiritual');
             }
         } else if (perfil !== 'nenhum' && perfil !== '') {
-            // Se a IA gerou um perfil que não conhecemos (ex: Mistral inventando 'pesquisador_entusiasta')
-            // Damos um bônus genérico de fallback para NÃO zerar todo mundo e causar lista vazia.
-            console.warn(`[Semantic] Perfil sintético desconhecido/alucinado: ${perfil}`);
-            const fallbackPts = Math.max(Math.floor(pts / 5), 10);
+            const norm = perfil.replace(/_/g, ' ');
+            const fallbackPts = Math.max(Math.floor(pts / 2), 25);
             score += fallbackPts;
-            matches.push(`Perfil Sintético: ${perfilObj.tipo} (+${fallbackPts})`);
+            matches.push(`Perfil: ${norm} (+${fallbackPts})`);
         }
     }
 

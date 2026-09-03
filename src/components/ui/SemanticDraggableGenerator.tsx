@@ -2,12 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { generateSemanticRulesForWeek, saveSemanticRulesToDb } from '../../services/semanticAgentService';
 import { fetchSemanticRulesForWeek, calculateSemanticScore, SemanticRule, SemanticScoreResult } from '../../services/semanticRulesService';
 import { participationAnalyticsService, PublisherStats } from '../../services/participationAnalyticsService';
-import type { WorkbookPart, Publisher } from '../../types';
+import { getRankedEligibleForPart } from '../../services/rankedEligibleService';
+import type { WorkbookPart, Publisher, HistoryRecord } from '../../types';
 
 interface Props {
     weekId: string;
     parts: WorkbookPart[];
     publishers: Publisher[];
+    history?: HistoryRecord[];
     onPublisherSelect: (partId: string, publisherId: string, publisherName: string) => void;
     focusedPartId?: string | null;
 }
@@ -23,7 +25,7 @@ interface PartAnalysis {
     topSuggestions: RankedSuggestion[];
 }
 
-export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, publishers, onPublisherSelect, focusedPartId }) => {
+export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, publishers, history, onPublisherSelect, focusedPartId }) => {
     const getDefaultBottomLeft = () => ({
         x: 24,
         y: typeof window !== 'undefined' ? Math.max(20, window.innerHeight - 68) : 700
@@ -177,13 +179,40 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                 sugestao: 'Sem restrições da IA. Usando compatibilidade histórica e função.'
             } as SemanticRule);
 
-            const ranked: RankedSuggestion[] = publishers.map(pub => ({
-                publisher: pub,
-                result: calculateSemanticScore(pub, finalRule, publishers, affinityMap)
-            }));
+            // Requisito do Usuário:
+            // "A seleção do Curador deve ser feita com os elegíveis que ficam visíveis quando o botão de desbloqueio é ativado."
+            // "Com o filtro do item 1, naturalmente todas as regras do motor já estarão aplicadas"
+            const eligibleResult = getRankedEligibleForPart(
+                part,
+                parts,
+                publishers,
+                history || [],
+                {
+                    applyEngineRules: false, // Simula o botão de desbloqueio ativado
+                    excludeAssignedInSameWeek: true,
+                }
+            );
+
+            // Filtra estritamente os candidatos elegíveis para a parte
+            const candidatePublishers = eligibleResult.eligibleCandidates.map(c => c.publisher);
+
+            const ranked: RankedSuggestion[] = candidatePublishers.map(pub => {
+                const rotationCandidate = eligibleResult.eligibleCandidates.find(c => c.publisher.id === pub.id);
+                const semanticScore = calculateSemanticScore(pub, finalRule, publishers, affinityMap);
+                
+                // Combina pontuação semântica com o score de rotação (critério de desempate)
+                const combinedScore = semanticScore.score + (rotationCandidate ? rotationCandidate.score / 100 : 0);
+
+                return {
+                    publisher: pub,
+                    result: {
+                        ...semanticScore,
+                        score: combinedScore
+                    }
+                };
+            });
 
             const topSuggestions = ranked
-                .filter(r => r.result.score > 0)
                 .sort((a, b) => b.result.score - a.result.score)
                 .slice(0, 3);
 
