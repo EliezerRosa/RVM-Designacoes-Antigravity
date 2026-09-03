@@ -224,14 +224,17 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         }
         if (!tokenInfo) return;
         const roleLbl = tokenInfo.role ?? 'CCA';
+        const userHint = new URLSearchParams(window.location.search).get('u') || null;
+        const userPub = userHint ? publishers.find(p => p.id === userHint) : null;
+        const nameSuffix = userPub ? ` (${userPub.name})` : '';
         const tail = tokenInfo.label ? `: ${tokenInfo.label}` : '';
         setProfileAuthor({
             source: 'publisher_form_portal',
-            authorLabel: `${roleLbl} (portal)${tail}`,
-            authorId: null,
+            authorLabel: `${roleLbl}${nameSuffix} (portal)${tail}`,
+            authorId: userHint,
             token: tokenInfo.token,
         });
-    }, [authorized, isAdminAccess, tokenInfo]);
+    }, [authorized, isAdminAccess, tokenInfo, publishers]);
 
     // ── Auto-open tutorial na 1ª visita por papel ───────────────────────────
     // NOTA: Pulamos auto-open quando isAdminAccess porque o passo 'role-badge'

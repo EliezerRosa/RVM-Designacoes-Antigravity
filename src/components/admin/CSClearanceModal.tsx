@@ -310,10 +310,14 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
         let errors: string[] = [];
 
         for (const m of validMembers) {
-          let res: { success: boolean; error?: string } = await zapiOrchestrator.sendTextDirect(m.phone, message);
+          // Link personalizado com o ID do membro da CS para auditoria e identificação de autoria
+          const personalUrl = `${updateUrl}&u=${encodeURIComponent(m.id)}`;
+          const personalMessage = message.replace(updateUrl, personalUrl);
+
+          let res: { success: boolean; error?: string } = await zapiOrchestrator.sendTextDirect(m.phone, personalMessage);
           if (!res.success) {
             const wa = createWhatsAppAutoServiceFromEnv();
-            const waRes = await wa.sendText(m.phone, message);
+            const waRes = await wa.sendText(m.phone, personalMessage);
             res = { success: waRes.success, error: waRes.error };
           }
 
