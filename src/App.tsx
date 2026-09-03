@@ -68,8 +68,13 @@ function getPortalParams(): { portal: string | null; partId: string | null; publ
     return null
   }
 
+  let portalParam = getFirst('portal');
+  if (!portalParam && window.location.pathname.toLowerCase().includes('update-publishers')) {
+    portalParam = 'publisher-form';
+  }
+
   return {
-    portal: getFirst('portal'),
+    portal: portalParam,
     partId: getFirst('id', 'partId'),
     publisherId: getFirst('publisherId', 'publisher_id'),
     token: getFirst('token'),
