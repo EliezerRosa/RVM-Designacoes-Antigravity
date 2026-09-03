@@ -1411,7 +1411,12 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
             />
 
             {isCSClearanceModalOpen && (
-                <CSClearanceModal onClose={() => setIsCSClearanceModalOpen(false)} />
+                <CSClearanceModal 
+                    onClose={() => setIsCSClearanceModalOpen(false)} 
+                    publishers={publishers}
+                    currentWeek={filterWeek}
+                    weekParts={parts.filter(p => p.weekId === filterWeek || p.date === filterWeek)}
+                />
             )}
 
             {/* Modal de Geração Inteligente */}
