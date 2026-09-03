@@ -10,20 +10,28 @@ export interface AgentGenerationStatus {
 const SYSTEM_PROMPT = `
 Você é o Agente Especialista de Critérios para a Reunião Vida e Ministério ("Casting Director").
 Sua missão é ler as partes da reunião de uma semana e gerar regras semânticas determinísticas (Pesos Dinâmicos e Perfis Sintéticos).
-Você NÃO precisa se preocupar com fadiga ou frequência, seu foco é 100% no "Curriculo" e "Perfil" ideal para a parte.
+Você NÃO precisa se preocupar com fadiga ou frequência, seu foco é 100% no "Currículo" e "Perfil" ideal para a parte.
 
-EXEMPLO 1: Parte sobre defender a fé na escola.
-Regra Ideal: perfil_sintetico: jovem_promissor (MANDATÓRIO), afinidade: "Discurso" (DESEJAVEL).
-Sugestão: "A parte envolve ambiente escolar, ideal para um jovem dar o exemplo."
-
-EXEMPLO 2: Parte de demonstração sobre iniciar conversa com o cônjuge descrente.
-Regra Ideal: perfil_familiar: casais, perfil_sintetico: conselheiro_experiente (MANDATÓRIO), afinidade: "Iniciando Conversas" (MANDATÓRIO).
-
-Para a parte de 'Presidente da Reunião', analise a TEMÁTICA GERAL da reunião (se fornecida) e defina um perfil_sintetico e foco alinhados ao tema.
+PERFIS TÍPICOS OFICIAIS (Escolha estritamente entre estes):
+1. 'mentoria_feminina': Para demonstrações entre irmãs envolvendo aconselhamento, namoro, criação de filhos ou auxílio mútuo feminino.
+2. 'consolador_empatico': Para considerações ou demonstrações sobre luto, doença, perda de cônjuge ou desânimo.
+3. 'iniciador_conversas': Para demonstrações de primeiro contato, de casa em casa ou testemunho informal.
+4. 'cultivador_discipulador': Para revisitas, início de estudos bíblicos (lff) ou explicações didáticas.
+5. 'defensor_da_fe': Para discursos ou demonstrações sobre temas polêmicos ou neutralidade cristã.
+6. 'familia_base': Para partes com temática de casamento, pais e filhos ou família.
+7. 'jovem_promissor': Para partes em ambiente escolar, colegas ou desafios da juventude.
+8. 'jovem_treinamento': Para estudantes iniciantes ou não batizados em treinamento.
+9. 'leitor_qualificado': Para Leitura da Bíblia (Tesouros) ou Leitura do EBC.
+10. 'pastor_instrutor': Para Discursos de 10 min (Tesouros) ou 15 min (Vida Cristã).
+11. 'dirigente_pastoral': Para condução do Estudo Bíblico de Congregação (EBC).
+12. 'organizador_pratico': Para necessidades locais organizacionais ou planejamento.
+13. 'pesquisador_entusiasta': Para joias espirituais e pesquisa bíblica.
+14. 'conselheiro_experiente': Para anciãos experientes com longa trajetória.
+15. 'apologista_maduro': Para defesa de crenças fundamentais.
+16. 'nenhum': Quando a parte for genérica e não exigir perfil específico.
 
 REGRA DE OURO: Você OBRIGATORIAMENTE deve retornar um objeto de regra dentro do array 'regras' para CADA UMA das partes que receber no prompt. NENHUMA parte pode ficar de fora do JSON.
-Se uma parte for muito genérica (ex: Leitura da Bíblia) e não exigir restrições complexas, preencha os campos de perfil com 'nenhum', mas SEMPRE forneça uma 'sugestao' genérica (ex: "Qualquer leitor qualificado").
-Para campos que não se aplicam, retorne 'nenhum'.
+Se uma parte for muito genérica (ex: Leitura da Bíblia) e não exigir restrições complexas, preencha os campos de perfil com 'nenhum', mas SEMPRE forneça uma 'sugestao' clara.
 `;
 
 const RESPONSE_SCHEMA = {
@@ -39,7 +47,27 @@ const RESPONSE_SCHEMA = {
                     perfil_sintetico: {
                         type: 'object',
                         properties: {
-                            tipo: { type: 'string', enum: ['conselheiro_experiente', 'jovem_promissor', 'apologista_maduro', 'mentoria_feminina', 'familia_base', 'jovem_treinamento', 'nenhum'] },
+                            tipo: { 
+                                type: 'string', 
+                                enum: [
+                                    'mentoria_feminina',
+                                    'consolador_empatico',
+                                    'iniciador_conversas',
+                                    'cultivador_discipulador',
+                                    'defensor_da_fe',
+                                    'familia_base',
+                                    'jovem_promissor',
+                                    'jovem_treinamento',
+                                    'leitor_qualificado',
+                                    'pastor_instrutor',
+                                    'dirigente_pastoral',
+                                    'organizador_pratico',
+                                    'pesquisador_entusiasta',
+                                    'conselheiro_experiente',
+                                    'apologista_maduro',
+                                    'nenhum'
+                                ] 
+                            },
                             peso: { type: 'string', enum: ['MANDATORIO', 'DESEJAVEL'] }
                         }
                     },
