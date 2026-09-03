@@ -143,9 +143,9 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     // Como runAnalysis é engatilhado por botões, ele vai ver o state atual.
     const runAnalysis = (rulesData: any) => {
         const weekKey = `semana_${weekId}`;
-        const weekRules = rulesData[weekKey];
-        if (!weekRules) {
-            console.warn(`[SemanticUI] runAnalysis: nenhuma weekRules para key=${weekKey}`);
+        const weekRules = rulesData[weekKey] || rulesData[weekId] || rulesData;
+        if (!weekRules || typeof weekRules !== 'object') {
+            console.warn(`[SemanticUI] runAnalysis: nenhuma weekRules válida para key=${weekKey}`);
             return;
         }
         const ruleKeys = Object.keys(weekRules);
