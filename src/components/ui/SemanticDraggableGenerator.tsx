@@ -24,9 +24,16 @@ interface PartAnalysis {
 }
 
 export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, publishers, onPublisherSelect, focusedPartId }) => {
+    const getDefaultBottomLeft = () => ({
+        x: 24,
+        y: typeof window !== 'undefined' ? Math.max(20, window.innerHeight - 68) : 700
+    });
+
     const [isDragging, setIsDragging] = useState(false);
-    const [position, setPosition] = useState({ x: 24, y: Math.max(70, (typeof window !== 'undefined' ? window.innerHeight : 800) - 580) });
-    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+    const [position, setPosition] = useState(getDefaultBottomLeft);
+    const dragStartRef = useRef({ x: 0, y: 0 });
+    const dragOriginRef = useRef({ x: 0, y: 0 });
+    const hasDraggedRef = useRef(false);
     
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
@@ -75,15 +82,46 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
 
     const handleMouseDown = (e: React.MouseEvent) => {
         setIsDragging(true);
-        setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+        dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+        dragOriginRef.current = { x: e.clientX, y: e.clientY };
+        hasDraggedRef.current = false;
     };
 
     const handleMouseMove = (e: MouseEvent) => {
         if (!isDragging) return;
-        setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+        const deltaX = Math.abs(e.clientX - dragOriginRef.current.x);
+        const deltaY = Math.abs(e.clientY - dragOriginRef.current.y);
+        if (deltaX > 4 || deltaY > 4) {
+            hasDraggedRef.current = true;
+        }
+
+        const maxX = window.innerWidth - (isExpanded ? 430 : 160);
+        const maxY = window.innerHeight - (isExpanded ? 200 : 50);
+        const newX = Math.min(Math.max(10, e.clientX - dragStartRef.current.x), Math.max(10, maxX));
+        const newY = Math.min(Math.max(10, e.clientY - dragStartRef.current.y), Math.max(10, maxY));
+
+        setPosition({ x: newX, y: newY });
     };
 
-    const handleMouseUp = () => setIsDragging(false);
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const handleButtonClick = () => {
+        if (hasDraggedRef.current) {
+            // Apenas reposicionou o botão arrastando, não abre o painel
+            return;
+        }
+        // Se estiver muito próximo do chão da tela, sobe o Y para caber o painel
+        const panelHeight = Math.min(window.innerHeight * 0.85, 580);
+        if (position.y + panelHeight > window.innerHeight - 20) {
+            setPosition(prev => ({
+                ...prev,
+                y: Math.max(20, window.innerHeight - panelHeight - 20)
+            }));
+        }
+        setIsExpanded(true);
+    };
 
     useEffect(() => {
         if (isDragging) {
@@ -97,7 +135,7 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging]);
+    }, [isDragging, isExpanded]);
 
     // Passar affinityMap para a função, precisamos dela como dependência ou apenas capturar no closure.
     // Como runAnalysis é engatilhado por botões, ele vai ver o state atual.
@@ -185,8 +223,10 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     };
 
     useEffect(() => {
-        // Se mudou de semana, limpa o estado anterior
+        // Se mudou de semana, sempre reposiciona para a esquerda no rodapé e recolhe
         if (weekId !== lastAnalyzedWeekRef.current) {
+            setPosition(getDefaultBottomLeft());
+            setIsExpanded(false);
             setAnalyses([]);
             setActivePartId(null);
             setStatus('idle');
@@ -256,12 +296,13 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     if (!isExpanded) {
         return (
             <button 
-                onClick={() => setIsExpanded(true)}
-                title="Expandir Agente Curador IA"
+                onMouseDown={handleMouseDown}
+                onClick={handleButtonClick}
+                title="Arraste para mover ou clique para expandir o Agente Curador IA"
                 style={{
                     position: 'fixed',
-                    left: '24px',
-                    bottom: '24px',
+                    left: `${position.x}px`,
+                    top: `${position.y}px`,
                     zIndex: 9999,
                     background: 'linear-gradient(135deg, #4F46E5 0%, #3730A3 100%)',
                     color: '#ffffff',
@@ -271,12 +312,16 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    boxShadow: '0 10px 25px -5px rgba(79, 70, 229, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                    cursor: 'pointer',
+                    boxShadow: isDragging 
+                        ? '0 20px 30px -5px rgba(79, 70, 229, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.2)' 
+                        : '0 10px 25px -5px rgba(79, 70, 229, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    cursor: isDragging ? 'grabbing' : 'grab',
+                    userSelect: 'none',
                     fontSize: '13px',
                     fontWeight: 600,
                     letterSpacing: '0.02em',
                     fontFamily: 'system-ui, -apple-system, sans-serif',
+                    transition: isDragging ? 'none' : 'box-shadow 0.15s ease',
                 }}
             >
                 <span style={{ fontSize: '18px' }}>🧠</span>
@@ -326,7 +371,8 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             <div 
                 style={{ 
                     padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    cursor: 'move', backgroundColor: '#4f46e5', color: '#ffffff' 
+                    cursor: isDragging ? 'grabbing' : 'grab', backgroundColor: '#4f46e5', color: '#ffffff',
+                    userSelect: 'none'
                 }}
                 onMouseDown={handleMouseDown}
             >
@@ -335,7 +381,13 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                     <span style={{ fontWeight: '600', fontSize: '14px', letterSpacing: '0.025em' }}>Agente Curador IA</span>
                 </div>
                 <button 
-                    onClick={() => setIsExpanded(false)}
+                    onClick={() => {
+                        setIsExpanded(false);
+                        setPosition(prev => ({
+                            x: Math.min(Math.max(10, prev.x), window.innerWidth - 200),
+                            y: Math.min(Math.max(10, prev.y), window.innerHeight - 60)
+                        }));
+                    }}
                     style={{ 
                         color: '#ffffff', background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer',
                         padding: '4px 10px', fontSize: '12px', fontWeight: 600, borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px'
