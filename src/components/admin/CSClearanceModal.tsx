@@ -13,11 +13,40 @@ interface CSClearanceModalProps {
 }
 
 type DestinationMode = 'direct_cs' | 'group' | 'manual';
+type PublisherStatusFilter = 'all' | 'paused' | 'inactive' | 'not_qualified' | 'this_week';
+
+/** Retorna o texto formatado do status e motivo do publicador */
+export function getPublisherStatusText(p: Publisher): string {
+  const parts: string[] = [];
+
+  if (p.isIndefinitelyPaused) {
+    parts.push(p.indefinitePauseReason ? `Pausado: ${p.indefinitePauseReason}` : 'Pausado');
+  } else if (p.availability?.mode === 'never') {
+    parts.push('Pausado');
+  }
+
+  if (p.isNotQualified) {
+    parts.push(p.notQualifiedReason ? `Não Apto: ${p.notQualifiedReason}` : 'Não Apto (Restrito)');
+  } else if (p.requestedNoParticipation) {
+    parts.push(p.noParticipationReason ? `Restrito: ${p.noParticipationReason}` : 'Restrito');
+  }
+
+  if (p.isServing === false) {
+    parts.push('Inativo');
+  }
+
+  if (parts.length === 0) {
+    return 'Ativo';
+  }
+
+  return parts.join(', ');
+}
 
 export function CSClearanceModal({ onClose, publishers: initialPublishers, weekParts = [], currentWeek }: CSClearanceModalProps) {
   const [publishers, setPublishers] = useState<Publisher[]>(initialPublishers || []);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<PublisherStatusFilter>('all');
   
   // Modos de Destino
   const [destMode, setDestMode] = useState<DestinationMode>('direct_cs');
@@ -88,7 +117,28 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
     });
   }, [weekParts, publishers]);
 
-  // 4. Carregar Grupos e Listas de Transmissão do Z-API
+  // 4. Contagens para o dropdown de filtros
+  const statusCounts = useMemo(() => {
+    let paused = 0;
+    let inactive = 0;
+    let notQualified = 0;
+
+    publishers.forEach(p => {
+      if (p.isIndefinitelyPaused || p.availability?.mode === 'never') paused++;
+      if (p.isServing === false) inactive++;
+      if (p.isNotQualified || p.requestedNoParticipation) notQualified++;
+    });
+
+    return {
+      all: publishers.length,
+      paused,
+      inactive,
+      notQualified,
+      thisWeek: weekAssignedPubs.length
+    };
+  }, [publishers, weekAssignedPubs]);
+
+  // 5. Carregar Grupos e Listas de Transmissão do Z-API
   const loadGroups = async () => {
     try {
       setLoadingGroups(true);
@@ -98,7 +148,6 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
 
       if (res && res.groups && Array.isArray(res.groups)) {
         setGroups(res.groups);
-        // Tentar pré-selecionar o grupo ou lista da CS
         const csDestination = res.groups.find((g: any) => {
           const name = (g.name || '').toLowerCase();
           return name.includes('comissão de serviço') || 
@@ -122,16 +171,35 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
     loadGroups();
   }, []);
 
-  // Filtragem de publicadores pelo campo de busca
+  // 6. Filtragem de publicadores pelo dropdown de status e busca textual
   const filteredPublishers = useMemo(() => {
+    let list = publishers;
+
+    // Filtro pelo Dropdown de Status
+    if (statusFilter === 'paused') {
+      list = list.filter(p => p.isIndefinitelyPaused || p.availability?.mode === 'never');
+    } else if (statusFilter === 'inactive') {
+      list = list.filter(p => p.isServing === false);
+    } else if (statusFilter === 'not_qualified') {
+      list = list.filter(p => p.isNotQualified || p.requestedNoParticipation);
+    } else if (statusFilter === 'this_week') {
+      list = list.filter(p => weekAssignedPubs.some(wp => wp.id === p.id));
+    }
+
+    // Filtro por texto
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return publishers;
-    return publishers.filter(p => 
-      p.name.toLowerCase().includes(term) ||
-      (p.funcao && p.funcao.toLowerCase().includes(term)) ||
-      (p.condition && p.condition.toLowerCase().includes(term))
-    );
-  }, [publishers, searchTerm]);
+    if (term) {
+      list = list.filter(p => 
+        p.name.toLowerCase().includes(term) ||
+        (p.funcao && p.funcao.toLowerCase().includes(term)) ||
+        (p.condition && p.condition.toLowerCase().includes(term)) ||
+        (p.indefinitePauseReason && p.indefinitePauseReason.toLowerCase().includes(term)) ||
+        (p.notQualifiedReason && p.notQualifiedReason.toLowerCase().includes(term))
+      );
+    }
+
+    return list;
+  }, [publishers, statusFilter, searchTerm, weekAssignedPubs]);
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -214,9 +282,11 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
       const csNamesStr = csFirstNames.length > 0 ? csFirstNames.join(', ') : 'Irmãos';
       const greeting = `${greetingTime} irmãos ${csNamesStr} (Comissão de Serviço).`;
 
-      // 3. Montar Mensagem
+      // 3. Montar Mensagem incluindo entre parênteses o status de cada selecionado
       const selectedPubs = publishers.filter(p => selectedIds.has(p.id));
-      const pubNamesStr = selectedPubs.map(p => `• *${p.name}*`).join('\n');
+      const pubNamesStr = selectedPubs
+        .map(p => `• *${p.name}* (${getPublisherStatusText(p)})`)
+        .join('\n');
 
       const weekLabel = currentWeek ? ` da semana *${currentWeek}*` : '';
       let message = `${greeting}\n\nEstamos preparando o planejamento da Reunião de Meio de Semana${weekLabel} e precisamos confirmar se os seguintes publicadores possuem liberação/aprovação para designações:\n\n${pubNamesStr}\n`;
@@ -461,7 +531,7 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
               )}
             </div>
 
-            {/* 3. Publicadores a Confirmar */}
+            {/* 3. Publicadores a Confirmar com Filtros de Dropdown */}
             <div style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label style={labelStyle}>
@@ -476,6 +546,40 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
                     Desmarcar Todos
                   </button>
                 )}
+              </div>
+
+              {/* Barra de Filtros: Dropdown de Status + Busca por Nome */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value as PublisherStatusFilter)}
+                  style={{
+                    ...inputStyle,
+                    flex: '1 1 200px',
+                    padding: '6px 10px',
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    backgroundColor: statusFilter !== 'all' ? '#eff6ff' : '#ffffff',
+                    borderColor: statusFilter !== 'all' ? '#3b82f6' : '#cbd5e1',
+                    color: statusFilter !== 'all' ? '#1d4ed8' : '#1e293b'
+                  }}
+                >
+                  <option value="all">📋 Todos os Publicadores ({statusCounts.all})</option>
+                  <option value="paused">⏸️ Pausados ({statusCounts.paused})</option>
+                  <option value="not_qualified">⚠️ Não Aptos / Restritos ({statusCounts.notQualified})</option>
+                  <option value="inactive">🚫 Inativos ({statusCounts.inactive})</option>
+                  {statusCounts.thisWeek > 0 && (
+                    <option value="this_week">⚡ Designados da Semana ({statusCounts.thisWeek})</option>
+                  )}
+                </select>
+
+                <input 
+                  type="text"
+                  placeholder="🔍 Buscar por nome ou função..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  style={{ ...inputStyle, flex: '2 1 200px', padding: '6px 10px', fontSize: '0.8125rem' }}
+                />
               </div>
 
               {/* Botões de Ação Rápida */}
@@ -505,25 +609,40 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
                 </button>
               </div>
 
-              {/* Campo de Busca Rápida */}
-              <input 
-                type="text"
-                placeholder="🔍 Buscar publicador por nome ou função..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                style={{ ...inputStyle, padding: '6px 10px', fontSize: '0.8125rem' }}
-              />
-
-              {/* Lista com Rolagem */}
+              {/* Lista com Rolagem e Badges Visuais de Status */}
               <div style={listContainerStyle}>
                 {filteredPublishers.length === 0 ? (
                   <p style={{ margin: 0, padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.8125rem' }}>
-                    Nenhum publicador encontrado com o filtro aplicado.
+                    Nenhum publicador encontrado com os filtros aplicados.
                   </p>
                 ) : (
                   filteredPublishers.map(p => {
                     const isSelected = selectedIds.has(p.id);
                     const isAssignedThisWeek = weekAssignedPubs.some(wp => wp.id === p.id);
+                    const statusText = getPublisherStatusText(p);
+
+                    // Estilização inteligente do badge de status
+                    let badgeBg = '#f1f5f9';
+                    let badgeColor = '#64748b';
+                    let badgeIcon = '✓';
+
+                    if (p.isIndefinitelyPaused || p.availability?.mode === 'never') {
+                      badgeBg = '#ffe4e6';
+                      badgeColor = '#e11d48';
+                      badgeIcon = '⏸️';
+                    } else if (p.isNotQualified || p.requestedNoParticipation) {
+                      badgeBg = '#fef3c7';
+                      badgeColor = '#b45309';
+                      badgeIcon = '⚠️';
+                    } else if (p.isServing === false) {
+                      badgeBg = '#f1f5f9';
+                      badgeColor = '#475569';
+                      badgeIcon = '🚫';
+                    } else {
+                      badgeBg = '#dcfce7';
+                      badgeColor = '#15803d';
+                      badgeIcon = '✓';
+                    }
 
                     return (
                       <label 
@@ -543,13 +662,35 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
                         <span style={{ fontWeight: isSelected ? 600 : 400, color: '#1e293b', flex: 1 }}>
                           {p.name}
                         </span>
+
+                        {/* Badge do Status Atual */}
+                        <span 
+                          style={{ 
+                            fontSize: '0.6875rem', 
+                            fontWeight: 600,
+                            backgroundColor: badgeBg, 
+                            color: badgeColor, 
+                            padding: '2px 6px', 
+                            borderRadius: '4px', 
+                            marginLeft: '6px',
+                            maxWidth: '180px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                          title={statusText}
+                        >
+                          {badgeIcon} {statusText}
+                        </span>
+
                         {isAssignedThisWeek && (
-                          <span style={{ fontSize: '0.6875rem', backgroundColor: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '4px', marginRight: '6px' }}>
+                          <span style={{ fontSize: '0.6875rem', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>
                             Semana Atual
                           </span>
                         )}
+
                         {p.condition && (
-                          <span style={{ fontSize: '0.6875rem', backgroundColor: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '4px' }}>
+                          <span style={{ fontSize: '0.6875rem', backgroundColor: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>
                             {p.condition}
                           </span>
                         )}
