@@ -14,7 +14,31 @@
 - **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app`
 - **Frontend GitHub Pages**: Ativo e sincronizado (`npm run deploy`).
 - **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas).
-- **Último Commit Estável**: `925b81b` — *feat(curator): agente especialista de lote, base de conhecimento permanente e multi-select no cadastro de publicadores*.
+- **Último Commit Estável**: `d9fbc86` — *feat(audit): seletor teocratico de autoria CCA/SEC/SRVM no modo admin e correcao historica*.
+
+---
+
+## 2. Últimas Entregas: Auditoria Pastoral Teocrática & Ergonomia de Status (2026-09-04)
+
+### 📌 1. Atribuição Real de Autoria Teocrática (CCA vs Admin)
+- **Correção Histórica no Supabase**: Todos os registros precedentes de inaptidão (`isNotQualified`) e pausas pastorais (como Gustavo Rangel, Larissa Queiroz, Brenda Cristine, Eugenio Longo, Gerusa Souza, Gabriel Henrique, etc.) foram corrigidos de `author_label = 'Admin'` para `author_label = 'CCA'`. O `profileMeta.updatedBy` nos JSONs de `publishers` foi igualmente sincronizado.
+- **Seletor de Autoria no Modo Admin (`PublisherStatusForm.tsx`)**: No topo do formulário, o operador admin conta com um seletor dinâmico com persistência em `localStorage`:
+  `👤 Registrar alterações como: [ 👑 CCA: Israel Vieira ▾ ]`
+  - Opções: CCA (Israel Vieira), SEC (Marcos Rogério), SRVM (Edmardo Queiroz), Comissão de Serviço, Admin (Ajuste Técnico).
+  - Novas gravações em lote recebem automaticamente a autoria do ancião/comissão responsável.
+- **Formatação Limpa de Autoria**: `formatAuthorShort` limpa prefixos redundantes (`SEC : SEC - Marcos Rogério` -> `SEC: Marcos Rogério`).
+
+### 📌 2. Eliminação de Falsos Positivos ("NÃO VERDADE;")
+- **Diff Semântico Inteligente**: Sanitização de registros com `isFieldActuallyChanged`, tratando `null vs false`, `null vs ""` e `null vs []` como equivalentes, impedindo que campos não alterados gerem histórico falso.
+- **Isolamento Estrito por Seção**: O popover e os badges filtram rigorosamente apenas os campos pertencentes à aba ativa (`Status de Participação`, `Privilégios`, `Por Seção`), evitando vazamento de dados pessoais (cônjuge, etc.) na área de status.
+
+### 📌 3. Status Invisíveis a Nível de Código Duro
+- Mapeamento e transparência de 6 regras rígidas de bloqueio do motor (`eligibilityService.ts`): Disponibilidade Temporal, Não Batizado, Restrições Litúrgicas de Gênero, Faixa Etária Infantil, Pareamento Estrito com Pais e Não Congregado.
+- Botão explicativo `🔍 Status Invisíveis (Código Duro)` disponível na barra de ferramentas.
+
+### 📌 4. Ergonomia e Plasticidade da Tela
+- Cabeçalho superior com barra de ações ancorada no topo (`position: sticky; top: 0; zIndex: 100`).
+- Cabeçalho das colunas da tabela (`<th>`) sticky com container de rolagem vertical independente (`max-height: calc(100vh - 195px); overflow: auto`), mantendo os títulos das colunas visíveis durante a navegação.
 
 ---
 
