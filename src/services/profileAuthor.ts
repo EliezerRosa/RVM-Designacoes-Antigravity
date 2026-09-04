@@ -48,30 +48,35 @@ export async function withProfileAuthor<T>(author: ProfileAuthor, fn: () => Prom
     }
 }
 
-/**
- * Campos do Publisher cuja mudança queremos auditar.
- * Tudo que não está nessa lista é ignorado (ex.: availability é tratado em
- * outro fluxo, profileMeta é stamping da própria RPC).
- */
-const TRACKED_KEYS: (keyof Publisher)[] = [
-    'name', 'gender', 'status', 'active',
-    'privileges', 'privilegesBySection', 'restrictions',
-    'partner', 'family', 'familyHead', 'congregation',
-    'phone', 'email', 'address',
-] as unknown as (keyof Publisher)[];
+import { isFieldActuallyChanged } from './publisherHistoryService';
 
 /**
- * True se algum campo rastreado mudou entre prev e next.
+ * True se algum campo rastreado mudou realmente de valor semântico entre prev e next.
+ * Usa verificação semântica rigorosa para evitar falsos positivos (null vs false, null vs "").
  */
 export function profileChanged(
     prev: Publisher | undefined | null,
     next: Publisher | undefined | null,
 ): boolean {
     if (!prev || !next) return !!(prev || next);
-    for (const k of TRACKED_KEYS) {
-        const a = JSON.stringify((prev as unknown as Record<string, unknown>)[k as string] ?? null);
-        const b = JSON.stringify((next as unknown as Record<string, unknown>)[k as string] ?? null);
-        if (a !== b) return true;
+    const prevObj = prev as unknown as Record<string, unknown>;
+    const nextObj = next as unknown as Record<string, unknown>;
+    const allKeys = new Set([...Object.keys(prevObj), ...Object.keys(nextObj)]);
+
+    for (const k of allKeys) {
+        if (
+            k === 'availability' ||
+            k === 'availabilityMeta' ||
+            k === 'profileMeta' ||
+            k === 'updatedAt' ||
+            k === 'updatedBy' ||
+            k === 'id'
+        ) {
+            continue;
+        }
+        if (isFieldActuallyChanged(k, prevObj[k], nextObj[k])) {
+            return true;
+        }
     }
     return false;
 }

@@ -17,6 +17,7 @@ import {
     formatHistoryDate,
     getFriendlyFieldName,
     getInvisibleHardcodedStatuses,
+    sanitizeHistoryRecord,
 } from '../services/publisherHistoryService';
 
 interface PublisherStatusHistoryTooltipProps {
@@ -49,7 +50,10 @@ export const PublisherStatusHistoryTooltip: React.FC<PublisherStatusHistoryToolt
     }, [isOpen]);
 
     const invisibleStatuses = getInvisibleHardcodedStatuses(publisher, activeSection);
-    const hasHistory = !!lastChange || historyList.length > 0;
+    const sanitizedHistoryList = (historyList || [])
+        .map(sanitizeHistoryRecord)
+        .filter(r => r.changed_fields && r.changed_fields.length > 0);
+    const hasHistory = !!lastChange || sanitizedHistoryList.length > 0;
 
     return (
         <div
@@ -204,9 +208,11 @@ export const PublisherStatusHistoryTooltip: React.FC<PublisherStatusHistoryToolt
                     {/* Seção 1: Última Alteração nesta Área */}
                     <div style={{ marginBottom: '12px' }}>
                         <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '4px' }}>
-                            Última Mudança ({lastChange?.isSectionSpecific ? lastChange.areaLabel : 'Geral'}):
+                            {lastChange?.isSectionSpecific
+                                ? `Última Mudança (${lastChange.areaLabel}):`
+                                : `Aba Atual (${activeSection === 'status' ? 'Status' : activeSection === 'privileges' ? 'Privilégios' : 'Por Seção'}):`}
                         </div>
-                        {lastChange ? (
+                        {lastChange?.isSectionSpecific ? (
                             <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontWeight: 700, color: '#1E293B' }}>
@@ -237,20 +243,30 @@ export const PublisherStatusHistoryTooltip: React.FC<PublisherStatusHistoryToolt
                                 )}
                             </div>
                         ) : (
-                            <div style={{ color: '#94A3B8', fontStyle: 'italic', fontSize: '11px' }}>
-                                Nenhuma alteração registrada recentemente.
+                            <div style={{ background: '#F8FAFC', border: '1px dashed #CBD5E1', borderRadius: '8px', padding: '8px', color: '#64748B', fontSize: '11px' }}>
+                                <div>Nenhuma alteração de {activeSection === 'status' ? 'status de participação' : activeSection === 'privileges' ? 'privilégios' : 'seções'} registrada.</div>
+                                {lastChange && (
+                                    <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid #E2E8F0', fontSize: '10px', color: '#475569' }}>
+                                        <span>Última alteração geral: <strong>{lastChange.author}</strong> ({lastChange.dateFormatted})</span>
+                                        {lastChange.fields && lastChange.fields.length > 0 && (
+                                            <div style={{ color: '#64748B', marginTop: '2px' }}>
+                                                {lastChange.fields.map(getFriendlyFieldName).join(', ')}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
 
                     {/* Seção 2: Linha do Tempo de Alterações Anteriores */}
-                    {historyList.length > 0 && (
+                    {sanitizedHistoryList.length > 0 && (
                         <div>
                             <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '6px' }}>
-                                Histórico Recente ({historyList.length}):
+                                Histórico Recente ({sanitizedHistoryList.length}):
                             </div>
                             <div style={{ maxHeight: '150px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '4px' }}>
-                                {historyList.slice(0, 6).map((rec, i) => (
+                                {sanitizedHistoryList.slice(0, 6).map((rec, i) => (
                                     <div
                                         key={rec.id || i}
                                         style={{
