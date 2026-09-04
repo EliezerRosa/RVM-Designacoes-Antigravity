@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { generateSemanticRulesForWeek, saveSemanticRulesToDb } from '../../services/semanticAgentService';
-import { fetchSemanticRulesForWeek, calculateSemanticScore, SemanticRule, SemanticScoreResult } from '../../services/semanticRulesService';
-import { participationAnalyticsService, PublisherStats } from '../../services/participationAnalyticsService';
+import { fetchSemanticRulesForWeek, calculateSemanticScore, type SemanticRule, type SemanticScoreResult } from '../../services/semanticRulesService';
+import { participationAnalyticsService, type PublisherStats } from '../../services/participationAnalyticsService';
 import { getRankedEligibleForPart } from '../../services/rankedEligibleService';
+import { curatorKnowledgeBaseService, type CuratorProfile } from '../../services/curatorKnowledgeBaseService';
 import type { WorkbookPart, Publisher, HistoryRecord } from '../../types';
 
 interface Props {
@@ -44,7 +45,38 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
     const [analyses, setAnalyses] = useState<PartAnalysis[]>([]);
     const [activePartId, setActivePartId] = useState<string | null>(null);
     const [affinityMap, setAffinityMap] = useState<Record<string, PublisherStats>>({});
+    const [curatorProfiles, setCuratorProfiles] = useState<CuratorProfile[]>([]);
+    const [specializingBatch, setSpecializingBatch] = useState(false);
     const lastAnalyzedWeekRef = useRef<string | null>(null);
+
+    // Carrega perfis da Base de Conhecimento permanente
+    useEffect(() => {
+        curatorKnowledgeBaseService.fetchCuratorProfiles().then(setCuratorProfiles).catch(console.error);
+    }, []);
+
+    const handleSpecializeBatch = async () => {
+        try {
+            setSpecializingBatch(true);
+            const { curatorBatchSpecialistAgent } = await import('../../services/curatorBatchSpecialistAgent');
+            const res = await curatorBatchSpecialistAgent.specializeOnBatch(
+                `manual_${weekId}`,
+                `Apostila da Semana ${weekId}`,
+                parts
+            );
+            if (res.success) {
+                const updated = await curatorKnowledgeBaseService.fetchCuratorProfiles(true);
+                setCuratorProfiles(updated);
+                alert(`🧠 Especialização concluída com sucesso!\n\n• ${res.perfisEnriquecidos.length} perfis enriquecidos com novos insights.\n• ${res.novosPerfisCriados.length} novos perfis criados.\n\nFoco Bíblico: ${res.livroBiblico || 'Geral'}\n${res.resumoEstrategico}`);
+            } else {
+                alert(`Falha na especialização: ${res.error || 'Erro desconhecido'}`);
+            }
+        } catch (err) {
+            console.error('Erro ao especializar lote:', err);
+            alert(`Erro: ${err instanceof Error ? err.message : 'Falha na especialização'}`);
+        } finally {
+            setSpecializingBatch(false);
+        }
+    };
 
     // Carrega histórico para cálculo de afinidade
     useEffect(() => {
@@ -432,9 +464,32 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', maxHeight: 'calc(85vh - 40px)', overflow: 'hidden' }}>
                     <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: '1px solid #f3f4f6', flexShrink: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ fontSize: '12px', color: '#374151' }}>Análise Ativa para a semana:</div>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#6b7280' }}>Semana em foco:</div>
+                                <div style={{ fontWeight: '700', color: '#312e81', fontSize: '15px' }}>{weekId}</div>
+                            </div>
+                            <button
+                                onClick={handleSpecializeBatch}
+                                disabled={specializingBatch}
+                                style={{
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    backgroundColor: specializingBatch ? '#e5e7eb' : 'rgba(139, 92, 246, 0.1)',
+                                    color: specializingBatch ? '#9ca3af' : '#7c3aed',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                                    cursor: specializingBatch ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}
+                                title="Enriquece perfis e gera novos insights no Supabase a partir das apostilas carregadas"
+                            >
+                                <span>🧠</span>
+                                <span>{specializingBatch ? 'Especializando...' : 'Especializar Lote'}</span>
+                            </button>
                         </div>
-                        <div style={{ fontWeight: '700', color: '#312e81', fontSize: '16px' }}>{weekId}</div>
 
                         {status === 'loading' && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#4338ca', backgroundColor: '#eef2ff', padding: '8px', borderRadius: '4px' }}>
@@ -519,6 +574,32 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                                         <span style={{ fontWeight: '600', color: '#312e81' }}>Estratégia: </span> 
                                                         {analysis.rule.sugestao}
                                                     </p>
+
+                                                    {/* Insight da Base de Conhecimento permanente */}
+                                                    {(() => {
+                                                        const pType = typeof analysis.rule.perfil_sintetico === 'string'
+                                                            ? analysis.rule.perfil_sintetico
+                                                            : analysis.rule.perfil_sintetico?.tipo;
+                                                        if (!pType) return null;
+                                                        const pLower = pType.toLowerCase();
+                                                        const matchedProf = curatorProfiles.find(p => p.id === pLower || pLower.includes(p.id) || p.id.includes(pLower));
+                                                        const latestInsight = matchedProf?.insights?.[0];
+                                                        if (!latestInsight) return null;
+                                                        return (
+                                                            <div style={{
+                                                                marginTop: '6px',
+                                                                padding: '6px 8px',
+                                                                borderRadius: '4px',
+                                                                background: 'rgba(139, 92, 246, 0.08)',
+                                                                borderLeft: '2px solid #8b5cf6',
+                                                                fontSize: '11px',
+                                                                color: '#6b21a8',
+                                                                lineHeight: '1.3'
+                                                            }}>
+                                                                💡 <strong>Insight da Base:</strong> {latestInsight.texto}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                     
                                                     {analysis.rule.texto_original && (
                                                         <p style={{ fontSize: '10px', marginTop: '8px', fontStyle: 'italic', color: '#6b7280', margin: '8px 0 0 0' }}>
@@ -553,17 +634,22 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
                                                                         {result.matches.length > 0 && (
                                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                                                                 {result.matches.map((matchStr, i) => {
-                                                                                    const isSynthetic = ['Conselheiro Experiente', 'Jovem Promissor', 'Apologista Maduro', 'Mentoria Feminina', 'Família Base', 'Jovem em Treinamento'].includes(matchStr);
+                                                                                    const isCadastro = matchStr.includes('Perfil Atribuído no Cadastro');
+                                                                                    const isSynthetic = matchStr.includes('Perfil') || matchStr.includes('Mentoria') || matchStr.includes('Conselheiro') || matchStr.includes('Consolador') || matchStr.includes('Jovem') || matchStr.includes('Discipulador') || matchStr.includes('Leitor') || matchStr.includes('Pastor') || matchStr.includes('Dirigente') || matchStr.includes('Organizador') || matchStr.includes('Pesquisador') || matchStr.includes('Família');
                                                                                     const isAffinity = matchStr.includes('Afinidade Histórica');
                                                                                     
                                                                                     let bg = '#d1fae5';
                                                                                     let color = '#059669';
                                                                                     let icon = '✓';
                                                                                     
-                                                                                    if (isSynthetic) {
+                                                                                    if (isCadastro) {
+                                                                                        bg = '#f3e8ff';
+                                                                                        color = '#7e22ce';
+                                                                                        icon = '💎';
+                                                                                    } else if (isSynthetic) {
                                                                                         bg = '#fce7f3';
                                                                                         color = '#db2777';
-                                                                                        icon = '💎';
+                                                                                        icon = '✨';
                                                                                     } else if (isAffinity) {
                                                                                         bg = '#e0e7ff';
                                                                                         color = '#4338ca';

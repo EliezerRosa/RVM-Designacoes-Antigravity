@@ -150,7 +150,26 @@ export function calculateSemanticScore(
     const isPioneer = publisher.funcao?.toLowerCase().includes('pioneiro regular');
     const isBaptized = publisher.isBaptized !== false; // assume true if undefined
 
-    // 0. Perfil Sintético (Cruzamentos Inteligentes)
+    // 0. Ponto de Partida Determinístico (Item 4 e 5):
+    // Se o publicador possui perfis sintéticos atribuídos em sua ficha de cadastro
+    if (publisher.syntheticProfiles && publisher.syntheticProfiles.length > 0 && rule.perfil_sintetico) {
+        const perfilObj = typeof rule.perfil_sintetico === 'string'
+            ? { tipo: rule.perfil_sintetico, peso: 'DESEJAVEL' }
+            : rule.perfil_sintetico;
+        const targetProfile = perfilObj.tipo.toLowerCase();
+
+        const hasDeterministicMatch = publisher.syntheticProfiles.some(sp => {
+            const spLower = sp.toLowerCase();
+            return spLower === targetProfile || targetProfile.includes(spLower) || spLower.includes(targetProfile);
+        });
+
+        if (hasDeterministicMatch) {
+            score += 300; // Ponto de partida prioritário
+            matches.unshift('💎 Perfil Atribuído no Cadastro (+300)');
+        }
+    }
+
+    // 0.1 Perfil Sintético Contextual (Cruzamentos Inteligentes e Flexíveis)
     if (rule.perfil_sintetico) {
         hasRules = true;
         const perfilObj = typeof rule.perfil_sintetico === 'string'
