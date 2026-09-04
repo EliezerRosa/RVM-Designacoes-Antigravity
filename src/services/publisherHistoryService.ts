@@ -80,6 +80,12 @@ const FIELD_LABELS: Record<string, string> = {
     email: 'E-mail',
     spouseId: 'Cônjuge',
     syntheticProfiles: 'Perfis Sintéticos',
+    ageGroup: 'Faixa Etária',
+    condition: 'Condição',
+    funcao: 'Função',
+    isBaptized: 'Batizado',
+    parentIds: 'Pais/Tutores',
+    canPairWithNonParent: 'Par com Não-Pais',
 };
 
 /**
@@ -87,6 +93,146 @@ const FIELD_LABELS: Record<string, string> = {
  */
 export function getFriendlyFieldName(field: string): string {
     return FIELD_LABELS[field] || field;
+}
+
+/**
+ * Avalia se um campo realmente mudou de valor semântico entre o estado anterior e o novo,
+ * prevenindo falsos positivos causados por null vs false, null vs "", null vs [], etc.
+ */
+export function isFieldActuallyChanged(
+    field: string,
+    prevVal: unknown,
+    newVal: unknown
+): boolean {
+    // 1. Campos Booleanos com padrão false (se ambos falsy -> falso)
+    const FALSE_DEFAULT_BOOLEANS = [
+        'isNotQualified',
+        'requestedNoParticipation',
+        'isIndefinitelyPaused',
+        'isHelperOnly',
+        'canPairWithNonParent',
+        'canPreside',
+        'canGiveTalks',
+        'canGiveStudentTalks',
+        'canPray',
+        'canReadCBS',
+        'canConductCBS',
+        'canParticipateInTreasures',
+        'canParticipateInMinistry',
+        'canParticipateInLife',
+    ];
+
+    if (FALSE_DEFAULT_BOOLEANS.includes(field)) {
+        return Boolean(prevVal) !== Boolean(newVal);
+    }
+
+    // 2. Campos Booleanos com padrão true (isServing, active, isBaptized)
+    if (field === 'isServing' || field === 'active' || field === 'isBaptized') {
+        const pBool = prevVal === undefined || prevVal === null ? true : Boolean(prevVal);
+        const nBool = newVal === undefined || newVal === null ? true : Boolean(newVal);
+        return pBool !== nBool;
+    }
+
+    // 3. Strings livres e telefones
+    const STRING_FIELDS = [
+        'notQualifiedReason',
+        'noParticipationReason',
+        'indefinitePauseReason',
+        'email',
+        'phone',
+        'contact_phone',
+        'spouseId',
+        'name',
+        'gender',
+        'ageGroup',
+        'condition',
+        'funcao',
+        'address',
+        'status',
+    ];
+
+    if (STRING_FIELDS.includes(field)) {
+        const sPrev = typeof prevVal === 'string' ? prevVal.trim() : '';
+        const sNew = typeof newVal === 'string' ? newVal.trim() : '';
+        if (field === 'phone' || field === 'contact_phone') {
+            const dPrev = sPrev.replace(/\D/g, '');
+            const dNew = sNew.replace(/\D/g, '');
+            return dPrev !== dNew;
+        }
+        return sPrev !== sNew;
+    }
+
+    // 4. Arrays (syntheticProfiles, parentIds, aliases)
+    if (field === 'syntheticProfiles' || field === 'parentIds' || field === 'aliases') {
+        const arrPrev = Array.isArray(prevVal) ? [...prevVal].map(String).sort() : [];
+        const arrNew = Array.isArray(newVal) ? [...newVal].map(String).sort() : [];
+        return JSON.stringify(arrPrev) !== JSON.stringify(arrNew);
+    }
+
+    // 5. Objetos aninhados: privileges
+    if (field === 'privileges') {
+        const pPrev = (prevVal && typeof prevVal === 'object') ? prevVal as Record<string, unknown> : {};
+        const pNew = (newVal && typeof newVal === 'object') ? newVal as Record<string, unknown> : {};
+        const privKeys = ['canPreside', 'canGiveTalks', 'canGiveStudentTalks', 'canPray', 'canReadCBS', 'canConductCBS'];
+        return privKeys.some(k => Boolean(pPrev[k]) !== Boolean(pNew[k]));
+    }
+
+    // 6. Objetos aninhados: privilegesBySection
+    if (field === 'privilegesBySection') {
+        const sPrev = (prevVal && typeof prevVal === 'object') ? prevVal as Record<string, unknown> : {};
+        const sNew = (newVal && typeof newVal === 'object') ? newVal as Record<string, unknown> : {};
+        const secKeys = ['canParticipateInTreasures', 'canParticipateInMinistry', 'canParticipateInLife'];
+        return secKeys.some(k => Boolean(sPrev[k]) !== Boolean(sNew[k]));
+    }
+
+    // 7. Fallback genérico: se ambos forem nulos/falsy vazios
+    const isFalsyOrEmpty = (v: unknown) =>
+        v === undefined || v === null || v === '' || v === false || (Array.isArray(v) && v.length === 0);
+
+    if (isFalsyOrEmpty(prevVal) && isFalsyOrEmpty(newVal)) {
+        return false;
+    }
+
+    return JSON.stringify(prevVal ?? null) !== JSON.stringify(newVal ?? null);
+}
+
+/**
+ * Sanitiza um registro de histórico extraindo apenas os campos que realmente mudaram
+ * semânticamente entre prev_data e new_data (eliminando falsos positivos).
+ */
+export function sanitizeHistoryRecord(rec: ProfileHistoryRecord): ProfileHistoryRecord {
+    if (!rec || !rec.prev_data || !rec.new_data) {
+        return rec;
+    }
+    const prev = rec.prev_data;
+    const next = rec.new_data;
+
+    // Se changed_fields estiver ausente ou vazio, calcula a partir de todas as chaves
+    const candidateFields = rec.changed_fields && rec.changed_fields.length > 0
+        ? rec.changed_fields
+        : Array.from(new Set([...Object.keys(prev), ...Object.keys(next)]));
+
+    const realFields: string[] = [];
+    for (const f of candidateFields) {
+        if (
+            f === 'availability' ||
+            f === 'availabilityMeta' ||
+            f === 'profileMeta' ||
+            f === 'updatedAt' ||
+            f === 'updatedBy' ||
+            f === 'id'
+        ) {
+            continue;
+        }
+        if (isFieldActuallyChanged(f, prev[f], next[f])) {
+            realFields.push(f);
+        }
+    }
+
+    return {
+        ...rec,
+        changed_fields: realFields,
+    };
 }
 
 /**
@@ -104,7 +250,10 @@ export async function fetchPublisherProfileHistory(token?: string | null): Promi
             return [];
         }
 
-        return (data || []) as ProfileHistoryRecord[];
+        const raw = (data || []) as ProfileHistoryRecord[];
+        return raw
+            .map(sanitizeHistoryRecord)
+            .filter(r => r.changed_fields && r.changed_fields.length > 0);
     } catch (err) {
         console.error('[publisherHistoryService] Error loading history:', err);
         return [];
@@ -199,20 +348,27 @@ export function resolveLastChangeForSection(
         records = [];
     }
 
+    // Sanitiza os registros garantindo apenas mudanças reais
+    const sanitizedRecords = records
+        .map(sanitizeHistoryRecord)
+        .filter(r => r.changed_fields && r.changed_fields.length > 0);
+
     const sectionTargetFields = SECTION_FIELDS[section] || [];
 
-    // 1) Procura o registro mais recente que tocou nos campos desta seção
-    const specificRecord = records.find(r =>
+    // 1) Procura o registro mais recente que tocou especificamente nos campos desta seção
+    const specificRecord = sanitizedRecords.find(r =>
         r && r.changed_fields && Array.isArray(r.changed_fields) && r.changed_fields.some(f => sectionTargetFields.includes(f))
     );
 
     if (specificRecord) {
         const sectionLabel = section === 'status' ? 'Status' : section === 'privileges' ? 'Privilégios' : 'Por Seção';
+        // FILTRAGEM CRUCIAL: Retorna ESTRITAMENTE os campos da seção ativa (sem vazar campos de outras abas)
+        const sectionOnlyFields = specificRecord.changed_fields.filter(f => sectionTargetFields.includes(f));
         return {
             author: formatAuthorShort(specificRecord.author_label),
             date: specificRecord.changed_at,
             dateFormatted: formatHistoryDate(specificRecord.changed_at),
-            fields: specificRecord.changed_fields || [],
+            fields: sectionOnlyFields,
             isSectionSpecific: true,
             areaLabel: sectionLabel,
             record: specificRecord,
@@ -220,8 +376,8 @@ export function resolveLastChangeForSection(
     }
 
     // 2) Se não há histórico específico desta seção mas há algum registro geral
-    if (records.length > 0) {
-        const latest = records[0];
+    if (sanitizedRecords.length > 0) {
+        const latest = sanitizedRecords[0];
         if (latest) {
             return {
                 author: formatAuthorShort(latest.author_label),
@@ -239,13 +395,26 @@ export function resolveLastChangeForSection(
     if (publisher) {
         const meta = (publisher as any).profileMeta;
         if (meta && meta.updatedAt) {
+            const rawFields: string[] = meta.changedFields || [];
+            const specificMetaFields = rawFields.filter(f => sectionTargetFields.includes(f));
+            if (specificMetaFields.length > 0) {
+                const sectionLabel = section === 'status' ? 'Status' : section === 'privileges' ? 'Privilégios' : 'Por Seção';
+                return {
+                    author: formatAuthorShort(meta.updatedBy || 'Admin'),
+                    date: meta.updatedAt,
+                    dateFormatted: formatHistoryDate(meta.updatedAt),
+                    fields: specificMetaFields,
+                    isSectionSpecific: true,
+                    areaLabel: sectionLabel,
+                };
+            }
             return {
                 author: formatAuthorShort(meta.updatedBy || 'Admin'),
                 date: meta.updatedAt,
                 dateFormatted: formatHistoryDate(meta.updatedAt),
-                fields: meta.changedFields || [],
+                fields: rawFields,
                 isSectionSpecific: false,
-                areaLabel: 'Perfil',
+                areaLabel: 'Geral',
             };
         }
     }
