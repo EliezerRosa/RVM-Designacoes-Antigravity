@@ -1,7 +1,7 @@
 # RVM Designações — Handoff para Antigravity / Claude
 
-> **Para o agente Claude no Antigravity:**
-> Este documento é o ponto de retomada preciso da sessão 2026-07-09/10 no VS Code Copilot.
+> **Para o agente Claude / Antigravity:**
+> Este documento é o ponto de retomada canônico consolidado em **2026-09-04**.
 > Leia integralmente antes de agir. O usuário é **Eliezer Rosa** (dono epistêmico do projeto).
 > Modelo IDD: Eliezer define O QUÊ e POR QUÊ; o agente executa O COMO.
 
@@ -21,12 +21,72 @@
 
 ---
 
+## 1.1 Ecossistema de Inteligência: Agente Curador IA & Base de Conhecimento (Fase 7 — 2026-09-04)
+
+### HEAD git atual: `925b81b`
+
+O sistema possui um ecossistema de curadoria semântica inteligente totalmente desacoplado do motor determinístico:
+
+```
+                  ┌────────────────────────────────────────────────────────┐
+                  │              Importação de Apostilas (Excel)           │
+                  └───────────────────────────┬────────────────────────────┘
+                                              │ (Gatilho automático ou manual)
+                                              ▼
+                  ┌────────────────────────────────────────────────────────┐
+                  │    Agente Especialista de Lote (Gemini Flash / Proxy)  │
+                  │        (curatorBatchSpecialistAgent.ts)               │
+                  └───────────────────────────┬────────────────────────────┘
+                                              │ Analisa temas (ex: Jeremias)
+                                              │ Infere perfis e insights
+                                              ▼
+                  ┌────────────────────────────────────────────────────────┐
+                  │        Base de Conhecimento Permanente (Supabase)      │
+                  │   - curator_profiles (16+ perfis canônicos)            │
+                  │   - curator_batch_insights (meta-análises de lote)     │
+                  └───────────────┬────────────────────────┬───────────────┘
+                                  │                        │
+         Popula dropdown tags     │                        │ Consulta regras e
+         no cadastro              │                        │ perfis ideais
+                                  ▼                        ▼
+     ┌────────────────────────────────────┐    ┌──────────────────────────────────┐
+     │      Cadastro de Publicadores      │    │         Agente Curador IA        │
+     │        (PublisherForm.tsx)         │    │  (SemanticDraggableGenerator)    │
+     │  - syntheticProfiles (+1 tags)     │    │  - Botão retrátil/flutuante      │
+     │  - Salvo em publishers.data JSONB  │    │  - Dock rodapé esquerdo          │
+     └─────────────────┬──────────────────┘    └─────────────────┬────────────────┘
+                       │                                         │
+                       │ Ponto de Partida Determinístico (+300)  │
+                       └───────────────────┬─────────────────────┘
+                                           │
+                                           ▼
+                       ┌───────────────────────────────────────┐
+                       │   Seleção Híbrida em Tempo de Tela    │
+                       │   - Restrita aos Elegíveis Desbloq.   │
+                       │   - Semana em Foco / Por Parte        │
+                       │   - Flexibilidade Total do Usuário    │
+                       └───────────────────┬───────────────────┘
+                                           │
+                                           ▼ (Zero impacto em:)
+                       ┌───────────────────────────────────────┐
+                       │ Motor "Gerar" Automático (Intocado)   │
+                       │   (unifiedRotationService.ts)         │
+                       └───────────────────────────────────────┘
+```
+
+### Principais Invariantes do Curador IA:
+1. **Isolamento do Motor "Gerar"**: O motor rotacional determinístico (`unifiedRotationService.ts`, `generationService.ts`, `cooldownService.ts`) **NUNCA** é modificado pelas decisões do Curador. O Curador atua exclusivamente na camada de assistência visual e casting humano assistido.
+2. **Restrição aos Elegíveis Desbloqueados**: O Curador opera estritamente sobre a lista de publicadores que são elegíveis para a semana em foco conforme retornado pelo motor (privilégios, gênero, cooldown, disponibilidade, restrições e exclusões). Ninguém inelegível pode ser sugerido ou selecionado pelo Curador.
+3. **Seleção Semana a Semana / Parte a Parte**: A seleção de publicador via Curador é executada individualmente para cada parte dentro da semana em foco selecionada.
+4. **Ponto de Partida Determinístico + Flexibilidade**: Publicadores que possuem tags em `syntheticProfiles` combinando com o perfil exigido da parte recebem +300 pontos de afinidade e o badge `💎 Perfil Atribuído no Cadastro`. Contudo, o Curador mantém visíveis e ranqueia todos os demais elegíveis da semana, preservando flexibilidade de escolha.
+
+---
+
 ## 2. Módulo RM (Relatórios Mensais) — Estado Atual
 
-### HEAD git
-`e6f3a1e` — docs: comentário upsert monthly_reports corrigido.
+### HEAD git RM: `e6f3a1e` / `925b81b` (Consolidado)
 
-### O que foi implementado (sessão 2026-07-09)
+### O que foi implementado (sessão 2026-07-09 / 2026-09-04)
 
 | Item | Status | Commit |
 |---|---|---|
@@ -142,6 +202,7 @@ rm.v_s1_consolidation → GROUP BY (reference_year, reference_month, congregatio
 
 ## 7. Arquivos de Código Relevantes
 
+### Módulo RM (Relatórios Mensais)
 ```
 src/services/rm/rmService.ts         ← tipos TS + CRUD
 src/services/rm/rmSyncService.ts     ← importador Glide workbook
@@ -152,8 +213,20 @@ supabase/migrations/                 ← todas as migrations RM
 .agents/workflows/rm-invariants.intent.md ← FONTE CANÔNICA
 ```
 
-### Tipos TS chave
+### Módulo Curador IA & Base de Conhecimento (Fase 7)
+```
+src/services/curatorKnowledgeBaseService.ts ← CRUD Supabase para curator_profiles e curator_batch_insights
+src/services/curatorBatchSpecialistAgent.ts  ← Agente de meta-análise e especialização de lotes pós-importação
+src/services/semanticRulesService.ts       ← Motor híbrido de pontuação (+300 pts determinístico + afinidade)
+src/components/ui/SemanticDraggableGenerator.tsx ← Botão flutuante/retrátil, modal do Curador, casting por parte
+src/components/PublisherForm.tsx           ← Seletor multi-select (+1) de perfis sintéticos no cadastro
+src/components/WorkbookManager.tsx         ← Disparo automático da especialização ao importar novo lote
+src/components/admin/CSClearanceModal.tsx   ← Modal de auditoria e liberação com regras do motor
+```
+
+### Tipos TS chave (RM + Curador)
 ```typescript
+// RM
 type FieldServiceStatus = 'ATIVO' | 'IRREGULAR' | 'INATIVO' | 'RECÉM-CONGREGADO';
 
 interface RmPublisher {
@@ -170,14 +243,31 @@ interface RmMonthlyReport {
   is_special_pioneer: boolean;    // snapshot histórico
 }
 
-interface S1ConsolidationRow {
-  publisher_count: number;          // NOT aux/reg/esp (sem has_preached)
-  auxiliary_pioneer_count: number;
-  regular_pioneer_count: number;
-  special_pioneer_count: number;    // PE — ver decisão §4
-  total_studies: number;
-  pioneer_hours: number;            // reg + esp
-  auxiliary_hours: number;
+// Curador IA & Base de Conhecimento
+interface CuratorProfile {
+  id: string; // chave canônica (ex: 'orador_eloquente', 'conselheiro_amoroso')
+  name: string;
+  description: string;
+  ideal_traits: string[];
+  avoid_traits: string[];
+  applicable_roles: string[];
+  keywords: string[];
+  insights?: string;
+  is_active: boolean;
+}
+
+interface CuratorBatchInsight {
+  id: string;
+  batch_key: string;
+  book_focus?: string;
+  thematic_summary?: string;
+  analysis_timestamp: string;
+}
+
+// Publicador (campo sintético adicionado)
+interface Publisher {
+  // ... campos regulares
+  syntheticProfiles?: string[]; // IDs correspondentes a curator_profiles.id
 }
 ```
 
@@ -618,3 +708,7 @@ DROP FUNCTION public.rm_open_month, public.rm_close_month;
 5. **Supabase MCP disponível**: `mcp_supabase_apply_migration` + `mcp_supabase_execute_sql`
 6. **Não usar `has_preached` como critério de modalidade** — apenas para `field_service_status`
 7. **PE's no S-1**: aguardar decisão do Eliezer (§4) antes de alterar
+8. **Motor 'Gerar' 100% Intocado**: Nenhuma alteração no Curador IA, Base de Conhecimento ou Agente Especialista pode interferir na lógica determinística de `unifiedRotationService.ts` e `generationService.ts`.
+9. **Elegibilidade Estrita no Curador**: Recomendações do Curador devem sempre consumir o conjunto retornado por `getRankedEligibleForPart()` (ou seja, publicadores que atendem às regras canônicas de gênero, cargo, disponibilidade e cooldown).
+10. **Curador Híbrido**: Respeitar a precedência do ponto de partida determinístico (`syntheticProfiles` +300 pts) garantindo ao mesmo tempo flexibilidade para exibição e escolha de todos os demais elegíveis da semana.
+

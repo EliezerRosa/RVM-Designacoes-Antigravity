@@ -87,3 +87,16 @@ O chat-agente NÃO recebe mudança de código para suportar RM. Novas ações RM
 > **ESTADO-ATUAL CONSOLIDADO**:
 > 1. **Vercel CLI / Deploy Auth**: A variável de ambiente do sistema Windows `VERCEL_TOKEN` deve ser mantida com Personal Access Token ativo. Comandos de deploy via CLI/MCP usam o token diretamente sem interrupções de login de navegador ou solicitações de 2FA.
 > 2. **Prevenção de Loop de Renovação Supabase (`src/lib/supabase.ts`)**: Antes da inicialização do client Supabase (`createClient`), o arquivo `src/lib/supabase.ts` deve SEMPRE manter a higienização de URL hash que identifica e limpa via `window.history.replaceState` qualquer hash OAuth obsoleto/salvo em favoritos (`#access_token=...` com `iat > 60s` ou `isExpired`). Isso impede loops de renovação acelerados que acionavam HTTP 429 no Supabase Auth e derrubavam usuários (como publicadores) para a tela de login.
+
+---
+
+## Curador IA & Base de Conhecimento Permanente (INVARIANTE 2026-09-04)
+
+> **DATA**: 2026-09-04  
+> **DECISÃO DO USUÁRIO**: Curador atua com seleção assistida nos elegíveis desbloqueados da semana em foco, com ponto de partida determinístico (+300 pts) para perfis atribuídos no cadastro, mantendo flexibilidade total e isolamento estrito do motor automático.
+
+1. **Isolamento do Motor 'Gerar'**: O motor rotacional determinístico (`unifiedRotationService.ts` e `generationService.ts`) é sagrado e **NUNCA** pode ser alterado pelas dinâmicas do Curador IA.
+2. **Elegibilidade Estrita e Semana em Foco**: Recomendações e seleções do Curador só podem ser feitas sobre o conjunto de publicadores elegíveis desbloqueados para a parte na semana em foco (`getRankedEligibleForPart`).
+3. **Ponto de Partida Determinístico + Flexibilidade**: Publicadores que possuem os perfis necessários configurados em `syntheticProfiles` (no cadastro de publicadores) recebem +300 pontos de afinidade e badge distintivo, mas o Curador jamais descarta os demais elegíveis da semana.
+4. **Base de Conhecimento e Especialização**: Perfis sintéticos residem na tabela `curator_profiles` e insights temáticos na tabela `curator_batch_insights` (Supabase). O agente `curatorBatchSpecialistAgent.ts` especializa os lotes importados sem alterar as tabelas canônicas de rotação.
+

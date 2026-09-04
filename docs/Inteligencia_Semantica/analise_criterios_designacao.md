@@ -49,13 +49,18 @@ Algumas partes exigem um tato maior, experiência de vida, ou habilidade para li
 
 ---
 
-## 💡 Como aplicar isso na prática (Próximos Passos)
+## 💡 Como isso foi implementado na prática (Concluído em Produção — Fase 7)
 
-Podemos criar uma função no `workbookQueryService` (ou similar) que, antes de montar as opções do *Dropdown* de designação, leia a `descricao` da parte e extraia "Tags Exigidas/Preferidas" baseado nos dados de **Agosto a Novembro de 2026**:
+A proposta teórica foi integralmente implementada e expandida através de uma arquitetura robusta de agentes e base relacional:
 
-1. **Se a descrição contém "colega de escola"**: A tabela de sugestões aplica um filtro `age_group = 'jovem'` e joga os jovens para o topo da lista.
-2. **Se a descrição contém "ancião" ou "superintendente"**: A API filtra estritamente por privilégio.
-3. **Se a descrição fala sobre "pai ou mãe"**: O sistema prioriza quem tem `has_children = true`.
-4. **Se a descrição fala sobre objeções ("não concorda") ou emoções fortes ("irritada", "inativos")**: O sistema prioriza pioneiros e publicadores maduros.
+1. **Base de Conhecimento Relacional (`curator_profiles` e `curator_batch_insights` no Supabase)**:
+   - 16 perfis típicos estruturados (ex: *Instrutor Bíblico Eloquente, Conselheiro Amoroso, Jovem Exemplar, Pioneiro Zeloso, Orador Dinâmico, Acolhedor, Pacificador, Apologista Maduro, etc.*) cadastrados com traços ideais, traços a evitar, palavras-chave e papéis canônicos.
+2. **Agente Especialista de Lote (`curatorBatchSpecialistAgent.ts`)**:
+   - Analisa lotes de apostilas importadas e descobre ênfases temáticas (ex: livro profético de Jeremias em Set/Out 2026), enriquecendo os perfis com *insights* aplicados.
+3. **Atribuição Determinística no Cadastro (`PublisherForm.tsx`)**:
+   - Campo multi-select (+1) que vincula tags de perfis sintéticos ao publicador, persistido em `publishers.data (JSONB)`.
+4. **Motor Híbrido e Ergonomia de Tela (`SemanticDraggableGenerator.tsx` & `semanticRulesService.ts`)**:
+   - Ponto de partida determinístico (+300 pontos e badge `💎 Perfil Atribuído no Cadastro`) se o publicador elegível possuir o perfil exigido pela parte.
+   - Flexibilidade total para selecionar qualquer publicador elegível da semana em foco.
+   - Total isolamento: o motor de rotação automática ("Gerar") permanece 100% intocado.
 
-Isso transformaria a tela de designação numa verdadeira inteligência artificial de apoio ao superintendente da reunião!

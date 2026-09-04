@@ -19,6 +19,15 @@ Plataforma web para coordenadores e secretários gerenciarem de forma automatiza
 - Painel de controle com análise de scores e explicações.
 - Ações ativas: designar, simular, limpar, navegar.
 
+### 🎯 Agente Curador IA & Base de Conhecimento Permanente
+- Botão flutuante retrátil ergonômico posicionado no rodapé esquerdo.
+- Curadoria semântica e casting assistido parte a parte na semana em foco.
+- Base de conhecimento relacional de perfis sintéticos no Supabase (`curator_profiles` e `curator_batch_insights`).
+- Agente Especialista de Lote que auto-analisa temas de novas apostilas importadas e enriquece os perfis com insights práticos.
+- Sistema Híbrido: ponto de partida determinístico via multi-select no cadastro de publicadores (+300 pts) mantendo flexibilidade total de escolha para todos os elegíveis da semana.
+- Isolamento absoluto: zero alteração no motor determinístico de rodízio automático.
+
+
 ### ✅ Aprovações
 - Fluxo de revisão para anciãos confirmarem propostas.
 
