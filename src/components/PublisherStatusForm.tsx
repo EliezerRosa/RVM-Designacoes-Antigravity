@@ -21,6 +21,13 @@ import { SpecialEventsManager } from './SpecialEventsManager';
 import { PublisherFormTutorial, tutorialSeenKey } from './PublisherFormTutorial';
 import { VideoTutorialModal } from './VideoTutorialModal';
 import { getTodayWeekIdLocal } from '../utils/dateUtils';
+import {
+    fetchPublisherProfileHistory,
+    indexHistoryByPublisher,
+    resolveLastChangeForSection,
+    type ProfileHistoryRecord,
+} from '../services/publisherHistoryService';
+import { PublisherStatusHistoryTooltip } from './PublisherStatusHistoryTooltip';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
 /**
@@ -96,6 +103,11 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         publisherName: string;
         proceedSave: () => Promise<void>;
     } | null>(null);
+
+    // ── Histórico de Alterações de Perfil & Status ──────────────────────────────────
+    const [historyMap, setHistoryMap] = useState<Map<string, ProfileHistoryRecord[]>>(new Map());
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [showHardcodedRulesModal, setShowHardcodedRulesModal] = useState(false);
 
     // ── Modais NL + Eventos (Admin OU token de Comissão de Serviço) ─────────────────
     const [showLocalNeeds, setShowLocalNeeds] = useState(false);
@@ -213,6 +225,24 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
             .catch(err => console.error('[PublisherStatusForm] Load error:', err))
             .finally(() => setLoading(false));
     }, [authorized]);
+
+    // ── Load profile history (audit trail) ────────────────────────────────
+    const loadHistory = useCallback(async () => {
+        if (!authorized) return;
+        setHistoryLoading(true);
+        try {
+            const records = await fetchPublisherProfileHistory(tokenInfo?.token || token || null);
+            setHistoryMap(indexHistoryByPublisher(records));
+        } catch (err) {
+            console.error('[PublisherStatusForm] Erro ao carregar histórico:', err);
+        } finally {
+            setHistoryLoading(false);
+        }
+    }, [authorized, tokenInfo?.token, token]);
+
+    useEffect(() => {
+        loadHistory();
+    }, [loadHistory]);
 
     // ── Set profile author (audit context) ────────────────────────────────
     // Admin: 'admin_app' (default já cobre). Portal: usa role+label do token.
@@ -347,6 +377,11 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         setSaving(false);
         setSaveResult({ success, errors });
         setTimeout(() => setSaveResult(null), 5000);
+
+        // Recarrega histórico para atualizar tooltip e autor imediatamente
+        if (success > 0) {
+            loadHistory();
+        }
     };
 
     // ── Render helpers ────────────────────────────────────────────────────
@@ -385,16 +420,20 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
     return (
         <>
         <div style={{ minHeight: '100vh', width: '100%', flex: 1, background: '#F8FAFC', fontFamily: 'system-ui, sans-serif' }}>
-            {/* Header */}
+            {/* Header Sticky */}
             <div style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 100,
                 background: '#1E293B',
                 color: 'white',
-                padding: '14px 20px',
+                padding: '12px 20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
                 gap: '8px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
             }}>
                 <div>
                     <div style={{ fontWeight: 700, fontSize: '16px' }}>📋 Atualização de Publicadores</div>
@@ -574,16 +613,38 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                             </button>
                         ))}
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowHardcodedRulesModal(true)}
+                        style={{
+                            background: '#FEF3C7',
+                            color: '#92400E',
+                            border: '1px solid #FDE68A',
+                            borderRadius: '8px',
+                            padding: '6px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                        }}
+                        title="Ver regras de código duro e status invisíveis que afetam a elegibilidade"
+                    >
+                        <span>🔍</span>
+                        <span>Status Invisíveis (Código Duro)</span>
+                    </button>
                     <span style={{ fontSize: '12px', color: '#94A3B8', marginLeft: 'auto' }}>
                         {filtered.length} publicador{filtered.length !== 1 ? 'es' : ''}
                     </span>
                 </div>
 
                 {/* Legend */}
-                <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '10px', display: 'flex', gap: '16px' }}>
+                <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '10px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span>🟡 Linha alterada (ainda não salva)</span>
                     <span>✅ Toggle ativo</span>
                     <span>☐ Toggle inativo</span>
+                    <span style={{ color: '#4F46E5', fontWeight: 600 }}>🕒 Passe o mouse/clique na autoria para ver histórico e regras</span>
                 </div>
 
                 {/* Table */}
@@ -592,7 +653,15 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                         Carregando publicadores...
                     </div>
                 ) : (
-                    <div style={{ overflowX: 'auto', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #E2E8F0' }}>
+                    <div style={{
+                        overflow: 'auto',
+                        maxHeight: 'calc(100vh - 195px)',
+                        minHeight: '400px',
+                        borderRadius: '10px',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                        border: '1px solid #E2E8F0',
+                        background: 'white',
+                    }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', fontSize: '13px' }}>
                             <thead>
                                 <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #CBD5E1' }}>
@@ -629,18 +698,26 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                     const rowBg = isDirty
                                         ? '#FFFBEB'
                                         : idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+                                    const pubHistory = historyMap.get(pub.id) || [];
+                                    const lastChange = resolveLastChangeForSection(pubHistory, section);
 
                                     return (
                                         <tr key={pub.id} style={{ background: rowBg, borderBottom: '1px solid #F1F5F9' }}>
-                                            {/* Name */}
-                                            <td style={{ ...tdStyle, fontWeight: isDirty ? 700 : 400, color: isDirty ? '#92400E' : '#1E293B', minWidth: '160px' }}>
+                                            {/* Name & History Tooltip */}
+                                            <td style={{ ...tdStyle, fontWeight: isDirty ? 700 : 400, color: isDirty ? '#92400E' : '#1E293B', minWidth: '220px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    {isDirty && <span style={{ fontSize: '10px', color: '#F59E0B' }}>●</span>}
-                                                    {eff.name}
+                                                    {isDirty && <span style={{ fontSize: '10px', color: '#F59E0B' }} title="Alteração não salva">●</span>}
+                                                    <span style={{ fontWeight: 600 }}>{eff.name}</span>
                                                 </div>
                                                 <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '1px' }}>
                                                     {eff.condition} · {eff.gender === 'brother' ? '👨' : '👩'}
                                                 </div>
+                                                <PublisherStatusHistoryTooltip
+                                                    publisher={eff}
+                                                    activeSection={section}
+                                                    lastChange={lastChange}
+                                                    historyList={pubHistory}
+                                                />
                                             </td>
 
                                             {/* ── Status de Participação ─────────────────────── */}
@@ -896,6 +973,11 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         {showVideoTutorial && (
             <VideoTutorialModal onClose={() => setShowVideoTutorial(false)} />
         )}
+
+        <HardcodedRulesModal
+            open={showHardcodedRulesModal}
+            onClose={() => setShowHardcodedRulesModal(false)}
+        />
         </>
     );
 }
@@ -969,7 +1051,12 @@ const card: React.CSSProperties = {
 };
 
 const thStyle: React.CSSProperties = {
-    padding: '8px 12px',
+    position: 'sticky',
+    top: 0,
+    zIndex: 20,
+    background: '#F1F5F9',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+    padding: '9px 12px',
     textAlign: 'center',
     fontSize: '11px',
     fontWeight: 700,
@@ -1000,3 +1087,137 @@ const reasonInputStyle = (disabled: boolean): React.CSSProperties => ({
     outline: 'none',
     cursor: disabled ? 'not-allowed' : 'text',
 });
+
+// ─── Modal Explicativo de Status Invisíveis & Código Duro ─────────────────────
+function HardcodedRulesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+    if (!open) return null;
+    return (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px',
+        }}>
+            <div style={{
+                background: 'white',
+                borderRadius: '16px',
+                maxWidth: '640px',
+                width: '100%',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+                border: '1px solid #E2E8F0',
+                padding: '24px',
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #E2E8F0', paddingBottom: '14px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '26px' }}>🛡️</span>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '17px', color: '#0F172A', fontWeight: 700 }}>
+                                Regras de Código Duro & Status Invisíveis
+                            </h3>
+                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>
+                                Entenda os bloqueios do motor que atuam independentemente dos toggles desta tela
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: '#F1F5F9',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            color: '#64748B',
+                            fontWeight: 700,
+                        }}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px', color: '#334155', lineHeight: 1.5 }}>
+                    <div style={{ background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '10px', padding: '12px' }}>
+                        <strong style={{ color: '#92400E', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>⛔</span> 1. Disponibilidade Temporal (Portal de Disponibilidade)
+                        </strong>
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#78350F' }}>
+                            Se um publicador definiu modo <code>&apos;never&apos;</code> ou registrou datas de exceção bloqueadas no seu link de disponibilidade pessoal, o motor em <code>eligibilityService.ts</code> o exclui sumariamente das semanas afetadas, mesmo que ele esteja como &quot;Em Serviço&quot; ativo nesta tabela.
+                        </p>
+                    </div>
+
+                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '10px', padding: '12px' }}>
+                        <strong style={{ color: '#1E40AF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>⚠️</span> 2. Publicador Não Batizado (Regra Litúrgica)
+                        </strong>
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#1E3A8A' }}>
+                            Por código duro (<code>eligibilityService.ts:410, 494</code>), publicadores não batizados jamais são elegíveis para: Oração, Leitura do Estudo Bíblico (EBC), Direção de EBC, Discursos de Ensino ou Presidência, mesmo que esses toggles estejam ativados nesta tela.
+                        </p>
+                    </div>
+
+                    <div style={{ background: '#FDF2F8', border: '1px solid #FBCFE8', borderRadius: '10px', padding: '12px' }}>
+                        <strong style={{ color: '#9D174D', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>👩</span> 3. Restrições Litúrgicas por Gênero
+                        </strong>
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#831843' }}>
+                            Conforme o arranjo teocrático bíblico (<code>eligibilityService.ts:399, 413, 437, 457, 491</code>), irmãs não podem presidir, orar, ler EBC, proferir discursos de ensino ou fazer a leitura da Bíblia da semana. Seus privilégios ativos aplicam-se estritamente a partes de estudante e como ajudantes.
+                        </p>
+                    </div>
+
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '12px' }}>
+                        <strong style={{ color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>🧒</span> 4. Faixa Etária Infantil (Crianças)
+                        </strong>
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
+                            Publicadores com faixa etária <code>child</code> são bloqueados por código duro (<code>eligibilityService.ts:728</code>) de receber partes normais ou discursos de estudante avançados sem acompanhamento pastoral.
+                        </p>
+                    </div>
+
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '12px' }}>
+                        <strong style={{ color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>👨‍👩‍👧</span> 5. Pareamento Estrito Familiar
+                        </strong>
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569' }}>
+                            Se <code>canPairWithNonParent</code> for falso, o menor só pode ser escalado como ajudante ou titular se o seu parceiro na designação for expressamente seu pai ou sua mãe cadastrado.
+                        </p>
+                    </div>
+
+                    <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: '10px', padding: '12px' }}>
+                        <strong style={{ color: '#991B1B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>🚫</span> 6. Não Congregado (Eixo A do RM)
+                        </strong>
+                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#7F1D1D' }}>
+                            Se <code>is_congregated === false</code>, o publicador é removido imediatamente de qualquer escala de reunião pelo motor, independente de qualquer privilégio individual configurado.
+                        </p>
+                    </div>
+                </div>
+
+                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: '#0F172A',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '9px 24px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Entendido
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
