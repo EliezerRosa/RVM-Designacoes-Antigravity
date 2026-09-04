@@ -81,6 +81,8 @@ interface PublisherStatusFormProps {
 // ─── Types ──────────────────────────────────────────────────────────────────
 type FormSection = 'status' | 'privileges' | 'sections';
 
+export type ActingRole = 'CCA' | 'SEC' | 'SRVM' | 'CS' | 'Admin';
+
 type PartialPublisher = Partial<Publisher> & {
     privileges?: Partial<Publisher['privileges']>;
     privilegesBySection?: Partial<Publisher['privilegesBySection']>;
@@ -103,6 +105,17 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         publisherName: string;
         proceedSave: () => Promise<void>;
     } | null>(null);
+
+    // ── Papel Atuante em Modo Admin (CCA / SEC / SRVM / CS / Admin) ────────────────
+    const [actingRole, setActingRole] = useState<ActingRole>(() => {
+        try {
+            const saved = localStorage.getItem('rvm_status_form_acting_role');
+            if (saved && ['CCA', 'SEC', 'SRVM', 'CS', 'Admin'].includes(saved)) {
+                return saved as ActingRole;
+            }
+        } catch {}
+        return 'CCA';
+    });
 
     // ── Histórico de Alterações de Perfil & Status ──────────────────────────────────
     const [historyMap, setHistoryMap] = useState<Map<string, ProfileHistoryRecord[]>>(new Map());
@@ -244,12 +257,35 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         loadHistory();
     }, [loadHistory]);
 
+    // ── Resolução de Titulares e Autor Atuante ───────────────────────────
+    const ccaPub = publishers.find(p => p.funcao === 'Coordenador do Corpo de Anciãos' || p.funcao === 'Coordenador');
+    const secPub = publishers.find(p => p.funcao === 'Secretário' || p.funcao === 'Secretario');
+    const srvmPub = publishers.find(p => p.funcao === 'Superintendente da Reunião Vida e Ministério' || p.funcao === 'Superintendente RVM');
+
+    const getActingAuthorLabel = useCallback((roleToUse: ActingRole): string => {
+        if (roleToUse === 'CCA') return ccaPub ? `CCA: ${ccaPub.name}` : 'CCA: Israel Vieira';
+        if (roleToUse === 'SEC') return secPub ? `SEC: ${secPub.name}` : 'SEC: Marcos Rogério';
+        if (roleToUse === 'SRVM') return srvmPub ? `SRVM: ${srvmPub.name}` : 'SRVM: Edmardo Queiroz';
+        if (roleToUse === 'CS') return 'Comissão de Serviço';
+        return 'Admin';
+    }, [ccaPub, secPub, srvmPub]);
+
     // ── Set profile author (audit context) ────────────────────────────────
-    // Admin: 'admin_app' (default já cobre). Portal: usa role+label do token.
+    // Admin: usa o papel teocrático selecionado (CCA/SEC/SRVM/CS/Admin). Portal: usa role+label do token.
     useEffect(() => {
         if (!authorized) return;
         if (isAdminAccess) {
-            setProfileAuthor({ source: 'admin_app', authorLabel: 'Admin', authorId: null, token: null });
+            const authorLabel = getActingAuthorLabel(actingRole);
+            const authorId = actingRole === 'CCA' ? (ccaPub?.id || null)
+                : actingRole === 'SEC' ? (secPub?.id || null)
+                : actingRole === 'SRVM' ? (srvmPub?.id || null)
+                : null;
+            setProfileAuthor({
+                source: 'admin_app',
+                authorLabel,
+                authorId,
+                token: null,
+            });
             return;
         }
         if (!tokenInfo) return;
@@ -264,7 +300,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
             authorId: userHint,
             token: tokenInfo.token,
         });
-    }, [authorized, isAdminAccess, tokenInfo, publishers]);
+    }, [authorized, isAdminAccess, actingRole, ccaPub, secPub, srvmPub, getActingAuthorLabel, tokenInfo, publishers]);
 
     // ── Auto-open tutorial na 1ª visita por papel ───────────────────────────
     // NOTA: Pulamos auto-open quando isAdminAccess porque o passo 'role-badge'
@@ -447,7 +483,41 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                         </div>
                     )}
                     {isAdminAccess && !tokenInfo && (
-                        <div style={{ fontSize: '11px', color: '#10B981', marginTop: '2px' }}>Acesso de Administrador</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>
+                                👤 Registrar alterações como:
+                            </span>
+                            <select
+                                value={actingRole}
+                                onChange={e => {
+                                    const nextRole = e.target.value as ActingRole;
+                                    setActingRole(nextRole);
+                                    try {
+                                        localStorage.setItem('rvm_status_form_acting_role', nextRole);
+                                    } catch {}
+                                }}
+                                style={{
+                                    background: '#0F172A',
+                                    color: '#F8FAFC',
+                                    border: '1px solid #3B82F6',
+                                    borderRadius: '6px',
+                                    padding: '3px 8px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    outline: 'none',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                }}
+                                title="Selecione em nome de quem as alterações de status, privilégios ou seções serão registradas no histórico teocrático de auditoria."
+                            >
+                                <option value="CCA">👑 CCA: {ccaPub?.name || 'Israel Vieira'} (Deliberação Pastoral)</option>
+                                <option value="SEC">📋 SEC: {secPub?.name || 'Marcos Rogério'} (Secretaria)</option>
+                                <option value="SRVM">📖 SRVM: {srvmPub?.name || 'Edmardo Queiroz'} (Superintendente RVM)</option>
+                                <option value="CS">🤝 Comissão de Serviço (Corpo)</option>
+                                <option value="Admin">⚙️ Admin (Ajuste Técnico)</option>
+                            </select>
+                            <span style={{ fontSize: '10px', color: '#10B981', fontWeight: 600 }}>● Modo Admin</span>
+                        </div>
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
