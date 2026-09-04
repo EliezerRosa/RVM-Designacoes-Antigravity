@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Funcao, Publisher, PublisherPrivileges, PublisherPrivilegesBySection } from '../types'
 import { getWeekMondayId } from '../services/eligibilityService'
+import { curatorKnowledgeBaseService, type CuratorProfile } from '../services/curatorKnowledgeBaseService'
 
 interface PublisherFormProps {
     publisher: Publisher | null
@@ -46,6 +47,7 @@ const emptyPublisher: Publisher = {
     requestedNoParticipation: false,
     isIndefinitelyPaused: false,
     indefinitePauseReason: '',
+    syntheticProfiles: [],
 }
 
 // Defensivo: dados legados podem nao ter availability ou subcampos completos.
@@ -60,14 +62,20 @@ function normalizePublisher(p: Publisher): Publisher {
             exceptionDates: p.availability?.exceptionDates ?? [],
             availableDates: p.availability?.availableDates ?? [],
         },
+        syntheticProfiles: p.syntheticProfiles ?? [],
     }
 }
 
 export default function PublisherForm({ publisher, publishers, onSave, onCancel }: PublisherFormProps) {
     const [formData, setFormData] = useState<Publisher>(publisher ? normalizePublisher(publisher) : { ...emptyPublisher })
+    const [curatorProfiles, setCuratorProfiles] = useState<CuratorProfile[]>([])
     const [newExceptionDate, setNewExceptionDate] = useState('')
     const [newAvailableDate, setNewAvailableDate] = useState('')
     const [newAlias, setNewAlias] = useState('')
+
+    useEffect(() => {
+        curatorKnowledgeBaseService.fetchCuratorProfiles().then(setCuratorProfiles).catch(console.error);
+    }, [])
 
     useEffect(() => {
         if (publisher) {
@@ -503,6 +511,113 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                 </div>
                             );
                         })()}
+
+                        {/* Perfis Sintéticos Curador IA (Multi-Seleção) */}
+                        <div style={{
+                            marginTop: 'var(--spacing-lg)',
+                            marginBottom: 'var(--spacing-md)',
+                            padding: '16px',
+                            background: 'rgba(139, 92, 246, 0.05)',
+                            border: '1px solid rgba(139, 92, 246, 0.25)',
+                            borderRadius: '12px'
+                        }}>
+                            <h4 style={{ margin: '0 0 6px 0', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.05rem' }}>
+                                <span>🧠</span> Perfis Sintéticos do Curador IA (+1)
+                            </h4>
+                            <p style={{ margin: '0 0 12px 0', fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                                Associe perfis pedagógicos e estilos típicos aplicáveis a este publicador. O Curador IA usará estes perfis como <strong>ponto de partida determinístico (+300 pts)</strong>, mantendo flexibilidade na análise.
+                            </p>
+
+                            {/* Tags selecionadas */}
+                            {formData.syntheticProfiles && formData.syntheticProfiles.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                                    {formData.syntheticProfiles.map(profileId => {
+                                        const profile = curatorProfiles.find(p => p.id === profileId);
+                                        const label = profile?.nome || profileId;
+                                        return (
+                                            <span 
+                                                key={profileId}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    padding: '4px 10px',
+                                                    background: '#8b5cf6',
+                                                    color: '#ffffff',
+                                                    borderRadius: '20px',
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: 500,
+                                                    boxShadow: '0 2px 4px rgba(139, 92, 246, 0.2)'
+                                                }}
+                                                title={profile?.descricao}
+                                            >
+                                                <span>💎 {label}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            syntheticProfiles: (prev.syntheticProfiles || []).filter(id => id !== profileId)
+                                                        }));
+                                                    }}
+                                                    style={{
+                                                        background: 'rgba(255, 255, 255, 0.25)',
+                                                        border: 'none',
+                                                        borderRadius: '50%',
+                                                        width: '18px',
+                                                        height: '18px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        cursor: 'pointer',
+                                                        color: '#ffffff',
+                                                        fontSize: '12px',
+                                                        padding: 0,
+                                                        lineHeight: 1
+                                                    }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Dropdown seletor para adicionar (+1) */}
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <select
+                                    value=""
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (!val) return;
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            syntheticProfiles: Array.from(new Set([...(prev.syntheticProfiles || []), val]))
+                                        }));
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                                        background: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    <option value="">➕ Selecionar perfil aplicável para adicionar (+1)...</option>
+                                    {curatorProfiles
+                                        .filter(p => p.id !== 'nenhum' && !(formData.syntheticProfiles || []).includes(p.id))
+                                        .map(p => (
+                                            <option key={p.id} value={p.id}>
+                                                [{p.categoria}] {p.nome} — {p.descricao.substring(0, 70)}...
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+                        </div>
 
                         {/* Availability Settings */}
                         <h4 style={{ marginBottom: 'var(--spacing-md)', marginTop: 'var(--spacing-lg)', color: 'var(--info-500)' }}>

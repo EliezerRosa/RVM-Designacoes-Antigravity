@@ -463,6 +463,17 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
             console.log('[WorkbookManager] 🔄 Recarregando partes...');
             await loadPartsWithFilters();
 
+            // Especialização do Curador no Lote Recém-Importado (Segundo Plano)
+            import('../services/curatorBatchSpecialistAgent').then(({ curatorBatchSpecialistAgent }) => {
+                curatorBatchSpecialistAgent.specializeOnBatch(batch.id, file.name, parts)
+                    .then(specRes => {
+                        if (specRes.success) {
+                            console.log('[WorkbookManager] 🧠 Especialista de Lote enriqueceu a Base de Conhecimento:', specRes);
+                        }
+                    })
+                    .catch(e => console.warn('[WorkbookManager] Aviso não-bloqueante na especialização do lote:', e));
+            });
+
             console.log('[WorkbookManager] ✅ Upload completo!');
 
         } catch (err) {

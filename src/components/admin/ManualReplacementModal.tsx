@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WorkbookPart } from '../../types';
+import type { WorkbookPart } from '../../types';
 
 interface ManualReplacementModalProps {
     isOpen: boolean;

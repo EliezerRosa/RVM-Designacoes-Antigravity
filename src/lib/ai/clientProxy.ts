@@ -16,7 +16,7 @@ function getConfiguredProxyOrigin(): string {
 
 export function getAiProxyUrl(): string {
     if (typeof window === 'undefined') {
-        return '/api/chat';
+        return `${DEFAULT_AI_PROXY_ORIGIN}/api/chat`;
     }
 
     const { hostname, origin } = window.location;

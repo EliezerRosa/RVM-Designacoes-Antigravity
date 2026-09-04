@@ -77,6 +77,8 @@ export interface Publisher {
     noParticipationReason?: string;     // Motivo (ex: "Viagem", "Problemas pessoais")
     isIndefinitelyPaused?: boolean;     // Pausa por tempo indeterminado (definido pelo admin)
     indefinitePauseReason?: string;     // Motivo da pausa por tempo indeterminado
+    // Perfis sintéticos atribuídos deterministicamente no cadastro (Curador IA)
+    syntheticProfiles?: string[];       // IDs dos perfis típicos (ex: ['mentoria_feminina', 'consolador_empatico'])
     // Data origin tracking
     source?: 'manual' | 'import' | 'sync' | 'initial'; // Onde o registro foi criado
     createdAt?: string;  // ISO timestamp of creation
