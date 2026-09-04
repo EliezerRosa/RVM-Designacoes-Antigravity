@@ -311,14 +311,20 @@ export function formatHistoryDate(isoDate: string, full = false): string {
 /**
  * Limpa o label do autor para exibição compacta de tela.
  * Ex: "SEC (portal): Marcos Rogério" -> "SEC: Marcos Rogério"
+ * Ex: "SEC (portal): SEC - Marcos Rogério" -> "SEC: Marcos Rogério"
  * Ex: "admin_app" ou "Admin" -> "Admin"
  */
 export function formatAuthorShort(author: string): string {
     if (!author) return 'Sistema';
-    return author
+    let cleaned = author
         .replace(/\(portal\)/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
+    // Limpa redundâncias como "SEC : SEC - Marcos Rogério" -> "SEC: Marcos Rogério"
+    cleaned = cleaned.replace(/^(\w+)\s*:\s*\1\s*-\s*/i, '$1: ');
+    cleaned = cleaned.replace(/^(\w+)\s*:\s*\1\s*:\s*/i, '$1: ');
+    cleaned = cleaned.replace(/^(\w+)\s*:\s*\1\s+/i, '$1: ');
+    return cleaned;
 }
 
 /**

@@ -15,6 +15,7 @@ import {
     type FormSectionType,
     type LastChangeInfo,
     formatHistoryDate,
+    formatAuthorShort,
     getFriendlyFieldName,
     getInvisibleHardcodedStatuses,
     sanitizeHistoryRecord,
@@ -279,7 +280,7 @@ export const PublisherStatusHistoryTooltip: React.FC<PublisherStatusHistoryToolt
                                     >
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <span style={{ fontWeight: 600, color: '#334155' }}>
-                                                {rec.author_label}
+                                                {formatAuthorShort(rec.author_label)}
                                             </span>
                                             <span style={{ fontSize: '10px', color: '#94A3B8' }}>
                                                 {formatHistoryDate(rec.changed_at)}
