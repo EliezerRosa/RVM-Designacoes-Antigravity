@@ -699,7 +699,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                         ? '#FFFBEB'
                                         : idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
                                     const pubHistory = historyMap.get(pub.id) || [];
-                                    const lastChange = resolveLastChangeForSection(pubHistory, section);
+                                    const lastChange = resolveLastChangeForSection(eff, pubHistory, section);
 
                                     return (
                                         <tr key={pub.id} style={{ background: rowBg, borderBottom: '1px solid #F1F5F9' }}>

@@ -176,15 +176,34 @@ export function formatAuthorShort(author: string): string {
  * Localiza a última alteração relevante para a aba ativa (ou geral) do publicador.
  */
 export function resolveLastChangeForSection(
-    publisher: Publisher,
-    records: ProfileHistoryRecord[],
-    section: FormSectionType
+    publisherOrRecords: Publisher | ProfileHistoryRecord[] | null | undefined,
+    recordsOrSection: ProfileHistoryRecord[] | FormSectionType,
+    maybeSection?: FormSectionType
 ): LastChangeInfo | null {
-    const sectionTargetFields = SECTION_FIELDS[section];
+    let publisher: Publisher | null = null;
+    let records: ProfileHistoryRecord[] = [];
+    let section: FormSectionType = 'status';
+
+    if (Array.isArray(publisherOrRecords)) {
+        // Chamado com (records, section)
+        records = publisherOrRecords;
+        section = (typeof recordsOrSection === 'string' ? recordsOrSection : 'status') as FormSectionType;
+    } else {
+        // Chamado com (publisher, records, section)
+        publisher = publisherOrRecords || null;
+        records = Array.isArray(recordsOrSection) ? recordsOrSection : [];
+        section = (maybeSection || 'status') as FormSectionType;
+    }
+
+    if (!Array.isArray(records)) {
+        records = [];
+    }
+
+    const sectionTargetFields = SECTION_FIELDS[section] || [];
 
     // 1) Procura o registro mais recente que tocou nos campos desta seção
     const specificRecord = records.find(r =>
-        r.changed_fields && r.changed_fields.some(f => sectionTargetFields.includes(f))
+        r && r.changed_fields && Array.isArray(r.changed_fields) && r.changed_fields.some(f => sectionTargetFields.includes(f))
     );
 
     if (specificRecord) {
@@ -193,7 +212,7 @@ export function resolveLastChangeForSection(
             author: formatAuthorShort(specificRecord.author_label),
             date: specificRecord.changed_at,
             dateFormatted: formatHistoryDate(specificRecord.changed_at),
-            fields: specificRecord.changed_fields,
+            fields: specificRecord.changed_fields || [],
             isSectionSpecific: true,
             areaLabel: sectionLabel,
             record: specificRecord,
@@ -203,31 +222,32 @@ export function resolveLastChangeForSection(
     // 2) Se não há histórico específico desta seção mas há algum registro geral
     if (records.length > 0) {
         const latest = records[0];
-        return {
-            author: formatAuthorShort(latest.author_label),
-            date: latest.changed_at,
-            dateFormatted: formatHistoryDate(latest.changed_at),
-            fields: latest.changed_fields,
-            isSectionSpecific: false,
-            areaLabel: 'Geral',
-            record: latest,
-        };
+        if (latest) {
+            return {
+                author: formatAuthorShort(latest.author_label),
+                date: latest.changed_at,
+                dateFormatted: formatHistoryDate(latest.changed_at),
+                fields: latest.changed_fields || [],
+                isSectionSpecific: false,
+                areaLabel: 'Geral',
+                record: latest,
+            };
+        }
     }
 
     // 3) Fallback para profileMeta embutido no JSONB do publicador
-    if (publisher.availabilityMeta) {
-        // Se a mudança foi em availability
-    }
-    const meta = (publisher as any).profileMeta;
-    if (meta && meta.updatedAt) {
-        return {
-            author: formatAuthorShort(meta.updatedBy || 'Admin'),
-            date: meta.updatedAt,
-            dateFormatted: formatHistoryDate(meta.updatedAt),
-            fields: meta.changedFields || [],
-            isSectionSpecific: false,
-            areaLabel: 'Perfil',
-        };
+    if (publisher) {
+        const meta = (publisher as any).profileMeta;
+        if (meta && meta.updatedAt) {
+            return {
+                author: formatAuthorShort(meta.updatedBy || 'Admin'),
+                date: meta.updatedAt,
+                dateFormatted: formatHistoryDate(meta.updatedAt),
+                fields: meta.changedFields || [],
+                isSectionSpecific: false,
+                areaLabel: 'Perfil',
+            };
+        }
     }
 
     return null;
