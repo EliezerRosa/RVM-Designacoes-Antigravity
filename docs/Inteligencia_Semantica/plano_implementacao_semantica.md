@@ -53,10 +53,14 @@ O motor atual gera o Dropdown. **Não tocaremos no Dropdown.**
 ## Benefícios Desta Abordagem
 
 * **Isolamento Total de Código:** O código do "Agente de Critérios" não compartilha variáveis nem lida com o estado do motor antigo. Ele é um observador que emite recomendações.
-* **Risco Absolutamente Zero de Regressão:** Se o YAML estiver quebrado, se a IA enlouquecer e sugerir a pessoa errada, a UI e o motor de designações originais continuam intactos e perfeitos. O usuário simplesmente ignora o painel lateral.
+* **Risco Absolutamente Zero de Regressão:** Se a IA enlouquecer e sugerir a pessoa errada, a UI e o motor de designações originais continuam intactos e perfeitos. O usuário simplesmente ignora a recomendação ou escolhe outro elegível.
 
-## Open Questions
+---
 
-> [!IMPORTANT]
-> 1. **Armazenamento:** Salvar esses arquivos `.yml` no Storage do Supabase (ex: bucket `ai-rules`) faz sentido para você?
-> 2. **Interface Visual:** Um painel lateral, uma janela flutuante estilo "Chatbot Assistente", ou um botão 💡 ao lado de cada linha da tabela seriam o ideal para esse isolamento extremo da UI?
+## Resolução das Decisões de Arquitetura (Consolidação em Produção — Fase 7)
+
+1. **Armazenamento (Decisão: Supabase Relacional vs YAML)**:
+   - Em vez de arquivos YAML em storage bucket, a arquitetura evoluiu para tabelas relacionais no Supabase (`curator_profiles` e `curator_batch_insights`). Isso garantiu suporte a queries reativas, integridade referencial, cache local transparente e associação direta com o campo `syntheticProfiles` dos publicadores, mantendo o isolamento 100% preservado.
+2. **Interface Visual (Decisão: Botão Flutuante Retrátil no Rodapé Esquerdo)**:
+   - Foi adotado o componente `SemanticDraggableGenerator.tsx`, que atraca automaticamente no canto inferior esquerdo do rodapé ao entrar na semana. É retrátil por padrão, arrastável suavemente pelo usuário e abre o modal de curadoria sob demanda, sem competir com a tabela principal da reunião.
+

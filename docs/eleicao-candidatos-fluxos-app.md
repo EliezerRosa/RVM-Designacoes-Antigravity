@@ -144,7 +144,24 @@ Entradas principais:
 - R-AG-02: usa historico sem a semana corrente (consistencia com painel/motor).
 - R-AG-03: designacao na mesma semana nao e bloqueio hard; recebe tag de alerta no texto.
 
-## 8) Arvore de regras de elegibilidade (checkEligibility)
+## 8) Fluxo E - Curador de IA e Selecao Semantica Hibrida (SemanticDraggableGenerator)
+Entrada principal: `getRankedEligibleForPart(...)` e `calculateSemanticScore(...)` em [src/services/semanticRulesService.ts](../src/services/semanticRulesService.ts#L180), orquestrado via [src/components/ui/SemanticDraggableGenerator.tsx](../src/components/ui/SemanticDraggableGenerator.tsx#L1).
+
+### 8.1 Pipeline
+1. Identifica a semana em foco e as partes ativas.
+2. Pré-filtro rígido: consome exclusivamente os candidatos retornados como elegíveis desbloqueados para a parte (`checkEligibility` + regras de cooldown e privilégio).
+3. Ponto de partida determinístico: se o publicador possui a tag do perfil da parte em `publisher.syntheticProfiles`, recebe +300 pontos de afinidade e badge `💎 Perfil Atribuído no Cadastro`.
+4. Ranqueamento contextual por afinidade: o Curador avalia histórico de funções, adequação ao tema (ex: livros bíblicos da semana inferidos pelo Agente Especialista) e traços desejáveis, atribuindo scores aos demais candidatos elegíveis.
+5. Seleção individual por parte: o usuário visualiza as recomendações no modal e escolhe o candidato para a parte específica; o callback `onAssign(part.id, publisherId)` atualiza o estado da parte.
+6. Isolamento estrito: Zero impacto no motor "Gerar" de lote (`generationService.ts`), atuando puramente como ferramenta de apoio visual ao designador.
+
+### 8.2 Regras locais do Curador
+- R-CUR-01: Restrito aos elegíveis desbloqueados na semana em foco para cada parte individualmente.
+- R-CUR-02: Bônus determinístico de +300 pts para quem possui o perfil pré-atribuído no cadastro.
+- R-CUR-03: Não oculta nem descarta os demais elegíveis da semana, mantendo flexibilidade total de escolha.
+- R-CUR-04: Enriquecimento contínuo de perfis e insights via `curatorBatchSpecialistAgent.ts` e base relacional no Supabase (`curator_profiles`, `curator_batch_insights`).
+
+## 9) Arvore de regras de elegibilidade (checkEligibility)
 Pontos de decisao (ordem real):
 
 1. Filtros globais
@@ -174,9 +191,9 @@ Pontos de decisao (ordem real):
 - Leitor EBC: [src/services/eligibilityService.ts](../src/services/eligibilityService.ts#L482)
 - Necessidades Locais: [src/services/eligibilityService.ts](../src/services/eligibilityService.ts#L495)
 
-## 9) Convergencias vs divergencias (resumo tecnico)
+## 10) Convergencias vs divergencias (resumo tecnico)
 
-### 9.1 Convergencias fortes
+### 10.1 Convergencias fortes
 1. Gate unico de elegibilidade: todas as superficies criticas usam `checkEligibility`.
 2. Contexto unico de parte: `buildEligibilityContext` e base comum para regras sensiveis.
 3. Ranking unico: `getRankedCandidates` para motor, painel e agente.
@@ -200,25 +217,29 @@ Pontos de decisao (ordem real):
 - Existe mapeamento local no painel de aprovacao (risco de drift): [src/components/ApprovalPanel.tsx](../src/components/ApprovalPanel.tsx#L576)
 - Fonte central oficial: [src/constants/mappings.ts](../src/constants/mappings.ts#L13)
 
-## 10) Catalogo de regras por ponto de decisao
+## 11) Catalogo de regras por ponto de decisao
 | ID | Regra | Onde decide | Fluxos que usam |
 |---|---|---|---|
-| R-EL-01 | Publicador deve estar atuante | eligibility global filter | Motor, UI manual, Painel, Agente |
-| R-EL-02 | Desqualificado / no-participation bloqueia | eligibility global filter | Motor, UI manual, Painel, Agente |
-| R-EL-03 | Disponibilidade por semana (nao passado) | eligibility global filter | Motor, UI manual, Painel, Agente |
-| R-EL-04 | Helper-only so em funcao ajudante | eligibility global filter | Motor, UI manual, Painel, Agente |
-| R-EL-05 | Privilegios por secao | eligibility secao filter | Motor, UI manual, Painel, Agente |
-| R-EL-06 | Restricao textual da parte (genero/condicao/funcao/batismo) | eligibility textual parser | Motor, UI manual, Painel, Agente |
-| R-EL-07 | Ajudante requer contexto do titular e regra de mesmo genero (com bypass familia) | canBeHelper | Motor, UI manual, Painel, Agente |
-| R-EL-08 | Regras por modalidade (Presidencia, Oracao, Ensino, EBC etc.) | switch modalidade | Motor, UI manual, Painel, Agente |
+| R-EL-01 | Publicador deve estar atuante | eligibility global filter | Motor, UI manual, Painel, Agente, Curador |
+| R-EL-02 | Desqualificado / no-participation bloqueia | eligibility global filter | Motor, UI manual, Painel, Agente, Curador |
+| R-EL-03 | Disponibilidade por semana (nao passado) | eligibility global filter | Motor, UI manual, Painel, Agente, Curador |
+| R-EL-04 | Helper-only so em funcao ajudante | eligibility global filter | Motor, UI manual, Painel, Agente, Curador |
+| R-EL-05 | Privilegios por secao | eligibility secao filter | Motor, UI manual, Painel, Agente, Curador |
+| R-EL-06 | Restricao textual da parte (genero/condicao/funcao/batismo) | eligibility textual parser | Motor, UI manual, Painel, Agente, Curador |
+| R-EL-07 | Ajudante requer contexto do titular e regra de mesmo genero (com bypass familia) | canBeHelper | Motor, UI manual, Painel, Agente, Curador |
+| R-EL-08 | Regras por modalidade (Presidencia, Oracao, Ensino, EBC etc.) | switch modalidade | Motor, UI manual, Painel, Agente, Curador |
 | R-ROT-01 | Score deterministico (time, frequency, heavy proximity, bonus) | calculateScore | Motor, UI manual, Painel, Agente |
 | R-ROT-02 | Ordenacao deterministica com desempates | getRankedCandidates | Motor, Painel, Agente |
 | R-CD-01 | Cooldown proximidade (visual/ordem/escolha) | isBlocked/getBlockInfo | Motor, UI manual, Painel, Agente |
 | R-UI-01 | Duplicidade na mesma semana bloqueia no dropdown | PublisherSelect local rule | UI manual |
 | R-GEN-01 | Partes nao designaveis entram em cleanup se houver residuo | generation phase 0 | Motor |
 | R-GEN-02 | Oracao final com 3 grupos de fallback | generation phase 4 | Motor |
+| R-CUR-01 | Foco estrito na semana ativa e partes individuais com elegíveis desbloqueados | getRankedEligibleForPart | Curador |
+| R-CUR-02 | Ponto de partida determinístico via `syntheticProfiles` (+300 pts) | calculateSemanticScore | Curador |
+| R-CUR-03 | Flexibilidade total com ranqueamento semântico de todos os elegíveis | calculateSemanticScore | Curador |
+| R-CUR-04 | Base de conhecimento e especialização contínua de lotes pós-importação | curatorBatchSpecialistAgent | Curador |
 
-## 11) Grafos gerados
+## 12) Grafos gerados
 1. Visao geral de convergencia/divergencia:
 - [docs/graphs/eleicao-candidatos-overview.mmd](graphs/eleicao-candidatos-overview.mmd)
 
@@ -231,5 +252,6 @@ Pontos de decisao (ordem real):
 4. Arvore de decisao de elegibilidade:
 - [docs/graphs/eleicao-candidatos-eligibility-decision-tree.mmd](graphs/eleicao-candidatos-eligibility-decision-tree.mmd)
 
-## 12) Observacao tecnica final
-A arquitetura atual ja tem um nucleo convergente forte para eleicao de candidatos. As divergencias mais sensiveis nao estao no gate de elegibilidade em si, mas na forma como cada superficie aplica cooldown, duplicidade na semana e exibicao de candidatos bloqueados.
+## 13) Observacao tecnica final
+A arquitetura atual ja tem um nucleo convergente forte para eleicao de candidatos. O novo Curador Semântico de IA opera como uma extensão ergonômica desse núcleo, reutilizando integralmente o gate de elegibilidade semântica e introduzindo uma base de conhecimento relacional de perfis sintéticos cadastrais que orientam a decisão humana com agilidade e inteligência.
+

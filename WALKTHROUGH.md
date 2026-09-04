@@ -193,3 +193,39 @@ Quando a API principal (Gemini) falha por limite de cota, o orquestrador (`api/c
 - **O Problema**: A UI e o motor recebiam esse perfil desconhecido, e como não havia lógica para ele, a pontuação retornada para os publicadores era `0`. Com todos os publicadores zerados, a UI não exibia nenhuma sugestão (lista vazia).
 - **A Solução**: O motor (`semanticRulesService.ts`) agora intercepta "perfis alucinados". Se ele detectar um nome não oficial no schema, em vez de retornar zero, ele aplica um bônus dinâmico de mitigação (fallback genérico).
 - **Resultado Prático**: A IA continuará gerando designações robustas mesmo nos cenários em que inventa parâmetros devido a fallbacks de proxy, garantindo que o secretário sempre receba sugestões válidas na UI e o Card não fique sem resultados.
+
+---
+
+## Fase 7 — Agente Curador de IA, Base de Conhecimento Permanente & Casting Semântico Híbrido
+
+A Fase 7 estabeleceu uma evolução arquitetural profunda no processo de curadoria de designações, introduzindo agentes especializados contínuos, persistência relacional de inteligência semântica e interface ergonômica não-intrusiva:
+
+### 1. Ergonomia do Botão Flutuante e Retrátil (`SemanticDraggableGenerator.tsx`)
+- **Docking no Rodapé Esquerdo**: Ao entrar em qualquer semana na apostila, o botão do Curador IA é acoplado automaticamente no canto inferior esquerdo da tela.
+- **Visual Retrátil**: Exibe um badge minimalista e elegante com a contagem de regras ativas (`X partes mapeadas`). Permanece recolhido para não disputar atenção com a tabela da reunião, expandindo o modal apenas sob demanda/clique.
+- **Arrasto Suave (Drag & Drop)**: O usuário pode arrastar o botão livremente para qualquer canto da tela de acordo com seu fluxo de trabalho. Ao mudar de semana, o botão reinicializa suavemente na posição padrão (rodapé esquerdo).
+
+### 2. Filtro de Desbloqueio e Elegibilidade Canônica
+- **Semana em Foco & Avaliação Individual**: A curadoria de casting é executada estritamente semana a semana, avaliando cada parte da reunião de forma individual.
+- **Elegíveis Desbloqueados**: A lista de candidatos apresentada pelo Curador é alimentada exclusivamente por `getRankedEligibleForPart()`. Isso garante que todas as restrições canônicas do motor (privilégios, gênero, cooldown rotacional, disponibilidade, restrições e exclusões) já venham rigorosamente aplicadas. Nenhum irmão inelegível pode ser sugerido.
+
+### 3. Agente Especialista de Lote (`curatorBatchSpecialistAgent.ts`)
+- **Meta-Análise Automática**: Ao importar um novo lote de apostilas via `WorkbookManager.tsx` (ou sob demanda pelo botão "Especializar Lote"), um agente dedicado analisa todo o conjunto de semanas usando Gemini Flash (com fallback resiliente).
+- **Descoberta Temática**: Identifica temas bíblicos dominantes (ex: o ciclo profético de Jeremias nos meses de Setembro e Outubro de 2026, com foco em coragem perante oposição, integridade e obediência).
+- **Enriquecimento Contínuo**: O agente gera novos perfis quando necessário ou enriquece perfis existentes com *insights* contextuais e práticos da congregação.
+
+### 4. Base de Conhecimento Permanente de Perfis (Supabase)
+- **Tabela `curator_profiles`**: 16+ perfis típicos canônicos (ex: *Instrutor Bíblico Eloquente, Conselheiro Amoroso, Jovem Exemplar, Pioneiro Zeloso, Orador Dinâmico*) armazenados com traços ideais, traços a evitar, palavras-chave e insights práticos.
+- **Tabela `curator_batch_insights`**: Histórico permanente de análises temáticas por lote de apostilas importado.
+- **Serviço Centralizado**: [`curatorKnowledgeBaseService.ts`](file:///src/services/curatorKnowledgeBaseService.ts) realiza o carregamento dinâmico e caching em memória, permitindo que a congregação evolua seu vocabulário de casting continuamente.
+
+### 5. Multi-Select (+1) no Cadastro de Publicadores (`PublisherForm.tsx`)
+- **Atribuição Qualitativa**: O formulário de publicador agora possui um seletor dinâmico em grade de chips/tags conectado diretamente à Base de Conhecimento.
+- **Múltiplos Perfis**: O secretário/ancião pode associar 1, 2 ou mais perfis sintéticos a cada irmão (ex: associar "Instrutor Bíblico Eloquente" e "Conselheiro Amoroso" a um mesmo ancião experiente).
+- **Persistência em JSONB**: Os IDs dos perfis são persistidos com segurança no campo `syntheticProfiles?: string[]` dentro do payload serializado do publicador no Supabase.
+
+### 6. Curador Híbrido: Ponto de Partida Determinístico + Flexibilidade Contextual
+- **Ponto de Partida Determinístico**: Quando a regra semântica de uma parte demanda um perfil específico e um publicador elegível possui esse perfil atribuído em seu cadastro, o motor semântico (`semanticRulesService.ts`) concede um bônus expressivo (+300 pontos) e exibe o badge `💎 Perfil Atribuído no Cadastro`.
+- **Flexibilidade Humana Preservada**: O Curador **NÃO** oculta nem bloqueia os demais elegíveis da semana. Todos os irmãos aptos para a parte continuam ranqueados e acessíveis para escolha, combinando a precisão do perfil cadastrado com a sensibilidade de quem está designando.
+- **Isolamento Absoluto do Motor "Gerar"**: O motor principal de rodízio automático (`unifiedRotationService.ts`) permaneceu 100% inalterado. O Curador opera como uma camada de assessoria analítica, sem jamais gerar efeitos colaterais na rotação automática de fundo.
+
