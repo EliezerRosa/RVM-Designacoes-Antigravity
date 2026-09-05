@@ -18,8 +18,7 @@
   - cwd: `rvm-designacoes-unified/`
   - Commit sem `()`, `{}` ou `&&` na mensagem
   - `git push` escreve no stderr mas EXIT=0 = sucesso (procurar `x..y main → main`)
-- **HEAD git atual**: `3787f77` — *feat(audit): restricao de edicao de autor estritamente para admin e fallback para legado*
-- **Fase Ativa**: Fase 8 Concluída | **Checkpoint de Segurança**: Pré-Blindagem de Tokens (Publisher ID + E-mail)
+- **Fase Ativa**: Fase 9 Concluída — Blindagem Total de Tokens da Comissão de Serviço com Google Auth Restrito e First-Access Binding (2026-09-05)
 
 ---
 
