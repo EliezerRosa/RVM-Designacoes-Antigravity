@@ -1,8 +1,8 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-09-04 08:30 (BRT)  
+> **Última Atualização**: 2026-09-05 08:15 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 7 Concluída)
+> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 8 Concluída | Checkpoint Pré-Blindagem de Tokens)
 
 ---
 
@@ -14,11 +14,31 @@
 - **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app`
 - **Frontend GitHub Pages**: Ativo e sincronizado (`npm run deploy`).
 - **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas).
-- **Último Commit Estável**: `d9fbc86` — *feat(audit): seletor teocratico de autoria CCA/SEC/SRVM no modo admin e correcao historica*.
+- **Último Commit Estável**: `3787f77` — *feat(audit): restricao de edicao de autor estritamente para admin e fallback para legado*.
 
 ---
 
-## 2. Últimas Entregas: Auditoria Pastoral Teocrática & Ergonomia de Status (2026-09-04)
+## 2. Últimas Entregas: Fase 8 — Auditoria Real, Invariante "Legado" e Blindagem de Autor (2026-09-04 / 2026-09-05)
+
+### 📌 1. Sanitização Invariante de Autoria no Supabase
+- **Regra Invariante Aplicada**: Todo registro em `publisher_profile_history` sem identificação estrita de log (`token` e `author_id` nulos) foi atualizado para **`"legado"`** (122 registros).
+- **Preservação de Registros Reais**: Os 7 registros com token comprovado do Secretário (`373adba0…` - Marcos Rogério) foram preservados intactos.
+- **Sincronização em `publishers.data.profileMeta`**: 69 publicadores que possuíam carimbo derivado anterior (`CCA` ou `Admin`) foram limpos para `updatedBy = "legado"`.
+- **RPC `record_publisher_profile_change`**: Adicionado fallback rigoroso `v_effective_author := COALESCE(NULLIF(TRIM(p_author_label), ''), 'legado')`.
+
+### 📌 2. Restrição Estrita de Correção Manual ao Administrador
+- **Frontend (`PublisherStatusForm.tsx` & `PublisherStatusHistoryTooltip.tsx`)**:
+  - A permissão `canEditAuthor` foi travada exclusivamente para `isAdminAccess || role === 'admin'`.
+  - Para todos os demais usuários (acesso via links de WhatsApp com token de CCA, SEC, SRVM ou CS), os botões `✏️ Corrigir Autor` e `corrigir` são **completamente omitidos do DOM**.
+  - Abertura de histórico configurada para acionamento **exclusivamente sob clique**.
+- **Banco de Dados (`update_publisher_profile_history_author`)**:
+  - A RPC agora exige formalmente `public.is_admin()` ou role de `admin` em `profiles`. Tokens de portal não possuem privilégio de alterar o histórico de auditoria.
+
+---
+
+## 3. Próxima Fase: Blindagem Total de Tokens (Publisher ID + E-mail do Logado)
+- **Objetivo**: Atrelar cada token diretamente ao `publisher_id` e exigir que o usuário que abre o link esteja autenticado com o e-mail correspondente (`bound_email`).
+- **Checkpoint de Risco**: Criado plano formal de implementação (`implementation_plan.md`) para garantir que irmãos sem e-mail cadastrado (como Edmardo Queiroz) não sejam bloqueados acidentalmente.
 
 ### 📌 1. Atribuição Real de Autoria Teocrática (CCA vs Admin)
 - **Correção Histórica no Supabase**: Todos os registros precedentes de inaptidão (`isNotQualified`) e pausas pastorais (como Gustavo Rangel, Larissa Queiroz, Brenda Cristine, Eugenio Longo, Gerusa Souza, Gabriel Henrique, etc.) foram corrigidos de `author_label = 'Admin'` para `author_label = 'CCA'`. O `profileMeta.updatedBy` nos JSONs de `publishers` foi igualmente sincronizado.

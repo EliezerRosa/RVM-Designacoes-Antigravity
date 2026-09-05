@@ -1,7 +1,7 @@
 # RVM Designações — Handoff para Antigravity / Claude
 
 > **Para o agente Claude / Antigravity:**
-> Este documento é o ponto de retomada canônico consolidado em **2026-09-04**.
+> Este documento é o ponto de retomada canônico consolidado em **2026-09-05**.
 > Leia integralmente antes de agir. O usuário é **Eliezer Rosa** (dono epistêmico do projeto).
 > Modelo IDD: Eliezer define O QUÊ e POR QUÊ; o agente executa O COMO.
 
@@ -18,12 +18,14 @@
   - cwd: `rvm-designacoes-unified/`
   - Commit sem `()`, `{}` ou `&&` na mensagem
   - `git push` escreve no stderr mas EXIT=0 = sucesso (procurar `x..y main → main`)
+- **HEAD git atual**: `3787f77` — *feat(audit): restricao de edicao de autor estritamente para admin e fallback para legado*
+- **Fase Ativa**: Fase 8 Concluída | **Checkpoint de Segurança**: Pré-Blindagem de Tokens (Publisher ID + E-mail)
 
 ---
 
 ## 1.1 Ecossistema de Inteligência: Agente Curador IA & Base de Conhecimento (Fase 7 — 2026-09-04)
 
-### HEAD git atual: `925b81b`
+### HEAD git base: `925b81b`
 
 O sistema possui um ecossistema de curadoria semântica inteligente totalmente desacoplado do motor determinístico:
 
