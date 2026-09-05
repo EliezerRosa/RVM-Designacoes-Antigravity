@@ -518,35 +518,43 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
     const onlyHelpers = publishers.filter(p => p.isHelperOnly);
 
     if (impedidos.length > 0 || optOuts.length > 0 || onlyHelpers.length > 0) {
-        let report = `📋 *Relatório Mensal — Revisão de Status*\n\n`;
+        let baseMonthlyReport = `📋 *Relatório Mensal — Revisão de Status*\n\n`;
 
         if (impedidos.length > 0) {
-            report += `⛔ *Impedidos (${impedidos.length}):*\n`;
-            impedidos.forEach(p => { report += `• ${p.name}${p.notQualifiedReason ? ` — ${p.notQualifiedReason}` : ''}\n`; });
-            report += `\n`;
+            baseMonthlyReport += `⛔ *Impedidos (${impedidos.length}):*\n`;
+            impedidos.forEach(p => { baseMonthlyReport += `• ${p.name}${p.notQualifiedReason ? ` — ${p.notQualifiedReason}` : ''}\n`; });
+            baseMonthlyReport += `\n`;
         }
 
         if (optOuts.length > 0) {
-            report += `🚫 *Pediram para não participar (${optOuts.length}):*\n`;
-            optOuts.forEach(p => { report += `• ${p.name}${p.noParticipationReason ? ` — ${p.noParticipationReason}` : ''}\n`; });
-            report += `\n`;
+            baseMonthlyReport += `🚫 *Pediram para não participar (${optOuts.length}):*\n`;
+            optOuts.forEach(p => { baseMonthlyReport += `• ${p.name}${p.noParticipationReason ? ` — ${p.noParticipationReason}` : ''}\n`; });
+            baseMonthlyReport += `\n`;
         }
 
         if (onlyHelpers.length > 0) {
-            report += `🤝 *Apenas ajudante (${onlyHelpers.length}):*\n`;
-            onlyHelpers.forEach(p => { report += `• ${p.name}\n`; });
-            report += `\n`;
+            baseMonthlyReport += `🤝 *Apenas ajudante (${onlyHelpers.length}):*\n`;
+            onlyHelpers.forEach(p => { baseMonthlyReport += `• ${p.name}\n`; });
+            baseMonthlyReport += `\n`;
         }
 
-        report += `Por favor, considerem rever estes status periodicamente.\n`;
-        report += `🔗 https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form`;
+        baseMonthlyReport += `Por favor, considerem rever estes status periodicamente no formulário da Comissão de Serviço:\n`;
 
-        // Enviar para comissão de serviço
+        // Buscar perfis de Admin de sistema
+        const { data: adminProfiles } = await supabase
+            .from('profiles')
+            .select('publisher_id')
+            .eq('role', 'admin');
+        const adminPublisherIds = new Set((adminProfiles || []).map((ap: any) => ap.publisher_id).filter(Boolean));
+
+        // Enviar para Comissão de Serviço (CS) + SRVM + Admin de Sistema
         const comissao = publishers.filter(p =>
             p.funcao === 'Coordenador do Corpo de Anciãos' ||
             p.funcao === 'Secretário' ||
             p.funcao === 'Superintendente de Serviço' ||
-            p.funcao === 'Superintendente da Reunião Vida e Ministério'
+            p.funcao === 'Superintendente da Reunião Vida e Ministério' ||
+            adminPublisherIds.has(p.id) ||
+            p.role === 'admin'
         );
 
         // Ajudante SRVM só recebe se for Ancião
@@ -562,9 +570,27 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
             const dispatchKey = `RELATORIO_COMISSAO_${currentMonth}_${member.id}`;
             if (await checkDispatched(member.id, dispatchKey)) continue;
 
-            const success = await sendWhatsApp(member.phone, report);
+            const { data: tokenRow } = await supabase
+                .from('publisher_form_tokens')
+                .select('token')
+                .eq('publisher_id', member.id)
+                .eq('active', true)
+                .maybeSingle();
+
+            const formUrl = tokenRow?.token
+                ? `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form&token=${tokenRow.token}`
+                : `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form`;
+
+            const memberReport = `${baseMonthlyReport}🔗 ${formUrl}`;
+
+            const success = await sendWhatsApp(member.phone, memberReport);
             await logDispatch(member.id, dispatchKey, member.phone, success ? 'SUCCESS' : 'ERROR');
-            if (success) reports.push(`📋 Relatório enviado para ${member.name}.`);
+
+            const roleDescription = member.funcao
+                ? member.funcao
+                : (adminPublisherIds.has(member.id) || member.role === 'admin' ? 'Admin de Sistema' : 'Publicador');
+
+            if (success) reports.push(`📋 Relatório mensal enviado para ${roleDescription}: ${member.name}.`);
         }
     }
 
@@ -582,27 +608,38 @@ async function runWeeklyCycle(publishers: PublisherData[]): Promise<string[]> {
     const pausados = publishers.filter(p => p.isIndefinitelyPaused);
     if (pausados.length === 0) return reports;
 
-    let report = `⏸️ *Lembrete Semanal — Publicadores Pausados*\n\n`;
-    report += `Os seguintes publicadores estão atualmente pausados por tempo indeterminado e não receberão designações:\n\n`;
+    let baseReport = `⏸️ *Lembrete Semanal — Publicadores Pausados*\n\n`;
+    baseReport += `Os seguintes publicadores estão atualmente pausados por tempo indeterminado e não receberão designações:\n\n`;
     
     pausados.forEach(p => {
-        report += `• ${p.name}${p.indefinitePauseReason ? ` — ${p.indefinitePauseReason}` : ''}\n`;
+        baseReport += `• ${p.name}${p.indefinitePauseReason ? ` — ${p.indefinitePauseReason}` : ''}\n`;
     });
     
-    report += `\nPara reativá-los, acesse o painel Admin:`;
-    report += `\n🔗 https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-status`;
+    baseReport += `\nPara reativá-los ou revisar os status, acesse o formulário de publicadores:\n`;
 
-    // Enviar apenas para Admins (role === 'admin' ou Coordenador/SRVM se não houver role explícita)
-    let admins = publishers.filter(p => p.role === 'admin');
-    if (admins.length === 0) {
-        // Fallback para administradores de fato
-        admins = publishers.filter(p => 
-            p.funcao === 'Superintendente da Reunião Vida e Ministério' || 
-            p.funcao === 'Coordenador do Corpo de Anciãos'
-        );
-    }
+    // Buscar perfis de Admin de sistema
+    const { data: adminProfiles } = await supabase
+        .from('profiles')
+        .select('publisher_id')
+        .eq('role', 'admin');
+    const adminPublisherIds = new Set((adminProfiles || []).map((ap: any) => ap.publisher_id).filter(Boolean));
+
+    // Enviar para:
+    // 1. Comissão de Serviço (CS): Coordenador do Corpo de Anciãos, Secretário e Superintendente de Serviço
+    // 2. SRVM: Superintendente da Reunião Vida e Ministério
+    // 3. Admin de sistema (Eliezer Rosa)
+    // NOTA CANÔNICA: O CCA e demais membros NÃO têm status de Admin de sistema;
+    // todos são descritos e tratados fielmente por sua função cadastrada.
+    const recipients = publishers.filter(p => 
+        p.funcao === 'Coordenador do Corpo de Anciãos' || 
+        p.funcao === 'Secretário' ||
+        p.funcao === 'Superintendente de Serviço' ||
+        p.funcao === 'Superintendente da Reunião Vida e Ministério' ||
+        adminPublisherIds.has(p.id) ||
+        p.role === 'admin'
+    );
     
-    const uniqueRecipients = Array.from(new Map(admins.map(p => [p.id, p])).values());
+    const uniqueRecipients = Array.from(new Map(recipients.map(p => [p.id, p])).values());
     const currentWeek = new Date().toISOString().slice(0, 10);
     
     for (const member of uniqueRecipients) {
@@ -610,9 +647,28 @@ async function runWeeklyCycle(publishers: PublisherData[]): Promise<string[]> {
         const dispatchKey = `LEMBRETE_PAUSADOS_${currentWeek}_${member.id}`;
         if (await checkDispatched(member.id, dispatchKey)) continue;
 
-        const success = await sendWhatsApp(member.phone, report);
+        // Busca token ativo individualizado na tabela publisher_form_tokens
+        const { data: tokenRow } = await supabase
+            .from('publisher_form_tokens')
+            .select('token')
+            .eq('publisher_id', member.id)
+            .eq('active', true)
+            .maybeSingle();
+
+        const formUrl = tokenRow?.token
+            ? `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form&token=${tokenRow.token}`
+            : `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form`;
+
+        const personalizedReport = `${baseReport}🔗 ${formUrl}`;
+
+        const success = await sendWhatsApp(member.phone, personalizedReport);
         await logDispatch(member.id, dispatchKey, member.phone, success ? 'SUCCESS' : 'ERROR');
-        if (success) reports.push(`⏸️ Lembrete de pausados enviado para Admin ${member.name}.`);
+
+        const roleDescription = member.funcao 
+            ? member.funcao 
+            : (adminPublisherIds.has(member.id) || member.role === 'admin' ? 'Admin de Sistema' : 'Publicador');
+
+        if (success) reports.push(`⏸️ Lembrete de pausados enviado para ${roleDescription}: ${member.name}.`);
     }
 
     return reports;

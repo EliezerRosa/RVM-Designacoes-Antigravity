@@ -40,6 +40,15 @@
 - Seletor para vincular novo link diretamente a um titular da Comissão / RVM (`csMembers`), preenchendo automaticamente cargo, `publisher_id` e `bound_email`.
 - Exibição de badge de status do vínculo seguro na listagem de tokens (`Conta Google: ...` ou `Aguardando 1º acesso Google`).
 
+### 📌 4. Padronização de Notificações Automáticas Z-API (`cron-whatsapp-reminders`)
+- **Destinatários de Notificações de Status e Publicadores Pausados**:
+  1. **Comissão de Serviço (CS)**: Coordenador do Corpo de Anciãos (Israel Vieira), Secretário (Marcos Rogério) e Superintendente de Serviço (Domingos Oliveira).
+  2. **Superintendente da Reunião Vida e Ministério (SRVM)**: Edmardo Queiroz.
+  3. **Admin de Sistema**: Administrador técnico (Eliezer Rosa).
+- **Invariante Teocrático Confirmado**: O CCA **NÃO tem** e **NÃO deve ter** status de Admin de sistema. Todas as rotulações genéricas ou derivadas de "Admin" foram removidas. Todos os irmãos são descritos fielmente pela sua **função cadastrada** no sistema.
+- **Substituição de Rota & Tokens Personalizados**: Removida a referência equivocada a "painel Admin" e a rota inexistente `?portal=publisher-status`. A notificação agora envia o link direto com token individualizado de cada irmão da tabela `publisher_form_tokens` (`?portal=publisher-form&token=...`), já protegido por autenticação Google.
+- **Deploy**: Edge function `cron-whatsapp-reminders` republicada com sucesso no Supabase.
+
 ---
 
 ## 3. Entregas Anteriores: Fase 8 — Auditoria Real, Invariante "Legado" e Blindagem de Autor (2026-09-04 / 2026-09-05)
