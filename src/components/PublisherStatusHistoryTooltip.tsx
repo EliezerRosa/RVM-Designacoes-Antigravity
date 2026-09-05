@@ -91,6 +91,7 @@ export const PublisherStatusHistoryTooltip: React.FC<PublisherStatusHistoryToolt
         { label: '📋 SEC: Marcos Rogério (Secretário)', value: 'SEC: Marcos Rogério' },
         { label: '📖 SRVM: Edmardo Queiroz (Superintendente RVM)', value: 'SRVM: Edmardo Queiroz' },
         { label: '🤝 Comissão de Serviço', value: 'Comissão de Serviço' },
+        { label: '🏛️ Legado (Sem identificação de log)', value: 'legado' },
         { label: '⚙️ Admin (Ajuste Técnico)', value: 'Admin' },
     ];
 

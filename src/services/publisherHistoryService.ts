@@ -315,7 +315,8 @@ export function formatHistoryDate(isoDate: string, full = false): string {
  * Ex: "admin_app" ou "Admin" -> "Admin"
  */
 export function formatAuthorShort(author: string): string {
-    if (!author) return 'Sistema';
+    if (!author) return 'legado';
+    if (author.trim().toLowerCase() === 'legado') return 'legado';
     let cleaned = author
         .replace(/\(portal\)/gi, '')
         .replace(/\s+/g, ' ')
@@ -406,7 +407,7 @@ export function resolveLastChangeForSection(
             if (specificMetaFields.length > 0) {
                 const sectionLabel = section === 'status' ? 'Status' : section === 'privileges' ? 'Privilégios' : 'Por Seção';
                 return {
-                    author: formatAuthorShort(meta.updatedBy || 'Admin'),
+                    author: formatAuthorShort(meta.updatedBy || 'legado'),
                     date: meta.updatedAt,
                     dateFormatted: formatHistoryDate(meta.updatedAt),
                     fields: specificMetaFields,
@@ -415,7 +416,7 @@ export function resolveLastChangeForSection(
                 };
             }
             return {
-                author: formatAuthorShort(meta.updatedBy || 'Admin'),
+                author: formatAuthorShort(meta.updatedBy || 'legado'),
                 date: meta.updatedAt,
                 dateFormatted: formatHistoryDate(meta.updatedAt),
                 fields: rawFields,

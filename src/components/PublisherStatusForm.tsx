@@ -153,6 +153,9 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
      *  Em modo CS (announcementsOnly) a role 'CS' também tem acesso de edição. */
     const canManageNLEvents = isFullEditor || (announcementsOnly && (role as string) === 'CS');
 
+    /** Edição e correção manual do autor do histórico: ESTRITAMENTE Admin. Os demais apenas visualizam. */
+    const canEditAuthor = isAdminAccess || role === 'admin';
+
     const ensureWeeks = async () => {
         if (modalWeeks) return;
         setModalDataLoading(true);
@@ -714,7 +717,11 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                     <span>🟡 Linha alterada (ainda não salva)</span>
                     <span>✅ Toggle ativo</span>
                     <span>☐ Toggle inativo</span>
-                    <span style={{ color: '#4F46E5', fontWeight: 600 }}>🕒 Clique no botão de autoria para abrir o histórico e corrigir o autor</span>
+                    <span style={{ color: '#4F46E5', fontWeight: 600 }}>
+                        {canEditAuthor
+                            ? '🕒 Clique no botão de autoria para abrir o histórico e corrigir o autor'
+                            : '🕒 Clique no botão de autoria para visualizar o histórico de alterações'}
+                    </span>
                 </div>
 
                 {/* Table */}
@@ -787,13 +794,14 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                                     activeSection={section}
                                                     lastChange={lastChange}
                                                     historyList={pubHistory}
-                                                    canEditAuthor={isFullEditor}
+                                                    canEditAuthor={canEditAuthor}
                                                     token={tokenInfo?.token || token}
                                                     authorOptions={[
                                                         { label: ccaPub ? `👑 CCA: ${ccaPub.name}` : '👑 CCA: Israel Vieira', value: ccaPub ? `CCA: ${ccaPub.name}` : 'CCA: Israel Vieira' },
                                                         { label: secPub ? `📋 SEC: ${secPub.name}` : '📋 SEC: Marcos Rogério', value: secPub ? `SEC: ${secPub.name}` : 'SEC: Marcos Rogério' },
                                                         { label: srvmPub ? `📖 SRVM: ${srvmPub.name}` : '📖 SRVM: Edmardo Queiroz', value: srvmPub ? `SRVM: ${srvmPub.name}` : 'SRVM: Edmardo Queiroz' },
                                                         { label: '🤝 Comissão de Serviço', value: 'Comissão de Serviço' },
+                                                        { label: '🏛️ Legado (Sem identificação de log)', value: 'legado' },
                                                         { label: '⚙️ Admin (Ajuste Técnico)', value: 'Admin' },
                                                     ]}
                                                     onAuthorUpdated={(pubId, histId, newAuthor) => {
