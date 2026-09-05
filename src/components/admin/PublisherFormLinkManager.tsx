@@ -61,6 +61,8 @@ type DbRow = {
     revoked_at: string | null;
     last_used_at: string | null;
     use_count: number;
+    publisher_id?: string | null;
+    bound_email?: string | null;
 };
 
 function rowToToken(r: DbRow): FormToken {
@@ -69,6 +71,8 @@ function rowToToken(r: DbRow): FormToken {
         token: r.token,
         label: r.label,
         role: r.role || 'CCA',
+        publisherId: r.publisher_id,
+        boundEmail: r.bound_email,
         createdAt: r.created_at,
         createdBy: r.created_by_email || 'admin',
         active: r.revoked_at === null && (!r.expires_at || new Date(r.expires_at) > new Date()),
@@ -84,9 +88,23 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const [saving, setSaving] = useState(false);
     const [newLabel, setNewLabel] = useState('');
     const [newRole, setNewRole] = useState<PublisherFormRole>('CCA');
+    const [selectedMemberId, setSelectedMemberId] = useState<string>('');
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
     const [csMembers, setCsMembers] = useState<Publisher[]>([]);
+
+    const onSelectMember = (memberId: string) => {
+        setSelectedMemberId(memberId);
+        if (!memberId) return;
+        const member = csMembers.find(m => m.id === memberId);
+        if (member) {
+            const memberRole = funcaoToRole(member.funcao) || 'CCA';
+            setNewRole(memberRole);
+            if (!newLabel.trim() || newLabel.startsWith('Link — ')) {
+                setNewLabel(`Link — ${member.name} (${memberRole})`);
+            }
+        }
+    };
 
     // ── Modais NL + Eventos (lazy data) ──────────────────────────────────
     const [showLocalNeeds, setShowLocalNeeds] = useState(false);
@@ -143,7 +161,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                 const [tokensRes, pubs] = await Promise.all([
                     supabase
                         .from('publisher_form_tokens')
-                        .select('id, token, label, role, created_at, created_by_email, expires_at, revoked_at, last_used_at, use_count')
+                        .select('id, token, label, role, created_at, created_by_email, expires_at, revoked_at, last_used_at, use_count, publisher_id, bound_email')
                         .order('created_at', { ascending: false }),
                     api.loadPublishers(),
                 ]);
@@ -172,7 +190,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
     const reloadTokens = async () => {
         const { data, error } = await supabase
             .from('publisher_form_tokens')
-            .select('id, token, label, role, created_at, created_by_email, expires_at, revoked_at, last_used_at, use_count')
+            .select('id, token, label, role, created_at, created_by_email, expires_at, revoked_at, last_used_at, use_count, publisher_id, bound_email')
             .order('created_at', { ascending: false });
         if (error) {
             console.error('[LinkManager] Reload error:', error);
@@ -186,11 +204,15 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
         if (!newLabel.trim()) return;
         setSaving(true);
         try {
+            const selectedMember = csMembers.find(m => m.id === selectedMemberId);
+            const pubEmail = (selectedMember as unknown as { email?: string })?.email?.trim() || null;
             const { data, error } = await supabase
                 .from('publisher_form_tokens')
                 .insert({
                     label: newLabel.trim(),
                     role: newRole,
+                    publisher_id: selectedMember ? selectedMember.id : null,
+                    bound_email: pubEmail || null,
                     created_by_email: adminEmail || 'admin',
                 })
                 .select('token')
@@ -208,6 +230,7 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                 });
             }
             setNewLabel('');
+            setSelectedMemberId('');
             await reloadTokens();
         } catch (err) {
             console.error('[LinkManager] Generate error:', err);
@@ -474,34 +497,56 @@ export function PublisherFormLinkManager({ adminEmail }: { adminEmail?: string }
                         {saving ? 'Gerando...' : '🔑 Gerar Link'}
                     </button>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>Papel do destinatário:</label>
-                    <select
-                        value={newRole}
-                        onChange={e => setNewRole(e.target.value as PublisherFormRole)}
-                        style={{
-                            border: '1px solid #CBD5E1',
-                            borderRadius: '7px',
-                            padding: '6px 10px',
-                            fontSize: '12px',
-                            background: 'white',
-                            color: '#1E293B',
-                            outline: 'none',
-                        }}
-                    >
-                        {(Object.keys(ROLE_LABEL) as PublisherFormRole[]).map(r => (
-                            <option key={r} value={r}>{ROLE_LABEL[r]}</option>
-                        ))}
-                    </select>
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>
-                        Define as permissões dentro do formulário (CRUD vs. somente leitura por seção).
-                    </span>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>Vincular a Titular:</label>
+                        <select
+                            value={selectedMemberId}
+                            onChange={e => onSelectMember(e.target.value)}
+                            style={{
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '7px',
+                                padding: '6px 10px',
+                                fontSize: '12px',
+                                background: 'white',
+                                color: '#1E293B',
+                                outline: 'none',
+                            }}
+                        >
+                            <option value="">(Nenhum — Link Genérico)</option>
+                            {csMembers.map(m => (
+                                <option key={m.id} value={m.id}>
+                                    {m.name} ({funcaoToRole(m.funcao) || m.funcao})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>Papel do destinatário:</label>
+                        <select
+                            value={newRole}
+                            onChange={e => setNewRole(e.target.value as PublisherFormRole)}
+                            style={{
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '7px',
+                                padding: '6px 10px',
+                                fontSize: '12px',
+                                background: 'white',
+                                color: '#1E293B',
+                                outline: 'none',
+                            }}
+                        >
+                            {(Object.keys(ROLE_LABEL) as PublisherFormRole[]).map(r => (
+                                <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
-                <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#7C3AED', fontWeight: 600 }}>
-                    🛡️ Todo link gerado aqui é destinado à <strong>Comissão de Serviço</strong> (Coordenador, Secretário, Superintendente de Serviço) e dá acesso a Necessidades Locais e Eventos Especiais.
+                <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#0F766E', fontWeight: 600 }}>
+                    🛡️ <strong>Blindagem de Segurança Ativa:</strong> Links vinculados a um titular exigem login com Conta Google correspondente. A identidade teocrática de auditoria é travada no servidor, impedindo qualquer alteração fraudulenta de parâmetro.
                 </p>
-                <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#94A3B8' }}>
-                    Cada link é único e pode ser revogado a qualquer momento. Os responsáveis não precisam de conta no sistema.
+                <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#94A3B8' }}>
+                    Caso o titular ainda não tenha e-mail registrado, o sistema realizará a amarração automática na primeira autenticação Google (First-Access Binding).
                 </p>
             </div>
 
@@ -713,9 +758,19 @@ function TokenRow({
                             }}>{token.role}</span>
                         )}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>
                         Criado por <strong>{token.createdBy}</strong> em {new Date(token.createdAt).toLocaleString('pt-BR')}
                     </div>
+                    {(token.publisherId || token.boundEmail) && (
+                        <div style={{ fontSize: '11px', color: '#0F766E', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>🛡️ <strong>Vínculo Seguro:</strong></span>
+                            {token.boundEmail ? (
+                                <span>Conta Google: <strong style={{ color: '#047857' }}>{token.boundEmail}</strong></span>
+                            ) : (
+                                <span style={{ color: '#B45309' }}>Aguardando 1º acesso Google (First-Access Binding)</span>
+                            )}
+                        </div>
+                    )}
                     {(token.useCount ?? 0) > 0 && (
                         <div style={{ fontSize: '11px', color: '#475569', marginBottom: '6px' }}>
                             📊 <strong>{token.useCount}</strong> uso{(token.useCount ?? 0) === 1 ? '' : 's'}

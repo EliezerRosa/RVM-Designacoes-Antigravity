@@ -1,8 +1,8 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-09-05 08:15 (BRT)  
+> **Última Atualização**: 2026-09-05 09:10 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 8 Concluída | Checkpoint Pré-Blindagem de Tokens)
+> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 9 Concluída — Blindagem Total de Tokens com Google Auth Restrito e First-Access Binding)
 
 ---
 
@@ -14,11 +14,35 @@
 - **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app`
 - **Frontend GitHub Pages**: Ativo e sincronizado (`npm run deploy`).
 - **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas).
-- **Último Commit Estável**: `3787f77` — *feat(audit): restricao de edicao de autor estritamente para admin e fallback para legado*.
+- **Último Commit Estável**: `7761623` — *feat(security): checkpoint e plano de blindagem de tokens com publisher_id e email restrito*.
 
 ---
 
-## 2. Últimas Entregas: Fase 8 — Auditoria Real, Invariante "Legado" e Blindagem de Autor (2026-09-04 / 2026-09-05)
+## 2. Últimas Entregas: Fase 9 — Blindagem Total de Tokens da Comissão de Serviço (2026-09-05)
+
+### 📌 1. Banco de Dados e RPC `authorize_publisher_form_token`
+- **Novas Colunas em `publisher_form_tokens`**: `publisher_id text` e `bound_email text`.
+- **Amarracão Estrita de Destinatários**:
+  - Marcos Rogério (`SEC`): `publisher_id = '17'`, `bound_email = '2282739mro@gmail.com'`.
+  - Israel Vieira (`CCA`): `publisher_id = '21'`, `bound_email = 'israelvieiratj941@gmail.com'`.
+  - Domingos Oliveira (`SS`): `publisher_id = '22'`, `bound_email = 'domingosbel45@gmail.com'`.
+  - Edmardo Queiroz (`SRVM`): `publisher_id = '23'`, `bound_email = NULL` (First-Access Binding).
+- **Estratégia First-Access Binding**: Para publicadores sem e-mail cadastrado inicialmente, a RPC captura o e-mail do primeiro login Google realizado pelo link e amarra automaticamente no token e no cadastro do publicador (`publishers.data.email`).
+- **Resolução Forçada de Identidade**: A autoria teocrática e o log de uso são resolvidos exclusivamente a partir do `v_token.publisher_id` gravado no banco, tornando inócuas tentativas de adulteração de parâmetros da URL (`&u=`).
+- **Checagem de E-mail**: Bloqueio sumário com `reason: 'email_mismatch'` se a conta Google conectada não corresponder ao titular autorizado (com bypass para `is_admin()`).
+
+### 📌 2. Frontend do Formulário (`PublisherStatusForm.tsx`)
+- **Autenticação Google Obrigatória**: Links da Comissão de Serviço agora exibem card de login seguro com Google antes de validar permissões.
+- **Tratamento Elegante de Mismatch de Conta**: Tela explicativa detalhada exibindo o titular do link, a conta Google conectada e a conta esperada, com opções de "Trocar de Conta Google" e "Sair".
+- **Identificação no Header Sticky**: Exibição do e-mail do usuário logado e botão discreto de logoff.
+
+### 📌 3. Gerenciamento no Painel Admin (`PublisherFormLinkManager.tsx`)
+- Seletor para vincular novo link diretamente a um titular da Comissão / RVM (`csMembers`), preenchendo automaticamente cargo, `publisher_id` e `bound_email`.
+- Exibição de badge de status do vínculo seguro na listagem de tokens (`Conta Google: ...` ou `Aguardando 1º acesso Google`).
+
+---
+
+## 3. Entregas Anteriores: Fase 8 — Auditoria Real, Invariante "Legado" e Blindagem de Autor (2026-09-04 / 2026-09-05)
 
 ### 📌 1. Sanitização Invariante de Autoria no Supabase
 - **Regra Invariante Aplicada**: Todo registro em `publisher_profile_history` sem identificação estrita de log (`token` e `author_id` nulos) foi atualizado para **`"legado"`** (122 registros).
