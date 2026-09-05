@@ -522,3 +522,34 @@ export function getInvisibleHardcodedStatuses(
 
     return statuses;
 }
+
+/**
+ * Atualiza o autor de um registro do histórico (ou do profileMeta do publicador)
+ * via RPC SECURITY DEFINER `update_publisher_profile_history_author`.
+ */
+export async function updateProfileHistoryAuthor(
+    historyId: number | null | undefined,
+    newAuthor: string,
+    publisherId?: string,
+    token?: string | null
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { data, error } = await supabase.rpc('update_publisher_profile_history_author', {
+            p_history_id: historyId && historyId > 0 ? historyId : null,
+            p_new_author_label: newAuthor.trim(),
+            p_publisher_id: publisherId || null,
+            p_token: token || null,
+        });
+
+        if (error) {
+            console.error('[publisherHistoryService] RPC error updating author:', error);
+            return { success: false, error: error.message };
+        }
+
+        const res = data as { success?: boolean; error?: string };
+        return { success: !!res?.success, error: res?.error };
+    } catch (err: any) {
+        console.error('[publisherHistoryService] Error updating author:', err);
+        return { success: false, error: err?.message || String(err) };
+    }
+}

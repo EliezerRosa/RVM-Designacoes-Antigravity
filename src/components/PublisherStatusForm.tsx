@@ -714,7 +714,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                     <span>🟡 Linha alterada (ainda não salva)</span>
                     <span>✅ Toggle ativo</span>
                     <span>☐ Toggle inativo</span>
-                    <span style={{ color: '#4F46E5', fontWeight: 600 }}>🕒 Passe o mouse/clique na autoria para ver histórico e regras</span>
+                    <span style={{ color: '#4F46E5', fontWeight: 600 }}>🕒 Clique no botão de autoria para abrir o histórico e corrigir o autor</span>
                 </div>
 
                 {/* Table */}
@@ -787,6 +787,39 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                                     activeSection={section}
                                                     lastChange={lastChange}
                                                     historyList={pubHistory}
+                                                    canEditAuthor={isFullEditor}
+                                                    token={tokenInfo?.token || token}
+                                                    authorOptions={[
+                                                        { label: ccaPub ? `👑 CCA: ${ccaPub.name}` : '👑 CCA: Israel Vieira', value: ccaPub ? `CCA: ${ccaPub.name}` : 'CCA: Israel Vieira' },
+                                                        { label: secPub ? `📋 SEC: ${secPub.name}` : '📋 SEC: Marcos Rogério', value: secPub ? `SEC: ${secPub.name}` : 'SEC: Marcos Rogério' },
+                                                        { label: srvmPub ? `📖 SRVM: ${srvmPub.name}` : '📖 SRVM: Edmardo Queiroz', value: srvmPub ? `SRVM: ${srvmPub.name}` : 'SRVM: Edmardo Queiroz' },
+                                                        { label: '🤝 Comissão de Serviço', value: 'Comissão de Serviço' },
+                                                        { label: '⚙️ Admin (Ajuste Técnico)', value: 'Admin' },
+                                                    ]}
+                                                    onAuthorUpdated={(pubId, histId, newAuthor) => {
+                                                        // Atualiza historyMap em memória
+                                                        setHistoryMap(prev => {
+                                                            const next = new Map(prev);
+                                                            const list = next.get(pubId) || [];
+                                                            const updatedList = histId
+                                                                ? list.map(r => r.id === histId ? { ...r, author_label: newAuthor } : r)
+                                                                : list.map((r, i) => i === 0 ? { ...r, author_label: newAuthor } : r);
+                                                            next.set(pubId, updatedList);
+                                                            return next;
+                                                        });
+                                                        // Atualiza publishers profileMeta em memória
+                                                        setPublishers(prev => prev.map(p => {
+                                                            if (p.id !== pubId) return p;
+                                                            const curMeta = (p as any).profileMeta || {};
+                                                            return {
+                                                                ...p,
+                                                                profileMeta: {
+                                                                    ...curMeta,
+                                                                    updatedBy: newAuthor,
+                                                                },
+                                                            };
+                                                        }));
+                                                    }}
                                                 />
                                             </td>
 
