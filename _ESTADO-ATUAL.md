@@ -173,8 +173,36 @@
 
 ---
 
-## 4. Próximos Passos Imediatos
+## 4. Consolidação Canônica de Migrations & Harmonização de Auth (2026-09-06)
+
+### 📌 1. Migrations Extraídas para `supabase/migrations/`
+1. `20260904000000_curator_knowledge_base.sql`:
+   - Tabelas `curator_profiles` e `curator_batch_insights` + índices e políticas RLS.
+2. `20260905000000_fase8_publisher_profile_history_and_semantic_diff.sql`:
+   - Tabelas `publisher_profile_history` e `publisher_profile_change_notifications`.
+   - RPC `record_publisher_profile_change` (diff semântico inteligente, fallback `'legado'`).
+   - RPC `get_publisher_profile_history_for_form` (leitura segura para formulário).
+   - RPC `dismiss_publisher_profile_notification` (dismiss admin).
+   - RPC `update_publisher_profile_history_author` (exclusividade estrita para `is_admin()`, eliminando sobrecarga legada).
+3. `20260905060000_expand_is_editor_for_cs.sql`:
+   - Harmonização da função PostgreSQL `public.is_editor()` para incluir `'Secretário'` e `'Superintendente de Serviço'`, destravando operações de RLS para todos os membros da CS.
+4. `20260905120000_fase9_publisher_tokens_first_access_binding.sql`:
+   - Colunas `publisher_id` e `bound_email` na tabela `publisher_form_tokens`.
+   - RPC `authorize_publisher_form_token` com resolução de nome antecipada, First-Access Binding e retorno explícito de `expected_email` e `expected_publisher_name` em caso de mismatch.
+
+### 📌 2. Auditoria e Resolução de Contradições de Auth
+1. **Desacoplamento de Google Auth x WhatsApp 2FA (`PublisherStatusForm.tsx`)**:
+   - Corrigido travamento onde membros da CS com conta Google válida ficavam presos na tela de login porque `isAuthenticated` exigia `whatsapp_verified: true`. A validação do token agora checa a sessão Google ativa (`!user`).
+2. **Eliminação de Sobrecarga Vulnerável**:
+   - A versão legada de 3 parâmetros de `update_publisher_profile_history_author` que aceitava tokens foi dropada no Supabase e expurgada das migrations.
+3. **RLS Unificada da CS**:
+   - `is_editor()` agora abrange Coordenador, Secretário, Superintendente de Serviço, SRVM e Ajudante de SRVM.
+
+---
+
+## 5. Próximos Passos Imediatos
 
 1. Monitorar o uso do botão de "Especializar Lote" conforme novas apostilas de 2026/2027 forem importadas.
 2. Acompanhar a adoção dos perfis sintéticos no cadastro de publicadores pelos anciãos e servos designadores.
 3. Concluir a flag de "Pausa por Tempo Indeterminado" com lembrete semanal via Cron no WhatsApp.
+
