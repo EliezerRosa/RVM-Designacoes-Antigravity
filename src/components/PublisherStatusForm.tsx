@@ -199,7 +199,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
     // ── Validate token ────────────────────────────────────────────────────
     // A validação acontece via RPC `authorize_publisher_form_token` (SECURITY DEFINER).
     // Para segurança estrita da Comissão de Serviço:
-    // 1. Exige usuário autenticado via Google (auth.uid()).
+    // 1. Exige usuário autenticado via Google (auth.uid() / user presente).
     // 2. Compara o e-mail logado com bound_email associado ao token/publisher_id.
     // 3. Força a identidade do autor a ser o publisher_id amarrado no banco de dados.
     useEffect(() => {
@@ -211,7 +211,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
         if (authLoading) return; // Aguarda carregar sessão do usuário
 
         // Se não autenticado via Google, a UI exibirá o card de login com Google
-        if (!isAuthenticated) {
+        if (!user) {
             setValidating(false);
             return;
         }
@@ -269,7 +269,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                         setAuthError({
                             type: 'email_mismatch',
                             callerEmail: result.caller_email || user?.email || '',
-                            expectedEmail: result.expected_email || '',
+                            expectedEmail: result.expected_email || result.bound_email || '',
                             expectedPublisherName: result.expected_publisher_name || result.label || '',
                             label: result.label,
                         });
@@ -289,7 +289,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                 setValidating(false);
             }
         })();
-    }, [token, isAdminAccess, authLoading, isAuthenticated, user?.email]);
+    }, [token, isAdminAccess, authLoading, user]);
 
     // ── Load publishers ───────────────────────────────────────────────────
     useEffect(() => {
@@ -504,7 +504,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
     }
 
     // Se o token existe mas o usuário não está autenticado com o Google
-    if (!isAdminAccess && token && !isAuthenticated) {
+    if (!isAdminAccess && token && !user) {
         return (
             <div style={portalWrap}>
                 <div style={{ ...card, maxWidth: '440px', textAlign: 'center' }}>
