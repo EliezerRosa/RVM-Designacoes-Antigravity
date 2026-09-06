@@ -1,8 +1,8 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-09-05 09:10 (BRT)  
+> **Última Atualização**: 2026-09-06 12:35 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 9 Concluída — Blindagem Total de Tokens com Google Auth Restrito e First-Access Binding)
+> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 9 Concluída — Blindagem Total de Tokens com Google Auth Restrito e First-Access Binding; Auditoria Canônica de Crons e Invariantes S-89)
 
 ---
 
@@ -11,10 +11,10 @@
 - **Vercel CLI / Deploy**: 🟢 **Ativo & Autenticado**
   - Autenticação permanente configurada via `VERCEL_TOKEN` nas variáveis de ambiente do sistema Windows.
   - Deploys e automações via CLI/MCP acontecem 100% em segundo plano sem solicitações de login no navegador ou 2FA.
-- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app`
-- **Frontend GitHub Pages**: Ativo e sincronizado (`npm run deploy`).
+- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy `dpl_6hXPt84GbSaT9oTh4N7gcz88JbZR` ativo em cima de `16024a4`).
+- **Frontend GitHub Pages**: Ativo (`https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/`), sincronizado via `npm run deploy`.
 - **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas).
-- **Último Commit Estável**: `7761623` — *feat(security): checkpoint e plano de blindagem de tokens com publisher_id e email restrito*.
+- **Último Commit Estável**: `16024a4` — *feat: notificacoes de status para CS, SRVM e Admin de Sistema com funcao cadastrada*.
 
 ---
 
@@ -51,7 +51,41 @@
 
 ---
 
-## 3. Entregas Anteriores: Fase 8 — Auditoria Real, Invariante "Legado" e Blindagem de Autor (2026-09-04 / 2026-09-05)
+## 3. Auditoria Canônica: Crons, Publicação S-89, Importação e Sync (2026-09-06)
+
+### 📌 1. Execução Real de Crons (pg_cron no Supabase)
+- **Job 1 (`zapi-daily-reminders` / `cron-whatsapp-reminders`)** (12:00 UTC / 09:00 BRT):
+  - **Auto-conclusão de reuniões passadas**: Varre `workbook_parts` e finaliza partes vencidas (`PROPOSTA`/`DESIGNADA` -> `CONCLUIDA`).
+  - **Ciclo Semanal de Sábado (`today.getDay() === 6`)**: Executado com sucesso aos sábados, notificando via WhatsApp os membros da CS, SRVM e Admin com links protegidos por tokens Google sobre publicadores pausados por tempo indeterminado (`isIndefinitelyPaused`).
+- **Job 2 (`cron-alert-notifications`)** (13:00 UTC / 10:00 BRT):
+  - Sentinela de leitura: monitora falhas de despacho Z-API (A1), importações pendentes (A2), pendências de publicação em D-15 (A3) e partes órfãs em semanas já publicadas (A4).
+- **Job 3 (`cron-web-push`)** (11:00 UTC / 08:00 BRT):
+  - Despacha notificações Web Push nativas pendentes no navegador a partir da RPC `get_pending_push_events`.
+
+### 📌 2. Invariantes de Publicação de Designações (S-89)
+- **Bloqueio Mestre do Cron**: O cron **NUNCA** envia lembretes (D-7 ou D-2) para partes que não possuam `PUBLICACAO_S89` com status `SUCCESS` na `zapi_dispatch_log`.
+- **Soberania do Botão Manual**: O envio oficial dos cartões S-89 **NÃO é automático pelo Cron**. Ele é disparado exclusivamente pelo SRVM via botão **"Publicar"** no painel da Apostila (`weekPublishService.ts`), que gera o cartão PNG Base64, o token do portal e o registro na `zapi_dispatch_log`.
+- **Sentinela D-15 (Alerta A3)**: O cron apenas alerta o SRVM quando a reunião está a $\le 15$ dias e ainda não teve os S-89 emitidos.
+
+### 📌 3. Gatilho Híbrido de Importação de Apostilas
+- **Cron Mensal (Dia 1º)**: O Bloco M1 calcula as semanas dos próximos 60 dias e, se faltarem semanas no banco, grava a flag `pending_auto_import` em `app_settings`.
+- **Execução Desacoplada no Frontend (`useAutoFlags.ts`)**: Ao abrir a aplicação, o hook consome a flag e baixa as semanas via `jwOrgService.ts`, alertando o SRVM no WhatsApp ao finalizar.
+- **Cobrança Diária**: Se a flag não for consumida, o `cron-alert-notifications` (Alerta A2) cobra o SRVM diariamente às 10:00 BRT.
+
+### 📌 4. Designações Automáticas: Cron vs Código Duro
+- **Cron**: **NÃO gera designações de partes sozinho em background** (evita decisões sem supervisão pastoral e sobrecarga de contexto).
+- **Código Duro do App (`generationService.ts`)**: Executa o motor rotacional determinístico em 3 fases com anti-fome (Presidência -> Ensino -> Estudantes), com auto-propagação do Presidente para Oração Inicial, Comentários e Elogios (`isAutoAssignedToChairman`), pareamento litúrgico de gênero e pareamento estrito de menores com os pais.
+
+### 📌 5. Auditoria de Sincronização Local x Remoto
+- **Git `main` e GitHub `origin/main`**: 100% sincronizados no commit estável `16024a4`.
+- **Vercel Produção**: 100% ativo no commit `16024a4` (`dpl_6hXPt84GbSaT9oTh4N7gcz88JbZR`).
+- **GitHub Pages**: Sincronizado via `npm run deploy` (`gh-pages`).
+- **Supabase**: Banco de produção ativo com todas as RPCs e tabelas.
+- **Projeto HVAC-R (Refrigeração)**: Preservado e isolado em `C:\Users\Eliez\.gemini\antigravity-ide\scratch\hvacr-apresentacao\`.
+
+---
+
+## 4. Entregas da Fase 8 — Auditoria Real, Invariante "Legado" e Blindagem de Autor
 
 ### 📌 1. Sanitização Invariante de Autoria no Supabase
 - **Regra Invariante Aplicada**: Todo registro em `publisher_profile_history` sem identificação estrita de log (`token` e `author_id` nulos) foi atualizado para **`"legado"`** (122 registros).
