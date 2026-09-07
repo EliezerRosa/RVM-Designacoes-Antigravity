@@ -9,6 +9,7 @@ const puppeteer = require('puppeteer');
 
   console.log(`[Bot] Starting headless browser for ${url.split('?')[0]}...`);
   const browser = await puppeteer.launch({
+    headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
   });
   
@@ -17,13 +18,15 @@ const puppeteer = require('puppeteer');
   // Pipe page console to node console
   page.on('console', msg => {
     const text = msg.text();
-    if (text.includes('[AutomationWorker]')) {
-        console.log(text);
-    }
+    console.log(`[Browser] ${text}`);
+  });
+
+  page.on('pageerror', err => {
+    console.error('[Browser PageError]', err);
   });
 
   try {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
     
     // Wait for the status element to turn to FINISHED
     console.log('[Bot] Waiting for worker to finish (max 5 minutes)...');
