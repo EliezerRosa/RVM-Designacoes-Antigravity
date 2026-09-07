@@ -485,15 +485,18 @@ export async function publishWeek(
         result.errors.push(`Status board: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 3) Marcar semana como publicada (não altera status das partes).
-    try {
-        const map = await getPublishedWeeks();
-        await api.setSetting(WEEK_PUBLISHED_KEY, { ...map, [weekId]: new Date().toISOString() });
-    } catch (err) {
-        result.errors.push(`Marcador de publicação: ${err instanceof Error ? err.message : String(err)}`);
+    result.success = result.s89Failed === 0 && (result.s89Sent > 0 || result.s89Skipped > 0);
+
+    // 3) Marcar semana como publicada apenas se tiver sucesso ou envios realizados
+    if (result.success || result.s89Sent > 0) {
+        try {
+            const map = await getPublishedWeeks();
+            await api.setSetting(WEEK_PUBLISHED_KEY, { ...map, [weekId]: new Date().toISOString() });
+        } catch (err) {
+            result.errors.push(`Marcador de publicação: ${err instanceof Error ? err.message : String(err)}`);
+        }
     }
 
-    result.success = result.s89Failed === 0;
     return result;
 }
 
