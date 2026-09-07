@@ -64,11 +64,35 @@ if (typeof window !== 'undefined' && window.location && window.location.hash && 
     }
 }
 
+const getInitialBotToken = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const urlToken = searchParams.get('token');
+        if (urlToken) return urlToken;
+
+        const hash = window.location.hash || '';
+        const qIdx = hash.indexOf('?');
+        if (qIdx >= 0) {
+            const hashParams = new URLSearchParams(hash.slice(qIdx + 1));
+            return hashParams.get('token');
+        }
+    } catch {
+        return null;
+    }
+    return null;
+};
+
+const initialBotToken = getInitialBotToken();
+
 export const supabase = createClient(resolvedUrl, resolvedAnonKey, {
-        auth: {
-            persistSession: true,
-            autoRefreshToken: true,
-            detectSessionInUrl: true,
-            storageKey: 'rvm-designacoes-auth',
-        },
-    });
+    auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: 'rvm-designacoes-auth',
+    },
+    global: {
+        headers: initialBotToken ? { 'x-bot-token': initialBotToken } : {},
+    },
+});
