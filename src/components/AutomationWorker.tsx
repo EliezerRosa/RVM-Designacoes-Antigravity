@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { api } from '../services/api';
+import { mapDbToWorkbookPart } from '../services/workbookService';
 import { generationService } from '../services/generationService';
 import { publishWeek, getPublishedWeeks } from '../services/weekPublishService';
 import type { WorkbookPart, Publisher } from '../types';
@@ -109,13 +111,8 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                 const maxSearchDateStr = addDays(today, 45).toISOString().split('T')[0];
 
                 appendLog('Carregando publicadores ativos...');
-                const { data: publishersData, error: pubErr } = await supabase
-                    .from('publishers')
-                    .select('*')
-                    .eq('active', true);
-
-                if (pubErr) throw pubErr;
-                const publishers = (publishersData || []) as Publisher[];
+                const allPubs = await api.loadPublishers();
+                const publishers = (allPubs || []).filter(p => p.active !== false);
 
                 // Resolução dos destinatários restritos (Admin + SRVM + Ajd SRVM)
                 const leadershipRecipients = resolveRvmLeadershipRecipients(publishers);
@@ -125,7 +122,7 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                 const publishedWeeksMap = await getPublishedWeeks();
 
                 appendLog(`Buscando partes futuras entre ${todayStr} e ${maxSearchDateStr}...`);
-                const { data: upcomingParts, error: partsErr } = await supabase
+                const { data: rawParts, error: partsErr } = await supabase
                     .from('workbook_parts')
                     .select('*')
                     .gte('date', todayStr)
@@ -134,9 +131,11 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
 
                 if (partsErr) throw partsErr;
 
+                const upcomingParts: WorkbookPart[] = (rawParts || []).map(mapDbToWorkbookPart);
+
                 // Agrupa partes por semana
                 const weeksMap = new Map<string, WorkbookPart[]>();
-                ((upcomingParts || []) as WorkbookPart[]).forEach(p => {
+                upcomingParts.forEach(p => {
                     const ws = weeksMap.get(p.weekId) || [];
                     ws.push(p);
                     weeksMap.set(p.weekId, ws);
