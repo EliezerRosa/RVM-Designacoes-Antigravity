@@ -826,42 +826,45 @@ export function createWhatsAppAutoService(config: WhatsAppAutoConfig): WhatsAppA
  *   VITE_SUPABASE_ANON_KEY        — (reusa do app)
  */
 export function createWhatsAppAutoServiceFromEnv(): WhatsAppAutoService {
-  const explicit = import.meta.env.VITE_WHATSAPP_PROVIDER as string | undefined;
+  const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+  const procEnv = typeof process !== 'undefined' ? process.env : undefined;
+  const env = metaEnv || procEnv || {};
+  const explicit = env.VITE_WHATSAPP_PROVIDER as string | undefined;
 
   // Evolution API
   if (
     explicit === 'evolution' ||
-    (!explicit && import.meta.env.VITE_EVOLUTION_BASE_URL)
+    (!explicit && env.VITE_EVOLUTION_BASE_URL)
   ) {
     return createWhatsAppAutoService({
       provider: 'evolution',
-      baseUrl: import.meta.env.VITE_EVOLUTION_BASE_URL || '',
-      apiKey: import.meta.env.VITE_EVOLUTION_API_KEY || '',
-      instanceName: import.meta.env.VITE_EVOLUTION_INSTANCE || 'default',
+      baseUrl: env.VITE_EVOLUTION_BASE_URL || '',
+      apiKey: env.VITE_EVOLUTION_API_KEY || '',
+      instanceName: env.VITE_EVOLUTION_INSTANCE || 'default',
     });
   }
 
   // Meta Cloud API
   if (
     explicit === 'meta-cloud' ||
-    (!explicit && import.meta.env.VITE_META_WA_ACCESS_TOKEN)
+    (!explicit && env.VITE_META_WA_ACCESS_TOKEN)
   ) {
     return createWhatsAppAutoService({
       provider: 'meta-cloud',
-      accessToken: import.meta.env.VITE_META_WA_ACCESS_TOKEN || '',
-      phoneNumberId: import.meta.env.VITE_META_WA_PHONE_NUMBER_ID || '',
+      accessToken: env.VITE_META_WA_ACCESS_TOKEN || '',
+      phoneNumberId: env.VITE_META_WA_PHONE_NUMBER_ID || '',
     });
   }
 
   // Edge Function (se Supabase está configurado)
   if (
     explicit === 'edge-function' ||
-    (!explicit && import.meta.env.VITE_SUPABASE_URL)
+    (!explicit && env.VITE_SUPABASE_URL)
   ) {
     return createWhatsAppAutoService({
       provider: 'edge-function',
-      supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-      supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+      supabaseUrl: env.VITE_SUPABASE_URL || '',
+      supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || '',
       getAccessToken: async () => {
         try {
           const { supabase } = await import('../lib/supabase');
