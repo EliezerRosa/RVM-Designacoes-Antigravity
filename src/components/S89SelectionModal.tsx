@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas';
 
 import { communicationService } from '../services/communicationService';
 import { zapiOrchestrator } from '../services/zapiOrchestrator';
+import { buildDesignatableCards, resolveS89CardParams } from '../services/weekPublishService';
 import { api } from '../services/api';
 import { supabase } from '../lib/supabase';
 import type { AvailabilityToken } from './PublisherAvailabilityPortal';
@@ -69,15 +70,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const statusRef = useRef<HTMLDivElement>(null);
 
 
-    // Helper function must be declared before use
-    const extractPartNumber = (titulo: string): string => {
-        const match = titulo?.match(/^(\d+)/);
-        return match ? match[1] : '';
-    };
-
-
-
-    // Nova lógica: usar prepareS140UnifiedData para garantir agrupamento idêntico ao S-140 contextual
+    // Partes designáveis unificadas (compartilhado com weekPublishService)
     const [validParts, setValidParts] = useState<any[]>([]);
     useEffect(() => {
         let mounted = true;
@@ -86,145 +79,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 setValidParts([]);
                 return;
             }
-            const { prepareS140UnifiedData } = await import('../services/s140GeneratorUnified');
-            const weekData = await prepareS140UnifiedData(weekParts, publishers);
-
-            // Helper: encontrar WorkbookPart original pelo ID do S140Part
-            const findOriginal = (s140PartId?: string) =>
-                weekParts.find(wp => wp.id === s140PartId);
-
-            const cards = [];
-            // Rastrear IDs já incluídos via S-140 para não duplicar
-            const includedOriginalIds = new Set<string>();
-
-            // Incluir Presidente explicitamente (S-140 o coloca no cabeçalho, não em parts)
-            if (weekData.president) {
-                const presidenteWp = weekParts.find(wp =>
-                    (wp.tipoParte === 'Presidente' || wp.tipoParte === 'Presidente da Reunião') &&
-                    wp.funcao === 'Titular'
-                );
-                if (presidenteWp && (presidenteWp.resolvedPublisherName || presidenteWp.rawPublisherName)) {
-                    const presId = presidenteWp.id;
-                    cards.push({
-                        ...presidenteWp,
-                        id: presId + '-titular',
-                        resolvedPublisherName: presidenteWp.resolvedPublisherName || presidenteWp.rawPublisherName,
-                        funcao: 'Titular',
-                        tipoParte: presidenteWp.tipoParte,
-                        title: `Presidente da Reunião`,
-                    });
-                    includedOriginalIds.add(presId);
-                }
-            }
-
-            for (const part of weekData.parts || []) {
-                const original = findOriginal(part.id);
-                // Campos do WorkbookPart necessários para prepareS89Message / generateWhatsAppMessage
-                const wpFields = original ? {
-                    date: original.date,
-                    weekId: original.weekId,
-                    weekDisplay: original.weekDisplay,
-                    tituloParte: original.tituloParte,
-                    modalidade: original.modalidade,
-                    status: original.status,
-                    horaInicio: original.horaInicio,
-                    descricaoParte: original.descricaoParte,
-                    detalhesParte: original.detalhesParte,
-                    duracao: original.duracao,
-                    rawPublisherName: original.rawPublisherName,
-                    resolvedPublisherId: original.resolvedPublisherId,
-                    section: original.section,
-                } : {};
-
-                if (part.mainHallAssignee) {
-                    // ID real do Titular = original.id (já é correto via findOriginal)
-                    const titularRealId = original?.id || part.id;
-                    cards.push({
-                        ...part,
-                        ...wpFields,
-                        funcao: 'Titular',
-                        resolvedPublisherName: part.mainHallAssignee,
-                        tipoParte: part.tipoParte,
-                        id: titularRealId + '-titular',
-                    });
-                    if (titularRealId) includedOriginalIds.add(titularRealId);
-                }
-                if (part.mainHallAssistant) {
-                    // CORREÇÃO CRÍTICA: o S140 agrupa Titular e Ajudante num mesmo slot (part.id = ID do Titular).
-                    // Precisamos buscar o ID real do Ajudante no weekParts.
-                    //
-                    // Estratégia (mais robusta que match por nome):
-                    //   1) Por número de sequência do título (ex.: "4. Iniciando conversas" ↔ "4. Iniciando conversas - Ajudante")
-                    //      — funciona mesmo quando resolvedPublisherName do Ajudante está NULL no BD
-                    //   2) Fallback: match por nome (resolvedPublisherName / rawPublisherName) — caso o título não dê seq
-                    const titularTitulo = (original?.tituloParte || part.title || '') as string;
-                    const titularSeq = extractPartNumber(titularTitulo);
-                    let ajudanteWp = titularSeq
-                        ? weekParts.find(wp =>
-                            wp.funcao === 'Ajudante' &&
-                            extractPartNumber(wp.tituloParte || wp.tipoParte || '') === titularSeq
-                        )
-                        : undefined;
-                    if (!ajudanteWp) {
-                        ajudanteWp = weekParts.find(wp =>
-                            wp.funcao === 'Ajudante' &&
-                            (wp.resolvedPublisherName === part.mainHallAssistant ||
-                             wp.rawPublisherName === part.mainHallAssistant)
-                        );
-                    }
-                    const ajudanteRealId = ajudanteWp?.id || part.id; // fallback = ID do slot se não encontrado
-                    const ajudanteWpFields = ajudanteWp ? {
-                        date: ajudanteWp.date,
-                        weekId: ajudanteWp.weekId,
-                        weekDisplay: ajudanteWp.weekDisplay,
-                        tituloParte: ajudanteWp.tituloParte,
-                        modalidade: ajudanteWp.modalidade,
-                        status: ajudanteWp.status,
-                        horaInicio: ajudanteWp.horaInicio,
-                        descricaoParte: ajudanteWp.descricaoParte,
-                        detalhesParte: ajudanteWp.detalhesParte,
-                        duracao: ajudanteWp.duracao,
-                        rawPublisherName: ajudanteWp.rawPublisherName,
-                        resolvedPublisherId: ajudanteWp.resolvedPublisherId,
-                        section: ajudanteWp.section,
-                    } : wpFields;
-                    cards.push({
-                        ...part,
-                        ...ajudanteWpFields,
-                        funcao: 'Ajudante',
-                        resolvedPublisherName: part.mainHallAssistant,
-                        tipoParte: part.tipoParte,
-                        id: ajudanteRealId + '-ajudante', // ID real do Ajudante + sufixo UI
-                    });
-                    if (ajudanteRealId) includedOriginalIds.add(ajudanteRealId);
-                }
-            }
-
-            // Garantia de cobertura: incluir partes designadas/aprovadas do weekParts
-            // que possam ter ficado de fora do S-140 (ex: partes respondidas, reconfirmações)
-            const DESIGNATABLE_STATUSES = ['DESIGNADA', 'APROVADA', 'PROPOSTA', 'CONCLUIDA'];
-            const HIDDEN_TYPES = ['Cântico', 'Cantico', 'Comentários Iniciais', 'Comentarios Iniciais',
-                'Comentários Finais', 'Comentarios Finais', 'Elogios e Conselhos', 'Elogios e conselhos'];
-
-            for (const wp of weekParts) {
-                if (!DESIGNATABLE_STATUSES.includes(wp.status)) continue;
-                if (HIDDEN_TYPES.some(h => wp.tipoParte?.includes(h))) continue;
-                // Parte derivada do presidente: auto-atribuída ao mesmo publicador.
-                // S-89 dessas partes não vai para o presidente — ele já recebe via
-                // o cartão da própria designação "Presidente" (seq=1).
-                if (wp.isChairmanDerived === true) continue;
-                const name = wp.resolvedPublisherName || wp.rawPublisherName;
-                if (!name) continue;
-                // Já incluída via S-140?
-                const virtualId = wp.id + (wp.funcao === 'Ajudante' ? '-ajudante' : '-titular');
-                if (cards.some(c => c.id === virtualId)) continue;
-                // Adicionar card avulso para garantir reenvio
-                cards.push({
-                    ...wp,
-                    id: virtualId,
-                    resolvedPublisherName: name,
-                });
-            }
+            const cards = await buildDesignatableCards(weekParts, publishers);
             if (mounted) setValidParts(cards);
         }
         prepareParts();
@@ -463,47 +318,6 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     const getPublisher = (name?: string) => publishers.find(p => p.name === name);
     const hasConfirmationLink = (message: string) => /portal=confirm/i.test(message) && /token=/i.test(message);
 
-    /**
-     * Resolve os parâmetros do cartão S-89 para qualquer parte:
-     * - `partForPdf`: sempre o Titular (ou a própria parte se for titular)
-     * - `assistantName`: nome do Ajudante, se houver
-     * - `isStudent`: se a parte pertence à Escola do Ministério
-     */
-    const resolveS89CardParams = (part: WorkbookPart) => {
-        const isAjudante = part.funcao === 'Ajudante';
-        const currentPartNumber = extractPartNumber(part.tituloParte || part.tipoParte);
-        let partForPdf: WorkbookPart = part;
-        let assistantName: string | undefined;
-
-        if (isAjudante) {
-            const titular = weekParts.find(p => {
-                const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
-                return pNum === currentPartNumber && p.funcao === 'Titular' && p.id !== part.id;
-            });
-            if (titular) {
-                partForPdf = titular;
-                assistantName = part.resolvedPublisherName || part.rawPublisherName;
-            }
-        } else {
-            const assistant = weekParts.find(p => {
-                const pNum = extractPartNumber(p.tituloParte || p.tipoParte);
-                return pNum === currentPartNumber && p.funcao === 'Ajudante' && p.id !== part.id;
-            });
-            assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName;
-        }
-
-        const pType = (part.tipoParte || '').toLowerCase();
-        const pSection = (part.section || '').toLowerCase();
-        const isStudent = pSection.includes('ministério') ||
-            pSection.includes('ministerio') ||
-            pType.includes('leitura') ||
-            pType.includes('conversa') ||
-            pType.includes('revisita') ||
-            pType.includes('estudo');
-
-        return { partForPdf, assistantName, isStudent };
-    };
-
     const handleSend = async (part: WorkbookPart) => {
         setProcessingIds(prev => new Set(prev).add(part.id));
         try {
@@ -511,7 +325,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const foundPublisher = getPublisher(publisherName);
             const phone = foundPublisher?.phone;
 
-            const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part);
+            const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part, weekParts);
 
             // Obter mensagem (pode estar undefined se validParts acabou de ser populado)
             let message = editingMessages[part.id];
@@ -612,7 +426,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             // Copiar imagem do cartão S-89 para a área de transferência —
             // mesmo comportamento do envio inicial.
             {
-                const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part);
+                const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part, weekParts);
                 const success = await copyS89ToClipboard(partForPdf, assistantName, meetingDayOfWeek, isStudent);
                 if (!success) {
                     console.warn('[Reconfirmação] Falha ao gerar imagem do cartão S-89. Continuando apenas com texto.');
@@ -675,7 +489,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 return;
             }
 
-            const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part);
+            const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part, weekParts);
 
             // Texto com link de confirmação (mesma fonte do envio manual).
             let message = editingMessages[part.id];
