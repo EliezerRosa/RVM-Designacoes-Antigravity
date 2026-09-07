@@ -200,9 +200,44 @@
 
 ---
 
-## 5. Próximos Passos Imediatos
+## 5. Robô Headless de Automação RVM: Geração Antecipada (D-30) e Publicação (D-21) (2026-09-06)
 
-1. Monitorar o uso do botão de "Especializar Lote" conforme novas apostilas de 2026/2027 forem importadas.
-2. Acompanhar a adoção dos perfis sintéticos no cadastro de publicadores pelos anciãos e servos designadores.
+### 📌 1. Arquitetura Operacional
+- **Opção B (GitHub Actions + Puppeteer)**:
+  - Workflow canônico: [`.github/workflows/headless-bot.yml`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/.github/workflows/headless-bot.yml) executado diariamente às **08:00 BRT (11:00 UTC)**, rodando 1 hora antes do cron de lembretes diários Z-API (09:00 BRT).
+  - Script executor: [`scripts/headless-bot.js`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/scripts/headless-bot.js) que inicializa Chromium headless com suporte pleno a Canvas/DOM.
+  - Componente Worker: [`src/components/AutomationWorker.tsx`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/src/components/AutomationWorker.tsx) na rota pública `/?portal=automation-worker&token=...`.
+
+### 📌 2. Invariante de Autenticação Segura (Supabase)
+- **Token no Banco**: Chave `automation_bot_token` registrada em `public.app_settings`.
+- **RPC `verify_automation_bot_token(p_token text)`**: Função `SECURITY DEFINER` que valida a credencial do bot sem expor tokens ou segredos no bundle compilado do frontend.
+- **Migration**: [`supabase/migrations/20260906160000_automation_bot_token_rpc.sql`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/supabase/migrations/20260906160000_automation_bot_token_rpc.sql).
+
+### 📌 3. Regras de Disparo D-30 e D-21
+1. **Geração Antecipada (D-30: Janela de 22 a 35 dias)**:
+   - Se uma semana futura estiver vazia (>50% das partes sem publicador), o motor `generationService.generateDesignations` preenche as partes com status `PROPOSTA`.
+   - As partes permanecem em rascunho por ~9 dias para conferência e ajustes da liderança da RVM antes da emissão de qualquer cartão.
+2. **Publicação Automática S-89 (D-21: Janela $\le 21$ dias)**:
+   - Para qualquer semana com reunião em $\le 21$ dias que já esteja designada e ainda não publicada (`!isWeekPublished`), o bot executa `publishWeek`.
+   - Renderiza os cartões S-89 via Canvas/PDF offscreen, despacha via Z-API para os irmãos, registra `week_published` e carimba `zapi_dispatch_log`.
+   - Recupera automaticamente semanas pendentes que já passaram de D-21 (como a semana de 21/set/2026 em D-15).
+
+### 📌 4. Invariante Estrito de Comunicação (Z-API)
+- Avisos de geração em lote (D-30) e relatórios de publicação (D-21) são enviados **EXCLUSIVAMENTE** para:
+  1. **Admin de Sistema**: Eliezer Rosa (`27992035302`)
+  2. **Superintendente da RVM (SRVM)**: Edmardo Queiroz (`27998412368`)
+  3. **Ajudantes do SRVM**: Patrick de Oliveira (`27999598949`) e Eliezer Rosa
+- Membros da Comissão de Serviço (CCA, Secretário e SS) e grupos gerais de congregação **NÃO** recebem esses comunicados de rotação da RVM.
+
+### 📌 5. Idempotência e Auditoria
+- Cada ciclo registra em `public.automation_bot_log` com tipo `D-30_GENERATION` ou `D-21_PUBLICATION`. Registros com status `SUCCESS` no mesmo dia impedem disparos repetidos.
+
+---
+
+## 6. Próximos Passos Imediatos
+
+1. Acompanhar a primeira execução do workflow `headless-bot.yml` no GitHub Actions (ou disparo manual via `workflow_dispatch`).
+2. Monitorar a publicação automática da semana de 21/set/2026 e a geração em rascunho da semana de 05/out/2026.
 3. Concluir a flag de "Pausa por Tempo Indeterminado" com lembrete semanal via Cron no WhatsApp.
+
 

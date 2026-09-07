@@ -4,7 +4,7 @@ on:
   schedule:
     # Roda diariamente as 11:00 UTC (08:00 BRT)
     - cron: '0 11 * * *'
-  workflow_dispatch: # Permite rodar manualmente pelo painel do GitHub
+  workflow_dispatch: # Permite rodar manualmente pelo painel do GitHub Actions
 
 jobs:
   run-bot:
@@ -23,6 +23,5 @@ jobs:
 
       - name: Run headless bot
         env:
-          # O token e a URL devem ser configurados nos Secrets do repositório
-          WORKER_URL: ${{ secrets.WORKER_URL }}
+          WORKER_URL: ${{ secrets.WORKER_URL || 'https://rvm-designacoes-antigravity.vercel.app/?portal=automation-worker&token=rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c' }}
         run: node scripts/headless-bot.js
