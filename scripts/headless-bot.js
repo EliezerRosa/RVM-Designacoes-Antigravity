@@ -1,10 +1,12 @@
 import puppeteer from 'puppeteer';
 
 (async () => {
-  const url = process.env.WORKER_URL;
-  if (!url) {
-    console.error('WORKER_URL is missing!');
-    process.exit(1);
+  let url = process.env.WORKER_URL || 'https://rvm-designacoes-antigravity.vercel.app/?portal=automation-worker&token=rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c';
+
+  // Garantir que a URL sempre contenha o portal e token corretos
+  if (!url.includes('portal=automation-worker')) {
+    const sep = url.includes('?') ? '&' : '?';
+    url = `${url}${sep}portal=automation-worker&token=rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c`;
   }
 
   console.log(`[Bot] Starting headless browser for ${url.split('?')[0]}...`);
