@@ -9,6 +9,7 @@ import puppeteer from 'puppeteer';
   console.log(`[Bot] Target URL: ${cleanBase}/?portal=automation-worker&token=${token.substring(0, 10)}...`);
   const browser = await puppeteer.launch({
     headless: 'new',
+    protocolTimeout: 600000,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
   });
   
@@ -25,14 +26,14 @@ import puppeteer from 'puppeteer';
   });
 
   try {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
     
     // Wait for the status element to turn to FINISHED
-    console.log('[Bot] Waiting for worker to finish (max 5 minutes)...');
+    console.log('[Bot] Waiting for worker to finish (max 10 minutes)...');
     
     await page.waitForFunction(
       'document.getElementById("worker-status") && document.getElementById("worker-status").innerText === "FINISHED"',
-      { timeout: 300000 } // 5 minutes max
+      { timeout: 600000 } // 10 minutes max
     );
 
     console.log('[Bot] Worker finished successfully.');
