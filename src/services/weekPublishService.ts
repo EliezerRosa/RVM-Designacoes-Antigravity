@@ -189,7 +189,7 @@ export async function buildDesignatableCards(
 /**
  * Resolve os parâmetros do cartão S-89 (espelha resolveS89CardParams do modal).
  */
-function resolveS89CardParams(part: WorkbookPart, weekParts: WorkbookPart[]) {
+export function resolveS89CardParams(part: WorkbookPart, weekParts: WorkbookPart[]) {
     const isAjudante = part.funcao === 'Ajudante';
     const currentPartNumber = extractPartNumber(part.tituloParte || part.tipoParte);
     let partForPdf: WorkbookPart = part;
