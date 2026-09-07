@@ -180,12 +180,12 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                             } else {
                                 appendLog(`🚀 Executando Geração Antecipada (D-30) para semana ${weekId}...`);
                                 try {
-                                    await supabase.from('automation_bot_log').insert({
+                                    const { data: logEntry } = await supabase.from('automation_bot_log').insert({
                                         week_id: weekId,
                                         action_type: 'D-30_GENERATION',
                                         status: 'RUNNING',
                                         details: { reason: 'auto batch D-30' },
-                                    });
+                                    }).select('id').maybeSingle();
 
                                     const genRes = await generationService.generateDesignations(weekParts, publishers, {
                                         isDryRun: false,
@@ -193,18 +193,19 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                                         preventWeekendClashes: true,
                                     });
 
-                                    await supabase.from('automation_bot_log')
-                                        .update({ status: 'SUCCESS', details: genRes })
-                                        .eq('week_id', weekId)
-                                        .eq('action_type', 'D-30_GENERATION');
+                                    if (logEntry?.id) {
+                                        await supabase.from('automation_bot_log')
+                                            .update({ status: 'SUCCESS', details: genRes })
+                                            .eq('id', logEntry.id);
+                                    }
 
-                                    appendLog(`✅ Geração D-30 concluída para ${weekId}: ${genRes.successful} atribuídas, ${genRes.failed} pendentes.`);
+                                    appendLog(`✅ Geração D-30 concluída para ${weekId}: ${genRes.partsGenerated} atribuídas.`);
 
                                     // Notifica EXCLUSIVAMENTE Admin + SRVM + Ajd SRVM
                                     const msgD30 = `🤖 *Robô RVM — Geração Antecipada (D-30)*\n` +
                                         `As designações da semana *${weekDisplay}* foram pré-geradas em rascunho com sucesso!\n\n` +
                                         `📅 *Reunião*: ${weekDisplay}\n` +
-                                        `👥 *Partes preenchidas*: ${genRes.successful} (${genRes.failed} pendentes)\n` +
+                                        `👥 *Partes preenchidas*: ${genRes.partsGenerated}\n` +
                                         `⏳ *Status*: *PROPOSTA* (Em revisão pastoral)\n\n` +
                                         `As designações permanecerão em rascunho até *D-21* (~${diffDays - 21} dias para revisão). ` +
                                         `Acesse o sistema para conferir eventuais ajustes antes da emissão dos cartões S-89.`;
@@ -219,9 +220,12 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                                 } catch (genErr: any) {
                                     appendLog(`❌ Erro na geração D-30 (${weekId}): ${genErr.message}`);
                                     await supabase.from('automation_bot_log')
-                                        .update({ status: 'ERROR', details: { error: genErr.message } })
-                                        .eq('week_id', weekId)
-                                        .eq('action_type', 'D-30_GENERATION');
+                                        .insert({
+                                            week_id: weekId,
+                                            action_type: 'D-30_GENERATION',
+                                            status: 'ERROR',
+                                            details: { error: genErr.message }
+                                        });
                                 }
                             }
                         }
@@ -262,20 +266,21 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
 
                         appendLog(`🚀 Executando Publicação Automática S-89 (D-21) para semana ${weekId}...`);
                         try {
-                            await supabase.from('automation_bot_log').insert({
+                            const { data: pubLogEntry } = await supabase.from('automation_bot_log').insert({
                                 week_id: weekId,
                                 action_type: 'D-21_PUBLICATION',
                                 status: 'RUNNING',
                                 details: { reason: `auto publish D-${diffDays}` },
-                            });
+                            }).select('id').maybeSingle();
 
                             const pubRes = await publishWeek(weekId, weekParts, publishers);
 
                             const finalStatus = pubRes.success ? 'SUCCESS' : 'PARTIAL';
-                            await supabase.from('automation_bot_log')
-                                .update({ status: finalStatus, details: pubRes })
-                                .eq('week_id', weekId)
-                                .eq('action_type', 'D-21_PUBLICATION');
+                            if (pubLogEntry?.id) {
+                                await supabase.from('automation_bot_log')
+                                    .update({ status: finalStatus, details: pubRes })
+                                    .eq('id', pubLogEntry.id);
+                            }
 
                             appendLog(`✅ Publicação da semana ${weekId} concluída: ${pubRes.s89Sent} cartões enviados via Z-API.`);
 
