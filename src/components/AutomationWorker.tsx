@@ -74,7 +74,7 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
         hasRun.current = true;
 
         const runAutomations = async () => {
-            appendLog('Iniciando worker headless de automação RVM...');
+            appendLog(`Iniciando worker headless de automação RVM (Token: ${token ? `${token.substring(0, 10)}...` : 'NENHUM'})...`);
 
             // 1. Validação de Token de Automação via RPC Supabase
             let isAuthorized = false;
@@ -85,9 +85,11 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                     });
                     if (!rpcErr && validRpc === true) {
                         isAuthorized = true;
+                    } else if (rpcErr) {
+                        appendLog(`⚠️ RPC error ao validar token: ${rpcErr.message}`);
                     }
-                } catch (err) {
-                    console.warn('[AutomationWorker] Erro ao validar token via RPC:', err);
+                } catch (err: any) {
+                    appendLog(`⚠️ Exceção ao validar token: ${err.message}`);
                 }
             }
 
@@ -98,7 +100,7 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
             }
 
             if (!isAuthorized) {
-                appendLog('❌ Token inválido ou não autorizado. Abortando execução do bot.');
+                appendLog(`❌ Token inválido ou não autorizado (${token ? token.substring(0, 10) : 'null'}). Abortando execução do bot.`);
                 setDone(true);
                 return;
             }

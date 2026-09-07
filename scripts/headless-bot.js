@@ -1,15 +1,12 @@
 import puppeteer from 'puppeteer';
 
 (async () => {
-  let url = process.env.WORKER_URL || 'https://rvm-designacoes-antigravity.vercel.app/?portal=automation-worker&token=rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c';
+  const token = process.env.BOT_TOKEN || 'rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c';
+  const rawBase = (process.env.WORKER_URL || 'https://rvm-designacoes-antigravity.vercel.app').split('?')[0];
+  const cleanBase = rawBase.replace(/\/automation-worker\/?$/, '').replace(/\/$/, '');
+  const url = `${cleanBase}/?portal=automation-worker&token=${token}`;
 
-  // Garantir que a URL sempre contenha o portal e token corretos
-  if (!url.includes('portal=automation-worker')) {
-    const sep = url.includes('?') ? '&' : '?';
-    url = `${url}${sep}portal=automation-worker&token=rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c`;
-  }
-
-  console.log(`[Bot] Starting headless browser for ${url.split('?')[0]}...`);
+  console.log(`[Bot] Target URL: ${cleanBase}/?portal=automation-worker&token=${token.substring(0, 10)}...`);
   const browser = await puppeteer.launch({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
