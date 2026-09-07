@@ -38,7 +38,7 @@ function getCorsHeaders(req: Request) {
     : ALLOWED_ORIGINS[0]; // default to production
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bot-token, x-cron-secret',
   };
 }
 
@@ -48,6 +48,25 @@ function getCorsHeaders(req: Request) {
  * Retorna { authorized: true, userId, email } ou { authorized: false, error }.
  */
 async function verifyCallerIsEditor(req: Request): Promise<{ authorized: boolean; userId?: string; email?: string; error?: string }> {
+  // Verifica se o robô headless está autenticado via x-bot-token
+  const botTokenHeader = req.headers.get('x-bot-token');
+  if (botTokenHeader) {
+    // @ts-ignore Deno.env
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    // @ts-ignore Deno.env
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: botSetting } = await adminClient
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'automation_bot_token')
+      .maybeSingle();
+
+    if (botSetting?.value && botSetting.value === botTokenHeader.trim()) {
+      return { authorized: true, userId: 'headless-automation-bot', email: 'bot@automation.internal' };
+    }
+  }
+
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return { authorized: false, error: 'Missing Authorization header' };
