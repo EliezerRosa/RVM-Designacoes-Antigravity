@@ -436,7 +436,7 @@ export async function publishWeek(
                     title: `S-89 (Publicação): ${card.tipoParte}`,
                     content,
                     status: 'SENT',
-                    metadata: { weekId, partId: card.id, isStudent, channel: 'z-api', isPublication: true },
+                    metadata: { weekId, partId: card.id, isStudent, channel: 'z-api', isPublication: true, messageId: sent.messageId },
                 });
             } else {
                 result.s89Failed++;
@@ -501,16 +501,23 @@ export async function publishWeek(
 }
 
 /**
- * Despublica a semana: limpa o marcador de publicação e o log de PUBLICACAO_S89
- * das partes da semana (permitindo republicar/reenviar). NÃO recolhe mensagens
- * já enviadas (WhatsApp não permite "unsend") nem altera status das partes.
+ * Despublica a semana: opcionalmente revoga mensagens no WhatsApp (se revokeWhatsAppMessages=true),
+ * limpa o marcador de publicação e o log de PUBLICACAO_S89 das partes da semana
+ * (permitindo republicar/reenviar). NÃO altera status das partes.
  */
 export async function unpublishWeek(
     weekId: string,
     weekParts: WorkbookPart[],
-    publishers: Publisher[]
-): Promise<{ success: boolean; clearedLogs: number; error?: string }> {
+    publishers: Publisher[],
+    options: { revokeWhatsAppMessages?: boolean } = {}
+): Promise<{ success: boolean; clearedLogs: number; revokedMessages?: number; error?: string }> {
     try {
+        let revokedMessages = 0;
+        if (options.revokeWhatsAppMessages) {
+            const revokeRes = await zapiOrchestrator.revokeWeekPublicationDispatches(weekParts);
+            revokedMessages = revokeRes.revokedCount;
+        }
+
         const cards = await buildDesignatableCards(weekParts, publishers);
         const cardIds = cards.map(c => c.id);
 
@@ -534,7 +541,7 @@ export async function unpublishWeek(
             await api.setSetting(WEEK_PUBLISHED_KEY, map);
         }
 
-        return { success: true, clearedLogs };
+        return { success: true, clearedLogs, revokedMessages };
     } catch (err) {
         return { success: false, clearedLogs: 0, error: err instanceof Error ? err.message : String(err) };
     }

@@ -177,12 +177,14 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
     const handleUnpublishFocusWeek = useCallback(async () => {
         if (!filterWeek) return;
         const weekParts = parts.filter(p => p.weekId === filterWeek);
-        if (!window.confirm(`Despublicar a semana ${filterWeek}? Isso NÃO recolhe mensagens já enviadas, apenas limpa o marcador para permitir reenviar.`)) return;
+        if (!window.confirm(`Despublicar a semana ${filterWeek}? Isso limpará o marcador de publicação para permitir reenviar os cartões.`)) return;
+        const revokeZap = window.confirm(`Deseja também APAGAR PARA TODOS no WhatsApp as mensagens enviadas para a semana ${filterWeek}?\n\n- OK: Apagar mensagens no WhatsApp (dentro da janela de 48h)\n- Cancelar: Apenas despublicar no sistema sem apagar do WhatsApp`);
         try {
             setIsPublishing(true);
-            const result = await unpublishWeek(filterWeek, weekParts, publishers);
+            const result = await unpublishWeek(filterWeek, weekParts, publishers, { revokeWhatsAppMessages: revokeZap });
             if (result.success) {
-                setSuccessMessage(`✅ Semana ${filterWeek} despublicada (${result.clearedLogs} registro(s) limpos).`);
+                const zapInfo = result.revokedMessages ? ` e ${result.revokedMessages} mensagem(ns) apagada(s) no Zap` : '';
+                setSuccessMessage(`✅ Semana ${filterWeek} despublicada (${result.clearedLogs} registro(s) limpos${zapInfo}).`);
                 setWeekIsPublished(false);
             } else {
                 setError('Falha ao despublicar: ' + (result.error || 'erro desconhecido'));

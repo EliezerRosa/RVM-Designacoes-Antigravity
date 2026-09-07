@@ -672,12 +672,14 @@ export default function TemporalChat({
 
     const handleUnpublishWeek = useCallback(async (weekId: string) => {
         const weekParts = parts.filter(p => p.weekId === weekId);
-        if (!window.confirm(`Despublicar a semana ${weekId}? Isso NÃO recolhe mensagens já enviadas (o WhatsApp não permite), apenas limpa o marcador de publicação para permitir reenviar ao publicar de novo.`)) return;
+        if (!window.confirm(`Despublicar a semana ${weekId}? Isso limpará o marcador de publicação para permitir reenviar os cartões.`)) return;
+        const revokeZap = window.confirm(`Deseja também APAGAR PARA TODOS no WhatsApp as mensagens enviadas para a semana ${weekId}?\n\n- OK: Apagar mensagens no WhatsApp (dentro da janela de 48h)\n- Cancelar: Apenas despublicar no sistema sem apagar do WhatsApp`);
         try {
             setIsGeneratingImage(true);
-            const result = await unpublishWeek(weekId, weekParts, publishers);
+            const result = await unpublishWeek(weekId, weekParts, publishers, { revokeWhatsAppMessages: revokeZap });
             if (result.success) {
-                alert(`✅ Semana ${weekId} despublicada (${result.clearedLogs} registro(s) de envio limpos). Você já pode republicar.`);
+                const zapInfo = result.revokedMessages ? ` e ${result.revokedMessages} mensagem(ns) apagada(s) no WhatsApp` : '';
+                alert(`✅ Semana ${weekId} despublicada (${result.clearedLogs} registro(s) de envio limpos${zapInfo}). Você já pode republicar.`);
             } else {
                 alert('❌ Falha ao despublicar: ' + (result.error || 'erro desconhecido'));
             }

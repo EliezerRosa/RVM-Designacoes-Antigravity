@@ -352,6 +352,35 @@ async function sendImageViaZApi(phone: string, imageBase64: string, caption: str
   return { success: true, messageId: data.messageId, provider: 'z-api' };
 }
 
+/** Exclui mensagem via Z-API ("Apagar para todos"). */
+async function deleteMessageViaZApi(phone: string, messageId: string, deleteForMe: boolean = false) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada.' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
+  const cleanPhone = normalizePhone(phone);
+
+  const url = `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/messages?messageId=${encodeURIComponent(messageId)}&phone=${encodeURIComponent(cleanPhone)}&owner=true&deleteForMe=${deleteForMe ? 'true' : 'false'}`;
+
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API DELETE ${res.status}: ${body}` };
+  }
+
+  const data = await res.json().catch(() => ({}));
+  return { success: true, ...data, provider: 'z-api' };
+}
+
 /** Verifica conexão da Evolution API. */
 async function checkEvolutionConnection() {
   // @ts-ignore Deno.env
@@ -872,6 +901,49 @@ serve(async (req: Request) => {
       const result = await fetchZApiGroupMetadata(groupQuery);
       return new Response(JSON.stringify(result), {
         status: result.success ? 200 : 400,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ── Excluir mensagem via Z-API ("Apagar para todos") ──
+    if (body.action === 'delete-message') {
+      const { messageId, phone, deleteForMe } = body;
+      if (!messageId || !phone) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Campos "messageId" e "phone" são obrigatórios para exclusão.' }),
+          { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!isEditor) {
+        // Fallback: se o telefone de destino pertence a um publicador verificado, permite exclusão
+        const cleanPhone = normalizePhone(phone).replace(/\D/g, '');
+        // @ts-ignore Deno.env
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+        // @ts-ignore Deno.env
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
+        const adminClient = createClient(supabaseUrl, supabaseKey);
+
+        const { data: pubs } = await adminClient.from('publishers').select('data');
+        let isVerifiedTarget = false;
+        if (pubs) {
+          isVerifiedTarget = pubs.some((p: any) => {
+            const pPhone = (p.data?.phone || p.data?.contact_phone || '').replace(/\D/g, '');
+            return pPhone && (pPhone === cleanPhone || pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone));
+          });
+        }
+
+        if (!isVerifiedTarget) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Unauthorized to delete message. Editor check failed: ${authErrorDetail}` }),
+            { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      const result = await deleteMessageViaZApi(phone, messageId, deleteForMe === true);
+      return new Response(JSON.stringify(result), {
+        status: 200,
         headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
       });
     }

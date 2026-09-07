@@ -103,9 +103,9 @@ async function runSimulation() {
     console.log('   - Telefone:', manualPhone || '(não cadastrado)');
     console.log('   - Tamanho do texto:', manualMessage.length, 'caracteres');
     console.log('   - Link de confirmação presente?:', manualLink ? '✅ SIM' : '❌ NÃO');
-    if (manualLink) {
-        console.log('   - Link:', manualLink);
-    }
+    console.log('\n================ EXATA MENSAGEM DO WHATSAPP ================');
+    console.log(manualMessage);
+    console.log('============================================================\n');
 
     // ─────────────────────────────────────────────────────────────────────────
     // CAMINHO 2: SIMULAÇÃO DO ENVIO AUTOMÁTICO (weekPublishService / batch)
@@ -243,6 +243,7 @@ async function runSimulation() {
 
     console.log('Disparando mensagem para', TEST_PHONE, 'via Edge Function send-whatsapp...');
 
+    /*
     try {
         const { data: sendData, error: sendError } = await supabase.functions.invoke('send-whatsapp', {
             body: {
@@ -261,6 +262,7 @@ async function runSimulation() {
     } catch (err: any) {
         console.error('❌ Exceção ao chamar send-whatsapp:', err.message);
     }
+    */
 
     console.log('\n================================================================');
     console.log('🎯 RESUMO FINAL DA VALIDAÇÃO');

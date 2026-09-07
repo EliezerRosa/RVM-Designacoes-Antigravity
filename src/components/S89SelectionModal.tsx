@@ -533,7 +533,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     partId: part.id,
                     isStudent,
                     channel: 'z-api',
-                    isSubstitution: substitutionIds.has(part.id)
+                    isSubstitution: substitutionIds.has(part.id),
+                    messageId: result.messageId,
                 }
             });
 
@@ -558,6 +559,56 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 next.delete(part.id);
                 return next;
             });
+        }
+    };
+
+    const handleRevokePartMessage = async (part: WorkbookPart) => {
+        const pubName = part.resolvedPublisherName || part.rawPublisherName || 'publicador';
+        if (!window.confirm(`Deseja realmente APAGAR PARA TODOS a mensagem enviada no WhatsApp para ${pubName}?\n\n(Ação permitida pelo WhatsApp dentro de até 48h do envio)`)) {
+            return;
+        }
+        setProcessingZapiIds(prev => new Set(prev).add(part.id));
+        try {
+            const res = await zapiOrchestrator.revokeDispatchesForPart(part.id);
+            if (res.revokedCount > 0) {
+                alert(`✅ ${res.revokedCount} mensagem(ns) apagada(s) no WhatsApp com sucesso.`);
+                await loadHistory();
+            } else if (res.errors.length > 0) {
+                alert(`❌ Falha ao apagar: ${res.errors.join('\n')}`);
+            } else {
+                alert('⚠️ Nenhuma mensagem recente com ID da Z-API encontrada para esta parte.');
+            }
+        } catch (err: any) {
+            alert(`Erro ao apagar mensagem: ${err.message || String(err)}`);
+        } finally {
+            setProcessingZapiIds(prev => {
+                const next = new Set(prev);
+                next.delete(part.id);
+                return next;
+            });
+        }
+    };
+
+    const [isRevokingWeek, setIsRevokingWeek] = useState(false);
+    const handleRevokeWeekBatch = async () => {
+        if (!window.confirm(`⚠️ ATENÇÃO: Deseja apagar no WhatsApp TODAS as mensagens de cartões S-89 enviadas para a semana ${weekId}?\n\nEsta ação utilizará o "Apagar para todos" nas mensagens enviadas há menos de 48h.`)) {
+            return;
+        }
+        setIsRevokingWeek(true);
+        try {
+            const res = await zapiOrchestrator.revokeWeekPublicationDispatches(validParts);
+            if (res.revokedCount > 0) {
+                alert(`✅ ${res.revokedCount} de ${res.totalFound} mensagem(ns) apagada(s) no WhatsApp com sucesso.`);
+                await loadHistory();
+            } else if (res.errors.length > 0) {
+                alert(`⚠️ Exclusões com aviso:\n${res.errors.join('\n')}`);
+            } else {
+                alert('Nenhuma mensagem recente com ID Z-API encontrada para exclusão.');
+            }
+        } catch (err: any) {
+            alert(`Erro ao apagar mensagens da semana: ${err.message || String(err)}`);
+        } finally {
+            setIsRevokingWeek(false);
         }
     };
 
@@ -1012,8 +1063,23 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     </div>
 
                     <div style={{ height: '1px', background: '#E5E7EB', margin: '4px 0 8px 0' }} />
-                    <div style={{ fontSize: '0.85em', color: '#6B7280', textTransform: 'uppercase', fontWeight: '600', marginBottom: '8px' }}>
-                        Cartões Individuais (S-89)
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '0.85em', color: '#6B7280', textTransform: 'uppercase', fontWeight: '600' }}>
+                            Cartões Individuais (S-89)
+                        </div>
+                        <button
+                            onClick={handleRevokeWeekBatch}
+                            disabled={isRevokingWeek}
+                            style={{
+                                background: '#DC2626', color: 'white', border: 'none',
+                                padding: '5px 12px', borderRadius: '6px', cursor: isRevokingWeek ? 'wait' : 'pointer',
+                                fontWeight: '600', fontSize: '0.8em', display: 'flex', alignItems: 'center', gap: '4px',
+                                opacity: isRevokingWeek ? 0.7 : 1
+                            }}
+                            title="Apagar para todos no WhatsApp todas as mensagens S-89 enviadas desta semana (limite de 48h pelo WhatsApp)"
+                        >
+                            {isRevokingWeek ? '⏳ Apagando Lote...' : 'Desfazer Lote Zap 🗑️'}
+                        </button>
                     </div>
 
                     {validParts.length === 0 ? (
@@ -1215,6 +1281,20 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                 title="Envia o cartão S-89 (imagem + texto com link) direto ao publicador via Z-API"
                                             >
                                                 {isProcessingZapi ? '⏳...' : 'S-89 z-api 📤'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleRevokePartMessage(part)}
+                                                disabled={isProcessingZapi}
+                                                style={{
+                                                    background: '#DC2626', color: 'white', border: 'none',
+                                                    padding: '8px 10px', borderRadius: '6px', cursor: isProcessingZapi ? 'wait' : 'pointer',
+                                                    fontWeight: '600', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '2px',
+                                                    opacity: isProcessingZapi ? 0.7 : 1,
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                                title="Apagar para todos no WhatsApp a mensagem/cartão enviado ao publicador desta parte via Z-API (até 48h)"
+                                            >
+                                                🗑️
                                             </button>
                                         </div>
                                     </div>
