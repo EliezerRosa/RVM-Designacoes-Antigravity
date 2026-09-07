@@ -37,13 +37,14 @@ class ZApiOrchestrator {
         }
     }
 
-    async logDispatch(partId: string, dispatchType: DispatchType, phone: string, status: string): Promise<void> {
+    async logDispatch(partId: string, dispatchType: DispatchType, phone: string, status: string, messageId?: string): Promise<void> {
         try {
             await supabase.from('zapi_dispatch_log').insert({
                 part_id: partId,
                 dispatch_type: dispatchType,
                 recipient_phone: phone,
-                status: status
+                status: status,
+                message_id: messageId || null,
             });
         } catch (err) {
             console.error('[zapiOrchestrator] Falha ao logar dispatch:', err);
@@ -339,15 +340,125 @@ class ZApiOrchestrator {
         content: string,
         imageBase64: string,
         idempotencyType?: DispatchType
-    ): Promise<{ success: boolean; skipped?: boolean; error?: string }> {
+    ): Promise<{ success: boolean; skipped?: boolean; messageId?: string; error?: string }> {
         if (idempotencyType && await this.hasBeenDispatched(partId, idempotencyType)) {
             return { success: true, skipped: true };
         }
         const r = await this.sendImageDirect(phone, imageBase64, content);
         if (idempotencyType) {
-            await this.logDispatch(partId, idempotencyType, phone, r.success ? 'SUCCESS' : 'ERROR: ' + (r.error || 'unknown'));
+            await this.logDispatch(partId, idempotencyType, phone, r.success ? 'SUCCESS' : 'ERROR: ' + (r.error || 'unknown'), r.messageId);
         }
-        return { success: r.success, error: r.error };
+        return { success: r.success, messageId: r.messageId, error: r.error };
+    }
+
+    /**
+     * Exclui uma mensagem enviada via Z-API ("Apagar para todos").
+     * Deve ser chamada dentro da janela de até ~48h permitida pelo WhatsApp.
+     */
+    async deleteMessage(phone: string, messageId: string, deleteForMe: boolean = false): Promise<{ success: boolean; error?: string }> {
+        if (!phone || !messageId) {
+            return { success: false, error: 'Parâmetros phone e messageId são obrigatórios.' };
+        }
+        try {
+            const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+                body: {
+                    action: 'delete-message',
+                    phone,
+                    messageId,
+                    deleteForMe,
+                },
+            });
+            if (error) {
+                return { success: false, error: error.message };
+            }
+            return { success: data?.success ?? true, error: data?.error };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    }
+
+    /**
+     * Revoga/apaga mensagens de envio de uma parte específica que tenham message_id gravado.
+     */
+    async revokeDispatchesForPart(partId: string): Promise<{ revokedCount: number; errors: string[] }> {
+        const errors: string[] = [];
+        let revokedCount = 0;
+        try {
+            const { data: logs, error } = await supabase
+                .from('zapi_dispatch_log')
+                .select('id, recipient_phone, message_id')
+                .eq('part_id', partId)
+                .eq('status', 'SUCCESS')
+                .not('message_id', 'is', null);
+
+            if (error || !logs || logs.length === 0) {
+                return { revokedCount: 0, errors: error ? [error.message] : [] };
+            }
+
+            for (const log of logs) {
+                if (!log.message_id || !log.recipient_phone) continue;
+                const delRes = await this.deleteMessage(log.recipient_phone, log.message_id);
+                if (delRes.success) {
+                    revokedCount++;
+                    await supabase
+                        .from('zapi_dispatch_log')
+                        .update({ status: 'REVOKED' })
+                        .eq('id', log.id);
+                } else {
+                    errors.push(`Falha ao apagar msg ${log.message_id}: ${delRes.error || 'erro desconhecido'}`);
+                }
+            }
+        } catch (err: any) {
+            errors.push(err.message || String(err));
+        }
+        return { revokedCount, errors };
+    }
+
+    /**
+     * Revoga/apaga todas as mensagens de publicação enviadas para uma semana.
+     */
+    async revokeWeekPublicationDispatches(weekParts: WorkbookPart[]): Promise<{ totalFound: number; revokedCount: number; errors: string[] }> {
+        const partIds = weekParts.map(p => p.id);
+        const allIds = Array.from(new Set([
+            ...partIds,
+            ...partIds.map(id => `${id}-titular`),
+            ...partIds.map(id => `${id}-ajudante`),
+        ]));
+
+        const errors: string[] = [];
+        let revokedCount = 0;
+
+        try {
+            const { data: logs, error } = await supabase
+                .from('zapi_dispatch_log')
+                .select('id, part_id, recipient_phone, message_id')
+                .in('part_id', allIds)
+                .eq('status', 'SUCCESS')
+                .not('message_id', 'is', null);
+
+            if (error || !logs) {
+                return { totalFound: 0, revokedCount: 0, errors: error ? [error.message] : [] };
+            }
+
+            for (const log of logs) {
+                if (!log.message_id || !log.recipient_phone) continue;
+                const delRes = await this.deleteMessage(log.recipient_phone, log.message_id);
+                if (delRes.success) {
+                    revokedCount++;
+                    await supabase
+                        .from('zapi_dispatch_log')
+                        .update({ status: 'REVOKED' })
+                        .eq('id', log.id);
+                } else {
+                    errors.push(`Parte ${log.part_id}: ${delRes.error || 'falha ao excluir'}`);
+                }
+            }
+
+            return { totalFound: logs.length, revokedCount, errors };
+        } catch (err: any) {
+            errors.push(err.message || String(err));
+            return { totalFound: 0, revokedCount, errors };
+        }
     }
 }
 
