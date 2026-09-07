@@ -65,7 +65,10 @@ if (typeof window !== 'undefined' && window.location && window.location.hash && 
 }
 
 const getInitialBotToken = (): string | null => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined') {
+        const procEnv = typeof process !== 'undefined' ? process.env : undefined;
+        return procEnv?.BOT_TOKEN || procEnv?.VITE_BOT_TOKEN || 'rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c';
+    }
     try {
         const searchParams = new URLSearchParams(window.location.search);
         const urlToken = searchParams.get('token');
