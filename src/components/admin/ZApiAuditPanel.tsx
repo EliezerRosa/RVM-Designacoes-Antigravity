@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { CustomPushModal } from './CustomPushModal';
+import { ZApiSmartManagerModal } from './ZApiSmartManagerModal';
 
 interface DispatchLog {
   id: string;
@@ -16,6 +17,7 @@ export function ZApiAuditPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRetesting, setIsRetesting] = useState<string | null>(null);
   const [showCustomModal, setShowCustomModal] = useState(false);
+  const [showSmartModal, setShowSmartModal] = useState(false);
 
   useEffect(() => {
     loadLogs();
@@ -72,10 +74,18 @@ export function ZApiAuditPanel() {
         <button onClick={() => setShowCustomModal(true)} style={{ padding: '8px 16px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
           📣 Novo Aviso Web Push (Megafone)
         </button>
+
+        <button onClick={() => setShowSmartModal(true)} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          🤖 Monitor de Inteligência WhatsApp (Respostas/Botões)
+        </button>
       </div>
 
       {showCustomModal && (
         <CustomPushModal onClose={() => setShowCustomModal(false)} />
+      )}
+
+      {showSmartModal && (
+        <ZApiSmartManagerModal isOpen={showSmartModal} onClose={() => setShowSmartModal(false)} />
       )}
 
       <table className="modern-table">
