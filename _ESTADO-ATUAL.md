@@ -240,4 +240,21 @@
 2. Monitorar a publicação automática da semana de 21/set/2026 e a geração em rascunho da semana de 05/out/2026.
 3. Concluir a flag de "Pausa por Tempo Indeterminado" com lembrete semanal via Cron no WhatsApp.
 
+---
 
+## 7. Checkpoint Arquitetural: Migração para Inteligência Nativa Permanente (Opção 3)
+
+- **Data do Checkpoint**: 2026-09-08
+- **Tag Git de Resguardo**: `checkpoint-pre-opcao3-permanente`
+- **Decisão Estratégica**:
+  1. **Adoção Definitiva da Opção 3**: A inteligência conversacional via Z-API passa a ser o motor padrão, permanente e nativo do RVM para comunicação de designações (sem toggle de desativação, sem arquitetura temporária).
+  2. **Extinção do Link Web no WhatsApp**: Os cartões S-89 e notificações deixam de carregar links para o portal web no navegador (`/?portal=confirm&token=...`), eliminando o atrito de abertura de navegadores e logins em celulares.
+  3. **Interação Híbrida Nativa**: A confirmação de partes passa a ser feita por:
+     - **Botões Nativos do WhatsApp**: `[✅ Confirmar]` e `[❌ Não Poderei]` com resposta determinística em 1 toque.
+     - **Leitura Conversacional Completa**: Processamento inteligente contínuo de respostas em texto livre, áudios e reações de emojis (👍, ❌).
+  4. **Invariante Absoluta de Notificações**: Recusas, justificativas e substituições comunicadas exclusivamente para:
+     - **O Superintendente (SRVM)**
+     - **Ajudante do SRVM**
+     - **Admins**
+     - *(A Comissão de Serviço - CS - permanece estritamente isolada dessa operação diária).*
+  5. **Simplificação e Limpeza**: Descontinuação do gatilho legado duplicado (`trg_webhook_whatsapp_orchestrator`) em favor da nova Edge Function unificada (`zapi-smart-webhook`).
