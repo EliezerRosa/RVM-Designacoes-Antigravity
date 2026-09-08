@@ -238,7 +238,8 @@ export function generateWhatsAppMessage(
     srvmPhone?: string,
     confirmationUrl?: string,
     isSubstitution: boolean = false,
-    meetingDayOfWeek?: number
+    meetingDayOfWeek?: number,
+    availabilityUrl?: string
 ): string {
     const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
     const salutation = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
@@ -297,6 +298,12 @@ export function generateWhatsAppMessage(
         highlightFunction = 'ORAÇÃO';
     }
 
+    // Bloco de Ações Rápidas com link invisível de disponibilidade quando presente
+    const dispLinkText = availabilityUrl ? `[ 📅 Disponibilidade ](${availabilityUrl})` : `[ 📅 Disponibilidade ]`;
+    const actionBlock = (posLabel: string) => {
+        return `\n🔘 *AÇÕES RÁPIDAS (${posLabel}):*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n──────────────────────────────────────────\n`;
+    };
+
     let msg = `Olá *${salutation} ${studentName}*! 👋\n`;
     msg += `*SUA FUNÇÃO: ${highlightFunction}*\n`;
     const partLabel = part.tituloParte || part.tipoParte || '';
@@ -305,18 +312,20 @@ export function generateWhatsAppMessage(
         msg += `\n🔄 *PEDIDO DE SUBSTITUIÇÃO*\n`;
         msg += `_Esta parte foi reatribuída a você. Pedimos a gentileza de avaliar e responder o quanto antes._\n`;
     }
-    msg += `─────────────\n`;
+
+    // 1. Ações Rápidas (Início)
+    msg += actionBlock('INÍCIO');
+
     msg += `📅 *Data:* ${displayDate}\n`;
-    msg += `⏰ *Início:*${time}\n\n`;
+    msg += `⏰ *Início:*${time}\n`;
+    msg += `🏛️ *Local:* ${room}\n`;
+
+    // 2. Ações Rápidas (Meio)
+    msg += actionBlock('MEIO');
 
     if (partnerName) {
-        msg += `${partnerEmoji} *${partnerRoleName}:* *${partnerName}*\n`;
+        msg += `\n${partnerEmoji} *${partnerRoleName}:* *${partnerName}*\n`;
         if (partnerPhone) msg += `📱 *WhatsApp do ${partnerRoleName}:* ${partnerPhone}\n`;
-    }
-
-    if (confirmationUrl) {
-        msg += `\n─────────────\n`;
-        msg += `\n👉 *CLIQUE AQUI PARA CONFIRMAR SE PODERÁ OU NÃO*\n${confirmationUrl}\n`;
     }
 
     if (!isForAssistant) {
@@ -324,16 +333,22 @@ export function generateWhatsAppMessage(
     }
 
     if (srvmName && srvmPhone) {
-        msg += `─────────────\n`;
         msg += `👤 *Responsável RVM:* ${srvmName} (${srvmPhone})\n`;
         let cleaned = srvmPhone.replace(/[^0-9]/g, '');
         if (cleaned && cleaned.length <= 11 && !cleaned.startsWith('55')) cleaned = '55' + cleaned;
         msg += `📱 *Falar com ele (Zap):* https://wa.me/${cleaned}\n`;
     }
 
-    // Suprime warnings de variáveis hoje não utilizadas no corpo simplificado
-    // (mantidas para uso em futuras variantes/locais distintos por sala)
-    void emoji; void room;
+    // 3. Ações Rápidas (Fim)
+    msg += `\n🔘 *AÇÕES RÁPIDAS (FIM):*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n`;
+
+    // Compatibilidade retroativa se confirmationUrl for explicitamente fornecido
+    if (confirmationUrl) {
+        msg += `\n─────────────\n👉 *Portal Web:* ${confirmationUrl}\n`;
+    }
+
+    // Suprime warnings de variáveis não utilizadas no corpo simplificado
+    void emoji;
 
     return msg;
 }

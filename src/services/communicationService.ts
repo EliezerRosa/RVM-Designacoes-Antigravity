@@ -285,6 +285,49 @@ export const communicationService = {
     },
 
     /**
+     * Gera ou recupera o link seguro do portal de disponibilidade com token pessoal
+     * para inclusão nos botões do WhatsApp sem expor URL feia.
+     */
+    async getOrCreateAvailabilityLink(publisherId: string, publisherName: string): Promise<string | null> {
+        try {
+            const { data: settingsData } = await supabase
+                .from('settings')
+                .select('value')
+                .eq('key', 'availability_tokens')
+                .maybeSingle();
+
+            let tokens: any[] = settingsData?.value || [];
+            if (!Array.isArray(tokens)) tokens = [];
+
+            let token = tokens.find((t: any) => t.publisherId === publisherId && t.active);
+            if (!token) {
+                const arr = new Uint8Array(16);
+                crypto.getRandomValues(arr);
+                const newToken = Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+                const newEntry = {
+                    token: newToken,
+                    publisherId,
+                    publisherName,
+                    createdAt: new Date().toISOString(),
+                    active: true,
+                };
+                tokens.push(newEntry);
+                await supabase.from('settings').upsert({
+                    key: 'availability_tokens',
+                    value: tokens,
+                });
+                token = newEntry;
+            }
+
+            const baseUrl = getAppBaseUrl();
+            return `${baseUrl}/?portal=availability&token=${token.token}`;
+        } catch (err) {
+            console.warn('[communicationService] Falha ao gerar link de disponibilidade:', err);
+            return null;
+        }
+    },
+
+    /**
      * Prepara a mensagem de S-140 para o Agente
      */
     async prepareS140Message(weekId: string, _parts: WorkbookPart[]): Promise<string> {
@@ -479,7 +522,6 @@ export const communicationService = {
         const publisherName = resolvePartPublisherName(part, publishers).trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
-        const realPartId = getRealPartId(part.id);
         const publisherId = part.resolvedPublisherId || pub?.id;
         const meetingDayOfWeek = await resolveMeetingDayOfWeek(part.weekId, options.meetingDayOfWeek);
 
@@ -575,6 +617,12 @@ export const communicationService = {
         const srvmName = srvm?.name || 'Edmardo Queiroz';
         const srvmPhone = srvm?.phone || '';
 
+        // Obter link pessoal de disponibilidade (chamada invisível integrada aos botões)
+        let availabilityUrl: string | null = null;
+        if (publisherId) {
+            availabilityUrl = await this.getOrCreateAvailabilityLink(publisherId, publisherName);
+        }
+
         let content = generateWhatsAppMessage(
             part,
             recipientGender,
@@ -583,46 +631,11 @@ export const communicationService = {
             isAjudante,
             srvmName,
             srvmPhone,
-            undefined,
+            undefined, // URL de confirmação descontinuada em favor dos botões nativos e leitura conversacional
             options.isSubstitution,
-            meetingDayOfWeek
+            meetingDayOfWeek,
+            availabilityUrl || undefined
         );
-
-        if (publisherId) {
-            let finalUrl: string | null = null;
-            
-            // 1. Verificar se o publicador possui um Token VIP pendente
-            const { data: vipToken } = await supabase
-                .from('onboarding_tokens')
-                .select('token')
-                .eq('publisher_id', publisherId)
-                .is('used_at', null)
-                .gte('expires_at', new Date().toISOString())
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            if (vipToken?.token) {
-                finalUrl = `${getAppBaseUrl()}/?portal=invite&token=${vipToken.token}`;
-            } else {
-                finalUrl = await this.createConfirmationPortalLink(realPartId, publisherId);
-            }
-
-            if (finalUrl) {
-                content = generateWhatsAppMessage(
-                    part,
-                    recipientGender,
-                    partnerName,
-                    partnerPhone,
-                    isAjudante,
-                    srvmName,
-                    srvmPhone,
-                    finalUrl,
-                    options.isSubstitution,
-                    meetingDayOfWeek
-                );
-            }
-        }
 
         // Buscar eventos especiais da semana para adicionar contexto
         try {
