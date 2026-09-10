@@ -518,7 +518,7 @@ export const communicationService = {
      * Prepara a mensagem S-89 individual
      * Inclui contexto de excepcionalidades (eventos especiais) quando aplicável
      */
-    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = [], options: { isSubstitution?: boolean, meetingDayOfWeek?: number } = {}): Promise<{ content: string, phone?: string }> {
+    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = [], options: { isSubstitution?: boolean, meetingDayOfWeek?: number, isZApiFlow?: boolean } = {}): Promise<{ content: string, phone?: string, availabilityUrl?: string }> {
         const publisherName = resolvePartPublisherName(part, publishers).trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
@@ -634,7 +634,8 @@ export const communicationService = {
             undefined, // URL de confirmação descontinuada em favor dos botões nativos e leitura conversacional
             options.isSubstitution,
             meetingDayOfWeek,
-            availabilityUrl || undefined
+            availabilityUrl || undefined,
+            options.isZApiFlow !== false // Por padrão true para fluxo com botões nativos
         );
 
         // Buscar eventos especiais da semana para adicionar contexto
@@ -748,7 +749,8 @@ export const communicationService = {
 
         return {
             content,
-            phone: pub?.phone
+            phone: pub?.phone,
+            availabilityUrl: availabilityUrl || undefined
         };
     },
 

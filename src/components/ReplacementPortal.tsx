@@ -210,20 +210,12 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
                     true // isSubstitution
                 );
 
-                // Gerar link de confirmação
-                const confirmUrl = await communicationService.createConfirmationPortalLink(part.id, candidate.id);
-
-                // Gerar mensagem S-89 completa com link de confirmação
-                const msg = generateWhatsAppMessage(
-                    { ...updatedPart } as any,
-                    candidate.gender,
-                    partnerPubName,
-                    partnerPub?.phone,
-                    isAjudante,
-                    'Irmão',
-                    '',
-                    confirmUrl || '',
-                    true // isSubstitution
+                // Gerar mensagem S-89 completa unificada (sem links expostos no texto)
+                const { content: msg, availabilityUrl } = await communicationService.prepareS89Message(
+                    updatedPart as any,
+                    allPublishers,
+                    weekParts,
+                    { isSubstitution: true }
                 );
 
                 // Enviar com imagem se disponível, senão só texto
@@ -232,7 +224,9 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
                         part.id,
                         candidate.phone,
                         msg,
-                        pdfBase64
+                        pdfBase64,
+                        undefined,
+                        availabilityUrl
                     );
                 } else {
                     await supabase.functions.invoke('send-whatsapp', {

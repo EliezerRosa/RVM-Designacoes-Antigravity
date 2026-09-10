@@ -83,12 +83,26 @@ serve(async (req: Request) => {
     const payload: ZApiPayload = await req.json();
     console.log("[zapi-smart-webhook] Payload recebido:", JSON.stringify(payload));
 
-    // Ignora mensagens enviadas pelo próprio bot ou de grupos (a menos que seja menção)
-    if (payload.fromMe === true || payload.isGroup === true) {
-      return new Response(JSON.stringify({ ignored: true, reason: "fromMe or isGroup" }), { status: 200 });
+    const dataObj = (payload as any).data || payload;
+    const rawPollVote = (payload as any).pollVote || dataObj.pollVote || (payload as any).poll || dataObj.poll;
+    const isPoll = Boolean(rawPollVote);
+
+    const isInteraction = Boolean(payload.buttonsResponseMessage || payload.reaction || payload.reactionMessage || rawPollVote);
+    // Ignora mensagens enviadas pelo próprio bot, exceto se for uma interação direta (ex: testando consigo mesmo)
+    if (payload.fromMe === true && !isInteraction) {
+      return new Response(JSON.stringify({ ignored: true, reason: "fromMe" }), { status: 200 });
+    }
+    if (payload.isGroup === true && !isPoll) {
+      return new Response(JSON.stringify({ ignored: true, reason: "isGroup" }), { status: 200 });
     }
 
-    const senderPhone = payload.phone || payload.senderPhone || "";
+    const senderPhone = payload.phone || 
+                        payload.senderPhone || 
+                        (payload as any).participantPhone || 
+                        dataObj.phone || 
+                        dataObj.senderPhone || 
+                        (dataObj.sender ? String(dataObj.sender).replace(/@.*$/, "") : "") || 
+                        "";
     if (!senderPhone) {
       return new Response(JSON.stringify({ ignored: true, reason: "No sender phone" }), { status: 200 });
     }
@@ -124,7 +138,7 @@ serve(async (req: Request) => {
       }
     }
 
-    const pubName = publisherData?.name || "Irmão(ã)";
+    let pubName = publisherData?.name || "Irmão(ã)";
 
     // --------------------------------------------------------------------------
     // 2. Resolução do Contexto (Botão, Reação, QuotedMsg ou Janela Temporal)
@@ -139,15 +153,16 @@ serve(async (req: Request) => {
     // VIA A: Botão Clicado
     if (buttonId) {
       matchedBy = "BUTTON";
-      if (buttonId.startsWith("CONFIRMAR:")) {
+      const bIdUpper = String(buttonId).toUpperCase().trim();
+      if (bIdUpper.startsWith("CONFIRMAR:") || bIdUpper === "SIM" || bIdUpper.startsWith("CONFIRMAR")) {
         detectedIntent = "CONFIRMAR";
-        targetPartId = buttonId.replace("CONFIRMAR:", "").trim();
-      } else if (buttonId.startsWith("RECUSAR:")) {
+        if (buttonId.includes(":")) targetPartId = buttonId.split(":")[1].trim();
+      } else if (bIdUpper.startsWith("RECUSAR:") || bIdUpper === "NAO" || bIdUpper === "NÃO" || bIdUpper.startsWith("RECUSAR")) {
         detectedIntent = "RECUSAR";
-        targetPartId = buttonId.replace("RECUSAR:", "").trim();
-      } else if (buttonId.startsWith("DISPONIBILIDADE:")) {
+        if (buttonId.includes(":")) targetPartId = buttonId.split(":")[1].trim();
+      } else if (bIdUpper.startsWith("DISPONIBILIDADE:") || bIdUpper === "DISPONIBILIDADE" || bIdUpper.startsWith("DISP")) {
         detectedIntent = "DISPONIBILIDADE";
-        targetPartId = buttonId.replace("DISPONIBILIDADE:", "").trim();
+        if (buttonId.includes(":")) targetPartId = buttonId.split(":")[1].trim();
       }
     }
 
@@ -189,22 +204,108 @@ serve(async (req: Request) => {
       }
     }
 
-    // VIA D: Resolução por Janela Temporal (Publicador respondeu normalmente)
-    if (!targetPartId && publisherData?.id) {
-      matchedBy = "TEMPORAL_WINDOW";
-      // Busca designações pendentes ('ENVIADA') do publicador
-      const { data: pendingParts } = await supabase
-        .from("workbook_parts")
-        .select("*")
-        .eq("resolved_publisher_id", String(publisherData.id))
-        .eq("status", "ENVIADA")
-        .order("date", { ascending: true })
-        .limit(1);
+    // VIA E: Voto em Enquete (Poll Vote)
+    if (rawPollVote) {
+      matchedBy = "POLL_VOTE";
+      let votedOption = "";
+      let pollMsgId = (payload as any).pollMessageId || 
+                      dataObj.pollMessageId || 
+                      payload.referenceMessageId || 
+                      (payload as any).referencedMessage?.messageId ||
+                      (payload as any).messageId ||
+                      "";
 
-      if (pendingParts && pendingParts.length > 0) {
-        targetPart = pendingParts[0];
-        targetPartId = targetPart.id;
+      if (Array.isArray(rawPollVote)) {
+        votedOption = (rawPollVote[0]?.name || rawPollVote[0] || "").toLowerCase();
+      } else if (typeof rawPollVote === "object") {
+        pollMsgId = rawPollVote.pollMessageId || pollMsgId;
+        if (Array.isArray(rawPollVote.options) && rawPollVote.options.length > 0) {
+          votedOption = (rawPollVote.options[0]?.name || rawPollVote.options[0] || "").toLowerCase();
+        } else if (Array.isArray(rawPollVote.votes) && rawPollVote.votes.length > 0) {
+          votedOption = (rawPollVote.votes[0]?.name || rawPollVote.votes[0] || "").toLowerCase();
+        } else if (Array.isArray(rawPollVote.selectedOptions) && rawPollVote.selectedOptions.length > 0) {
+          votedOption = (rawPollVote.selectedOptions[0]?.name || rawPollVote.selectedOptions[0] || "").toLowerCase();
+        } else if (rawPollVote.name) {
+          votedOption = String(rawPollVote.name).toLowerCase();
+        } else if (rawPollVote.vote) {
+          votedOption = String(rawPollVote.vote).toLowerCase();
+        } else if (rawPollVote.option) {
+          votedOption = String(rawPollVote.option).toLowerCase();
+        }
       }
+
+      if (pollMsgId) {
+        const { data: logEntry } = await supabase
+          .from("zapi_dispatch_log")
+          .select("part_id")
+          .eq("message_id", pollMsgId)
+          .maybeSingle();
+
+        if (logEntry?.part_id) {
+          targetPartId = logEntry.part_id.replace(/-(titular|ajudante)$/i, "");
+        }
+      }
+
+      // Se ainda não achou targetPartId por pollMsgId, busca última enquete disparada para este telefone
+      if (!targetPartId && senderPhone) {
+        const cleanPhone = senderPhone.replace(/\D/g, "");
+        const { data: recentDispatch } = await supabase
+          .from("zapi_dispatch_log")
+          .select("part_id")
+          .like("phone", `%${cleanPhone.slice(-8)}%`)
+          .order("dispatched_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (recentDispatch?.part_id) {
+          targetPartId = recentDispatch.part_id.replace(/-(titular|ajudante)$/i, "");
+        }
+      }
+
+      if (votedOption.includes("confirmar") || votedOption.includes("confirm") || votedOption.includes("participa")) {
+        detectedIntent = "CONFIRMAR";
+      } else if (votedOption.includes("não poderei") || votedOption.includes("recusar") || votedOption.includes("nao") || votedOption.includes("poderei")) {
+        detectedIntent = "RECUSAR";
+      } else if (votedOption.includes("disponibilidade") || votedOption.includes("disp")) {
+        detectedIntent = "DISPONIBILIDADE";
+      }
+    }
+
+    // VIA D: Resolução por Janela Temporal (Publicador respondeu por texto)
+    // INVARIANTE IMPOSTA: Imediatamente antes da msg/texto DEVE TER HAVIDO o envio de msg-do-app(z-api) relativa à designação.
+    if (!targetPartId && senderPhone) {
+      const cleanPhone = senderPhone.replace(/\D/g, "");
+      // Janela de resposta causal: até 72 horas após o envio de mensagem pelo app via Z-API
+      const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+
+      const { data: recentDispatch } = await supabase
+        .from("zapi_dispatch_log")
+        .select("part_id, dispatched_at, status")
+        .like("recipient_phone", `%${cleanPhone.slice(-8)}%`)
+        .eq("status", "SUCCESS")
+        .gte("dispatched_at", seventyTwoHoursAgo)
+        .order("dispatched_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recentDispatch?.part_id) {
+        const candidatePartId = recentDispatch.part_id.replace(/-(titular|ajudante)$/i, "");
+        // Verifica se a designação associada ao dispatch ainda está pendente de resposta (ENVIADA)
+        const { data: partCheck } = await supabase
+          .from("workbook_parts")
+          .select("*")
+          .eq("id", candidatePartId)
+          .maybeSingle();
+
+        if (partCheck && partCheck.status === "ENVIADA") {
+          targetPartId = candidatePartId;
+          targetPart = partCheck;
+          matchedBy = "TEMPORAL_WINDOW";
+          if (partCheck.resolved_publisher_name) {
+            pubName = partCheck.resolved_publisher_name;
+          }
+        }
+      }
+      // Se não houve dispatch prévio na janela ativa, targetPartId permanece null (NÃO adivinha designações)
     }
 
     // Se encontramos targetPartId mas ainda não carregamos targetPart, carrega do DB
@@ -215,31 +316,56 @@ serve(async (req: Request) => {
         .select("*")
         .eq("id", realId)
         .maybeSingle();
-      if (pData) targetPart = pData;
+      if (pData) {
+        targetPart = pData;
+        if (pData.resolved_publisher_name) {
+          pubName = pData.resolved_publisher_name;
+        }
+      }
     }
 
-    // --------------------------------------------------------------------------
     // 3. Classificação de Intenção por Texto (se não foi botão/reação direta)
     // --------------------------------------------------------------------------
     if (detectedIntent === "OUTRO" && inboundText) {
-      const lower = inboundText.toLowerCase();
+      // Memória de Conversação: Verifica se o publicador acabou de clicar em RECUSAR (nos últimos 20 minutos)
+      const twentyMinsAgo = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+      const { data: recentRefusal } = await supabase
+        .from("zapi_smart_interactions")
+        .select("*")
+        .eq("phone", senderPhone)
+        .eq("detected_intent", "RECUSAR")
+        .is("reason_extracted", null)
+        .gte("created_at", twentyMinsAgo)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      // Regras heurísticas de alta precisão
-      const isConfirm = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower);
-      const isDecline = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar)\b/i.test(lower);
-      const isAvailability = /\b(disponib\w*|agenda\w*|f[eé]rias|datas|ausente\w*|aus[eê]ncia\w*)/i.test(lower);
-      const isSwap = /\b(troc\w*|permut\w*|passar para|substitu\w*)/i.test(lower);
-
-      if (isAvailability) {
-        detectedIntent = "DISPONIBILIDADE";
-      } else if (isSwap) {
-        detectedIntent = "PERMUTA";
-      } else if (isDecline) {
+      if (recentRefusal) {
         detectedIntent = "RECUSAR";
-        // Extrai o motivo do próprio texto
         reasonExtracted = inboundText;
-      } else if (isConfirm) {
-        detectedIntent = "CONFIRMAR";
+        if (recentRefusal.workbook_part_id) {
+          targetPartId = recentRefusal.workbook_part_id;
+        }
+        matchedBy = "QUOTED_MSG";
+      } else {
+        const lower = inboundText.toLowerCase();
+
+        // Regras heurísticas de alta precisão
+        const isConfirm = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower);
+        const isDecline = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower);
+        const isAvailability = /\b(disponib\w*|agenda\w*|f[eé]rias|datas|ausente\w*|aus[eê]ncia\w*)/i.test(lower);
+        const isSwap = /\b(troc\w*|permut\w*|passar para|substitu\w*)/i.test(lower);
+
+        if (isAvailability) {
+          detectedIntent = "DISPONIBILIDADE";
+        } else if (isSwap) {
+          detectedIntent = "PERMUTA";
+        } else if (isDecline) {
+          detectedIntent = "RECUSAR";
+          reasonExtracted = inboundText;
+        } else if (isConfirm) {
+          detectedIntent = "CONFIRMAR";
+        }
       }
     }
 
@@ -263,21 +389,28 @@ serve(async (req: Request) => {
           .eq("status", "ENVIADA");
 
         actionTaken = "STATUS_DESIGNADA";
+
+        const tipoParte = targetPart.tipo_parte || targetPart.part_title || "Designação";
+        outboundReply = `✅ *Confirmação Registrada!*\n\nFicamos muito felizes, Irmão(ã) *${pubName}*! Sua designação de *${tipoParte}* está confirmada no programa da reunião.\n\nQue Jeová abençoe sua preparação! 🙏`;
+        await dispatchTextMessage(senderPhone, outboundReply);
+      } else if (!targetPart) {
+        // INVARIANTE: Sem envio prévio comprovado pelo Z-API, texto é ignorado sem impacto no banco
+        actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
+        console.log(`[zapi-smart-webhook] Texto de confirmação ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
       } else {
         actionTaken = "ALREADY_PROCESSED";
       }
-
-      const tipoParte = targetPart?.tipo_parte || targetPart?.part_title || "Designação";
-      outboundReply = `✅ *Confirmação Registrada!*\n\nFicamos muito felizes, Irmão(ã) *${pubName}*! Sua designação de *${tipoParte}* está confirmada no programa da reunião.\n\nQue Jeová abençoe sua preparação! 🙏`;
-
-      await dispatchTextMessage(senderPhone, outboundReply);
     }
 
     // CENÁRIO 2: RECUSA
     else if (detectedIntent === "RECUSAR") {
-      const reason = reasonExtracted || "Impossibilidade informada via WhatsApp.";
+      if (!targetPart) {
+        // INVARIANTE: Sem envio prévio comprovado pelo Z-API, texto é ignorado sem impacto no banco
+        actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
+        console.log(`[zapi-smart-webhook] Texto de recusa ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
+      } else {
+        const reason = reasonExtracted || "Impossibilidade informada via WhatsApp.";
 
-      if (targetPart) {
         await supabase
           .from("workbook_parts")
           .update({
@@ -299,19 +432,19 @@ serve(async (req: Request) => {
         });
 
         actionTaken = "STATUS_REJEITADA";
-      }
 
-      // Se o motivo ainda não foi informado (veio apenas pelo clique de botão)
-      if (!reasonExtracted) {
-        outboundReply = `Irmão(ã) *${pubName}*, registramos que você não poderá realizar esta designação.\n\nPor favor, informe em poucas palavras o *motivo* para informarmos ao *Superintendente (SRVM)* e ao *Ajudante do SRVM*.`;
-        await dispatchTextMessage(senderPhone, outboundReply);
-      } else {
-        // Motivo já fornecido: acolhe o publicador
-        outboundReply = `Agradecemos por avisar com antecedência, Irmão(ã) *${pubName}*! Registramos sua justificativa e providenciaremos a substituição. Desejamos tudo de bom e uma pronta recuperação! 💛`;
-        await dispatchTextMessage(senderPhone, outboundReply);
+        // Se o motivo ainda não foi informado (veio apenas pelo clique de botão)
+        if (!reasonExtracted) {
+          outboundReply = `Irmão(ã) *${pubName}*, registramos que você não poderá realizar esta designação.\n\nPor favor, informe em poucas palavras o *motivo* para informarmos ao *Superintendente (SRVM)* e ao *Ajudante do SRVM*.`;
+          await dispatchTextMessage(senderPhone, outboundReply);
+        } else {
+          // Motivo já fornecido: acolhe o publicador
+          outboundReply = `Agradecemos por avisar com antecedência, Irmão(ã) *${pubName}*! Registramos sua justificativa e providenciaremos a substituição. Desejamos tudo de bom e uma pronta recuperação! 💛`;
+          await dispatchTextMessage(senderPhone, outboundReply);
 
-        // 🚨 DISPARO IMEDIATO DE ALERTA EXCLUSIVO PARA SRVM, AJUDANTE E ADMINS
-        await dispatchAlertToLeadership(targetPart, pubName, reason);
+          // 🚨 DISPARO IMEDIATO DE ALERTA EXCLUSIVO PARA SRVM, AJUDANTE E ADMINS
+          await dispatchAlertToLeadership(targetPart, pubName, reason);
+        }
       }
     }
 
@@ -323,8 +456,15 @@ serve(async (req: Request) => {
       const token = publisherData?.id ? await getOrCreateAvailabilityToken(publisherData.id, pubName) : "";
       const link = token ? `${appUrl}/?portal=availability&token=${token}` : `${appUrl}/`;
 
-      outboundReply = `📅 *Atualização de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no link abaixo para marcar as semanas em que você estará ausente ou disponível nos próximos meses:\n\n👉 ${link}\n\n_As datas marcadas são bloqueadas automaticamente pelo motor de designações do RVM._`;
-      await dispatchTextMessage(senderPhone, outboundReply);
+      const promptMsg = `📅 *Painel de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no botão abaixo para abrir o seu painel e indicar as semanas em que estará ausente:`;
+      const buttonSent = await dispatchButtonActionUrl(senderPhone, promptMsg, "📅 Abrir Painel", link);
+
+      if (!buttonSent) {
+        outboundReply = `📅 *Atualização de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no link abaixo para marcar as semanas em que você estará ausente ou disponível nos próximos meses:\n\n👉 ${link}\n\n_As datas marcadas são bloqueadas automaticamente pelo motor de designações do RVM._`;
+        await dispatchTextMessage(senderPhone, outboundReply);
+      } else {
+        outboundReply = `[Botão CTA de Disponibilidade enviado: ${link}]`;
+      }
     }
 
     // CENÁRIO 4: PERMUTA (TROCA COM OUTRO IRMÃO)
@@ -371,6 +511,38 @@ serve(async (req: Request) => {
 // ============================================================================
 // Funções Auxiliares de Envio e Notificação
 // ============================================================================
+
+/** Dispara botão de ação (CTA URL) via Edge Function send-whatsapp */
+async function dispatchButtonActionUrl(phone: string, message: string, buttonLabel: string, url: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        action: "send-button-actions",
+        phone: phone,
+        message: message,
+        buttonActions: [
+          {
+            id: "1",
+            type: "URL",
+            url: url,
+            label: buttonLabel,
+          }
+        ]
+      }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Boolean(data?.success);
+  } catch (err) {
+    console.error("[zapi-smart-webhook] Falha ao enviar button-actions:", err);
+    return false;
+  }
+}
 
 /** Dispara mensagem de texto via Edge Function send-whatsapp */
 async function dispatchTextMessage(phone: string, message: string) {

@@ -329,26 +329,142 @@ class ZApiOrchestrator {
     }
 
     /**
-     * Envio individual do cartão S-89 (imagem + texto-com-link como caption) para
-     * um publicador, via Edge Function. Idempotente por (partId, PUBLICACAO_S89)
-     * quando `idempotencyType` é informado. Usado tanto pelo botão manual-z-api
-     * do modal quanto pelo Publicar em lote.
+     * Envia mensagem com lista de botões de resposta rápida via Edge Function `send-whatsapp` (action `send-button-list`).
+     */
+    async sendButtonListDirect(
+        phone: string,
+        message: string,
+        buttons: { id: string; label: string }[]
+    ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+        if (!phone) {
+            return { success: false, error: 'Destinatário vazio.' };
+        }
+        try {
+            const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+                body: {
+                    action: 'send-button-list',
+                    phone,
+                    message,
+                    buttons,
+                },
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+            return { success: data?.success ?? true, messageId: data?.messageId, error: data?.error };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    }
+
+    /**
+     * Envia mensagem com botões de ação (REPLY, URL, CALL) via Edge Function `send-whatsapp` (action `send-button-actions`).
+     */
+    async sendButtonActionsDirect(
+        phone: string,
+        message: string,
+        buttonActions: Array<{ id: string; type: 'REPLY' | 'URL' | 'CALL'; label: string; url?: string; phone?: string }>
+    ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+        if (!phone) {
+            return { success: false, error: 'Destinatário vazio.' };
+        }
+        try {
+            const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+                body: {
+                    action: 'send-button-actions',
+                    phone,
+                    message,
+                    buttonActions,
+                },
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+            return { success: data?.success ?? true, messageId: data?.messageId, error: data?.error };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    }
+
+    /**
+     * Envio individual do cartão S-89 no formato interativo Opção B com Botões de Ação Direta:
+     * 1. Imagem PNG do cartão S-89 (sem texto longo na legenda).
+     * 2. Mensagem detalhada com 3 botões nativos Z-API via send-button-actions:
+     *    - [ ✅ Confirmar ] (tipo REPLY)
+     *    - [ ❌ Não Poderei ] (tipo REPLY)
+     *    - [ 📅 Disponibilidade ] (tipo URL que abre diretamente o portal no navegador)
+     * Idempotente por (partId, PUBLICACAO_S89) quando `idempotencyType` é informado.
      */
     async sendS89Direct(
         partId: string,
         phone: string,
         content: string,
         imageBase64: string,
-        idempotencyType?: DispatchType
+        idempotencyType?: DispatchType,
+        availabilityUrl?: string
     ): Promise<{ success: boolean; skipped?: boolean; messageId?: string; error?: string }> {
         if (idempotencyType && await this.hasBeenDispatched(partId, idempotencyType)) {
             return { success: true, skipped: true };
         }
-        const r = await this.sendImageDirect(phone, imageBase64, content);
-        if (idempotencyType) {
-            await this.logDispatch(partId, idempotencyType, phone, r.success ? 'SUCCESS' : 'ERROR: ' + (r.error || 'unknown'), r.messageId);
+
+        // 1. Envia a imagem do Cartão S-89 primeiro (sem texto longo na legenda)
+        const imgRes = await this.sendImageDirect(phone, imageBase64, '');
+
+        // 2. Monta os 3 botões de ação rápida nativos do WhatsApp (2 REPLY + 1 URL direta)
+        const buttonActions: Array<{ id: string; type: 'REPLY' | 'URL'; label: string; url?: string }> = [
+            { id: `CONFIRMAR:${partId}`, type: 'REPLY', label: '✅ Confirmar' },
+            { id: `RECUSAR:${partId}`, type: 'REPLY', label: '❌ Não Poderei' },
+        ];
+
+        if (availabilityUrl) {
+            buttonActions.push({
+                id: `DISPONIBILIDADE:${partId}`,
+                type: 'URL',
+                url: availabilityUrl,
+                label: '📅 Disponibilidade',
+            });
+        } else {
+            // Fallback caso availabilityUrl não seja fornecida: botão REPLY escutado pelo webhook
+            buttonActions.push({
+                id: `DISPONIBILIDADE:${partId}`,
+                type: 'REPLY',
+                label: '📅 Disponibilidade',
+            });
         }
-        return { success: r.success, messageId: r.messageId, error: r.error };
+
+        // 3. Envia o texto da designação acompanhado dos 3 botões nativos via send-button-actions
+        let msgRes = await this.sendButtonActionsDirect(phone, content, buttonActions);
+
+        // Fallback: se botões falharem por qualquer motivo, tenta send-button-list ou texto padrão
+        if (!msgRes.success) {
+            console.warn('[zapiOrchestrator] Falha em send-button-actions, tentando send-button-list:', msgRes.error);
+            const fallbackButtons = [
+                { id: `CONFIRMAR:${partId}`, label: '✅ Confirmar' },
+                { id: `RECUSAR:${partId}`, label: '❌ Não Poderei' },
+                { id: `DISPONIBILIDADE:${partId}`, label: '📅 Disponibilidade' },
+            ];
+            msgRes = await this.sendButtonListDirect(phone, content, fallbackButtons);
+            if (!msgRes.success) {
+                console.warn('[zapiOrchestrator] Falha em send-button-list, enviando texto puro:', msgRes.error);
+                msgRes = await this.sendTextDirect(phone, content);
+            }
+        }
+
+        const effectiveSuccess = imgRes.success || msgRes.success;
+        const mainMessageId = msgRes.messageId || imgRes.messageId;
+
+        if (idempotencyType) {
+            await this.logDispatch(
+                partId,
+                idempotencyType,
+                phone,
+                effectiveSuccess ? 'SUCCESS' : 'ERROR: ' + (msgRes.error || imgRes.error || 'unknown'),
+                mainMessageId
+            );
+        }
+        return { success: effectiveSuccess, messageId: mainMessageId, error: msgRes.error || imgRes.error };
     }
 
     /**

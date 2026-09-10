@@ -318,6 +318,121 @@ async function sendViaZApi(phone: string, message: string) {
   return { success: true, messageId: data.messageId, provider: 'z-api' };
 }
 
+/** Envia texto com botões de resposta rápida via Z-API (/send-button-list). */
+async function sendButtonListViaZApi(phone: string, message: string, buttons: any[]) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada.' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-button-list`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+    body: JSON.stringify({ phone, message, buttonList: { buttons } }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API ${res.status}: ${body}` };
+  }
+
+  const data = await res.json();
+  return { success: true, messageId: data.messageId, provider: 'z-api' };
+}
+
+/** Envia texto com botões de ação via Z-API (/send-button-actions). */
+async function sendButtonActionsViaZApi(phone: string, message: string, buttonActions: any[]) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada.' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-button-actions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+    body: JSON.stringify({ phone, message, buttonActions }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API ${res.status}: ${body}` };
+  }
+
+  const data = await res.json();
+  return { success: true, messageId: data.messageId, provider: 'z-api' };
+}
+
+/** Envia enquete (poll) via Z-API (/send-poll). */
+async function sendPollViaZApi(phone: string, message: string, poll: { name: string }[]) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada.' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-poll`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+    body: JSON.stringify({ phone, message, poll, pollMaxOptions: 1 }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API ${res.status}: ${body}` };
+  }
+
+  const data = await res.json();
+  return { success: true, messageId: data.messageId, provider: 'z-api' };
+}
+
+/** Envia link com preview (card) via Z-API (/send-link). */
+async function sendLinkViaZApi(phone: string, message: string, image: string, linkUrl: string, title: string, linkDescription: string) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada.' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-link`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+    body: JSON.stringify({
+      phone,
+      message,
+      image,
+      linkUrl,
+      title,
+      linkDescription,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API ${res.status}: ${body}` };
+  }
+
+  const data = await res.json();
+  return { success: true, messageId: data.messageId, provider: 'z-api' };
+}
+
 /** Envia imagem via Z-API. */
 async function sendImageViaZApi(phone: string, imageBase64: string, caption: string) {
   const creds = await getZApiCredentials();
@@ -905,6 +1020,49 @@ serve(async (req: Request) => {
       });
     }
 
+    // ── Atualizar Webhook de Recebimento na Z-API ──
+    if (body.action === 'update-zapi-webhook') {
+      const creds = await getZApiCredentials();
+      if (!creds) {
+        return new Response(JSON.stringify({ success: false, error: 'Credenciais Z-API não encontradas.' }), {
+          status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
+        });
+      }
+      const { instanceId, instanceToken, clientToken } = creds;
+      const targetUrl = body.url || 'https://pevstuyzlewvjidjkmea.supabase.co/functions/v1/zapi-smart-webhook';
+
+      // 1. Atualizar webhook de mensagens recebidas
+      const updateReceived = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/update-webhook-received`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'client-token': clientToken,
+        },
+        body: JSON.stringify({ value: targetUrl }),
+      });
+      const receivedText = await updateReceived.text();
+
+      // 2. Atualizar todos os webhooks (garante entrega de enquetes, status e mensagens)
+      const updateAll = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/update-every-webhooks`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'client-token': clientToken,
+        },
+        body: JSON.stringify({ value: targetUrl }),
+      });
+      const allText = await updateAll.text();
+
+      return new Response(JSON.stringify({
+        success: updateReceived.ok || updateAll.ok,
+        updateReceived: { status: updateReceived.status, result: receivedText },
+        updateEveryWebhooks: { status: updateAll.status, result: allText },
+        instanceId: instanceId.slice(0, 6) + '...'
+      }), {
+        status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
+      });
+    }
+
     // ── Excluir mensagem via Z-API ("Apagar para todos") ──
     if (body.action === 'delete-message') {
       const { messageId, phone, deleteForMe } = body;
@@ -1139,6 +1297,21 @@ serve(async (req: Request) => {
         );
       }
       result = await sendImageViaZApi(normalizedPhone, image, caption || '');
+    } else if (action === 'send-button-list' || (body.buttons && Array.isArray(body.buttons))) {
+      result = await sendButtonListViaZApi(normalizedPhone, message || '', body.buttons);
+    } else if (action === 'send-button-actions' || (body.buttonActions && Array.isArray(body.buttonActions))) {
+      result = await sendButtonActionsViaZApi(normalizedPhone, message || '', body.buttonActions);
+    } else if (action === 'send-poll' || (body.poll && Array.isArray(body.poll))) {
+      result = await sendPollViaZApi(normalizedPhone, message || 'Como você responde à sua designação?', body.poll);
+    } else if (action === 'send-link' || (body.linkUrl && (body.title || body.linkDescription))) {
+      result = await sendLinkViaZApi(
+        normalizedPhone,
+        message || '',
+        body.image || '',
+        body.linkUrl,
+        body.title || '',
+        body.linkDescription || ''
+      );
     } else {
       if (!message) {
         return new Response(

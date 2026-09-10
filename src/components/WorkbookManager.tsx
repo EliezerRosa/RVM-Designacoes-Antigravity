@@ -831,21 +831,11 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                 );
 
                 if (pdfBase64) {
-                    const confirmUrl = await communicationService.createConfirmationPortalLink(partId, newPub.id);
-                    const srvm = publishers.find(p => p.name.includes('Edmardo'));
-                    const srvmName = srvm?.name || 'Edmardo Queiroz';
-                    const srvmPhone = srvm?.phone || '';
-                    
-                    const baseMsg = generateWhatsAppMessage(
+                    const { content: baseMsg, availabilityUrl } = await communicationService.prepareS89Message(
                         { ...part, resolvedPublisherName: newPub.name },
-                        newPub.gender,
-                        partnerPubName,
-                        partnerPub?.phone,
-                        isAjudante,
-                        srvmName,
-                        srvmPhone,
-                        confirmUrl,
-                        false
+                        publishers,
+                        weekParts,
+                        { isSubstitution: true }
                     );
 
                     const finalMsg = `⚠️ *AVISO IMPORTANTE: SUBSTITUIÇÃO DE DESIGNAÇÃO!*\n_Você foi designado(a) para cobrir a parte de outro publicador._\n\n` + baseMsg;
@@ -855,7 +845,9 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                         partId,
                         newPub.phone,
                         finalMsg,
-                        pdfBase64
+                        pdfBase64,
+                        undefined,
+                        availabilityUrl
                     );
                     console.log(`[ManualReplacement] Resultado S-89:`, rNew);
                 } else {
@@ -879,23 +871,13 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                 );
 
                 if (pdfBase64Partner) {
-                    const confirmUrl = await communicationService.createConfirmationPortalLink(partnerPart?.id || partId, partnerPub.id);
-                    const srvm = publishers.find(p => p.name.includes('Edmardo'));
-                    const srvmName = srvm?.name || 'Edmardo Queiroz';
-                    const srvmPhone = srvm?.phone || '';
-                    
                     const partnerPartObjForMsg = partnerPart || part;
 
-                    const baseMsgPartner = generateWhatsAppMessage(
+                    const { content: baseMsgPartner, availabilityUrl: partnerAvailabilityUrl } = await communicationService.prepareS89Message(
                         { ...partnerPartObjForMsg, resolvedPublisherName: partnerPub.name },
-                        partnerPub.gender,
-                        newPub.name,
-                        newPub?.phone,
-                        partnerIsAjudante,
-                        srvmName,
-                        srvmPhone,
-                        confirmUrl,
-                        false
+                        publishers,
+                        weekParts,
+                        { isSubstitution: false }
                     );
 
                     const rolePartnerChanged = isAjudante ? 'Ajudante' : 'Titular';
@@ -906,7 +888,9 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                         partnerPart?.id || partId,
                         partnerPub.phone,
                         finalMsgPartner,
-                        pdfBase64Partner
+                        pdfBase64Partner,
+                        undefined,
+                        partnerAvailabilityUrl
                     );
                     console.log(`[ManualReplacement] Resultado notificação parceiro:`, rPart);
                 }

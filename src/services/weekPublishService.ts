@@ -408,7 +408,7 @@ export async function publishWeek(
 
             const { partForPdf, assistantName, isStudent } = resolveS89CardParams(card, weekParts);
 
-            const { content } = await communicationService.prepareS89Message(
+            const { content, availabilityUrl } = await communicationService.prepareS89Message(
                 card as any, publishers, weekParts, { isSubstitution: false, meetingDayOfWeek }
             );
             if (!content) {
@@ -424,7 +424,7 @@ export async function publishWeek(
                 continue;
             }
 
-            const sent = await zapiOrchestrator.sendS89Direct(card.id, String(phone), content, imageBase64, 'PUBLICACAO_S89');
+            const sent = await zapiOrchestrator.sendS89Direct(card.id, String(phone), content, imageBase64, 'PUBLICACAO_S89', availabilityUrl);
             if (sent.skipped) {
                 result.s89Skipped++;
             } else if (sent.success) {
