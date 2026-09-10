@@ -345,9 +345,13 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                             if (options.notifyNew && newPub?.phone) {
                                 const pdfBase64 = await generateS89PngBase64({ ...part, resolvedPublisherName: newPub.name }, partnerPubName, undefined, true);
                                 if (pdfBase64) {
-                                    const confirmUrl = await communicationService.createConfirmationPortalLink(partId, newPub.id);
-                                    const msg = generateWhatsAppMessage({ ...part, resolvedPublisherName: newPub.name }, newPub.gender, partnerPubName, partnerPub?.phone, isAjudante, 'Irmão', '', confirmUrl, true);
-                                    await zapiOrchestrator.sendS89Direct(partId, newPub.phone, msg, pdfBase64);
+                                    const { content: msg, availabilityUrl } = await communicationService.prepareS89Message(
+                                        { ...part, resolvedPublisherName: newPub.name },
+                                        publishers,
+                                        allParts,
+                                        { isSubstitution: true }
+                                    );
+                                    await zapiOrchestrator.sendS89Direct(partId, newPub.phone, msg, pdfBase64, undefined, availabilityUrl);
                                 }
                             }
                             if (options.notifyPartner && partnerPub?.phone && newPub) {

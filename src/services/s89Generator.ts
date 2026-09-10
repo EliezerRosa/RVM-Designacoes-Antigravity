@@ -239,7 +239,8 @@ export function generateWhatsAppMessage(
     confirmationUrl?: string,
     isSubstitution: boolean = false,
     meetingDayOfWeek?: number,
-    availabilityUrl?: string
+    availabilityUrl?: string,
+    isZApiFlow: boolean = false
 ): string {
     const studentName = part.resolvedPublisherName || part.rawPublisherName || 'Publicador';
     const salutation = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
@@ -298,9 +299,10 @@ export function generateWhatsAppMessage(
         highlightFunction = 'ORAÇÃO';
     }
 
-    // Bloco de Ações Rápidas com link invisível de disponibilidade quando presente
+    // Bloco de Ações Rápidas em texto (apenas para envio clássico via WhatsApp Web sem botões nativos)
     const dispLinkText = availabilityUrl ? `[ 📅 Disponibilidade ](${availabilityUrl})` : `[ 📅 Disponibilidade ]`;
     const actionBlock = (posLabel: string) => {
+        if (isZApiFlow) return '';
         return `\n🔘 *AÇÕES RÁPIDAS (${posLabel}):*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n──────────────────────────────────────────\n`;
     };
 
@@ -313,15 +315,15 @@ export function generateWhatsAppMessage(
         msg += `_Esta parte foi reatribuída a você. Pedimos a gentileza de avaliar e responder o quanto antes._\n`;
     }
 
-    // 1. Ações Rápidas (Início)
-    msg += actionBlock('INÍCIO');
+    // 1. Ações Rápidas (Início - apenas clássico)
+    if (!isZApiFlow) msg += actionBlock('INÍCIO');
 
     msg += `📅 *Data:* ${displayDate}\n`;
     msg += `⏰ *Início:*${time}\n`;
     msg += `🏛️ *Local:* ${room}\n`;
 
-    // 2. Ações Rápidas (Meio)
-    msg += actionBlock('MEIO');
+    // 2. Ações Rápidas (Meio - apenas clássico)
+    if (!isZApiFlow) msg += actionBlock('MEIO');
 
     if (partnerName) {
         msg += `\n${partnerEmoji} *${partnerRoleName}:* *${partnerName}*\n`;
@@ -339,11 +341,13 @@ export function generateWhatsAppMessage(
         msg += `📱 *Falar com ele (Zap):* https://wa.me/${cleaned}\n`;
     }
 
-    // 3. Ações Rápidas (Fim)
-    msg += `\n🔘 *AÇÕES RÁPIDAS (FIM):*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n`;
+    // 3. Ações Rápidas (Fim - apenas clássico)
+    if (!isZApiFlow) {
+        msg += `\n🔘 *AÇÕES RÁPIDAS (FIM):*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n`;
+    }
 
-    // Compatibilidade retroativa se confirmationUrl for explicitamente fornecido
-    if (confirmationUrl) {
+    // Compatibilidade retroativa apenas se confirmationUrl for explicitamente fornecido e NÃO for fluxo Z-API
+    if (confirmationUrl && !isZApiFlow) {
         msg += `\n─────────────\n👉 *Portal Web:* ${confirmationUrl}\n`;
     }
 

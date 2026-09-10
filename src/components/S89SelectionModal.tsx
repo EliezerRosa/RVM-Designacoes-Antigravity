@@ -491,19 +491,21 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
             const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part, weekParts);
 
-            // Texto com link de confirmação (mesma fonte do envio manual).
+            // Texto e link de disponibilidade pessoal (mesma fonte da verdade)
             let message = editingMessages[part.id];
-            if (!message || !hasConfirmationLink(message)) {
-                try {
-                    const { content } = await communicationService.prepareS89Message(
-                        part as any, publishers, weekParts,
-                        { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek }
-                    );
-                    message = content;
-                    setEditingMessages(prev => ({ ...prev, [part.id]: content }));
-                } catch (err) {
-                    console.warn('[S89Modal/zapi] Falha ao gerar mensagem com link:', err);
+            let availabilityUrl: string | undefined = undefined;
+            try {
+                const prep = await communicationService.prepareS89Message(
+                    part as any, publishers, weekParts,
+                    { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek }
+                );
+                if (!message) {
+                    message = prep.content;
+                    setEditingMessages(prev => ({ ...prev, [part.id]: prep.content }));
                 }
+                availabilityUrl = prep.availabilityUrl;
+            } catch (err) {
+                console.warn('[S89Modal/zapi] Falha ao gerar mensagem/link:', err);
             }
 
             if (!message) {
@@ -519,7 +521,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             }
 
             // Envio individual (manual): sem idempotência — pode reenviar.
-            const result = await zapiOrchestrator.sendS89Direct(part.id, String(phone), message, imageBase64);
+            const result = await zapiOrchestrator.sendS89Direct(part.id, String(phone), message, imageBase64, undefined, availabilityUrl);
 
             await communicationService.logNotification({
                 type: 'S89',
