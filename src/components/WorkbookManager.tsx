@@ -32,6 +32,7 @@ import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
 import { MyAssignmentsModal } from './MyAssignmentsModal';
+import { ManualReplacementModal } from './admin/ManualReplacementModal';
 import { useAuth } from '../context/AuthContext';
 import { SemanticDraggableGenerator } from './ui/SemanticDraggableGenerator';
 
