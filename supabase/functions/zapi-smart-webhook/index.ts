@@ -296,7 +296,7 @@ serve(async (req: Request) => {
           .eq("id", candidatePartId)
           .maybeSingle();
 
-        if (partCheck && partCheck.status === "ENVIADA") {
+        if (partCheck && partCheck.status !== "CONCLUIDA" && partCheck.status !== "CANCELADA") {
           targetPartId = candidatePartId;
           targetPart = partCheck;
           matchedBy = "TEMPORAL_WINDOW";
@@ -377,18 +377,29 @@ serve(async (req: Request) => {
 
     // CENÁRIO 1: CONFIRMAÇÃO
     if (detectedIntent === "CONFIRMAR") {
-      if (targetPart && targetPart.status === "ENVIADA") {
-        // Concorrência segura: atualiza status para DESIGNADA
+      if (targetPart && targetPart.status !== "CONCLUIDA" && targetPart.status !== "CANCELADA") {
+        // Concorrência segura: assegura status DESIGNADA em workbook_parts
         await supabase
           .from("workbook_parts")
           .update({
             status: "DESIGNADA",
             status_changed_at: new Date().toISOString(),
           })
-          .eq("id", targetPart.id)
-          .eq("status", "ENVIADA");
+          .eq("id", targetPart.id);
 
-        actionTaken = "STATUS_DESIGNADA";
+        // Registra em confirmation_portal_responses para o modal S-89 carimbar como ACEITA!
+        await supabase
+          .from("confirmation_portal_responses")
+          .insert({
+            part_id: String(targetPart.id),
+            publisher_id: String(targetPart.resolved_publisher_id || targetPart.publisher_id || publisherData?.id || "0"),
+            response: "confirmed",
+            part_status_after: "DESIGNADA",
+            trust_level: "zapi",
+            created_at: new Date().toISOString(),
+          });
+
+        actionTaken = "STATUS_CONFIRMADA";
 
         const tipoParte = targetPart.tipo_parte || targetPart.part_title || "Designação";
         outboundReply = `✅ *Confirmação Registrada!*\n\nFicamos muito felizes, Irmão(ã) *${pubName}*! Sua designação de *${tipoParte}* está confirmada no programa da reunião.\n\nQue Jeová abençoe sua preparação! 🙏`;
@@ -421,6 +432,19 @@ serve(async (req: Request) => {
             status_changed_at: new Date().toISOString(),
           })
           .eq("id", targetPart.id);
+
+        // Registra em confirmation_portal_responses para o modal S-89 carimbar como REJEITADA!
+        await supabase
+          .from("confirmation_portal_responses")
+          .insert({
+            part_id: String(targetPart.id),
+            publisher_id: String(targetPart.resolved_publisher_id || targetPart.publisher_id || publisherData?.id || "0"),
+            response: "refused",
+            response_reason: reason,
+            part_status_after: "REJEITADA",
+            trust_level: "zapi",
+            created_at: new Date().toISOString(),
+          });
 
         // Grava no log histórico de recusas
         await supabase.from("refusal_logs").insert({

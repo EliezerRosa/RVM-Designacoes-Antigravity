@@ -535,7 +535,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 recipient_name: publisherName,
                 recipient_phone: String(phone),
                 title: `S-89 (Z-API): ${part.tipoParte}`,
-                content: message,
+                content: cleanMessage,
                 status: result.success ? 'SENT' : 'ERROR',
                 metadata: {
                     weekId,
@@ -549,7 +549,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
             if (result.success) {
                 const nowIso = new Date().toISOString();
-                setLastMessages(prev => ({ ...prev, [part.id]: { content: message, created_at: nowIso } }));
+                setLastMessages(prev => ({ ...prev, [part.id]: { content: cleanMessage, created_at: nowIso } }));
                 setSendHistory(prev => {
                     const arr = prev[part.id] ? [...prev[part.id]] : [];
                     arr.unshift({ sentAt: nowIso, kind: substitutionIds.has(part.id) ? 'substituicao' : 'inicial' });
