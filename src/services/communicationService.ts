@@ -530,7 +530,7 @@ export const communicationService = {
      * Prepara a mensagem S-89 individual
      * Inclui contexto de excepcionalidades (eventos especiais) quando aplicável
      */
-    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = [], options: { isSubstitution?: boolean, meetingDayOfWeek?: number, isZApiFlow?: boolean } = {}): Promise<{ content: string, phone?: string, availabilityUrl?: string }> {
+    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = [], options: { isSubstitution?: boolean, meetingDayOfWeek?: number, isZApiFlow?: boolean } = {}): Promise<{ content: string, phone?: string, availabilityUrl?: string, confirmationUrl?: string }> {
         const publisherName = resolvePartPublisherName(part, publishers).trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
@@ -635,6 +635,15 @@ export const communicationService = {
             availabilityUrl = await this.getOrCreateAvailabilityLink(publisherId, publisherName);
         }
 
+        const isZApiFlow = options.isZApiFlow !== false;
+
+        // Suporte retroativo e fallback explícito para método clássico (WhatsApp Web / Zap manual):
+        // Gera o link do portal de confirmação quando não for fluxo Z-API ou quando solicitado explicitamente
+        let confirmationUrl: string | undefined;
+        if (!isZApiFlow || options.includeConfirmationLink) {
+            confirmationUrl = (await this.createConfirmationPortalLink(part.id, publisherId)) || undefined;
+        }
+
         let content = generateWhatsAppMessage(
             part,
             recipientGender,
@@ -643,11 +652,11 @@ export const communicationService = {
             isAjudante,
             srvmName,
             srvmPhone,
-            undefined, // URL de confirmação descontinuada em favor dos botões nativos e leitura conversacional
+            confirmationUrl,
             options.isSubstitution,
             meetingDayOfWeek,
             availabilityUrl || undefined,
-            options.isZApiFlow !== false // Por padrão true para fluxo com botões nativos
+            isZApiFlow
         );
 
         // Buscar eventos especiais da semana para adicionar contexto
@@ -762,8 +771,23 @@ export const communicationService = {
         return {
             content,
             phone: pub?.phone,
-            availabilityUrl: availabilityUrl || undefined
+            availabilityUrl: availabilityUrl || undefined,
+            confirmationUrl: confirmationUrl || undefined,
         };
+    },
+
+    /**
+     * Limpa URLs cruas de confirmação e pseudo-botões de texto caso o usuário
+     * tenha editado a mensagem manualmente na textarea do modal e resolva enviar via Z-API.
+     */
+    sanitizeMessageForZApi(text: string): string {
+        if (!text) return text;
+        return text
+            .replace(/\n*👉 \*Portal Web:\* https?:\/\/\S+/gi, '')
+            .replace(/\n*🔘 \*AÇÕES RÁPIDAS \([^)]+\):\*\n\[.+?\]\n─+/gi, '')
+            .replace(/\n*🔘 \*AÇÕES RÁPIDAS \([^)]+\):\*\n\[.+?\]/gi, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
     },
 
     /**

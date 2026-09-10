@@ -409,7 +409,7 @@ export async function publishWeek(
             const { partForPdf, assistantName, isStudent } = resolveS89CardParams(card, weekParts);
 
             const { content, availabilityUrl } = await communicationService.prepareS89Message(
-                card as any, publishers, weekParts, { isSubstitution: false, meetingDayOfWeek }
+                card as any, publishers, weekParts, { isSubstitution: false, meetingDayOfWeek, isZApiFlow: true }
             );
             if (!content) {
                 result.s89Failed++;
