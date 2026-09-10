@@ -322,7 +322,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                         if (options.notifyOld || options.notifyNew || options.notifyPartner) {
                             // Dinamicamente importar e disparar, mesma lógica do WorkbookManager
                             const { zapiOrchestrator } = await import('../services/zapiOrchestrator');
-                            const { generateS89PngBase64, generateWhatsAppMessage } = await import('../services/s89Generator');
+                            const { generateS89PngBase64 } = await import('../services/s89Generator');
                             const { communicationService } = await import('../services/communicationService');
 
                             const oldPub = publishers.find(p => p.name === oldName || p.id === part.resolvedPublisherId);
@@ -349,7 +349,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                                         { ...part, resolvedPublisherName: newPub.name },
                                         publishers,
                                         allParts,
-                                        { isSubstitution: true }
+                                        { isSubstitution: true, isZApiFlow: true }
                                     );
                                     await zapiOrchestrator.sendS89Direct(partId, newPub.phone, msg, pdfBase64, undefined, availabilityUrl);
                                 }

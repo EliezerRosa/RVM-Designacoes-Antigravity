@@ -33,14 +33,6 @@ import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
 import { MyAssignmentsModal } from './MyAssignmentsModal';
 import { useAuth } from '../context/AuthContext';
-import { ManualReplacementModal } from './admin/ManualReplacementModal';
-import { zapiOrchestrator } from '../services/zapiOrchestrator';
-import { generateS89PngBase64, generateWhatsAppMessage } from '../services/s89Generator';
-import { communicationService } from '../services/communicationService';
-import { CSClearanceModal } from './admin/CSClearanceModal';
-
-
-
 import { SemanticDraggableGenerator } from './ui/SemanticDraggableGenerator';
 
 import { ReportsTab } from './ReportsTab';

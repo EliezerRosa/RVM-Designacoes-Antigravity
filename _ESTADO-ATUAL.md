@@ -1,8 +1,8 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-09-06 12:35 (BRT)  
+> **Última Atualização**: 2026-09-10 15:25 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 9 Concluída — Blindagem Total de Tokens com Google Auth Restrito e First-Access Binding; Auditoria Canônica de Crons e Invariantes S-89)
+> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 10 Concluída — Implementação Definitiva S-89 via WhatsApp com Botões Nativos Z-API, Retrocompatibilidade Web, Unificação DRY e Dual-Table Sync)
 
 ---
 
@@ -258,3 +258,45 @@
      - **Admins**
      - *(A Comissão de Serviço - CS - permanece estritamente isolada dessa operação diária).*
   5. **Simplificação e Limpeza**: Descontinuação do gatilho legado duplicado (`trg_webhook_whatsapp_orchestrator`) em favor da nova Edge Function unificada (`zapi-smart-webhook`).
+
+---
+
+## 8. Fase 10 — Implementação Definitiva S-89 via WhatsApp, Unificação DRY e Retrocompatibilidade (2026-09-10)
+
+### 📌 1. Arquitetura DRY Estrita e Eliminação de Redundâncias
+- **Fonte Única de Verdade**: `communicationService.prepareS89Message` é agora o **único** ponto de geração do corpo da mensagem S-89 em todo o sistema.
+- **Limpeza de Chamadas Residuais**: Removidos imports e chamadas não canônicas a `generateWhatsAppMessage` em `AgentModalHost.tsx`, `WorkbookManager.tsx` e `ReplacementPortal.tsx`. Todas as telas e serviços usam exclusivamente `prepareS89Message`.
+- **Assinatura Padronizada**: `prepareS89Message(part, publishers, allWeekParts, options)` retorna `{ content, phone, availabilityUrl, confirmationUrl }`.
+
+### 📌 2. Fluxo Nativo Z-API (`isZApiFlow = true`)
+- **Cartão Visual Limpo**: Envio da imagem PNG do cartão S-89 renderizada em alta fidelidade pelo Canvas/DOM sem sobrecarga ou poluição de legendas.
+- **Três Botões Nativos do WhatsApp**:
+  1. `[✅ Confirmar]`: Dispara callback determinístico (`confirm_<partId>`) que transiciona o status da designação para `CONFIRMADA` em 1 toque.
+  2. `[❌ Não Poderei]`: Abre o fluxo de justificativa/recusa (`decline_<partId>`) com alerta imediato para SRVM, Ajudante e Admin.
+  3. `[📅 Disponibilidade]`: Botão de link nativo de ação direcionando para o Portal de Disponibilidade do publicador (`https://.../?portal=availability&token=<token>`).
+- **Supressão de Links Crus**: No modo Z-API, o texto da mensagem não exibe URLs cruas de portal web (`/?portal=confirm&token=...`), proporcionando interface limpa e moderna.
+- **Sanitização Pré-Disparo**: Função `communicationService.sanitizeMessageForZApi(text)` limpa links de confirmação web inseridos manualmente pelo operador antes do despacho via Z-API.
+- **Invariante de Resposta**: Detecção de respostas em texto livre condicionada à prévia existência de disparo registrado em `zapi_dispatch_log` para aquela parte e telefone.
+
+### 📌 3. Fluxo Clássico / Sem Z-API / Fallback (`isZApiFlow = false`)
+- **Retrocompatibilidade Plena**: Suporte total e ininterrupto ao botão clássico `Zap 📤` do modal e a lembretes de partes não confirmadas.
+- **Inclusão Automática do Link Web**: Quando `isZApiFlow` é falso, `prepareS89Message` gera o token seguro via `communicationService.getOrCreateConfirmationToken` e embute explicitamente na mensagem:
+  `👉 *Portal Web:* https://.../?portal=confirm&token=<token>`
+- Garante que congregações ou momentos sem integração Z-API ativa continuem permitindo confirmação pelo navegador via WhatsApp Web.
+
+### 📌 4. Sincronização Dual-Table no Supabase (`settings` x `app_settings`)
+- **Resolução Unificada da RPC `authorize_availability_portal`**: A migration atualizada faz a busca canônica primeiro em `app_settings` com fallback em `settings`.
+- **Gravação Bidirecional**: `communicationService.getOrCreateAvailabilityLink` grava e atualiza os tokens em ambas as tabelas (`app_settings` e `settings`), eliminando erros de autorização decorrentes de divergências de schema.
+
+### 📌 5. Comparativo Operacional: S-89 vs S-140 vs Status Board
+
+| Funcionalidade | Com Z-API (`isZApiFlow: true`) | Sem Z-API / Manual (`Zap 📤` / Web) |
+| :--- | :--- | :--- |
+| **S-89 (Designação)** | Imagem PNG + Mensagem limpa + 3 botões nativos (`Confirmar`, `Não Poderei`, `Disponibilidade`). Sem URLs no texto. | Link explícito do portal web no texto (`/?portal=confirm&token=...`) + Abertura direta no WhatsApp Web. |
+| **S-140 (Programação Completa)** | Disparo automático via API da imagem PNG e legenda para SRVM, Ajudantes e Grupo cadastrados. | Imagem copiada para Área de Transferência (Clipboard) + Abertura da janela do WhatsApp Web com texto pré-preenchido. |
+| **Status Board (Quadro Geral)** | Disparo automático do relatório consolidado e imagem para destinatários cadastrados. | Cópia do texto/imagem para o Clipboard + Abertura manual do WhatsApp Web. |
+
+### 📌 6. Higienização Completa de Testes
+- **Banco de Dados Supabase (`pevstuyzlewvjidjkmea`)**: Excluídos todos os registros e logs da designação fictícia de teste da semana de 08/out/2026 (`fa000000-0000-4000-8000-000000000001` em `workbook_parts` e `zapi_dispatch_log`).
+- **Repositório**: Removidos artefatos de teste locais (`public/test_s89_generated.png`, `scripts/test_live_image.ts` e `scripts/test_render_s89_playwright.ts`).
+- **Validação de Tipagem**: `npx tsc --noEmit` executado com zero erros em 100% do projeto.

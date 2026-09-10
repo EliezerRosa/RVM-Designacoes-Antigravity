@@ -3,8 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import type { WorkbookPart, Publisher } from '../types';
 import { checkEligibility } from '../services/eligibilityService';
-import { getModalidadeFromTipo } from '../constants/mappings';
-import { generateWhatsAppMessage, generateS89PngBase64 } from '../services/s89Generator';
+import { generateS89PngBase64 } from '../services/s89Generator';
 import { api } from '../services/api';
 import { unifiedActionService } from '../services/unifiedActionService';
 
@@ -215,7 +214,7 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
                     updatedPart as any,
                     allPublishers,
                     weekParts,
-                    { isSubstitution: true }
+                    { isSubstitution: true, isZApiFlow: true }
                 );
 
                 // Enviar com imagem se disponível, senão só texto

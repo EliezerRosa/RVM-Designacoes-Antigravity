@@ -330,10 +330,14 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             // Obter mensagem (pode estar undefined se validParts acabou de ser populado)
             let message = editingMessages[part.id];
 
-            // Gerar on-demand se ainda não estiver pronta
+            // Gerar on-demand se ainda não estiver pronta (método clássico com link explícito de confirmação)
             if (!message) {
                 try {
-                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek });
+                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, {
+                        isSubstitution: substitutionIds.has(part.id),
+                        meetingDayOfWeek,
+                        isZApiFlow: false,
+                    });
                     message = content;
                     setEditingMessages(prev => ({ ...prev, [part.id]: content }));
                 } catch (err) {
@@ -344,7 +348,11 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const canHaveConfirmationLink = Boolean(part.resolvedPublisherId || foundPublisher?.id);
             if (message && canHaveConfirmationLink && !hasConfirmationLink(message)) {
                 try {
-                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek });
+                    const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, {
+                        isSubstitution: substitutionIds.has(part.id),
+                        meetingDayOfWeek,
+                        isZApiFlow: false,
+                    });
                     if (hasConfirmationLink(content)) {
                         message = content;
                         setEditingMessages(prev => ({ ...prev, [part.id]: content }));
@@ -472,11 +480,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
         }
     };
 
-    // --- ENVIO INDIVIDUAL S-89 VIA Z-API (DESACOPLADO) ---
-    // Mesma intenção do botão manual-web (Zap 📤), porém envia o cartão S-89
-    // (imagem) + texto-com-link diretamente ao publicador via Edge Function,
-    // sem abrir o WhatsApp Web nem usar o clipboard. O fluxo manual permanece
-    // intocado.
+    // --- ENVIO INDIVIDUAL S-89 VIA Z-API (DESACOPLADO COM BOTÕES NATIVOS) ---
     const handleSendS89ViaZApi = async (part: WorkbookPart) => {
         setProcessingZapiIds(prev => new Set(prev).add(part.id));
         try {
@@ -492,15 +496,15 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part, weekParts);
 
             // Texto e link de disponibilidade pessoal (mesma fonte da verdade)
-            let message = editingMessages[part.id];
+            let rawMessage = editingMessages[part.id];
             let availabilityUrl: string | undefined = undefined;
             try {
                 const prep = await communicationService.prepareS89Message(
                     part as any, publishers, weekParts,
-                    { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek }
+                    { isSubstitution: substitutionIds.has(part.id), meetingDayOfWeek, isZApiFlow: true }
                 );
-                if (!message) {
-                    message = prep.content;
+                if (!rawMessage) {
+                    rawMessage = prep.content;
                     setEditingMessages(prev => ({ ...prev, [part.id]: prep.content }));
                 }
                 availabilityUrl = prep.availabilityUrl;
@@ -508,10 +512,13 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 console.warn('[S89Modal/zapi] Falha ao gerar mensagem/link:', err);
             }
 
-            if (!message) {
+            if (!rawMessage) {
                 alert('Mensagem ainda não carregada. Aguarde um instante e tente novamente.');
                 return;
             }
+
+            // Sanitiza para garantir que não haja URLs cruas nem pseudo-botões de texto no envio Z-API
+            const cleanMessage = communicationService.sanitizeMessageForZApi(rawMessage);
 
             // Imagem do cartão S-89 (headless, sem clipboard).
             const imageBase64 = await generateS89PngBase64(partForPdf, assistantName, meetingDayOfWeek, isStudent);
@@ -521,7 +528,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             }
 
             // Envio individual (manual): sem idempotência — pode reenviar.
-            const result = await zapiOrchestrator.sendS89Direct(part.id, String(phone), message, imageBase64, undefined, availabilityUrl);
+            const result = await zapiOrchestrator.sendS89Direct(part.id, String(phone), cleanMessage, imageBase64, undefined, availabilityUrl);
 
             await communicationService.logNotification({
                 type: 'S89',
