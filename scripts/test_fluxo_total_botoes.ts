@@ -117,14 +117,17 @@ async function runEndToEndTest() {
   }
 
   if (!imageBase64) {
-    const demoPath = './.vercel/output/static/territories/territory_card_01.png';
-    if (fs.existsSync(demoPath)) {
-      imageBase64 = fs.readFileSync(demoPath).toString('base64');
+    const realCardPath = 'public/test_s89_generated.png';
+    if (fs.existsSync(realCardPath)) {
+      imageBase64 = fs.readFileSync(realCardPath).toString('base64');
     } else {
-      imageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const fallbackPath = 'public/territories/territory_card_01.png';
+      if (fs.existsSync(fallbackPath)) {
+        imageBase64 = fs.readFileSync(fallbackPath).toString('base64');
+      }
     }
   }
-  console.log('   ✅ Imagem PNG pronta.');
+  console.log(`   ✅ Imagem PNG pronta (${imageBase64 ? imageBase64.length : 0} bytes base64).`);
 
   // 6. Montar a Mensagem usando o serviço centralizado (DRY)
   console.log('📄 Formatando mensagem com generateWhatsAppMessage (isZApiFlow = true)...');
