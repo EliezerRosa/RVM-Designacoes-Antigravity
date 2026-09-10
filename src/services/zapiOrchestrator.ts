@@ -411,6 +411,7 @@ class ZApiOrchestrator {
 
         // 1. Envia a imagem do Cartão S-89 primeiro (sem texto longo na legenda)
         const imgRes = await this.sendImageDirect(phone, imageBase64, '');
+        console.log('[zapiOrchestrator.sendS89Direct] Resultado do envio da imagem S-89:', imgRes);
 
         // 2. Monta os 3 botões de ação rápida nativos do WhatsApp (2 REPLY + 1 URL direta)
         const buttonActions: Array<{ id: string; type: 'REPLY' | 'URL'; label: string; url?: string }> = [

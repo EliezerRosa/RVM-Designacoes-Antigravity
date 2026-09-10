@@ -290,14 +290,26 @@ export const communicationService = {
      */
     async getOrCreateAvailabilityLink(publisherId: string, publisherName: string): Promise<string | null> {
         try {
-            const { data: settingsData } = await supabase
-                .from('settings')
+            // Carrega de app_settings ou settings
+            let tokens: any[] = [];
+            const { data: appSetData } = await supabase
+                .from('app_settings')
                 .select('value')
                 .eq('key', 'availability_tokens')
                 .maybeSingle();
 
-            let tokens: any[] = settingsData?.value || [];
-            if (!Array.isArray(tokens)) tokens = [];
+            if (Array.isArray(appSetData?.value)) {
+                tokens = appSetData.value;
+            } else {
+                const { data: setData } = await supabase
+                    .from('settings')
+                    .select('value')
+                    .eq('key', 'availability_tokens')
+                    .maybeSingle();
+                if (Array.isArray(setData?.value)) {
+                    tokens = setData.value;
+                }
+            }
 
             let token = tokens.find((t: any) => t.publisherId === publisherId && t.active);
             if (!token) {
@@ -312,10 +324,10 @@ export const communicationService = {
                     active: true,
                 };
                 tokens.push(newEntry);
-                await supabase.from('settings').upsert({
-                    key: 'availability_tokens',
-                    value: tokens,
-                });
+                await Promise.all([
+                    supabase.from('app_settings').upsert({ key: 'availability_tokens', value: tokens }),
+                    supabase.from('settings').upsert({ key: 'availability_tokens', value: tokens }),
+                ]);
                 token = newEntry;
             }
 
