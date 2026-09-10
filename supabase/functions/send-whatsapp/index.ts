@@ -48,13 +48,23 @@ function getCorsHeaders(req: Request) {
  * Retorna { authorized: true, userId, email } ou { authorized: false, error }.
  */
 async function verifyCallerIsEditor(req: Request): Promise<{ authorized: boolean; userId?: string; email?: string; error?: string }> {
+  const authHeader = req.headers.get('Authorization') || '';
+  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  // @ts-ignore Deno.env
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  if (supabaseServiceKey && jwt === supabaseServiceKey) {
+    return { authorized: true, userId: 'service-role', email: 'service-role@supabase.internal' };
+  }
+
   // Verifica se o robô headless está autenticado via x-bot-token
   const botTokenHeader = req.headers.get('x-bot-token');
   if (botTokenHeader) {
+    if (supabaseServiceKey && botTokenHeader.trim() === supabaseServiceKey) {
+      return { authorized: true, userId: 'service-role', email: 'service-role@supabase.internal' };
+    }
     // @ts-ignore Deno.env
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    // @ts-ignore Deno.env
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     const { data: botSetting } = await adminClient
       .from('app_settings')
@@ -67,11 +77,9 @@ async function verifyCallerIsEditor(req: Request): Promise<{ authorized: boolean
     }
   }
 
-  const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return { authorized: false, error: 'Missing Authorization header' };
   }
-  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!jwt) {
     return { authorized: false, error: 'Empty Bearer token' };
   }
@@ -89,8 +97,6 @@ async function verifyCallerIsEditor(req: Request): Promise<{ authorized: boolean
   }
 
   // Check if user is editor via RPC (which checks profile role + publisher funcao)
-  // @ts-ignore Deno.env
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
   const { data: isEditorResult } = await adminClient
@@ -1053,10 +1059,22 @@ serve(async (req: Request) => {
       });
       const allText = await updateAll.text();
 
+      // 3. Atualizar notificar enviadas por mim também (essencial para testes no próprio número e botões)
+      const updateNotify = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/update-notify-sent-by-me`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'client-token': clientToken,
+        },
+        body: JSON.stringify({ notifySentByMe: true }),
+      });
+      const notifyText = await updateNotify.text();
+
       return new Response(JSON.stringify({
         success: updateReceived.ok || updateAll.ok,
         updateReceived: { status: updateReceived.status, result: receivedText },
         updateEveryWebhooks: { status: updateAll.status, result: allText },
+        updateNotifySentByMe: { status: updateNotify.status, result: notifyText },
         instanceId: instanceId.slice(0, 6) + '...'
       }), {
         status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
@@ -1321,7 +1339,7 @@ serve(async (req: Request) => {
       }
       if (provider === 'meta-cloud') {
         result = await sendViaMeta(normalizedPhone, message);
-      } else if (provider === 'z-api') {
+      } else if (provider === 'z-api' || (await getZApiCredentials())) {
         result = await sendViaZApi(normalizedPhone, message);
       } else {
         result = await sendViaEvolution(normalizedPhone, message);

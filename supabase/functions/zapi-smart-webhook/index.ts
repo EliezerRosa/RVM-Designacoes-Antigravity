@@ -80,32 +80,71 @@ serve(async (req: Request) => {
   }
 
   try {
-    const payload: ZApiPayload = await req.json();
-    console.log("[zapi-smart-webhook] Payload recebido:", JSON.stringify(payload));
+    const body: any = await req.json();
+    console.log("[zapi-smart-webhook] Payload recebido:", JSON.stringify(body).slice(0, 400));
 
+    // Z-API pode enviar payload em formatos aninhados (body.data ou body)
+    const payload: ZApiPayload = body.data || body;
     const dataObj = (payload as any).data || payload;
+
+    // 1. Filtrar eventos puramente de status/presença que NÃO são mensagens nem ações de usuários
+    const eventType = payload.type || (payload as any).event;
+    if (eventType && ["DeliveryCallback", "MessageStatusCallback", "PresenceChatCallback", "ConnectedCallback", "DisconnectedCallback"].includes(eventType)) {
+      return new Response(JSON.stringify({ ignored: true, eventType }), { status: 200 });
+    }
+
     const rawPollVote = (payload as any).pollVote || dataObj.pollVote || (payload as any).poll || dataObj.poll;
     const isPoll = Boolean(rawPollVote);
 
-    const isInteraction = Boolean(payload.buttonsResponseMessage || payload.reaction || payload.reactionMessage || rawPollVote);
-    // Ignora mensagens enviadas pelo próprio bot, exceto se for uma interação direta (ex: testando consigo mesmo)
+    const buttonId = payload.buttonsResponseMessage?.buttonId || 
+                     payload.buttonsResponseMessage?.selectedButtonId ||
+                     (payload as any).data?.buttonsResponseMessage?.buttonId ||
+                     (payload as any).data?.buttonsResponseMessage?.selectedButtonId ||
+                     (payload as any).selectedButtonId ||
+                     (payload as any).buttonId;
+    const buttonMessage = payload.buttonsResponseMessage?.message || 
+                          (payload as any).data?.buttonsResponseMessage?.message || 
+                          (payload as any).buttonText ||
+                          "";
+    const reactionVal = payload.reaction?.value || payload.reactionMessage?.value;
+    const reactionMsgId = payload.reaction?.messageId || payload.reactionMessage?.messageId;
+    const quotedMsgId = payload.quotedMsg?.messageId || 
+                        payload.referenceMessageId || 
+                        (payload as any).referencedMessage?.messageId ||
+                        (payload as any).contextInfo?.stanzaId;
+    const inboundText = (payload.text?.message || payload.message || buttonMessage || (payload as any).body || "").trim();
+
+    const hasQuotedMsg = Boolean(quotedMsgId);
+    const isInteraction = Boolean(buttonId || reactionVal || rawPollVote || hasQuotedMsg);
+
+    // Ignora mensagens enviadas pelo próprio bot, exceto se for interação ou resposta com palavra-chave
     if (payload.fromMe === true && !isInteraction) {
-      return new Response(JSON.stringify({ ignored: true, reason: "fromMe" }), { status: 200 });
+      const lower = inboundText.toLowerCase();
+      const hasKeyword = /\b(confirmar|confirmo|sim|não|recusar|poderei|disponibilidade)\b/i.test(lower);
+      if (!hasKeyword) {
+        return new Response(JSON.stringify({ ignored: true, reason: "fromMe" }), { status: 200 });
+      }
     }
     if (payload.isGroup === true && !isPoll) {
       return new Response(JSON.stringify({ ignored: true, reason: "isGroup" }), { status: 200 });
     }
 
-    const senderPhone = payload.phone || 
-                        payload.senderPhone || 
-                        (payload as any).participantPhone || 
-                        dataObj.phone || 
-                        dataObj.senderPhone || 
-                        (dataObj.sender ? String(dataObj.sender).replace(/@.*$/, "") : "") || 
-                        "";
-    if (!senderPhone) {
-      return new Response(JSON.stringify({ ignored: true, reason: "No sender phone" }), { status: 200 });
+    let senderPhone = payload.phone || 
+                      payload.senderPhone || 
+                      (payload as any).participantPhone || 
+                      dataObj.phone || 
+                      dataObj.senderPhone || 
+                      (dataObj.sender ? String(dataObj.sender).replace(/@.*$/, "") : "") || 
+                      "";
+
+    // Se o senderPhone for um LID (@lid), tenta obter o telefone numérico real de outros campos
+    if (senderPhone.includes("@lid")) {
+      const realPhone = payload.senderPhone || (payload as any).participantPhone || dataObj.phone || "";
+      if (realPhone && !realPhone.includes("@lid")) {
+        senderPhone = realPhone;
+      }
     }
+    senderPhone = senderPhone.replace(/@.*$/, "").replace(/\D/g, "");
 
     const inboundMessageId = payload.messageId || "";
     let matchedBy = "UNMATCHED";
@@ -119,21 +158,40 @@ serve(async (req: Request) => {
     let targetPart: any = null;
     let publisherData: any = null;
 
+    // Se temos quotedMsgId, tenta resolver a parte imediatamente pelo histórico de despachos
+    if (quotedMsgId) {
+      const { data: logEntry } = await supabase
+        .from("zapi_dispatch_log")
+        .select("part_id, recipient_phone")
+        .eq("message_id", quotedMsgId)
+        .maybeSingle();
+
+      if (logEntry?.part_id) {
+        targetPartId = logEntry.part_id.replace(/-(titular|ajudante)$/i, "");
+        matchedBy = "QUOTED_MSG";
+        if (!senderPhone && logEntry.recipient_phone) {
+          senderPhone = logEntry.recipient_phone.replace(/\D/g, "");
+        }
+      }
+    }
+
     // --------------------------------------------------------------------------
     // 1. Identificar o Publicador pelo Telefone
     // --------------------------------------------------------------------------
-    const { data: allPubs } = await supabase.from("publishers").select("id, data");
-    if (allPubs && allPubs.length > 0) {
-      for (const p of allPubs) {
-        const pPhone = p.data?.phone || p.data?.contact_phone || "";
-        if (phoneMatches(senderPhone, pPhone)) {
-          publisherData = {
-            id: p.id,
-            name: p.data?.name || "Irmão(ã)",
-            gender: p.data?.gender || "brother",
-            phone: pPhone,
-          };
-          break;
+    if (senderPhone) {
+      const { data: allPubs } = await supabase.from("publishers").select("id, data");
+      if (allPubs && allPubs.length > 0) {
+        for (const p of allPubs) {
+          const pPhone = p.data?.phone || p.data?.contact_phone || "";
+          if (phoneMatches(senderPhone, pPhone)) {
+            publisherData = {
+              id: p.id,
+              name: p.data?.name || "Irmão(ã)",
+              gender: p.data?.gender || "brother",
+              phone: pPhone,
+            };
+            break;
+          }
         }
       }
     }
@@ -143,24 +201,18 @@ serve(async (req: Request) => {
     // --------------------------------------------------------------------------
     // 2. Resolução do Contexto (Botão, Reação, QuotedMsg ou Janela Temporal)
     // --------------------------------------------------------------------------
-    const buttonId = payload.buttonsResponseMessage?.buttonId;
-    const buttonMessage = payload.buttonsResponseMessage?.message || "";
-    const reactionVal = payload.reaction?.value || payload.reactionMessage?.value;
-    const reactionMsgId = payload.reaction?.messageId || payload.reactionMessage?.messageId;
-    const quotedMsgId = payload.quotedMsg?.messageId || payload.referenceMessageId;
-    const inboundText = (payload.text?.message || payload.message || buttonMessage || "").trim();
 
     // VIA A: Botão Clicado
     if (buttonId) {
       matchedBy = "BUTTON";
       const bIdUpper = String(buttonId).toUpperCase().trim();
-      if (bIdUpper.startsWith("CONFIRMAR:") || bIdUpper === "SIM" || bIdUpper.startsWith("CONFIRMAR")) {
+      if (bIdUpper.includes("CONFIRM") || bIdUpper === "SIM") {
         detectedIntent = "CONFIRMAR";
         if (buttonId.includes(":")) targetPartId = buttonId.split(":")[1].trim();
-      } else if (bIdUpper.startsWith("RECUSAR:") || bIdUpper === "NAO" || bIdUpper === "NÃO" || bIdUpper.startsWith("RECUSAR")) {
+      } else if (bIdUpper.includes("RECUS") || bIdUpper.includes("NAO") || bIdUpper.includes("NÃO") || bIdUpper.includes("CANCEL")) {
         detectedIntent = "RECUSAR";
         if (buttonId.includes(":")) targetPartId = buttonId.split(":")[1].trim();
-      } else if (bIdUpper.startsWith("DISPONIBILIDADE:") || bIdUpper === "DISPONIBILIDADE" || bIdUpper.startsWith("DISP")) {
+      } else if (bIdUpper.includes("DISP")) {
         detectedIntent = "DISPONIBILIDADE";
         if (buttonId.includes(":")) targetPartId = buttonId.split(":")[1].trim();
       }
@@ -187,20 +239,6 @@ serve(async (req: Request) => {
         detectedIntent = "CONFIRMAR";
       } else if (negativeEmojis.includes(reactionVal)) {
         detectedIntent = "RECUSAR";
-      }
-    }
-
-    // VIA C: Citação de Mensagem (Quoted Message)
-    else if (quotedMsgId) {
-      matchedBy = "QUOTED_MSG";
-      const { data: logEntry } = await supabase
-        .from("zapi_dispatch_log")
-        .select("part_id")
-        .eq("message_id", quotedMsgId)
-        .maybeSingle();
-
-      if (logEntry?.part_id) {
-        targetPartId = logEntry.part_id.replace(/-(titular|ajudante)$/i, "");
       }
     }
 
@@ -351,9 +389,9 @@ serve(async (req: Request) => {
         const lower = inboundText.toLowerCase();
 
         // Regras heurísticas de alta precisão
-        const isConfirm = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower);
-        const isDecline = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower);
-        const isAvailability = /\b(disponib\w*|agenda\w*|f[eé]rias|datas|ausente\w*|aus[eê]ncia\w*)/i.test(lower);
+        const isConfirm = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower) || lower.includes("confirmar");
+        const isDecline = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
+        const isAvailability = /\b(disponib\w*|agenda\w*|f[eé]rias|datas|ausente\w*|aus[eê]ncia\w*)/i.test(lower) || lower.includes("disponibilidade");
         const isSwap = /\b(troc\w*|permut\w*|passar para|substitu\w*)/i.test(lower);
 
         if (isAvailability) {
@@ -374,6 +412,7 @@ serve(async (req: Request) => {
     // --------------------------------------------------------------------------
     // 4. Fechamento de Ciclo (Ações e Respostas)
     // --------------------------------------------------------------------------
+    const replyPhone = publisherData?.phone || targetPart?.phone || (senderPhone ? senderPhone.replace(/@.*$/, "") : "");
 
     // CENÁRIO 1: CONFIRMAÇÃO
     if (detectedIntent === "CONFIRMAR") {
@@ -403,7 +442,8 @@ serve(async (req: Request) => {
 
         const tipoParte = targetPart.tipo_parte || targetPart.part_title || "Designação";
         outboundReply = `✅ *Confirmação Registrada!*\n\nFicamos muito felizes, Irmão(ã) *${pubName}*! Sua designação de *${tipoParte}* está confirmada no programa da reunião.\n\nQue Jeová abençoe sua preparação! 🙏`;
-        await dispatchTextMessage(senderPhone, outboundReply);
+        console.log(`[zapi-smart-webhook] Despachando resposta cordial de confirmação para ${replyPhone}...`);
+        await dispatchTextMessage(replyPhone, outboundReply);
       } else if (!targetPart) {
         // INVARIANTE: Sem envio prévio comprovado pelo Z-API, texto é ignorado sem impacto no banco
         actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
@@ -460,11 +500,11 @@ serve(async (req: Request) => {
         // Se o motivo ainda não foi informado (veio apenas pelo clique de botão)
         if (!reasonExtracted) {
           outboundReply = `Irmão(ã) *${pubName}*, registramos que você não poderá realizar esta designação.\n\nPor favor, informe em poucas palavras o *motivo* para informarmos ao *Superintendente (SRVM)* e ao *Ajudante do SRVM*.`;
-          await dispatchTextMessage(senderPhone, outboundReply);
+          await dispatchTextMessage(replyPhone, outboundReply);
         } else {
           // Motivo já fornecido: acolhe o publicador
           outboundReply = `Agradecemos por avisar com antecedência, Irmão(ã) *${pubName}*! Registramos sua justificativa e providenciaremos a substituição. Desejamos tudo de bom e uma pronta recuperação! 💛`;
-          await dispatchTextMessage(senderPhone, outboundReply);
+          await dispatchTextMessage(replyPhone, outboundReply);
 
           // 🚨 DISPARO IMEDIATO DE ALERTA EXCLUSIVO PARA SRVM, AJUDANTE E ADMINS
           await dispatchAlertToLeadership(targetPart, pubName, reason);
@@ -481,11 +521,11 @@ serve(async (req: Request) => {
       const link = token ? `${appUrl}/?portal=availability&token=${token}` : `${appUrl}/`;
 
       const promptMsg = `📅 *Painel de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no botão abaixo para abrir o seu painel e indicar as semanas em que estará ausente:`;
-      const buttonSent = await dispatchButtonActionUrl(senderPhone, promptMsg, "📅 Abrir Painel", link);
+      const buttonSent = await dispatchButtonActionUrl(replyPhone, promptMsg, "📅 Abrir Painel", link);
 
       if (!buttonSent) {
         outboundReply = `📅 *Atualização de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no link abaixo para marcar as semanas em que você estará ausente ou disponível nos próximos meses:\n\n👉 ${link}\n\n_As datas marcadas são bloqueadas automaticamente pelo motor de designações do RVM._`;
-        await dispatchTextMessage(senderPhone, outboundReply);
+        await dispatchTextMessage(replyPhone, outboundReply);
       } else {
         outboundReply = `[Botão CTA de Disponibilidade enviado: ${link}]`;
       }
@@ -495,7 +535,7 @@ serve(async (req: Request) => {
     else if (detectedIntent === "PERMUTA") {
       actionTaken = "SWAP_REQUESTED";
       outboundReply = `Irmão(ã) *${pubName}*, registramos o seu pedido de troca!\n\nEncaminhamos a solicitação para avaliação de *O Superintendente (SRVM)* e do *Ajudante do SRVM*. Lembramos que toda troca precisa da aprovação deles para ter validade oficial no programa.\n\nAssim que avaliarem no RVM, você será avisado(a)! 🙏`;
-      await dispatchTextMessage(senderPhone, outboundReply);
+      await dispatchTextMessage(replyPhone, outboundReply);
 
       // Alerta a liderança sobre a tentativa de permuta
       await dispatchSwapAlertToLeadership(targetPart, pubName, inboundText);
@@ -544,6 +584,7 @@ async function dispatchButtonActionUrl(phone: string, message: string, buttonLab
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${supabaseServiceKey}`,
+        "x-bot-token": "rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c",
       },
       body: JSON.stringify({
         action: "send-button-actions",
@@ -559,8 +600,8 @@ async function dispatchButtonActionUrl(phone: string, message: string, buttonLab
         ]
       }),
     });
-    if (!res.ok) return false;
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    console.log(`[zapi-smart-webhook] dispatchButtonActionUrl to ${phone}: status=${res.status}, res=${JSON.stringify(data)}`);
     return Boolean(data?.success);
   } catch (err) {
     console.error("[zapi-smart-webhook] Falha ao enviar button-actions:", err);
@@ -576,6 +617,7 @@ async function dispatchTextMessage(phone: string, message: string) {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${supabaseServiceKey}`,
+        "x-bot-token": "rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c",
       },
       body: JSON.stringify({
         action: "send-text",
@@ -583,7 +625,9 @@ async function dispatchTextMessage(phone: string, message: string) {
         message: message,
       }),
     });
-    return res.ok;
+    const data = await res.json().catch(() => ({}));
+    console.log(`[zapi-smart-webhook] dispatchTextMessage to ${phone}: status=${res.status}, res=${JSON.stringify(data)}`);
+    return Boolean(data?.success);
   } catch (err) {
     console.error("[zapi-smart-webhook] Falha ao enviar mensagem:", err);
     return false;
