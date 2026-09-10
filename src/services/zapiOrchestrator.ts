@@ -456,15 +456,15 @@ class ZApiOrchestrator {
         const effectiveSuccess = imgRes.success || msgRes.success;
         const mainMessageId = msgRes.messageId || imgRes.messageId;
 
-        if (idempotencyType) {
-            await this.logDispatch(
-                partId,
-                idempotencyType,
-                phone,
-                effectiveSuccess ? 'SUCCESS' : 'ERROR: ' + (msgRes.error || imgRes.error || 'unknown'),
-                mainMessageId
-            );
-        }
+        // Registra o despacho para viabilizar causalidade e resolução de respostas no webhook
+        const logType = idempotencyType || 'PUBLICACAO_S89';
+        await this.logDispatch(
+            partId,
+            logType,
+            phone,
+            effectiveSuccess ? 'SUCCESS' : 'ERROR: ' + (msgRes.error || imgRes.error || 'unknown'),
+            mainMessageId
+        );
         return { success: effectiveSuccess, messageId: mainMessageId, error: msgRes.error || imgRes.error };
     }
 
