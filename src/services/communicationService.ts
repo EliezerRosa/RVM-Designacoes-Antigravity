@@ -530,7 +530,7 @@ export const communicationService = {
      * Prepara a mensagem S-89 individual
      * Inclui contexto de excepcionalidades (eventos especiais) quando aplicável
      */
-    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = [], options: { isSubstitution?: boolean, meetingDayOfWeek?: number, isZApiFlow?: boolean } = {}): Promise<{ content: string, phone?: string, availabilityUrl?: string, confirmationUrl?: string }> {
+    async prepareS89Message(part: WorkbookPart, publishers: Publisher[], allWeekParts: WorkbookPart[] = [], options: { isSubstitution?: boolean, meetingDayOfWeek?: number, isZApiFlow?: boolean, includeConfirmationLink?: boolean } = {}): Promise<{ content: string, phone?: string, availabilityUrl?: string, confirmationUrl?: string }> {
         const publisherName = resolvePartPublisherName(part, publishers).trim();
         const pub = publishers.find(p => p.name.trim() === publisherName);
         const recipientGender = pub?.gender || 'brother';
