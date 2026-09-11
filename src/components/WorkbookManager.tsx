@@ -33,7 +33,11 @@ import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
 import { MyAssignmentsModal } from './MyAssignmentsModal';
 import { ManualReplacementModal } from './admin/ManualReplacementModal';
+import { CSClearanceModal } from './admin/CSClearanceModal';
 import { useAuth } from '../context/AuthContext';
+import { zapiOrchestrator } from '../services/zapiOrchestrator';
+import { generateS89PngBase64 } from '../services/s89Generator';
+import { communicationService } from '../services/communicationService';
 import { SemanticDraggableGenerator } from './ui/SemanticDraggableGenerator';
 
 import { ReportsTab } from './ReportsTab';
@@ -204,8 +208,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
     const [isCSClearanceModalOpen, setIsCSClearanceModalOpen] = useState(false);
 
     // Auth (para gating do botão Minhas Designações)
-    const { profile, isAdmin, isEditor } = useAuth();
-    const canGenerateRules = isAdmin || isEditor;
+    const { profile, isAdmin } = useAuth();
+    const canGenerateRules = isAdmin;
 
     // Paginação
     const [currentPage, setCurrentPage] = useState<number>(() => {
@@ -776,16 +780,22 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
 
             console.log(`[ManualReplacement] oldPub: ${oldPub?.name} (${oldPub?.phone}), newPub: ${newPub?.name} (${newPub?.phone}), partner: ${partnerPub?.name} (${partnerPub?.phone})`);
 
+            const weekParts = parts.filter(p => p.weekId === part.weekId);
+
             // A. Notificar o Antigo
             if (options.notifyOld && oldPub?.phone) {
-                console.log(`[ManualReplacement] Disparando alerta de substituição para antigo publicador: ${oldPub.phone}`);
-                const rOld = await zapiOrchestrator.dispatchManualReplacementAlert(
-                    oldPub.phone,
-                    oldPub.name,
-                    part.tituloParte || part.tipoParte,
-                    part.date || part.weekId
-                );
-                console.log(`[ManualReplacement] Resultado notificação antigo:`, rOld);
+                try {
+                    console.log(`[ManualReplacement] Disparando alerta de substituição para antigo publicador: ${oldPub.phone}`);
+                    const rOld = await zapiOrchestrator.dispatchManualReplacementAlert(
+                        oldPub.phone,
+                        oldPub.name,
+                        part.tituloParte || part.tipoParte,
+                        part.date || part.weekId
+                    );
+                    console.log(`[ManualReplacement] Resultado notificação antigo:`, rOld);
+                } catch (errOld) {
+                    console.error('[ManualReplacement] Erro ao notificar antigo publicador:', errOld);
+                }
             }
 
             // Resolve common PDF parameters ensuring Titular is ALWAYS partForPdf and Assistant is ALWAYS assistantName
@@ -813,79 +823,84 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
 
             // B. Notificar o Novo (S-89 de Substituição)
             if (options.notifyNew && newPub?.phone) {
-                console.log(`[ManualReplacement] Avisando novo publicador ${newPub.name} (Substituição)`);
-                
-                // Montar o base64 do cartão
-                const pdfBase64 = await generateS89PngBase64(
-                    titularPartForPdf,
-                    assistantNameForPdf,
-                    undefined,
-                    isStudent
-                );
-
-                if (pdfBase64) {
-                    const { content: baseMsg, availabilityUrl } = await communicationService.prepareS89Message(
-                        { ...part, resolvedPublisherName: newPub.name },
-                        publishers,
-                        weekParts,
-                        { isSubstitution: true }
-                    );
-
-                    const finalMsg = `⚠️ *AVISO IMPORTANTE: SUBSTITUIÇÃO DE DESIGNAÇÃO!*\n_Você foi designado(a) para cobrir a parte de outro publicador._\n\n` + baseMsg;
-
-                    console.log(`[ManualReplacement] Enviando S-89 via Z-API para: ${newPub.phone}`);
-                    const rNew = await zapiOrchestrator.sendS89Direct(
-                        partId,
-                        newPub.phone,
-                        finalMsg,
-                        pdfBase64,
+                try {
+                    console.log(`[ManualReplacement] Avisando novo publicador ${newPub.name} (Substituição)`);
+                    
+                    // Montar o base64 do cartão
+                    const pdfBase64 = await generateS89PngBase64(
+                        titularPartForPdf,
+                        assistantNameForPdf,
                         undefined,
-                        availabilityUrl
+                        isStudent
                     );
-                    console.log(`[ManualReplacement] Resultado S-89:`, rNew);
-                } else {
-                    console.warn('[ManualReplacement] pdfBase64 não foi gerado!');
+
+                    if (pdfBase64) {
+                        const { content: baseMsg, availabilityUrl } = await communicationService.prepareS89Message(
+                            { ...part, resolvedPublisherName: newPub.name },
+                            publishers,
+                            weekParts,
+                            { isSubstitution: true }
+                        );
+
+                        const finalMsg = `⚠️ *AVISO IMPORTANTE: SUBSTITUIÇÃO DE DESIGNAÇÃO!*\n_Você foi designado(a) para cobrir a parte de outro publicador._\n\n` + baseMsg;
+
+                        console.log(`[ManualReplacement] Enviando S-89 via Z-API para: ${newPub.phone}`);
+                        const rNew = await zapiOrchestrator.sendS89Direct(
+                            partId,
+                            newPub.phone,
+                            finalMsg,
+                            pdfBase64,
+                            undefined,
+                            availabilityUrl
+                        );
+                        console.log(`[ManualReplacement] Resultado S-89:`, rNew);
+                    } else {
+                        console.warn('[ManualReplacement] pdfBase64 não foi gerado!');
+                    }
+                } catch (errNew) {
+                    console.error('[ManualReplacement] Erro ao notificar novo publicador:', errNew);
                 }
             }
 
             // C. Notificar o Parceiro
             if (options.notifyPartner && partnerPub?.phone && newPub) {
-                console.log(`[ManualReplacement] Avisando parceiro ${partnerPub.name} sobre a troca`);
-                
-                // O Parceiro pode ser Titular ou Ajudante em relação à parte editada
-                const partnerIsAjudante = !isAjudante; // Se quem foi trocado era titular, o parceiro é ajudante.
+                try {
+                    console.log(`[ManualReplacement] Avisando parceiro ${partnerPub.name} sobre a troca`);
 
-                // Montar o base64 do cartão para o Parceiro (idêntico ao envio inicial)
-                const pdfBase64Partner = await generateS89PngBase64(
-                    titularPartForPdf,
-                    assistantNameForPdf,
-                    undefined,
-                    isStudent
-                );
-
-                if (pdfBase64Partner) {
-                    const partnerPartObjForMsg = partnerPart || part;
-
-                    const { content: baseMsgPartner, availabilityUrl: partnerAvailabilityUrl } = await communicationService.prepareS89Message(
-                        { ...partnerPartObjForMsg, resolvedPublisherName: partnerPub.name },
-                        publishers,
-                        weekParts,
-                        { isSubstitution: false }
-                    );
-
-                    const rolePartnerChanged = isAjudante ? 'Ajudante' : 'Titular';
-                    const finalMsgPartner = `⚠️ *AVISO IMPORTANTE: MUDANÇA DE PARCEIRO(A)!*\n_Houve uma substituição e o seu ${rolePartnerChanged} para esta parte mudou._\n\n` + baseMsgPartner;
-
-                    console.log(`[ManualReplacement] Enviando S-89 via Z-API para Parceiro: ${partnerPub.phone}`);
-                    const rPart = await zapiOrchestrator.sendS89Direct(
-                        partnerPart?.id || partId,
-                        partnerPub.phone,
-                        finalMsgPartner,
-                        pdfBase64Partner,
+                    // Montar o base64 do cartão para o Parceiro (idêntico ao envio inicial)
+                    const pdfBase64Partner = await generateS89PngBase64(
+                        titularPartForPdf,
+                        assistantNameForPdf,
                         undefined,
-                        partnerAvailabilityUrl
+                        isStudent
                     );
-                    console.log(`[ManualReplacement] Resultado notificação parceiro:`, rPart);
+
+                    if (pdfBase64Partner) {
+                        const partnerPartObjForMsg = partnerPart || part;
+
+                        const { content: baseMsgPartner, availabilityUrl: partnerAvailabilityUrl } = await communicationService.prepareS89Message(
+                            { ...partnerPartObjForMsg, resolvedPublisherName: partnerPub.name },
+                            publishers,
+                            weekParts,
+                            { isSubstitution: false }
+                        );
+
+                        const rolePartnerChanged = isAjudante ? 'Ajudante' : 'Titular';
+                        const finalMsgPartner = `⚠️ *AVISO IMPORTANTE: MUDANÇA DE PARCEIRO(A)!*\n_Houve uma substituição e o seu ${rolePartnerChanged} para esta parte mudou._\n\n` + baseMsgPartner;
+
+                        console.log(`[ManualReplacement] Enviando S-89 via Z-API para Parceiro: ${partnerPub.phone}`);
+                        const rPart = await zapiOrchestrator.sendS89Direct(
+                            partnerPart?.id || partId,
+                            partnerPub.phone,
+                            finalMsgPartner,
+                            pdfBase64Partner,
+                            undefined,
+                            partnerAvailabilityUrl
+                        );
+                        console.log(`[ManualReplacement] Resultado notificação parceiro:`, rPart);
+                    }
+                } catch (errPart) {
+                    console.error('[ManualReplacement] Erro ao notificar parceiro:', errPart);
                 }
             }
 
