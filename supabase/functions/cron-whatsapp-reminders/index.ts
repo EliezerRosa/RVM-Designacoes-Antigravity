@@ -237,7 +237,8 @@ function buildChargeD9Message(
 
 async function runContinuousReminderCycle(
     parts: PartData[],
-    publishers: PublisherData[]
+    publishers: PublisherData[],
+    meetingDays: Record<string, number>
 ): Promise<number> {
     let sentCount = 0;
     
@@ -274,16 +275,37 @@ async function runContinuousReminderCycle(
             const lastTime = new Date(latestDispatch.dispatched_at).getTime();
             const now = Date.now();
             if (now - lastTime >= 72 * 60 * 60 * 1000) {
-                // Time to ping!
-                const honorific = getHonorific(pub.gender);
-                const msg = `Olá, ${honorific} ${pub.name}! Este é um lembrete automático. Ainda não recebemos sua confirmação para a designação acima. Por favor, veja a msg referida aqui e retorne para nos avisar!`;
-
+                let msg = '';
                 const options: any = {};
+                let isRepublish = false;
+
                 if (latestDispatch.message_id) {
+                    // Tem message_id: Faz a cobrança por Reply
+                    const honorific = getHonorific(pub.gender);
+                    msg = `Olá, ${honorific} ${pub.name}! Este é um lembrete automático. Ainda não recebemos sua confirmação para a designação acima. Por favor, veja a msg referida aqui e retorne para nos avisar!`;
                     options.referenceMessageId = latestDispatch.message_id;
+                } else {
+                    // NÃO tem message_id (legado): Republica o S-89 original!
+                    const meetingDate = calculateMeetingDate(part.week_id, meetingDays);
+                    if (!meetingDate) continue;
+                    const meetingDateLabel = formatMeetingDate(meetingDate);
+                    const confirmationToken = await getOrCreateConfirmationToken(part.id, pub.id);
+                    if (!confirmationToken) continue;
+                    
+                    const confirmParams = new URLSearchParams({
+                        portal: 'confirm',
+                        partId: part.id,
+                        publisherId: pub.id,
+                        token: confirmationToken,
+                    });
+                    const confirmLink = `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?${confirmParams.toString()}`;
+                    msg = buildChargeD9Message(part, pub, meetingDateLabel, confirmLink);
+                    isRepublish = true;
                 }
 
                 const { success, messageId } = await sendWhatsApp(pub.phone, msg, options);
+                // Se foi republish, gravamos como PUBLICACAO_S89 para resetar a estética original, ou COBRANCA_72H? 
+                // Mantemos COBRANCA_72H para consistência do ciclo, pois o conteúdo já foi enviado.
                 await logDispatch(part.id, 'COBRANCA_72H', pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);
                 if (success) sentCount++;
             }
@@ -898,7 +920,7 @@ serve(async (req: Request) => {
     // ============================
     // CICLO DE PENDÊNCIAS (72H)
     // ============================
-    const pingsSent = await runContinuousReminderCycle(parts, publishers);
+    const pingsSent = await runContinuousReminderCycle(parts, publishers, meetingDays);
     if (pingsSent > 0) {
         console.log(`[cron] ${pingsSent} lembretes contínuos (72h) enviados.`);
     }
