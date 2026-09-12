@@ -69,8 +69,10 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
             case 'BUTTON': return '🔘 Botão Nativo';
             case 'REACTION': return '👍 Reação Emoji';
             case 'QUOTED_MSG': return '💬 Citação S-89';
-            case 'TEMPORAL_WINDOW': return '🕒 Texto Livre (NLP)';
-            default: return '❓ Não identificado';
+            case 'POLL_VOTE': return '📊 Voto em Enquete';
+            case 'TEMPORAL_WINDOW': return '🕒 Texto Livre (Janela)';
+            case 'UNMATCHED': return '🕒 Texto Livre (Sem janela)';
+            default: return `❓ ${matchedBy}`;
         }
     };
 
