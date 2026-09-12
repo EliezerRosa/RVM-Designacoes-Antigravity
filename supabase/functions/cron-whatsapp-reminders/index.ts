@@ -70,25 +70,31 @@ async function checkDispatched(partId: string, dispatchType: string) {
     return !!data;
 }
 
-async function logDispatch(partId: string, dispatchType: string, phone: string, status: string) {
-    await supabase.from('zapi_dispatch_log').insert({
+async function logDispatch(partId: string, dispatchType: string, phone: string, status: string, messageId?: string) {
+    const payload: any = {
         part_id: partId,
         dispatch_type: dispatchType,
         recipient_phone: phone,
         status: status
-    });
+    };
+    if (messageId) payload.message_id = messageId;
+    
+    await supabase.from('zapi_dispatch_log').insert(payload);
 }
 
-async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
+async function sendWhatsApp(phone: string, message: string, options?: any): Promise<{ success: boolean; messageId?: string }> {
+    const payload = { phone, message, ...options };
     const res = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${supabaseKey}`
         },
-        body: JSON.stringify({ phone, message })
+        body: JSON.stringify(payload)
     });
-    return res.ok;
+    if (!res.ok) return { success: false };
+    const data = await res.json();
+    return { success: data.success, messageId: data.messageId };
 }
 
 async function getOrCreateConfirmationToken(partId: string, publisherId: string): Promise<string | null> {
@@ -226,6 +232,96 @@ function buildChargeD9Message(
 }
 
 // ============================================================================
+// CICLO DE PENDÊNCIAS (72H) E INTERAÇÕES
+// ============================================================================
+
+async function runContinuousReminderCycle(
+    parts: PartData[],
+    publishers: PublisherData[]
+): Promise<number> {
+    let sentCount = 0;
+    
+    for (const part of parts) {
+        if (isNoisePart(part.tipo_parte)) continue;
+        if (part.status !== 'PROPOSTA') continue; // only pending confirmation
+
+        const s89Sent = await checkDispatched(part.id, 'PUBLICACAO_S89');
+        if (!s89Sent) continue;
+
+        let pub: PublisherData | undefined;
+        if (part.resolved_publisher_id) {
+            pub = publishers.find(p => p.id === part.resolved_publisher_id);
+        }
+        if (!pub && part.raw_publisher_name) {
+            pub = publishers.find(p => p.name.trim() === part.raw_publisher_name.trim());
+        }
+        if (!pub || !pub.phone) continue;
+
+        // Aquiescência tácita doesn't need to be chased
+        if (ACQUIESCENCE_CONDITIONS.includes(pub.condition)) continue;
+
+        const { data: latestDispatch } = await supabase
+            .from('zapi_dispatch_log')
+            .select('dispatched_at, message_id')
+            .eq('part_id', part.id)
+            .eq('recipient_phone', pub.phone)
+            .eq('status', 'SUCCESS')
+            .order('dispatched_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (latestDispatch) {
+            const lastTime = new Date(latestDispatch.dispatched_at).getTime();
+            const now = Date.now();
+            if (now - lastTime >= 72 * 60 * 60 * 1000) {
+                // Time to ping!
+                const honorific = getHonorific(pub.gender);
+                const msg = `Olá, ${honorific} ${pub.name}! Este é um lembrete automático. Ainda não recebemos sua confirmação para a designação acima. Por favor, veja a msg referida aqui e retorne para nos avisar!`;
+
+                const options: any = {};
+                if (latestDispatch.message_id) {
+                    options.referenceMessageId = latestDispatch.message_id;
+                }
+
+                const { success, messageId } = await sendWhatsApp(pub.phone, msg, options);
+                await logDispatch(part.id, 'COBRANCA_72H', pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);
+                if (success) sentCount++;
+            }
+        }
+    }
+    return sentCount;
+}
+
+async function fetchDailyInteractionsReport(): Promise<string[]> {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: interactions } = await supabase
+        .from('zapi_smart_interactions')
+        .select('*')
+        .gte('created_at', yesterday);
+
+    if (!interactions || interactions.length === 0) return [];
+
+    const total = interactions.length;
+    const ignored = interactions.filter((i: any) => i.action_taken === 'IGNORED_DUE_TO_INVARIANT');
+    const valid = total - ignored.length;
+
+    let text = `🤖 *Inteligência Z-API (Últimas 24h)*\n`;
+    text += `• ${valid} interações processadas com sucesso.\n`;
+    
+    if (ignored.length > 0) {
+        text += `• ${ignored.length} mensagens ignoradas (sem disparo recente ou não publicador).\n`;
+        const names = Array.from(new Set(ignored.map((i: any) => i.publisher_name).filter(Boolean)));
+        if (names.length > 0) {
+            text += `⚠️ Veja as mensagens recebidas e a reação do app no log do Monitor, relativas aos publicadores: ${names.join(', ')}.\n`;
+        } else {
+            text += `⚠️ Veja as mensagens recebidas e a reação do app no log do Monitor.\n`;
+        }
+    }
+    return [text];
+}
+
+// ============================================================================
 // CICLO DIÁRIO
 // ============================================================================
 
@@ -269,33 +365,17 @@ async function runDailyCycle(
         // Por hora, a publicação manual (botão no modal S-89) continua sendo
         // o fluxo padrão. O Cron apenas processa lembretes para partes já publicadas.
 
-        // ===================== D-9: COBRANÇA =====================
-        if (diffDays === 9 && part.status === 'PROPOSTA') {
-            if (await checkDispatched(part.id, 'COBRANCA_D9')) continue;
-            if (!pub.phone) { noPhoneList.push(`${pub.name} — ${part.tipo_parte} (D-9)`); continue; }
+        // ===================== D-9, D-7 e D-2: LEMBRETES =====================
+        // Somente para os que já confirmaram aceite (DESIGNADA)
+        if (part.status !== 'DESIGNADA') continue;
 
-            const confirmationToken = await getOrCreateConfirmationToken(part.id, pub.id);
-            if (!confirmationToken) continue;
-
-            const confirmParams = new URLSearchParams({
-                portal: 'confirm',
-                partId: part.id,
-                publisherId: pub.id,
-                token: confirmationToken,
-            });
-            const confirmLink = `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?${confirmParams.toString()}`;
-            const msg = buildChargeD9Message(part, pub, meetingDateLabel, confirmLink);
-            const success = await sendWhatsApp(pub.phone, msg);
-            await logDispatch(part.id, 'COBRANCA_D9', pub.phone, success ? 'SUCCESS' : 'ERROR');
-            if (success) sentCount++;
-            continue;
-        }
-
-        // ===================== D-7 e D-2: LEMBRETES =====================
         let dispatchType = '';
         let reminderLabel = '';
 
-        if (diffDays === 7) {
+        if (diffDays === 9) {
+            dispatchType = 'LEMBRETE_D9';
+            reminderLabel = 'faltam 9 dias';
+        } else if (diffDays === 7) {
             dispatchType = 'LEMBRETE_D7';
             reminderLabel = 'faltam apenas 7 dias';
         } else if (diffDays === 2) {
@@ -313,18 +393,7 @@ async function runDailyCycle(
 
         // --- REGRA DE STATUS ---
         // DESIGNADA → sempre recebe lembrete
-        // PROPOSTA → só se for Ancião/SM (Aquiescência tácita)
-        if (part.status === 'DESIGNADA') {
-            // OK — continua
-        } else if (part.status === 'PROPOSTA') {
-            if (!ACQUIESCENCE_CONDITIONS.includes(pub.condition)) {
-                // Publicador comum com PROPOSTA → já recebeu D-9, não recebe lembrete normal
-                continue;
-            }
-            // Ancião/SM em PROPOSTA → Aquiescência, recebe lembrete
-        } else {
-            continue; // Status inesperado
-        }
+        // Já filtrado no início do bloco.
 
         // --- IDEMPOTÊNCIA ---
         if (await checkDispatched(part.id, dispatchType)) continue;
@@ -369,8 +438,19 @@ async function runDailyCycle(
 
         // --- CONSTRUIR E ENVIAR ---
         const msg = buildReminderMessage(part, pub, meetingDateLabel, reminderLabel, partnerInfo);
-        const success = await sendWhatsApp(pub.phone, msg);
-        await logDispatch(part.id, dispatchType, pub.phone, success ? 'SUCCESS' : 'ERROR');
+        
+        // Incluir botões para recusa ou ajuste de disponibilidade
+        const confirmToken = await getOrCreateConfirmationToken(part.id, pub.id);
+        const options = confirmToken ? {
+            action: 'send-button-actions',
+            buttonActions: [
+                { id: `btn_reject_${part.id}`, type: "reply", title: "Não poderei" },
+                { id: `btn_avail_${part.id}`, type: "url", title: "Ajustar Disponibilidade", url: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=confirm&partId=${part.id}&publisherId=${pub.id}&token=${confirmToken}` }
+            ]
+        } : {};
+
+        const { success, messageId } = await sendWhatsApp(pub.phone, msg, options);
+        await logDispatch(part.id, dispatchType, pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);
         if (success) sentCount++;
     }
 
@@ -485,8 +565,8 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
             `👉 https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=preferences&action=rejoin&pubId=${pub.id}\n\n` +
             `Se preferir continuar como está, não precisa fazer nada. Estamos à disposição! 🙏`;
 
-        const success = await sendWhatsApp(pub.phone, msg);
-        await logDispatch(pub.id, dispatchKey, pub.phone, success ? 'SUCCESS' : 'ERROR');
+        const { success, messageId } = await sendWhatsApp(pub.phone, msg);
+        await logDispatch(pub.id, dispatchKey, pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);
         if (success) reports.push(`🔁 Reconvite enviado para ${pub.name} (não participa).`);
     }
 
@@ -507,8 +587,8 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
             `👉 https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=preferences&action=full-participation&pubId=${pub.id}\n\n` +
             `Se preferir continuar como está, não precisa fazer nada. Respeitamos! 🙏`;
 
-        const success = await sendWhatsApp(pub.phone, msg);
-        await logDispatch(pub.id, dispatchKey, pub.phone, success ? 'SUCCESS' : 'ERROR');
+        const { success, messageId } = await sendWhatsApp(pub.phone, msg);
+        await logDispatch(pub.id, dispatchKey, pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);
         if (success) reports.push(`🔁 Reconvite enviado para ${pub.name} (só ajudante).`);
     }
 
@@ -583,8 +663,8 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
 
             const memberReport = `${baseMonthlyReport}🔗 ${formUrl}`;
 
-            const success = await sendWhatsApp(member.phone, memberReport);
-            await logDispatch(member.id, dispatchKey, member.phone, success ? 'SUCCESS' : 'ERROR');
+            const { success, messageId } = await sendWhatsApp(member.phone, memberReport);
+            await logDispatch(member.id, dispatchKey, member.phone, success ? 'SUCCESS' : 'ERROR', messageId);
 
             const roleDescription = member.funcao
                 ? member.funcao
@@ -661,8 +741,8 @@ async function runWeeklyCycle(publishers: PublisherData[]): Promise<string[]> {
 
         const personalizedReport = `${baseReport}🔗 ${formUrl}`;
 
-        const success = await sendWhatsApp(member.phone, personalizedReport);
-        await logDispatch(member.id, dispatchKey, member.phone, success ? 'SUCCESS' : 'ERROR');
+        const { success, messageId } = await sendWhatsApp(member.phone, personalizedReport);
+        await logDispatch(member.id, dispatchKey, member.phone, success ? 'SUCCESS' : 'ERROR', messageId);
 
         const roleDescription = member.funcao 
             ? member.funcao 
@@ -816,9 +896,23 @@ serve(async (req: Request) => {
     }
 
     // ============================
+    // CICLO DE PENDÊNCIAS (72H)
+    // ============================
+    const pingsSent = await runContinuousReminderCycle(parts, publishers);
+    if (pingsSent > 0) {
+        console.log(`[cron] ${pingsSent} lembretes contínuos (72h) enviados.`);
+    }
+    sentCount += pingsSent;
+
+    // ============================
+    // RELATÓRIO DIÁRIO DE INTERAÇÕES
+    // ============================
+    const interactionReports = await fetchDailyInteractionsReport();
+
+    // ============================
     // RELATÓRIO DIÁRIO
     // ============================
-    await sendDailyReport(publishers, sentCount, noPhoneList, [...monthlyReports, ...weeklyReports]);
+    await sendDailyReport(publishers, sentCount, noPhoneList, [...monthlyReports, ...weeklyReports, ...interactionReports]);
 
     console.log(`[cron-whatsapp-reminders] Finalizado. ${sentCount} mensagens enviadas; ${completedCount} designações concluídas.`);
 

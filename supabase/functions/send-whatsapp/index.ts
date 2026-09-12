@@ -298,7 +298,7 @@ async function getZApiCredentials() {
 }
 
 /** Envia texto via Z-API. */
-async function sendViaZApi(phone: string, message: string) {
+async function sendViaZApi(phone: string, message: string, referenceMessageId?: string) {
   const creds = await getZApiCredentials();
   if (!creds) {
     return { success: false, error: 'Z-API não configurada (chaves ausentes no ambiente ou app_settings).' };
@@ -306,13 +306,16 @@ async function sendViaZApi(phone: string, message: string) {
 
   const { instanceId, instanceToken, clientToken } = creds;
 
+  const payload: any = { phone, message };
+  if (referenceMessageId) payload.messageId = referenceMessageId;
+
   const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-text`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'client-token': clientToken,
     },
-    body: JSON.stringify({ phone, message }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
@@ -352,7 +355,7 @@ async function sendButtonListViaZApi(phone: string, message: string, buttons: an
 }
 
 /** Envia texto com botões de ação via Z-API (/send-button-actions). */
-async function sendButtonActionsViaZApi(phone: string, message: string, buttonActions: any[]) {
+async function sendButtonActionsViaZApi(phone: string, message: string, buttonActions: any[], referenceMessageId?: string) {
   const creds = await getZApiCredentials();
   if (!creds) {
     return { success: false, error: 'Z-API não configurada.' };
@@ -360,13 +363,16 @@ async function sendButtonActionsViaZApi(phone: string, message: string, buttonAc
 
   const { instanceId, instanceToken, clientToken } = creds;
 
+  const payload: any = { phone, message, buttonActions };
+  if (referenceMessageId) payload.messageId = referenceMessageId;
+
   const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-button-actions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'client-token': clientToken,
     },
-    body: JSON.stringify({ phone, message, buttonActions }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
@@ -1264,7 +1270,7 @@ serve(async (req: Request) => {
       });
     }
 
-    const { phone, message, image, caption, action } = body;
+    const { phone, message, image, caption, action, referenceMessageId } = body;
 
     if (!phone) {
       return new Response(
@@ -1318,7 +1324,7 @@ serve(async (req: Request) => {
     } else if (action === 'send-button-list' || (body.buttons && Array.isArray(body.buttons))) {
       result = await sendButtonListViaZApi(normalizedPhone, message || '', body.buttons);
     } else if (action === 'send-button-actions' || (body.buttonActions && Array.isArray(body.buttonActions))) {
-      result = await sendButtonActionsViaZApi(normalizedPhone, message || '', body.buttonActions);
+      result = await sendButtonActionsViaZApi(normalizedPhone, message || '', body.buttonActions, referenceMessageId);
     } else if (action === 'send-poll' || (body.poll && Array.isArray(body.poll))) {
       result = await sendPollViaZApi(normalizedPhone, message || 'Como você responde à sua designação?', body.poll);
     } else if (action === 'send-link' || (body.linkUrl && (body.title || body.linkDescription))) {
@@ -1340,7 +1346,7 @@ serve(async (req: Request) => {
       if (provider === 'meta-cloud') {
         result = await sendViaMeta(normalizedPhone, message);
       } else if (provider === 'z-api' || (await getZApiCredentials())) {
-        result = await sendViaZApi(normalizedPhone, message);
+        result = await sendViaZApi(normalizedPhone, message, referenceMessageId);
       } else {
         result = await sendViaEvolution(normalizedPhone, message);
       }
