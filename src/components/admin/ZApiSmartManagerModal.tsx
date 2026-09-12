@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { zapiSmartManagerService, type SmartInteraction, type SmartInteractionStats } from '../../services/zapiSmartManagerService';
 
 interface ZApiSmartManagerModalProps {
@@ -12,19 +13,19 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
     const [loading, setLoading] = useState(false);
     const [filterIntent, setFilterIntent] = useState<string>('ALL');
     const [searchTerm, setSearchTerm] = useState<string>('');
-    const [, startTransition] = useTransition();
 
     const loadData = async () => {
         setLoading(true);
         try {
+            console.log("Loading ZApi Smart Manager data...");
             const [recent, calculatedStats] = await Promise.all([
                 zapiSmartManagerService.getRecentInteractions(100),
                 zapiSmartManagerService.getStats(),
             ]);
-            startTransition(() => {
-                setInteractions(recent);
-                setStats(calculatedStats);
-            });
+            setInteractions(recent);
+            setStats(calculatedStats);
+        } catch (e) {
+            console.error("Error loading data:", e);
         } finally {
             setLoading(false);
         }
@@ -76,7 +77,7 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
         }
     };
 
-    return (
+    return createPortal(
         <div style={{
             position: 'fixed',
             inset: 0,
@@ -85,7 +86,7 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 9999,
+            zIndex: 99999,
             padding: '1.5rem',
         }}>
             <div style={{
@@ -120,83 +121,61 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
                             Monitoramento em tempo real das respostas, botões clicados e alertas de recusa aos anciãos.
                         </p>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button
-                            onClick={loadData}
-                            disabled={loading}
-                            style={{
-                                padding: '6px 12px',
-                                border: '1px solid #cbd5e1',
-                                borderRadius: '8px',
-                                background: '#ffffff',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                color: '#334155',
-                                fontWeight: '500',
-                            }}
-                        >
-                            {loading ? 'Atualizando...' : '🔄 Atualizar'}
-                        </button>
-                        <button
-                            onClick={onClose}
-                            style={{
-                                padding: '6px 12px',
-                                border: 'none',
-                                borderRadius: '8px',
-                                background: '#e2e8f0',
-                                cursor: 'pointer',
-                                fontSize: '1rem',
-                                color: '#475569',
-                                fontWeight: 'bold',
-                            }}
-                        >
-                            ✕
-                        </button>
-                    </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                        }}
+                    >
+                        ✖ Fechar
+                    </button>
                 </div>
 
-                {/* Métricas e KPIs */}
-                {stats && (
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                        gap: '12px',
-                        padding: '1.25rem 1.75rem',
-                        background: '#ffffff',
-                        borderBottom: '1px solid #f1f5f9',
-                    }}>
-                        <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>TOTAL INTERAÇÕES</div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#0f172a' }}>{stats.total}</div>
+                {/* Dashboard Stats */}
+                <div style={{ padding: '1.25rem 1.75rem', background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+                    {loading && !stats ? (
+                        <div style={{ fontSize: '0.9rem', color: '#64748b' }}>Calculando estatísticas...</div>
+                    ) : stats ? (
+                        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                            <div style={{ background: '#f8fafc', padding: '10px 15px', borderRadius: '8px', border: '1px solid #e2e8f0', minWidth: '120px' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 'bold' }}>Total Recebido</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a' }}>{stats.total}</div>
+                            </div>
+                            <div style={{ background: '#dcfce7', padding: '10px 15px', borderRadius: '8px', border: '1px solid #bbf7d0', minWidth: '120px' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#166534', textTransform: 'uppercase', fontWeight: 'bold' }}>Confirmadas</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#15803d' }}>{stats.confirmed}</div>
+                            </div>
+                            <div style={{ background: '#fee2e2', padding: '10px 15px', borderRadius: '8px', border: '1px solid #fecaca', minWidth: '120px' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#991b1b', textTransform: 'uppercase', fontWeight: 'bold' }}>Recusadas</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#b91c1c' }}>{stats.refused}</div>
+                            </div>
+                            <div style={{ background: '#e0f2fe', padding: '10px 15px', borderRadius: '8px', border: '1px solid #bae6fd', minWidth: '120px' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#075985', textTransform: 'uppercase', fontWeight: 'bold' }}>Disponibilidade</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0369a1' }}>{stats.availabilityRequests}</div>
+                            </div>
+                            <div style={{ background: '#f1f5f9', padding: '10px 15px', borderRadius: '8px', border: '1px solid #e2e8f0', minWidth: '120px' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#475569', textTransform: 'uppercase', fontWeight: 'bold' }}>Tempo Médio (IA)</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#334155' }}>{stats.avgProcessingMs}ms</div>
+                            </div>
                         </div>
-                        <div style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-                            <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: '600' }}>CONFIRMADAS</div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#15803d' }}>{stats.confirmed}</div>
-                        </div>
-                        <div style={{ background: '#fef2f2', padding: '10px 14px', borderRadius: '10px', border: '1px solid #fecaca' }}>
-                            <div style={{ fontSize: '0.75rem', color: '#991b1b', fontWeight: '600' }}>RECUSAS (ALERTADAS)</div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>{stats.refused}</div>
-                        </div>
-                        <div style={{ background: '#f0f9ff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #bae6fd' }}>
-                            <div style={{ fontSize: '0.75rem', color: '#075985', fontWeight: '600' }}>DISPONIBILIDADE</div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#0284c7' }}>{stats.availabilityRequests}</div>
-                        </div>
-                        <div style={{ background: '#fffbeb', padding: '10px 14px', borderRadius: '10px', border: '1px solid #fde68a' }}>
-                            <div style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: '600' }}>PERMUTAS (TROCAS)</div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#d97706' }}>{stats.swaps}</div>
-                        </div>
-                    </div>
-                )}
+                    ) : null}
+                </div>
 
                 {/* Filtros */}
                 <div style={{
-                    padding: '0.75rem 1.75rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    borderBottom: '1px solid #e2e8f0',
+                    padding: '1rem 1.75rem',
                     background: '#f8fafc',
+                    borderBottom: '1px solid #e2e8f0',
+                    display: 'flex',
+                    gap: '12px',
+                    alignItems: 'center',
+                    flexWrap: 'wrap'
                 }}>
                     <input
                         type="text"
@@ -298,7 +277,7 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
                                             color: '#991b1b',
                                             borderLeft: '3px solid #ef4444',
                                         }}>
-                                            ⚠️ <strong>Motivo da Recusa:</strong> "{item.reason_extracted}"
+                                            ⚠️ <strong>Justificativa (NLP):</strong> {item.reason_extracted}
                                         </div>
                                     )}
 
@@ -309,9 +288,9 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
                                             borderRadius: '6px',
                                             fontSize: '0.8rem',
                                             color: '#166534',
-                                            borderLeft: '3px solid #22c55e',
+                                            marginTop: '4px'
                                         }}>
-                                            🤖 <strong>Resposta Automática Enviada:</strong> {item.outbound_reply_text.slice(0, 140)}...
+                                            🤖 <strong>Ação do Bot:</strong> {item.outbound_reply_text}
                                         </div>
                                     )}
                                 </div>
@@ -319,12 +298,6 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
                         </div>
                     )}
                 </div>
-
-                {/* Footer */}
-                <div style={{
-                    padding: '1rem 1.75rem',
-                    borderTop: '1px solid #e2e8f0',
-                    display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     background: '#f8fafc',
