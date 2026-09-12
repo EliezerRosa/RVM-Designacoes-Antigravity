@@ -298,6 +298,12 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
                         </div>
                     )}
                 </div>
+
+                {/* Footer */}
+                <div style={{
+                    padding: '1rem 1.75rem',
+                    borderTop: '1px solid #e2e8f0',
+                    display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     background: '#f8fafc',
@@ -322,6 +328,7 @@ export const ZApiSmartManagerModal: React.FC<ZApiSmartManagerModalProps> = ({ is
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
