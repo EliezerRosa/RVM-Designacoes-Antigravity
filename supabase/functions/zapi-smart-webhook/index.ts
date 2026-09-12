@@ -117,7 +117,12 @@ serve(async (req: Request) => {
     const hasQuotedMsg = Boolean(quotedMsgId);
     const isInteraction = Boolean(buttonId || reactionVal || rawPollVote || hasQuotedMsg);
 
-    // Ignora mensagens enviadas pelo próprio bot, exceto se for interação ou resposta com palavra-chave
+    // Ignora absolutamente mensagens disparadas por nossa própria API
+    if (payload.fromApi === true) {
+      return new Response(JSON.stringify({ ignored: true, reason: "fromApi" }), { status: 200 });
+    }
+
+    // Ignora mensagens enviadas pelo dono do celular no WhatsApp Web, exceto se for interação ou resposta com palavra-chave
     if (payload.fromMe === true && !isInteraction) {
       const lower = inboundText.toLowerCase();
       const hasKeyword = /\b(confirmar|confirmo|sim|não|recusar|poderei|disponibilidade)\b/i.test(lower);
@@ -388,11 +393,11 @@ serve(async (req: Request) => {
       } else {
         const lower = inboundText.toLowerCase();
 
-        // Regras heurísticas de alta precisão
+        // Regras heurísticas de alta precisão (usando word boundaries para evitar falsos positivos)
         const isConfirm = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower) || lower.includes("confirmar");
         const isDecline = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
-        const isAvailability = /\b(disponib\w*|agenda\w*|f[eé]rias|datas|ausente\w*|aus[eê]ncia\w*)/i.test(lower) || lower.includes("disponibilidade");
-        const isSwap = /\b(troc\w*|permut\w*|passar para|substitu\w*)/i.test(lower);
+        const isAvailability = /\b(disponibilidade|agenda|f[eé]rias|datas|ausente|aus[eê]ncia)\b/i.test(lower);
+        const isSwap = /\b(troca|trocar|permuta|permutar|passar para|substituir)\b/i.test(lower);
 
         if (isAvailability) {
           detectedIntent = "DISPONIBILIDADE";
@@ -516,18 +521,25 @@ serve(async (req: Request) => {
     else if (detectedIntent === "DISPONIBILIDADE") {
       actionTaken = "DISPONIBILIDADE_REQUESTED";
       const appUrl = "https://rvm-designacoes-antigravity.vercel.app";
-      // Busca ou cria token de disponibilidade
       const token = publisherData?.id ? await getOrCreateAvailabilityToken(publisherData.id, pubName) : "";
       const link = token ? `${appUrl}/?portal=availability&token=${token}` : `${appUrl}/`;
 
-      const promptMsg = `📅 *Painel de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no botão abaixo para abrir o seu painel e indicar as semanas em que estará ausente:`;
-      const buttonSent = await dispatchButtonActionUrl(replyPhone, promptMsg, "📅 Abrir Painel", link);
-
-      if (!buttonSent) {
-        outboundReply = `📅 *Atualização de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no link abaixo para marcar as semanas em que você estará ausente ou disponível nos próximos meses:\n\n👉 ${link}\n\n_As datas marcadas são bloqueadas automaticamente pelo motor de designações do RVM._`;
-        await dispatchTextMessage(replyPhone, outboundReply);
+      if (matchedBy === "TEMPORAL_WINDOW" || matchedBy === "UNMATCHED") {
+        // Soft Confirmation para texto livre: evita enviar o painel intrusivamente
+        outboundReply = `Irmão(ã) *${pubName}*, notei que você mencionou algo sobre sua agenda/disponibilidade.\n\nDeseja acessar seu painel para atualizar suas datas ausentes?`;
+        const btnSent = await dispatchButtonActionUrl(replyPhone, outboundReply, "📅 Sim, Abrir Painel", link);
+        if (!btnSent) await dispatchTextMessage(replyPhone, `${outboundReply}\n\nAcesse aqui: ${link}`);
       } else {
-        outboundReply = `[Botão CTA de Disponibilidade enviado: ${link}]`;
+        // Disparo direto via Botão explícito
+        const promptMsg = `📅 *Painel de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no botão abaixo para abrir o seu painel e indicar as semanas em que estará ausente:`;
+        const buttonSent = await dispatchButtonActionUrl(replyPhone, promptMsg, "📅 Abrir Painel", link);
+        
+        if (!buttonSent) {
+          outboundReply = `📅 *Atualização de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no link abaixo para marcar as semanas em que você estará ausente ou disponível nos próximos meses:\n\n👉 ${link}\n\n_As datas marcadas são bloqueadas automaticamente pelo motor de designações do RVM._`;
+          await dispatchTextMessage(replyPhone, outboundReply);
+        } else {
+          outboundReply = `[Botão CTA de Disponibilidade enviado: ${link}]`;
+        }
       }
     }
 
