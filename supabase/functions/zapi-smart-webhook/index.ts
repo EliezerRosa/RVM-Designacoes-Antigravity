@@ -203,6 +203,12 @@ serve(async (req: Request) => {
 
     let pubName = publisherData?.name || "Irmão(ã)";
 
+    // 🚨 INVARIANTE 1: Bloqueio estrito para não-publicadores
+    if (!publisherData) {
+      console.log(`[zapi-smart-webhook] IGNORED: Telefone ${senderPhone} não pertence a nenhum publicador cadastrado.`);
+      return new Response(JSON.stringify({ ignored: true, reason: "NOT_A_PUBLISHER" }), { status: 200 });
+    }
+
     // --------------------------------------------------------------------------
     // 2. Resolução do Contexto (Botão, Reação, QuotedMsg ou Janela Temporal)
     // --------------------------------------------------------------------------
@@ -315,12 +321,14 @@ serve(async (req: Request) => {
 
     // VIA D: Resolução por Janela Temporal (Publicador respondeu por texto)
     // INVARIANTE IMPOSTA: Imediatamente antes da msg/texto DEVE TER HAVIDO o envio de msg-do-app(z-api) relativa à designação.
-    if (!targetPartId && senderPhone) {
+    let recentDispatch = null;
+    
+    if (senderPhone) {
       const cleanPhone = senderPhone.replace(/\D/g, "");
       // Janela de resposta causal: até 72 horas após o envio de mensagem pelo app via Z-API
       const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
 
-      const { data: recentDispatch } = await supabase
+      const { data } = await supabase
         .from("zapi_dispatch_log")
         .select("part_id, dispatched_at, status")
         .like("recipient_phone", `%${cleanPhone.slice(-8)}%`)
@@ -330,25 +338,53 @@ serve(async (req: Request) => {
         .limit(1)
         .maybeSingle();
 
-      if (recentDispatch?.part_id) {
-        const candidatePartId = recentDispatch.part_id.replace(/-(titular|ajudante)$/i, "");
-        // Verifica se a designação associada ao dispatch ainda está pendente de resposta (ENVIADA)
-        const { data: partCheck } = await supabase
-          .from("workbook_parts")
-          .select("*")
-          .eq("id", candidatePartId)
-          .maybeSingle();
+      recentDispatch = data;
+    }
 
-        if (partCheck && partCheck.status !== "CONCLUIDA" && partCheck.status !== "CANCELADA") {
-          targetPartId = candidatePartId;
-          targetPart = partCheck;
-          matchedBy = "TEMPORAL_WINDOW";
-          if (partCheck.resolved_publisher_name) {
-            pubName = partCheck.resolved_publisher_name;
-          }
+    if (!targetPartId && recentDispatch?.part_id) {
+      const candidatePartId = recentDispatch.part_id.replace(/-(titular|ajudante)$/i, "");
+      // Verifica se a designação associada ao dispatch ainda está pendente de resposta (ENVIADA)
+      const { data: partCheck } = await supabase
+        .from("workbook_parts")
+        .select("*")
+        .eq("id", candidatePartId)
+        .maybeSingle();
+
+      if (partCheck && partCheck.status !== "CONCLUIDA" && partCheck.status !== "CANCELADA") {
+        targetPartId = candidatePartId;
+        targetPart = partCheck;
+        matchedBy = "TEMPORAL_WINDOW";
+        if (partCheck.resolved_publisher_name) {
+          pubName = partCheck.resolved_publisher_name;
         }
       }
-      // Se não houve dispatch prévio na janela ativa, targetPartId permanece null (NÃO adivinha designações)
+    }
+
+    // 🚨 INVARIANTE 2: Ação estrita para Texto Livre sem resposta a envio recente
+    const hasExplicitInteraction = Boolean(buttonId || reactionVal || rawPollVote || quotedMsgId);
+    
+    if (!hasExplicitInteraction && !recentDispatch) {
+      console.log(`[zapi-smart-webhook] INVARIANTE 2: Texto livre ignorado por falta de envio recente para ${senderPhone}`);
+      
+      const processingTimeMs = Date.now() - startTime;
+      await supabase.from("zapi_smart_interactions").insert({
+        phone: senderPhone,
+        publisher_id: publisherData?.id || null,
+        publisher_name: pubName,
+        workbook_part_id: null,
+        inbound_message_id: inboundMessageId,
+        inbound_text: inboundText,
+        raw_payload: payload,
+        matched_by: "UNMATCHED_NO_CONTEXT",
+        detected_intent: "OUTRO",
+        confidence: 0,
+        action_taken: "IGNORED_DUE_TO_INVARIANT",
+        reason_extracted: null,
+        outbound_reply_text: null,
+        processing_time_ms: processingTimeMs,
+      });
+
+      return new Response(JSON.stringify({ ignored: true, reason: "NO_RECENT_DISPATCH" }), { status: 200 });
     }
 
     // Se encontramos targetPartId mas ainda não carregamos targetPart, carrega do DB
