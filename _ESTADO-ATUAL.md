@@ -300,3 +300,35 @@
 - **Banco de Dados Supabase (`pevstuyzlewvjidjkmea`)**: Excluídos todos os registros e logs da designação fictícia de teste da semana de 08/out/2026 (`fa000000-0000-4000-8000-000000000001` em `workbook_parts` e `zapi_dispatch_log`).
 - **Repositório**: Removidos artefatos de teste locais (`public/test_s89_generated.png`, `scripts/test_live_image.ts` e `scripts/test_render_s89_playwright.ts`).
 - **Validação de Tipagem**: `npx tsc --noEmit` executado com zero erros em 100% do projeto.
+
+---
+
+## 9. Auditoria Recente de Rotinas (Crons) e Status de Testes (2026-09-14)
+
+### 📌 1. Dívida Semântica na UI ("Agenda de Automação")
+Foi constatado no código-fonte (`supabase/functions`) que a interface do modal `AutomationScheduleModal.tsx` está defasada em relação às invariantes arquiteturais da Fase 10:
+- **O Mito do "D-9 (Cobrança)":** A interface rotula o D-9 como "Cobrança". Na realidade, o código implementa a **Cobrança Contínua a cada 72 Horas** para partes `PROPOSTA` (pendentes de confirmação), que reutiliza o S-89 via `COBRANCA_72H`. O "D-9" interno é apenas mais um lembrete idêntico ao D-7 e D-2.
+- **A Sentinela Real é o D-15:** O alerta que avisa o SRVM que a reunião está próxima e não foi publicada (Alerta A3) é engatilhado matematicamente em `diffDays <= 15`, e não no D-9. 
+- **Lembretes Pós-Confirmação:** Com a **Opção 3** ativa, a emissão do S-89 com botões nativos acontece automaticamente no **D-21** (Robô Headless). Portanto, os lembretes de **D-9, D-7 e D-2** não enviam mais a primeira notificação; eles são estritamente enviados para partes já `DESIGNADA` (confirmadas), servindo como meros lembretes de proximidade.
+- **Isolamento de Kill-Switch:** A chave "Automação Z-API Background" na UI desliga **apenas** os crons internos (Lembretes e Cobranças de 72h). O fluxo de Auto-Designação (D-30) e Auto-Publicação (D-21) não é afetado, pois reside no *GitHub Actions* (`headless-bot.yml`). A interface precisa ser atualizada para clarificar isso.
+
+### 📌 2. Status dos Testes Automatizados (Code-level)
+A suíte completa de testes de código foi executada e reportou o seguinte estado atual:
+- **Testes Unitários:** 🔴 **5 Falharam** | 🟢 **70 Passaram** | 75 Total
+  - 4 falhas oriundas de um erro de importação de `.css` da biblioteca `driver.js` no motor de testes nativo (`tsx`), afetando o `WorkbookManager.test.tsx`.
+  - 1 falha lógica no motor de rotação `unifiedRotationService.test.ts` (Assertion Error: *sem filtrar, weeksSinceLast vira 0 (loop)* — actual: 40, expected: 0).
+- **Testes End-to-End (Playwright):** 🟢 **5 Passaram** | 0 Falhas (100% sucesso)
+  - Todos os 5 fluxos visuais do `login.spec.ts` de resiliência e fallback biométrico e autorização RLS (Caso Patrick e Z-API 2FA) operaram sem falhas em ~25s.
+
+---
+
+## 10. Checkpoint Arquitetural: Log Canônico, Auto-Reparo e Web Push (Fase 11 - Planejamento)
+
+- **Data do Checkpoint**: 2026-09-15
+- **Objetivos Consolidados**:
+  1. **Log Canônico Unificado:** Criação da view `vw_canonical_communication_log` unindo `zapi_dispatch_log` (Outbound), `zapi_smart_interactions` (Inbound) e `push_dispatch_log` (Push PWA). O novo painel `CommunicationLogPanel.tsx` usará Supabase Realtime para notificar o Admin (Toasts) sem poluir abas de segurança.
+  2. **Transparência de Bloqueios:** O Log exibirá os motivos lógicos pelos quais mensagens foram ignoradas pelo cron (ex: "Falta de S-89 prévio", "Aquiescência Tácita").
+  3. **Auto-Reparo do Limbo Legado:** Modificação do `cron-whatsapp-reminders` para resgatar designações manuais antigas sem `PUBLICACAO_S89`. O cron enviará o D-7/D-2 direto para partes `DESIGNADA` e atirará o S-89 atrasado (resgate) para partes `PROPOSTA` presas há 72h.
+  4. **Alertas Operacionais do SRVM:** Novo resumo diário de pendências (Ghosting de publicadores, Recusas esquecidas, Buracos no D-23) entregue via Z-API/Push.
+  5. **Estratégia Rica de Web Push (PWA):** Notificações expansíveis com Deep Link (`wa.me/bot`) para furar fila de atenção.
+  6. **Onboarding Silencioso de Push:** Adição de um 4º botão (URL Button nativo do WhatsApp: `[ 🔔 Ativar Notificações ]`) apenas para usuários que não têm permissão PWA ativa, induzindo-os a ativar o Push pelo navegador.
