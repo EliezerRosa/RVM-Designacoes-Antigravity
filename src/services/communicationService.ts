@@ -406,6 +406,20 @@ export const communicationService = {
             console.error('[communicationService] Erro ao buscar eventos para S-140:', err);
         }
 
+        // Adicionar bloco de Substituições
+        const substParts = _parts.filter(p => p.isSubstitution);
+        if (substParts.length > 0) {
+            text += `⚠️ *Avisos de Substituição:*\n`;
+            substParts.forEach(p => {
+                const newPub = p.resolvedPublisherName || p.rawPublisherName || 'N/D';
+                const oldPub = p.substitutedPublisherName || 'N/D';
+                const partName = p.tituloParte || p.tipoParte || 'N/D';
+                const role = p.funcao || 'Titular';
+                text += `🔄 Na parte *${partName}*: O irmão *${newPub}* (${role}) assumiu no lugar do irmão *${oldPub}*. O(s) substituto(s) e seus pares foram devidamente notificados.\n`;
+            });
+            text += `\n`;
+        }
+
         text += `📜 *Acesse o programa completo anexo.* ⬆️\n\n`;
         text += `_"E esteja sobre nós a benevolência de Jeová, nosso Deus; sim, torna próspero o trabalho de nossas mãos."_ (Salmo 90:17) ✨`;
 

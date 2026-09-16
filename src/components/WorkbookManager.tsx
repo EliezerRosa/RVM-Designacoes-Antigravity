@@ -729,6 +729,14 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
             // 1. Executar a alteração no banco
             await executePublisherUpdate(partId, newId, newName, part);
 
+            // 1.5. Gravar metadados da substituição para constar no histórico/S-140
+            const { supabase } = await import('../lib/supabase');
+            await supabase.from('workbook_parts').update({
+                is_substitution: true,
+                substituted_publisher_name: oldName
+            }).eq('id', partId);
+
+
             console.log('[ManualReplacement] Update no banco concluído. Opções:', options);
 
             // Se Z-API estiver desativada globalmente, o orchestrator aborta silenciosamente depois.
