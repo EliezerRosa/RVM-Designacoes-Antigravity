@@ -37,7 +37,7 @@ class ZApiOrchestrator {
         }
     }
 
-    async logDispatch(partId: string, dispatchType: DispatchType, phone: string, status: string, messageId?: string): Promise<void> {
+    async logDispatch(partId: string | null, dispatchType: DispatchType | string, phone: string, status: string, messageId?: string, publisherId?: string): Promise<void> {
         try {
             await supabase.from('zapi_dispatch_log').insert({
                 part_id: partId,
@@ -45,6 +45,7 @@ class ZApiOrchestrator {
                 recipient_phone: phone,
                 status: status,
                 message_id: messageId || null,
+                publisher_id: publisherId || null,
             });
         } catch (err) {
             console.error('[zapiOrchestrator] Falha ao logar dispatch:', err);
@@ -493,7 +494,8 @@ class ZApiOrchestrator {
             logType,
             phone,
             effectiveSuccess ? 'SUCCESS' : 'ERROR: ' + (msgRes.error || imgRes.error || 'unknown'),
-            mainMessageId
+            mainMessageId,
+            publisherId
         );
         return { success: effectiveSuccess, messageId: mainMessageId, error: msgRes.error || imgRes.error };
     }
