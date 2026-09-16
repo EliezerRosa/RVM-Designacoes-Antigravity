@@ -62,6 +62,20 @@ function phoneMatches(phoneA?: string, phoneB?: string): boolean {
   return false;
 }
 
+/** Saudação dinâmica pelo fuso horário de Brasília (UTC-3) */
+function getGreeting(): string {
+    const now = new Date();
+    const brasiliaHour = (now.getUTCHours() - 3 + 24) % 24;
+    if (brasiliaHour >= 5 && brasiliaHour < 12) return 'Bom dia';
+    if (brasiliaHour >= 12 && brasiliaHour < 18) return 'Boa tarde';
+    return 'Boa noite';
+}
+
+/** Pronome pelo gênero do publisher */
+function getHonorific(gender?: string): string {
+    return gender === 'sister' ? 'Irmã' : 'Irmão';
+}
+
 serve(async (req: Request) => {
   const startTime = Date.now();
 
@@ -98,12 +112,16 @@ serve(async (req: Request) => {
 
     const buttonId = payload.buttonsResponseMessage?.buttonId || 
                      payload.buttonsResponseMessage?.selectedButtonId ||
+                     (payload as any).buttonReply?.buttonId ||
                      (payload as any).data?.buttonsResponseMessage?.buttonId ||
                      (payload as any).data?.buttonsResponseMessage?.selectedButtonId ||
+                     (payload as any).data?.buttonReply?.buttonId ||
                      (payload as any).selectedButtonId ||
                      (payload as any).buttonId;
     const buttonMessage = payload.buttonsResponseMessage?.message || 
+                          (payload as any).buttonReply?.message ||
                           (payload as any).data?.buttonsResponseMessage?.message || 
+                          (payload as any).data?.buttonReply?.message ||
                           (payload as any).buttonText ||
                           "";
     const reactionVal = payload.reaction?.value || payload.reactionMessage?.value;
@@ -454,10 +472,27 @@ serve(async (req: Request) => {
     // 4. Fechamento de Ciclo (Ações e Respostas)
     // --------------------------------------------------------------------------
     const replyPhone = publisherData?.phone || targetPart?.phone || (senderPhone ? senderPhone.replace(/@.*$/, "") : "");
+    const greeting = getGreeting();
+    const honorific = getHonorific(publisherData?.gender || targetPart?.gender || "brother");
 
     // CENÁRIO 1: CONFIRMAÇÃO
     if (detectedIntent === "CONFIRMAR") {
-      if (targetPart && targetPart.status !== "CONCLUIDA" && targetPart.status !== "CANCELADA") {
+      if (!targetPart) {
+        actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
+        console.log(`[zapi-smart-webhook] Texto de confirmação ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
+      } else if (targetPart.status === "CONCLUIDA" || targetPart.status === "CANCELADA") {
+        actionTaken = "ALREADY_PROCESSED";
+      } else if (targetPart.status === "DESIGNADA" && targetPart.resolved_publisher_id === publisherData?.id) {
+        actionTaken = "ALREADY_PROCESSED_SPAM_LOCKED";
+        outboundReply = `✅ ${greeting}, ${honorific} *${pubName}*! Vimos que sua designação já constava como confirmada. Muito obrigado pela sua disposição!`;
+        console.log(`[zapi-smart-webhook] Confirmação ignorada (Duplo Clique): Parte já estava DESIGNADA para ${pubName}`);
+        await dispatchTextMessage(replyPhone, outboundReply);
+      } else if (targetPart.resolved_publisher_id && targetPart.resolved_publisher_id !== publisherData?.id) {
+        actionTaken = "ALREADY_REASSIGNED";
+        outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. Como esta parte já foi repassada para outro publicador, não é mais possível confirmá-la. Agradecemos imensamente a sua disposição e o seu espírito voluntário!`;
+        console.log(`[zapi-smart-webhook] Confirmação negada: Parte já repassada para outro publicador.`);
+        await dispatchTextMessage(replyPhone, outboundReply);
+      } else {
         // Concorrência segura: assegura status DESIGNADA em workbook_parts
         await supabase
           .from("workbook_parts")
@@ -482,15 +517,9 @@ serve(async (req: Request) => {
         actionTaken = "STATUS_CONFIRMADA";
 
         const tipoParte = targetPart.tipo_parte || targetPart.part_title || "Designação";
-        outboundReply = `✅ *Confirmação Registrada!*\n\nFicamos muito felizes, Irmão(ã) *${pubName}*! Sua designação de *${tipoParte}* está confirmada no programa da reunião.\n\nQue Jeová abençoe sua preparação! 🙏`;
+        outboundReply = `✅ *Confirmação Registrada!*\n\n${greeting}, ${honorific} *${pubName}*, ficamos muito felizes! Sua designação de *${tipoParte}* está confirmada no programa da reunião.\n\nQue Jeová abençoe ricamente a sua preparação! 🙏`;
         console.log(`[zapi-smart-webhook] Despachando resposta cordial de confirmação para ${replyPhone}...`);
         await dispatchTextMessage(replyPhone, outboundReply);
-      } else if (!targetPart) {
-        // INVARIANTE: Sem envio prévio comprovado pelo Z-API, texto é ignorado sem impacto no banco
-        actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
-        console.log(`[zapi-smart-webhook] Texto de confirmação ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
-      } else {
-        actionTaken = "ALREADY_PROCESSED";
       }
     }
 
@@ -500,6 +529,11 @@ serve(async (req: Request) => {
         // INVARIANTE: Sem envio prévio comprovado pelo Z-API, texto é ignorado sem impacto no banco
         actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
         console.log(`[zapi-smart-webhook] Texto de recusa ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
+      } else if (targetPart.status === "REJEITADA") {
+        actionTaken = "ALREADY_PROCESSED_SPAM_LOCKED";
+        outboundReply = `❌ ${greeting}, ${honorific} *${pubName}*. Nós já havíamos registrado que não será possível realizar esta designação. Agradecemos muito por nos avisar com antecedência!`;
+        console.log(`[zapi-smart-webhook] Recusa ignorada (Duplo Clique): Parte já estava REJEITADA para ${pubName}`);
+        await dispatchTextMessage(replyPhone, outboundReply);
       } else {
         const reason = reasonExtracted || "Impossibilidade informada via WhatsApp.";
 
@@ -540,11 +574,11 @@ serve(async (req: Request) => {
 
         // Se o motivo ainda não foi informado (veio apenas pelo clique de botão)
         if (!reasonExtracted) {
-          outboundReply = `Irmão(ã) *${pubName}*, registramos que você não poderá realizar esta designação.\n\nPor favor, informe em poucas palavras o *motivo* para informarmos ao *Superintendente (SRVM)* e ao *Ajudante do SRVM*.`;
+          outboundReply = `${greeting}, ${honorific} *${pubName}*, já registramos que não será possível realizar esta designação.\n\nPor favor, poderia nos informar brevemente o *motivo* para podermos repassar aos irmãos responsáveis?`;
           await dispatchTextMessage(replyPhone, outboundReply);
         } else {
           // Motivo já fornecido: acolhe o publicador
-          outboundReply = `Agradecemos por avisar com antecedência, Irmão(ã) *${pubName}*! Registramos sua justificativa e providenciaremos a substituição. Desejamos tudo de bom e uma pronta recuperação! 💛`;
+          outboundReply = `Muito obrigado por nos avisar com antecedência, ${honorific} *${pubName}*! Já registramos sua justificativa e iremos providenciar a substituição. Desejamos tudo de bom e, se for o caso, uma pronta recuperação! 💛`;
           await dispatchTextMessage(replyPhone, outboundReply);
 
           // 🚨 DISPARO IMEDIATO DE ALERTA EXCLUSIVO PARA SRVM, AJUDANTE E ADMINS
@@ -562,16 +596,16 @@ serve(async (req: Request) => {
 
       if (matchedBy === "TEMPORAL_WINDOW" || matchedBy === "UNMATCHED") {
         // Soft Confirmation para texto livre: evita enviar o painel intrusivamente
-        outboundReply = `Irmão(ã) *${pubName}*, notei que você mencionou algo sobre sua agenda/disponibilidade.\n\nDeseja acessar seu painel para atualizar suas datas ausentes?`;
+        outboundReply = `${greeting}, ${honorific} *${pubName}*, notamos que mencionou algo sobre sua agenda ou disponibilidade.\n\nDeseja acessar seu painel para atualizar suas datas ausentes?`;
         const btnSent = await dispatchButtonActionUrl(replyPhone, outboundReply, "📅 Sim, Abrir Painel", link);
         if (!btnSent) await dispatchTextMessage(replyPhone, `${outboundReply}\n\nAcesse aqui: ${link}`);
       } else {
         // Disparo direto via Botão explícito
-        const promptMsg = `📅 *Painel de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no botão abaixo para abrir o seu painel e indicar as semanas em que estará ausente:`;
+        const promptMsg = `📅 *Painel de Disponibilidade*\n\n${greeting}, ${honorific} *${pubName}*, por favor, toque no botão abaixo para abrir o seu painel e indicar as semanas em que estará ausente:`;
         const buttonSent = await dispatchButtonActionUrl(replyPhone, promptMsg, "📅 Abrir Painel", link);
         
         if (!buttonSent) {
-          outboundReply = `📅 *Atualização de Disponibilidade*\n\nIrmão(ã) *${pubName}*, toque no link abaixo para marcar as semanas em que você estará ausente ou disponível nos próximos meses:\n\n👉 ${link}\n\n_As datas marcadas são bloqueadas automaticamente pelo motor de designações do RVM._`;
+          outboundReply = `📅 *Atualização de Disponibilidade*\n\n${greeting}, ${honorific} *${pubName}*, por favor, toque no link abaixo para marcar as semanas em que estará ausente ou disponível nos próximos meses:\n\n👉 ${link}\n\n_As datas marcadas são bloqueadas automaticamente nas próximas designações._`;
           await dispatchTextMessage(replyPhone, outboundReply);
         } else {
           outboundReply = `[Botão CTA de Disponibilidade enviado: ${link}]`;
@@ -582,7 +616,7 @@ serve(async (req: Request) => {
     // CENÁRIO 4: PERMUTA (TROCA COM OUTRO IRMÃO)
     else if (detectedIntent === "PERMUTA") {
       actionTaken = "SWAP_REQUESTED";
-      outboundReply = `Irmão(ã) *${pubName}*, registramos o seu pedido de troca!\n\nEncaminhamos a solicitação para avaliação de *O Superintendente (SRVM)* e do *Ajudante do SRVM*. Lembramos que toda troca precisa da aprovação deles para ter validade oficial no programa.\n\nAssim que avaliarem no RVM, você será avisado(a)! 🙏`;
+      outboundReply = `${greeting}, ${honorific} *${pubName}*, registramos o seu pedido de troca!\n\nJá encaminhamos a sua solicitação para avaliação dos irmãos responsáveis. Lembramos que toda troca precisa da aprovação deles para ter validade oficial no programa da reunião.\n\nAssim que eles analisarem, você será avisado(a)! 🙏`;
       await dispatchTextMessage(replyPhone, outboundReply);
 
       // Alerta a liderança sobre a tentativa de permuta

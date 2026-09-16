@@ -314,12 +314,13 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
           const personalUrl = `${updateUrl}&u=${encodeURIComponent(m.id)}`;
           const personalMessage = message.replace(updateUrl, personalUrl);
 
-          let res: { success: boolean; error?: string } = await zapiOrchestrator.sendTextDirect(m.phone, personalMessage);
+          let res: { success: boolean; error?: string; messageId?: string } = await zapiOrchestrator.sendTextDirect(m.phone, personalMessage);
           if (!res.success) {
             const wa = createWhatsAppAutoServiceFromEnv();
             const waRes = await wa.sendText(m.phone, personalMessage);
             res = { success: waRes.success, error: waRes.error };
           }
+          await zapiOrchestrator.logDispatch(null, 'CS_CLEARANCE', m.phone, res.success ? 'SUCCESS' : 'ERROR: ' + res.error, res.messageId);
 
           if (res.success) {
             sentCount++;
@@ -337,13 +338,14 @@ export function CSClearanceModal({ onClose, publishers: initialPublishers, weekP
       } else {
         const effectiveTarget = destMode === 'manual' ? manualDestinationId.trim() : selectedGroupId;
         
-        let res: { success: boolean; error?: string } = await zapiOrchestrator.sendTextDirect(effectiveTarget, message);
+        let res: { success: boolean; error?: string; messageId?: string } = await zapiOrchestrator.sendTextDirect(effectiveTarget, message);
         if (!res.success) {
           console.warn('[CSClearanceModal] Tentando via waService direto:', res.error);
           const wa = createWhatsAppAutoServiceFromEnv();
           const waRes = await wa.sendText(effectiveTarget, message);
           res = { success: waRes.success, error: waRes.error };
         }
+        await zapiOrchestrator.logDispatch(null, 'CS_CLEARANCE', effectiveTarget, res.success ? 'SUCCESS' : 'ERROR: ' + res.error, res.messageId);
 
         if (res.success) {
           alert('✅ Mensagem enviada com sucesso para o destino WhatsApp!');

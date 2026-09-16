@@ -26,7 +26,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { driver, type Driver } from 'driver.js';
-import 'driver.js/dist/driver.css';
 
 export interface TourStep {
     /** Selector CSS do elemento a destacar. Se ausente, é mostrado como modal central. */

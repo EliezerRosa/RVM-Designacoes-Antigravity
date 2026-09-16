@@ -11,7 +11,7 @@ interface ScheduleInfo {
     weekDateStr: string;
     d30Date: Date | null;
     d21Date: Date | null;
-    d9Date: Date | null;
+    d15Date: Date | null;
     d7Date: Date | null;
     d2Date: Date | null;
 }
@@ -91,7 +91,7 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                     const meetingDate = new Date(baseDate);
                     meetingDate.setDate(meetingDate.getDate() + daysToMeeting);
 
-                    const d9 = new Date(meetingDate); d9.setDate(d9.getDate() - 9);
+                    const d15 = new Date(meetingDate); d15.setDate(d15.getDate() - 15);
                     const d7 = new Date(meetingDate); d7.setDate(d7.getDate() - 7);
                     const d2 = new Date(meetingDate); d2.setDate(d2.getDate() - 2);
 
@@ -100,7 +100,7 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                         weekDateStr: dateStr,
                         d30Date: d30 >= today ? d30 : null,
                         d21Date: d21 >= today ? d21 : null,
-                        d9Date: d9 >= today ? d9 : null,
+                        d15Date: d15 >= today ? d15 : null,
                         d7Date: d7 >= today ? d7 : null,
                         d2Date: d2 >= today ? d2 : null,
                     });
@@ -153,9 +153,9 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                                                     <th style={{ padding: '8px 4px' }}>Semana (Reunião)</th>
                                                     <th style={{ padding: '8px 4px' }}>D-30 (Auto-Designação)</th>
                                                     <th style={{ padding: '8px 4px' }}>D-21 (Auto-Publicação)</th>
-                                                    <th style={{ padding: '8px 4px', borderLeft: '1px solid var(--border-color)' }}>D-9 (Cobrança)</th>
-                                                    <th style={{ padding: '8px 4px' }}>D-7 (Lembrete 1)</th>
-                                                    <th style={{ padding: '8px 4px' }}>D-2 (Lembrete 2)</th>
+                                                    <th style={{ padding: '8px 4px', borderLeft: '1px solid var(--border-color)' }}>D-15 (Sentinela)</th>
+                                                    <th style={{ padding: '8px 4px' }}>D-7 (Lembrete Proximidade)</th>
+                                                    <th style={{ padding: '8px 4px' }}>D-2 (Lembrete Proximidade)</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -170,8 +170,8 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                                                         <td style={{ padding: '8px 4px', color: s.d21Date ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                                                             {formatDate(s.d21Date)}
                                                         </td>
-                                                        <td style={{ padding: '8px 4px', borderLeft: '1px solid var(--border-color)', color: s.d9Date ? 'var(--color-warning)' : 'var(--text-muted)' }}>
-                                                            {formatDate(s.d9Date)}
+                                                        <td style={{ padding: '8px 4px', borderLeft: '1px solid var(--border-color)', color: s.d15Date ? 'var(--color-warning)' : 'var(--text-muted)' }}>
+                                                            {formatDate(s.d15Date)}
                                                         </td>
                                                         <td style={{ padding: '8px 4px', color: s.d7Date ? 'var(--color-success)' : 'var(--text-muted)' }}>
                                                             {formatDate(s.d7Date)}
@@ -185,6 +185,15 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                                         </table>
                                     </div>
                                 )}
+                            </div>
+
+                            <div style={{ marginBottom: '20px', padding: '15px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                <h3 style={{ color: 'var(--color-warning)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>⏳</span> Ciclo de Cobrança Contínua (72h)
+                                </h3>
+                                <p style={{ fontSize: '0.9rem', margin: 0, color: 'var(--text-secondary)' }}>
+                                    Qualquer parte enviada que permaneça pendente de confirmação (status <strong>PROPOSTA</strong>) receberá uma cobrança automática a cada 72 horas, repetidamente, até que o publicador responda ou seja substituído pelo SRVM. Anciãos e Servos Ministeriais gozam de aquiescência tácita e são isentos desta cobrança.
+                                </p>
                             </div>
 
                             <div style={{ marginBottom: '20px', padding: '15px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
@@ -212,7 +221,7 @@ export const AutomationScheduleModal: React.FC<AutomationScheduleModalProps> = (
                             <span>⚠️</span> Importante
                         </h3>
                         <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                            Os gatilhos ocorrem automaticamente nos dias indicados. Caso queira interromper temporariamente, desative a chave "Automação Z-API Background" no painel.
+                            A chave "Automação Z-API Background" no painel desliga <strong>apenas os Crons de Lembretes e Cobranças de 72h</strong>. O robô Headless de Auto-Designação (D-30) e Auto-Publicação (D-21) roda independentemente na nuvem via GitHub Actions.
                         </p>
                     </div>
 

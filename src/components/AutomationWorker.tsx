@@ -212,7 +212,8 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
 
                                     for (const rec of leadershipRecipients) {
                                         try {
-                                            await zapiOrchestrator.sendTextDirect(rec.phone, msgD30);
+                                            const sendRes = await zapiOrchestrator.sendTextDirect(rec.phone, msgD30);
+                                            await zapiOrchestrator.logDispatch(null, 'AUTOMACAO_D30', rec.phone, sendRes.success ? 'SUCCESS' : 'ERROR: ' + sendRes.error, sendRes.messageId);
                                         } catch (sendErr) {
                                             console.warn(`[AutomationWorker] Falha ao enviar zap para ${rec.role}:`, sendErr);
                                         }
@@ -293,7 +294,8 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
 
                             for (const rec of leadershipRecipients) {
                                 try {
-                                    await zapiOrchestrator.sendTextDirect(rec.phone, msgD21);
+                                    const sendRes = await zapiOrchestrator.sendTextDirect(rec.phone, msgD21);
+                                    await zapiOrchestrator.logDispatch(null, 'AUTOMACAO_D21', rec.phone, sendRes.success ? 'SUCCESS' : 'ERROR: ' + sendRes.error, sendRes.messageId);
                                 } catch (sendErr) {
                                     console.warn(`[AutomationWorker] Falha ao enviar zap para ${rec.role}:`, sendErr);
                                 }

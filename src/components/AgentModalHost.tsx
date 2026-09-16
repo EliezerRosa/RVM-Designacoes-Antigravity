@@ -351,7 +351,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                                         allParts,
                                         { isSubstitution: true, isZApiFlow: true }
                                     );
-                                    await zapiOrchestrator.sendS89Direct(partId, newPub.phone, msg, pdfBase64, undefined, availabilityUrl);
+                                    await zapiOrchestrator.sendS89Direct(partId, newPub.phone, msg, pdfBase64, undefined, availabilityUrl, newPub.id);
                                 }
                             }
                             if (options.notifyPartner && partnerPub?.phone && newPub) {

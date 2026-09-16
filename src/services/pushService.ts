@@ -19,7 +19,17 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 /**
- * Solicita permisso do SO e inscreve o usurio no Web Push
+ * Verifica se já existe uma assinatura local
+ */
+export async function hasSubscription(): Promise<boolean> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  return !!subscription;
+}
+
+/**
+ * Solicita permissão do SO e inscreve o usuário no Web Push
  */
 export async function subscribeToWebPush(supabaseClient: any): Promise<{ success: boolean; error?: string }> {
   try {
