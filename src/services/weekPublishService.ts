@@ -109,6 +109,8 @@ export async function buildDesignatableCards(
             rawPublisherName: original.rawPublisherName,
             resolvedPublisherId: original.resolvedPublisherId,
             section: original.section,
+            isSubstitution: original.isSubstitution,
+            substitutedPublisherName: original.substitutedPublisherName,
         } : {};
 
         if (part.mainHallAssignee) {
