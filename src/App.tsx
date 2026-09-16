@@ -25,6 +25,7 @@ import { usePermissions } from './hooks/usePermissions'
 import { ForceBiometricModal } from './components/ForceBiometricModal'
 import { AppLockScreen } from './components/AppLockScreen'
 import { AutomationWorker } from './components/AutomationWorker'
+import { PushOnboardingPortal } from './components/PushOnboardingPortal'
 
 // Lazy-loaded tabs (code splitting)
 const WorkbookManager = lazy(() => import('./components/WorkbookManager'))
@@ -173,6 +174,15 @@ function App() {
     return (
       <div className="app portal-mode">
         <PublisherAvailabilityPortal token={portalToken ?? undefined} />
+      </div>
+    );
+  }
+
+  // PORTAL: onboarding de notificações web push
+  if (portal === 'push-onboarding' && portalPubId) {
+    return (
+      <div className="app portal-mode">
+        <PushOnboardingPortal publisherId={portalPubId} />
       </div>
     );
   }

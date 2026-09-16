@@ -25,7 +25,7 @@ import { AvailabilityLinkManager } from '../components/admin/AvailabilityLinkMan
 import { OrphanAuditPanel } from '../components/admin/OrphanAuditPanel';
 import { MyAssignmentsPortalManager } from '../components/admin/MyAssignmentsPortalManager';
 import { ZApiConfigPanel } from '../components/admin/ZApiConfigPanel';
-import { ZApiAuditPanel } from '../components/admin/ZApiAuditPanel';
+import { CommunicationLogPanel } from '../components/admin/CommunicationLogPanel';
 import { useAuth } from '../context/AuthContext';
 
 interface SystemLog {
@@ -36,7 +36,7 @@ interface SystemLog {
     created_at: string;
 }
 
-type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans' | 'my-assignments-portal' | 'zapi' | 'zapi-audit';
+type AdminSubTab = 'overview' | 'diagnostics' | 'auth' | 'permissions' | 'engine' | 'links' | 'availability' | 'orphans' | 'my-assignments-portal' | 'zapi' | 'comms-log';
 
 const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }> = [
     { id: 'overview', label: 'Visão Geral', eyebrow: 'Core' },
@@ -49,7 +49,7 @@ const ADMIN_SUB_TABS: Array<{ id: AdminSubTab; label: string; eyebrow: string }>
     { id: 'orphans', label: 'Auditoria de Órfãs', eyebrow: 'Importação' },
     { id: 'my-assignments-portal', label: 'Portal Designações', eyebrow: 'Publicadores' },
     { id: 'zapi', label: 'Config. Z-API', eyebrow: 'Automação' },
-    { id: 'zapi-audit', label: 'Audit. WhatsApp', eyebrow: 'Logs' },
+    { id: 'comms-log', label: 'Log Canônico', eyebrow: 'Comunicação' },
 ];
 
 export function AdminDashboard() {
@@ -514,12 +514,12 @@ export function AdminDashboard() {
                                 </div>
                             </section>
 
-                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Audit. WhatsApp">
+                            <section className="admin-carousel-panel" role="tabpanel" aria-label="Log Canônico">
                                 <div className="table-card admin-panel-card">
                                     <div className="table-header">
-                                        <h3>📱 Auditoria de Envios WhatsApp</h3>
+                                        <h3>📜 Log Canônico (WhatsApp & Web Push)</h3>
                                     </div>
-                                    <ZApiAuditPanel />
+                                    <CommunicationLogPanel />
                                 </div>
                             </section>
                         </div>

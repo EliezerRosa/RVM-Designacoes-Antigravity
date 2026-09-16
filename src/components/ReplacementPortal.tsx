@@ -225,7 +225,8 @@ export function ReplacementPortal({ partId }: ReplacementPortalProps) {
                         msg,
                         pdfBase64,
                         undefined,
-                        availabilityUrl
+                        availabilityUrl,
+                        candidate.id
                     );
                 } else {
                     await supabase.functions.invoke('send-whatsapp', {

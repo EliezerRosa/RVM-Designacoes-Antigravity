@@ -175,6 +175,7 @@ class ZApiOrchestrator {
             `Este é apenas um aviso automático para que você possa entrar em contato com sua nova dupla para os ensaios. Que Jeová abençoe! 🙏`;
 
         const result = await this.sendTextDirect(partnerPhone, msg);
+        await this.logDispatch(null, 'ALERTA_PARCEIRO', partnerPhone, result.success ? 'SUCCESS' : 'ERROR: ' + result.error, result.messageId);
         return result.success;
     }
     async dispatchManualReplacementAlert(
@@ -193,6 +194,7 @@ class ZApiOrchestrator {
             `Esta parte foi repassada para outro irmão. Portanto, você não precisará mais realizá-la. Agradecemos a sua compreensão e apoio! 🙏`;
 
         const result = await this.sendTextDirect(oldPhone, msg);
+        await this.logDispatch(null, 'ALERTA_REMOCAO', oldPhone, result.success ? 'SUCCESS' : 'ERROR: ' + result.error, result.messageId);
         return result.success;
     }
 
@@ -321,8 +323,11 @@ class ZApiOrchestrator {
      */
     async dispatchImageToRecipients(imageBase64: string, caption: string, recipients: string[]): Promise<{ phone: string; success: boolean; error?: string }[]> {
         const results: { phone: string; success: boolean; error?: string }[] = [];
+        // Se a legenda contiver "Status atual", trata como STATUS_BOARD, senão S-140
+        const logType = caption.includes('Status atual') ? 'STATUS_BOARD' : 'PUBLICACAO_S140';
         for (const phone of recipients) {
             const r = await this.sendImageDirect(phone, imageBase64, caption);
+            await this.logDispatch(null, logType, phone, r.success ? 'SUCCESS' : 'ERROR: ' + r.error, r.messageId);
             results.push({ phone, success: r.success, error: r.error });
         }
         return results;
@@ -403,7 +408,8 @@ class ZApiOrchestrator {
         content: string,
         imageBase64: string,
         idempotencyType?: DispatchType,
-        availabilityUrl?: string
+        availabilityUrl?: string,
+        publisherId?: string
     ): Promise<{ success: boolean; skipped?: boolean; messageId?: string; error?: string }> {
         if (idempotencyType && await this.hasBeenDispatched(partId, idempotencyType)) {
             return { success: true, skipped: true };
@@ -435,7 +441,31 @@ class ZApiOrchestrator {
             });
         }
 
-        // 3. Envia o texto da designação acompanhado dos 3 botões nativos via send-button-actions
+        // 4º Botão: Onboarding de Web Push (se aplicável e se tivermos o publisherId)
+        if (publisherId) {
+            try {
+                // Checa se o usuário já ativou as notificações push
+                const { data: pushSubs } = await supabase
+                    .from('push_subscriptions')
+                    .select('id')
+                    .eq('publisher_id', publisherId)
+                    .limit(1);
+
+                if (!pushSubs || pushSubs.length === 0) {
+                    const baseUrl = window.location.origin; // Em contexto web
+                    buttonActions.push({
+                        id: `PUSH_ONBOARDING:${publisherId}`,
+                        type: 'URL',
+                        url: `${baseUrl}/?portal=push-onboarding&pubId=${publisherId}`,
+                        label: '🔔 Ativar Notificações',
+                    });
+                }
+            } catch (err) {
+                console.warn('[zapiOrchestrator] Falha ao checar push_subscriptions:', err);
+            }
+        }
+
+        // 3. Envia o texto da designação acompanhado dos botões nativos via send-button-actions
         let msgRes = await this.sendButtonActionsDirect(phone, content, buttonActions);
 
         // Fallback: se botões falharem por qualquer motivo, tenta send-button-list ou texto padrão

@@ -424,7 +424,7 @@ export async function publishWeek(
                 continue;
             }
 
-            const sent = await zapiOrchestrator.sendS89Direct(card.id, String(phone), content, imageBase64, 'PUBLICACAO_S89', availabilityUrl);
+            const sent = await zapiOrchestrator.sendS89Direct(card.id, String(phone), content, imageBase64, 'PUBLICACAO_S89', availabilityUrl, foundPublisher?.id);
             if (sent.skipped) {
                 result.s89Skipped++;
             } else if (sent.success) {

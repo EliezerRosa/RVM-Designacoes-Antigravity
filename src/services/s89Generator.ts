@@ -434,8 +434,6 @@ export async function sendS89ViaWhatsApp(
     }
 }
 
-import * as pdfjsLib from 'pdfjs-dist';
-
 // Configuração do Worker movida para main.tsx para garantir inicialização precoce
 
 /**
@@ -443,6 +441,7 @@ import * as pdfjsLib from 'pdfjs-dist';
  */
 async function renderPdfToPngBlob(pdfBytes: Uint8Array): Promise<Blob | null> {
     try {
+        const pdfjsLib = await import('pdfjs-dist');
         // 1. Carregar Documento
         const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
         const pdf = await loadingTask.promise;

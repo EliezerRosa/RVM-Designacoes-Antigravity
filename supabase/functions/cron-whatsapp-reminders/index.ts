@@ -344,6 +344,173 @@ async function fetchDailyInteractionsReport(): Promise<string[]> {
 }
 
 // ============================================================================
+// AUTO-REPARO DE DESIGNAÇÕES VIA Z-API SMART (GHOSTING INVERTIDO)
+// ============================================================================
+
+async function autoRepairConfirmedParts(parts: PartData[]): Promise<string[]> {
+    const reports: string[] = [];
+    const pendingParts = parts.filter(p => p.status === 'PROPOSTA');
+    
+    if (pendingParts.length === 0) return reports;
+
+    const partIds = pendingParts.map(p => p.id);
+
+    // Busca interações smart que detectaram intenção de CONFIRMAR para essas partes
+    const { data: interactions, error } = await supabase
+        .from('zapi_smart_interactions')
+        .select('workbook_part_id, detected_intent')
+        .in('workbook_part_id', partIds)
+        .eq('detected_intent', 'CONFIRMAR');
+
+    if (error || !interactions || interactions.length === 0) return reports;
+
+    const partsToRepair = new Set(interactions.map((i: any) => i.workbook_part_id));
+
+    for (const partId of partsToRepair) {
+        const part = parts.find(p => p.id === partId);
+        if (!part) continue;
+
+        // Auto-reparo
+        const nowIso = new Date().toISOString();
+        const { error: updateError } = await supabase
+            .from('workbook_parts')
+            .update({ 
+                status: 'DESIGNADA', 
+                status_changed_at: nowIso,
+                updated_at: nowIso
+            })
+            .eq('id', partId);
+
+        if (!updateError) {
+            part.status = 'DESIGNADA'; // Atualiza em memória para o cron pegar nos lembretes D-9/D-7
+            const pubName = part.resolved_publisher_name || part.raw_publisher_name || 'Desconhecido';
+            reports.push(`🔧 *Auto-reparo:* A parte "${part.part_title || part.tipo_parte}" de ${pubName} foi confirmada pela IA, mas não constava no sistema. Status corrigido para DESIGNADA.`);
+        }
+    }
+
+    return reports;
+}
+
+// ============================================================================
+// ALERTA DE GHOSTING (LIMBO)
+// ============================================================================
+
+async function checkGhostingParts(parts: PartData[]): Promise<string[]> {
+    const reports: string[] = [];
+    const pendingParts = parts.filter(p => p.status === 'PROPOSTA');
+    
+    if (pendingParts.length === 0) return reports;
+
+    const partIds = pendingParts.map(p => p.id);
+
+    // Busca envios de COBRANCA_72H com sucesso para essas partes
+    const { data: dispatches, error } = await supabase
+        .from('zapi_dispatch_log')
+        .select('part_id')
+        .in('part_id', partIds)
+        .eq('dispatch_type', 'COBRANCA_72H')
+        .eq('status', 'SUCCESS');
+
+    if (error || !dispatches || dispatches.length === 0) return reports;
+
+    // Agrupa contagem por part_id
+    const countMap: Record<string, number> = {};
+    for (const d of dispatches) {
+        if (!d.part_id) continue;
+        countMap[d.part_id] = (countMap[d.part_id] || 0) + 1;
+    }
+
+    for (const partId of Object.keys(countMap)) {
+        const count = countMap[partId];
+        if (count >= 3) {
+            const part = parts.find(p => p.id === partId);
+            if (!part) continue;
+            
+            const pubName = part.resolved_publisher_name || part.raw_publisher_name || 'Desconhecido';
+            reports.push(`👻 *Ghosting Detectado:* O publicador *${pubName}* já recebeu ${count} lembretes automáticos para a parte de "${part.tipo_parte || part.part_title}" e continua sem responder (status PROPOSTA). Sugerimos contatá-lo ligando ou realizar a substituição no sistema.`);
+        }
+    }
+
+    return reports;
+}
+
+// ============================================================================
+// ALERTA DE RECUSAS ESQUECIDAS (REFUSALS LAPSING)
+// ============================================================================
+
+async function checkRefusalsLapsing(meetingDays: Record<string, number>, today: Date): Promise<string[]> {
+    const reports: string[] = [];
+
+    const { data: rejectedParts, error } = await supabase
+        .from('workbook_parts')
+        .select('id, week_id, tipo_parte, part_title')
+        .eq('needs_reassignment', true);
+
+    if (error || !rejectedParts || rejectedParts.length === 0) return reports;
+
+    let count = 0;
+    for (const part of rejectedParts) {
+        const meetingDate = calculateMeetingDate(part.week_id, meetingDays);
+        if (!meetingDate) continue;
+
+        const diffTime = meetingDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 0 && diffDays <= 14) {
+            count++;
+        }
+    }
+
+    if (count > 0) {
+        reports.push(`🚨 *Substituições Pendentes:* Há ${count} parte(s) que foi(ram) recusada(s) e continua(m) sem substituto para reuniões nos próximos 14 dias. Acesse o RVM urgente para repassá-las!`);
+    }
+
+    return reports;
+}
+
+// ============================================================================
+// ALERTA DE RASCUNHO COM BURACOS (PRÉ D-21)
+// ============================================================================
+
+async function checkDraftHoles(meetingDays: Record<string, number>, today: Date): Promise<string[]> {
+    const reports: string[] = [];
+
+    const { data: emptyParts, error } = await supabase
+        .from('workbook_parts')
+        .select('id, week_id, tipo_parte, part_title')
+        .is('resolved_publisher_id', null);
+
+    if (error || !emptyParts || emptyParts.length === 0) return reports;
+
+    // Agrupa por semana
+    const emptyByWeek: Record<string, number> = {};
+    for (const part of emptyParts) {
+        // Ignora partes de ruído
+        if (isNoisePart(part.tipo_parte || part.part_title || '')) continue;
+        emptyByWeek[part.week_id] = (emptyByWeek[part.week_id] || 0) + 1;
+    }
+
+    let reportSent = false;
+    for (const weekId of Object.keys(emptyByWeek)) {
+        const count = emptyByWeek[weekId];
+        const meetingDate = calculateMeetingDate(weekId, meetingDays);
+        if (!meetingDate) continue;
+
+        const diffTime = meetingDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // D-23: Faltando exatos 2 dias para o robô tentar publicar no D-21
+        if (diffDays === 23) {
+            const label = formatMeetingDate(meetingDate);
+            reports.push(`⏳ *Atenção (Semana de ${label}):* Faltam 2 DIAS para o sistema despachar esta semana, mas ela ainda possui ${count} parte(s) vazia(s) (sem publicador designado). Por favor, preencha as lacunas no sistema antes do disparo!`);
+            reportSent = true;
+        }
+    }
+
+    return reports;
+}
+
+// ============================================================================
 // CICLO DIÁRIO
 // ============================================================================
 
@@ -463,12 +630,34 @@ async function runDailyCycle(
         
         // Incluir botões para recusa ou ajuste de disponibilidade
         const confirmToken = await getOrCreateConfirmationToken(part.id, pub.id);
-        const options = confirmToken ? {
+        
+        let buttonActions: any[] = [];
+        if (confirmToken) {
+            buttonActions = [
+                { id: `RECUSAR:${part.id}`, type: "REPLY", label: "❌ Não poderei" },
+                { id: `DISPONIBILIDADE:${part.id}`, type: "URL", label: "📅 Ajustar Disponibilidade", url: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=confirm&partId=${part.id}&publisherId=${pub.id}&token=${confirmToken}` }
+            ];
+        }
+
+        // 4º Botão: Onboarding de Web Push
+        const { data: pushSubs } = await supabase
+            .from('push_subscriptions')
+            .select('id')
+            .eq('publisher_id', pub.id)
+            .limit(1);
+
+        if (!pushSubs || pushSubs.length === 0) {
+            buttonActions.push({
+                id: `PUSH_ONBOARDING:${pub.id}`,
+                type: 'URL',
+                url: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=push-onboarding&pubId=${pub.id}`,
+                label: '🔔 Ativar Notificações',
+            });
+        }
+
+        const options = buttonActions.length > 0 ? {
             action: 'send-button-actions',
-            buttonActions: [
-                { id: `btn_reject_${part.id}`, type: "reply", title: "Não poderei" },
-                { id: `btn_avail_${part.id}`, type: "url", title: "Ajustar Disponibilidade", url: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=confirm&partId=${part.id}&publisherId=${pub.id}&token=${confirmToken}` }
-            ]
+            buttonActions
         } : {};
 
         const { success, messageId } = await sendWhatsApp(pub.phone, msg, options);
@@ -895,9 +1084,26 @@ serve(async (req: Request) => {
     }));
 
     // ============================
+    // AUTO-REPARO Z-API SMART
+    // ============================
+    const repairReports = await autoRepairConfirmedParts(parts);
+
+    // ============================
+    // VERIFICAÇÃO DE GHOSTING
+    // ============================
+    const ghostingReports = await checkGhostingParts(parts);
+
+    // ============================
+    // ALERTAS DE BURACOS (REFUSALS & DRAFT)
+    // ============================
+    const refusalsReports = await checkRefusalsLapsing(meetingDays, today);
+    const holesReports = await checkDraftHoles(meetingDays, today);
+
+    // ============================
     // CICLO DIÁRIO
     // ============================
-    const { sentCount, noPhoneList } = await runDailyCycle(parts, publishers, meetingDays, today);
+    const { sentCount: dSentCount, noPhoneList } = await runDailyCycle(parts, publishers, meetingDays, today);
+    let sentCount = dSentCount;
 
     // ============================
     // CICLO MENSAL (só dia 1º)
@@ -934,7 +1140,7 @@ serve(async (req: Request) => {
     // ============================
     // RELATÓRIO DIÁRIO
     // ============================
-    await sendDailyReport(publishers, sentCount, noPhoneList, [...monthlyReports, ...weeklyReports, ...interactionReports]);
+    await sendDailyReport(publishers, sentCount, noPhoneList, [...monthlyReports, ...weeklyReports, ...interactionReports, ...repairReports, ...ghostingReports, ...refusalsReports, ...holesReports]);
 
     console.log(`[cron-whatsapp-reminders] Finalizado. ${sentCount} mensagens enviadas; ${completedCount} designações concluídas.`);
 

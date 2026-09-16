@@ -851,7 +851,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                             finalMsg,
                             pdfBase64,
                             undefined,
-                            availabilityUrl
+                            availabilityUrl,
+                            newPub.id
                         );
                         console.log(`[ManualReplacement] Resultado S-89:`, rNew);
                     } else {
@@ -895,7 +896,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                             finalMsgPartner,
                             pdfBase64Partner,
                             undefined,
-                            partnerAvailabilityUrl
+                            partnerAvailabilityUrl,
+                            partnerPub.id
                         );
                         console.log(`[ManualReplacement] Resultado notificação parceiro:`, rPart);
                     }

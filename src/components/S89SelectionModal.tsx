@@ -528,7 +528,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             }
 
             // Envio individual (manual): sem idempotência — pode reenviar.
-            const result = await zapiOrchestrator.sendS89Direct(part.id, String(phone), cleanMessage, imageBase64, undefined, availabilityUrl);
+            const foundPub = publishers.find(p => p.name === publisherName);
+            const result = await zapiOrchestrator.sendS89Direct(part.id, String(phone), cleanMessage, imageBase64, undefined, availabilityUrl, foundPub?.id);
 
             await communicationService.logNotification({
                 type: 'S89',
