@@ -80,7 +80,16 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 return;
             }
             const cards = await buildDesignatableCards(weekParts, publishers);
-            if (mounted) setValidParts(cards);
+            if (mounted) {
+                setValidParts(cards);
+                setSubstitutionIds(prev => {
+                    const next = new Set(prev);
+                    cards.forEach(c => {
+                        if (c.part.isSubstitution) next.add(c.part.id);
+                    });
+                    return next;
+                });
+            }
         }
         prepareParts();
         return () => { mounted = false; };
@@ -396,6 +405,22 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             const url = communicationService.generateWhatsAppUrl(phone || '', message);
             window.open(url, '_blank');
 
+            // 5. Registrar disparo sintético no log canônico (Z-API bypass)
+            try {
+                await zapiOrchestrator.logDispatch(
+                    part.id,
+                    phone || '',
+                    'S89',
+                    true,
+                    'MANUAL_WHATSAPP', // Flag explícita
+                    message,
+                    undefined,
+                    part.resolvedPublisherId || undefined
+                );
+            } catch (err) {
+                console.warn('[S89Modal] Erro ao registrar log canônico manual:', err);
+            }
+
             // Atualizar histórico local para o UI
             const nowIso = new Date().toISOString();
             setLastMessages(prev => ({
@@ -457,6 +482,22 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
 
             const url = communicationService.generateWhatsAppUrl(phone || '', content);
             window.open(url, '_blank');
+
+            // Registrar disparo sintético no log canônico (Z-API bypass)
+            try {
+                await zapiOrchestrator.logDispatch(
+                    part.id,
+                    phone || '',
+                    'S89',
+                    true,
+                    'MANUAL_WHATSAPP', // Flag explícita
+                    content,
+                    undefined,
+                    part.resolvedPublisherId || undefined
+                );
+            } catch (err) {
+                console.warn('[S89Modal] Erro ao registrar log canônico manual (reconfirmação):', err);
+            }
 
             const nowIso = new Date().toISOString();
             setLastMessages(prev => ({
@@ -724,25 +765,6 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
     // --- Z-API (DESACOPLADO): postar imagens direto no grupo "Avisos" ---
     // Reusa apenas a captura html2canvas dos mesmos refs; não toca no fluxo manual.
 
-    /** Monta a legenda padrão do S-140 (saudação + data da reunião). */
-    const buildS140Caption = (): string => {
-        const hour = new Date().getHours();
-        const greeting = hour < 12 ? 'bom dia' : hour < 18 ? 'boa tarde' : 'boa noite';
-        const [y, m, d] = weekId.split('-').map(Number);
-        const weekDate = new Date(y, m - 1, d);
-        const daysToTarget = (meetingDayOfWeek - weekDate.getDay() + 7) % 7;
-        const targetDate = new Date(weekDate);
-        targetDate.setDate(weekDate.getDate() + daysToTarget);
-        const day = targetDate.getDate();
-        const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-        const weekDays = ['domingo', 'segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado'];
-        const dayName = weekDays[targetDate.getDay()] || 'quinta-feira';
-        const month = months[targetDate.getMonth()];
-        const year = targetDate.getFullYear();
-        const formattedDate = `${day} de ${month} de ${year}`;
-        return `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para ${dayName}, dia ${formattedDate}.\n\n(Salmo 90:17)`;
-    };
-
     const handlePostS140ToGroup = async () => {
         if (!s140Ref.current) return;
         setIsPostingS140Group(true);
@@ -759,7 +781,8 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 logging: false,
             });
             const dataUrl = canvas.toDataURL('image/png');
-            const results = await zapiOrchestrator.dispatchImageToRecipients(dataUrl, buildS140Caption(), recipients);
+            const caption = await communicationService.prepareS140Message(weekId, weekParts);
+            const results = await zapiOrchestrator.dispatchImageToRecipients(dataUrl, caption, recipients);
             const ok = results.filter(r => r.success).length;
             if (ok === results.length) {
                 alert(`✅ S-140 enviado via Z-API (${ok}/${results.length} destinatários: Ajd SRVM + SRVM + Grupo).`);
@@ -1217,6 +1240,17 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                         if (willEnable) next.add(part.id); else next.delete(part.id);
                                                         return next;
                                                     });
+                                                    
+                                                    // 1. Gravar de forma persistente no banco para os painéis de S-140/Status
+                                                    try {
+                                                        const { supabase } = await import('../lib/supabase');
+                                                        await supabase.from('workbook_parts')
+                                                            .update({ is_substitution: willEnable })
+                                                            .eq('id', part.id);
+                                                    } catch (dbErr) {
+                                                        console.warn('[S89Modal] Falha ao persistir flag de substituição:', dbErr);
+                                                    }
+
                                                     // Regenerar mensagem refletindo o novo estado
                                                     try {
                                                         const { content } = await communicationService.prepareS89Message(part as any, publishers, weekParts, { isSubstitution: willEnable, meetingDayOfWeek });

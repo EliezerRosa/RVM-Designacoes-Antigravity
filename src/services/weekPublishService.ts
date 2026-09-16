@@ -455,7 +455,7 @@ export async function publishWeek(
             const { generateS140ImageBase64 } = await import('./s140GeneratorUnified');
             const s140Base64 = await generateS140ImageBase64(weekParts, publishers);
             if (s140Base64) {
-                const caption = buildS140Caption(weekId, meetingDayOfWeek);
+                const caption = await communicationService.prepareS140Message(weekId, weekParts);
                 const rs = await zapiOrchestrator.dispatchImageToRecipients(s140Base64, caption, recipients);
                 result.s140 = { attempted: rs.length, ok: rs.filter(r => r.success).length };
                 rs.filter(r => !r.success).forEach(r => result.errors.push(`S-140 ${r.phone}: ${r.error || 'falha'}`));

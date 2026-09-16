@@ -338,6 +338,8 @@ export interface WorkbookPart {
 
     // Auditoria de designação
     isManualOverride?: boolean;     // true = designado manualmente (dropdown ou agente explícito)
+    isSubstitution?: boolean;       // true = parte sofreu substituição
+    substitutedPublisherName?: string; // Nome do publicador original que foi substituído
 
     // Pool de empate (#4 do pacote 2026-04-30): nomes dos candidatos com score IDÊNTICO ao escolhido
     // pelo motor (incluindo o próprio). Permite UI mostrar "alternativas equivalentes" e usuário
