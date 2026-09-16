@@ -85,7 +85,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 setSubstitutionIds(prev => {
                     const next = new Set(prev);
                     cards.forEach(c => {
-                        if (c.part.isSubstitution) next.add(c.part.id);
+                        if (c.isSubstitution) next.add(c.id);
                     });
                     return next;
                 });
