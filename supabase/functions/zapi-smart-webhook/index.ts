@@ -356,7 +356,21 @@ serve(async (req: Request) => {
         .limit(1)
         .maybeSingle();
 
-      recentDispatch = data;
+      if (data) {
+        // INVARIANTE: O texto puro só é válido se não houve NENHUMA outra mensagem do publicador 
+        // após o disparo (ou seja, se a resposta foi IMEDIATAMENTE vinculada ao disparo sem mensagens no meio).
+        const { count } = await supabase
+          .from("zapi_smart_interactions")
+          .select("id", { count: "exact", head: true })
+          .like("phone", `%${cleanPhone.slice(-8)}%`)
+          .gte("created_at", data.dispatched_at);
+        
+        if (count === 0) {
+          recentDispatch = data;
+        } else {
+          console.log(`[zapi-smart-webhook] TEXT IGNORED: Intervening messages found after dispatch at ${data.dispatched_at}`);
+        }
+      }
     }
 
     if (!targetPartId && recentDispatch?.part_id) {
