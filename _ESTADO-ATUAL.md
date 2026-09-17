@@ -332,3 +332,24 @@ A suÃ­te completa de testes de cÃ³digo foi executada e reportou o seguinte estad
   4. **Alertas Operacionais do SRVM:** Novo resumo diÃ¡rio de pendÃªncias (Ghosting de publicadores, Recusas esquecidas, Buracos no D-23) entregue via Z-API/Push.
   5. **EstratÃ©gia Rica de Web Push (PWA):** NotificaÃ§Ãµes expansÃ­veis com Deep Link (`wa.me/bot`) para furar fila de atenÃ§Ã£o.
   6. **Onboarding Silencioso de Push:** AdiÃ§Ã£o de um 4Âº botÃ£o (URL Button nativo do WhatsApp: `[ ðŸ”” Ativar NotificaÃ§Ãµes ]`) apenas para usuÃ¡rios que nÃ£o tÃªm permissÃ£o PWA ativa, induzindo-os a ativar o Push pelo navegador.
+
+---
+
+## 11. Brainstorm e Planejamento: Automações Avançadas Z-API e Invariantes de Substituição (2026-09-16)
+
+### ?? 1. Capacidades Inexploradas da Z-API Mapeadas
+- **Option-Lists (Menus Interativos)** limitados a 10 itens por gaveta (ideal para coleta de disponibilidade mensal ou pequenos fluxos de múltipla escolha).
+- **Jittering de Envio**: Necessidade de adicionar pequenos delays (2-5s) no envio de lotes do S-140 para evitar banimentos por burst rate e engasgos na fila.
+- **Queda de Sessão**: Uso do webhook `on-disconnected` atrelado à nossa recém-criada Web Push Notification para alertar o Admin imediatamente em caso de queda do WhatsApp.
+
+### ?? 2. Blindagem Obrigatória: Idempotência do Webhook
+- **O Problema:** A Z-API reenvia webhooks incessantemente se o servidor não responder HTTP 200 entre 3 a 5 segundos.
+- **A Solução:** Isolar o processamento real (consultas no Supabase, IA, disparo de Z-API) usando `EdgeRuntime.waitUntil()`, devolvendo imediatamente o `200 OK` logo na entrada da Edge Function.
+
+### ?? 3. Invariantes Absolutas (Cravadas na Pedra)
+- **Liderança no Controle:** Somente Admin, SRVM e Ajd podem eleger substitutos. Um publicador que clica em 'Não poderei' encerra seu fluxo ali, sem opções de sugerir substituto.
+- **Exclusividade Web do Curador IA:** O sistema de Inteligência Artificial Curador atua única e exclusivamente sob acionamento manual na aba Apostila da aplicação Web. Nunca será executado assincronamente pelo webhook do WhatsApp.
+
+### ?? 4. Evolução do Fluxo de Recusa (Não Poderei)
+- Foi validado que o sistema já possui a funcionalidade estrita de realocar o irmão menos sobrecarregado através da função `reassignParts` na aba Admin.
+- **A Direção Escolhida (Em Standby para Refinamento):** Automatizar o clique do 'Não poderei' do WhatsApp conectando-o a essa mesma lógica do Frontend. O sistema (seja via Headless Bot ou via Painel) irá rodar a reatribuição anti-fome, eleger o novo candidato e, **imediatamente**, engatilhar o fluxo completo da Troca Manual (geração do S-89 em PNG via html2canvas no browser e notificação de todos os envolvidos), reiniciando o ciclo organicamente.
