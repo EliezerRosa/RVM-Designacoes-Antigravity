@@ -49,7 +49,7 @@ export function PushOnboardingPortal({ publisherId }: Props) {
     setStatus('loading');
     try {
       // Pedir permissão e inscrever
-      const result = await pushService.subscribe(publisherId);
+      const result = await pushService.subscribeToWebPush(supabase, publisherId);
       if (result.success) {
         setStatus('success');
       } else {

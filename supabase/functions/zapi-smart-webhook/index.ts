@@ -77,34 +77,47 @@ function getHonorific(gender?: string): string {
 }
 
 serve(async (req: Request) => {
-  const startTime = Date.now();
-
   // Responder OPTIONS para CORS
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
-      },
-    });
+    return;
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
+    return;
   }
 
   try {
     const body: any = await req.json();
-    console.log("[zapi-smart-webhook] Payload recebido:", JSON.stringify(body).slice(0, 400));
+    console.log("[zapi-smart-webhook] Payload recebido (enfileirando):", JSON.stringify(body).slice(0, 400));
 
-    // Z-API pode enviar payload em formatos aninhados (body.data ou body)
-    const payload: ZApiPayload = body.data || body;
-    const dataObj = (payload as any).data || payload;
+    // @ts-ignore
+    if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime.waitUntil === 'function') {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(
+        (async () => {
+          await processWebhookPayload(body);
+        })()
+      );
+    } else {
+      processWebhookPayload(body).catch(err => console.error("[zapi-smart-webhook] Background error:", err));
+    }
+
+    return;
+  } catch (err: any) {
+    return;
+  }
+});
+
+async function processWebhookPayload(body: any) {
+  const startTime = Date.now();
+  try {
+    const payload = body.data || body;
+    const dataObj = payload.data || payload;
 
     // 1. Filtrar eventos puramente de status/presença que NÃO são mensagens nem ações de usuários
     const eventType = payload.type || (payload as any).event;
     if (eventType && ["DeliveryCallback", "MessageStatusCallback", "PresenceChatCallback", "ConnectedCallback", "DisconnectedCallback"].includes(eventType)) {
-      return new Response(JSON.stringify({ ignored: true, eventType }), { status: 200 });
+      return;
     }
 
     const rawPollVote = (payload as any).pollVote || dataObj.pollVote || (payload as any).poll || dataObj.poll;
@@ -137,7 +150,7 @@ serve(async (req: Request) => {
 
     // Ignora absolutamente mensagens disparadas por nossa própria API
     if (payload.fromApi === true) {
-      return new Response(JSON.stringify({ ignored: true, reason: "fromApi" }), { status: 200 });
+      return;
     }
 
     // Ignora mensagens enviadas pelo dono do celular no WhatsApp Web, exceto se for interação ou resposta com palavra-chave
@@ -145,11 +158,11 @@ serve(async (req: Request) => {
       const lower = inboundText.toLowerCase();
       const hasKeyword = /\b(confirmar|confirmo|sim|não|recusar|poderei|disponibilidade)\b/i.test(lower);
       if (!hasKeyword) {
-        return new Response(JSON.stringify({ ignored: true, reason: "fromMe" }), { status: 200 });
+        return;
       }
     }
     if (payload.isGroup === true && !isPoll) {
-      return new Response(JSON.stringify({ ignored: true, reason: "isGroup" }), { status: 200 });
+      return;
     }
 
     let senderPhone = payload.phone || 
@@ -224,7 +237,7 @@ serve(async (req: Request) => {
     // 🚨 INVARIANTE 1: Bloqueio estrito para não-publicadores
     if (!publisherData) {
       console.log(`[zapi-smart-webhook] IGNORED: Telefone ${senderPhone} não pertence a nenhum publicador cadastrado.`);
-      return new Response(JSON.stringify({ ignored: true, reason: "NOT_A_PUBLISHER" }), { status: 200 });
+      return;
     }
 
     // --------------------------------------------------------------------------
@@ -416,7 +429,7 @@ serve(async (req: Request) => {
         processing_time_ms: processingTimeMs,
       });
 
-      return new Response(JSON.stringify({ ignored: true, reason: "NO_RECENT_DISPATCH" }), { status: 200 });
+      return;
     }
 
     // Se encontramos targetPartId mas ainda não carregamos targetPart, carrega do DB
@@ -540,16 +553,24 @@ serve(async (req: Request) => {
     // CENÁRIO 2: RECUSA
     else if (detectedIntent === "RECUSAR") {
       if (!targetPart) {
-        // INVARIANTE: Sem envio prévio comprovado pelo Z-API, texto é ignorado sem impacto no banco
         actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
         console.log(`[zapi-smart-webhook] Texto de recusa ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
-      } else if (targetPart.status === "REJEITADA") {
+      } else if (targetPart.status === "REJEITADA" || targetPart.status === "EM_SUBSTITUICAO") {
         actionTaken = "ALREADY_PROCESSED_SPAM_LOCKED";
         outboundReply = `❌ ${greeting}, ${honorific} *${pubName}*. Nós já havíamos registrado que não será possível realizar esta designação. Agradecemos muito por nos avisar com antecedência!`;
-        console.log(`[zapi-smart-webhook] Recusa ignorada (Duplo Clique): Parte já estava REJEITADA para ${pubName}`);
+        console.log(`[zapi-smart-webhook] Recusa ignorada (Duplo Clique/Status Locked): Parte já estava ${targetPart.status} para ${pubName}`);
         await dispatchTextMessage(replyPhone, outboundReply);
       } else {
         const reason = reasonExtracted || "Impossibilidade informada via WhatsApp.";
+
+        // Ler a chave zapi_automation_background da app_settings
+        const { data: settingsData } = await supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", "zapi_automation_background")
+          .maybeSingle();
+        
+        const isAutoReassignON = settingsData?.value === "ON" || settingsData?.value === true;
 
         await supabase
           .from("workbook_parts")
@@ -562,7 +583,6 @@ serve(async (req: Request) => {
           })
           .eq("id", targetPart.id);
 
-        // Registra em confirmation_portal_responses para o modal S-89 carimbar como REJEITADA!
         await supabase
           .from("confirmation_portal_responses")
           .insert({
@@ -575,7 +595,6 @@ serve(async (req: Request) => {
             created_at: new Date().toISOString(),
           });
 
-        // Grava no log histórico de recusas
         await supabase.from("refusal_logs").insert({
           part_id: targetPart.id,
           publisher_name: pubName,
@@ -586,17 +605,25 @@ serve(async (req: Request) => {
 
         actionTaken = "STATUS_REJEITADA";
 
-        // Se o motivo ainda não foi informado (veio apenas pelo clique de botão)
-        if (!reasonExtracted) {
-          outboundReply = `${greeting}, ${honorific} *${pubName}*, já registramos que não será possível realizar esta designação.\n\nPor favor, poderia nos informar brevemente o *motivo* para podermos repassar aos irmãos responsáveis?`;
-          await dispatchTextMessage(replyPhone, outboundReply);
-        } else {
-          // Motivo já fornecido: acolhe o publicador
-          outboundReply = `Muito obrigado por nos avisar com antecedência, ${honorific} *${pubName}*! Já registramos sua justificativa e iremos providenciar a substituição. Desejamos tudo de bom e, se for o caso, uma pronta recuperação! 💛`;
+        if (isAutoReassignON) {
+          console.log(`[zapi-smart-webhook] AUTOMAÇÃO ON: Disparando GitHub Action (repository_dispatch) para a parte ${targetPart.id}`);
+          outboundReply = `Muito obrigado por avisar, ${honorific} *${pubName}*! Já registramos e o sistema providenciará a substituição automaticamente. Desejamos tudo de bom! 💛`;
           await dispatchTextMessage(replyPhone, outboundReply);
 
-          // 🚨 DISPARO IMEDIATO DE ALERTA EXCLUSIVO PARA SRVM, AJUDANTE E ADMINS
-          await dispatchAlertToLeadership(targetPart, pubName, reason);
+          // Disparar o GitHub Actions webhook
+          await dispatchGitHubAction(targetPart.id);
+          
+          // Nota: dispatchAlertToLeadership não é chamado aqui porque o robô headless assumirá o comando e alertará a liderança após trocar.
+        } else {
+          console.log(`[zapi-smart-webhook] AUTOMAÇÃO OFF: Fluxo semi-automático tradicional.`);
+          if (!reasonExtracted) {
+            outboundReply = `${greeting}, ${honorific} *${pubName}*, já registramos que não será possível realizar esta designação.\n\nPor favor, poderia nos informar brevemente o *motivo* para podermos repassar aos irmãos responsáveis?`;
+            await dispatchTextMessage(replyPhone, outboundReply);
+          } else {
+            outboundReply = `Muito obrigado por nos avisar com antecedência, ${honorific} *${pubName}*! Já registramos sua justificativa e iremos providenciar a substituição. Desejamos tudo de bom e, se for o caso, uma pronta recuperação! 💛`;
+            await dispatchTextMessage(replyPhone, outboundReply);
+            await dispatchAlertToLeadership(targetPart, pubName, reason);
+          }
         }
       }
     }
@@ -658,15 +685,12 @@ serve(async (req: Request) => {
       processing_time_ms: processingTimeMs,
     });
 
-    return new Response(JSON.stringify({ success: true, intent: detectedIntent, action: actionTaken }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return;
   } catch (err: any) {
     console.error("[zapi-smart-webhook] Erro ao processar webhook:", err);
-    return new Response(JSON.stringify({ error: err.message || String(err) }), { status: 500 });
+    return;
   }
-});
+}
 
 // ============================================================================
 // Funções Auxiliares de Envio e Notificação
@@ -774,7 +798,16 @@ async function dispatchAlertToLeadership(part: any, publisherName: string, reaso
       `⚡ *Ação no Sistema:* A parte foi marcada como REJEITADA e já aguarda novo publicador no Painel de Designações.`;
 
     for (const phone of targetPhones) {
-      await dispatchTextMessage(phone, alertMessage);
+      const success = await dispatchTextMessage(phone, alertMessage);
+      
+      // LOG CANÔNICO (Outbound para a liderança)
+      await supabase.from("zapi_dispatch_log").insert({
+        part_id: part?.id || null,
+        dispatch_type: 'ALERTA_RECUSA_LIDERANCA',
+        recipient_phone: phone,
+        status: success ? 'SUCCESS' : 'ERROR',
+        message_id: null
+      });
     }
   } catch (err) {
     console.error("[zapi-smart-webhook] Falha ao alertar liderança:", err);
@@ -818,7 +851,16 @@ async function dispatchSwapAlertToLeadership(part: any, publisherName: string, s
       `⚠️ *Nota:* Nenhuma alteração foi feita no RVM. A troca aguarda aprovação da comissão no Painel de Designações.`;
 
     for (const phone of targetPhones) {
-      await dispatchTextMessage(phone, alertMessage);
+      const success = await dispatchTextMessage(phone, alertMessage);
+      
+      // LOG CANÔNICO (Outbound para a liderança)
+      await supabase.from("zapi_dispatch_log").insert({
+        part_id: part?.id || null,
+        dispatch_type: 'ALERTA_PERMUTA_LIDERANCA',
+        recipient_phone: phone,
+        status: success ? 'SUCCESS' : 'ERROR',
+        message_id: null
+      });
     }
   } catch (err) {
     console.error("[zapi-smart-webhook] Falha ao alertar liderança sobre permuta:", err);
@@ -861,5 +903,40 @@ async function getOrCreateAvailabilityToken(publisherId: string, publisherName: 
     return newToken;
   } catch {
     return "";
+  }
+}
+
+/** Dispara o Workflow Assíncrono no GitHub Actions */
+async function dispatchGitHubAction(partId: string) {
+  try {
+    const githubToken = Deno.env.get("GITHUB_DISPATCH_TOKEN");
+    const githubRepo = Deno.env.get("GITHUB_REPO"); // ex: EliezerRosa/RVM-Designacoes-Antigravity
+
+    if (!githubToken || !githubRepo) {
+      console.error("[zapi-smart-webhook] Erro: GITHUB_DISPATCH_TOKEN ou GITHUB_REPO ausente.");
+      return;
+    }
+
+    const res = await fetch(`https://api.github.com/repos/${githubRepo}/dispatches`, {
+      method: "POST",
+      headers: {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": `token ${githubToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        event_type: "trigger-auto-reassign",
+        client_payload: { part_id: partId }
+      })
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`[zapi-smart-webhook] Erro disparando GitHub Action: ${res.status} ${errorText}`);
+    } else {
+      console.log(`[zapi-smart-webhook] GitHub Action disparada com sucesso para part_id: ${partId}`);
+    }
+  } catch (err) {
+    console.error("[zapi-smart-webhook] Falha no disparo do GitHub Action:", err);
   }
 }

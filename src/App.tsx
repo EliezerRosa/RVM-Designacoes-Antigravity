@@ -19,6 +19,7 @@ import { PreferencesPortal } from './components/PreferencesPortal'
 import { PublisherHomeView } from './components/PublisherHomeView'
 import { LoginPage } from './components/LoginPage'
 import { PwaInstallBanner } from './components/ui/PwaInstallBanner'
+import { S89PrintRoute } from './components/S89PrintRoute'
 import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
 import { usePermissions } from './hooks/usePermissions'
@@ -139,6 +140,13 @@ function App() {
       <div className="app portal-mode">
         <InvitePortal token={portalToken} />
       </div>
+    );
+  }
+
+  // PORTAL: Renderização headless limpa para o Puppeteer (GitHub Actions)
+  if (portal === 's89-print') {
+    return (
+      <S89PrintRoute partId={portalPartId} secret={portalToken} />
     );
   }
 

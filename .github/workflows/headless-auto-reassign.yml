@@ -1,0 +1,39 @@
+name: Headless Auto-Reassign Bot
+
+on:
+  repository_dispatch:
+    types: [trigger-auto-reassign]
+
+concurrency:
+  group: rvm-auto-assignment
+  cancel-in-progress: false
+
+jobs:
+  auto-reassign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Puppeteer Browsers
+        run: npx puppeteer browsers install chrome
+
+      - name: Run Auto-Reassign Bot
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VITE_PRINT_SECRET: ${{ secrets.VITE_PRINT_SECRET }}
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          # Env vars nativas do Puppeteer/Linux
+          TZ: America/Sao_Paulo
+        run: npx tsx scripts/auto-reassign-bot.ts "${{ github.event.client_payload.part_id }}"

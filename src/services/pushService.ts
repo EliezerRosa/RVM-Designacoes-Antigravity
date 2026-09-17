@@ -31,7 +31,7 @@ export async function hasSubscription(): Promise<boolean> {
 /**
  * Solicita permissão do SO e inscreve o usuário no Web Push
  */
-export async function subscribeToWebPush(supabaseClient: any): Promise<{ success: boolean; error?: string }> {
+export async function subscribeToWebPush(supabaseClient: any, publisherId?: string): Promise<{ success: boolean; error?: string }> {
   try {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       return { success: false, error: 'Web Push no suportado neste navegador.' };
@@ -64,6 +64,7 @@ export async function subscribeToWebPush(supabaseClient: any): Promise<{ success
       body: {
         action: 'subscribe',
         subscription: subJson,
+        publisherId: publisherId,
         userAgent: navigator.userAgent
       }
     });
