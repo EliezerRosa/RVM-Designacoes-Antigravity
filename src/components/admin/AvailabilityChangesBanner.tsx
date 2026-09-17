@@ -38,15 +38,47 @@ export function AvailabilityChangesBanner({
         if (n.affected_part_ids.length === 0) return;
         setReassigningId(n.id);
         try {
-            const result = await reassignParts(n.affected_part_ids, publishers, workbookParts, onPartsRefresh);
-            await dismiss(n.id);
-            const msg = result.success
-                ? `Reatribuição concluída: ${result.partsGenerated} parte(s) processada(s).`
-                : `Reatribuição parcial — verifique avisos: ${result.warnings.join('; ')}`;
+            const { replacementOrchestratorService } = await import('../../services/replacementOrchestratorService');
+            const { generateS89PngBase64 } = await import('../../services/s89Generator');
+            
+            const s89LocalProvider = async (
+                _part: WorkbookPart,
+                _pubs: Publisher[],
+                isStudent: boolean,
+                titularPartForPdf: WorkbookPart,
+                assistantNameForPdf?: string
+            ) => {
+                return generateS89PngBase64(titularPartForPdf, assistantNameForPdf, undefined, isStudent);
+            };
+
+            let successes = 0;
+            let failures = 0;
+
+            for (const pId of n.affected_part_ids) {
+                const res = await replacementOrchestratorService.executeAutoReassignment(
+                    pId,
+                    publishers,
+                    workbookParts,
+                    s89LocalProvider
+                );
+                if (res.success) successes++;
+                else failures++;
+            }
+
+            if (onPartsRefresh) await onPartsRefresh();
+
+            const msg = successes > 0 
+                ? `Reatribuição concluída: ${successes} parte(s) reatribuída(s) com sucesso.${failures > 0 ? ` ${failures} falharam e a liderança foi notificada.` : ''}`
+                : `Reatribuição falhou. A liderança foi notificada para ajustar manualmente no painel.`;
+
+            if (successes === n.affected_part_ids.length && successes > 0) {
+                await dismiss(n.id);
+            }
+
             alert(msg);
         } catch (err) {
             console.error('[AvailabilityChangesBanner] reassign error:', err);
-            alert('Falha na reatribuição automática. Acesse o S-140 para ajuste manual.');
+            alert('Falha crítica na orquestração automática. Acesse o painel para ajuste manual.');
         } finally {
             setReassigningId(null);
         }
