@@ -444,12 +444,12 @@ async function checkRefusalsLapsing(meetingDays: Record<string, number>, today: 
 
     const { data: rejectedParts, error } = await supabase
         .from('workbook_parts')
-        .select('id, week_id, tipo_parte, part_title, status, resolved_publisher_name, resolved_publisher_id')
+        .select('id, week_id, tipo_parte, part_title, status, resolved_publisher_name, resolved_publisher_id, raw_publisher_name, substituted_publisher_name, rejected_reason')
         .eq('needs_reassignment', true);
 
     if (error || !rejectedParts || rejectedParts.length === 0) return reports;
 
-    let count = 0;
+    const pendingParts: any[] = [];
     for (const part of rejectedParts) {
         // Blindagem defensiva: se a parte já possui publicador e status ativo, não conta como buraco
         const isResolved = (part.status === 'DESIGNADA' || part.status === 'PRONTO' || part.status === 'CONCLUIDA') 
@@ -463,14 +463,53 @@ async function checkRefusalsLapsing(meetingDays: Record<string, number>, today: 
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays > 0 && diffDays <= 14) {
-            count++;
+            pendingParts.push({ ...part, meetingDate, diffDays });
         }
     }
 
-    if (count > 0) {
-        reports.push(`🚨 *Substituições Pendentes:* Há ${count} parte(s) que foi(ram) recusada(s) e continua(m) sem substituto para reuniões nos próximos 14 dias. Acesse o RVM urgente para repassá-las!`);
+    if (pendingParts.length === 0) return reports;
+
+    // Busca detalhes em refusal_logs para obter o publicador que recusou com precisão
+    const partIds = pendingParts.map(p => p.id);
+    const { data: refusalLogs } = await supabase
+        .from('refusal_logs')
+        .select('part_id, publisher_name')
+        .in('part_id', partIds)
+        .order('created_at', { ascending: false });
+
+    const refusalMap = new Map<string, string>();
+    if (refusalLogs) {
+        for (const log of refusalLogs) {
+            if (log.part_id && log.publisher_name && !refusalMap.has(log.part_id)) {
+                refusalMap.set(log.part_id, log.publisher_name);
+            }
+        }
     }
 
+    // Ordenar por data da reunião cronologicamente
+    pendingParts.sort((a, b) => a.meetingDate.getTime() - b.meetingDate.getTime());
+
+    let alertText = `🚨 *Substituições Pendentes (${pendingParts.length} nos próximos 14 dias):*\n`;
+    for (const p of pendingParts) {
+        const dp = (p.week_id || '').split('-');
+        const weekLabel = dp.length === 3 ? `${dp[2]}/${dp[1]}` : p.week_id;
+        const meetingDateLabel = formatMeetingDate(p.meetingDate);
+        const parteLabel = p.tipo_parte || p.part_title || 'Designação';
+
+        let pubRecusou = refusalMap.get(p.id);
+        if (!pubRecusou && p.rejected_reason) {
+            const match = p.rejected_reason.match(/Recusado por ([^:]+):/i);
+            if (match) pubRecusou = match[1].trim();
+        }
+        if (!pubRecusou) {
+            pubRecusou = p.substituted_publisher_name || p.raw_publisher_name || 'Não informado';
+        }
+
+        alertText += `   ▫️ Semana ${weekLabel} (${meetingDateLabel}): *${parteLabel}* — Recusado por: *${pubRecusou}*\n`;
+    }
+    alertText += `   👉 Acesse o RVM com urgência para repassá-las!`;
+
+    reports.push(alertText);
     return reports;
 }
 
@@ -1000,7 +1039,9 @@ async function sendDailyReport(
     }
 
     if (monthlyReports.length > 0) {
-        report += `\n📅 *Ações mensais executadas:*\n`;
+        const isFirstDay = new Date().getDate() === 1;
+        const sectionTitle = isFirstDay ? '📅 *Ações mensais executadas:*' : '📋 *Acompanhamento Operacional:*';
+        report += `\n${sectionTitle}\n`;
         monthlyReports.forEach(item => { report += `• ${item}\n`; });
     }
 
