@@ -89,13 +89,11 @@ const history: HistoryRecord[] = [
     mkHist({ name: 'Emerson França', date: '2025-09-22', weekId: '2025-09-22', tipoParte: 'Presidente' }),
 ];
 
-test('REPRO bug: sem filtrar a semana corrente, score do designado vira "loop" (timeBonus zera)', () => {
-    // Caminho ANTIGO do agente: passava history completo + sem referenceDate
-    // Aqui forçamos referenceDate igual à data da parte para isolar o efeito do filtro de histórico
+test('PROTEÇÃO: mesmo sem pré-filtrar a semana corrente, calculateScore com TARGET_DATE descarta a própria data e evita o loop', () => {
+    // Com a proteção interna (h.date < refDateStrForFilter), o motor descarta automaticamente a designação da própria TARGET_DATE
     const scoreLoop = calculateScore(marcus, PART_TYPE, history, TARGET_DATE);
-    // Como existe um registro de "Presidente" na própria TARGET_DATE, weeksSinceLast = 0
-    assert.equal(scoreLoop.weeksSinceLast, 0, 'sem filtrar, weeksSinceLast vira 0 (loop)');
-    assert.equal(scoreLoop.details.timeBonus, 0);
+    assert.ok(scoreLoop.weeksSinceLast >= 35 && scoreLoop.weeksSinceLast <= 45, 'weeksSinceLast protegido contra loop');
+    assert.ok(scoreLoop.details.timeBonus > 1500, 'timeBonus protegido contra loop');
 });
 
 test('FIX: filtrando a semana corrente, weeksSinceLast e timeBonus refletem realidade', () => {

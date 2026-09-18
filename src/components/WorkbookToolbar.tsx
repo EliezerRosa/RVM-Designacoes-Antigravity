@@ -215,7 +215,43 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
                         onClick={onOpenS140Multi}
                         disabled={loading}
                         style={{ padding: '4px 10px', cursor: 'pointer', background: '#0F766E', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: '500' }}>
-                        📦 Pacote
+                        📦 Pacote PDF
+                    </button>
+                    <button
+                        onClick={async () => {
+                            if (!window.confirm('Deseja despachar manualmente o Pacote S-140 via WhatsApp (Z-API) para o Grupo, Equipe RVM, Quadro de Anúncios e Presidentes?')) return;
+                            try {
+                                setLoading(true);
+                                const { s140PackageService } = await import('../services/s140PackageService');
+                                const res = await s140PackageService.dispatchPackageManual(publishers);
+                                if (res.success) {
+                                    setSuccessMessage('📦 Pacote S-140 despachado via WhatsApp com sucesso!');
+                                } else {
+                                    alert('Nenhuma semana publicada encontrada para despacho.');
+                                }
+                            } catch (err: any) {
+                                alert(`Erro ao despachar Pacote S-140: ${err.message}`);
+                            } finally {
+                                setLoading(false);
+                            }
+                        }}
+                        disabled={loading}
+                        style={{
+                            padding: '4px 10px',
+                            cursor: 'pointer',
+                            background: '#047857',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                        }}
+                        title="Despachar Pacote S-140 consolidado via Z-API sob demanda (Modo 3)"
+                    >
+                        📲 Despachar Pacote
                     </button>
                 </div>
             </div>

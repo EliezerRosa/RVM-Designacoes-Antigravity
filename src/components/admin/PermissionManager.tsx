@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { ActiveTab } from '../../services/permissionService';
+import { congregationRoleService, type CongregationRole } from '../../services/congregationRoleService';
 
 // ===== Types =====
 
@@ -65,21 +66,13 @@ const ALL_ACTIONS = [
 ] as const;
 
 const CONDITIONS = ['Ancião', 'Servo Ministerial', 'Publicador'];
-const FUNCOES_ANCIAO = [
-    'Coordenador do Corpo de Anciãos',
-    'Secretário',
-    'Superintendente de Serviço',
-    'Superintendente da Reunião Vida e Ministério',
-    'Ajudante do Superintendente da Reunião Vida e Ministério',
-];
-const FUNCOES_SERVO = [
-    'Ajudante do Superintendente da Reunião Vida e Ministério',
-];
-function getFuncoesForCondition(condition: string | null): string[] {
-    if (condition === 'Ancião') return FUNCOES_ANCIAO;
-    if (condition === 'Servo Ministerial') return FUNCOES_SERVO;
-    if (!condition) return FUNCOES_ANCIAO; // wildcard: mostra superset
-    return [];
+
+function getFuncoesForCondition(condition: string | null, roles: CongregationRole[]): string[] {
+    if (!roles || roles.length === 0) return [];
+    if (!condition) return roles.map(r => r.name);
+    return roles
+        .filter(r => r.allowedConditions.includes(condition as any))
+        .map(r => r.name);
 }
 
 const DATA_ACCESS_LEVELS = ['all', 'filtered', 'self'] as const;
@@ -183,6 +176,7 @@ const chipStyle = (active: boolean): React.CSSProperties => ({
 export function PermissionManager() {
     const [policies, setPolicies] = useState<PermissionPolicy[]>([]);
     const [overrides, setOverrides] = useState<UserOverride[]>([]);
+    const [roles, setRoles] = useState<CongregationRole[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeSection, setActiveSection] = useState<'policies' | 'overrides'>('policies');
     const [editingPolicy, setEditingPolicy] = useState<PermissionPolicy | null>(null);
@@ -234,7 +228,7 @@ export function PermissionManager() {
     }, []);
 
     useEffect(() => {
-        Promise.all([loadPolicies(), loadOverrides()]).finally(() => setIsLoading(false));
+        Promise.all([loadPolicies(), loadOverrides(), congregationRoleService.listRoles().then(setRoles)]).finally(() => setIsLoading(false));
     }, [loadPolicies, loadOverrides]);
 
     // ===== Policy CRUD =====
@@ -410,6 +404,7 @@ export function PermissionManager() {
                     {editingPolicy && (
                         <PolicyEditor
                             policy={editingPolicy}
+                            roles={roles}
                             onSave={savePolicy}
                             onCancel={() => setEditingPolicy(null)}
                         />
@@ -543,8 +538,9 @@ export function PermissionManager() {
 
 // ===== Policy Editor Sub-component =====
 
-function PolicyEditor({ policy, onSave, onCancel }: {
+function PolicyEditor({ policy, roles, onSave, onCancel }: {
     policy: PermissionPolicy;
+    roles: CongregationRole[];
     onSave: (p: Partial<PermissionPolicy> & { id?: string }) => void;
     onCancel: () => void;
 }) {
@@ -554,6 +550,8 @@ function PolicyEditor({ policy, onSave, onCancel }: {
     const toggleArrayItem = (arr: string[], item: string): string[] => {
         return arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item];
     };
+
+    const validFuncoes = getFuncoesForCondition(form.target_condition, roles);
 
     return (
         <div style={{ ...cardStyle, border: '1px solid #4F46E5', marginBottom: '24px' }}>
@@ -568,9 +566,8 @@ function PolicyEditor({ policy, onSave, onCancel }: {
                         value={form.target_condition || ''}
                         onChange={e => {
                             const newCondition = e.target.value || null;
-                            // Se a função atual não for válida para a nova condição, limpa-a
-                            const validFuncoes = getFuncoesForCondition(newCondition);
-                            const funcaoStillValid = !form.target_funcao || validFuncoes.includes(form.target_funcao);
+                            const newValidFuncoes = getFuncoesForCondition(newCondition, roles);
+                            const funcaoStillValid = !form.target_funcao || newValidFuncoes.includes(form.target_funcao);
                             setForm({
                                 ...form,
                                 target_condition: newCondition,
@@ -589,11 +586,11 @@ function PolicyEditor({ policy, onSave, onCancel }: {
                         value={form.target_funcao || ''}
                         onChange={e => setForm({ ...form, target_funcao: e.target.value || null })}
                         style={selectStyle}
-                        disabled={form.target_condition === 'Publicador'}
-                        title={form.target_condition === 'Publicador' ? 'Publicador não possui função no corpo' : ''}
+                        disabled={validFuncoes.length === 0}
+                        title={validFuncoes.length === 0 ? 'Nenhuma função disponível para a condição selecionada' : ''}
                     >
                         <option value="">* Qualquer</option>
-                        {getFuncoesForCondition(form.target_condition).map(f => <option key={f} value={f}>{f}</option>)}
+                        {validFuncoes.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
                 </div>
                 <div>
