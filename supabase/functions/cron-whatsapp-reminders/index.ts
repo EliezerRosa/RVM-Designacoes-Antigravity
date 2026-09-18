@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
+const APP_BASE_URL = Deno.env.get("APP_BASE_URL") || "https://rvm-designacoes-antigravity.vercel.app";
 
 // ============================================================================
 // CONSTANTES E TIPOS
@@ -298,7 +299,7 @@ async function runContinuousReminderCycle(
                         publisherId: pub.id,
                         token: confirmationToken,
                     });
-                    const confirmLink = `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?${confirmParams.toString()}`;
+                    const confirmLink = `${APP_BASE_URL}/?${confirmParams.toString()}`;
                     msg = buildChargeD9Message(part, pub, meetingDateLabel, confirmLink);
                     isRepublish = true;
                 }
@@ -635,7 +636,7 @@ async function runDailyCycle(
         if (confirmToken) {
             buttonActions = [
                 { id: `RECUSAR:${part.id}`, type: "REPLY", label: "❌ Não poderei" },
-                { id: `DISPONIBILIDADE:${part.id}`, type: "URL", label: "📅 Ajustar Disponibilidade", url: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=confirm&partId=${part.id}&publisherId=${pub.id}&token=${confirmToken}` }
+                { id: `DISPONIBILIDADE:${part.id}`, type: "URL", label: "📅 Ajustar Disponibilidade", url: `${APP_BASE_URL}/?portal=confirm&partId=${part.id}&publisherId=${pub.id}&token=${confirmToken}` }
             ];
         }
 
@@ -650,7 +651,7 @@ async function runDailyCycle(
             buttonActions.push({
                 id: `PUSH_ONBOARDING:${pub.id}`,
                 type: 'URL',
-                url: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=push-onboarding&pubId=${pub.id}`,
+                url: `${APP_BASE_URL}/?portal=push-onboarding&pubId=${pub.id}`,
                 label: '🔔 Ativar Notificações',
             });
         }
@@ -773,7 +774,7 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
             `Gostaríamos gentilmente de saber se já se sente à vontade para voltar a receber designações na Reunião Vida e Ministério.\n\n` +
             `Sabemos que cada pessoa tem seu tempo, e respeitamos isso completamente. ` +
             `Se desejar reconsiderar, basta clicar no link abaixo:\n\n` +
-            `👉 https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=preferences&action=rejoin&pubId=${pub.id}\n\n` +
+            `👉 ${APP_BASE_URL}/?portal=preferences&action=rejoin&pubId=${pub.id}\n\n` +
             `Se preferir continuar como está, não precisa fazer nada. Estamos à disposição! 🙏`;
 
         const { success, messageId } = await sendWhatsApp(pub.phone, msg);
@@ -795,7 +796,7 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
             `Se já se sente preparada(o) para também fazer partes como titular (leitura, demonstrações, etc.), ` +
             `ficaríamos felizes!\n\n` +
             `Basta clicar no link abaixo para atualizar sua preferência:\n\n` +
-            `👉 https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=preferences&action=full-participation&pubId=${pub.id}\n\n` +
+            `👉 ${APP_BASE_URL}/?portal=preferences&action=full-participation&pubId=${pub.id}\n\n` +
             `Se preferir continuar como está, não precisa fazer nada. Respeitamos! 🙏`;
 
         const { success, messageId } = await sendWhatsApp(pub.phone, msg);
@@ -869,8 +870,8 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
                 .maybeSingle();
 
             const formUrl = tokenRow?.token
-                ? `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form&token=${tokenRow.token}`
-                : `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form`;
+                ? `${APP_BASE_URL}/?portal=publisher-form&token=${tokenRow.token}`
+                : `${APP_BASE_URL}/?portal=publisher-form`;
 
             const memberReport = `${baseMonthlyReport}🔗 ${formUrl}`;
 
@@ -947,8 +948,8 @@ async function runWeeklyCycle(publishers: PublisherData[]): Promise<string[]> {
             .maybeSingle();
 
         const formUrl = tokenRow?.token
-            ? `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form&token=${tokenRow.token}`
-            : `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/?portal=publisher-form`;
+            ? `${APP_BASE_URL}/?portal=publisher-form&token=${tokenRow.token}`
+            : `${APP_BASE_URL}/?portal=publisher-form`;
 
         const personalizedReport = `${baseReport}🔗 ${formUrl}`;
 

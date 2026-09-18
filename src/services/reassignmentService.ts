@@ -56,20 +56,41 @@ export async function consultReassignmentSuggestion(
     };
 }
 
+export interface ReassignOptions {
+    /** Callback para refrescar a lista de partes na UI após a reatribuição. */
+    onPartsRefresh?: () => Promise<void> | void;
+    /**
+     * Se true, força o motor a usar regras estritas de elegibilidade (cadeado fechado).
+     * Default: true. Manter sempre true para automação headless.
+     */
+    applyEngineRules?: boolean;
+}
+
 /**
  * Reatribui um conjunto de parts de forma cirúrgica: consulta o motor por parte,
  * aplica apenas o candidato escolhido naquele slot e remove o flag
  * needs_reassignment somente quando houve redistribuição real.
+ *
+ * O 4º parâmetro aceita tanto um callback legado (retrocompatibilidade com UI)
+ * quanto o novo objeto tipado ReassignOptions.
  */
 export async function reassignParts(
     partIds: string[],
     publishers: Publisher[],
     workbookParts: WorkbookPart[],
-    onPartsRefresh?: () => Promise<void> | void,
+    optionsOrCallback?: ReassignOptions | (() => Promise<void> | void),
 ): Promise<ReassignResult> {
     if (partIds.length === 0) {
         return { success: true, partsGenerated: 0, warnings: [] };
     }
+
+    // Normalizar o parâmetro polimórfico
+    const options: ReassignOptions = typeof optionsOrCallback === 'function'
+        ? { onPartsRefresh: optionsOrCallback }
+        : (optionsOrCallback || {});
+    
+    const { onPartsRefresh, applyEngineRules = true } = options;
+    console.log(`[reassignmentService] reassignParts chamado para ${partIds.length} parte(s). applyEngineRules=${applyEngineRules}`);
 
     const history = await loadCompletedParticipations();
     const idsSet = new Set(partIds);

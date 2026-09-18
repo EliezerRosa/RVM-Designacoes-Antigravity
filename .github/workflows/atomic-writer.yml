@@ -1,8 +1,18 @@
-name: Atomic Writer (Distributed Mutex)
+# ==============================================================================
+# [LEGACY / OBSOLETO] Atomic Writer (Distributed Mutex)
+# 
+# NOTA DE ARQUITETURA:
+# Este workflow era utilizado na arquitetura pré-Supabase para serializar
+# escritas em arquivos JSON do repositório (ex: publishers.json, participations.json).
+# Com a migração unificada para o banco de dados Supabase (PostgreSQL), toda a
+# persistência reside em tabelas relacionais e este workflow encontra-se legado.
+# ==============================================================================
+
+name: Atomic Writer (Distributed Mutex) [LEGACY]
 
 on:
   repository_dispatch:
-    types: [atomic_write]
+    types: [atomic_write_legacy]
 
 concurrency:
   group: write-${{ github.event.client_payload.block_id }}

@@ -1,12 +1,33 @@
 import puppeteer from 'puppeteer';
 
 (async () => {
-  const token = process.env.BOT_TOKEN || 'rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c';
-  const rawBase = (process.env.WORKER_URL || 'https://rvm-designacoes-antigravity.vercel.app').split('?')[0];
-  const cleanBase = rawBase.replace(/\/automation-worker\/?$/, '').replace(/\/$/, '');
-  const url = `${cleanBase}/?portal=automation-worker&token=${token}`;
+  let targetUrl = process.env.WORKER_URL;
+  const envToken = process.env.BOT_TOKEN;
 
-  console.log(`[Bot] Target URL: ${cleanBase}/?portal=automation-worker&token=${token.substring(0, 10)}...`);
+  if (!targetUrl && !envToken) {
+    console.error('[Bot] ERRO: WORKER_URL ou BOT_TOKEN deve ser fornecido via variáveis de ambiente.');
+    process.exit(1);
+  }
+
+  let url;
+  if (targetUrl) {
+    try {
+      const parsed = new URL(targetUrl);
+      if (envToken && !parsed.searchParams.has('token')) {
+        parsed.searchParams.set('token', envToken);
+      }
+      url = parsed.toString();
+    } catch {
+      url = targetUrl;
+    }
+  } else {
+    const baseUrl = process.env.APP_BASE_URL || 'https://rvm-designacoes-antigravity.vercel.app';
+    const cleanBase = baseUrl.replace(/\/$/, '');
+    url = `${cleanBase}/?portal=automation-worker&token=${envToken}`;
+  }
+
+  const maskedUrl = url.replace(/(token=)([^&]+)/, (_, p1, p2) => `${p1}${p2.substring(0, 8)}...`);
+  console.log(`[Bot] Target URL: ${maskedUrl}`);
   const browser = await puppeteer.launch({
     headless: 'new',
     protocolTimeout: 600000,

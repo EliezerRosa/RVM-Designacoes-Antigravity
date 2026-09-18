@@ -6,9 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const REPO_OWNER = 'EliezerRosa';
-const REPO_NAME = 'RVM-Designacoes-Antigravity';
-const WORKFLOW_ID = 'playwright.yml';
+/**
+ * Edge Function: trigger-github-workflow
+ * 
+ * Finalidade Primária: Acionamento sob demanda e consulta de status de testes E2E
+ * Playwright executados via ActionDiagnosticPanel (Aba E2E) no painel de administração.
+ * Suporta workflow_id customizado caso outros workflows necessitem de acionamento autenticado.
+ */
+
+const REPO_OWNER = Deno.env.get('GITHUB_REPO_OWNER') ?? 'EliezerRosa';
+const REPO_NAME = Deno.env.get('GITHUB_REPO_NAME') ?? 'RVM-Designacoes-Antigravity';
+const DEFAULT_WORKFLOW_ID = 'playwright.yml';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -27,7 +35,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 });
     }
 
-    const { action } = await req.json();
+    const { action, workflow_id } = await req.json();
+    const targetWorkflow = workflow_id || DEFAULT_WORKFLOW_ID;
     const GITHUB_PAT = Deno.env.get('GITHUB_PAT');
 
     if (!GITHUB_PAT) {
@@ -35,7 +44,7 @@ serve(async (req) => {
     }
 
     if (action === 'trigger') {
-      const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_ID}/dispatches`, {
+      const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${targetWorkflow}/dispatches`, {
         method: 'POST',
         headers: {
           'Accept': 'application/vnd.github+json',
@@ -50,12 +59,12 @@ serve(async (req) => {
         throw new Error(`GitHub API Error: ${errorText}`);
       }
 
-      return new Response(JSON.stringify({ success: true, message: 'Workflow triggered' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ success: true, message: `Workflow ${targetWorkflow} triggered` }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     } 
     
     if (action === 'status') {
       // Get the latest run for this workflow
-      const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_ID}/runs?per_page=1`, {
+      const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${targetWorkflow}/runs?per_page=1`, {
         method: 'GET',
         headers: {
           'Accept': 'application/vnd.github+json',

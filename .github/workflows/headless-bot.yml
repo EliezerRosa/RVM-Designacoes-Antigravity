@@ -19,9 +19,17 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install puppeteer
+        run: |
+          npm ci
+          npx puppeteer browsers install chrome
 
       - name: Run headless bot
         env:
-          WORKER_URL: ${{ secrets.WORKER_URL || 'https://rvm-designacoes-antigravity.vercel.app/?portal=automation-worker&token=rvm_bot_8f4a1c9e2b7d3f5a0e6c8b1d4e7a9f2c' }}
-        run: node scripts/headless-bot.js
+          WORKER_URL: ${{ secrets.WORKER_URL }}
+          TZ: America/Sao_Paulo
+        run: |
+          if [ -z "$WORKER_URL" ]; then
+            echo "ERRO: Secret WORKER_URL não configurado. Abortando."
+            exit 1
+          fi
+          node scripts/headless-bot.js
