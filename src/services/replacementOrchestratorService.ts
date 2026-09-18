@@ -1,4 +1,4 @@
-import { WorkbookPart, Publisher } from '../types';
+import type { WorkbookPart, Publisher } from '../types';
 import { reassignParts } from './reassignmentService';
 import { zapiOrchestrator } from './zapiOrchestrator';
 import { communicationService } from './communicationService';
@@ -81,14 +81,8 @@ export const replacementOrchestratorService = {
     ) {
         console.log(`[ReplacementOrchestrator] Iniciando troca manual para partId: ${partId}, novo pub: ${newPublisherName}`);
         
-        // 1. Executar a alteração no banco
-        await this.directExecutePublisherUpdate(partId, newPublisherId, newPublisherName, part);
-
-        // 1.5. Gravar metadados da substituição para constar no histórico/S-140
-        await supabase.from('workbook_parts').update({
-            is_substitution: true,
-            substituted_publisher_name: oldPublisherName
-        }).eq('id', partId);
+        // 1. Gravar atualização e metadados de substituição em um único UPDATE atômico no banco
+        await this.directExecutePublisherUpdate(partId, newPublisherId, newPublisherName, part, oldPublisherName);
 
         const updatedPart = { ...part, resolvedPublisherId: newPublisherId, resolvedPublisherName: newPublisherName, isSubstitution: true, substitutedPublisherName: oldPublisherName };
 
@@ -102,13 +96,38 @@ export const replacementOrchestratorService = {
             s89Provider
         );
 
+        // Gancho Aditivo S-140: se o ajuste for na semana em curso, aciona o Modo 2
+        try {
+            const weekParts = parts.filter(p => p.weekId === part.weekId);
+            const { s140PackageService } = await import('./s140PackageService');
+            s140PackageService.handlePartAdjustment({
+                part: updatedPart,
+                oldPublisherName,
+                newPublisherName,
+                weekParts,
+                publishers
+            }).catch(err => {
+                console.error('[ReplacementOrchestrator] Falha não bloqueante ao despachar S-140 Modo 2:', err);
+            });
+        } catch (s140Err) {
+            console.warn('[ReplacementOrchestrator] Falha ao importar s140PackageService:', s140Err);
+        }
+
         return { success: true };
     },
     
-    async directExecutePublisherUpdate(partId: string, newId: string | undefined, newName: string, part: WorkbookPart) {
+    async directExecutePublisherUpdate(
+        partId: string, 
+        newId: string | undefined, 
+        newName: string, 
+        part: WorkbookPart,
+        oldPublisherName?: string
+    ) {
         const payload: any = {
             resolved_publisher_name: newName,
-            status: 'PRONTO'
+            status: 'PRONTO',
+            is_substitution: true,
+            substituted_publisher_name: oldPublisherName || null
         };
         if (newId) payload.resolved_publisher_id = newId;
         else payload.resolved_publisher_id = null;

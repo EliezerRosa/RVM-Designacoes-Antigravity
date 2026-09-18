@@ -7,13 +7,15 @@
 
 export type Gender = 'brother' | 'sister';
 export type Condition = 'Anciao' | 'Ancião' | 'Servo Ministerial' | 'Publicador';
-export type Funcao =
+export type CanonicalFuncao =
     | 'Coordenador do Corpo de Anciãos'
     | 'Secretário'
     | 'Superintendente de Serviço'
     | 'Superintendente da Reunião Vida e Ministério'
     | 'Ajudante do Superintendente da Reunião Vida e Ministério'
-    | null;
+    | 'Responsável pelo Quadro de Anúncios';
+
+export type Funcao = CanonicalFuncao | (string & {}) | null;
 export type AgeGroup = 'Adulto' | 'Jovem' | 'Crianca';
 
 export interface PublisherPrivileges {

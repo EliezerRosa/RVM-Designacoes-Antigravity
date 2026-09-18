@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Funcao, Publisher, PublisherPrivileges, PublisherPrivilegesBySection } from '../types'
 import { getWeekMondayId } from '../services/eligibilityService'
 import { curatorKnowledgeBaseService, type CuratorProfile } from '../services/curatorKnowledgeBaseService'
+import { congregationRoleService, type CongregationRole } from '../services/congregationRoleService'
+import { RoleManagerModal } from './admin/RoleManagerModal'
 
 interface PublisherFormProps {
     publisher: Publisher | null
@@ -69,13 +71,25 @@ function normalizePublisher(p: Publisher): Publisher {
 export default function PublisherForm({ publisher, publishers, onSave, onCancel }: PublisherFormProps) {
     const [formData, setFormData] = useState<Publisher>(publisher ? normalizePublisher(publisher) : { ...emptyPublisher })
     const [curatorProfiles, setCuratorProfiles] = useState<CuratorProfile[]>([])
+    const [availableRoles, setAvailableRoles] = useState<CongregationRole[]>([])
+    const [isRoleModalOpen, setIsRoleModalOpen] = useState(false)
     const [newExceptionDate, setNewExceptionDate] = useState('')
     const [newAvailableDate, setNewAvailableDate] = useState('')
     const [newAlias, setNewAlias] = useState('')
 
+    const loadRoles = useCallback(async () => {
+        try {
+            const list = await congregationRoleService.listRoles()
+            setAvailableRoles(list)
+        } catch (err) {
+            console.warn('[PublisherForm] Erro ao carregar funções:', err)
+        }
+    }, [])
+
     useEffect(() => {
         curatorKnowledgeBaseService.fetchCuratorProfiles().then(setCuratorProfiles).catch(console.error);
-    }, [])
+        loadRoles();
+    }, [loadRoles])
 
     useEffect(() => {
         if (publisher) {
@@ -209,32 +223,50 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                             </div>
                         </div>
 
-                        {(formData.condition === 'Ancião' || formData.condition === 'Anciao' || formData.condition === 'Servo Ministerial') && (
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label>Função</label>
-                                <select
-                                    name="funcao"
-                                    value={formData.funcao || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, funcao: (e.target.value || null) as Funcao }))}
-                                >
-                                    <option value="">Sem função específica</option>
-                                    {(formData.condition === 'Ancião' || formData.condition === 'Anciao') && (
-                                        <>
-                                            <option value="Coordenador do Corpo de Anciãos">Coordenador do Corpo de Anciãos</option>
-                                            <option value="Secretário">Secretário</option>
-                                            <option value="Superintendente de Serviço">Superintendente de Serviço</option>
-                                            <option value="Superintendente da Reunião Vida e Ministério">Superintendente da Reunião Vida e Ministério</option>
-                                            <option value="Ajudante do Superintendente da Reunião Vida e Ministério">Ajudante do Sup. da Reunião VM</option>
-                                        </>
-                                    )}
-                                    {formData.condition === 'Servo Ministerial' && (
-                                        <option value="Ajudante do Superintendente da Reunião Vida e Ministério">Ajudante do Sup. da Reunião VM</option>
-                                    )}
-                                </select>
-                            </div>
-                        </div>
-                        )}
+                        {formData.gender === 'brother' && (() => {
+                            const normalizedCond = formData.condition === 'Anciao' ? 'Ancião' : formData.condition;
+                            const eligible = availableRoles.filter(r => r.allowedConditions.includes(normalizedCond as any));
+                            if (eligible.length === 0) return null;
+
+                            return (
+                                <div className="form-row">
+                                    <div className="form-group" style={{ width: '100%' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                            <label style={{ margin: 0 }}>Função Congregacional</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsRoleModalOpen(true)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#38bdf8',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.8rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    padding: 0,
+                                                    fontWeight: 500,
+                                                }}
+                                                title="Gerenciar funções cadastradas no sistema"
+                                            >
+                                                ⚙️ Gerenciar Funções
+                                            </button>
+                                        </div>
+                                        <select
+                                            name="funcao"
+                                            value={formData.funcao || ''}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, funcao: (e.target.value || null) as Funcao }))}
+                                        >
+                                            <option value="">Sem função específica</option>
+                                            {eligible.map(r => (
+                                                <option key={r.id} value={r.name}>{r.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         <div className="form-row">
                             <div className="form-group">
@@ -1034,6 +1066,14 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                         </button>
                     </div>
                 </form>
+
+                {isRoleModalOpen && (
+                    <RoleManagerModal
+                        isOpen={isRoleModalOpen}
+                        onClose={() => setIsRoleModalOpen(false)}
+                        onRolesChanged={loadRoles}
+                    />
+                )}
             </div>
         </div>
     )

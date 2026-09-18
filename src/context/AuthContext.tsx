@@ -47,12 +47,34 @@ interface AuthContextType extends AuthState {
   logTransaction: (action: string, entityType: string, entityId?: string, description?: string, oldData?: unknown, newData?: unknown) => Promise<void>;
   markAppUnlocked: () => void;
 }
-
 const AuthContext = createContext<AuthContextType | null>(null);
+
+const DEFAULT_FALLBACK_AUTH_CONTEXT: AuthContextType = {
+  user: null,
+  session: null,
+  profile: null,
+  isLoading: false,
+  isAuthenticated: false,
+  isAdmin: false,
+  needs2FA: false,
+  authSystemMode: 'passwordless',
+  isAppUnlocked: true,
+  signInWithGoogle: async () => {},
+  signInWithDeviceAuth: async () => ({ success: false }),
+  registerDeviceAuth: async () => ({ success: false }),
+  signOut: async () => {},
+  requestWhatsAppCode: async () => ({ success: false }),
+  verifyWhatsAppCode: async () => ({ success: false }),
+  refreshProfile: async () => {},
+  logTransaction: async () => {},
+  markAppUnlocked: () => {},
+};
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) {
+    return DEFAULT_FALLBACK_AUTH_CONTEXT;
+  }
   return ctx;
 }
 
