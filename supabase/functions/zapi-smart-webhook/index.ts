@@ -610,8 +610,8 @@ async function processWebhookPayload(body: any) {
           outboundReply = `Muito obrigado por avisar, ${honorific} *${pubName}*! Já registramos e o sistema providenciará a substituição automaticamente. Desejamos tudo de bom! 💛`;
           await dispatchTextMessage(replyPhone, outboundReply);
 
-          // Disparar o GitHub Actions webhook
-          await dispatchGitHubAction(targetPart.id);
+          // Disparar o GitHub Actions webhook com fallback defensivo para a liderança
+          await dispatchGitHubAction(targetPart, pubName, reason);
           
           // Nota: dispatchAlertToLeadership não é chamado aqui porque o robô headless assumirá o comando e alertará a liderança após trocar.
         } else {
@@ -906,15 +906,21 @@ async function getOrCreateAvailabilityToken(publisherId: string, publisherName: 
   }
 }
 
-/** Dispara o Workflow Assíncrono no GitHub Actions */
-async function dispatchGitHubAction(partId: string) {
+/** Dispara o Workflow Assíncrono no GitHub Actions com Fallback Defensivo */
+async function dispatchGitHubAction(targetPart: any, pubName: string, reason: string): Promise<boolean> {
+  const partId = targetPart?.id;
   try {
     const githubToken = Deno.env.get("GITHUB_DISPATCH_TOKEN");
     const githubRepo = Deno.env.get("GITHUB_REPO"); // ex: EliezerRosa/RVM-Designacoes-Antigravity
 
     if (!githubToken || !githubRepo) {
-      console.error("[zapi-smart-webhook] Erro: GITHUB_DISPATCH_TOKEN ou GITHUB_REPO ausente.");
-      return;
+      console.error("[zapi-smart-webhook] Erro: GITHUB_DISPATCH_TOKEN ou GITHUB_REPO ausente. Acionando fallback para liderança.");
+      await dispatchAlertToLeadership(
+        targetPart, 
+        pubName, 
+        `${reason} (Aviso do Sistema: Automação em background indisponível - GITHUB_DISPATCH_TOKEN/REPO não configurados. Ação manual necessária.)`
+      );
+      return false;
     }
 
     const res = await fetch(`https://api.github.com/repos/${githubRepo}/dispatches`, {
@@ -932,11 +938,24 @@ async function dispatchGitHubAction(partId: string) {
 
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(`[zapi-smart-webhook] Erro disparando GitHub Action: ${res.status} ${errorText}`);
+      console.error(`[zapi-smart-webhook] Erro disparando GitHub Action: ${res.status} ${errorText}. Acionando fallback para liderança.`);
+      await dispatchAlertToLeadership(
+        targetPart, 
+        pubName, 
+        `${reason} (Aviso do Sistema: Falha ao acionar GitHub Action [status ${res.status}]. Ação manual necessária.)`
+      );
+      return false;
     } else {
       console.log(`[zapi-smart-webhook] GitHub Action disparada com sucesso para part_id: ${partId}`);
+      return true;
     }
   } catch (err) {
     console.error("[zapi-smart-webhook] Falha no disparo do GitHub Action:", err);
+    await dispatchAlertToLeadership(
+      targetPart, 
+      pubName, 
+      `${reason} (Aviso do Sistema: Erro inesperado ao acionar automação. Ação manual necessária.)`
+    );
+    return false;
   }
 }

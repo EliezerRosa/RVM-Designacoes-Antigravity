@@ -1,25 +1,25 @@
 // ============================================================================
 // Edge Function: cron-alert-notifications
 //
-// Funcionalidade NOVA e ABSURDAMENTE DESACOPLADA: Notificações de Alertas e
+// Funcionalidade NOVA e ABSURDAMENTE DESACOPLADA: Notificaï¿½ï¿½es de Alertas e
 // Agendas. Regras de isolamento:
 //   - SOMENTE LEITURA em tabelas existentes (zapi_dispatch_log, workbook_parts,
 //     publishers, app_settings). Nunca escreve nelas.
-//   - Escreve APENAS na tabela própria `alert_notification_log` (idempotência).
-//   - Não altera status de partes, não gera S-89/S-140, não toca nos fluxos
-//     do cron-whatsapp-reminders nem do botão Publicar.
-//   - Envio via Edge Function `send-whatsapp` já existente (canal compartilhado
-//     por contrato, não por acoplamento de código).
+//   - Escreve APENAS na tabela prï¿½pria `alert_notification_log` (idempotï¿½ncia).
+//   - Nï¿½o altera status de partes, nï¿½o gera S-89/S-140, nï¿½o toca nos fluxos
+//     do cron-whatsapp-reminders nem do botï¿½o Publicar.
+//   - Envio via Edge Function `send-whatsapp` jï¿½ existente (canal compartilhado
+//     por contrato, nï¿½o por acoplamento de cï¿½digo).
 //
-// O que faz: transforma SINALIZAÇÕES já registradas em log em NOTIFICAÇÕES
+// O que faz: transforma SINALIZAï¿½ï¿½ES jï¿½ registradas em log em NOTIFICAï¿½ï¿½ES
 // proativas ao SRVM/Ajudante:
-//   A1 — Erros de despacho do dia anterior (zapi_dispatch_log status=ERROR)
-//   A2 — Flag de import pendente (app_settings.pending_auto_import)
-//   A3 — Agenda D-15: semanas a ?15 dias sem S-89 publicado (sem PUBLICACAO_S89)
-//   A4 — Partes órfãs: semana publicada, mas parte designável sem PUBLICACAO_S89
+//   A1 ï¿½ Erros de despacho do dia anterior (zapi_dispatch_log status=ERROR)
+//   A2 ï¿½ Flag de import pendente (app_settings.pending_auto_import)
+//   A3 ï¿½ Agenda D-15: semanas a ?15 dias sem S-89 publicado (sem PUBLICACAO_S89)
+//   A4 ï¿½ Partes ï¿½rfï¿½s: semana publicada, mas parte designï¿½vel sem PUBLICACAO_S89
 //
-// Segurança: FAIL-CLOSED — exige CRON_SECRET configurado E correto.
-// Kill-switch próprio: app_settings.alert_notifications_active (default: off).
+// Seguranï¿½a: FAIL-CLOSED ï¿½ exige CRON_SECRET configurado E correto.
+// Kill-switch prï¿½prio: app_settings.alert_notifications_active (default: off).
 // ============================================================================
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -29,27 +29,27 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 // @ts-ignore Deno import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 
-// Ambiente Deno (Edge Function) — declaração para o analisador local (Node/TS).
+// Ambiente Deno (Edge Function) ï¿½ declaraï¿½ï¿½o para o analisador local (Node/TS).
 declare const Deno: { env: { get(name: string): string | undefined } };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const APP_BASE_URL = "https://eliezerrosa.github.io/RVM-Designacoes-Antigravity";
+const APP_BASE_URL = Deno.env.get("APP_BASE_URL") || "https://rvm-designacoes-antigravity.vercel.app";
 const RECIPIENT_FUNCOES = [
-    'Superintendente da Reunião Vida e Ministério',
-    'Ajudante do Superintendente da Reunião Vida e Ministério',
+    'Superintendente da Reuniï¿½o Vida e Ministï¿½rio',
+    'Ajudante do Superintendente da Reuniï¿½o Vida e Ministï¿½rio',
 ];
 
 interface Recipient { id: string; name: string; phone: string }
 interface Alert { key: string; type: string; message: string; payload?: Record<string, unknown> }
 
 // ----------------------------------------------------------------------------
-// Utilitários (locais — sem imports de código existente)
+// Utilitï¿½rios (locais ï¿½ sem imports de cï¿½digo existente)
 // ----------------------------------------------------------------------------
 
-/** Hoje à meia-noite no fuso de Brasília (UTC-3, sem DST desde 2019). */
+/** Hoje ï¿½ meia-noite no fuso de Brasï¿½lia (UTC-3, sem DST desde 2019). */
 function todayBrasilia(): Date {
     const now = new Date();
     const brasilia = new Date(now.getTime() - 3 * 60 * 60 * 1000);
@@ -85,8 +85,8 @@ async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
 }
 
 /**
- * Envio idempotente e atômico: INSERT com constraint única (alert_key, phone).
- * Se o insert conflitar, o alerta já foi tratado — não reenvia.
+ * Envio idempotente e atï¿½mico: INSERT com constraint ï¿½nica (alert_key, phone).
+ * Se o insert conflitar, o alerta jï¿½ foi tratado ï¿½ nï¿½o reenvia.
  */
 async function notifyOnce(alert: Alert, recipient: Recipient): Promise<boolean> {
     const { error: insertError } = await supabase
@@ -100,7 +100,7 @@ async function notifyOnce(alert: Alert, recipient: Recipient): Promise<boolean> 
         });
 
     if (insertError) {
-        // 23505 = unique_violation ? já notificado (idempotência atômica)
+        // 23505 = unique_violation ? jï¿½ notificado (idempotï¿½ncia atï¿½mica)
         if ((insertError as { code?: string }).code === '23505') return false;
         console.error('[cron-alerts] Falha ao registrar alerta:', insertError);
         return false;
@@ -113,7 +113,7 @@ async function notifyOnce(alert: Alert, recipient: Recipient): Promise<boolean> 
         .eq('alert_key', alert.key)
         .eq('recipient_phone', recipient.phone);
 
-    // Em caso de ERROR, remove o registro para permitir retry na próxima execução.
+    // Em caso de ERROR, remove o registro para permitir retry na prï¿½xima execuï¿½ï¿½o.
     if (!ok) {
         await supabase
             .from('alert_notification_log')
@@ -126,10 +126,10 @@ async function notifyOnce(alert: Alert, recipient: Recipient): Promise<boolean> 
 }
 
 // ----------------------------------------------------------------------------
-// Coletores de alertas (cada um lê sinalizações existentes, read-only)
+// Coletores de alertas (cada um lï¿½ sinalizaï¿½ï¿½es existentes, read-only)
 // ----------------------------------------------------------------------------
 
-/** A1 — Erros de despacho registrados no dia anterior/atual. */
+/** A1 ï¿½ Erros de despacho registrados no dia anterior/atual. */
 async function collectDispatchErrors(today: Date): Promise<Alert[]> {
     const since = new Date(today);
     since.setUTCDate(since.getUTCDate() - 1);
@@ -143,20 +143,20 @@ async function collectDispatchErrors(today: Date): Promise<Alert[]> {
     if (error || !data || data.length === 0) return [];
 
     const lines = data.map((r: { dispatch_type: string; recipient_phone: string }) =>
-        `• ${r.dispatch_type} ? ${r.recipient_phone || 'sem telefone'}`);
+        `ï¿½ ${r.dispatch_type} ? ${r.recipient_phone || 'sem telefone'}`);
 
     return [{
         key: `DISPATCH_ERROR_${isoDay(today)}`,
         type: 'DISPATCH_ERROR',
         payload: { count: data.length },
-        message: `?? *Alerta — Falhas de envio (${data.length})*\n\n` +
-            `Os seguintes despachos falharam nas últimas 24h:\n${lines.slice(0, 15).join('\n')}` +
-            (lines.length > 15 ? `\n… e mais ${lines.length - 15}.` : '') +
-            `\n\nVerifique a conexão do WhatsApp e os telefones cadastrados.`,
+        message: `?? *Alerta ï¿½ Falhas de envio (${data.length})*\n\n` +
+            `Os seguintes despachos falharam nas ï¿½ltimas 24h:\n${lines.slice(0, 15).join('\n')}` +
+            (lines.length > 15 ? `\nï¿½ e mais ${lines.length - 15}.` : '') +
+            `\n\nVerifique a conexï¿½o do WhatsApp e os telefones cadastrados.`,
     }];
 }
 
-/** A2 — Flag de import pendente sinalizada em app_settings. */
+/** A2 ï¿½ Flag de import pendente sinalizada em app_settings. */
 async function collectPendingImport(today: Date): Promise<Alert[]> {
     const { data } = await supabase
         .from('app_settings')
@@ -171,15 +171,15 @@ async function collectPendingImport(today: Date): Promise<Alert[]> {
         key: `PENDING_IMPORT_${isoDay(today)}`,
         type: 'PENDING_IMPORT',
         payload: { weeks },
-        message: `?? *Agenda — Importação pendente*\n\n` +
-            `Há *${weeks.length}* semana(s) de apostila aguardando importação:\n` +
-            weeks.map(w => `• ${w}`).join('\n') +
+        message: `?? *Agenda ï¿½ Importaï¿½ï¿½o pendente*\n\n` +
+            `Hï¿½ *${weeks.length}* semana(s) de apostila aguardando importaï¿½ï¿½o:\n` +
+            weeks.map(w => `ï¿½ ${w}`).join('\n') +
             `\n\nAbra o sistema para importar:\n?? ${APP_BASE_URL}`,
     }];
 }
 
-/** A3 — Agenda D-15: semana com reunião a ?15 dias sem nenhum S-89 publicado. */
-/** A4 — Partes órfãs: semana já publicada, mas com parte designável sem S-89. */
+/** A3 ï¿½ Agenda D-15: semana com reuniï¿½o a ?15 dias sem nenhum S-89 publicado. */
+/** A4 ï¿½ Partes ï¿½rfï¿½s: semana jï¿½ publicada, mas com parte designï¿½vel sem S-89. */
 async function collectPublicationGaps(today: Date): Promise<Alert[]> {
     const alerts: Alert[] = [];
 
@@ -207,7 +207,7 @@ async function collectPublicationGaps(today: Date): Promise<Alert[]> {
     });
     if (nearWeeks.length === 0) return alerts;
 
-    // S-89 já publicados dessas semanas (read-only no log existente)
+    // S-89 jï¿½ publicados dessas semanas (read-only no log existente)
     const nearPartIds = parts
         .filter((p: { week_id: string }) => nearWeeks.indexOf(p.week_id) >= 0)
         .map((p: { id: string }) => p.id);
@@ -227,27 +227,27 @@ async function collectPublicationGaps(today: Date): Promise<Alert[]> {
         const isPublished = Boolean(publishedWeeks[weekId]);
 
         if (!isPublished && withS89.length === 0 && assigned.length > 0) {
-            // A3 — semana inteira sem publicação
+            // A3 ï¿½ semana inteira sem publicaï¿½ï¿½o
             alerts.push({
                 key: `WEEK_UNPUBLISHED_D15_${weekId}`,
                 type: 'WEEK_UNPUBLISHED_D15',
                 payload: { weekId, assignedCount: assigned.length },
-                message: `?? *Agenda — Publicação pendente*\n\n` +
-                    `A semana *${weekId}* tem reunião em ?15 dias e ainda *não foi publicada* ` +
+                message: `?? *Agenda ï¿½ Publicaï¿½ï¿½o pendente*\n\n` +
+                    `A semana *${weekId}* tem reuniï¿½o em ?15 dias e ainda *nï¿½o foi publicada* ` +
                     `(${assigned.length} parte(s) designada(s) sem S-89 enviado).\n\n` +
-                    `Abra a aba Apostila e use o botão *Publicar*:\n?? ${APP_BASE_URL}`,
+                    `Abra a aba Apostila e use o botï¿½o *Publicar*:\n?? ${APP_BASE_URL}`,
             });
         } else if (isPublished && withS89.length < assigned.length) {
-            // A4 — partes adicionadas após a publicação, sem S-89
+            // A4 ï¿½ partes adicionadas apï¿½s a publicaï¿½ï¿½o, sem S-89
             const orphans = assigned.filter((p: { id: string }) => !s89Set.has(p.id));
             alerts.push({
                 key: `ORPHAN_PARTS_${weekId}_${orphans.length}`,
                 type: 'ORPHAN_PARTS',
                 payload: { weekId, orphanIds: orphans.map((p: { id: string }) => p.id) },
-                message: `?? *Alerta — Partes sem S-89 em semana publicada*\n\n` +
-                    `A semana *${weekId}* já foi publicada, mas *${orphans.length}* parte(s) ` +
-                    `designada(s) não têm S-89 enviado:\n` +
-                    orphans.slice(0, 10).map((p: { tipo_parte: string }) => `• ${p.tipo_parte}`).join('\n') +
+                message: `?? *Alerta ï¿½ Partes sem S-89 em semana publicada*\n\n` +
+                    `A semana *${weekId}* jï¿½ foi publicada, mas *${orphans.length}* parte(s) ` +
+                    `designada(s) nï¿½o tï¿½m S-89 enviado:\n` +
+                    orphans.slice(0, 10).map((p: { tipo_parte: string }) => `ï¿½ ${p.tipo_parte}`).join('\n') +
                     `\n\nConsidere republicar a semana na aba Apostila.\n?? ${APP_BASE_URL}`,
             });
         }
@@ -267,7 +267,7 @@ serve(async (req: Request) => {
         return new Response("Forbidden", { status: 403 });
     }
 
-    // Kill-switch próprio (independente do zapi_automation_active).
+    // Kill-switch prï¿½prio (independente do zapi_automation_active).
     const { data: activeData } = await supabase
         .from('app_settings').select('value').eq('key', 'alert_notifications_active').maybeSingle();
     const isActive = activeData?.value === true || activeData?.value === 'true';
@@ -279,7 +279,7 @@ serve(async (req: Request) => {
 
     const today = todayBrasilia();
 
-    // Destinatários: SRVM + Ajudante (read-only em publishers)
+    // Destinatï¿½rios: SRVM + Ajudante (read-only em publishers)
     const { data: publishersRaw } = await supabase.from('publishers').select('id, data');
     const recipients: Recipient[] = (publishersRaw || [])
         .map((p: { id: string; data?: Record<string, unknown> }) => ({
@@ -297,7 +297,7 @@ serve(async (req: Request) => {
         });
     }
 
-    // Coletar alertas de todas as sinalizações
+    // Coletar alertas de todas as sinalizaï¿½ï¿½es
     const alerts: Alert[] = [
         ...(await collectDispatchErrors(today)),
         ...(await collectPendingImport(today)),
@@ -311,7 +311,7 @@ serve(async (req: Request) => {
         }
     }
 
-    console.log(`[cron-alert-notifications] ${alerts.length} alerta(s) coletado(s), ${sent} notificação(ões) enviada(s).`);
+    console.log(`[cron-alert-notifications] ${alerts.length} alerta(s) coletado(s), ${sent} notificaï¿½ï¿½o(ï¿½es) enviada(s).`);
     return new Response(JSON.stringify({ success: true, alerts: alerts.length, sent }), {
         headers: { 'Content-Type': 'application/json' },
     });
