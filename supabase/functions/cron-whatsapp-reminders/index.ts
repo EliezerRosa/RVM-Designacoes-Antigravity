@@ -444,13 +444,18 @@ async function checkRefusalsLapsing(meetingDays: Record<string, number>, today: 
 
     const { data: rejectedParts, error } = await supabase
         .from('workbook_parts')
-        .select('id, week_id, tipo_parte, part_title')
+        .select('id, week_id, tipo_parte, part_title, status, resolved_publisher_name, resolved_publisher_id')
         .eq('needs_reassignment', true);
 
     if (error || !rejectedParts || rejectedParts.length === 0) return reports;
 
     let count = 0;
     for (const part of rejectedParts) {
+        // Blindagem defensiva: se a parte já possui publicador e status ativo, não conta como buraco
+        const isResolved = (part.status === 'DESIGNADA' || part.status === 'PRONTO' || part.status === 'CONCLUIDA') 
+            && Boolean(part.resolved_publisher_name || part.resolved_publisher_id);
+        if (isResolved) continue;
+
         const meetingDate = calculateMeetingDate(part.week_id, meetingDays);
         if (!meetingDate) continue;
 
