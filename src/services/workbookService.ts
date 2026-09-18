@@ -908,15 +908,20 @@ export const workbookService = {
             resolvedId = await resolvePublisherIdByName(publisherName);
         }
 
+        const updatePayload: any = {
+            status: status,
+            resolved_publisher_id: resolvedId,
+            resolved_publisher_name: publisherName || null,
+            is_manual_override: isManual,
+            updated_at: new Date().toISOString(),
+        };
+        if (publisherName || publisherId) {
+            updatePayload.needs_reassignment = false;
+        }
+
         const { data, error } = await supabase
             .from('workbook_parts')
-            .update({
-                status: status,
-                resolved_publisher_id: resolvedId,
-                resolved_publisher_name: publisherName || null,
-                is_manual_override: isManual,
-                updated_at: new Date().toISOString(),
-            })
+            .update(updatePayload)
             .eq('id', partId)
             .select()
             .maybeSingle();
@@ -950,6 +955,7 @@ export const workbookService = {
                 approved_at: nowIso,
                 status_changed_at: nowIso,
                 updated_at: nowIso,
+                needs_reassignment: false,
             })
             .eq('id', partId)
             .eq('status', WorkbookStatus.PROPOSTA)

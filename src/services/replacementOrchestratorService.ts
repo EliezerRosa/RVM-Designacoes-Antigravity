@@ -50,7 +50,8 @@ export const replacementOrchestratorService = {
         // Marcamos os metadados de substituição
         await supabase.from('workbook_parts').update({
             is_substitution: true,
-            substituted_publisher_name: part.resolvedPublisherName || part.rawPublisherName
+            substituted_publisher_name: part.resolvedPublisherName || part.rawPublisherName,
+            needs_reassignment: false
         }).eq('id', partId);
         
         const updatedPart: WorkbookPart = { ...part, resolvedPublisherId: newPubId, resolvedPublisherName: publishers.find(p => p.id === newPubId)?.name || '' };
@@ -127,7 +128,8 @@ export const replacementOrchestratorService = {
             resolved_publisher_name: newName,
             status: 'PRONTO',
             is_substitution: true,
-            substituted_publisher_name: oldPublisherName || null
+            substituted_publisher_name: oldPublisherName || null,
+            needs_reassignment: false
         };
         if (newId) payload.resolved_publisher_id = newId;
         else payload.resolved_publisher_id = null;
