@@ -1,8 +1,9 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-09-10 15:25 (BRT)  
+> **Última Atualização**: 2026-09-19 11:45 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fase 10 Concluída — Implementação Definitiva S-89 via WhatsApp com Botões Nativos Z-API, Retrocompatibilidade Web, Unificação DRY e Dual-Table Sync)
+> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fases 12 e 13 Concluídas — Auditoria P1-P8, Automação do S-140 via Z-API, Saneamento de `needs_reassignment`, Alerta Matinal Detalhado e Especificação do Monitor Canônico 2.0 com Solução Híbrida de Observabilidade)  
+> **Checkpoint / Tag Git**: `v2.6.0-checkpoint-s140-monitor`
 
 ---
 
@@ -14,7 +15,16 @@
 - **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy `dpl_6hXPt84GbSaT9oTh4N7gcz88JbZR` ativo em cima de `16024a4`).
 - **Frontend GitHub Pages**: Ativo (`https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/`), sincronizado via `npm run deploy`.
 - **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas).
-- **Último Commit Estável**: `16024a4` — *feat: notificacoes de status para CS, SRVM e Admin de Sistema com funcao cadastrada*.
+- **Último Commit Estável / Checkpoint**: `7fedb03` (Tag: `v2.6.0-checkpoint-s140-monitor`)
+  - `20fa331`: fix(automation): resolver apontamentos da auditoria de fluxos P1-P8
+  - `f831850`: feat(s140): automação de envio de S-140 via Z-API, CRUD de funções congregacionais e permissões
+  - `94cc17a`: fix(reassignment): resetar needs_reassignment ao atribuir publicador e blindar cron contra partes resolvidas
+  - `7fedb03`: feat(cron): detalhar semana, parte e publicador no alerta de substituicoes pendentes
+- **Edge Functions Supabase Ativas (`pevstuyzlewvjidjkmea` em Produção)**:
+  - `cron-whatsapp-reminders`: Blindada contra falsos alarmes de partes resolvidas e com alerta matinal detalhado por semana, data, parte e publicador.
+  - `trigger-github-workflow`: v2 ativa para orquestração de disparos.
+  - `zapi-smart-webhook`: v19 ativa com processamento assíncrono de botões nativos.
+  - `cron-alert-notifications` e `cron-web-push`: operacionais.
 
 ---
 
@@ -335,21 +345,126 @@ A suíte completa de testes de código foi executada e reportou o seguinte estad
 
 ---
 
-## 11. Brainstorm e Planejamento: Automa��es Avan�adas Z-API e Invariantes de Substitui��o (2026-09-16)
+## 11. Brainstorm e Planejamento: Automa��es Avan�adas Z-API e Invariantes de Substitui��o (2026-09-16)
 
 ### ?? 1. Capacidades Inexploradas da Z-API Mapeadas
-- **Option-Lists (Menus Interativos)** limitados a 10 itens por gaveta (ideal para coleta de disponibilidade mensal ou pequenos fluxos de m�ltipla escolha).
+- **Option-Lists (Menus Interativos)** limitados a 10 itens por gaveta (ideal para coleta de disponibilidade mensal ou pequenos fluxos de m�ltipla escolha).
 - **Jittering de Envio**: Necessidade de adicionar pequenos delays (2-5s) no envio de lotes do S-140 para evitar banimentos por burst rate e engasgos na fila.
-- **Queda de Sess�o**: Uso do webhook `on-disconnected` atrelado � nossa rec�m-criada Web Push Notification para alertar o Admin imediatamente em caso de queda do WhatsApp.
+- **Queda de Sess�o**: Uso do webhook `on-disconnected` atrelado � nossa rec�m-criada Web Push Notification para alertar o Admin imediatamente em caso de queda do WhatsApp.
 
-### ?? 2. Blindagem Obrigat�ria: Idempot�ncia do Webhook
-- **O Problema:** A Z-API reenvia webhooks incessantemente se o servidor n�o responder HTTP 200 entre 3 a 5 segundos.
-- **A Solu��o:** Isolar o processamento real (consultas no Supabase, IA, disparo de Z-API) usando `EdgeRuntime.waitUntil()`, devolvendo imediatamente o `200 OK` logo na entrada da Edge Function.
+### ?? 2. Blindagem Obrigat�ria: Idempot�ncia do Webhook
+- **O Problema:** A Z-API reenvia webhooks incessantemente se o servidor n�o responder HTTP 200 entre 3 a 5 segundos.
+- **A Solu��o:** Isolar o processamento real (consultas no Supabase, IA, disparo de Z-API) usando `EdgeRuntime.waitUntil()`, devolvendo imediatamente o `200 OK` logo na entrada da Edge Function.
 
 ### ?? 3. Invariantes Absolutas (Cravadas na Pedra)
-- **Lideran�a no Controle:** Somente Admin, SRVM e Ajd podem eleger substitutos. Um publicador que clica em 'N�o poderei' encerra seu fluxo ali, sem op��es de sugerir substituto.
-- **Exclusividade Web do Curador IA:** O sistema de Intelig�ncia Artificial Curador atua �nica e exclusivamente sob acionamento manual na aba Apostila da aplica��o Web. Nunca ser� executado assincronamente pelo webhook do WhatsApp.
+- **Lideran�a no Controle:** Somente Admin, SRVM e Ajd podem eleger substitutos. Um publicador que clica em 'N�o poderei' encerra seu fluxo ali, sem op��es de sugerir substituto.
+- **Exclusividade Web do Curador IA:** O sistema de Intelig�ncia Artificial Curador atua �nica e exclusivamente sob acionamento manual na aba Apostila da aplica��o Web. Nunca ser� executado assincronamente pelo webhook do WhatsApp.
 
-### ?? 4. Evolu��o do Fluxo de Recusa (N�o Poderei)
-- Foi validado que o sistema j� possui a funcionalidade estrita de realocar o irm�o menos sobrecarregado atrav�s da fun��o `reassignParts` na aba Admin.
-- **A Dire��o Escolhida (Em Standby para Refinamento):** Automatizar o clique do 'N�o poderei' do WhatsApp conectando-o a essa mesma l�gica do Frontend. O sistema (seja via Headless Bot ou via Painel) ir� rodar a reatribui��o anti-fome, eleger o novo candidato e, **imediatamente**, engatilhar o fluxo completo da Troca Manual (gera��o do S-89 em PNG via html2canvas no browser e notifica��o de todos os envolvidos), reiniciando o ciclo organicamente.
+### ?? 4. Evolu��o do Fluxo de Recusa (N�o Poderei)
+- Foi validado que o sistema j� possui a funcionalidade estrita de realocar o irm�o menos sobrecarregado atrav�s da fun��o `reassignParts` na aba Admin.
+- **A Dire��o Escolhida (Em Standby para Refinamento):** Automatizar o clique do 'N�o poderei' do WhatsApp conectando-o a essa mesma l�gica do Frontend. O sistema (seja via Headless Bot ou via Painel) ir� rodar a reatribui��o anti-fome, eleger o novo candidato e, **imediatamente**, engatilhar o fluxo completo da Troca Manual (gera��o do S-89 em PNG via html2canvas no browser e notifica��o de todos os envolvidos), reiniciando o ciclo organicamente.
+
+---
+
+## 12. Auditoria e Blindagem dos Fluxos P1 a P8 (2026-09-17)
+
+### 📌 1. Escopo da Auditoria
+Foi executada uma varredura exaustiva nos 8 fluxos críticos de automação e mensageria:
+- **P1 (Disparo D-21 S-89 via GitHub Actions)**: Validação do pipeline headless, integridade da geração do cartão S-89 via Chromium/Canvas e registro em `zapi_dispatch_log`.
+- **P2 (Lembretes Contínuos de 72h para `PROPOSTA`)**: Verificação da cobrança respeitosa a cada 72 horas para irmãos que ainda não clicaram no botão interativo.
+- **P3 (Lembretes de Proximidade D-7 e D-2 para `DESIGNADA`)**: Disparo condicionado exclusivamente a partes já confirmadas ou resgatadas.
+- **P4 (Processamento de Botão 'Confirmar')**: Transição imediata de `PROPOSTA` para `CONFIRMADA`/`DESIGNADA`, log em `zapi_smart_interactions` e feedback visual.
+- **P5 (Processamento de Botão 'Não Poderei')**: Notificação imediata e exclusiva ao SRVM, Ajudantes e Admin, impedindo que o publicador escolha substitutos e marcando a parte para intervenção.
+- **P6 (Botão de Disponibilidade)**: Encaminhamento via Link Action nativo do WhatsApp para o portal de disponibilidade seguro com token individual.
+- **P7 (Fallback para WhatsApp Web Clássico)**: Preservação de links web explícitos quando a Z-API estiver desligada ou no envio manual via modal.
+- **P8 (Kill-Switch e Configurações)**: Isolamento estrito entre a chave mestre de desligamento dos crons e os workflows do GitHub Actions.
+
+---
+
+## 13. Automação Operacional do S-140 e Gestão de Funções Congregacionais (2026-09-18)
+
+### 📌 1. Visão Geral da Entrega
+Implementação completa da automação de envio do **S-140 (Programa da Reunião Nossa Vida e Ministério Cristão)** via WhatsApp (Z-API), do **CRUD dinâmico de Funções Congregacionais** no cadastro de publicadores, e da integração com a matriz de **Permissões** da aba Admin.
+
+### 📌 2. Regras Operacionais e Invariantes dos Modos de Envio
+- **Automações Existentes 100% Intactas**: Notificações individuais de substituições (antigo, novo com S-89, parceiro e equipe RVM) continuam ocorrendo imediatamente no ato da troca. O módulo S-140 é puramente aditivo e desacoplado.
+- **Regra de Ouro do Presidente**: Cada Presidente de semana com ajuste recebe **sempre** sua mensagem dedicada de condução de reunião com a folha única S-140 da sua respectiva semana, mesmo se fizer parte da Equipe RVM ou do Grupo oficial.
+- **Modo 1 (Regular Semanal — Segunda-feira 08:00 BRT)**:
+  - Disparado se houver novidades: nova semana publicada recentemente (D-21) OU trocas acumuladas de partes.
+  - *Grupo de WhatsApp oficial (`120363425170091102-group`)*, *Equipe RVM (SRVM, Ajudantes, Admins)* e o *Responsável pelo Quadro de Anúncios* recebem o **Pacote Completo** (todas as semanas publicadas a partir da atual) com texto explicativo contextual.
+  - Cada Presidente de semana que teve ajuste recebe exclusivamente a folha única S-140 da sua semana.
+  - Sem alterações: **Silêncio total**.
+- **Modo 2 (Emergência na Semana em Curso — Pós-Segunda-feira)**:
+  - Se ocorrer qualquer substituição na semana ativa da reunião (`weekId === currentWeekId`):
+    - Grupo + Equipe RVM + Quadro recebem imediatamente o **Pacote Completo atualizado** com aviso de urgência.
+    - O Presidente da semana atual recebe imediatamente o **S-140 ÚNICO** da sua semana com a nova escala.
+- **Modo 3 (Incidental Manual)**:
+  - Botão *'📤 Despachar Pacote'* integrado à barra de ferramentas `WorkbookToolbar` para envio imediato sob demanda com confirmação do operador.
+
+### 📌 3. CRUD de Funções Congregacionais e Permissões
+- **Serviço Centralizado (`congregationRoleService.ts`)**: Gerencia funções customizadas em `app_settings.congregation_roles`.
+- **Modal de Gerenciamento (`RoleManagerModal.tsx`)**: Interface para adicionar, editar e excluir funções congregacionais com sincronização dual-table do `zapi_group_id`.
+- **Cadastro de Publicadores (`PublisherForm.tsx`)**: Campo 'Função' habilitado para todos os irmãos batizados (Ancião, Servo Ministerial e Publicador).
+- **Matriz de Permissões (`PermissionManager.tsx`)**: Permissões granulares configuráveis para qualquer função cadastrada (ex: Responsável pelo Quadro de Anúncios).
+
+---
+
+## 14. Saneamento de `needs_reassignment`, Falsos Alarmes e Refinamento do Cron Matinal (2026-09-19)
+
+### 📌 1. Diagnóstico do Falso Alarme das 09:00 BRT
+- **Sintoma**: No relatório diário das 09:00 BRT enviado ao SRVM e Admins, a rotina `checkRefusalsLapsing` apontava 2 'Substituições Pendentes' sem identificar quem ou quais partes eram.
+- **Identificação**: As partes eram da semana de 21/09/2026 (Presidente) e 28/09/2026 (Parte Vida Cristã). Ambas já haviam sido resolvidas manualmente com novos irmãos designados (Edmilson Monteiro e Renato Oliveira).
+- **Causa Raiz**: O campo `needs_reassignment` permanecia com valor `true` no banco de dados porque as funções de atribuição (`proposePublisher`, `approveProposal`, `directExecutePublisherUpdate` e `executeManualReplacement`) não realizavam o reset da flag para `false`.
+
+### 📌 2. Saneamento e Blindagem Definitiva
+1. **Saneamento do Banco de Dados**:
+   - Executado comando SQL saneador no Supabase para resetar `needs_reassignment = false` em todas as partes que já possuíam status ativo (`DESIGNADA`, `PRONTO`, `CONCLUIDA`) e publicador preenchido.
+2. **Correção nos Serviços (`replacementOrchestratorService.ts` e `workbookService.ts`)**:
+   - Inclusão explícita de `needs_reassignment: false` em todas as operações de atualização, substituição direta e aprovação de propostas.
+3. **Filtro Defensivo na Edge Function (`cron-whatsapp-reminders/index.ts`)**:
+   - A rotina `checkRefusalsLapsing` agora valida se a parte já possui publicador escalado e status ativo antes de contabilizá-la, blindando o sistema contra qualquer inconsistência residual.
+4. **Refinamento Informativo do Alerta**:
+   - O alerta matinal agora lista com precisão cirúrgica cada pendência real:
+     - **Semana e Data da Reunião**: ex: `Semana 21/09 (Quinta-feira, 24 de Setembro)`
+     - **A Parte / Tema**: ex: `*Presidente*`
+     - **O Publicador que Recusou**: lido com prioridade de `refusal_logs` e `rejected_reason`.
+   - Título da seção diária dinâmico: `🔍 *Acompanhamento Operacional:*` em dias normais, reservando `📋 *Ações mensais executadas:*` para o dia 1º do mês.
+
+---
+
+## 15. Triagem da Mensageria, Ponto Cego e Monitor Canônico 2.0 (2026-09-19)
+
+### 📌 1. Diagnóstico de Triagem: Logs Escapados e Redundâncias
+Foi realizada uma triagem completa no banco de dados e nos serviços de mensageria, revelando dois apontamentos arquiteturais cruciais:
+1. **Ponto Cego de Canais no Monitor Atual**:
+   - A view atual `vw_canonical_communication_log` monitora apenas `zapi_dispatch_log`, `zapi_smart_interactions` e `push_dispatch_log`.
+   - **291 confirmações e recusas** realizadas pelo Portal Web clássico (`confirmation_portal_responses`) e **19 alterações de disponibilidade** (`availability_history`) ocorrem em canais válidos, mas não apareciam no Monitor da aba Comunicações.
+2. **Duplicidade Sistemática de Webhooks Z-API**:
+   - A Z-API reenvia eventos em frações de segundo caso a resposta HTTP 200 demore microssegundos a mais.
+   - Como a tabela `zapi_smart_interactions` não possuía constraint de unicidade em `inbound_message_id`, mensagens idênticas foram inseridas em duplicidade (exemplo: as 16 mensagens registradas para Gerusa Souza correspondiam, na realidade, a 8 eventos reais duplicados).
+
+### 📌 2. Especificação Arquitetural: Monitor Canônico 2.0
+Para elevar o monitoramento ao mais alto padrão de usabilidade e governança teocrática, foi desenhada a nova arquitetura do **Monitor Canônico 2.0**:
+- **Hub Canônico de Eventos (`system_canonical_events`)**: Tabela unificada no Supabase capturando eventos de todos os canais:
+  - WhatsApp (Z-API) Outbound e Inbound
+  - Portal Web de Confirmação (`confirmation_portal_responses`)
+  - Portal Web de Disponibilidade (`availability_history`)
+  - Web Push PWA
+  - Ações Manuais de Operador / Modal
+- **Deduplicação Nativa por `inbound_message_id`**: Índice único e mecanismo de `UPSERT` / ignore no webhook, eliminando redundâncias na raiz.
+- **Síntese e KPIs no Topo do Monitor**:
+  - Cards de Taxa de Confirmação Global, Tempo Médio de Resposta, Falhas de Entrega Ativas e Substituições sem Desfecho.
+- **Filtros por 4 Perspectivas Chave**:
+  1. *Por Publicador*: Linha do tempo 360º de todas as interações de um irmão.
+  2. *Por Semana / Reunião*: Diagnóstico completo da escala de uma semana específica.
+  3. *Por Canal / Via*: WhatsApp Z-API vs Portal Web vs Web Push vs Manual.
+  4. *Auditoria de Operações Críticas*: Trocas manuais, recusas de partes e falhas de envio.
+
+### 📌 3. Solução Híbrida de Mercado & Análise de Custos
+- **Arquitetura Recomendada**:
+  - **Camada de Negócio e Governança**: Supabase Nativo (`system_canonical_events`) integrado com RLS e consumido diretamente no painel React da RVM.
+  - **Camada de Telemetria Técnica e Erros**: Sentry (Application Performance Monitoring) para rastrear erros de código em tempo real, stacktraces do frontend e falhas não capturadas de Edge Functions.
+- **Análise de Custos**:
+  - **Sentry Developer Tier (Free)**: R$ 0,00 (Cota de 10.000 erros/mês e 50.000 transações/mês, cobrindo com folga de 100x a demanda de uma congregação).
+  - **Supabase**: R$ 0,00 (Dentro do plano atual do projeto).
+  - **Custo Total**: **R$ 0,00 / mês**.
