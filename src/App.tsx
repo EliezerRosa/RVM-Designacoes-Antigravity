@@ -14,7 +14,7 @@ import { ChatAgent } from './components/ChatAgent'
 import { DesignationConfirmationPortal } from './components/DesignationConfirmationPortal'
 import { MyAssignmentsPortal } from './components/MyAssignmentsPortal'
 import { InvitePortal } from './components/InvitePortal'
-import { ReplacementPortal } from './components/ReplacementPortal'
+
 import { PreferencesPortal } from './components/PreferencesPortal'
 import { PublisherHomeView } from './components/PublisherHomeView'
 import { LoginPage } from './components/LoginPage'
@@ -150,14 +150,6 @@ function App() {
     );
   }
 
-  // PORTAL: Substituição rápida (SRVM/Ajudante — acesso autenticado por role)
-  if (portal === 'replace' && portalPartId) {
-    return (
-      <div className="app portal-mode">
-        <ReplacementPortal partId={portalPartId} />
-      </div>
-    );
-  }
 
   // PORTAL: Preferências do publicador (reversão de opt-out)
   if (portal === 'preferences' && portalAction) {
