@@ -6,6 +6,7 @@ import { generationService } from '../services/generationService';
 import { publishWeek, getPublishedWeeks } from '../services/weekPublishService';
 import type { WorkbookPart, Publisher } from '../types';
 import { zapiOrchestrator } from '../services/zapiOrchestrator';
+import { importWorkbookFromJwOrg } from '../services/jwOrgService';
 
 const addDays = (date: Date, days: number): Date => {
     const result = new Date(date);
@@ -106,6 +107,38 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
             }
 
             appendLog('✅ Token autorizado com sucesso.');
+
+            // --- AUTO-IMPORT MENSAL (D-60) ---
+            try {
+                appendLog('Verificando pendências de importação mensal...');
+                const { data: importFlag } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'pending_auto_import')
+                    .maybeSingle();
+
+                if (importFlag?.value?.weeks?.length > 0) {
+                    appendLog(`[Auto-Import] Detectadas ${importFlag.value.weeks.length} semanas pendentes. Iniciando extração do jw.org...`);
+                    
+                    let successCount = 0;
+                    for (const weekId of importFlag.value.weeks) {
+                        try {
+                            const [y, m, d] = weekId.split('-').map(Number);
+                            const result = await importWorkbookFromJwOrg(new Date(y, m - 1, d));
+                            if (result.success) successCount++;
+                            appendLog(`[Auto-Import] Semana ${weekId}: ${result.success ? `Sucesso (${result.totalParts} partes)` : `Falha - ${result.message}`}`);
+                        } catch (err: any) {
+                            appendLog(`[Auto-Import] Exceção pontual na semana ${weekId}: ${err.message}`);
+                        }
+                    }
+                    
+                    await supabase.from('app_settings').delete().eq('key', 'pending_auto_import');
+                    appendLog(`[Auto-Import] Concluído. ${successCount} semanas importadas com sucesso.`);
+                }
+            } catch (globalErr: any) {
+                appendLog(`[Auto-Import] Erro isolado na rotina de importação: ${globalErr.message}. Continuando para as demais automações...`);
+            }
+            // ---------------------------------
 
             try {
                 const today = new Date();
