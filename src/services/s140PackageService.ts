@@ -308,6 +308,9 @@ export const s140PackageService = {
                         const cap = isFirst ? packageCaption : `Programa S-140 oficial — semana de ${this.formatDateDisplay(wId)}.`;
                         await zapiOrchestrator.sendImageDirect(recipient, img, cap);
                         await zapiOrchestrator.logDispatch(null, 'S140_PACOTE_EMERGENCIA', recipient, 'SUCCESS');
+                        
+                        // P9: Jittering para evitar bloqueios de spam na Z-API
+                        await new Promise(resolve => setTimeout(resolve, 3000));
                     }
                 }
             }
@@ -453,6 +456,9 @@ export const s140PackageService = {
                     const cap = isFirst ? packageCaption : `Programa S-140 oficial — semana de ${this.formatDateDisplay(wId)}.`;
                     await zapiOrchestrator.sendImageDirect(recipient, img, cap);
                     await zapiOrchestrator.logDispatch(null, 'S140_PACOTE_SEMANAL', recipient, 'SUCCESS');
+                    
+                    // P9: Jittering para evitar bloqueios de spam na Z-API
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 }
             }
         }
@@ -466,6 +472,9 @@ export const s140PackageService = {
             const wImg = imagesByWeek[wId];
 
             if (pres?.phone && wImg) {
+                // P9: Jittering para evitar bloqueios de spam na Z-API
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
                 const presCaption =
                     `🏛️ *Reunião Vida e Ministério — Parque Jacaraípe*\n` +
                     `📅 *Semana da Reunião:* ${this.formatDateDisplay(wId)}\n` +
