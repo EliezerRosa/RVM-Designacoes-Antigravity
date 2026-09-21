@@ -660,7 +660,7 @@ export function generateS140BodyContent(weekData: S140WeekDataUnified, scaleRati
         </div>
 
         <div class="week-info">
-            <span class="week-date" style="font-size: ${pt(13)}">${weekData.weekDisplay.toUpperCase()}</span>
+            <span class="week-date" style="font-size: ${pt(13)}">${(weekData.weekDisplay || weekData.weekId || '').toUpperCase()}</span>
             <span class="president-info" style="font-size: ${pt(10)}">Presidente: ${weekData.president}</span>
             ${weekData.counselorRoomB ? `<span class="counselor-info" style="font-size: ${pt(10)}">Conselheiro da sala B: ${weekData.counselorRoomB}</span>` : ''}
         </div>
