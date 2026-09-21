@@ -222,12 +222,15 @@ export const s140PackageService = {
             const todayStr = new Date().toISOString().slice(0, 10);
             const currentMonday = getWeekMondayId(todayStr);
 
-            const { data: publishedRecords } = await supabase
-                .from('week_published')
-                .select('week_id')
-                .gte('week_id', currentMonday);
+            const { data: wpData } = await supabase
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'week_published')
+                .maybeSingle();
 
-            const publishedWeekIds = (publishedRecords || []).map(r => r.week_id);
+            const publishedMap = (wpData?.value as Record<string, string>) || {};
+            const publishedWeekIds = Object.keys(publishedMap)
+                .filter(wId => wId >= currentMonday);
             if (!publishedWeekIds.includes(part.weekId)) {
                 publishedWeekIds.push(part.weekId);
             }
@@ -352,13 +355,16 @@ export const s140PackageService = {
         const currentMonday = getWeekMondayId(todayStr);
 
         // 1. Carrega todas as semanas publicadas da congregação (da atual em diante)
-        const { data: publishedRecords } = await supabase
-            .from('week_published')
-            .select('week_id')
-            .gte('week_id', currentMonday)
-            .order('week_id');
+        const { data: wpData } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'week_published')
+            .maybeSingle();
 
-        const publishedWeekIds = (publishedRecords || []).map(r => r.week_id);
+        const publishedMap = (wpData?.value as Record<string, string>) || {};
+        const publishedWeekIds = Object.keys(publishedMap)
+            .filter(wId => wId >= currentMonday)
+            .sort();
         if (publishedWeekIds.length === 0) {
             console.log('[s140PackageService] Nenhuma semana publicada ativa encontrada. Silêncio.');
             return { sent: false, reason: 'NO_PUBLISHED_WEEKS' };
