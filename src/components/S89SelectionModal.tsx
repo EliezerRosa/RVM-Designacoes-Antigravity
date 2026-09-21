@@ -710,7 +710,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 const formattedDate = `${day} de ${month} de ${year}`;
 
                 // 3. Montar Mensagem
-                const message = `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para ${dayName}, dia ${formattedDate}.\n\n_"Que o favor de Jeová, nosso Deus, esteja sobre nós. Que tu dês sucesso ao trabalho das nossas mãos; Sim, dá sucesso ao trabalho das nossas mãos."_ (Salmo 90:17) ✨`;
+                const message = `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para ${dayName}, dia ${formattedDate}.\n\n_"Que esteja sobre nós o favor de Jeová, nosso Deus; Que faças prosperar a obra das nossas mãos. Sim, faz prosperar a obra das nossas mãos."_ (Salmo 90:17) ✨`;
 
                 // 4. Abrir WhatsApp Web com texto preenchido
                 const encodedMessage = encodeURIComponent(message);

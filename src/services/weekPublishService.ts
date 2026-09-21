@@ -565,5 +565,5 @@ function buildS140Caption(weekId: string, meetingDayOfWeek: number): string {
     const month = months[targetDate.getMonth()];
     const year = targetDate.getFullYear();
     const formattedDate = `${day} de ${month} de ${year}`;
-    return `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para ${dayName}, dia ${formattedDate}.\n\n_"Que o favor de Jeová, nosso Deus, esteja sobre nós. Que tu dês sucesso ao trabalho das nossas mãos; Sim, dá sucesso ao trabalho das nossas mãos."_ (Salmo 90:17) ✨`;
+    return `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para ${dayName}, dia ${formattedDate}.\n\n_"Que esteja sobre nós o favor de Jeová, nosso Deus; Que faças prosperar a obra das nossas mãos. Sim, faz prosperar a obra das nossas mãos."_ (Salmo 90:17) ✨`;
 }

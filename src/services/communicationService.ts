@@ -421,7 +421,7 @@ export const communicationService = {
         }
 
         text += `📜 *Acesse o programa completo anexo.* ⬆️\n\n`;
-        text += `_"Que o favor de Jeová, nosso Deus, esteja sobre nós. Que tu dês sucesso ao trabalho das nossas mãos; Sim, dá sucesso ao trabalho das nossas mãos."_ (Salmo 90:17) ✨`;
+        text += `_"Que esteja sobre nós o favor de Jeová, nosso Deus; Que faças prosperar a obra das nossas mãos. Sim, faz prosperar a obra das nossas mãos."_ (Salmo 90:17) ✨`;
 
         return text;
     },
