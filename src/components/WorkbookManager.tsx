@@ -658,12 +658,9 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                 const updated = { ...p };
                 updated.resolvedPublisherName = newName;
 
-                // Se não estiver bloqueado (APROVADA/DESIGNADA/CONCLUIDA)
-                if (!isDesignada) {
-                    // Se tem nome -> PROPOSTA
-                    // Se não tem nome -> PENDENTE
-                    updated.status = newName ? 'PROPOSTA' : 'PENDENTE';
-                }
+                // Em substituições manuais, o status sempre volta para PROPOSTA (para confirmar) ou PENDENTE (se limpo)
+                updated.status = newName ? 'PROPOSTA' : 'PENDENTE';
+                updated.needsReassignment = false;
                 return updated;
             }));
 
