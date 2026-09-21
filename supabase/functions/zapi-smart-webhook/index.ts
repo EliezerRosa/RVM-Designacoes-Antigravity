@@ -529,10 +529,19 @@ async function processWebhookPayload(body: any) {
       } else if (targetPart.status === "CONCLUIDA" || targetPart.status === "CANCELADA") {
         actionTaken = "ALREADY_PROCESSED";
       } else if (targetPart.status === "DESIGNADA" && targetPart.resolved_publisher_id === publisherData?.id) {
-        actionTaken = "ALREADY_PROCESSED_SPAM_LOCKED";
-        outboundReply = `✅ ${greeting}, ${honorific} *${pubName}*! Vimos que sua designação já constava como confirmada. Muito obrigado pela sua disposição!`;
-        console.log(`[zapi-smart-webhook] Confirmação ignorada (Duplo Clique): Parte já estava DESIGNADA para ${pubName}`);
-        await dispatchTextMessage(replyPhone, outboundReply);
+        const changedAt = new Date(targetPart.status_changed_at || targetPart.updated_at || 0).getTime();
+        const now = Date.now();
+        const minutesSinceChange = (now - changedAt) / (1000 * 60);
+
+        if (minutesSinceChange < 5) {
+          actionTaken = "IGNORED_RECENT_DUPLICATE";
+          console.log(`[zapi-smart-webhook] Confirmação ignorada silenciosamente (Duplo clique em menos de 5 min)`);
+        } else {
+          actionTaken = "ALREADY_PROCESSED_SPAM_LOCKED";
+          outboundReply = `✅ ${greeting}, ${honorific} *${pubName}*! Vimos que sua designação já constava como confirmada. Muito obrigado pela sua disposição!`;
+          console.log(`[zapi-smart-webhook] Confirmação ignorada (Duplo Clique): Parte já estava DESIGNADA para ${pubName}`);
+          await dispatchTextMessage(replyPhone, outboundReply);
+        }
       } else if (targetPart.resolved_publisher_id && targetPart.resolved_publisher_id !== publisherData?.id) {
         actionTaken = "ALREADY_REASSIGNED";
         outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. Como esta parte já foi repassada para outro publicador, não é mais possível confirmá-la. Agradecemos imensamente a sua disposição e o seu espírito voluntário!`;
@@ -575,21 +584,30 @@ async function processWebhookPayload(body: any) {
         actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
         console.log(`[zapi-smart-webhook] Texto de recusa ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
       } else if (targetPart.status === "REJEITADA" || targetPart.status === "EM_SUBSTITUICAO") {
-        actionTaken = "ALREADY_PROCESSED_SPAM_LOCKED";
-        outboundReply = `❌ ${greeting}, ${honorific} *${pubName}*. Nós já havíamos registrado que não será possível realizar esta designação. Agradecemos muito por nos avisar com antecedência!`;
-        console.log(`[zapi-smart-webhook] Recusa ignorada (Duplo Clique/Status Locked): Parte já estava ${targetPart.status} para ${pubName}`);
-        await dispatchTextMessage(replyPhone, outboundReply);
+        const changedAt = new Date(targetPart.status_changed_at || targetPart.updated_at || 0).getTime();
+        const now = Date.now();
+        const minutesSinceChange = (now - changedAt) / (1000 * 60);
+
+        if (minutesSinceChange < 5) {
+          actionTaken = "IGNORED_RECENT_DUPLICATE";
+          console.log(`[zapi-smart-webhook] Recusa ignorada silenciosamente (Duplo clique em menos de 5 min)`);
+        } else {
+          actionTaken = "ALREADY_REJECTED_SPAM_LOCKED";
+          outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. Identificamos que você já havia recusado esta parte. Fique tranquilo(a), o responsável já foi notificado.`;
+          console.log(`[zapi-smart-webhook] Recusa ignorada (Duplo Clique): Parte já estava REJEITADA/EM_SUBSTITUICAO`);
+          await dispatchTextMessage(replyPhone, outboundReply);
+        }
       } else {
         const reason = reasonExtracted || "Impossibilidade informada via WhatsApp.";
 
-        // Ler a chave zapi_automation_background da app_settings
+        // Ler a chave zapi_automation_active da app_settings (mesma da UI)
         const { data: settingsData } = await supabase
           .from("app_settings")
           .select("value")
-          .eq("key", "zapi_automation_background")
+          .eq("key", "zapi_automation_active")
           .maybeSingle();
         
-        const isAutoReassignON = settingsData?.value === "ON" || settingsData?.value === true;
+        const isAutoReassignON = settingsData?.value === "ON" || settingsData?.value === "true" || settingsData?.value === true;
 
         await supabase
           .from("workbook_parts")
