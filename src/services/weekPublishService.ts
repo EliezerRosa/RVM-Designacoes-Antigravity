@@ -381,7 +381,8 @@ export async function generateStatusBoardImageBase64(
 export async function publishWeek(
     weekId: string,
     weekParts: WorkbookPart[],
-    publishers: Publisher[]
+    publishers: Publisher[],
+    options: { isAuto?: boolean; triggeredBy?: string } = {}
 ): Promise<PublishResult> {
     const result: PublishResult = {
         success: false, s89Sent: 0, s89Skipped: 0, s89Failed: 0, s140: null, status: null, errors: [],
@@ -399,6 +400,12 @@ export async function publishWeek(
     // 1) Cartões S-89 individuais (idempotente por parte).
     for (const card of cards) {
         try {
+            const cardStatus = (card as any).status;
+            // 1.5) Previne reenvio do S-89 para quem já aceitou/confirmou a designação.
+            if (cardStatus === 'DESIGNADA' || cardStatus === 'CONCLUIDA') {
+                result.s89Skipped++;
+                continue;
+            }
             const publisherName = (card as any).resolvedPublisherName || card.rawPublisherName;
             const foundPublisher = getPublisher(publisherName);
             const phone = foundPublisher?.phone || (card as any).phone;
@@ -496,6 +503,23 @@ export async function publishWeek(
             await api.setSetting(WEEK_PUBLISHED_KEY, { ...map, [weekId]: new Date().toISOString() });
         } catch (err) {
             result.errors.push(`Marcador de publicação: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+
+    // 4) Auditoria de Execução Manual
+    if (!options.isAuto) {
+        try {
+            await supabase.from('automation_bot_log').insert({
+                week_id: weekId,
+                action_type: 'D-21_PUBLICATION', // Usamos o mesmo tipo para manter consistência nas listagens
+                status: result.success ? 'SUCCESS' : (result.s89Sent > 0 ? 'PARTIAL' : 'ERROR'),
+                details: { 
+                    reason: `Manual Publish (trigger: ${options.triggeredBy || 'UI'})`,
+                    result 
+                }
+            });
+        } catch (auditErr) {
+            console.error('[weekPublishService] Falha ao registrar log de auditoria manual:', auditErr);
         }
     }
 
