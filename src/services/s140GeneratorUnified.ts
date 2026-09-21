@@ -164,7 +164,7 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?:
     // Extrair ano de forma robusta
     let year = firstPart.year;
     if (!year) {
-        const yearMatch = weekId.match(/^(\d{4})/);
+        const yearMatch = (weekId || '').match(/^(\d{4})/);
         year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear();
     }
 
@@ -208,7 +208,8 @@ export async function prepareS140UnifiedData(parts: WorkbookPart[], publishers?:
     const titularParts = activeParts.filter(p => p.funcao === 'Titular');
     const ajudanteParts = activeParts.filter(p => p.funcao === 'Ajudante');
 
-    const extractSeqNumber = (titulo: string): string => {
+    const extractSeqNumber = (titulo?: string): string => {
+        if (!titulo) return '';
         const match = titulo.match(/^(\d+)\./);
         return match ? match[1] : titulo;
     };
