@@ -183,6 +183,25 @@ async function processWebhookPayload(body: any) {
     senderPhone = senderPhone.replace(/@.*$/, "").replace(/\D/g, "");
 
     const inboundMessageId = payload.messageId || "";
+    
+    // ========================================================================
+    // DEDUPLICAÇÃO DE WEBHOOKS
+    // Verifica se a mensagem já foi processada anteriormente para evitar duplo processamento
+    // causado por retentativas de entrega de webhook da Z-API.
+    // ========================================================================
+    if (inboundMessageId) {
+      const { data: existingInteraction } = await supabase
+        .from("zapi_smart_interactions")
+        .select("id")
+        .eq("inbound_message_id", inboundMessageId)
+        .maybeSingle();
+      
+      if (existingInteraction) {
+        console.log(`[zapi-smart-webhook] Webhook ignorado (deduplicação): mensagem ${inboundMessageId} já processada.`);
+        return;
+      }
+    }
+
     let matchedBy = "UNMATCHED";
     let detectedIntent = "OUTRO";
     let confidence = 1.0;
