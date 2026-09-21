@@ -307,7 +307,7 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                                 details: { reason: `auto publish D-${diffDays}` },
                             }).select('id').maybeSingle();
 
-                            const pubRes = await publishWeek(weekId, weekParts, publishers);
+                            const pubRes = await publishWeek(weekId, weekParts, publishers, { isAuto: true });
 
                             const finalStatus = pubRes.success ? 'SUCCESS' : 'PARTIAL';
                             if (pubLogEntry?.id) {
