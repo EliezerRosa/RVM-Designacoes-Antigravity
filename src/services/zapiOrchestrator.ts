@@ -420,6 +420,18 @@ class ZApiOrchestrator {
         const imgRes = await this.sendImageDirect(phone, imageBase64, '');
         console.log('[zapiOrchestrator.sendS89Direct] Resultado do envio da imagem S-89:', imgRes);
 
+        // Registra o ID da imagem separadamente para que o "Despublicar" consiga apagar a imagem também
+        if (imgRes.success && imgRes.messageId) {
+            await this.logDispatch(
+                partId,
+                idempotencyType || 'PUBLICACAO_S89',
+                phone,
+                'SUCCESS',
+                imgRes.messageId,
+                publisherId
+            );
+        }
+
         // 2. Monta os 3 botões de ação rápida nativos do WhatsApp (2 REPLY + 1 URL direta)
         const buttonActions: Array<{ id: string; type: 'REPLY' | 'URL'; label: string; url?: string }> = [
             { id: `CONFIRMAR:${partId}`, type: 'REPLY', label: '✅ Confirmar' },
