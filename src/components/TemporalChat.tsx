@@ -648,7 +648,7 @@ export default function TemporalChat({
         const already = await isWeekPublished(weekId);
         const confirmMsg = already
             ? `A semana ${weekId} já foi publicada. Republicar reenviará os cartões pendentes. Continuar?`
-            : `Publicar a semana ${weekId}? Isso enviará automaticamente, via Z-API:\n• Cartão S-89 (imagem + texto com link) a cada publicador designável\n• S-140 para Ajudante SRVM + SRVM + Grupo`;
+            : `Publicar a semana ${weekId}? Isso enviará automaticamente, via Z-API:\n• Cartão S-89 (imagem + botões interativos) a cada publicador designável\n• S-140 para Ajudante SRVM + SRVM + Grupo`;
         if (!window.confirm(confirmMsg)) return;
 
         try {

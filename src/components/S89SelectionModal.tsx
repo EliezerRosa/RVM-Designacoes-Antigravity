@@ -1322,7 +1322,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                                                     fontWeight: '500', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '4px',
                                                     opacity: isProcessingZapi ? 0.7 : 1
                                                 }}
-                                                title="Envia o cartão S-89 (imagem + texto com link) direto ao publicador via Z-API"
+                                                title="Envia o cartão S-89 (imagem + botões interativos) direto ao publicador via Z-API"
                                             >
                                                 {isProcessingZapi ? '⏳...' : 'S-89 z-api 📤'}
                                             </button>
