@@ -479,6 +479,43 @@ async function sendImageViaZApi(phone: string, imageBase64: string, caption: str
   return { success: true, messageId: data.messageId, provider: 'z-api' };
 }
 
+/** Envia documento (PDF) via Z-API. */
+async function sendDocumentViaZApi(phone: string, documentBase64: string, extension: string, fileName: string, caption: string) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada.' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
+
+  const base64Data = documentBase64.includes('base64,') ? documentBase64.split('base64,')[1] : documentBase64;
+  
+  // Z-API endpoint para enviar documento é: /send-document/{extension}
+  const ext = extension.replace(/^\./, '') || 'pdf';
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-document/${ext}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+    body: JSON.stringify({
+      phone,
+      document: `data:application/${ext};base64,${base64Data}`,
+      fileName,
+      caption,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API ${res.status}: ${body}` };
+  }
+
+  const data = await res.json();
+  return { success: true, messageId: data.messageId, provider: 'z-api' };
+}
+
 /** Exclui mensagem via Z-API ("Apagar para todos"). */
 async function deleteMessageViaZApi(phone: string, messageId: string, deleteForMe: boolean = false) {
   const creds = await getZApiCredentials();
@@ -1321,6 +1358,14 @@ serve(async (req: Request) => {
         );
       }
       result = await sendImageViaZApi(normalizedPhone, image, caption || '');
+    } else if (action === 'send-document') {
+      if (!body.document || !body.fileName) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Campos "document" e "fileName" são obrigatórios para envio de documento.' }),
+          { status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+        );
+      }
+      result = await sendDocumentViaZApi(normalizedPhone, body.document, body.extension || 'pdf', body.fileName, caption || '');
     } else if (action === 'send-button-list' || (body.buttons && Array.isArray(body.buttons))) {
       result = await sendButtonListViaZApi(normalizedPhone, message || '', body.buttons);
     } else if (action === 'send-button-actions' || (body.buttonActions && Array.isArray(body.buttonActions))) {

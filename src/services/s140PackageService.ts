@@ -71,6 +71,42 @@ export const s140PackageService = {
     },
 
     /**
+     * Extrai quais tipos de partes mudaram comparando a assinatura atual com a anterior.
+     */
+    getChangedPartTypes(prevSig: string, currentParts: WorkbookPart[]): string[] {
+        if (!prevSig) return [];
+        const prevPartsMap = new Map<string, string>();
+        prevSig.split('|').forEach(str => {
+            const [id, tipo, pubId, pubName] = str.split(':');
+            if (id) prevPartsMap.set(id, str);
+        });
+
+        const currentSigStr = this.calculateWeekSignature(currentParts);
+        const currentPartsMap = new Map<string, string>();
+        currentSigStr.split('|').forEach(str => {
+            const [id, tipo, pubId, pubName] = str.split(':');
+            if (id) currentPartsMap.set(id, str);
+        });
+
+        const changedTypes = new Set<string>();
+
+        for (const [id, curStr] of currentPartsMap.entries()) {
+            const prevStr = prevPartsMap.get(id);
+            if (prevStr !== curStr) {
+                const part = currentParts.find(p => p.id === id);
+                if (part) {
+                    const titulo = (part as any).titulo_parte || part.tituloParte || '';
+                    const tipo = (part as any).tipo_parte || part.tipoParte || '';
+                    const finalName = (titulo || tipo || 'Designação').trim();
+                    changedTypes.add(finalName);
+                }
+            }
+        }
+
+        return Array.from(changedTypes);
+    },
+
+    /**
      * Carrega o snapshot salvo em app_settings.
      */
     async loadSnapshot(): Promise<S140SnapshotData> {
@@ -387,7 +423,7 @@ export const s140PackageService = {
         // 3. Compara com o snapshot anterior
         const snapshot = await this.loadSnapshot();
         const newWeeks: string[] = [];
-        const modifiedWeeks: { weekId: string; changedSummary: string[] }[] = [];
+        const modifiedWeeks: { weekId: string; changedSummary: string[]; changedTypes: string[] }[] = [];
 
         for (const wId of publishedWeekIds) {
             const wParts = partsByWeek.get(wId) || [];
@@ -399,9 +435,11 @@ export const s140PackageService = {
                 newWeeks.push(wId);
             } else if (prev.signature !== currentSig) {
                 // Houve substituições nesta semana
+                const changedTypes = this.getChangedPartTypes(prev.signature, wParts);
                 modifiedWeeks.push({
                     weekId: wId,
                     changedSummary: [`Semana ${this.formatDateDisplay(wId)} com ajustes de participantes`],
+                    changedTypes
                 });
             }
         }
@@ -414,19 +452,25 @@ export const s140PackageService = {
 
         console.log(`[s140PackageService] Novidades detectadas! Novas semanas: ${newWeeks.length}, Semanas ajustadas: ${modifiedWeeks.length}`);
 
-        // 4. Renderiza imagens S-140 de todas as semanas do Pacote
-        const imagesByWeek: Record<string, string> = {};
-        for (const wId of publishedWeekIds) {
-            const wParts = partsByWeek.get(wId) || [];
-            if (wParts.length > 0) {
-                const base64 = await generateS140ImageBase64(wParts, publishers);
-                if (base64) imagesByWeek[wId] = base64;
-            }
-        }
+        // 4. Renderiza o Documento PDF S-140 de todas as semanas do Pacote
+        const allPartsFlat = Array.from(partsByWeek.values()).flat();
+        const { generateS140UnifiedMultiWeekPdfBase64 } = await import('./s140GeneratorUnified');
+        
+        const { base64: globalPdfBase64, weekRange } = await generateS140UnifiedMultiWeekPdfBase64(allPartsFlat, publishedWeekIds, publishers);
 
-        // 5. Monta texto explicativo adaptativo
+        // 5. Monta texto explicativo adaptativo com Destaque de Versão/Data e Semanas
         const periodStart = this.formatDateDisplay(publishedWeekIds[0]);
         const periodEnd = this.formatDateDisplay(publishedWeekIds[publishedWeekIds.length - 1]);
+        
+        const dataVersao = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+
+        const formatModifiedWeek = (m: any) => {
+            let text = `• *Semana de ${this.formatDateDisplay(m.weekId)}:* Atualizada com novas designações`;
+            if (m.changedTypes && m.changedTypes.length > 0) {
+                text += `\n  ↳ _Ajustes em: ${m.changedTypes.join(', ')}_`;
+            }
+            return text;
+        };
 
         let updatesText = '';
         if (newWeeks.length > 0 && modifiedWeeks.length === 0) {
@@ -437,60 +481,75 @@ export const s140PackageService = {
             updatesText = `✨ *Nova(s) Semana(s) Publicada(s):*\n` +
                 newWeeks.map(w => `• *Semana de ${this.formatDateDisplay(w)}*`).join('\n') +
                 `\n\n🔄 *Ajustes de Designação Realizados:*\n` +
-                modifiedWeeks.map(m => `• *Semana de ${this.formatDateDisplay(m.weekId)}:* Atualizada com novas designações`).join('\n');
+                modifiedWeeks.map(formatModifiedWeek).join('\n');
         } else {
             updatesText = `🔄 *Ajustes de Designação Realizados:*\n` +
-                modifiedWeeks.map(m => `• *Semana de ${this.formatDateDisplay(m.weekId)}:* Atualizada com novas designações`).join('\n');
+                modifiedWeeks.map(formatModifiedWeek).join('\n');
         }
 
         const packageCaption =
             `📦 *PACOTE DE PROGRAMAÇÃO RVM — S-140 ATUALIZADO* 📦\n` +
-            `🏛️ *Congregação Parque Jacaraípe*\n` +
-            `📅 *Período Atualizado:* ${periodStart} até ${periodEnd}\n\n` +
-            `Informamos as atualizações na programação oficial:\n\n` +
+            `🏛️ *Congregação Parque Jacaraípe*\n\n` +
+            `🚨 *VERSÃO OFICIAL DO PACOTE*\n` +
+            `⏱️ *Emitido em:* ${dataVersao}\n` +
+            `📅 *Semanas Inclusas:* ${periodStart} até ${periodEnd}\n\n` +
+            `Informamos as atualizações na programação:\n\n` +
             `${updatesText}\n\n` +
-            `Seguem em anexo as folhas do programa oficial *S-140* das semanas publicadas.\n\n` +
-            `📌 *Ao Responsável pelo Quadro de Anúncios:* Por favor, providencie a afixação/substituição das vias atualizadas no mural do Salão do Reino.`;
+            `Segue anexo o documento oficial em *PDF*.\n` +
+            `📌 *Ao Responsável pelo Quadro de Anúncios:* Por favor, providencie a substituição no mural do Salão.`;
 
-        // 6. Despacha o Pacote Completo para Grupo, Equipe RVM e Quadro
-        const fullPackageRecipients = await this.resolveFullPackageRecipients(publishers);
-        for (const recipient of fullPackageRecipients) {
-            for (const wId of publishedWeekIds) {
-                const img = imagesByWeek[wId];
-                if (img) {
-                    const isFirst = wId === publishedWeekIds[0];
-                    const cap = isFirst ? packageCaption : `Programa S-140 oficial — semana de ${this.formatDateDisplay(wId)}.`;
-                    await zapiOrchestrator.sendImageDirect(recipient, img, cap);
-                    await zapiOrchestrator.logDispatch(null, 'S140_PACOTE_SEMANAL', recipient, 'SUCCESS');
-                    
-                    // P9: Jittering para evitar bloqueios de spam na Z-API
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-                }
+        // 6. Despacha o Pacote Completo (PDF) para Grupo, Equipe RVM e Quadro
+        if (globalPdfBase64) {
+            const fullPackageRecipients = await this.resolveFullPackageRecipients(publishers);
+            const fileName = `S-140-Pacote_${weekRange}.pdf`;
+            
+            for (const recipient of fullPackageRecipients) {
+                await zapiOrchestrator.sendDocumentDirect(recipient, globalPdfBase64, 'pdf', fileName, packageCaption);
+                await zapiOrchestrator.logDispatch(null, 'S140_PACOTE_SEMANAL', recipient, 'SUCCESS');
+                
+                // P9: Jittering para evitar bloqueios de spam na Z-API
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
         }
 
-        // 7. Despacha S-140 ÚNICO para o Presidente de cada semana afetada ou nova
+        // 7. Despacha S-140 ÚNICO (PDF) para o Presidente de cada semana afetada ou nova
         const weeksNeedingPresidentNotification = new Set([...newWeeks, ...modifiedWeeks.map(m => m.weekId)]);
 
         for (const wId of weeksNeedingPresidentNotification) {
-            const wParts = partsByWeek.get(wId) || [];
-            const pres = this.resolveWeekPresident(wParts, publishers);
-            const wImg = imagesByWeek[wId];
-
-            if (pres?.phone && wImg) {
-                // P9: Jittering para evitar bloqueios de spam na Z-API
-                await new Promise(resolve => setTimeout(resolve, 3000));
+            const pres = this.resolveWeekPresident(partsByWeek.get(wId) || [], publishers);
+            
+            if (pres?.phone) {
+                // Gera um PDF contendo apenas a semana deste presidente
+                const { base64: presPdfBase64 } = await generateS140UnifiedMultiWeekPdfBase64(allPartsFlat, [wId], publishers);
                 
-                const presCaption =
-                    `🏛️ *Reunião Vida e Ministério — Parque Jacaraípe*\n` +
-                    `📅 *Semana da Reunião:* ${this.formatDateDisplay(wId)}\n` +
-                    `👤 *Prezado Presidente da Reunião:* ${pres.name}\n\n` +
-                    `Informamos as atualizações oficiais na escala da reunião que você presidirá:\n\n` +
-                    `Segue em anexo o programa oficial *S-140 atualizado* exclusivo da sua semana para a condução do programa.`;
+                if (presPdfBase64) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    const isNew = newWeeks.includes(wId);
+                    const modifiedWeek = modifiedWeeks.find(m => m.weekId === wId);
+                    let statusText = '';
+                    if (isNew) {
+                        statusText = `✨ Esta semana acaba de ser *oficialmente publicada* para a congregação.`;
+                    } else if (modifiedWeek) {
+                        let detalhes = '';
+                        if (modifiedWeek.changedTypes && modifiedWeek.changedTypes.length > 0) {
+                            detalhes = `\n  ↳ _Ajustes em: ${modifiedWeek.changedTypes.join(', ')}_`;
+                        }
+                        statusText = `🔄 Houve *ajustes recentes nas designações* (participantes) desta semana. Por favor, avalie a nova escala.${detalhes}`;
+                    }
+                    
+                    const presCaption =
+                        `🏛️ *Reunião Vida e Ministério — Parque Jacaraípe*\n` +
+                        `🚨 *VERSÃO ATUALIZADA:* ${dataVersao}\n\n` +
+                        `📅 *Semana da Reunião:* ${this.formatDateDisplay(wId)}\n` +
+                        `👤 *Prezado Presidente da Reunião:* ${pres.name}\n\n` +
+                        `${statusText}\n\n` +
+                        `Segue anexo o documento oficial *S-140 em PDF* exclusivo da sua semana.`;
 
-                console.log(`[s140PackageService] Enviando folha única ao Presidente da semana ${wId}: ${pres.name}`);
-                await zapiOrchestrator.sendImageDirect(pres.phone, wImg, presCaption);
-                await zapiOrchestrator.logDispatch(null, 'S140_PRESIDENTE_INDIVIDUAL', pres.phone, 'SUCCESS');
+                    console.log(`[s140PackageService] Enviando PDF único ao Presidente da semana ${wId}: ${pres.name}`);
+                    await zapiOrchestrator.sendDocumentDirect(pres.phone, presPdfBase64, 'pdf', `S-140_${wId}.pdf`, presCaption);
+                    await zapiOrchestrator.logDispatch(null, 'S140_PRESIDENTE_INDIVIDUAL', pres.phone, 'SUCCESS');
+                }
             }
         }
 

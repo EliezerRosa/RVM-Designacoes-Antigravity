@@ -889,11 +889,24 @@ export async function generateS140UnifiedPDF(weekData: S140WeekDataUnified): Pro
 // GERAÇÃO MULTI-SEMANAS (do s140Generator base)
 // ============================================================================
 
+export async function generateS140UnifiedMultiWeekPdfBase64(parts: WorkbookPart[], weekIds: string[], publishers?: Publisher[]): Promise<{ base64: string; weekRange: string }> {
+    if (weekIds.length === 0) return { base64: '', weekRange: '' };
 
+    const weeksData: S140WeekDataUnified[] = [];
 
+    for (const weekId of weekIds) {
+        const weekParts = parts.filter(p => p.weekId === weekId);
+        if (weekParts.length > 0) {
+            const weekData = await prepareS140UnifiedData(weekParts, publishers);
+            weeksData.push(weekData);
+        }
+    }
 
-export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUnified[]): Promise<void> {
-    console.log('[S140] Gerando PDF Multi-Semanas (Container Pattern)...', weeksData.length);
+    if (weeksData.length === 0) {
+        return { base64: '', weekRange: '' };
+    }
+
+    console.log('[S140] Gerando PDF Multi-Semanas Base64...', weeksData.length);
 
     // Construção Segura do DOM
     const wrapper = document.createElement('div');
@@ -986,8 +999,11 @@ export async function generateMultiWeekS140UnifiedPDF(weeksData: S140WeekDataUni
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        // Renderizar o contentContainer, não o wrapper full-screen
-        await html2pdf().set(opt).from(contentContainer).save();
+        const pdfBase64Url = await html2pdf().set(opt).from(contentContainer).outputPdf('datauristring');
+        // Remover prefixo "data:application/pdf;filename=generated.pdf;base64,"
+        const base64 = pdfBase64Url.split('base64,')[1];
+        
+        return { base64, weekRange };
     } finally {
         if (document.body.contains(wrapper)) {
             document.body.removeChild(wrapper);
@@ -1017,21 +1033,17 @@ export async function downloadS140UnifiedMultiWeek(
     weekIds: string[],
     publishers?: Publisher[]
 ): Promise<void> {
-    const weeksData: S140WeekDataUnified[] = [];
-
-    for (const weekId of weekIds) {
-        const weekParts = allParts.filter(p => p.weekId === weekId);
-        if (weekParts.length > 0) {
-            const weekData = await prepareS140UnifiedData(weekParts, publishers);
-            weeksData.push(weekData);
-        }
-    }
-
-    if (weeksData.length === 0) {
+    const { base64, weekRange } = await generateS140UnifiedMultiWeekPdfBase64(allParts, weekIds, publishers);
+    if (!base64) {
         throw new Error('Nenhuma semana encontrada para gerar o S-140');
     }
 
-    await generateMultiWeekS140UnifiedPDF(weeksData);
+    const link = document.createElement('a');
+    link.href = `data:application/pdf;base64,${base64}`;
+    link.download = `S-140-Unified_${weekRange}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 export function renderS140ToElement(weekData: S140WeekDataUnified): HTMLElement {
