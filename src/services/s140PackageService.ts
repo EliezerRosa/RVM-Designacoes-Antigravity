@@ -100,11 +100,11 @@ export const s140PackageService = {
                     const finalName = (titulo || tipo || 'Designação').trim();
                     const finalLower = finalName.toLowerCase();
 
-                    // Ignorar partes menores (Cânticos, Orações, Elogios e Conselhos) no aviso do WhatsApp
+                    // Ignorar partes menores (Cânticos, Oração Inicial, Elogios e Conselhos) no aviso do WhatsApp
                     if (
                         finalLower.includes('cântico') ||
-                        finalLower.includes('oração') ||
-                        finalLower.includes('oracao') ||
+                        (finalLower.includes('oração') && !finalLower.includes('final')) ||
+                        (finalLower.includes('oracao') && !finalLower.includes('final')) ||
                         finalLower.includes('elogios e conselhos')
                     ) {
                         continue;
