@@ -895,7 +895,7 @@ export async function generateS140UnifiedMultiWeekPdfBase64(parts: WorkbookPart[
     const weeksData: S140WeekDataUnified[] = [];
 
     for (const weekId of weekIds) {
-        const weekParts = parts.filter(p => p.weekId === weekId);
+        const weekParts = parts.filter(p => (p.weekId || (p as any).week_id) === weekId);
         if (weekParts.length > 0) {
             const weekData = await prepareS140UnifiedData(weekParts, publishers);
             weeksData.push(weekData);
