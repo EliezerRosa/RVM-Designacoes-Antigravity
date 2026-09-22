@@ -102,7 +102,7 @@ export const s140PackageService = {
 
                     // Ignorar partes menores (Cânticos, Oração Inicial, Elogios e Conselhos) no aviso do WhatsApp
                     if (
-                        finalLower.includes('cântico') ||
+                        finalLower.match(/^cântico \d+/) ||
                         (finalLower.includes('oração') && !finalLower.includes('final')) ||
                         (finalLower.includes('oracao') && !finalLower.includes('final')) ||
                         finalLower.includes('elogios e conselhos')
