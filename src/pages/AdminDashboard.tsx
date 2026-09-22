@@ -66,7 +66,24 @@ export function AdminDashboard() {
 
     useEffect(() => {
         fetchStats();
+        syncAdminTimezone();
     }, []);
+
+    const syncAdminTimezone = async () => {
+        try {
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (timeZone) {
+                await supabase
+                    .from('app_settings')
+                    .upsert(
+                        { key: 'congregation_timezone', value: timeZone },
+                        { onConflict: 'key' }
+                    );
+            }
+        } catch (e) {
+            console.error('Failed to sync admin timezone', e);
+        }
+    };
 
     const fetchStats = async () => {
         try {

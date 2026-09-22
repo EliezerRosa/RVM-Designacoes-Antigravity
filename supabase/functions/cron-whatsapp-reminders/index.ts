@@ -606,15 +606,20 @@ async function runDailyCycle(
         let dispatchType = '';
         let reminderLabel = '';
 
-        if (diffDays === 9) {
+        // --- IDEMPOTÊNCIA PARA FAIXAS ELÁSTICAS ---
+        const sentD9 = await checkDispatched(part.id, 'LEMBRETE_D9');
+        const sentD7 = await checkDispatched(part.id, 'LEMBRETE_D7');
+        const sentD2 = await checkDispatched(part.id, 'LEMBRETE_D2');
+
+        if (diffDays >= 9 && diffDays <= 10 && !sentD9) {
             dispatchType = 'LEMBRETE_D9';
-            reminderLabel = 'faltam 9 dias';
-        } else if (diffDays === 7) {
+            reminderLabel = 'faltam cerca de 9 dias';
+        } else if (diffDays >= 6 && diffDays <= 8 && !sentD7) {
             dispatchType = 'LEMBRETE_D7';
-            reminderLabel = 'faltam apenas 7 dias';
-        } else if (diffDays === 2) {
+            reminderLabel = 'falta 1 semana';
+        } else if (diffDays >= 1 && diffDays <= 3 && !sentD2) {
             dispatchType = 'LEMBRETE_D2';
-            reminderLabel = 'faltam 2 dias';
+            reminderLabel = 'faltam apenas alguns dias';
         }
 
         if (!dispatchType) continue;
@@ -625,12 +630,7 @@ async function runDailyCycle(
             continue;
         }
 
-        // --- REGRA DE STATUS ---
-        // DESIGNADA → sempre recebe lembrete
-        // Já filtrado no início do bloco.
-
-        // --- IDEMPOTÊNCIA ---
-        if (await checkDispatched(part.id, dispatchType)) continue;
+        // Já sabemos pela condicional da faixa elástica acima que não foi enviado.
 
         // --- TELEFONE ---
         if (!pub.phone) {
@@ -1072,7 +1072,11 @@ serve(async (req: Request) => {
     const { data: meetingDayData } = await supabase.from('app_settings').select('value').eq('key', 's89_meeting_day_by_week').maybeSingle();
     const meetingDays: Record<string, number> = meetingDayData?.value || {};
 
-    const today = new Date();
+    const { data: tzData } = await supabase.from('app_settings').select('value').eq('key', 'congregation_timezone').maybeSingle();
+    const timeZoneStr = tzData?.value || 'America/Sao_Paulo';
+
+    const nowStr = new Date().toLocaleString("en-US", { timeZone: timeZoneStr });
+    const today = new Date(nowStr);
     today.setHours(0, 0, 0, 0);
 
     const completedCount = await completePastAssignments(meetingDays, today);
