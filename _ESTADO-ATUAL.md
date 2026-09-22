@@ -468,3 +468,33 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
   - **Sentry Developer Tier (Free)**: R$ 0,00 (Cota de 10.000 erros/mês e 50.000 transações/mês, cobrindo com folga de 100x a demanda de uma congregação).
   - **Supabase**: R$ 0,00 (Dentro do plano atual do projeto).
   - **Custo Total**: **R$ 0,00 / mês**.
+
+---
+
+## 16. Engenharia de Auto-Cura, Blindagem de Idempotência e Auditoria de Disparos Manuais (2026-09-22)
+
+### 📌 1. Sweeper de 2h (Engenharia de Auto-Cura)
+- **O Desafio**: Perda de mensagens, webhooks com timeout ou instabilidades temporárias da Z-API poderiam deixar publicadores em um limbo sem o S-89 ou lembretes, forçando o operador a atuar manualmente.
+- **A Solução**: O Cron Principal (`cron-whatsapp-reminders`) foi evoluído de uma execução estática (1x ao dia) para um **Sweeper Contínuo** (`0 8-20/2 * * *`). Ele "varre" a base a cada 2 horas (das 08:00 às 20:00).
+- **Controle Antispam / Idempotência de Concreto**: 
+  - A varredura contínua foi implementada com **Strict Equality Idempotency** usando a tabela `zapi_dispatch_log` como Fonte Única de Verdade. Ele só envia o lembrete (D-9, D-7, etc.) ou auto-cura um S-89 se *não existir nenhum registro de sucesso* prévio.
+  - **Relatórios Gerenciais Silenciados**: Relatórios pesados de pendências ou estatísticas para a Comissão de Serviço e SRVM foram condicionados estruturalmente para dispararem *apenas no ciclo das 08:00h*, eliminando qualquer risco de "spam a cada 2 horas". (Deploy realizado).
+
+### 📌 2. Auditoria e Fix de Rotas Manuais (Log Canônico)
+- **Problema Encontrado**: O envio de cartões S-89 via WhatsApp Manual (usando o próprio celular com `wa.me`, no `S89SelectionModal.tsx`) estava passando argumentos com a tipagem e ordem equivocadas para a função `zapiOrchestrator.logDispatch`. Isso fazia com que o envio manual não gravasse o tipo `PUBLICACAO_S89` corretamente, cegando o Sweeper para os envios manuais.
+- **A Correção**: Fix aplicado no Frontend (`S89SelectionModal.tsx`), assegurando que envios via "Botão Zap Manual" insiram o registro perfeitamente no log canônico (`status = SUCCESS_MANUAL`). Agora, rotas automáticas (Z-API) e Manuais convergem para a mesma blindagem.
+
+### 📌 3. Identificação de Funcionalidade Legada
+- **Central de Comunicações (`CommunicationTab.tsx`)**: O fluxo onde o Agente IA (Chat) prepara rascunhos de S-89 e joga na "Caixa de Saída" para o usuário apertar "Enviar" foi identificado como Legado.
+- **A Brecha**: O botão `Enviar` dessa aba não implementa a chamada para o `logDispatch`.
+- **Decisão**: Foi documentado como legado. Recomenda-se inserir o Log Canônico nessa tela ou descontinuá-la, visto que a Fábrica (D-21) e o novo S89 Modal tornaram o fluxo de rascunhos via chat amplamente obsoleto para S-89.
+
+---
+
+## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
+
+1. **Alerta de Desconexão Z-API (P10)**: Implementar monitoramento ativo de webhooks (`on-disconnected`) para alertar o SRVM caso o celular da congregação fique offline ou despareado.
+2. **Monitor Canônico 2.0 (P2)**: Criar a tabela `system_canonical_events` e consolidar todo o fluxo 360º de comunicação visual.
+3. **Integração Sentry (P5)**: Instalar a telemetria técnica de Application Performance Monitoring.
+4. **Evolução Cognitiva (A1-A6)**: Habilitar o `pgvector` no Supabase e avançar para o motor hiper-dimensional de perfis.
+5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Decidir entre injetar a tranca do `logDispatch` na Central de Comunicações ou aposentar a rota do Chatbot para S-89 em favor da interface visual.
