@@ -409,12 +409,10 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
             try {
                 await zapiOrchestrator.logDispatch(
                     part.id,
+                    'PUBLICACAO_S89',
                     phone || '',
-                    'S89',
-                    true,
-                    'MANUAL_WHATSAPP', // Flag explícita
-                    message,
-                    undefined,
+                    'SUCCESS_MANUAL',
+                    'MANUAL_WHATSAPP', // Flag explícita no messageId
                     part.resolvedPublisherId || undefined
                 );
             } catch (err) {
