@@ -174,17 +174,14 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         }
         console.log(`[SemanticAgent] rawResult.length=${rawResult.length}, preview=${rawResult.substring(0, 120)}`);
         
-        // Remove blocos de markdown que a IA pode retornar (ex: ```json ... ```)
+        // Tenta extrair um bloco de código json, caso a IA adicione conversa antes/depois
         let cleanedResult = rawResult.trim();
-        if (cleanedResult.startsWith('```json')) {
-            cleanedResult = cleanedResult.substring(7);
-        } else if (cleanedResult.startsWith('```')) {
-            cleanedResult = cleanedResult.substring(3);
+        const jsonBlockMatch = cleanedResult.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+            cleanedResult = jsonBlockMatch[1].trim();
+        } else {
+            cleanedResult = cleanedResult.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
         }
-        if (cleanedResult.endsWith('```')) {
-            cleanedResult = cleanedResult.substring(0, cleanedResult.length - 3);
-        }
-        cleanedResult = cleanedResult.trim();
         
         const parsedAi = JSON.parse(cleanedResult);
 
