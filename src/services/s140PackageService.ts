@@ -98,6 +98,18 @@ export const s140PackageService = {
                     const titulo = (part as any).titulo_parte || part.tituloParte || '';
                     const tipo = (part as any).tipo_parte || part.tipoParte || '';
                     const finalName = (titulo || tipo || 'Designação').trim();
+                    const finalLower = finalName.toLowerCase();
+
+                    // Ignorar partes menores (Cânticos, Orações, Elogios e Conselhos) no aviso do WhatsApp
+                    if (
+                        finalLower.includes('cântico') ||
+                        finalLower.includes('oração') ||
+                        finalLower.includes('oracao') ||
+                        finalLower.includes('elogios e conselhos')
+                    ) {
+                        continue;
+                    }
+
                     changedTypes.add(finalName);
                 }
             }
