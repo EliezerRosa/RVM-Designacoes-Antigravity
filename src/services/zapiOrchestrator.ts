@@ -259,6 +259,39 @@ class ZApiOrchestrator {
     }
 
     /**
+     * Envia um documento (PDF) para um destino arbitrário via Edge Function.
+     */
+    async sendDocumentDirect(phone: string, documentBase64: string, extension: string, fileName: string, caption?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+        if (!phone) {
+            return { success: false, error: 'Destinatário vazio.' };
+        }
+
+        const base64Data = documentBase64.includes('base64,')
+            ? documentBase64.split('base64,')[1]
+            : documentBase64;
+
+        try {
+            const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+                body: {
+                    action: 'send-document',
+                    phone,
+                    document: base64Data,
+                    extension,
+                    fileName,
+                    caption: caption || '',
+                },
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+            return { success: data?.success ?? true, messageId: data?.messageId, error: data?.error };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    }
+
+    /**
      * Envia texto para um destino arbitrário via Edge Function `send-whatsapp`
      * (action `send-text`). Desacoplado (aceita group ids).
      */
