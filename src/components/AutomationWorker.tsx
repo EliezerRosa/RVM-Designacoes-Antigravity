@@ -333,6 +333,17 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                                     console.warn(`[AutomationWorker] Falha ao enviar zap para ${rec.role}:`, sendErr);
                                 }
                             }
+
+                            // PLUG-IN DESACOPLADO: Acionamento Automático do Fechamento de Lote S-140
+                            try {
+                                appendLog(`[Plugin S-140] Acionando pipeline automático do Pacote PDF para fechamento D-21...`);
+                                const { s140PackageService } = await import('../services/s140PackageService');
+                                await s140PackageService.dispatchPackageManual(publishers);
+                                appendLog(`✅ [Plugin S-140] PDFs roteados com sucesso (Logs canônicos gerados internamente).`);
+                            } catch (s140Err: any) {
+                                appendLog(`⚠️ [Plugin S-140] Falha silenciosa no envio automático: ${s140Err.message}`);
+                            }
+
                         } catch (pubErr: any) {
                             appendLog(`❌ Erro na publicação D-21 (${weekId}): ${pubErr.message}`);
                             await supabase.from('automation_bot_log')
