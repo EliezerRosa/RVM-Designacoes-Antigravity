@@ -66,6 +66,23 @@ export const replacementOrchestratorService = {
             s89Provider
         );
 
+        // Gancho Aditivo S-140: se o ajuste for na semana em curso, aciona o Modo 2 (agora igual à troca manual)
+        try {
+            const weekParts = parts.filter(p => p.weekId === part.weekId);
+            const { s140PackageService } = await import('./s140PackageService');
+            s140PackageService.handlePartAdjustment({
+                part: updatedPart,
+                oldPublisherName: part.resolvedPublisherName || part.rawPublisherName || '',
+                newPublisherName: updatedPart.resolvedPublisherName || '',
+                weekParts,
+                publishers
+            }).catch(err => {
+                console.error('[ReplacementOrchestrator] Falha não bloqueante ao despachar S-140 Modo 2 (Robô):', err);
+            });
+        } catch (s140Err) {
+            console.warn('[ReplacementOrchestrator] Falha ao importar s140PackageService (Robô):', s140Err);
+        }
+
         return { success: true };
     },
 
