@@ -377,13 +377,18 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         const partNum = parseInt(partMatch[1]);
         let titleAndRest = partMatch[2];
 
-        // Extract duration — aceita "min" ou "min." com ponto opcional
-        const timeMatch = titleAndRest.match(/\((\d+)\s*min\.?\)/);
         // Classify first to get default duration as fallback
         const { tipo, needsHelper } = classifyPartType(titleAndRest, currentSectionKey, partNum);
         const defaultDur = DEFAULT_DURATIONS[tipo] || 5;
-        const duracao = timeMatch ? timeMatch[1] : String(defaultDur);
-        const duracaoMin = parseInt(duracao);
+
+        // Extract duration — aceita "min" ou "min." com ponto opcional (Tentativa 1: no H3)
+        let timeMatch = titleAndRest.match(/\((\d+)\s*min\.?\)/);
+        let duracao = '';
+        let isDurationFallback = false;
+
+        if (timeMatch) {
+            duracao = timeMatch[1];
+        }
 
         // Title is everything before (X min)
         let title = timeMatch
@@ -420,6 +425,32 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         const rawText = (div.textContent || '').trim();
         const lines = rawText.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('Sua resposta'));
         extraLines.push(...lines);
+
+        // Tentativa 2: Extrair duração da primeira linha do texto limpo
+        if (!timeMatch && extraLines.length > 0) {
+            const firstLineTimeMatch = extraLines[0].match(/\((\d+)\s*min\.?\)/);
+            if (firstLineTimeMatch) {
+                duracao = firstLineTimeMatch[1];
+                // Remover a duração do texto da descrição para ficar limpo
+                extraLines[0] = extraLines[0].replace(firstLineTimeMatch[0], '').trim();
+                // Limpar possíveis dois pontos ou hífens no começo que sobraram
+                extraLines[0] = extraLines[0].replace(/^[:\s—–-]+/, '').trim();
+                
+                // Se a primeira linha ficar vazia após remover o tempo, vamos retirá-la
+                if (!extraLines[0]) {
+                    extraLines.shift();
+                }
+            }
+        }
+
+        // Tentativa 3 (Fallback Seguro)
+        if (!duracao) {
+            duracao = String(defaultDur);
+            isDurationFallback = true;
+        }
+
+        const duracaoMin = parseInt(duracao);
+
         if (!descricao && extraLines.length > 0) {
             descricao = extraLines[0];
             detalhes = extraLines.slice(1).join(' ');
@@ -459,11 +490,12 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
             detalhesParte: detalhes.substring(0, 1000),
             seq,
             funcao: 'Titular',
-            duracao,
+            duracao: String(duracaoMin),
             horaInicio: formatTime(currentTime),
             horaFim: formatTime(currentTime + duracaoMin),
             rawPublisherName: '',
             status: 'PENDENTE',
+            isDurationFallback
         });
         currentTime += duracaoMin;
         seq += 1;

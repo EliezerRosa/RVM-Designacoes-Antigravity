@@ -110,6 +110,7 @@ export interface WorkbookExcelRow {
     horaFim: string;
     rawPublisherName: string;
     status?: string;
+    isDurationFallback?: boolean;
 }
 
 // Converter snake_case do banco para camelCase do TS

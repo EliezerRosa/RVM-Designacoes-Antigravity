@@ -178,6 +178,21 @@ export function WorkbookImportModal({ onDataChange }: Props) {
                 </div>
             )}
 
+            {/* Fallback Warning */}
+            {preview && preview.parts.some(p => p.isDurationFallback) && (
+                <div style={{
+                    padding: '12px 16px', borderRadius: '8px',
+                    background: '#fef08a', border: '1px solid #facc15',
+                    color: '#854d0e', fontSize: '0.9rem', display: 'flex', gap: '8px', alignItems: 'flex-start'
+                }}>
+                    <span style={{fontSize: '1.2rem'}}>⚠️</span>
+                    <div>
+                        <strong>Aviso:</strong> Algumas partes não tiveram sua duração detectada automaticamente e usaram tempos estimados (destacadas em amarelo).
+                        Por favor, faça uma revisão objetiva (checando o PDF) para confirmar o tempo da parte.
+                    </div>
+                </div>
+            )}
+
             {/* Preview table */}
             {preview && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -232,7 +247,7 @@ export function WorkbookImportModal({ onDataChange }: Props) {
                                     {parts.map((p, i) => (
                                         <tr key={i} style={{
                                             borderBottom: '1px solid var(--border-color, #e5e7eb)',
-                                            background: i % 2 === 0 ? 'transparent' : 'var(--bg-secondary, #f9fafb)'
+                                            background: p.isDurationFallback ? '#fef08a' : (i % 2 === 0 ? 'transparent' : 'var(--bg-secondary, #f9fafb)')
                                         }}>
                                             <td style={{ ...tdStyle, textAlign: 'center', fontWeight: '600' }}>{p.seq}</td>
                                             <td style={tdStyle}>
@@ -241,7 +256,9 @@ export function WorkbookImportModal({ onDataChange }: Props) {
                                                     {p.tituloParte}
                                                 </div>
                                             </td>
-                                            <td style={{ ...tdStyle, textAlign: 'center' }}>{p.duracao}</td>
+                                            <td style={{ ...tdStyle, textAlign: 'center', color: p.isDurationFallback ? '#a16207' : 'inherit', fontWeight: p.isDurationFallback ? '700' : 'normal' }}>
+                                                {p.duracao} {p.isDurationFallback && <span title="Tempo estimado pelo sistema">⚠️</span>}
+                                            </td>
                                             <td style={{ ...tdStyle, textAlign: 'center', fontFamily: 'monospace' }}>
                                                 {p.horaInicio}–{p.horaFim}
                                             </td>
