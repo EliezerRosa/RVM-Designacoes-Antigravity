@@ -1135,63 +1135,65 @@ serve(async (req: Request) => {
     }));
 
     // ============================
-    // AUTO-REPARO Z-API SMART
-    // ============================
-    const repairReports = await autoRepairConfirmedParts(parts);
-
-    // ============================
-    // VERIFICAÇÃO DE GHOSTING
-    // ============================
-    const ghostingReports = await checkGhostingParts(parts);
-
-    // ============================
-    // ALERTAS DE BURACOS (REFUSALS & DRAFT)
-    // ============================
-    const refusalsReports = await checkRefusalsLapsing(meetingDays, today);
-    const holesReports = await checkDraftHoles(meetingDays, today);
-
-    // ============================
-    // CICLO DIÁRIO
-    // ============================
-    const { sentCount: dSentCount, noPhoneList } = await runDailyCycle(parts, publishers, meetingDays, today);
-    let sentCount = dSentCount;
-
-    // ============================
-    // CICLO MENSAL (só dia 1º)
-    // ============================
-    let monthlyReports: string[] = [];
-    if (today.getDate() === 1) {
-        console.log('[cron] Dia 1º do mês — executando ciclo mensal...');
-        monthlyReports = await runMonthlyCycle(publishers);
-    }
-
-    // ============================
-    // CICLO SEMANAL (só aos sábados)
-    // ============================
-    let weeklyReports: string[] = [];
-    if (today.getDay() === 6) { // 6 = Sábado
-        console.log('[cron] Sábado — executando ciclo semanal...');
-        weeklyReports = await runWeeklyCycle(publishers);
-    }
-
-    // ============================
     // CICLO DE PENDÊNCIAS (72H)
     // ============================
     const pingsSent = await runContinuousReminderCycle(parts, publishers, meetingDays);
     if (pingsSent > 0) {
         console.log(`[cron] ${pingsSent} lembretes contínuos (72h) enviados.`);
     }
-    sentCount += pingsSent;
+    let sentCount = pingsSent;
 
     // ============================
-    // RELATÓRIO DIÁRIO DE INTERAÇÕES
+    // CICLO DIÁRIO (Lembretes D-9, D-7, D-2)
+    // Roda em todas as varreduras de 2h (Idempotente)
     // ============================
-    const interactionReports = await fetchDailyInteractionsReport();
+    let noPhoneList: string[] = [];
+    const { sentCount: dSentCount, noPhoneList: dNoPhoneList } = await runDailyCycle(parts, publishers, meetingDays, today);
+    sentCount += dSentCount;
+    noPhoneList = dNoPhoneList;
 
     // ============================
-    // RELATÓRIO DIÁRIO
+    // SEÇÃO DE RELATÓRIOS DA LIDERANÇA (Apenas às 08h da Manhã)
+    // Evita spam no celular do SRVM a cada 2 horas
     // ============================
-    await sendDailyReport(publishers, sentCount, noPhoneList, [...monthlyReports, ...weeklyReports, ...interactionReports, ...repairReports, ...ghostingReports, ...refusalsReports, ...holesReports]);
+    const currentHour = new Date(nowStr).getHours();
+    const isMorningRun = currentHour >= 8 && currentHour <= 9; // Margem de segurança
+
+    let monthlyReports: string[] = [];
+    if (isMorningRun) {
+        console.log('[cron] Rodada da Manhã: Processando relatórios gerenciais...');
+        
+        // AUTO-REPARO Z-API SMART
+        const repairReports = await autoRepairConfirmedParts(parts);
+
+        // VERIFICAÇÃO DE GHOSTING
+        const ghostingReports = await checkGhostingParts(parts);
+
+        // ALERTAS DE BURACOS (REFUSALS & DRAFT)
+        const refusalsReports = await checkRefusalsLapsing(meetingDays, today);
+        const holesReports = await checkDraftHoles(meetingDays, today);
+
+        // CICLO MENSAL (só dia 1º)
+        if (today.getDate() === 1) {
+            console.log('[cron] Dia 1º do mês — executando ciclo mensal...');
+            monthlyReports = await runMonthlyCycle(publishers);
+        }
+
+        // CICLO SEMANAL (só aos sábados)
+        let weeklyReports: string[] = [];
+        if (today.getDay() === 6) { 
+            console.log('[cron] Sábado — executando ciclo semanal...');
+            weeklyReports = await runWeeklyCycle(publishers);
+        }
+
+        // RELATÓRIO DIÁRIO DE INTERAÇÕES
+        const interactionReports = await fetchDailyInteractionsReport();
+
+        // Envia o compilado
+        await sendDailyReport(publishers, sentCount, noPhoneList, [...monthlyReports, ...weeklyReports, ...interactionReports, ...repairReports, ...ghostingReports, ...refusalsReports, ...holesReports]);
+    } else {
+        console.log(`[cron] Rodada de Varredura (${currentHour}h): Ignorando relatórios gerenciais para não gerar spam.`);
+    }
 
     console.log(`[cron-whatsapp-reminders] Finalizado. ${sentCount} mensagens enviadas; ${completedCount} designações concluídas.`);
 
