@@ -331,7 +331,7 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
         'Dirigente EBC': 30,
     };
 
-    headings.forEach((heading) => {
+    headings.forEach((heading, index) => {
         const text = (heading.textContent || '').trim();
 
         if (heading.tagName === 'H2') {
@@ -401,16 +401,25 @@ function parseWorkbookHtml(html: string, weekDate: Date): JwFetchResult {
             }
         }
 
-        // Also grab text from next sibling paragraphs/divs until next heading
-        let nextSibling = heading.nextElementSibling;
+        // Pega texto estritamente entre o cabeçalho atual e o próximo cabeçalho da apostila
         const extraLines: string[] = [];
-        while (nextSibling && nextSibling.tagName !== 'H2' && nextSibling.tagName !== 'H3') {
-            const sibText = (nextSibling.textContent || '').trim();
-            if (sibText && !sibText.startsWith('Sua resposta')) {
-                extraLines.push(sibText);
-            }
-            nextSibling = nextSibling.nextElementSibling;
+        const nextHeading = headings[index + 1];
+        
+        const range = doc.createRange();
+        range.setStartAfter(heading);
+        if (nextHeading) {
+            range.setEndBefore(nextHeading);
+        } else {
+            range.setEndAfter(doc.body.lastChild || doc.body);
         }
+        
+        const fragment = range.cloneContents();
+        const div = doc.createElement('div');
+        div.appendChild(fragment);
+        
+        const rawText = (div.textContent || '').trim();
+        const lines = rawText.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('Sua resposta'));
+        extraLines.push(...lines);
         if (!descricao && extraLines.length > 0) {
             descricao = extraLines[0];
             detalhes = extraLines.slice(1).join(' ');
