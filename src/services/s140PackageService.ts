@@ -412,9 +412,12 @@ export const s140PackageService = {
             .select('*')
             .in('week_id', publishedWeekIds);
 
+        const { mapDbToWorkbookPart } = await import('./workbookService');
+        const allPartsMapped = (allPartsData || []).map(row => mapDbToWorkbookPart(row));
+
         const partsByWeek = new Map<string, WorkbookPart[]>();
-        for (const p of (allPartsData || [])) {
-            const wId = p.week_id || p.weekId;
+        for (const p of allPartsMapped) {
+            const wId = p.weekId;
             const list = partsByWeek.get(wId) || [];
             list.push(p);
             partsByWeek.set(wId, list);
