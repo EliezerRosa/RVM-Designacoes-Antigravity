@@ -52,7 +52,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
           .select('*')
           .eq('week_id', weekId)
           .in('status', ['DESIGNADA', 'PROPOSTA'])
-          .order('order_index', { ascending: true });
+          .order('seq', { ascending: true });
 
         if (partsErr) throw partsErr;
         const weekParts = (partsData || []).map(mapDbToWorkbookPart);
