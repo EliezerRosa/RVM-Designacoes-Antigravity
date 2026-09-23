@@ -116,7 +116,11 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
   };
 
   return (
-    <div id="status-pdf-root" style={{ width: '800px', padding: '20px', fontFamily: 'sans-serif', color: '#111827', background: '#fff' }}>
+    <div id="status-pdf-root" style={{ width: '800px', padding: '20px', fontFamily: 'sans-serif', color: '#111827', background: '#fff', minHeight: '100vh' }}>
+       {/* Override global body background which is dark */}
+       <style>{`
+         body { background: #fff !important; }
+       `}</style>
        <h1 style={{ textAlign: 'center', borderBottom: '2px solid #e5e7eb', paddingBottom: '5px', marginBottom: '10px', fontSize: '24px' }}>
          Atualização de Status de parte(s) da semana {weekId}
        </h1>
@@ -134,7 +138,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
            </tr>
          </thead>
          <tbody>
-           {parts.filter(p => p.tipoParte !== 'Elogios e Conselhos').map(part => {
+           {parts.filter(p => !['Elogios e Conselhos', 'Oração Inicial', 'Comentários Iniciais', 'Comentários Finais'].includes(p.tipoParte || '')).map(part => {
              // Formatação da Parte
              const mainTitle = part.tipoParte || part.partType || 'Designação';
              const subTitle = part.tituloParte || part.descricaoParte;
