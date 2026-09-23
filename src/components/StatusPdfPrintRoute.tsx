@@ -116,25 +116,25 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
   };
 
   return (
-    <div id="status-pdf-root" style={{ width: '800px', padding: '40px', fontFamily: 'sans-serif', color: '#111827', background: '#fff' }}>
-       <h1 style={{ textAlign: 'center', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px', marginBottom: '30px' }}>
+    <div id="status-pdf-root" style={{ width: '800px', padding: '20px', fontFamily: 'sans-serif', color: '#111827', background: '#fff' }}>
+       <h1 style={{ textAlign: 'center', borderBottom: '2px solid #e5e7eb', paddingBottom: '5px', marginBottom: '10px', fontSize: '24px' }}>
          Atualização de Status de parte(s) da semana {weekId}
        </h1>
-       <p style={{ textAlign: 'center', color: '#4b5563', marginBottom: '30px' }}>
+       <p style={{ textAlign: 'center', color: '#4b5563', marginBottom: '15px', fontSize: '13px' }}>
          Click no número para ligar/zap para contato
        </p>
 
        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #d1d5db' }}>
          <thead>
            <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
-             <th style={{ padding: '12px 16px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '40%' }}>Parte</th>
-             <th style={{ padding: '12px 16px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '30%' }}>Publicador</th>
-             <th style={{ padding: '12px 16px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '15%', textAlign: 'center' }}>Status</th>
-             <th style={{ padding: '12px 16px', borderBottom: '2px solid #93c5fd', width: '15%' }}>Atualizado</th>
+             <th style={{ padding: '6px 10px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '40%', fontSize: '13px' }}>Parte</th>
+             <th style={{ padding: '6px 10px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '30%', fontSize: '13px' }}>Publicador</th>
+             <th style={{ padding: '6px 10px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '15%', textAlign: 'center', fontSize: '13px' }}>Status</th>
+             <th style={{ padding: '6px 10px', borderBottom: '2px solid #93c5fd', width: '15%', fontSize: '13px' }}>Atualizado</th>
            </tr>
          </thead>
          <tbody>
-           {parts.map(part => {
+           {parts.filter(p => p.tipoParte !== 'Elogios e Conselhos').map(part => {
              // Formatação da Parte
              const mainTitle = part.tipoParte || part.partType || 'Designação';
              const subTitle = part.tituloParte || part.descricaoParte;
@@ -173,25 +173,25 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
 
              return (
                <tr key={part.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                 <td style={{ padding: '12px 16px', borderRight: '1px solid #e5e7eb' }}>
-                   <div style={{ fontWeight: 'bold', fontSize: '15px' }}>{mainTitle}</div>
-                   {subTitle && <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>{subTitle}{isAjud ? ' - Ajudante' : ''}</div>}
+                 <td style={{ padding: '6px 10px', borderRight: '1px solid #e5e7eb' }}>
+                   <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{mainTitle}</div>
+                   {subTitle && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{subTitle}{isAjud ? ' - Ajudante' : ''}</div>}
                  </td>
-                 <td style={{ padding: '12px 16px', borderRight: '1px solid #e5e7eb' }}>
+                 <td style={{ padding: '6px 10px', borderRight: '1px solid #e5e7eb' }}>
                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                     <span style={{ fontSize: '15px' }}>{pubName}</span>
-                     {isAjud && <span style={{ fontSize: '13px', color: '#3b82f6', marginLeft: '6px' }}>(Ajud.)</span>}
+                     <span style={{ fontSize: '13px' }}>{pubName}</span>
+                     {isAjud && <span style={{ fontSize: '11px', color: '#3b82f6', marginLeft: '4px' }}>(Ajud.)</span>}
                    </div>
-                   <div style={{ marginTop: '4px' }}>{pubPhone}</div>
+                   <div style={{ marginTop: '2px', fontSize: '13px' }}>{pubPhone}</div>
                  </td>
-                 <td style={{ padding: '12px 16px', borderRight: '1px solid #e5e7eb', textAlign: 'center' }}>
+                 <td style={{ padding: '6px 10px', borderRight: '1px solid #e5e7eb', textAlign: 'center' }}>
                    <span style={{ 
                      display: 'inline-flex',
                      alignItems: 'center',
-                     gap: '6px',
-                     padding: '6px 12px', 
+                     gap: '4px',
+                     padding: '4px 8px', 
                      borderRadius: '9999px', 
-                     fontSize: '12px', 
+                     fontSize: '11px', 
                      fontWeight: 'bold',
                      background: statusBg,
                      color: statusColor,
@@ -200,7 +200,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
                      <span>{statusIcon}</span> {statusText}
                    </span>
                  </td>
-                 <td style={{ padding: '12px 16px', color: '#4b5563', fontSize: '14px' }}>
+                 <td style={{ padding: '6px 10px', color: '#4b5563', fontSize: '12px' }}>
                    {dateStr}
                  </td>
                </tr>
