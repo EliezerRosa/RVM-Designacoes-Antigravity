@@ -156,11 +156,21 @@ async function main() {
     for (const weekId of weeksToProcess) {
       console.log(`Gerando PDF para a semana ${weekId}...`);
       const page = await browser.newPage();
+      page.on('console', msg => console.log('PAGE LOG:', msg.text()));
       
       const targetUrl = `${APP_URL}/?portal=status-pdf-print&weekId=${weekId}&token=${BOT_TOKEN}`;
+      console.log(`URL do PDF: ${targetUrl}`);
+      console.log(`BOT_TOKEN: ${BOT_TOKEN}`);
       await page.goto(targetUrl, { waitUntil: 'networkidle0', timeout: 30000 });
       
-      await page.waitForSelector('#status-pdf-root', { timeout: 10000 });
+      try {
+        await page.waitForSelector('#status-pdf-root', { timeout: 10000 });
+      } catch (err) {
+        const html = await page.content();
+        console.error("ERRO AO ENCONTRAR #status-pdf-root! CONTEÚDO DA PÁGINA:");
+        console.error(html);
+        throw err;
+      }
       
       // Ajustar viewport e estilos para melhor impressão
       await page.addStyleTag({
