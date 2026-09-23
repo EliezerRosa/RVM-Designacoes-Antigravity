@@ -322,8 +322,8 @@ export const replacementOrchestratorService = {
                     const { content: baseMsgPartner, availabilityUrl: partnerAvailabilityUrl } = await communicationService.prepareS89Message(
                         { ...partnerPartObjForMsg, resolvedPublisherName: partnerPub.name },
                         publishers,
-                        weekParts,
-                        { isSubstitution: true }
+                        [], // Força a buscar no DB sem engatilhar o texto de substituição
+                        { isSubstitution: false }
                     );
 
                     const rolePartnerChanged = isAjudante ? 'Ajudante' : 'Titular';
