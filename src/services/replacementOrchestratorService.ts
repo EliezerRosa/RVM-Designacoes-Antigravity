@@ -323,7 +323,7 @@ export const replacementOrchestratorService = {
                         { ...partnerPartObjForMsg, resolvedPublisherName: partnerPub.name },
                         publishers,
                         weekParts,
-                        { isSubstitution: false }
+                        { isSubstitution: true }
                     );
 
                     const rolePartnerChanged = isAjudante ? 'Ajudante' : 'Titular';
