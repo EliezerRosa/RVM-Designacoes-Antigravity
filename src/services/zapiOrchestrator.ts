@@ -352,6 +352,20 @@ class ZApiOrchestrator {
     }
 
     /**
+     * Destinos exclusivos para o gatilho automático de Status PDF Interativo:
+     * SRVM, Ajd SRVM, Ajd SRVM Lembretes (sem Grupo e sem Presidente).
+     */
+    async getStatusPdfRecipients(): Promise<string[]> {
+        const [srvm, ajd, ajdLembretes] = await Promise.all([
+            this.getSrvmPhone(),
+            this.getAjdSrvmPhone(),
+            this.getPhoneByFuncao('Ajudante SRVM Lembretes'),
+        ]);
+        const list = [ajd, srvm, ajdLembretes].filter((x): x is string => !!x && x.trim().length > 0);
+        return Array.from(new Set(list));
+    }
+
+    /**
      * Envia uma imagem (com caption) para uma lista de destinatários, via Edge
      * Function. Retorna o resultado por destinatário.
      */
@@ -361,6 +375,20 @@ class ZApiOrchestrator {
         const logType = caption.includes('Status atual') ? 'STATUS_BOARD' : 'PUBLICACAO_S140';
         for (const phone of recipients) {
             const r = await this.sendImageDirect(phone, imageBase64, caption);
+            await this.logDispatch(null, logType, phone, r.success ? 'SUCCESS' : 'ERROR: ' + r.error, r.messageId);
+            results.push({ phone, success: r.success, error: r.error });
+        }
+        return results;
+    }
+
+    /**
+     * Envia um PDF de Status Interativo para uma lista de destinatários.
+     */
+    async dispatchStatusPdfToRecipients(pdfBase64: string, fileName: string, caption: string, recipients: string[]): Promise<{ phone: string; success: boolean; error?: string }[]> {
+        const results: { phone: string; success: boolean; error?: string }[] = [];
+        const logType = 'STATUS_BOARD';
+        for (const phone of recipients) {
+            const r = await this.sendDocumentDirect(phone, pdfBase64, 'pdf', fileName, caption);
             await this.logDispatch(null, logType, phone, r.success ? 'SUCCESS' : 'ERROR: ' + r.error, r.messageId);
             results.push({ phone, success: r.success, error: r.error });
         }

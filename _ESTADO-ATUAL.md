@@ -1,8 +1,9 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-09-19 11:45 (BRT)  
+> **Última Atualização**: 2026-09-22 19:33 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fases 12 e 13 Concluídas — Auditoria P1-P8, Automação do S-140 via Z-API, Saneamento de `needs_reassignment`, Alerta Matinal Detalhado e Especificação do Monitor Canônico 2.0 com Solução Híbrida de Observabilidade)  
+> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fases 12 e 13 Concluídas).  
+> **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
 > **Checkpoint / Tag Git**: `v2.6.0-checkpoint-s140-monitor`
 
 ---

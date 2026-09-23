@@ -20,6 +20,7 @@ import { PublisherHomeView } from './components/PublisherHomeView'
 import { LoginPage } from './components/LoginPage'
 import { PwaInstallBanner } from './components/ui/PwaInstallBanner'
 import { S89PrintRoute } from './components/S89PrintRoute'
+import { StatusPdfPrintRoute } from './components/StatusPdfPrintRoute'
 import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
 import { usePermissions } from './hooks/usePermissions'
@@ -83,6 +84,7 @@ function getPortalParams(): { portal: string | null; partId: string | null; publ
     mode: getFirst('mode'),
     action: getFirst('action'),
     pubId: getFirst('pubId'),
+    weekId: getFirst('weekId'),
   }
 }
 
@@ -94,7 +96,7 @@ function App() {
 
   // PORTAL ROUTING: links públicos de confirmação de designação
   // DEVE ser verificado ANTES do auth guard — publicadores não autenticados precisam acessar
-  const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken, mode: portalMode, action: portalAction, pubId: portalPubId } = getPortalParams();
+  const { portal, partId: portalPartId, publisherId: portalPublisherId, token: portalToken, mode: portalMode, action: portalAction, pubId: portalPubId, weekId: portalWeekId } = getPortalParams();
 
   // PORTAL: worker invisível para automação D-30 / D-21
   if (portal === 'automation-worker') {
@@ -147,6 +149,13 @@ function App() {
   if (portal === 's89-print') {
     return (
       <S89PrintRoute partId={portalPartId} secret={portalToken} />
+    );
+  }
+
+  // PORTAL: Renderização do PDF de Status (Headless Puppeteer)
+  if (portal === 'status-pdf-print') {
+    return (
+      <StatusPdfPrintRoute weekId={portalWeekId} secret={portalToken} />
     );
   }
 

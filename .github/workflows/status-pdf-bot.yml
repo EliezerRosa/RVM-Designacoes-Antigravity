@@ -1,0 +1,33 @@
+name: Status PDF Bot (Cron)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # Roda a cada 5 minutos
+  workflow_dispatch: # Permite disparo manual
+  repository_dispatch:
+    types: [trigger-status-pdf]
+
+jobs:
+  process-status-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Status PDF Bot
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_SUPABASE_SERVICE_ROLE_KEY }}
+          ZAPI_INSTANCE_ID: ${{ secrets.ZAPI_INSTANCE_ID }}
+          ZAPI_TOKEN: ${{ secrets.ZAPI_TOKEN }}
+          ZAPI_CLIENT_TOKEN: ${{ secrets.ZAPI_CLIENT_TOKEN }}
+        run: npx tsx scripts/status-pdf-bot.ts
