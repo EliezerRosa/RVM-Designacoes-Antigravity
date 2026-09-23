@@ -124,45 +124,88 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
          Click no número para ligar/zap para contato
        </p>
 
-       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+       <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #d1d5db' }}>
          <thead>
-           <tr style={{ background: '#f3f4f6', textAlign: 'left' }}>
-             <th style={{ padding: '12px', borderBottom: '1px solid #d1d5db' }}>Parte</th>
-             <th style={{ padding: '12px', borderBottom: '1px solid #d1d5db' }}>Designado(s)</th>
-             <th style={{ padding: '12px', borderBottom: '1px solid #d1d5db' }}>Status</th>
+           <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
+             <th style={{ padding: '12px 16px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '40%' }}>Parte</th>
+             <th style={{ padding: '12px 16px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '30%' }}>Publicador</th>
+             <th style={{ padding: '12px 16px', borderBottom: '2px solid #93c5fd', borderRight: '1px solid #e2e8f0', width: '15%', textAlign: 'center' }}>Status</th>
+             <th style={{ padding: '12px 16px', borderBottom: '2px solid #93c5fd', width: '15%' }}>Atualizado</th>
            </tr>
          </thead>
          <tbody>
-           {parts.map(part => (
-             <tr key={part.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-               <td style={{ padding: '12px', fontWeight: 500 }}>{PART_LABELS[part.partType as keyof typeof PART_LABELS] || part.partType}</td>
-               <td style={{ padding: '12px' }}>
-                 <div>
-                   {getNameDisplay(part.resolvedPublisherId, part.rawPublisherName)}
-                   {getPhoneDisplay(part.resolvedPublisherId)}
-                 </div>
-                 {part.resolvedAssistantId || part.rawAssistantName ? (
-                   <div style={{ marginTop: '6px', color: '#4b5563', fontSize: '0.9em' }}>
-                     Ajudante: {getNameDisplay(part.resolvedAssistantId, part.rawAssistantName)}
-                     {getPhoneDisplay(part.resolvedAssistantId)}
+           {parts.map(part => {
+             // Formatação da Parte
+             const mainTitle = part.tipoParte || part.partType || 'Designação';
+             const subTitle = part.tituloParte || part.descricaoParte;
+             const isAjud = part.funcao === 'Ajudante';
+             
+             // Formatação do Publicador
+             const pubName = getNameDisplay(part.resolvedPublisherId, part.rawPublisherName);
+             const pubPhone = getPhoneDisplay(part.resolvedPublisherId);
+
+             // Formatação do Status
+             let statusBg = '#fef9c3';
+             let statusColor = '#854d0e';
+             let statusIcon = '⌛';
+             let statusText = 'AGUARDANDO';
+             
+             if (part.status === 'DESIGNADA' || part.status === 'CONFIRMADA' || part.status === 'CONCLUIDA') {
+               statusBg = '#10b981';
+               statusColor = '#ffffff';
+               statusIcon = '✓';
+               statusText = 'ACEITA';
+             } else if (part.status === 'RECUSADA') {
+               statusBg = '#ef4444';
+               statusColor = '#ffffff';
+               statusIcon = '❌';
+               statusText = 'RECUSADA';
+             } else if (part.status === 'SUBSTITUIDA') {
+               statusBg = '#f59e0b';
+               statusColor = '#ffffff';
+               statusIcon = '🔄';
+               statusText = 'SUBSTITUIÇÃO';
+             }
+
+             // Formatação da Data
+             const dateObj = part.updatedAt || part.createdAt ? new Date(part.updatedAt || part.createdAt) : null;
+             const dateStr = dateObj ? `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth()+1).toString().padStart(2, '0')}, ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}` : '--';
+
+             return (
+               <tr key={part.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                 <td style={{ padding: '12px 16px', borderRight: '1px solid #e5e7eb' }}>
+                   <div style={{ fontWeight: 'bold', fontSize: '15px' }}>{mainTitle}</div>
+                   {subTitle && <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>{subTitle}{isAjud ? ' - Ajudante' : ''}</div>}
+                 </td>
+                 <td style={{ padding: '12px 16px', borderRight: '1px solid #e5e7eb' }}>
+                   <div style={{ display: 'flex', alignItems: 'center' }}>
+                     <span style={{ fontSize: '15px' }}>{pubName}</span>
+                     {isAjud && <span style={{ fontSize: '13px', color: '#3b82f6', marginLeft: '6px' }}>(Ajud.)</span>}
                    </div>
-                 ) : null}
-               </td>
-               <td style={{ padding: '12px' }}>
-                 <span style={{ 
-                   display: 'inline-block', 
-                   padding: '4px 8px', 
-                   borderRadius: '4px', 
-                   fontSize: '0.85em', 
-                   fontWeight: 'bold',
-                   background: part.status === 'DESIGNADA' ? '#dcfce7' : '#fef9c3',
-                   color: part.status === 'DESIGNADA' ? '#166534' : '#854d0e'
-                 }}>
-                   {part.status}
-                 </span>
-               </td>
-             </tr>
-           ))}
+                   <div style={{ marginTop: '4px' }}>{pubPhone}</div>
+                 </td>
+                 <td style={{ padding: '12px 16px', borderRight: '1px solid #e5e7eb', textAlign: 'center' }}>
+                   <span style={{ 
+                     display: 'inline-flex',
+                     alignItems: 'center',
+                     gap: '6px',
+                     padding: '6px 12px', 
+                     borderRadius: '9999px', 
+                     fontSize: '12px', 
+                     fontWeight: 'bold',
+                     background: statusBg,
+                     color: statusColor,
+                     boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                   }}>
+                     <span>{statusIcon}</span> {statusText}
+                   </span>
+                 </td>
+                 <td style={{ padding: '12px 16px', color: '#4b5563', fontSize: '14px' }}>
+                   {dateStr}
+                 </td>
+               </tr>
+             );
+           })}
          </tbody>
        </table>
     </div>
