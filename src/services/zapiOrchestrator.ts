@@ -526,13 +526,18 @@ class ZApiOrchestrator {
                     .limit(1);
 
                 if (!pushSubs || pushSubs.length === 0) {
-                    const baseUrl = window.location.origin; // Em contexto web
+                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://rvm-designacoes-antigravity.vercel.app';
+                    const pushUrl = `${baseUrl}/?portal=push-onboarding&pubId=${publisherId}`;
+
                     buttonActions.push({
                         id: `PUSH_ONBOARDING:${publisherId}`,
                         type: 'URL',
-                        url: `${baseUrl}/?portal=push-onboarding&pubId=${publisherId}`,
+                        url: pushUrl,
                         label: '🔔 Ativar Notificações',
                     });
+
+                    // Falback para PC (WhatsApp Web frequentemente não renderiza botões Z-API)
+                    content += `\n\n🔔 *Ativar Notificações:*\nSe os botões abaixo não aparecerem (ex: PC), clique aqui para ativar os lembretes automáticos na tela:\n${pushUrl}`;
                 }
             } catch (err) {
                 console.warn('[zapiOrchestrator] Falha ao checar push_subscriptions:', err);
