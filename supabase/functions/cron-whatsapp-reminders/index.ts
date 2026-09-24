@@ -600,8 +600,8 @@ async function runDailyCycle(
         // o fluxo padrão. O Cron apenas processa lembretes para partes já publicadas.
 
         // ===================== D-9, D-7 e D-2: LEMBRETES =====================
-        // Somente para os que já confirmaram aceite (DESIGNADA)
-        if (part.status !== 'DESIGNADA') continue;
+        // Envia lembretes para partes ativas (mesmo se continuam PROPOSTA confirmadas por outro fluxo)
+        if (!['DESIGNADA', 'PROPOSTA'].includes(part.status)) continue;
 
         let dispatchType = '';
         let reminderLabel = '';
