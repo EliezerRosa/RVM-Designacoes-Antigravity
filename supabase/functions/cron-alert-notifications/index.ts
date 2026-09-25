@@ -114,14 +114,9 @@ async function notifyOnce(alert: Alert, recipient: Recipient): Promise<boolean> 
         .eq('recipient_phone', recipient.phone);
 
     // Em caso de ERROR, remove o registro para permitir retry na pr�xima execu��o.
-    if (!ok) {
-        await supabase
-            .from('alert_notification_log')
-            .delete()
-            .eq('alert_key', alert.key)
-            .eq('recipient_phone', recipient.phone)
-            .eq('status', 'ERROR');
-    }
+    // B12 Fix: Remover a deleção automática em caso de ERROR.
+    // Isso evita o retry infinito (loop do cron) que mascarava a falha. O alerta
+    // ficará gravado como ERROR para auditoria, prevenindo spam na API e no banco.
     return ok;
 }
 
