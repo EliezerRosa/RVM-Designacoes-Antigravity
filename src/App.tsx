@@ -72,8 +72,13 @@ function getPortalParams(): { portal: string | null; partId: string | null; publ
   }
 
   let portalParam = getFirst('portal');
-  if (!portalParam && window.location.pathname.toLowerCase().includes('update-publishers')) {
-    portalParam = 'publisher-form';
+  if (!portalParam) {
+    const path = window.location.pathname.toLowerCase();
+    if (path.includes('update-publishers')) {
+      portalParam = 'publisher-form';
+    } else if (path.includes('automation-worker')) {
+      portalParam = 'automation-worker';
+    }
   }
 
   return {
