@@ -184,9 +184,11 @@ export const AutomationWorker: React.FC<AutomationWorkerProps> = ({ token }) => 
                     const weekParts = parts.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
                     const baseDateStr = weekParts[0]?.date || weekId;
                     const [y, m, d] = baseDateStr.split('-').map(Number);
-                    const targetDate = new Date(y, m - 1, d);
-                    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                    const diffDays = Math.round((targetDate.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
+                    // Fix Bug B3: UTC-3 Canonical Midnight diff
+                    const nowBRT = new Date(Date.now() - 3 * 60 * 60 * 1000);
+                    const utcToday = Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), nowBRT.getUTCDate());
+                    const utcTarget = Date.UTC(y, m - 1, d);
+                    const diffDays = Math.round((utcTarget - utcToday) / (1000 * 60 * 60 * 24));
                     const weekDisplay = `${d.toString().padStart(2, '0')}/${m.toString().padStart(2, '0')}/${y}`;
 
                     appendLog(`Analisando semana ${weekId} (${weekDisplay}) — Distância: ${diffDays} dias.`);
