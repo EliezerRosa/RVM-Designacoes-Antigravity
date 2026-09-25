@@ -541,11 +541,14 @@ async function checkDraftHoles(meetingDays: Record<string, number>, today: Date)
         const meetingDate = calculateMeetingDate(weekId, meetingDays);
         if (!meetingDate) continue;
 
-        const diffTime = meetingDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // Fix Bug B3: UTC-3 Canonical Midnight diff
+        const nowBRT = new Date(Date.now() - 3 * 60 * 60 * 1000);
+        const utcToday = Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), nowBRT.getUTCDate());
+        const utcMeeting = Date.UTC(meetingDate.getFullYear(), meetingDate.getMonth(), meetingDate.getDate());
+        const diffDays = Math.round((utcMeeting - utcToday) / (1000 * 60 * 60 * 24));
 
-        // D-23: Faltando exatos 2 dias para o robô tentar publicar no D-21
-        if (diffDays === 23) {
+        // D-23 (Elástico): Faltando ~2 dias para o robô tentar publicar no D-21
+        if (diffDays >= 22 && diffDays <= 24) {
             const label = formatMeetingDate(meetingDate);
             reports.push(`⏳ *Atenção (Semana de ${label}):* Faltam 2 DIAS para o sistema despachar esta semana, mas ela ainda possui ${count} parte(s) vazia(s) (sem publicador designado). Por favor, preencha as lacunas no sistema antes do disparo!`);
             reportSent = true;
