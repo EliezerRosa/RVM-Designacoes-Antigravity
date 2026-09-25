@@ -165,6 +165,12 @@ async function processWebhookPayload(body: any) {
       return;
     }
 
+    // Bloqueio de Segurança para "Proxy Assumido" (Evitar que o bot analise mensagens encaminhadas e puna a parte de quem encaminhou)
+    if (payload.isForwarded === true || dataObj.isForwarded === true) {
+      console.log(`[zapi-smart-webhook] SECURITY LOCK: Ignorando mensagem porque é um texto ENCAMINHADO (isForwarded=true).`);
+      return;
+    }
+
     let senderPhone = payload.phone || 
                       payload.senderPhone || 
                       (payload as any).participantPhone || 
@@ -947,10 +953,10 @@ async function getOrCreateAvailabilityToken(publisherId: string, publisherName: 
 async function dispatchGitHubAction(targetPart: any, pubName: string, reason: string): Promise<boolean> {
   const partId = targetPart?.id;
   try {
-    const githubToken = Deno.env.get("GITHUB_DISPATCH_TOKEN");
-    const githubRepo = Deno.env.get("GITHUB_REPO"); // ex: EliezerRosa/RVM-Designacoes-Antigravity
+    const githubToken = Deno.env.get("GITHUB_DISPATCH_TOKEN") || Deno.env.get("GITHUB_PAT");
+    const githubRepo = Deno.env.get("GITHUB_REPO") || "EliezerRosa/RVM-Designacoes-Antigravity";
 
-    if (!githubToken || !githubRepo) {
+    if (!githubToken) {
       console.error("[zapi-smart-webhook] Erro: GITHUB_DISPATCH_TOKEN ou GITHUB_REPO ausente. Acionando fallback para liderança.");
       await dispatchAlertToLeadership(
         targetPart, 
