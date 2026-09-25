@@ -273,9 +273,17 @@ async function runContinuousReminderCycle(
             .maybeSingle();
 
         if (latestDispatch) {
-            const lastTime = new Date(latestDispatch.dispatched_at).getTime();
-            const now = Date.now();
-            if (now - lastTime >= 72 * 60 * 60 * 1000) {
+            const dispatchTime = new Date(latestDispatch.dispatched_at);
+            // B4 Fix: Calcular diferença em DIAS de calendário (BRT)
+            const nowBRT = new Date(Date.now() - 3 * 60 * 60 * 1000);
+            const utcToday = Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), nowBRT.getUTCDate());
+            
+            const dispatchBRT = new Date(dispatchTime.getTime() - 3 * 60 * 60 * 1000);
+            const utcDispatch = Date.UTC(dispatchBRT.getUTCFullYear(), dispatchBRT.getUTCMonth(), dispatchBRT.getUTCDate());
+            
+            const diffDays = Math.round((utcToday - utcDispatch) / (1000 * 60 * 60 * 24));
+
+            if (diffDays >= 3) {
                 let msg = '';
                 const options: any = {};
                 let isRepublish = false;
