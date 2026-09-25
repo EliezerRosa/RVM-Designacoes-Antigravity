@@ -62,9 +62,20 @@ export const replacementOrchestratorService = {
             part.resolvedPublisherName || part.rawPublisherName || '',
             publishers,
             parts,
-            { notifyOld: false, notifyNew: true, notifyPartner: true },
+            { notifyOld: true, notifyNew: true, notifyPartner: true },
             s89Provider
         );
+
+        // Alertar liderança sobre o sucesso da automação
+        try {
+            const adminPhones = await zapiOrchestrator.getAdminPhones();
+            const successMsg = `🤖 *RVM Auto-Healing: Substituição Realizada!*\n\nA parte de *${part.tituloParte || part.tipoParte}* (${part.date || part.weekId}) foi automaticamente transferida de *${part.resolvedPublisherName || part.rawPublisherName}* para *${updatedPart.resolvedPublisherName}*.\n\nAmbos já foram notificados!`;
+            for (const phone of adminPhones) {
+                await zapiOrchestrator.sendTextDirect(phone, successMsg);
+            }
+        } catch (alertErr) {
+            console.error('[ReplacementOrchestrator] Erro ao alertar liderança sobre sucesso:', alertErr);
+        }
 
         // Gancho Aditivo S-140: se o ajuste for na semana em curso, aciona o Modo 2 (agora igual à troca manual)
         try {
@@ -143,7 +154,7 @@ export const replacementOrchestratorService = {
     ) {
         const payload: any = {
             resolved_publisher_name: newName,
-            status: 'PRONTO',
+            status: 'DESIGNADA',
             is_substitution: true,
             substituted_publisher_name: oldPublisherName || null,
             needs_reassignment: false
@@ -163,11 +174,8 @@ export const replacementOrchestratorService = {
         const part = parts.find(p => p.id === partId);
         if (!part) return;
 
-        // Notificar Admin e ARVM (Exemplo usando números hardcoded ou settings)
-        // Para simplificar, vou delegar para o Z-API Orchestrator disparar alertas genéricos ou buscar nas configurações
-        const { data: appSettings } = await supabase.from('app_settings').select('admin_phones').single();
-        const adminPhones: string[] = appSettings?.admin_phones || [];
-        
+        // Notificar Admin e ARVM
+        const adminPhones = await zapiOrchestrator.getAdminPhones();
         const fallbackMsg = `🚨 *FALHA NA AUTOMATIZAÇÃO (MÁQUINA PARADA)* 🚨\n\nA designação de *${part.tituloParte || part.tipoParte}* na data *${part.date}* necessita de substituição, mas o robô de reatribuição **não encontrou nenhum candidato elegível** sob as regras estritas.\n\nPor favor, acesse o painel RVM e realize uma *substituição manual* (abrindo o cadeado se necessário).`;
 
         for (const phone of adminPhones) {
