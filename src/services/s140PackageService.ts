@@ -296,7 +296,7 @@ export const s140PackageService = {
                 const list = partsByWeek.get(wId) || [];
                 // Se a parte for a que acabamos de atualizar, aplica os dados novos em memória
                 if (p.id === part.id) {
-                    list.push({ ...p, resolvedPublisherName: newPublisherName, status: 'PRONTO' });
+                    list.push({ ...p, resolvedPublisherName: newPublisherName, status: 'DESIGNADA' });
                 } else {
                     list.push(p);
                 }
