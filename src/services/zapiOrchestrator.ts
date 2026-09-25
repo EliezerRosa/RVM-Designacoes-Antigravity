@@ -100,14 +100,23 @@ class ZApiOrchestrator {
                 .eq('role', 'admin');
             if (error || !data) return [];
             const adminEmails = data.map(d => d.email).filter(Boolean);
+            if (adminEmails.length === 0) return [];
             
             const { data: pubData, error: pubError } = await supabase
                 .from('publishers')
-                .select('phone')
-                .in('email', adminEmails);
+                .select('data');
             
             if (pubError || !pubData) return [];
-            return pubData.map(p => p.phone).filter(Boolean) as string[];
+            
+            const phones: string[] = [];
+            for (const p of pubData) {
+                const pubEmail = p.data?.email;
+                if (pubEmail && adminEmails.includes(pubEmail)) {
+                    const phone = p.data?.phone || p.data?.contact_phone;
+                    if (phone) phones.push(phone);
+                }
+            }
+            return phones;
         } catch {
             return [];
         }
