@@ -13,23 +13,27 @@ ALTER TABLE public.semantic_rules ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de RLS
 -- Apenas usuários autenticados (qualquer membro logado) podem LER as regras
+DROP POLICY IF EXISTS "Membros podem ler regras semanticas" ON public.semantic_rules;
 CREATE POLICY "Membros podem ler regras semanticas" 
     ON public.semantic_rules
     FOR SELECT 
     USING (auth.role() = 'authenticated');
 
 -- Apenas Editores e Admins podem INSERIR ou ATUALIZAR as regras
+DROP POLICY IF EXISTS "Editores podem criar regras" ON public.semantic_rules;
 CREATE POLICY "Editores podem criar regras" 
     ON public.semantic_rules
     FOR INSERT 
     WITH CHECK (auth.role() = 'authenticated' AND (public.is_editor() = true OR public.is_admin() = true));
 
+DROP POLICY IF EXISTS "Editores podem atualizar regras" ON public.semantic_rules;
 CREATE POLICY "Editores podem atualizar regras" 
     ON public.semantic_rules
     FOR UPDATE 
     USING (auth.role() = 'authenticated' AND (public.is_editor() = true OR public.is_admin() = true));
 
 -- Trigger para updated_at
+DROP TRIGGER IF EXISTS handle_updated_at_semantic_rules ON public.semantic_rules;
 CREATE TRIGGER handle_updated_at_semantic_rules
     BEFORE UPDATE ON public.semantic_rules
     FOR EACH ROW
