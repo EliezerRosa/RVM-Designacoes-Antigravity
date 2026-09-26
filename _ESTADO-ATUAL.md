@@ -1,10 +1,10 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-09-22 19:33 (BRT)  
+> **Última Atualização**: 2026-09-26 11:50 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fases 12 e 13 Concluídas).  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
-> **Checkpoint / Tag Git**: `v2.6.0-checkpoint-s140-monitor`
+> **Checkpoint / Tag Git**: `4aeff4a` (checkpoint-s140-arquitetura)
 
 ---
 
@@ -492,6 +492,22 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ---
 
+## 17. Arquitetura Orientada a Eventos do Pacote S-140 (2026-09-26)
+
+### 📌 1. Transição de Agendamento Fixo para Event-Driven
+- **Modo 1 (Conceitual)**: A antiga lógica de "Envio Regular às Segundas-feiras (08:00 BRT)" foi envelopada. O motor de comparação de snapshot continua sendo o coração, mas sem gatilho de tempo fixo.
+- **Modo 2 (Emergência/Cirúrgico)**: Acionado *automaticamente* no exato instante em que uma substituição manual ou robótica (Auto-Healing) ocorre na semana corrente. Renderiza Imagens (PNG), alerta vermelho e inclui envio VIP direto ao Presidente da Reunião correspondente.
+- **Modo 3 (Sob Demanda / D-21)**: Acionado manualmente pelo botão ou **automaticamente** pelo robô D-21 (via GitHub Actions às 09:30 BRT) no instante em que as semanas atingem a janela de fechamento.
+
+### 📌 2. Atores no Gatilho
+- O gatilho de envio do Quadro de Anúncios e S-140 PDF foi mapeado para **apenas 3 atores**:
+  1. **Humano (Admin)**: Via botão manual ou aprovação de troca na semana.
+  2. **Robô Temporal (D-21)**: Varredura de calendário acionando Fechamento de Lote.
+  3. **Motor Auto-Healing (Reativo)**: Agente que auto-corrige e já notifica os envolvidos sem intervenção.
+- O Webhook da Z-API (`Não Poderei`) **não dispara o S-140**, atuando apenas como flag suja (`needs_reassignment=true`).
+
+---
+
 ## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
 
 1. **Alerta de Desconexão Z-API (P10)**: Implementar monitoramento ativo de webhooks (`on-disconnected`) para alertar o SRVM caso o celular da congregação fique offline ou despareado.
@@ -499,3 +515,4 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 3. **Integração Sentry (P5)**: Instalar a telemetria técnica de Application Performance Monitoring.
 4. **Evolução Cognitiva (A1-A6)**: Habilitar o `pgvector` no Supabase e avançar para o motor hiper-dimensional de perfis.
 5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Decidir entre injetar a tranca do `logDispatch` na Central de Comunicações ou aposentar a rota do Chatbot para S-89 em favor da interface visual.
+6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais, garantindo observabilidade total de que os Responsáveis pelo Quadro receberam o artefato.
