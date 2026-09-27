@@ -57,27 +57,30 @@ async function sendPdf(phone: string, pdfBuffer: Buffer, weekId: string) {
 
     if (error) {
       console.error(`Erro ao enviar para ${phone}:`, error);
-      await supabase.from('zapi_dispatch_log').insert({
+      const { error: logErr } = await supabase.from('zapi_dispatch_log').insert({
           dispatch_type: 'STATUS_BOARD',
           recipient_phone: phone,
           status: 'ERROR: ' + error.message
       });
+      if (logErr) console.error(`Falha gravíssima ao logar erro no BD:`, logErr);
     } else {
       console.log(`Enviado com sucesso para ${phone}:`, data);
-      await supabase.from('zapi_dispatch_log').insert({
+      const { error: logErr } = await supabase.from('zapi_dispatch_log').insert({
           dispatch_type: 'STATUS_BOARD',
           recipient_phone: phone,
           status: 'SUCCESS',
           message_id: data?.messageId
       });
+      if (logErr) console.error(`Falha gravíssima ao logar SUCESSO no BD:`, logErr);
     }
   } catch (err: any) {
     console.error(`Exceção ao enviar para ${phone}:`, err);
-    await supabase.from('zapi_dispatch_log').insert({
+    const { error: logErr } = await supabase.from('zapi_dispatch_log').insert({
         dispatch_type: 'STATUS_BOARD',
         recipient_phone: phone,
         status: 'ERROR: ' + String(err)
     });
+    if (logErr) console.error(`Falha gravíssima ao logar EXCEÇÃO no BD:`, logErr);
   }
 }
 
