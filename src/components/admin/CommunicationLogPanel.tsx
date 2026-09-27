@@ -78,15 +78,35 @@ export const CommunicationLogPanel: React.FC = () => {
         return '↔️';
     };
 
+    const triggerCron = async () => {
+        if (!confirm('Deseja forçar o motor de lembretes diários agora? Ele calculará pendências D-9, D-7, D-2 e encherá a fila do WhatsApp (que será consumida pelo robô Headless).')) return;
+        try {
+            setLoading(true);
+            const { error } = await supabase.functions.invoke('cron-whatsapp-reminders');
+            if (error) throw error;
+            alert('✅ Motor acionado com sucesso! Verifique a fila ou os logs nos próximos minutos.');
+        } catch (err: any) {
+            console.error('Erro ao acionar cron:', err);
+            alert(`Erro ao acionar cron: ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div style={{ padding: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem' }}>
                     Linha do tempo canônica e em tempo real de todas as comunicações (Z-API e Push Notifications).
                 </p>
-                <button className="btn-secondary" onClick={fetchLogs} disabled={loading}>
-                    {loading ? 'Atualizando...' : '🔄 Atualizar'}
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="btn-secondary" onClick={triggerCron} disabled={loading} style={{ background: '#0F172A', color: '#38BDF8', borderColor: '#38BDF8' }}>
+                        🤖 Forçar Motor Z-API (Agora)
+                    </button>
+                    <button className="btn-secondary" onClick={fetchLogs} disabled={loading}>
+                        {loading ? 'Atualizando...' : '🔄 Atualizar'}
+                    </button>
+                </div>
             </div>
 
             {error && (

@@ -71,32 +71,45 @@ async function checkDispatched(partId: string, dispatchType: string) {
     return !!data;
 }
 
-async function logDispatch(partId: string, dispatchType: string, phone: string, status: string, messageId?: string) {
-    const payload: any = {
-        part_id: partId,
-        dispatch_type: dispatchType,
-        recipient_phone: phone,
-        status: status
-    };
-    if (messageId) payload.message_id = messageId;
-    
-    await supabase.from('zapi_dispatch_log').insert(payload);
+
+let globalQueue: any[] = [];
+
+function enqueueWhatsApp(type: string, phone: string, message: string, options?: any, partId?: string) {
+    globalQueue.push({
+        type,
+        payload: { phone, message, options, partId }
+    });
 }
 
-async function sendWhatsApp(phone: string, message: string, options?: any): Promise<{ success: boolean; messageId?: string }> {
-    const payload = { phone, message, ...options };
-    const res = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
+async function triggerHeadlessQueueConsumer() {
+    const GITHUB_PAT = Deno.env.get('GITHUB_PAT');
+    const REPO_OWNER = Deno.env.get('GITHUB_REPO_OWNER') ?? 'EliezerRosa';
+    const REPO_NAME = Deno.env.get('GITHUB_REPO_NAME') ?? 'RVM-Designacoes-Antigravity';
+    
+    if (!GITHUB_PAT) {
+        console.error("GITHUB_PAT não encontrado. Não posso acordar o GitHub Actions.");
+        return;
+    }
+
+    const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`
+            'Accept': 'application/vnd.github+json',
+            'Authorization': `Bearer ${GITHUB_PAT}`,
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'Supabase-Edge-Function'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+            event_type: "consume-whatsapp-queue"
+        })
     });
-    if (!res.ok) return { success: false };
-    const data = await res.json();
-    return { success: data.success, messageId: data.messageId };
+    if (!res.ok) {
+        console.error("Falha ao disparar consumer:", await res.text());
+    } else {
+        console.log("Consumer disparado no GitHub Actions.");
+    }
 }
+
 
 async function getOrCreateConfirmationToken(partId: string, publisherId: string): Promise<string | null> {
     const nowIso = new Date().toISOString();
@@ -312,11 +325,8 @@ async function runContinuousReminderCycle(
                     isRepublish = true;
                 }
 
-                const { success, messageId } = await sendWhatsApp(pub.phone, msg, options);
-                // Se foi republish, gravamos como PUBLICACAO_S89 para resetar a estética original, ou COBRANCA_72H? 
-                // Mantemos COBRANCA_72H para consistência do ciclo, pois o conteúdo já foi enviado.
-                await logDispatch(part.id, 'COBRANCA_72H', pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);
-                if (success) sentCount++;
+                enqueueWhatsApp('COBRANCA_72H', pub.phone, msg, options, part.id);
+                sentCount++;
             }
         }
     }
@@ -719,9 +729,8 @@ async function runDailyCycle(
             buttonActions
         } : {};
 
-        const { success, messageId } = await sendWhatsApp(pub.phone, msg, options);
-        await logDispatch(part.id, dispatchType, pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);
-        if (success) sentCount++;
+        enqueueWhatsApp(dispatchType, pub.phone, msg, options, part.id);
+        sentCount++;
     }
 
     return { sentCount, noPhoneList };
@@ -1060,7 +1069,7 @@ async function sendDailyReport(
     }
 
     for (const pub of srvmPubs) {
-        await sendWhatsApp(pub.phone, report);
+        enqueueWhatsApp('RELATORIO_LIDERANCA', pub.phone, report);
     }
 }
 
@@ -1069,14 +1078,25 @@ async function sendDailyReport(
 // ============================================================================
 
 serve(async (req: Request) => {
-    // Proteção do endpoint
+    // Autenticação Híbrida: Permite cron-job.org (via x-cron-secret) OU disparo manual via Admin UI (via JWT)
+    let isAuthorized = false;
+    
     const expectedSecret = Deno.env.get("CRON_SECRET");
-    if (expectedSecret) {
-        const provided = req.headers.get("x-cron-secret");
-        if (provided !== expectedSecret) {
-            console.log('[cron-whatsapp-reminders] Acesso negado: x-cron-secret inválido.');
-            return new Response("Forbidden", { status: 403 });
+    const providedSecret = req.headers.get("x-cron-secret");
+    if (expectedSecret && providedSecret === expectedSecret) {
+        isAuthorized = true;
+    } else {
+        const authHeader = req.headers.get('Authorization');
+        if (authHeader) {
+            const token = authHeader.replace('Bearer ', '');
+            const { data: { user } } = await supabase.auth.getUser(token);
+            if (user) isAuthorized = true;
         }
+    }
+
+    if (!isAuthorized) {
+        console.log('[cron-whatsapp-reminders] Acesso negado: Secret inválido e usuário não autenticado.');
+        return new Response("Forbidden", { status: 403 });
     }
 
     console.log('[cron-whatsapp-reminders] Iniciando rotina...');
@@ -1208,6 +1228,21 @@ serve(async (req: Request) => {
     } else {
         console.log(`[cron] Rodada de Varredura (${currentHour}h): Ignorando relatórios gerenciais para não gerar spam.`);
     }
+
+    
+    // Flush the queue to DB
+    if (globalQueue.length > 0) {
+        const { error: insertErr } = await supabase.from('whatsapp_queue').insert(globalQueue);
+        if (insertErr) {
+            console.error('[cron] Falha catastrófica ao inserir na whatsapp_queue:', insertErr);
+        } else {
+            console.log(`[cron] ${globalQueue.length} itens enfileirados na whatsapp_queue com sucesso.`);
+            await triggerHeadlessQueueConsumer();
+        }
+    }
+    
+    // Reset queue in memory in case the runtime reuses the lambda environment
+    globalQueue = [];
 
     console.log(`[cron-whatsapp-reminders] Finalizado. ${sentCount} mensagens enviadas; ${completedCount} designações concluídas.`);
 
