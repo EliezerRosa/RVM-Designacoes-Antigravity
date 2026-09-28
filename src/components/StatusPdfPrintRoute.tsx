@@ -51,7 +51,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
           .from('workbook_parts')
           .select('*')
           .eq('week_id', weekId)
-          .in('status', ['DESIGNADA', 'PROPOSTA'])
+          .in('status', ['DESIGNADA', 'PROPOSTA', 'REJEITADA', 'VAGA'])
           .order('seq', { ascending: true });
 
         if (partsErr) throw partsErr;
@@ -159,11 +159,16 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
                statusColor = '#ffffff';
                statusIcon = '✓';
                statusText = 'ACEITA';
-             } else if (part.status === 'RECUSADA') {
+             } else if (part.status === 'RECUSADA' || part.status === 'REJEITADA') {
                statusBg = '#ef4444';
                statusColor = '#ffffff';
                statusIcon = '❌';
-               statusText = 'RECUSADA';
+               statusText = 'REJEITADA';
+             } else if (part.status === 'VAGA') {
+               statusBg = '#ef4444';
+               statusColor = '#ffffff';
+               statusIcon = '⚠️';
+               statusText = 'VAGA';
              } else if (part.status === 'SUBSTITUIDA') {
                statusBg = '#f59e0b';
                statusColor = '#ffffff';
