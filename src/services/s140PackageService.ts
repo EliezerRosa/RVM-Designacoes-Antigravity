@@ -292,9 +292,12 @@ export const s140PackageService = {
                 .select('*')
                 .in('week_id', publishedWeekIds);
 
+            const { mapDbToWorkbookPart } = await import('./workbookService');
+            const allPartsMapped = (allPartsData || []).map(row => mapDbToWorkbookPart(row));
+
             const partsByWeek = new Map<string, WorkbookPart[]>();
-            for (const p of (allPartsData || [])) {
-                const wId = p.week_id || p.weekId;
+            for (const p of allPartsMapped) {
+                const wId = p.weekId;
                 const list = partsByWeek.get(wId) || [];
                 // Se a parte for a que acabamos de atualizar, aplica os dados novos em memória
                 if (p.id === part.id) {
@@ -310,16 +313,14 @@ export const s140PackageService = {
                 partsByWeek.set(part.weekId, weekParts);
             }
 
-            // 3. Renderiza as imagens S-140 de cada semana publicada
+            // 3. Renderiza a imagem S-140 APENAS da semana afetada
             const imagesByWeek: Record<string, string> = {};
-            for (const wId of publishedWeekIds) {
-                const wParts = partsByWeek.get(wId) || [];
-                if (wParts.length > 0) {
-                    const base64 = s140Provider
-                        ? await s140Provider(wId)
-                        : await generateS140ImageBase64(wParts, publishers);
-                    if (base64) imagesByWeek[wId] = base64;
-                }
+            const wParts = partsByWeek.get(part.weekId) || [];
+            if (wParts.length > 0) {
+                const base64 = s140Provider
+                    ? await s140Provider(part.weekId)
+                    : await generateS140ImageBase64(wParts, publishers);
+                if (base64) imagesByWeek[part.weekId] = base64;
             }
 
             const currentWeekImage = imagesByWeek[part.weekId];
