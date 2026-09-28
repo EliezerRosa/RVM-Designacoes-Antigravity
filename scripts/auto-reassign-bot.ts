@@ -75,13 +75,47 @@ async function run() {
         }
     };
 
+    // 2.5 Prover a função que injeta a foto S-140 via Puppeteer (Para os Quadros)
+    const s140PuppeteerProvider = async (weekId: string) => {
+        console.log(`[AutoReassignBot] (s140Provider) Abrindo navegador Headless para capturar o PNG do S-140...`);
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--window-size=1200,1200'],
+            defaultViewport: { width: 1200, height: 1200, deviceScaleFactor: 2 }
+        });
+
+        try {
+            const page = await browser.newPage();
+            // Assumindo que a porta de impressão unificada do S-140 será `portal=s140-print` no front-end
+            const url = `${baseUrl}/?portal=s140-print&weekId=${weekId}&token=${printSecret}`;
+            console.log(`[AutoReassignBot] (s140Provider) Navegando para: ${url}`);
+            
+            await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+            await page.waitForSelector('#s140-unified-canvas', { timeout: 20000 });
+            
+            const imgSrc = await page.$eval('#s140-unified-canvas', el => el.getAttribute('src'));
+            if (!imgSrc || !imgSrc.includes('base64,')) {
+                throw new Error("Elemento s140-unified-canvas não gerou o base64 esperado.");
+            }
+            
+            console.log(`[AutoReassignBot] (s140Provider) Imagem S-140 capturada com sucesso!`);
+            return imgSrc.split(',')[1];
+        } catch (err) {
+            console.error(`[AutoReassignBot] (s140Provider) Erro ao capturar S-140:`, err);
+            return null;
+        } finally {
+            await browser.close();
+        }
+    };
+
     // 3. Executar Orquestrador Universal
     console.log(`[AutoReassignBot] Delegando execução ao ReplacementOrchestratorService...`);
     const result = await replacementOrchestratorService.executeAutoReassignment(
         partId,
         publishers as any,
         workbookParts,
-        s89PuppeteerProvider
+        s89PuppeteerProvider,
+        s140PuppeteerProvider
     );
     
     if (!result.success) {
@@ -90,6 +124,7 @@ async function run() {
     }
 
     console.log(`[AutoReassignBot] Processo finalizado com sucesso. Substituição orquestrada perfeitamente.`);
+    process.exit(0); // Garante encerramento imediato!
 }
 
 run().catch(err => {

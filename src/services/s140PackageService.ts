@@ -248,12 +248,14 @@ export const s140PackageService = {
         newPublisherName,
         weekParts,
         publishers,
+        s140Provider,
     }: {
         part: WorkbookPart;
         oldPublisherName: string;
         newPublisherName: string;
         weekParts: WorkbookPart[];
         publishers: Publisher[];
+        s140Provider?: (weekId: string) => Promise<string | null>;
     }): Promise<void> {
         const isCurrent = this.isCurrentWeek(part.weekId);
 
@@ -313,7 +315,9 @@ export const s140PackageService = {
             for (const wId of publishedWeekIds) {
                 const wParts = partsByWeek.get(wId) || [];
                 if (wParts.length > 0) {
-                    const base64 = await generateS140ImageBase64(wParts, publishers);
+                    const base64 = s140Provider
+                        ? await s140Provider(wId)
+                        : await generateS140ImageBase64(wParts, publishers);
                     if (base64) imagesByWeek[wId] = base64;
                 }
             }

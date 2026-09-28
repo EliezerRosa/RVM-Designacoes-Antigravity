@@ -20,6 +20,7 @@ import { PublisherHomeView } from './components/PublisherHomeView'
 import { LoginPage } from './components/LoginPage'
 import { PwaInstallBanner } from './components/ui/PwaInstallBanner'
 import { S89PrintRoute } from './components/S89PrintRoute'
+import { S140UnifiedPrintRoute } from './components/S140UnifiedPrintRoute'
 import { StatusPdfPrintRoute } from './components/StatusPdfPrintRoute'
 import { useAuth } from './context/AuthContext'
 import { useAuthenticatedAppData, type AppActiveTab } from './hooks/useAuthenticatedAppData'
@@ -154,6 +155,13 @@ function App() {
   if (portal === 's89-print') {
     return (
       <S89PrintRoute partId={portalPartId} secret={portalToken} />
+    );
+  }
+
+  // PORTAL: Renderização do S-140 (Headless Puppeteer)
+  if (portal === 's140-print') {
+    return (
+      <S140UnifiedPrintRoute weekId={portalWeekId} secret={portalToken} />
     );
   }
 

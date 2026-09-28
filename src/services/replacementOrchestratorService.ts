@@ -23,7 +23,8 @@ export const replacementOrchestratorService = {
         partId: string,
         publishers: Publisher[],
         parts: WorkbookPart[],
-        s89Provider: S89Provider
+        s89Provider: S89Provider,
+        s140Provider?: (weekId: string) => Promise<string | null>
     ) {
         console.log(`[ReplacementOrchestrator] Iniciando troca automática para partId: ${partId}`);
         
@@ -81,17 +82,17 @@ export const replacementOrchestratorService = {
         try {
             const weekParts = parts.filter(p => p.weekId === part.weekId);
             const { s140PackageService } = await import('./s140PackageService');
-            s140PackageService.handlePartAdjustment({
+            // AGORA COM AWAIT PARA NÃO MATAR O ROBO ANTES DA HORA
+            await s140PackageService.handlePartAdjustment({
                 part: updatedPart,
                 oldPublisherName: part.resolvedPublisherName || part.rawPublisherName || '',
                 newPublisherName: updatedPart.resolvedPublisherName || '',
                 weekParts,
-                publishers
-            }).catch(err => {
-                console.error('[ReplacementOrchestrator] Falha não bloqueante ao despachar S-140 Modo 2 (Robô):', err);
+                publishers,
+                s140Provider
             });
         } catch (s140Err) {
-            console.warn('[ReplacementOrchestrator] Falha ao importar s140PackageService (Robô):', s140Err);
+            console.warn('[ReplacementOrchestrator] Falha ao despachar S-140 Modo 2 (Robô):', s140Err);
         }
 
         return { success: true };
