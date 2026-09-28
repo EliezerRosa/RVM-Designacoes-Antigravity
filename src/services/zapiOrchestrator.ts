@@ -192,7 +192,9 @@ class ZApiOrchestrator {
         oldPhone: string,
         oldName: string,
         partType: string,
-        partDate: string
+        partDate: string,
+        partId?: string,
+        publisherId?: string
     ): Promise<boolean> {
         if (!oldPhone) return false;
 
@@ -204,7 +206,7 @@ class ZApiOrchestrator {
             `Esta parte foi repassada para outro irmão. Portanto, você não precisará mais realizá-la. Agradecemos a sua compreensão e apoio! 🙏`;
 
         const result = await this.sendTextDirect(oldPhone, msg);
-        await this.logDispatch(null, 'ALERTA_REMOCAO', oldPhone, result.success ? 'SUCCESS' : 'ERROR: ' + result.error, result.messageId);
+        await this.logDispatch(partId || null, 'ALERTA_REMOCAO', oldPhone, result.success ? 'SUCCESS' : 'ERROR: ' + result.error, result.messageId, publisherId);
         return result.success;
     }
 
