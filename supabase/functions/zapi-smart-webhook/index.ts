@@ -654,7 +654,11 @@ async function processWebhookPayload(body: any) {
           await dispatchTextMessage(replyPhone, outboundReply);
 
           // Disparar o GitHub Actions webhook com fallback defensivo para a liderança
-          await dispatchGitHubAction(targetPart, pubName, reason);
+          try {
+            await dispatchGitHubAction(targetPart, pubName, reason);
+          } catch (ghErr) {
+            console.error('[zapi-smart-webhook] Erro não tratado ao disparar GitHub Action:', ghErr);
+          }
           
           // Nota: dispatchAlertToLeadership não é chamado aqui porque o robô headless assumirá o comando e alertará a liderança após trocar.
         } else {

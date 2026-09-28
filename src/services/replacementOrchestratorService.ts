@@ -262,7 +262,9 @@ export const replacementOrchestratorService = {
                     oldPub.phone,
                     oldPub.name,
                     part.tituloParte || part.tipoParte,
-                    part.date || part.weekId
+                    part.date || part.weekId,
+                    part.id,
+                    oldPub.id
                 );
             } catch (errOld) {
                 console.error('[ReplacementOrchestrator] Erro antigo pub:', errOld);
