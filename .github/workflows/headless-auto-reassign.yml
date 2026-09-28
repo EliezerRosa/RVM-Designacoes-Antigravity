@@ -34,7 +34,8 @@ jobs:
       - name: Run Auto-Reassign Bot
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.VITE_SUPABASE_SERVICE_ROLE_KEY }}
           VITE_PRINT_SECRET: ${{ secrets.VITE_PRINT_SECRET }}
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
           # Env vars nativas do Puppeteer/Linux
