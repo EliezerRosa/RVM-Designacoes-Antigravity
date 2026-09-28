@@ -42,7 +42,11 @@ export function S140UnifiedPrintRoute({ weekId, secret }: { weekId: string | nul
         }
 
         const parts = partsData.map(mapDbToWorkbookPart);
-        const publishers = publishersData as Publisher[];
+        // Extract publisher properties from the JSONB 'data' column
+        const publishers = publishersData.map(p => ({
+          ...(p.data || {}),
+          id: p.id
+        })) as Publisher[];
 
         await document.fonts.ready;
 

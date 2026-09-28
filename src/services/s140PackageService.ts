@@ -334,13 +334,13 @@ export const s140PackageService = {
 
             // Texto A: Pacote Completo (Grupo + Equipe RVM + Quadro)
             const packageCaption =
-                `📦 *PACOTE DE PROGRAMAÇÃO RVM — S-140 ATUALIZADO* 📦\n` +
+                `📦 *PROGRAMAÇÃO RVM — S-140 ATUALIZADO* 📦\n` +
                 `🏛️ *Congregação Parque Jacaraípe*\n` +
                 `📅 *Semana em Curso:* ${weekDisplay}\n\n` +
                 `⚠️ *Aviso de Ajuste de Última Hora na Semana em Curso:*\n` +
                 `• *Parte:* ${tipoParte}\n` +
                 `• *Substituição:* ~${oldPublisherName}~ ➡️ *${newPublisherName}*\n\n` +
-                `Seguem em anexo as folhas oficiais *S-140* das semanas publicadas com a atualização desta semana.\n\n` +
+                `Segue em anexo a folha oficial *S-140 atualizada* desta semana.\n\n` +
                 `📌 *Ao Responsável pelo Quadro de Anúncios:* Por favor, providencie a substituição imediata da via impressa no mural do Salão do Reino antes da reunião.`;
 
             // Texto B: S-140 Único (Exclusivo ao Presidente da Reunião desta semana)
@@ -354,19 +354,14 @@ export const s140PackageService = {
                 `• *Substituição:* ~${oldPublisherName}~ ➡️ *${newPublisherName}*\n\n` +
                 `Segue em anexo o programa oficial *S-140 atualizado* exclusivo da sua reunião para a condução do programa.`;
 
-            // 6. Despacha o Pacote Completo para Grupo, Equipe RVM e Quadro
+            // 6. Despacha APENAS a semana afetada para Grupo, Equipe RVM e Quadro
             for (const recipient of fullPackageRecipients) {
-                for (const wId of publishedWeekIds) {
-                    const img = imagesByWeek[wId];
-                    if (img) {
-                        const isFirst = wId === publishedWeekIds[0];
-                        const cap = isFirst ? packageCaption : `Programa S-140 oficial — semana de ${this.formatDateDisplay(wId)}.`;
-                        await zapiOrchestrator.sendImageDirect(recipient, img, cap);
-                        await zapiOrchestrator.logDispatch(null, 'S140_PACOTE_EMERGENCIA', recipient, 'SUCCESS');
-                        
-                        // P9: Jittering para evitar bloqueios de spam na Z-API
-                        await new Promise(resolve => setTimeout(resolve, 3000));
-                    }
+                if (currentWeekImage) {
+                    await zapiOrchestrator.sendImageDirect(recipient, currentWeekImage, packageCaption);
+                    await zapiOrchestrator.logDispatch(null, 'S140_PACOTE_EMERGENCIA', recipient, 'SUCCESS');
+                    
+                    // P9: Jittering para evitar bloqueios de spam na Z-API
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 }
             }
 
