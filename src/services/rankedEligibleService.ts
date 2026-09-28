@@ -32,6 +32,7 @@ export interface RankedEligibleOptions {
     currentPresident?: string;
     excludeAssignedInSameWeek?: boolean;
     applyEngineRules?: boolean;
+    excludedPublisherNames?: string[];
 }
 
 export interface RankedEligibleResult {
@@ -300,6 +301,10 @@ export function getRankedEligibleForPart(
             funcao,
             eligibilityContext,
         );
+
+        if (eligibility.eligible && options.excludedPublisherNames?.includes(publisher.name)) {
+            eligibility = { eligible: false, reason: 'Recusou esta parte recentemente (Memória de Recusa)' };
+        }
 
         const inOtherPartSameWeek = inWeekMap.get(publisher.name);
         const allowsSecondAssignment = isFinalPrayerPart(targetPart, modalidade) || excludeAssignedInSameWeek === false;

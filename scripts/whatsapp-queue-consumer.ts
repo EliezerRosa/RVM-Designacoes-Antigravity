@@ -1,4 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/node';
+
+Sentry.init({
+  dsn: "https://741525a522be9026c6301d772ee77f35@o4512163872505856.ingest.de.sentry.io/4512163900686416",
+  tracesSampleRate: 1.0,
+});
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -118,6 +124,7 @@ async function main() {
 
     } catch (err: any) {
       console.error(`Exceção ao processar o item [${item.id}]:`, err);
+      Sentry.captureException(err);
       await supabase
         .from('whatsapp_queue')
         .update({ 
