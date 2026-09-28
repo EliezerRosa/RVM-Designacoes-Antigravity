@@ -4,7 +4,7 @@ const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : 
 const procEnv = typeof process !== 'undefined' ? process.env : undefined;
 
 const SUPABASE_URL = metaEnv?.VITE_SUPABASE_URL || procEnv?.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = metaEnv?.VITE_SUPABASE_ANON_KEY || procEnv?.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_ANON_KEY = metaEnv?.VITE_SUPABASE_ANON_KEY || procEnv?.VITE_SUPABASE_ANON_KEY || procEnv?.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_MODE = metaEnv?.MODE ?? procEnv?.NODE_ENV ?? 'unknown';
 const SUPABASE_BASE = metaEnv?.BASE_URL ?? '/';
 
