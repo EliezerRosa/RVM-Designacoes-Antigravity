@@ -40,7 +40,10 @@ export async function consultReassignmentSuggestion(
     const weekParts = workbookParts.filter(part => part.weekId === targetPart.weekId);
     
     // FETCH REFUSAL LOGS
-    const { data: refusals } = await supabase.from('refusal_logs').select('publisher_name').eq('part_id', targetPart.id);
+    const { data: refusals, error: refusalError } = await supabase.from('refusal_logs').select('publisher_name').eq('part_id', targetPart.id);
+    if (refusalError) {
+        console.error('[reassignmentService] Error fetching refusal_logs:', refusalError);
+    }
     const excludedPublisherNames = refusals ? refusals.map(r => r.publisher_name) : [];
 
     const rankedResult = getRankedEligibleForPart(

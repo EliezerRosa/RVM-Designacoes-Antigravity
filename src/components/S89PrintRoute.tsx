@@ -59,7 +59,7 @@ export function S89PrintRoute({ partId, secret }: { partId: string | null; secre
         const base64 = await generateS89PngBase64(partForPdf, assistantName, undefined, isStudent);
         
         if (base64) {
-          setImgSrc(`data:image/png;base64,\${base64}`);
+          setImgSrc(`data:image/png;base64,${base64}`);
         } else {
           setError("Failed to generate image");
         }

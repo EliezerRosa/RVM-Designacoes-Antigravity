@@ -2,13 +2,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-// @ts-ignore
-import * as Sentry from "npm:@sentry/deno";
-
-Sentry.init({
-  dsn: "https://741525a522be9026c6301d772ee77f35@o4512163872505856.ingest.de.sentry.io/4512163900686416",
-  tracesSampleRate: 1.0,
-});
 
 // ============================================================================
 // Supabase Client Initialization
@@ -665,7 +658,6 @@ async function processWebhookPayload(body: any) {
             await dispatchGitHubAction(targetPart, pubName, reason);
           } catch (ghErr: any) {
             console.error('[zapi-smart-webhook] Erro não tratado ao disparar GitHub Action:', ghErr);
-            Sentry.captureException(ghErr);
             
             // Injeta o alerta de infraestrutura no Log Canônico da Liderança
             await supabase.from("zapi_dispatch_log").insert({
