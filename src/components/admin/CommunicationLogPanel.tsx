@@ -156,15 +156,19 @@ export const CommunicationLogPanel: React.FC = () => {
                                         </div>
                                     </td>
                                     <td>
-                                        <span className="level-badge" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                                            {log.interaction_type}
+                                        <span className="level-badge" style={{ 
+                                            backgroundColor: log.interaction_type === 'SYSTEM_ERROR' ? '#fee2e2' : 'var(--bg-secondary)', 
+                                            color: log.interaction_type === 'SYSTEM_ERROR' ? '#991b1b' : 'var(--text-primary)',
+                                            border: log.interaction_type === 'SYSTEM_ERROR' ? '1px solid #f87171' : 'none'
+                                        }}>
+                                            {log.interaction_type === 'SYSTEM_ERROR' ? '🚨 SYSTEM_ERROR' : log.interaction_type}
                                         </span>
                                     </td>
                                     <td>
                                         <span className={`level-badge ${log.status_or_action === 'SUCCESS' || log.status_or_action === 'STATUS_DESIGNADA' ? 'success' : 'high'}`} 
                                               style={{ 
-                                                backgroundColor: log.status_or_action === 'SUCCESS' ? '#dcfce7' : '#f3f4f6', 
-                                                color: log.status_or_action === 'SUCCESS' ? '#166534' : '#374151' 
+                                                backgroundColor: log.interaction_type === 'SYSTEM_ERROR' ? '#fee2e2' : (log.status_or_action === 'SUCCESS' ? '#dcfce7' : '#f3f4f6'), 
+                                                color: log.interaction_type === 'SYSTEM_ERROR' ? '#991b1b' : (log.status_or_action === 'SUCCESS' ? '#166534' : '#374151') 
                                               }}>
                                             {log.status_or_action}
                                         </span>

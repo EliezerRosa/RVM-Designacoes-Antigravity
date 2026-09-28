@@ -38,6 +38,11 @@ export async function consultReassignmentSuggestion(
     history: HistoryRecord[] = [],
 ): Promise<ReassignmentSuggestion> {
     const weekParts = workbookParts.filter(part => part.weekId === targetPart.weekId);
+    
+    // FETCH REFUSAL LOGS
+    const { data: refusals } = await supabase.from('refusal_logs').select('publisher_name').eq('part_id', targetPart.id);
+    const excludedPublisherNames = refusals ? refusals.map(r => r.publisher_name) : [];
+
     const rankedResult = getRankedEligibleForPart(
         targetPart,
         weekParts,
@@ -46,6 +51,7 @@ export async function consultReassignmentSuggestion(
         {
             applyEngineRules: true,
             excludeAssignedInSameWeek: true,
+            excludedPublisherNames,
         },
     );
 
