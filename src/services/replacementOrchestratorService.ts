@@ -27,10 +27,10 @@ export const replacementOrchestratorService = {
         s140Provider?: (weekId: string) => Promise<string | null>
     ) {
         console.log(`[ReplacementOrchestrator] Iniciando troca automática para partId: ${partId}`);
-        
+
         // Sempre usa applyEngineRules: true (Conservadorismo absoluto - cadeado fechado)
         const result = await reassignParts([partId], publishers, parts, { applyEngineRules: true });
-        
+
         if (!result.success || result.partsGenerated === 0) {
             console.log(`[ReplacementOrchestrator] Falha no motor estrito para a parte ${partId}. Escalando para fallback humano.`);
             await this.executeHumanFallbackAlert(partId, parts, publishers);
@@ -39,22 +39,22 @@ export const replacementOrchestratorService = {
 
         const part = parts.find(p => p.id === partId);
         if (!part) return { success: false, reason: 'Parte não encontrada' };
-        
+
         // reassignParts já salvou a parte com o novo publicador.
         // Vamos recarregar a parte do DB ou apenas usar a que temos alterada.
         const { data: updatedPartRaw } = await supabase.from('workbook_parts').select('*').eq('id', partId).single();
         if (!updatedPartRaw) return { success: false, reason: 'Parte atualizada não encontrada no DB' };
-        
+
         const newPubId = updatedPartRaw.resolved_publisher_id;
         if (!newPubId) return { success: false, reason: 'Novo publicador não resolvido após reassignParts' };
-        
+
         // Marcamos os metadados de substituição
         await supabase.from('workbook_parts').update({
             is_substitution: true,
             substituted_publisher_name: part.resolvedPublisherName || part.rawPublisherName,
             needs_reassignment: false
         }).eq('id', partId);
-        
+
         const updatedPart: WorkbookPart = { ...part, resolvedPublisherId: newPubId, resolvedPublisherName: publishers.find(p => p.id === newPubId)?.name || '' };
 
         // Agora executa o pipeline universal
@@ -69,9 +69,24 @@ export const replacementOrchestratorService = {
 
         // Alertar liderança sobre o sucesso da automação
         try {
-            const adminPhones = await zapiOrchestrator.getAdminPhones();
+            const targetPhones = new Set<string>(await zapiOrchestrator.getAdminPhones());
+            
+            for (const pub of publishers) {
+                const funcao = pub.funcao || '';
+                const phone = pub.phone;
+                if (!phone) continue;
+                
+                // Invariante Estrito de Notificação (SRVM e Ajudante primário):
+                const isSrvm = funcao.includes("Superintendente da Reunião Vida e Ministério") && !funcao.includes("Ajudante");
+                const isAjdSrvm = funcao.includes("Ajudante do Superintendente da Reunião Vida e Ministério");
+                
+                if (isSrvm || isAjdSrvm) {
+                    targetPhones.add(phone);
+                }
+            }
+
             const successMsg = `🤖 *RVM Auto-Healing: Substituição Realizada!*\n\nA parte de *${part.tituloParte || part.tipoParte}* (${part.date || part.weekId}) foi automaticamente transferida de *${part.resolvedPublisherName || part.rawPublisherName}* para *${updatedPart.resolvedPublisherName}*.\n\nAmbos já foram notificados!`;
-            for (const phone of adminPhones) {
+            for (const phone of targetPhones) {
                 await zapiOrchestrator.sendTextDirect(phone, successMsg);
             }
         } catch (alertErr) {
@@ -110,7 +125,7 @@ export const replacementOrchestratorService = {
         s89Provider: S89Provider
     ) {
         console.log(`[ReplacementOrchestrator] Iniciando troca manual para partId: ${partId}, novo pub: ${newPublisherName}`);
-        
+
         // 1. Gravar atualização e metadados de substituição em um único UPDATE atômico no banco
         await this.directExecutePublisherUpdate(partId, newPublisherId, newPublisherName, part, oldPublisherName);
 
@@ -145,11 +160,11 @@ export const replacementOrchestratorService = {
 
         return { success: true };
     },
-    
+
     async directExecutePublisherUpdate(
-        partId: string, 
-        newId: string | undefined, 
-        newName: string, 
+        partId: string,
+        newId: string | undefined,
+        newName: string,
         part: WorkbookPart,
         oldPublisherName?: string
     ) {
@@ -162,7 +177,7 @@ export const replacementOrchestratorService = {
         };
         if (newId) payload.resolved_publisher_id = newId;
         else payload.resolved_publisher_id = null;
-        
+
         if (!part.resolvedPublisherName && !part.rawPublisherName) {
             payload.raw_publisher_name = newName;
         }
@@ -185,7 +200,7 @@ export const replacementOrchestratorService = {
                 await zapiOrchestrator.logDispatch(null, 'FALLBACK_ADMIN', phone, 'SUCCESS');
             }
         }
-        
+
         // Avisar o parceiro também
         const partnerPub = this.findPartner(part, parts, publishers);
         if (partnerPub && partnerPub.phone) {
@@ -199,7 +214,7 @@ export const replacementOrchestratorService = {
         const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
         const partNum = partNumMatch ? partNumMatch[1] : null;
         const partIsSalaB = part.modalidade?.toLowerCase().includes('b') || false;
-        
+
         const isLeitorEBC = part.tipoParte?.toLowerCase().includes('leitor') && part.tipoParte?.toLowerCase().includes('ebc');
         const isDirigenteEBC = part.tipoParte?.toLowerCase().includes('dirigente') && part.tipoParte?.toLowerCase().includes('ebc');
 
@@ -246,7 +261,7 @@ export const replacementOrchestratorService = {
 
         const oldPub = publishers.find(p => p.name === oldPublisherName || (part.substitutedPublisherName === p.name));
         const newPub = publishers.find(p => (part.resolvedPublisherId && p.id === part.resolvedPublisherId) || p.name === part.resolvedPublisherName);
-        
+
         const isAjudante = part.funcao === 'Ajudante';
         const partnerPart = parts.find(p => p.weekId === part.weekId && p.id !== part.id && this.findPartner(part, parts, publishers)?.name === (p.resolvedPublisherName || p.rawPublisherName));
         const partnerPub = this.findPartner(part, parts, publishers);
@@ -278,7 +293,7 @@ export const replacementOrchestratorService = {
         let assistantNameForPdf: string | undefined;
 
         if (isAjudante) {
-            titularPartForPdf = partnerPart 
+            titularPartForPdf = partnerPart
                 ? { ...partnerPart, resolvedPublisherName: partnerPubName }
                 : { ...part, resolvedPublisherName: partnerPubName };
             assistantNameForPdf = newPub?.name;
