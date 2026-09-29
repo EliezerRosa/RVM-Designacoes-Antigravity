@@ -64,9 +64,10 @@ async function checkDispatched(partId: string, dispatchType: string) {
     const { data } = await supabase
         .from('zapi_dispatch_log')
         .select('id')
-        .eq('part_id', partId)
+        .or(`part_id.eq.${partId},part_id.eq.${partId}-titular,part_id.eq.${partId}-ajudante`)
         .eq('dispatch_type', dispatchType)
         .eq('status', 'SUCCESS')
+        .limit(1)
         .maybeSingle();
     return !!data;
 }
@@ -278,7 +279,7 @@ async function runContinuousReminderCycle(
         const { data: latestDispatch } = await supabase
             .from('zapi_dispatch_log')
             .select('dispatched_at, message_id')
-            .eq('part_id', part.id)
+            .or(`part_id.eq.${part.id},part_id.eq.${part.id}-titular,part_id.eq.${part.id}-ajudante`)
             .eq('recipient_phone', pub.phone)
             .eq('status', 'SUCCESS')
             .order('dispatched_at', { ascending: false })
