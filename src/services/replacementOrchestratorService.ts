@@ -68,30 +68,13 @@ export const replacementOrchestratorService = {
         );
 
         // Alertar liderança sobre o sucesso da automação
-        try {
-            const targetPhones = new Set<string>(await zapiOrchestrator.getAdminPhones());
-            
-            for (const pub of publishers) {
-                const funcao = pub.funcao || '';
-                const phone = pub.phone;
-                if (!phone) continue;
-                
-                // Invariante Estrito de Notificação (SRVM e Ajudante primário):
-                const isSrvm = funcao.includes("Superintendente da Reunião Vida e Ministério") && !funcao.includes("Ajudante");
-                const isAjdSrvm = funcao.includes("Ajudante do Superintendente da Reunião Vida e Ministério");
-                
-                if (isSrvm || isAjdSrvm) {
-                    targetPhones.add(phone);
-                }
-            }
-
-            const successMsg = `🤖 *RVM Auto-Healing: Substituição Realizada!*\n\nA parte de *${part.tituloParte || part.tipoParte}* (${part.date || part.weekId}) foi automaticamente transferida de *${part.resolvedPublisherName || part.rawPublisherName}* para *${updatedPart.resolvedPublisherName}*.\n\nAmbos já foram notificados!`;
-            for (const phone of targetPhones) {
-                await zapiOrchestrator.sendTextDirect(phone, successMsg);
-            }
-        } catch (alertErr) {
-            console.error('[ReplacementOrchestrator] Erro ao alertar liderança sobre sucesso:', alertErr);
-        }
+        await this.alertLeadershipAboutReplacement(
+            updatedPart,
+            part.resolvedPublisherName || part.rawPublisherName || '',
+            updatedPart.resolvedPublisherName || '',
+            publishers,
+            false
+        );
 
         // Gancho Aditivo S-140: se o ajuste for na semana em curso, aciona o Modo 2 (agora igual à troca manual)
         try {
@@ -141,6 +124,15 @@ export const replacementOrchestratorService = {
             s89Provider
         );
 
+        // Alertar liderança sobre o sucesso da substituição manual
+        await this.alertLeadershipAboutReplacement(
+            updatedPart,
+            oldPublisherName,
+            newPublisherName,
+            publishers,
+            true
+        );
+
         // Gancho Aditivo S-140: se o ajuste for na semana em curso, aciona o Modo 2
         try {
             const weekParts = parts.filter(p => p.weekId === part.weekId);
@@ -170,7 +162,7 @@ export const replacementOrchestratorService = {
     ) {
         const payload: any = {
             resolved_publisher_name: newName,
-            status: 'DESIGNADA',
+            status: 'PROPOSTA',
             is_substitution: true,
             substituted_publisher_name: oldPublisherName || null,
             needs_reassignment: false
@@ -207,6 +199,43 @@ export const replacementOrchestratorService = {
             const partnerMsg = `⚠️ *AVISO AUTOMÁTICO - RVM*\n\nOlá, ${partnerPub.name}. O publicador que faria a parte de *${part.tituloParte || part.tipoParte}* com você no dia *${part.date}* precisou cancelar.\n\nO sistema tentou achar um substituto automático, mas não conseguiu. A liderança já foi notificada para realizar uma substituição manual. Em breve você receberá o aviso do seu novo parceiro.`;
             await zapiOrchestrator.sendTextDirect(partnerPub.phone, partnerMsg);
             await zapiOrchestrator.logDispatch(null, 'FALLBACK_PARCEIRO', partnerPub.phone, 'SUCCESS');
+        }
+    },
+
+    async alertLeadershipAboutReplacement(
+        part: WorkbookPart,
+        oldPublisherName: string,
+        newPublisherName: string,
+        publishers: Publisher[],
+        isManual: boolean
+    ) {
+        try {
+            const targetPhones = new Set<string>(await zapiOrchestrator.getAdminPhones());
+            
+            for (const pub of publishers) {
+                const funcao = pub.funcao || '';
+                const phone = pub.phone;
+                if (!phone) continue;
+                
+                // Invariante Estrito de Notificação (SRVM e Ajudante primário):
+                const isSrvm = funcao.includes("Superintendente da Reunião Vida e Ministério") && !funcao.includes("Ajudante");
+                const isAjdSrvm = funcao.includes("Ajudante do Superintendente da Reunião Vida e Ministério");
+                
+                if (isSrvm || isAjdSrvm) {
+                    targetPhones.add(phone);
+                }
+            }
+
+            const header = isManual ? `👤 *RVM Gestão: Substituição Manual Realizada!*` : `🤖 *RVM Auto-Healing: Substituição Realizada!*`;
+            const adv = isManual ? 'manualmente' : 'automaticamente';
+            
+            const successMsg = `${header}\n\nA parte de *${part.tituloParte || part.tipoParte}* (${part.date || part.weekId}) foi ${adv} transferida de *${oldPublisherName}* para *${newPublisherName}*.\n\nAmbos já foram notificados!`;
+            
+            for (const phone of targetPhones) {
+                await zapiOrchestrator.sendTextDirect(phone, successMsg);
+            }
+        } catch (alertErr) {
+            console.error('[ReplacementOrchestrator] Erro ao alertar liderança sobre sucesso de substituição:', alertErr);
         }
     },
 
