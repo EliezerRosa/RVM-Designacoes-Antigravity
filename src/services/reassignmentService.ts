@@ -40,7 +40,7 @@ export async function consultReassignmentSuggestion(
     const weekParts = workbookParts.filter(part => part.weekId === targetPart.weekId);
     
     // FETCH REFUSAL LOGS
-    const { data: refusals, error: refusalError } = await supabase.from('refusal_logs').select('publisher_name').eq('part_id', targetPart.id);
+    const { data: refusals, error: refusalError } = await supabase.from('refusal_logs').select('publisher_name').eq('week_id', targetPart.weekId);
     if (refusalError) {
         console.error('[reassignmentService] Error fetching refusal_logs:', refusalError);
     }
