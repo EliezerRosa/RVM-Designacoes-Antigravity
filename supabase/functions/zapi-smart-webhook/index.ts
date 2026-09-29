@@ -221,6 +221,7 @@ async function processWebhookPayload(body: any) {
     let targetPartId: string | null = null;
     let targetPart: any = null;
     let publisherData: any = null;
+    let possiblePublishers: any[] = [];
 
     // Se temos quotedMsgId, tenta resolver a parte imediatamente pelo histórico de despachos
     if (quotedMsgId) {
@@ -240,7 +241,7 @@ async function processWebhookPayload(body: any) {
     }
 
     // --------------------------------------------------------------------------
-    // 1. Identificar o Publicador pelo Telefone
+    // 1. Identificar possíveis Publicadores pelo Telefone (Casais/Famílias compartilham número)
     // --------------------------------------------------------------------------
     if (senderPhone) {
       const { data: allPubs } = await supabase.from("publishers").select("id, data");
@@ -248,16 +249,20 @@ async function processWebhookPayload(body: any) {
         for (const p of allPubs) {
           const pPhone = p.data?.phone || p.data?.contact_phone || "";
           if (phoneMatches(senderPhone, pPhone)) {
-            publisherData = {
+            possiblePublishers.push({
               id: p.id,
               name: p.data?.name || "Irmão(ã)",
               gender: p.data?.gender || "brother",
               phone: pPhone,
-            };
-            break;
+            });
           }
         }
       }
+    }
+
+    if (possiblePublishers.length > 0) {
+      // Pick the first one as default for now. We will refine this if we find a targetPart.
+      publisherData = possiblePublishers[0];
     }
 
     let pubName = publisherData?.name || "Irmão(ã)";
@@ -470,6 +475,16 @@ async function processWebhookPayload(body: any) {
         .maybeSingle();
       if (pData) {
         targetPart = pData;
+
+        // Agora que temos a parte, vamos refinar o publisherData caso o celular seja compartilhado
+        if (possiblePublishers.length > 1 && pData.resolved_publisher_id) {
+          const exactMatch = possiblePublishers.find(p => p.id === pData.resolved_publisher_id);
+          if (exactMatch) {
+            publisherData = exactMatch;
+            pubName = exactMatch.name;
+          }
+        }
+
         if (pData.resolved_publisher_name) {
           pubName = pData.resolved_publisher_name;
         }
