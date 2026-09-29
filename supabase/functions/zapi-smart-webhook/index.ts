@@ -196,15 +196,18 @@ async function processWebhookPayload(body: any) {
     // causado por retentativas de entrega de webhook da Z-API.
     // ========================================================================
     if (inboundMessageId) {
-      const { data: existingInteraction } = await supabase
+      // Usamos INSERT inicial com tratamento de erro de unicidade para evitar race conditions!
+      const { error: insertLockError } = await supabase
         .from("zapi_smart_interactions")
-        .select("id")
-        .eq("inbound_message_id", inboundMessageId)
-        .maybeSingle();
+        .insert({
+          inbound_message_id: inboundMessageId,
+          action_taken: "PROCESSING",
+          raw_payload: payload
+        });
       
-      if (existingInteraction) {
-        console.log(`[zapi-smart-webhook] Webhook ignorado (deduplicação): mensagem ${inboundMessageId} já processada.`);
-        return;
+      if (insertLockError) {
+        console.log(`[zapi-smart-webhook] Webhook ignorado (Race Condition Lock): mensagem ${inboundMessageId} já processada ou em processamento concorrente.`);
+        return new Response(JSON.stringify({ success: true, message: "Ignored duplicate" }), { headers, status: 200 });
       }
     }
 
@@ -724,7 +727,7 @@ async function processWebhookPayload(body: any) {
     // 5. Auditoria na Tabela zapi_smart_interactions
     // --------------------------------------------------------------------------
     const processingTimeMs = Date.now() - startTime;
-    await supabase.from("zapi_smart_interactions").insert({
+    const finalPayload = {
       phone: senderPhone,
       publisher_id: publisherData?.id || null,
       publisher_name: pubName,
@@ -739,7 +742,13 @@ async function processWebhookPayload(body: any) {
       reason_extracted: reasonExtracted,
       outbound_reply_text: outboundReply,
       processing_time_ms: processingTimeMs,
-    });
+    };
+    
+    if (inboundMessageId) {
+      await supabase.from("zapi_smart_interactions").update(finalPayload).eq("inbound_message_id", inboundMessageId);
+    } else {
+      await supabase.from("zapi_smart_interactions").insert(finalPayload);
+    }
 
     return;
   } catch (err: any) {

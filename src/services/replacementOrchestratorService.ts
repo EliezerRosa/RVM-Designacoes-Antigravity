@@ -327,7 +327,8 @@ export const replacementOrchestratorService = {
         if (options.notifyPartner && partnerPub?.phone && newPub) {
             try {
                 console.log(`[ReplacementOrchestrator] Avisando parceiro ${partnerPub.name}`);
-                const pdfBase64Partner = await s89Provider(part, publishers, isStudent, titularPartForPdf, assistantNameForPdf);
+                const partnerPartObjForPdf = partnerPart || part;
+                const pdfBase64Partner = await s89Provider(partnerPartObjForPdf, publishers, isStudent, titularPartForPdf, assistantNameForPdf);
                 if (pdfBase64Partner) {
                     const partnerPartObjForMsg = partnerPart || part;
                     const { content: baseMsgPartner, availabilityUrl: partnerAvailabilityUrl } = await communicationService.prepareS89Message(
