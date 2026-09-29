@@ -152,6 +152,27 @@ export const communicationService = {
             throw error;
         }
 
+        // Sincronização Automática com o Log Canônico (zapi_dispatch_log)
+        // Apenas para envios efetivados (status === 'SENT') de S-89 ou S-140.
+        if (record.status === 'SENT' && (record.type === 'S89' || record.type === 'S140')) {
+            const dispatchType = record.type === 'S89' ? 'PUBLICACAO_S89' : 'PUBLICACAO_S140';
+            // Se veio do Z-API terá um messageId válido longo, senão assumimos MANUAL
+            const isManual = !record.metadata?.messageId || String(record.metadata?.messageId).startsWith('MANUAL');
+            
+            try {
+                // Tentativa de gravar ou ignorar duplicatas baseadas no partId/messageId
+                await supabase.from('zapi_dispatch_log').insert({
+                    part_id: record.metadata?.partId || null,
+                    dispatch_type: dispatchType,
+                    recipient_phone: record.recipient_phone || '',
+                    status: isManual ? 'SUCCESS_MANUAL' : 'SUCCESS',
+                    message_id: record.metadata?.messageId || 'MANUAL_WHATSAPP'
+                });
+            } catch (syncErr) {
+                console.warn('[communicationService] Falha não impeditiva ao espelhar no log canônico:', syncErr);
+            }
+        }
+
         // Logar também no feed de atividades
         await this.logActivity({
             type: 'NOTIFICATION_SENT',
