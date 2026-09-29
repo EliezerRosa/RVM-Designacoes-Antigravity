@@ -918,7 +918,7 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
         );
 
         // Ajudante SRVM só recebe se for Ancião
-        const ajdSrvm = publishers.find(p => p.funcao === 'Ajudante do Superintendente da Reunião Vida e Ministério');
+        const ajdSrvm = publishers.find(p => p.funcao === 'Ajudante do Superintendente da Reunião Vida e Ministério' || p.funcao === 'Ajudante SRVM Lembretes');
         if (ajdSrvm && ACQUIESCENCE_CONDITIONS.includes(ajdSrvm.condition)) {
             comissao.push(ajdSrvm);
         }
@@ -1047,7 +1047,8 @@ async function sendDailyReport(
     // Destinatários: SRVM + Ajudante SRVM
     const srvmPubs = publishers.filter(p =>
         p.funcao === 'Superintendente da Reunião Vida e Ministério' ||
-        p.funcao === 'Ajudante do Superintendente da Reunião Vida e Ministério'
+        p.funcao === 'Ajudante do Superintendente da Reunião Vida e Ministério' ||
+        p.funcao === 'Ajudante SRVM Lembretes'
     ).filter(p => !!p.phone);
 
     if (srvmPubs.length === 0 || (sentCount === 0 && noPhoneList.length === 0 && monthlyReports.length === 0)) {
