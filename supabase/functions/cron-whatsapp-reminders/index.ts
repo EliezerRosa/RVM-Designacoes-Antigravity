@@ -211,7 +211,7 @@ function buildReminderMessage(
     } else if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo disc') || lower.includes('explicando')) {
         body += `\n🎭 Lembre-se de ensaiar a demonstração com antecedência.`;
         if (partnerInfo) {
-            body += `\n👥 Seu parceiro de ensaio: ${partnerInfo}`;
+            body += `\n👥 Sua dupla de ensaio: ${partnerInfo}`;
         }
     } else if (lower.includes('discurso tesouros') || lower.includes('joias espirituais')) {
         body += `\n🎤 Revise bem o conteúdo e o tempo disponível para seu discurso.`;
