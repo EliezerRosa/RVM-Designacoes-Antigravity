@@ -19,7 +19,7 @@ export const S38ProfilesTab: React.FC<Props> = ({ publishers, onPublishersChange
 
     // OpenRouter Models State (Curated List)
     const availableModels = [
-        { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (Rápido & Estável)' },
+        { id: 'anthropic/claude-sonnet-5.5', name: 'Claude 5.5 Sonnet (Rápido & Estável)' },
         { id: 'anthropic/claude-opus-5.5', name: 'Claude Opus 5.5 (Raciocínio Profundo)' },
         { id: 'openai/gpt-6-astra', name: 'GPT-6 Astra (OpenAI)' },
         { id: 'openai/gpt-6.1-sol-pro', name: 'GPT-6.1 Sol Pro (OpenAI)' },
@@ -27,7 +27,7 @@ export const S38ProfilesTab: React.FC<Props> = ({ publishers, onPublishersChange
         { id: 'meta/muse-spark-1.3', name: 'Muse Spark 1.3 (Meta)' },
         { id: 'x-ai/grok-4.7', name: 'Grok 4.7 (xAI)' }
     ];
-    const [selectedModel, setSelectedModel] = useState<string>('anthropic/claude-3.5-sonnet');
+    const [selectedModel, setSelectedModel] = useState<string>('anthropic/claude-sonnet-5.5');
 
     useEffect(() => {
         loadData();

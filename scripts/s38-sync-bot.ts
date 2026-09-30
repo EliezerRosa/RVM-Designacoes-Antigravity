@@ -10,7 +10,7 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
-const TARGET_MODEL = process.env.SELECTED_MODEL || 'anthropic/claude-3.5-sonnet';
+const TARGET_MODEL = process.env.SELECTED_MODEL || 'anthropic/claude-sonnet-5.5';
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '5527992035302'; // Defaulting to Eliezer Rosa's phone
 
 async function runS38Sync() {
