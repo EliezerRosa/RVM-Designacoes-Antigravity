@@ -126,12 +126,11 @@ export async function buildDesignatableCards(
             if (titularRealId) includedOriginalIds.add(titularRealId);
         }
         if (part.mainHallAssistant) {
-            const titularTitulo = (original?.tituloParte || part.title || '') as string;
-            const titularSeq = extractPartNumber(titularTitulo);
-            let ajudanteWp = titularSeq
+            const titularSeqId = original?.seq;
+            let ajudanteWp = titularSeqId
                 ? weekParts.find(wp =>
                     wp.funcao === 'Ajudante' &&
-                    extractPartNumber(wp.tituloParte || wp.tipoParte || '') === titularSeq
+                    wp.seq === titularSeqId
                 )
                 : undefined;
             if (!ajudanteWp) {
