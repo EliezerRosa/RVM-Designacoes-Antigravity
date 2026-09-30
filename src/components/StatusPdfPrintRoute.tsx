@@ -46,12 +46,14 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
       }
 
       try {
-        // 1. Buscar partes da semana
+        // 1. Buscar partes das semanas
+        const weekIds = weekId.split(',').map(id => id.trim()).filter(Boolean);
         const { data: partsData, error: partsErr } = await supabase
           .from('workbook_parts')
           .select('*')
-          .eq('week_id', weekId)
+          .in('week_id', weekIds)
           .in('status', ['DESIGNADA', 'PROPOSTA', 'REJEITADA', 'VAGA'])
+          .order('week_id', { ascending: true })
           .order('seq', { ascending: true });
 
         if (partsErr) throw partsErr;
@@ -115,6 +117,15 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
     return rawName || 'Não designado';
   };
 
+    const partsByWeek = parts.reduce((acc, part) => {
+      const wId = part.weekId || 'Semana Desconhecida';
+      if (!acc[wId]) acc[wId] = [];
+      acc[wId].push(part);
+      return acc;
+    }, {} as Record<string, WorkbookPart[]>);
+
+    const weekIds = Object.keys(partsByWeek).sort();
+
   return (
     <div id="status-pdf-root" style={{ width: '800px', padding: '20px', fontFamily: 'sans-serif', color: '#111827', background: '#fff', minHeight: '100vh' }}>
        {/* Override global body background which is dark */}
@@ -122,11 +133,17 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
          body { background: #fff !important; }
        `}</style>
        <h1 style={{ textAlign: 'center', borderBottom: '2px solid #e5e7eb', paddingBottom: '5px', marginBottom: '10px', fontSize: '24px' }}>
-         Atualização de Status de parte(s) da semana {weekId}
+         Atualização de Status de parte(s)
        </h1>
        <p style={{ textAlign: 'center', color: '#4b5563', marginBottom: '15px', fontSize: '13px' }}>
          Click no número para ligar/zap para contato
        </p>
+
+       {weekIds.map((wId, index) => (
+         <div key={wId} style={{ marginBottom: '30px', pageBreakInside: 'avoid' }}>
+           <h2 style={{ fontSize: '18px', marginBottom: '10px', color: '#1e3a8a', padding: '5px', backgroundColor: '#f1f5f9', borderRadius: '4px' }}>
+             Semana: {wId}
+           </h2>
 
        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #d1d5db' }}>
          <thead>
@@ -138,7 +155,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
            </tr>
          </thead>
          <tbody>
-           {parts.filter(p => !['Elogios e Conselhos', 'Oração Inicial', 'Comentários Iniciais', 'Comentários Finais'].includes(p.tipoParte || '')).map(part => {
+           {partsByWeek[wId].filter(p => !['Elogios e Conselhos', 'Oração Inicial', 'Comentários Iniciais', 'Comentários Finais'].includes(p.tipoParte || '')).map(part => {
              // Formatação da Parte
              const mainTitle = part.tipoParte || part.partType || 'Designação';
              const subTitle = part.tituloParte || part.descricaoParte;
@@ -217,6 +234,8 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
            })}
          </tbody>
        </table>
+       </div>
+       ))}
     </div>
   );
 }
