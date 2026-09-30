@@ -258,14 +258,37 @@ export const s140PackageService = {
         s140Provider?: (weekId: string) => Promise<string | null>;
     }): Promise<void> {
         const isCurrent = this.isCurrentWeek(part.weekId);
+        let allowEmergencyDispatch = isCurrent;
+        let modo2Reason = 'Ajuste de emergência na semana em curso';
 
-        // Se for semana futura: apenas atualiza o banco para consolidação no Modo 1 (Segunda-feira)
-        if (!isCurrent) {
+        // Regra Especial de Véspera: Se for a próxima semana, E hoje for o dia anterior à reunião da SEMANA ATUAL, dispara também!
+        if (!allowEmergencyDispatch && part.date) {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const currentMonday = getWeekMondayId(todayStr);
+            const nextMondayDate = new Date(currentMonday);
+            nextMondayDate.setUTCDate(nextMondayDate.getUTCDate() + 7);
+            const nextMonday = nextMondayDate.toISOString().slice(0, 10);
+
+            if (part.weekId === nextMonday) {
+                // A data da reunião atual seria a data da parte menos 7 dias. O dia anterior seria menos 8 dias.
+                const targetDate = new Date(part.date);
+                targetDate.setUTCDate(targetDate.getUTCDate() - 8);
+                const dayBeforeCurrentMeetingStr = targetDate.toISOString().slice(0, 10);
+                
+                if (todayStr === dayBeforeCurrentMeetingStr) {
+                    allowEmergencyDispatch = true;
+                    modo2Reason = 'Ajuste na próxima semana durante a VÉSPERA da reunião atual';
+                }
+            }
+        }
+
+        // Se for semana futura (e não se encaixou na véspera): apenas atualiza o banco para consolidação no Modo 1 (Segunda-feira)
+        if (!allowEmergencyDispatch) {
             console.log(`[s140PackageService] Ajuste na semana futura ${part.weekId}. Será consolidado no Pacote da próxima segunda-feira.`);
             return;
         }
 
-        console.log(`[s140PackageService] 🚨 MODO 2 ATIVADO: Ajuste de emergência na semana em curso (${part.weekId})!`);
+        console.log(`[s140PackageService] 🚨 MODO 2 ATIVADO: ${modo2Reason} (${part.weekId})!`);
 
         try {
             // 1. Carrega todas as semanas publicadas da congregação (da semana atual em diante)
