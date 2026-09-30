@@ -9,7 +9,7 @@ on:
       model:
         description: 'OpenRouter Model ID'
         required: false
-        default: 'anthropic/claude-3.5-sonnet'
+        default: 'anthropic/claude-sonnet-5.5'
   repository_dispatch:
     types: [trigger-s38]
 
@@ -38,5 +38,5 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ADMIN_PHONE: ${{ secrets.ADMIN_PHONE }}
-          SELECTED_MODEL: ${{ github.event.inputs.model || github.event.client_payload.model || 'anthropic/claude-3.5-sonnet' }}
+          SELECTED_MODEL: ${{ github.event.inputs.model || github.event.client_payload.model || 'anthropic/claude-sonnet-5.5' }}
         run: npm run s38-sync
