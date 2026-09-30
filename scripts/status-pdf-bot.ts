@@ -39,9 +39,8 @@ async function getRecipientsPhones(): Promise<string[]> {
   return Array.from(phones);
 }
 
-async function sendPdf(phone: string, pdfBuffer: Buffer, weekId: string) {
+async function sendPdf(phone: string, pdfBuffer: Buffer, caption: string, versionTag: string) {
   const base64Pdf = pdfBuffer.toString('base64');
-  const caption = `Atualização de Status de parte(s) da semana ${weekId} - Click no número para ligar/zap para contato`;
   
   try {
     const { data, error } = await supabase.functions.invoke('send-whatsapp', {
@@ -50,7 +49,7 @@ async function sendPdf(phone: string, pdfBuffer: Buffer, weekId: string) {
         phone,
         document: base64Pdf,
         extension: 'pdf',
-        fileName: `Status_Designacoes_${weekId}.pdf`,
+        fileName: `${versionTag}_Status_Designacoes.pdf`,
         caption
       }
     });
@@ -156,47 +155,77 @@ async function main() {
   });
 
   try {
-    for (const weekId of weeksToProcess) {
-      console.log(`Gerando PDF para a semana ${weekId}...`);
-      const page = await browser.newPage();
-      page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-      
-      const targetUrl = `${APP_URL}/?portal=status-pdf-print&weekId=${weekId}&token=${BOT_TOKEN}`;
-      console.log(`URL do PDF: ${targetUrl}`);
-      console.log(`BOT_TOKEN: ${BOT_TOKEN}`);
-      await page.goto(targetUrl, { waitUntil: 'networkidle0', timeout: 30000 });
-      
-      try {
-        await page.waitForSelector('#status-pdf-root', { timeout: 10000 });
-      } catch (err) {
-        const html = await page.content();
-        console.error("ERRO AO ENCONTRAR #status-pdf-root! CONTEÚDO DA PÁGINA:");
-        console.error(html);
-        throw err;
-      }
-      
-      // Ajustar viewport e estilos para melhor impressão
-      await page.addStyleTag({
-        content: `
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          #s89-loading { display: none !important; }
-        `
-      });
+  // === MODIFICAÇÃO: AGRUPAMENTO DE SEMANAS E TEXTO RICO ===
 
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '20px', bottom: '20px', left: '20px', right: '20px' }
-      });
+  // 1. Busca quais partes foram alteradas nas últimas 24h (para colocar no texto)
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: recentParts } = await supabase
+    .from('workbook_parts')
+    .select('week_id, titulo_parte, descricao_parte, tipo_parte, funcao, status, status_changed_at')
+    .in('week_id', weeksToProcess)
+    .gte('status_changed_at', twentyFourHoursAgo)
+    .order('status_changed_at', { ascending: false });
 
-      console.log(`PDF gerado (${pdfBuffer.length} bytes). Enviando via Z-API...`);
+  let textDetails = '';
+  if (recentParts && recentParts.length > 0) {
+    const partsByWeek = recentParts.reduce((acc: any, p: any) => {
+      if (!acc[p.week_id]) acc[p.week_id] = [];
+      acc[p.week_id].push(p);
+      return acc;
+    }, {});
 
-      for (const phone of recipients) {
-        await sendPdf(phone, Buffer.from(pdfBuffer), weekId);
-      }
-
-      await page.close();
+    textDetails = '\\n\\n*Mudanças Recentes Identificadas:*\\n';
+    for (const [wId, pts] of Object.entries(partsByWeek)) {
+      textDetails += `\\n🗓️ *Semana ${wId}:*\\n`;
+      // @ts-ignore
+      const uniquePts = Array.from(new Set(pts.map((p: any) => `  ↳ ${p.tipo_parte || p.titulo_parte} (${p.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'}) ➜ _${p.status}_`)));
+      textDetails += uniquePts.join('\\n');
     }
+  }
+
+  const combinedWeeks = weeksToProcess.join(',');
+  const versionHash = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const versionTag = `[VERSÃO DE ATUALIZAÇÃO #${versionHash}]`;
+  const richCaption = `🚨 ${versionTag} 🚨\\n\\nSegue o Quadro Geral unificado contemplando as seguintes semanas afetadas:\\n${weeksToProcess.map(w => `• ${w}`).join('\\n')}${textDetails}\\n\\n_(Abra o PDF e clique no número de telefone para chamar no WhatsApp)_`;
+
+  console.log(`Gerando PDF ÚNICO para as semanas: ${combinedWeeks}...`);
+  const page = await browser.newPage();
+  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  
+  const targetUrl = `${APP_URL}/?portal=status-pdf-print&weekId=${combinedWeeks}&token=${BOT_TOKEN}`;
+  console.log(`URL do PDF: ${targetUrl}`);
+  await page.goto(targetUrl, { waitUntil: 'networkidle0', timeout: 30000 });
+  
+  try {
+    await page.waitForSelector('#status-pdf-root', { timeout: 10000 });
+  } catch (err) {
+    const html = await page.content();
+    console.error("ERRO AO ENCONTRAR #status-pdf-root! CONTEÚDO DA PÁGINA:");
+    console.error(html);
+    throw err;
+  }
+  
+  // Ajustar viewport e estilos para melhor impressão
+  await page.addStyleTag({
+    content: `
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      #s89-loading { display: none !important; }
+    `
+  });
+
+  const pdfBuffer = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    margin: { top: '20px', bottom: '20px', left: '20px', right: '20px' }
+  });
+
+  console.log(`PDF gerado (${pdfBuffer.length} bytes). Enviando via Z-API...`);
+
+  for (const phone of recipients) {
+    await sendPdf(phone, Buffer.from(pdfBuffer), richCaption, versionTag);
+  }
+
+  await page.close();
 
     // Marcar como processado
     if (processedIds.length > 0) {
