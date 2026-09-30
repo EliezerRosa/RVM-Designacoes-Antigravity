@@ -56,7 +56,7 @@ async function runS38Sync() {
         const systemPrompt = `Você é um arquiteto de dados atuando em um sistema de designações (RVM).
 Sua missão: Extraia as diretrizes do texto oficial e gere novos perfis sintéticos independentes.
 Regras:
-1. Retorne ESTRITAMENTE um JSON em formato de Array de objetos. Exemplo: [{"id": "leitor_fluente", "nome": "Leitor Fluente", "descricao": "...", "requisitos": ["Boa dicção"]}].
+1. Retorne ESTRITAMENTE um JSON em formato de Array de objetos. Exemplo: [{"id": "leitor_fluente", "nome": "Leitor Fluente", "descricao": "..."}].
 2. Não inclua Markdown envolto no JSON, retorne APENAS a string JSON válida.`;
 
         const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -105,7 +105,6 @@ Regras:
                 id: uniqueId,
                 nome: profile.nome,
                 descricao: profile.descricao,
-                requisitos: profile.requisitos,
                 source: 'S-38',
                 status: 'Rascunho IA',
                 updated_at: new Date().toISOString()
