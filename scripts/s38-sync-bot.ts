@@ -10,6 +10,7 @@ const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const TARGET_MODEL = process.env.SELECTED_MODEL || 'anthropic/claude-3.5-sonnet';
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '5527992035302'; // Defaulting to Eliezer Rosa's phone
 
 async function runS38Sync() {
@@ -58,7 +59,7 @@ async function runS38Sync() {
         const currentProfilesJson = JSON.stringify(currentProfiles, null, 2);
 
         // 3. Comunicação com OpenRouter
-        console.log('[S38-Sync] Enviando conteúdo para OpenRouter (Claude 3.5 Sonnet)...');
+        console.log(`[S38-Sync] Enviando conteúdo para OpenRouter (${TARGET_MODEL})...`);
         
         const systemPrompt = `Você é um arquiteto de dados atuando em um sistema de designações (RVM).
 Leia as instruções oficiais (S-38) atualizadas e a base de perfis atual listada abaixo.
@@ -79,7 +80,7 @@ ${currentProfilesJson}`;
                 'X-Title': 'RVM Designações Auto-Sync'
             },
             body: JSON.stringify({
-                model: 'anthropic/claude-3.5-sonnet',
+                model: TARGET_MODEL,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: `TEXTO OFICIAL DO S-38:\n\n${documentText}` }

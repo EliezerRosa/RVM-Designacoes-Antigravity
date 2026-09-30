@@ -17,9 +17,26 @@ export const S38ProfilesTab: React.FC<Props> = ({ publishers, onPublishersChange
     const [editingProfile, setEditingProfile] = useState<CuratorProfile | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
+    // OpenRouter Models State
+    const [availableModels, setAvailableModels] = useState<{ id: string; name: string }[]>([]);
+    const [selectedModel, setSelectedModel] = useState<string>('anthropic/claude-3.5-sonnet');
+
     useEffect(() => {
         loadData();
+        fetchOpenRouterModels();
     }, []);
+
+    const fetchOpenRouterModels = async () => {
+        try {
+            const res = await fetch('https://openrouter.ai/api/v1/models');
+            const json = await res.json();
+            if (json && json.data) {
+                setAvailableModels(json.data.map((m: any) => ({ id: m.id, name: m.name })));
+            }
+        } catch (e) {
+            console.error("Falha ao buscar modelos OpenRouter", e);
+        }
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -195,12 +212,25 @@ export const S38ProfilesTab: React.FC<Props> = ({ publishers, onPublishersChange
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
+                    <select 
+                        value={selectedModel} 
+                        onChange={e => setSelectedModel(e.target.value)}
+                        style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px', maxWidth: '200px' }}
+                        title="Motor de IA a ser utilizado na sincronização"
+                    >
+                        {availableModels.length > 0 ? availableModels.map(m => (
+                            <option key={m.id} value={m.id}>{m.id}</option>
+                        )) : (
+                            <option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet</option>
+                        )}
+                    </select>
+
                     <button 
                         onClick={async () => {
-                            if (window.confirm('Isso disparará o motor de extração na nuvem (GitHub Actions). Deseja continuar?')) {
+                            if (window.confirm(`Isso disparará o motor de extração na nuvem usando o modelo [${selectedModel}]. Deseja continuar?`)) {
                                 try {
                                     // Invoca edge function para disparar a action de forma segura
-                                    const { error: triggerErr } = await supabase.functions.invoke('trigger-s38', { body: {} });
+                                    const { error: triggerErr } = await supabase.functions.invoke('trigger-s38', { body: { model: selectedModel } });
                                     if (triggerErr) throw triggerErr;
                                     alert('Sincronização acionada! O bot está lendo o WOL. Você receberá um aviso no WhatsApp em 1 ou 2 minutos.');
                                 } catch(e: any) {
