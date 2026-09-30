@@ -261,7 +261,10 @@ export const s140PackageService = {
         let allowEmergencyDispatch = isCurrent;
         let modo2Reason = 'Ajuste de emergência na semana em curso';
 
-        // Regra Especial de Véspera: Se for a próxima semana, E hoje for o dia anterior à reunião da SEMANA ATUAL, dispara também!
+        // Regra Especial de Véspera (Dia de envio do S-140 com ajustes coletivos): 
+        // O dia anterior à reunião da semana atual é exatamente o dia em que o S-140 da próxima semana 
+        // é fechado e enviado coletivamente. Se houver uma alteração manual NESTE dia, ela deve 
+        // disparar o gatilho reativo (Modo 2) para garantir que a grade não fique defasada.
         if (!allowEmergencyDispatch && part.date) {
             const todayStr = new Date().toISOString().slice(0, 10);
             const currentMonday = getWeekMondayId(todayStr);
@@ -356,12 +359,15 @@ export const s140PackageService = {
             const tipoParte = part.tituloParte || part.tipoParte || 'Designação';
             const weekDisplay = this.formatDateDisplay(part.date || part.weekId);
 
+            const isCurrentStr = isCurrent ? "na Semana em Curso" : "na Próxima Semana";
+            const isCurrentStrTitle = isCurrent ? "Semana em Curso:" : "Próxima Semana:";
+
             // Texto A: Pacote Completo (Grupo + Equipe RVM + Quadro)
             const packageCaption =
                 `📦 *PROGRAMAÇÃO RVM — S-140 ATUALIZADO* 📦\n` +
                 `🏛️ *Congregação Parque Jacaraípe*\n` +
-                `📅 *Semana em Curso:* ${weekDisplay}\n\n` +
-                `⚠️ *Aviso de Ajuste de Última Hora na Semana em Curso:*\n` +
+                `📅 *${isCurrentStrTitle}* ${weekDisplay}\n\n` +
+                `⚠️ *Aviso de Ajuste de Última Hora ${isCurrentStr}:*\n` +
                 `• *Parte:* ${tipoParte}\n` +
                 `• *Substituição:* ~${oldPublisherName}~ ➡️ *${newPublisherName}*\n\n` +
                 `Segue em anexo a folha oficial *S-140 atualizada* desta semana.\n\n` +
