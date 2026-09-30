@@ -17,26 +17,21 @@ export const S38ProfilesTab: React.FC<Props> = ({ publishers, onPublishersChange
     const [editingProfile, setEditingProfile] = useState<CuratorProfile | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
-    // OpenRouter Models State
-    const [availableModels, setAvailableModels] = useState<{ id: string; name: string }[]>([]);
+    // OpenRouter Models State (Curated List)
+    const availableModels = [
+        { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (Rápido & Estável)' },
+        { id: 'anthropic/claude-opus-5.5', name: 'Claude Opus 5.5 (Raciocínio Profundo)' },
+        { id: 'openai/gpt-6-astra', name: 'GPT-6 Astra (OpenAI)' },
+        { id: 'openai/gpt-6.1-sol-pro', name: 'GPT-6.1 Sol Pro (OpenAI)' },
+        { id: 'google/gemini-3.8-flash', name: 'Gemini 3.8 Flash (Google)' },
+        { id: 'meta/muse-spark-1.3', name: 'Muse Spark 1.3 (Meta)' },
+        { id: 'x-ai/grok-4.7', name: 'Grok 4.7 (xAI)' }
+    ];
     const [selectedModel, setSelectedModel] = useState<string>('anthropic/claude-3.5-sonnet');
 
     useEffect(() => {
         loadData();
-        fetchOpenRouterModels();
     }, []);
-
-    const fetchOpenRouterModels = async () => {
-        try {
-            const res = await fetch('https://openrouter.ai/api/v1/models');
-            const json = await res.json();
-            if (json && json.data) {
-                setAvailableModels(json.data.map((m: any) => ({ id: m.id, name: m.name })));
-            }
-        } catch (e) {
-            console.error("Falha ao buscar modelos OpenRouter", e);
-        }
-    };
 
     const loadData = async () => {
         setLoading(true);
@@ -218,11 +213,9 @@ export const S38ProfilesTab: React.FC<Props> = ({ publishers, onPublishersChange
                         style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px', maxWidth: '200px' }}
                         title="Motor de IA a ser utilizado na sincronização"
                     >
-                        {availableModels.length > 0 ? availableModels.map(m => (
-                            <option key={m.id} value={m.id}>{m.id}</option>
-                        )) : (
-                            <option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet</option>
-                        )}
+                        {availableModels.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
                     </select>
 
                     <button 
