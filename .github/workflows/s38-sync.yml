@@ -5,8 +5,13 @@ on:
     # Roda no dia 1 de cada mês às 09:00 BRT (12:00 UTC)
     - cron: '0 12 1 * *'
   workflow_dispatch: # Permite disparo manual
-
-jobs:
+    inputs:
+      model:
+        description: 'OpenRouter Model ID'
+        required: false
+        default: 'anthropic/claude-3.5-sonnet'
+  repository_dispatch:
+    types: [trigger-s38]
   sync-s38:
     runs-on: ubuntu-latest
     steps:
@@ -31,4 +36,5 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ADMIN_PHONE: ${{ secrets.ADMIN_PHONE }}
+          SELECTED_MODEL: ${{ github.event.inputs.model || github.event.client_payload.model || 'anthropic/claude-3.5-sonnet' }}
         run: npm run s38-sync
