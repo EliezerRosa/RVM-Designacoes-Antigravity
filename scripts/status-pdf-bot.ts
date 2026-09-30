@@ -176,10 +176,15 @@ async function main() {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: recentParts } = await supabase
     .from('workbook_parts')
-    .select('week_id, titulo_parte, descricao_parte, tipo_parte, funcao, status, status_changed_at')
+    .select('week_id, titulo_parte, descricao_parte, tipo_parte, funcao, status, status_changed_at, resolved_publisher_id')
     .in('week_id', weeksToProcess)
     .gte('status_changed_at', twentyFourHoursAgo)
     .order('status_changed_at', { ascending: false });
+
+  const { data: publishersData } = await supabase
+    .from('publishers')
+    .select('id, name');
+  const pubMap = new Map(publishersData?.map(p => [p.id, p.name]) || []);
 
   let textDetails = '';
   if (recentParts && recentParts.length > 0) {
@@ -189,19 +194,37 @@ async function main() {
       return acc;
     }, {});
 
-    textDetails = '\\n\\n*Mudanças Recentes Identificadas:*\\n';
+    textDetails = '\n\n*Mudanças Recentes Identificadas:*';
     for (const [wId, pts] of Object.entries(partsByWeek)) {
-      textDetails += `\\n🗓️ *Semana ${wId}:*\\n`;
+      textDetails += `\n🗓️ *Semana ${wId}:*\n`;
       // @ts-ignore
-      const uniquePts = Array.from(new Set(pts.map((p: any) => `  ↳ ${p.tipo_parte || p.titulo_parte} (${p.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'}) ➜ _${p.status}_`)));
-      textDetails += uniquePts.join('\\n');
+      const uniquePts = Array.from(new Set(pts.map((p: any) => {
+          const pubName = pubMap.get(p.resolved_publisher_id) || 'A Designar';
+          return `  ↳ ${p.tipo_parte || p.titulo_parte} (${p.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'}) ➜ *${pubName}*`;
+      })));
+      textDetails += uniquePts.join('\n');
     }
   }
 
-  const combinedWeeks = weeksToProcess.join(',');
+  // 2. Buscar semanas publicadas para gerar o PDF consolidado
+  const { data: wpData } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'week_published')
+    .maybeSingle();
+  const publishedMap = (wpData?.value as Record<string, string>) || {};
+  const publishedWeekIds = Object.keys(publishedMap).filter(wId => wId >= currentMondayStr);
+  
+  for (const w of weeksToProcess) {
+    if (!publishedWeekIds.includes(w)) publishedWeekIds.push(w);
+  }
+  publishedWeekIds.sort();
+
+  const combinedWeeks = publishedWeekIds.join(',');
   const versionHash = Math.random().toString(36).substring(2, 6).toUpperCase();
   const versionTag = `[VERSÃO DE ATUALIZAÇÃO #${versionHash}]`;
-  const richCaption = `🚨 ${versionTag} 🚨\\n\\nSegue o Quadro Geral unificado contemplando as seguintes semanas afetadas:\\n${weeksToProcess.map(w => `• ${w}`).join('\\n')}${textDetails}\\n\\n_(Abra o PDF e clique no número de telefone para chamar no WhatsApp)_`;
+  
+  const richCaption = `🚨 ${versionTag} 🚨\n\nSegue o Quadro Geral unificado contemplando as semanas afetadas:\n${weeksToProcess.map(w => `• ${w}`).join('\n')}${textDetails}\n\n_(Abra o PDF e clique no número de telefone para chamar no WhatsApp)_`;
 
   console.log(`Gerando PDF ÚNICO para as semanas: ${combinedWeeks}...`);
   const page = await browser.newPage();
