@@ -3,23 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { WorkbookPart, Publisher } from '../types';
 import { mapDbToWorkbookPart } from '../services/workbookService';
 
-const PART_LABELS: Record<string, string> = {
-  PRESIDENTE: 'Presidente',
-  ORACAO_INICIAL: 'Oração Inicial',
-  TESOUROS_DISCURSO: 'Discurso de Tesouros',
-  JOIAS: 'Joias Espirituais',
-  LEITURA_BIBLIA: 'Leitura da Bíblia',
-  FAÇA_MELHOR: 'Faça Seu Melhor',
-  ESTUDO_BIBLICO: 'Estudo Bíblico',
-  VIDA_CRISTA_1: 'Vida Cristã 1',
-  VIDA_CRISTA_2: 'Vida Cristã 2',
-  ESTUDO_LIVRO: 'Estudo de Livro',
-  LEITOR_LIVRO: 'Leitor do Livro',
-  ORACAO_FINAL: 'Oração Final',
-  MECANICA_A: 'Áudio / Mecânica',
-  INDICADOR_A: 'Indicador',
-  MICROFONE_A: 'Microfone',
-};
+
 
 interface StatusPdfPrintRouteProps {
   weekId: string | null;
@@ -64,7 +48,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
         const pubIds = new Set<string>();
         weekParts.forEach(p => {
           if (p.resolvedPublisherId) pubIds.add(p.resolvedPublisherId);
-          if (p.resolvedAssistantId) pubIds.add(p.resolvedAssistantId);
+          if (p?.assistantId) pubIds.add(p?.assistantId);
         });
 
         const { data: pubsData, error: pubsErr } = await supabase
@@ -157,7 +141,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
          <tbody>
            {partsByWeek[wId].filter(p => !['Elogios e Conselhos', 'Oração Inicial', 'Comentários Iniciais', 'Comentários Finais'].includes(p.tipoParte || '')).map(part => {
              // Formatação da Parte
-             const mainTitle = part.tipoParte || part.partType || 'Designação';
+             const mainTitle = part.tipoParte || part?.tipoParte || 'Designação';
              const subTitle = part.tituloParte || part.descricaoParte;
              const isAjud = part.funcao === 'Ajudante';
              
@@ -171,22 +155,22 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
              let statusIcon = '⌛';
              let statusText = 'AGUARDANDO';
              
-             if (part.status === 'DESIGNADA' || part.status === 'CONFIRMADA' || part.status === 'CONCLUIDA') {
+             if (part.status === 'DESIGNADA' || false /* CONFIRMADA is not valid */ || part.status === 'CONCLUIDA') {
                statusBg = '#10b981';
                statusColor = '#ffffff';
                statusIcon = '✓';
                statusText = 'ACEITA';
-             } else if (part.status === 'RECUSADA' || part.status === 'REJEITADA') {
+             } else if (false /* RECUSADA is not valid */ || part.status === 'REJEITADA') {
                statusBg = '#ef4444';
                statusColor = '#ffffff';
                statusIcon = '❌';
                statusText = 'REJEITADA';
-             } else if (part.status === 'VAGA') {
+             } else if (false /* VAGA is not valid */) {
                statusBg = '#ef4444';
                statusColor = '#ffffff';
                statusIcon = '⚠️';
                statusText = 'VAGA';
-             } else if (part.status === 'SUBSTITUIDA') {
+             } else if (false /* SUBSTITUIDA is not valid */) {
                statusBg = '#f59e0b';
                statusColor = '#ffffff';
                statusIcon = '🔄';

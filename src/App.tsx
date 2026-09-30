@@ -39,6 +39,7 @@ const TerritoryManager = lazy(() => import('./components/TerritoryManager'))
 const CommunicationTab = lazy(() => import('./components/CommunicationTab').then(m => ({ default: m.CommunicationTab })))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 const MonthlyReportTab = lazy(() => import('./components/rm/MonthlyReportTab'))
+const S38ProfilesTab = lazy(() => import('./components/S38ProfilesTab').then(m => ({ default: m.S38ProfilesTab })))
 
 import { publisherMutationService } from './services/publisherMutationService'
 import { workbookService } from './services/workbookService'
@@ -599,6 +600,18 @@ function AuthenticatedApp({ onSignOut, userEmail, isFocusMode, focusPartId }: { 
           >
             📊 Admin
           </button>}
+          {permissions.canViewTab('s38-profiles') && <button
+            className={`nav-btn ${activeTab === 's38-profiles' ? 'active' : ''}`}
+            onClick={() => handleTabChange('s38-profiles')}
+            title="Diretrizes S-38 Oficiais"
+            style={{ 
+              background: activeTab === 's38-profiles' ? '#312e81' : 'transparent', 
+              border: activeTab === 's38-profiles' ? 'none' : '1px solid #312e81', 
+              color: activeTab === 's38-profiles' ? 'white' : '#312e81',
+            }}
+          >
+            📖 S-38
+          </button>}
           {permissions.canViewTab('agent') ? (
             <button
               className={`nav-btn ${activeTab === 'agent' ? 'active' : ''}`}
@@ -746,6 +759,14 @@ function AuthenticatedApp({ onSignOut, userEmail, isFocusMode, focusPartId }: { 
               <PublisherProfileChangesBanner />
               <AdminDashboard />
             </div>
+          )}
+
+          {/* S-38 Profiles Tab */}
+          {activeTab === 's38-profiles' && (
+            <S38ProfilesTab 
+              publishers={publishers}
+              onPublishersChange={refreshAllData}
+            />
           )}
         </Suspense>
       </main>

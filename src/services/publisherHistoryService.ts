@@ -486,7 +486,7 @@ export function getInvisibleHardcodedStatuses(
     }
 
     // 3. Criança (Código duro para partes de estudante)
-    if (publisher.ageGroup === 'child') {
+    if (publisher.ageGroup === "Crianca" as any) {
         statuses.push({
             id: 'child_rule',
             label: 'Criança',

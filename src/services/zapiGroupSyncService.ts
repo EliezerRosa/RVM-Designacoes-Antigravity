@@ -294,7 +294,7 @@ export const zapiGroupSyncService = {
             const { displayName: rawWaName, pushName, isPushName } = cleanParticipantName(p);
 
             // Limpa ~ e acentos para fazer match com publicadores do banco RVM
-            const waNameClean = cleanWaName(rawWaName);
+            const _waNameClean = cleanWaName(rawWaName);
 
             let matchedPub = pubMapByPhone.get(cleanP);
             let matchType: 'EXACT_PHONE' | 'NAME_MATCH' | 'UNMATCHED' = matchedPub ? 'EXACT_PHONE' : 'UNMATCHED';

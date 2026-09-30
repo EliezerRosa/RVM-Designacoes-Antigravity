@@ -129,7 +129,7 @@ async function upsertChunked(
         const slice = rows.slice(i, i + 500);
         const { data, error } = await rm().from(table).upsert(slice, { onConflict }).select(returning);
         if (error) throw error;
-        if (data) out.push(...(data as { id: string; glide_id?: string; glide_row_id?: string }[]));
+        if (data) out.push(...(data as any));
     }
     return out;
 }
@@ -316,11 +316,11 @@ export const rmSyncService = {
             log('Importando publicadores…');
             const payload = pubRows.map(m => {
                 const congGid = asStr(pick(m, 'fk_id_Congregação', 'fk_id_Congregacao', 'id_Congregação Qdo Relatou'));
-                const groupGid = asStr(pick(m, 'id_Grupo', 'GrupoAtual'));
+                const __groupGid = asStr(pick(m, 'id_Grupo', 'GrupoAtual'));
                 return {
                     glide_id: asStr(pick(m, 'id_Publicador', 'idPubEntrada')),
                     congregation_id: congGid ? congMap.get(congGid) ?? null : null,
-                    current_group_id: groupGid ? groupMap.get(groupGid) ?? null : null,
+                    current_group_id: _groupGid ? groupMap.get(_groupGid) ?? null : null,
                     name: asStr(pick(m, 'Nome Completo', 'NomeCompleto', 'Nome')),
                     gender: asGender(pick(m, 'Sexo')),
                     birth_date: asISODate(pick(m, 'Data de Nascimento', 'DataNascimento')),
@@ -381,7 +381,7 @@ export const rmSyncService = {
                 
                 // Excluir cartões mockados pelo Glide ("Congregação Geral", etc) 
                 // e qualquer publicador cujo grupo/função inicie com Congrega
-                const groupGid = p.current_group_id ? groupMap.get(p.current_group_id) : null;
+                const __groupGid = p.current_group_id ? groupMap.get(p.current_group_id) : null;
                 if (p.name?.toLowerCase().startsWith('congrega') || p.funcao?.toLowerCase().startsWith('congrega')) {
                     pubsToDelete.push(p.glide_id!);
                     return false;

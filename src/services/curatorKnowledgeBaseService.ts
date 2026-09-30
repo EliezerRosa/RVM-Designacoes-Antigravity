@@ -25,6 +25,8 @@ export interface CuratorProfile {
     afinidades_recomendadas: string[];
     insights: CuratorProfileInsight[];
     total_aplicacoes: number;
+    source?: 'S-38' | 'manual';
+    status?: 'Rascunho IA' | 'Aprovada' | 'Integrada ao Curador';
     created_at?: string;
     updated_at?: string;
 }

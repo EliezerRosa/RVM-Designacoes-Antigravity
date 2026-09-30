@@ -97,7 +97,7 @@ type PartialPublisher = Partial<Publisher> & {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader, announcementsOnly = false }: PublisherStatusFormProps) {
-    const { user, isAuthenticated, isLoading: authLoading, signInWithGoogle, signOut } = useAuth();
+    const { user, _isAuthenticated, isLoading: authLoading, signInWithGoogle, signOut } = useAuth();
     const [validating, setValidating] = useState(!isAdminAccess);
     const [authorized, setAuthorized] = useState(isAdminAccess);
     const [tokenInfo, setTokenInfo] = useState<FormToken | null>(null);
@@ -134,7 +134,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
 
     // ── Histórico de Alterações de Perfil & Status ──────────────────────────────────
     const [historyMap, setHistoryMap] = useState<Map<string, ProfileHistoryRecord[]>>(new Map());
-    const [historyLoading, setHistoryLoading] = useState(false);
+    const [_historyLoading, setHistoryLoading] = useState(false);
     const [showHardcodedRulesModal, setShowHardcodedRulesModal] = useState(false);
 
     // ── Modais NL + Eventos (Admin OU token de Comissão de Serviço) ─────────────────
