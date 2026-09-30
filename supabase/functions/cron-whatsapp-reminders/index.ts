@@ -54,6 +54,7 @@ interface PartData {
     resolved_publisher_id: string | null;
     resolved_publisher_name: string | null;
     section: string;
+    seq: number;
 }
 
 // ============================================================================
@@ -666,11 +667,11 @@ async function runDailyCycle(
         // --- PARCEIRO DE ENSAIO (D-7 apenas) ---
         let partnerInfo: string | undefined;
         if (dispatchType === 'LEMBRETE_D7' && part.funcao === 'Titular') {
-            // Buscar ajudante da mesma parte (mesmo week_id, tipo semelhante, funcao=Ajudante)
+            // Buscar ajudante da mesma parte (mesmo week_id, mesmo seq, funcao=Ajudante)
             const ajudantePart = parts.find(p =>
                 p.week_id === part.week_id &&
                 p.funcao === 'Ajudante' &&
-                p.tipo_parte.replace(' (Ajudante)', '') === part.tipo_parte &&
+                p.seq === part.seq &&
                 p.resolved_publisher_id
             );
             if (ajudantePart) {
@@ -684,7 +685,7 @@ async function runDailyCycle(
             const titularPart = parts.find(p =>
                 p.week_id === part.week_id &&
                 p.funcao === 'Titular' &&
-                part.tipo_parte.includes(p.tipo_parte) &&
+                p.seq === part.seq &&
                 p.resolved_publisher_id
             );
             if (titularPart) {
@@ -1138,7 +1139,7 @@ serve(async (req: Request) => {
     // Buscar partes — agora inclui PROPOSTA além de DESIGNADA
     const { data: rawParts, error } = await supabase
         .from('workbook_parts')
-        .select(`id, tipo_parte, part_title, week_id, status, funcao, raw_publisher_name, resolved_publisher_id, resolved_publisher_name, section`)
+        .select(`id, tipo_parte, part_title, week_id, status, funcao, raw_publisher_name, resolved_publisher_id, resolved_publisher_name, section, seq`)
         .in('status', ['DESIGNADA', 'PROPOSTA']);
 
     if (error || !rawParts) {
