@@ -332,7 +332,7 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                             const allParts = Object.values(weekParts).flat();
                             const partnerPart = allParts.find(p => 
                                 p.weekId === part.weekId && 
-                                p.tipoParte === part.tipoParte && 
+                                p.seq === part.seq && 
                                 p.id !== part.id &&
                                 (isAjudante ? p.funcao === 'Titular' : p.funcao === 'Ajudante')
                             );
