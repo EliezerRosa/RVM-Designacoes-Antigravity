@@ -35,7 +35,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 });
     }
 
-    const { action, workflow_id } = await req.json();
+    const bodyJson = await req.json();
+    const { action, workflow_id, inputs } = bodyJson;
     const targetWorkflow = workflow_id || DEFAULT_WORKFLOW_ID;
     const GITHUB_PAT = Deno.env.get('GITHUB_PAT');
 
@@ -51,7 +52,7 @@ serve(async (req) => {
           'Authorization': `Bearer ${GITHUB_PAT}`,
           'X-GitHub-Api-Version': '2022-11-28',
         },
-        body: JSON.stringify({ ref: 'main' }),
+        body: JSON.stringify({ ref: 'main', inputs: inputs || {} }),
       });
 
       if (!response.ok) {

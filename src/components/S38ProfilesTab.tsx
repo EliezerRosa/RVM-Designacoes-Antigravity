@@ -230,7 +230,13 @@ export const S38ProfilesTab: React.FC<Props> = ({ publishers, onPublishersChange
                             if (window.confirm(`Isso disparará o motor de extração na nuvem usando o modelo [${selectedModel}]. Deseja continuar?`)) {
                                 try {
                                     // Invoca edge function para disparar a action de forma segura
-                                    const { error: triggerErr } = await supabase.functions.invoke('trigger-s38', { body: { model: selectedModel } });
+                                    const { error: triggerErr } = await supabase.functions.invoke('trigger-github-workflow', { 
+                                        body: { 
+                                            action: 'trigger',
+                                            workflow_id: 's38-sync.yml',
+                                            inputs: { model: selectedModel } 
+                                        } 
+                                    });
                                     if (triggerErr) throw triggerErr;
                                     alert('Sincronização acionada! O bot está lendo o WOL. Você receberá um aviso no WhatsApp em 1 ou 2 minutos.');
                                 } catch(e: any) {
