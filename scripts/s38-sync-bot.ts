@@ -48,28 +48,16 @@ async function runS38Sync() {
             throw new Error('OPENROUTER_API_KEY não configurada no .env');
         }
 
-        // 2. Busca Base Atual (Injeção de Contexto)
-        console.log('[S38-Sync] Consultando base atual de curator_profiles...');
-        const { data: currentProfiles, error: dbError } = await supabase
-            .from('curator_profiles')
-            .select('*');
-        
-        if (dbError) throw dbError;
-
-        const currentProfilesJson = JSON.stringify(currentProfiles, null, 2);
+        // Ignoramos a base atual para não influenciar a IA e forçar a criação de rascunhos limpos.
 
         // 3. Comunicação com OpenRouter
         console.log(`[S38-Sync] Enviando conteúdo para OpenRouter (${TARGET_MODEL})...`);
         
         const systemPrompt = `Você é um arquiteto de dados atuando em um sistema de designações (RVM).
-Leia as instruções oficiais (S-38) atualizadas e a base de perfis atual listada abaixo.
-Sua missão: Extraia as diretrizes do texto oficial e gere novos perfis sintéticos ou proponha alterações nos existentes.
+Sua missão: Extraia as diretrizes do texto oficial e gere novos perfis sintéticos independentes.
 Regras:
 1. Retorne ESTRITAMENTE um JSON em formato de Array de objetos. Exemplo: [{"id": "leitor_fluente", "nome": "Leitor Fluente", "descricao": "...", "requisitos": ["Boa dicção"]}].
-2. Não inclua Markdown envolto no JSON, retorne APENAS a string JSON válida.
-
-Base Atual em JSON:
-${currentProfilesJson}`;
+2. Não inclua Markdown envolto no JSON, retorne APENAS a string JSON válida.`;
 
         const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -107,20 +95,27 @@ ${currentProfilesJson}`;
         const extractedProfiles = JSON.parse(cleanJson);
         console.log(`[S38-Sync] IA gerou ${extractedProfiles.length} perfis/atualizações.`);
 
-        // 4. Salvar no Supabase (Estágio: Rascunho IA)
+        // 4. Salvar no Supabase (Estágio: Rascunho IA) - Sempre criando NOVO
         let insertedCount = 0;
+        const timestampSuffix = Date.now().toString().slice(-6); // Sufixo único curto
+
         for (const profile of extractedProfiles) {
-            const { error: upsertErr } = await supabase.from('curator_profiles').upsert({
-                id: profile.id,
+            const uniqueId = `${profile.id}_${timestampSuffix}`;
+            const { error: insertErr } = await supabase.from('curator_profiles').insert({
+                id: uniqueId,
                 nome: profile.nome,
                 descricao: profile.descricao,
                 requisitos: profile.requisitos,
                 source: 'S-38',
                 status: 'Rascunho IA',
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
+            });
 
-            if (!upsertErr) insertedCount++;
+            if (!insertErr) {
+                insertedCount++;
+            } else {
+                console.error(`[S38-Sync] Erro ao inserir rascunho ${uniqueId}:`, insertErr.message);
+            }
         }
 
         // 5. Notificar Admin (Sucesso)
