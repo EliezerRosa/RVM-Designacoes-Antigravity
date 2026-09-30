@@ -605,9 +605,9 @@ function AuthenticatedApp({ onSignOut, userEmail, isFocusMode, focusPartId }: { 
             onClick={() => handleTabChange('s38-profiles')}
             title="Diretrizes S-38 Oficiais"
             style={{ 
-              background: activeTab === 's38-profiles' ? '#312e81' : 'transparent', 
-              border: activeTab === 's38-profiles' ? 'none' : '1px solid #312e81', 
-              color: activeTab === 's38-profiles' ? 'white' : '#312e81',
+              background: activeTab === 's38-profiles' ? '#10B981' : 'transparent', 
+              border: activeTab === 's38-profiles' ? 'none' : '1px solid #10B981', 
+              color: activeTab === 's38-profiles' ? 'white' : '#10B981',
             }}
           >
             📖 S-38
