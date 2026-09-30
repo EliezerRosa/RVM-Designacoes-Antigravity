@@ -12,6 +12,8 @@ on:
         default: 'anthropic/claude-3.5-sonnet'
   repository_dispatch:
     types: [trigger-s38]
+
+jobs:
   sync-s38:
     runs-on: ubuntu-latest
     steps:
