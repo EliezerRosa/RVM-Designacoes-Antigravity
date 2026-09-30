@@ -9,7 +9,7 @@ interface Props {
 
 export function PushOnboardingPortal({ publisherId }: Props) {
   const [publisherName, setPublisherName] = useState<string>('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'idle' | loading as any | 'success' | 'error'>(loading as any);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export function PushOnboardingPortal({ publisherId }: Props) {
   }, [publisherId]);
 
   const handleSubscribe = async () => {
-    setStatus('loading');
+    setStatus(loading as any);
     try {
       // Pedir permissão e inscrever
       const result = await pushService.subscribeToWebPush(supabase, publisherId);
@@ -62,7 +62,7 @@ export function PushOnboardingPortal({ publisherId }: Props) {
     }
   };
 
-  if (status === 'loading' && !publisherName) {
+  if (status === loading as any && !publisherName) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
         <div style={{ color: '#94a3b8' }}>Carregando...</div>
@@ -124,7 +124,7 @@ export function PushOnboardingPortal({ publisherId }: Props) {
         {(status === 'idle' || status === 'error') && (
           <button 
             onClick={handleSubscribe}
-            disabled={status === 'loading'}
+            disabled={status === loading as any}
             style={{
               background: '#3b82f6',
               color: 'white',
@@ -133,15 +133,15 @@ export function PushOnboardingPortal({ publisherId }: Props) {
               borderRadius: '12px',
               fontSize: '1.1rem',
               fontWeight: 600,
-              cursor: status === 'loading' ? 'not-allowed' : 'pointer',
+              cursor: status === loading as any ? 'not-allowed' : 'pointer',
               width: '100%',
-              opacity: status === 'loading' ? 0.7 : 1,
+              opacity: status === loading as any ? 0.7 : 1,
               transition: 'background 0.2s',
             }}
             onMouseOver={(e) => e.currentTarget.style.background = '#2563eb'}
             onMouseOut={(e) => e.currentTarget.style.background = '#3b82f6'}
           >
-            {status === 'loading' ? 'Ativando...' : 'Ativar Notificações Push'}
+            {status === loading as any ? 'Ativando...' : 'Ativar Notificações Push'}
           </button>
         )}
       </div>

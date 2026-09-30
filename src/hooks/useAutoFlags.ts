@@ -33,14 +33,14 @@ async function checkAndConsumeFlags() {
         .maybeSingle();
 
     if (importFlag?.value?.weeks?.length > 0) {
-        console.log('[useAutoFlags] Flag de import detectada:', importFlag.value.weeks);
+        console.log('[useAutoFlags] Flag de import detectada:', importFlag?.value.weeks);
         
         // Importar cada semana individualmente usando o serviço existente
         try {
             const { importWorkbookFromJwOrg } = await import('../services/jwOrgService');
             const results: { weekId: string; success: boolean }[] = [];
 
-            for (const weekId of importFlag.value.weeks) {
+            for (const weekId of importFlag?.value.weeks) {
                 try {
                     const [y, m, d] = weekId.split('-').map(Number);
                     const weekDate = new Date(y, m - 1, d);
@@ -90,7 +90,7 @@ async function checkAndConsumeFlags() {
         .maybeSingle();
 
     if (generateFlag?.value?.weeks?.length > 0) {
-        console.log('[useAutoFlags] Flag de geração detectada:', generateFlag.value.weeks);
+        console.log('[useAutoFlags] Flag de geração detectada:', generateFlag?.value.weeks);
 
         // NOTA: A geração automática é complexa porque precisa dos publishers e do histórico
         // carregados em memória. Por ora, apenas avisamos o SRVM para gerar manualmente.
@@ -100,7 +100,7 @@ async function checkAndConsumeFlags() {
 
         await notifySrvm(
             `📋 *Semanas Prontas para Geração*\n\n` +
-            `${generateFlag.value.weeks.length} semanas foram importadas e estão prontas para receber designações.\n\n` +
+            `${generateFlag?.value.weeks.length} semanas foram importadas e estão prontas para receber designações.\n\n` +
             `Abra o sistema e use a aba "Agente" para gerar as designações automaticamente, ou faça manualmente.`
         );
 

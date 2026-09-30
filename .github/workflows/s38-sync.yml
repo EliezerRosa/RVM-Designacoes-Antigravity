@@ -1,0 +1,34 @@
+name: S-38 Monthly Sync
+
+on:
+  schedule:
+    # Roda no dia 1 de cada mês às 09:00 BRT (12:00 UTC)
+    - cron: '0 12 1 * *'
+  workflow_dispatch: # Permite disparo manual
+
+jobs:
+  sync-s38:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Puppeteer Browsers
+        run: npx puppeteer browsers install chrome
+
+      - name: Run S-38 Sync Bot
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ADMIN_PHONE: ${{ secrets.ADMIN_PHONE }}
+        run: npm run s38-sync

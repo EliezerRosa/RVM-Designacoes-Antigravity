@@ -392,7 +392,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 recipient_phone: phone,
                 title: `S-89: ${part.tipoParte}`,
                 content: message,
-                status: 'SENT',
+                status: "SENT" as any,
                 metadata: {
                     weekId,
                     partId: part.id,
@@ -470,7 +470,7 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 recipient_phone: phone,
                 title: `S-89 Reconfirmação: ${part.tipoParte}`,
                 content,
-                status: 'SENT',
+                status: "SENT" as any,
                 metadata: {
                     weekId,
                     partId: part.id,

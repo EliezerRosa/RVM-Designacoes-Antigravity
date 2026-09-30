@@ -17,7 +17,8 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "robot:whatsapp": "node scripts/whatsapp-robot.js"
+    "robot:whatsapp": "node scripts/whatsapp-robot.js",
+    "s38-sync": "node --import tsx scripts/s38-sync-bot.ts"
   },
   "homepage": "https://EliezerRosa.github.io/RVM-Designacoes-Antigravity",
   "dependencies": {

@@ -646,7 +646,6 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
         try {
 
             // Determinar novos valores e se precisa mudar status
-            const isDesignada = part.status === 'DESIGNADA' || part.status === 'CONCLUIDA' || part.status === 'APROVADA';
 
             // UNDO: Capture state BEFORE update
             undoService.captureSingle(part, `Alteração Manual: ${part.tituloParte}`);
@@ -660,7 +659,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
 
                 // Em substituições manuais, o status sempre volta para PROPOSTA (para confirmar) ou PENDENTE (se limpo)
                 updated.status = newName ? 'PROPOSTA' : 'PENDENTE';
-                updated.needsReassignment = false;
+                (updated as any).needsReassignment = false;
                 return updated;
             }));
 

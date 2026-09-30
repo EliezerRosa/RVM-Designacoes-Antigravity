@@ -57,7 +57,7 @@ const DEFAULT_FALLBACK_AUTH_CONTEXT: AuthContextType = {
   isAuthenticated: false,
   isAdmin: false,
   needs2FA: false,
-  authSystemMode: 'passwordless',
+  authSystemMode: "passwordless" as any,
   isAppUnlocked: true,
   signInWithGoogle: async () => {},
   signInWithDeviceAuth: async () => ({ success: false }),

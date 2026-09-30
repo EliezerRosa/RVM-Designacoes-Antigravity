@@ -11,7 +11,7 @@ import type { AgentActionType } from './agentActionService';
 // ===== Types =====
 
 export type DataAccessLevel = 'all' | 'filtered' | 'self';
-export type ActiveTab = 'workbook' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin' | 'communication' | 'monthly-reports';
+export type ActiveTab = 'workbook' | 'publishers' | 'territories' | 'backup' | 'agent' | 'admin' | 'communication' | 'monthly-reports' | 's38-profiles';
 
 export interface PublisherFilterCriteria {
     conditions?: string[];
@@ -78,7 +78,7 @@ interface PermissionOverride {
 
 // ===== Constants =====
 
-const ALL_TABS: ActiveTab[] = ['workbook', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication', 'monthly-reports'];
+const ALL_TABS: ActiveTab[] = ['workbook', 'publishers', 'territories', 'backup', 'agent', 'admin', 'communication', 'monthly-reports', 's38-profiles'];
 
 /**
  * Ações do agent-chat que correspondem a funcionalidades exclusivas da aba Admin.

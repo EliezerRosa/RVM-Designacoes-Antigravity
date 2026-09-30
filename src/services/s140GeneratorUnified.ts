@@ -999,9 +999,9 @@ export async function generateS140UnifiedMultiWeekPdfBase64(parts: WorkbookPart[
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        const pdfBase64Url = await html2pdf().set(opt).from(contentContainer).outputPdf('datauristring');
+        const pdfBase64Url: string = await html2pdf().set(opt).from(contentContainer).output('datauristring');
         // Remover prefixo "data:application/pdf;filename=generated.pdf;base64,"
-        const base64 = pdfBase64Url.split('base64,')[1];
+        const base64 = (pdfBase64Url as string).split('base64,')[1];
         
         return { base64, weekRange };
     } finally {
