@@ -120,6 +120,16 @@ async function main() {
   });
 
   const now = new Date();
+  
+  // Calcular a segunda-feira da semana corrente
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday
+  const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+  const currentMonday = new Date(today);
+  currentMonday.setDate(today.getDate() + diffToMonday);
+  const currentMondayStr = currentMonday.toISOString().split('T')[0];
+
   const weeksToProcess: string[] = [];
   const processedIds: string[] = [];
 
@@ -128,7 +138,12 @@ async function main() {
     const diffMin = (now.getTime() - lastChange.getTime()) / 60000;
     
     if (diffMin >= DEBOUNCE_MINUTES) {
-      weeksToProcess.push(weekId);
+      if (weekId >= currentMondayStr) {
+        weeksToProcess.push(weekId);
+      } else {
+        console.log(`Semana ${weekId} ignorada por ser do PASSADO (Semana corrente iniciou em: ${currentMondayStr}).`);
+      }
+      // Mesmo as semanas ignoradas do passado devem ser marcadas como processadas para limpar a fila
       processedIds.push(...info.ids);
     } else {
       console.log(`Semana ${weekId} ignorada por debounce (alterada há ${diffMin.toFixed(1)} min).`);
