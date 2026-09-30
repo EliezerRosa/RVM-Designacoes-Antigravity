@@ -25,12 +25,18 @@ async function runS38Sync() {
         });
         const page = await browser.newPage();
         
+        // Camuflagem contra bloqueios (Anti-Bot)
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+        });
+        
         // Acessa a busca do WOL buscando pelo documento S-38
         await page.goto('https://wol.jw.org/pt/wol/s/r5/lp-t?q=Instru%C3%A7%C3%B5es+para+a+reuni%C3%A3o+Nossa+Vida+e+Minist%C3%A9rio+Crist%C3%A3o+S-38&p=par', { waitUntil: 'networkidle2' });
         
-        // Clica no primeiro link dos resultados (que geralmente é o artigo oficial mais recente)
-        const firstResultSelector = '.search-results .resultItem a';
-        await page.waitForSelector(firstResultSelector);
+        // Clica no primeiro link dos resultados usando seletores resilientes e fallback
+        const firstResultSelector = '.search-results .resultItem a, .results .resultItem a, .search-results a, .results a, a[href*="/pt/wol/d/r5/lp-t/202"]';
+        await page.waitForSelector(firstResultSelector, { timeout: 45000 });
         
         const documentUrl = await page.$eval(firstResultSelector, el => (el as HTMLAnchorElement).href);
         console.log(`[S38-Sync] Acessando documento oficial: ${documentUrl}`);
