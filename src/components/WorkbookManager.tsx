@@ -334,6 +334,57 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
         });
     }, [filterTrigger]);
 
+    // ========================================================================
+    // Modo Sentinela (Sync Glide Invisível Automático)
+    // ========================================================================
+    useEffect(() => {
+        let channel: any;
+        let isMounted = true;
+
+        const setupSentinel = async () => {
+            const { supabase } = await import('../lib/supabase');
+            if (!isMounted) return;
+
+            channel = supabase
+                .channel('sentinel-glide-sync')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'workbook_parts' }, async (payload) => {
+                    const record = payload.new || payload.old;
+                    if (!record || !record.weekId) return;
+
+                    try {
+                        const published = await isWeekPublished(record.weekId);
+                        if (published) {
+                            console.log(`[Sentinel] Mudança na semana publicada ${record.weekId}. Acionando Sync Glide...`);
+                            
+                            if ((window as any).sentinelTimer) clearTimeout((window as any).sentinelTimer);
+                            (window as any).sentinelTimer = setTimeout(async () => {
+                                try {
+                                    const freshParts = await workbookQueryService.getAllParts();
+                                    const { exportGlideInvisible } = await import('../services/glideExportService');
+                                    await exportGlideInvisible(freshParts, publishers);
+                                    console.log('[Sentinel] Sincronização invisível concluída!');
+                                } catch (e) {
+                                    console.warn('[Sentinel] Falha na sincronização invisível:', e);
+                                }
+                            }, 5000); // Debounce de 5s para evitar múltiplas chamadas
+                        }
+                    } catch (err) {
+                        console.error('[Sentinel] Erro ao verificar se semana está publicada:', err);
+                    }
+                })
+                .subscribe();
+        };
+
+        setupSentinel();
+
+        return () => {
+            isMounted = false;
+            if (channel) {
+                import('../lib/supabase').then(({ supabase }) => supabase.removeChannel(channel));
+            }
+        };
+    }, [publishers]);
+
 
 
     // ========================================================================
