@@ -352,9 +352,22 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                     if (!record || !record.weekId) return;
 
                     try {
+                        const { getWeekMondayId } = await import('../services/eligibilityService');
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        const currentMonday = getWeekMondayId(todayStr);
+
+                        // Regra 1: Sentinela só atua nas 4 semanas (Atual + 3)
+                        const limitDateObj = new Date(currentMonday);
+                        limitDateObj.setDate(limitDateObj.getDate() + 28); // +4 semanas
+                        const limitDateStr = limitDateObj.toISOString().slice(0, 10);
+
+                        if (record.weekId < currentMonday || record.weekId >= limitDateStr) {
+                            return; // Ignora se for passada ou se for além da 4ª semana
+                        }
+
                         const published = await isWeekPublished(record.weekId);
                         if (published) {
-                            console.log(`[Sentinel] Mudança na semana publicada ${record.weekId}. Acionando Sync Glide...`);
+                            console.log(`[Sentinel] Mudança na semana ${record.weekId} detectada. Aguardando 60 segundos...`);
                             
                             if ((window as any).sentinelTimer) clearTimeout((window as any).sentinelTimer);
                             (window as any).sentinelTimer = setTimeout(async () => {
@@ -366,7 +379,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                                 } catch (e) {
                                     console.warn('[Sentinel] Falha na sincronização invisível:', e);
                                 }
-                            }, 5000); // Debounce de 5s para evitar múltiplas chamadas
+                            }, 60000); // Regra 2: Espera de 60 segundos
                         }
                     } catch (err) {
                         console.error('[Sentinel] Erro ao verificar se semana está publicada:', err);
