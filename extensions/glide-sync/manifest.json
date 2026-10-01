@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "RVM Glide Sync",
+  "version": "1.0",
+  "description": "Automação 1-Click invisível do Glide para o RVM Designações",
+  "permissions": ["tabs"],
+  "host_permissions": [
+    "https://relatorio-mensal-v03-new.glide.page/*",
+    "http://localhost:5173/*",
+    "https://rvm-designacoes-antigravity.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:5173/*",
+        "https://rvm-designacoes-antigravity.vercel.app/*"
+      ],
+      "js": ["rvm-content.js"]
+    },
+    {
+      "matches": [
+        "https://relatorio-mensal-v03-new.glide.page/*"
+      ],
+      "js": ["glide-content.js"]
+    }
+  ]
+}

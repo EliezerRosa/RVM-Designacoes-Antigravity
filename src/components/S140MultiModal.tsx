@@ -3,9 +3,10 @@
  * Extraído de WorkbookManager.tsx (Fase 5 da Auditoria)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { WorkbookPart, Publisher } from '../types';
 import { downloadS140UnifiedMultiWeek } from '../services/s140GeneratorUnified';
+import { exportGlideSyncZip, exportGlideInvisible } from '../services/glideExportService';
 
 interface S140MultiModalProps {
     isOpen: boolean;
@@ -18,6 +19,19 @@ export function S140MultiModal({ isOpen, parts, publishers, onClose }: S140Multi
     const [startWeek, setStartWeek] = useState('');
     const [endWeek, setEndWeek] = useState('');
     const [loading, setLoading] = useState(false);
+    const [extensionReady, setExtensionReady] = useState(false);
+
+    useEffect(() => {
+        const listener = (event: MessageEvent) => {
+            if (event.source === window && event.data.type === 'RVM_EXTENSION_READY') {
+                setExtensionReady(true);
+            }
+        };
+        window.addEventListener('message', listener);
+        // Tentar enviar ping pro caso de a extensão já estar lá
+        window.postMessage({ type: 'PING_EXTENSION' }, '*');
+        return () => window.removeEventListener('message', listener);
+    }, []);
 
     if (!isOpen) return null;
 
@@ -43,6 +57,31 @@ export function S140MultiModal({ isOpen, parts, publishers, onClose }: S140Multi
             onClose();
         } catch (err) {
             alert('Erro ao gerar pacote: ' + (err instanceof Error ? err.message : 'Erro'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExportGlide = async () => {
+        try {
+            setLoading(true);
+            await exportGlideSyncZip(parts, publishers);
+            onClose();
+        } catch (err) {
+            alert('Erro ao exportar para o Glide: ' + (err instanceof Error ? err.message : 'Erro'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleInvisibleSync = async () => {
+        try {
+            setLoading(true);
+            await exportGlideInvisible(parts, publishers);
+            alert('✅ Sincronização invisível concluída com sucesso no Glide!');
+            onClose();
+        } catch (err) {
+            alert('❌ Falha na sincronização invisível: ' + (err instanceof Error ? err.message : 'Erro'));
         } finally {
             setLoading(false);
         }
@@ -94,8 +133,27 @@ export function S140MultiModal({ isOpen, parts, publishers, onClose }: S140Multi
                     </select>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     <button onClick={onClose} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>Cancelar</button>
+                    {extensionReady ? (
+                        <button
+                            onClick={handleInvisibleSync}
+                            disabled={loading}
+                            style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', background: '#9333EA', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+                            title="Sincroniza automaticamente pelo RVM Sync no background"
+                        >
+                            {loading ? 'Sincronizando...' : '✨ Sync Glide (Invisível)'}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleExportGlide}
+                            disabled={loading}
+                            style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', background: '#2563EB', color: 'white', cursor: 'pointer', fontWeight: '500' }}
+                            title="Exporta 4 semanas (Atual + 3) em ZIP para sincronizar via terminal com o Glide"
+                        >
+                            {loading ? 'Exportando...' : '⬇️ Exportar Glide (ZIP)'}
+                        </button>
+                    )}
                     <button
                         onClick={handleGenerate}
                         disabled={loading || !startWeek || !endWeek}
