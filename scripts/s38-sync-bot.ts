@@ -105,7 +105,6 @@ Regras:
                 id: uniqueId,
                 nome: profile.nome,
                 descricao: profile.descricao,
-                source: 'S-38',
                 status: 'Rascunho IA',
                 updated_at: new Date().toISOString()
             });
