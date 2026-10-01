@@ -6,8 +6,8 @@
   "permissions": ["tabs"],
   "host_permissions": [
     "https://relatorio-mensal-v03-new.glide.page/*",
-    "http://localhost:5173/*",
-    "https://rvm-designacoes-antigravity.vercel.app/*"
+    "http://localhost:*/*",
+    "https://*.vercel.app/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -15,8 +15,8 @@
   "content_scripts": [
     {
       "matches": [
-        "http://localhost:5173/*",
-        "https://rvm-designacoes-antigravity.vercel.app/*"
+        "http://localhost:*/*",
+        "https://*.vercel.app/*"
       ],
       "js": ["rvm-content.js"]
     },
