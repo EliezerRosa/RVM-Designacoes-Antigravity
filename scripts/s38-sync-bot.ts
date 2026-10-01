@@ -104,7 +104,9 @@ Regras:
             const { error: insertErr } = await supabase.from('curator_profiles').insert({
                 id: uniqueId,
                 nome: profile.nome,
+                categoria: profile.categoria || 'Outro',
                 descricao: profile.descricao,
+                source: 'S-38',
                 status: 'Rascunho IA',
                 updated_at: new Date().toISOString()
             });
