@@ -349,7 +349,8 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                 .channel('sentinel-glide-sync')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'workbook_parts' }, async (payload) => {
                     const record = payload.new || payload.old;
-                    if (!record || !record.weekId) return;
+                    const recordWeekId = record?.week_id;
+                    if (!recordWeekId) return;
 
                     try {
                         const { getWeekMondayId } = await import('../services/eligibilityService');
@@ -361,13 +362,13 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                         limitDateObj.setDate(limitDateObj.getDate() + 28); // +4 semanas
                         const limitDateStr = limitDateObj.toISOString().slice(0, 10);
 
-                        if (record.weekId < currentMonday || record.weekId >= limitDateStr) {
+                        if (recordWeekId < currentMonday || recordWeekId >= limitDateStr) {
                             return; // Ignora se for passada ou se for além da 4ª semana
                         }
 
-                        const published = await isWeekPublished(record.weekId);
+                        const published = await isWeekPublished(recordWeekId);
                         if (published) {
-                            console.log(`[Sentinel] Mudança na semana ${record.weekId} detectada. Aguardando 60 segundos...`);
+                            console.log(`[Sentinel] Mudança na semana ${recordWeekId} detectada. Aguardando 60 segundos...`);
                             
                             if ((window as any).sentinelTimer) clearTimeout((window as any).sentinelTimer);
                             (window as any).sentinelTimer = setTimeout(async () => {
