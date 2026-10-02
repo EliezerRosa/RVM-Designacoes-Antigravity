@@ -101,11 +101,11 @@ export async function exportGlideInvisible(parts: WorkbookPart[], publishers: Pu
         
         window.addEventListener('message', listener);
         
-        // Timeout de segurança (30s)
+        // Timeout de segurança (60s)
         setTimeout(() => {
             window.removeEventListener('message', listener);
             reject(new Error('Timeout aguardando a Extensão do Chrome RVM Sync. Ela está instalada?'));
-        }, 30000);
+        }, 60000);
     });
 }
 
