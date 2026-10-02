@@ -235,9 +235,13 @@ async function main() {
   const combinedWeeks = publishedWeekIds.join(',');
   const versionHash = Math.random().toString(36).substring(2, 6).toUpperCase();
   const dataHoraStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
-  const versionTag = `[VERSÃO DE ATUALIZAÇÃO ${dataHoraStr} #${versionHash}]`;
   
-  const richCaption = `🚨 ${versionTag} 🚨\n\nSegue o Quadro Geral unificado contemplando as semanas afetadas:\n${weeksToProcess.map(w => `• ${w}`).join('\n')}${textDetails}\n\n_(Abra o PDF e clique no número de telefone para chamar no WhatsApp)_`;
+  // Tag com hash para o nome do arquivo (evita cache do WhatsApp)
+  const versionTag = `[VERSÃO DE ATUALIZAÇÃO ${dataHoraStr} #${versionHash}]`;
+  // Tag sem hash para a mensagem de texto
+  const captionTag = `[VERSÃO DE ATUALIZAÇÃO ${dataHoraStr}]`;
+  
+  const richCaption = `🚨 ${captionTag} 🚨\n\nSegue o Quadro Geral unificado contemplando as semanas afetadas:\n${weeksToProcess.map(w => `• ${w}`).join('\n')}${textDetails}\n\n_(Abra o PDF e clique no número de telefone para chamar no WhatsApp)_`;
 
   console.log(`Gerando PDF ÚNICO para as semanas: ${combinedWeeks}...`);
   const page = await browser.newPage();
