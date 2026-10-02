@@ -234,7 +234,8 @@ async function main() {
 
   const combinedWeeks = publishedWeekIds.join(',');
   const versionHash = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const versionTag = `[VERSÃO DE ATUALIZAÇÃO #${versionHash}]`;
+  const dataHoraStr = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+  const versionTag = `[VERSÃO DE ATUALIZAÇÃO ${dataHoraStr} #${versionHash}]`;
   
   const richCaption = `🚨 ${versionTag} 🚨\n\nSegue o Quadro Geral unificado contemplando as semanas afetadas:\n${weeksToProcess.map(w => `• ${w}`).join('\n')}${textDetails}\n\n_(Abra o PDF e clique no número de telefone para chamar no WhatsApp)_`;
 
