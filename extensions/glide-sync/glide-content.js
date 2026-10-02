@@ -33,15 +33,26 @@ function base64ToFile(base64, filename) {
 // Simulador de Delay
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
+function findAllElements(selector, root = document) {
+    let elements = Array.from(root.querySelectorAll(selector));
+    const allNodes = Array.from(root.querySelectorAll('*'));
+    for (const el of allNodes) {
+        if (el.shadowRoot) {
+            elements = elements.concat(findAllElements(selector, el.shadowRoot));
+        }
+    }
+    return elements;
+}
+
 async function injectImages(images) {
     console.log(`[Glide Sync] Recebidas ${images.length} imagens para injetar.`);
     
-    // Procura todos os inputs do tipo arquivo
-    const fileInputs = document.querySelectorAll('input[type="file"]');
-    console.log(`[Glide Sync] Encontrados ${fileInputs.length} inputs de arquivo no DOM.`);
+    // Procura todos os inputs do tipo arquivo, mesmo dentro de Shadow DOM
+    const fileInputs = findAllElements('input[type="file"]');
+    console.log(`[Glide Sync] Encontrados ${fileInputs.length} inputs de arquivo no DOM/ShadowDOM.`);
 
     if (fileInputs.length === 0) {
-        throw new Error(`Não achei os botões "Choose an image" no Glide. A tela demorou muito para carregar ou o Glide mudou o layout.`);
+        throw new Error(`Não achei os botões "Choose an image" no Glide. A tela demorou muito para carregar ou o Glide mudou o layout (Shadow DOM não resolveu).`);
     }
 
     if (fileInputs.length < images.length) {
@@ -52,15 +63,15 @@ async function injectImages(images) {
         const fileObj = base64ToFile(images[i].base64, images[i].filename);
         
         // 1. Procurar botão de X (Excluir Imagem Antiga)
-        const clearButtons = document.querySelectorAll('[aria-label="Clear value"], [aria-label="Remove image"]');
+        const clearButtons = findAllElements('[aria-label="Clear value"], [aria-label="Remove image"]');
         if (clearButtons.length > i) {
             console.log(`[Glide Sync] Clicando no X da semana ${i + 1}`);
             clearButtons[i].click();
             await delay(500);
             
             // Aceitar modal de Delete
-            const buttons = Array.from(document.querySelectorAll('button'));
-            const deleteBtn = buttons.find(b => b.innerText.includes('Delete') || b.innerText.includes('Excluir'));
+            const buttons = findAllElements('button');
+            const deleteBtn = buttons.find(b => b.innerText && (b.innerText.includes('Delete') || b.innerText.includes('Excluir')));
             if (deleteBtn) {
                 deleteBtn.click();
                 await delay(1500);
