@@ -14,8 +14,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             let glideTabId = null;
 
             if (tabs.length > 0) {
-                // Usa a aba existente
+                // Usa a aba existente e traz para frente
                 glideTabId = tabs[0].id;
+                chrome.tabs.update(glideTabId, { active: true });
                 
                 console.log("[RVM Background] Aba encontrada. Forçando Ctrl+F5 (bypassCache)...");
                 chrome.tabs.reload(glideTabId, { bypassCache: true }, () => {
@@ -32,8 +33,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     });
                 });
             } else {
-                // Abre uma nova aba (pode ser fixa, minimizada, ou normal)
-                chrome.tabs.create({ url: glideUrl, active: false }, (newTab) => {
+                // Abre uma nova aba (trazendo-a para frente)
+                chrome.tabs.create({ url: glideUrl, active: true }, (newTab) => {
                     glideTabId = newTab.id;
                     
                     // Como a aba acabou de ser criada, o glide-content.js ainda não carregou.
