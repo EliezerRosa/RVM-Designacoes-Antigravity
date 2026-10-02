@@ -44,19 +44,32 @@ function findAllElements(selector, root = document) {
     return elements;
 }
 
+async function waitForInputs(expectedCount, maxWaitMs = 45000) {
+    console.log(`[Glide Sync] Aguardando a tela do Glide montar os ${expectedCount} campos de imagem...`);
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+        const inputs = findAllElements('input[type="file"]');
+        if (inputs.length > 0) {
+            console.log(`[Glide Sync] Uhuu! O Glide terminou de renderizar a tela. Achei ${inputs.length} inputs.`);
+            return inputs;
+        }
+        await delay(1000); // Tenta de novo a cada 1 segundo
+    }
+    return findAllElements('input[type="file"]');
+}
+
 async function injectImages(images) {
     console.log(`[Glide Sync] Recebidas ${images.length} imagens para injetar.`);
     
-    // Procura todos os inputs do tipo arquivo, mesmo dentro de Shadow DOM
-    const fileInputs = findAllElements('input[type="file"]');
-    console.log(`[Glide Sync] Encontrados ${fileInputs.length} inputs de arquivo no DOM/ShadowDOM.`);
+    // Procura todos os inputs do tipo arquivo, ESPERANDO o React do Glide carregar
+    const fileInputs = await waitForInputs(images.length);
 
     if (fileInputs.length === 0) {
-        throw new Error(`Não achei os botões "Choose an image" no Glide. A tela demorou muito para carregar ou o Glide mudou o layout (Shadow DOM não resolveu).`);
+        throw new Error(`Não achei os botões "Choose an image" no Glide mesmo após 45 segundos aguardando. A tela não carregou ou o layout mudou.`);
     }
 
     if (fileInputs.length < images.length) {
-        throw new Error(`Achei apenas ${fileInputs.length} espaços para imagem, mas preciso de ${images.length}. Você está na tela correta do Glide?`);
+        console.warn(`[Glide Sync] Achei apenas ${fileInputs.length} espaços para imagem, mas preciso de ${images.length}. Vou injetar nos que encontrei!`);
     }
 
     for (let i = 0; i < images.length; i++) {
