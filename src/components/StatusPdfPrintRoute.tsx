@@ -36,7 +36,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
           .from('workbook_parts')
           .select('*')
           .in('week_id', weekIds)
-          .in('status', ['DESIGNADA', 'PROPOSTA', 'REJEITADA', 'VAGA'])
+          .in('status', ['DESIGNADA', 'PROPOSTA', 'REJEITADA', 'VAGA', 'CONCLUIDA'])
           .order('week_id', { ascending: true })
           .order('seq', { ascending: true });
 

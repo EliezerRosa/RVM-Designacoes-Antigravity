@@ -121,14 +121,22 @@ async function main() {
 
   const now = new Date();
   
-  // Calcular a segunda-feira da semana corrente
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday
-  const diffToMonday = currentDay === 0 ? -6 : 1 - currentDay;
-  const currentMonday = new Date(today);
-  currentMonday.setDate(today.getDate() + diffToMonday);
-  const currentMondayStr = currentMonday.toISOString().split('T')[0];
+  // Fetch meeting days to accurately calculate the meeting date for each week
+  const { data: mdData } = await supabase.from('app_settings').select('value').eq('key', 'meeting_days').maybeSingle();
+  const meetingDays = (mdData?.value as Record<string, number>) || {};
+
+  function calculateMeetingDate(wId: string): Date | null {
+      const dp = wId.split('-');
+      if (dp.length !== 3) return null;
+      const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
+      const dow = meetingDays[wId] ?? 4; // fallback quinta-feira
+      const daysToMeeting = (dow - baseDate.getDay() + 7) % 7;
+      const meetingDate = new Date(baseDate);
+      meetingDate.setDate(meetingDate.getDate() + daysToMeeting);
+      // Set to end of day to include the day of the meeting
+      meetingDate.setHours(23, 59, 59, 999);
+      return meetingDate;
+  }
 
   const weeksToProcess: string[] = [];
   const processedIds: string[] = [];
@@ -138,10 +146,12 @@ async function main() {
     const diffMin = (now.getTime() - lastChange.getTime()) / 60000;
     
     if (diffMin >= DEBOUNCE_MINUTES) {
-      if (weekId >= currentMondayStr) {
+      const meetingDate = calculateMeetingDate(weekId);
+      // Check if meetingDate is today or in the future
+      if (meetingDate && meetingDate >= now) {
         weeksToProcess.push(weekId);
       } else {
-        console.log(`Semana ${weekId} ignorada por ser do PASSADO (Semana corrente iniciou em: ${currentMondayStr}).`);
+        console.log(`Semana ${weekId} ignorada por ser do PASSADO (Reunião ocorreu em: ${meetingDate?.toISOString()}).`);
       }
       // Mesmo as semanas ignoradas do passado devem ser marcadas como processadas para limpar a fila
       processedIds.push(...info.ids);
@@ -197,10 +207,9 @@ async function main() {
     textDetails = '\n\n*Mudanças Recentes Identificadas:*';
     for (const [wId, pts] of Object.entries(partsByWeek)) {
       textDetails += `\n🗓️ *Semana ${wId}:*\n`;
-      // @ts-ignore
       const uniquePts = Array.from(new Set(pts.map((p: any) => {
           const pubName = pubMap.get(p.resolved_publisher_id) || 'A Designar';
-          return `  ↳ ${p.tipo_parte || p.titulo_parte} (${p.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'}) ➜ *${pubName}*`;
+          return `  ↳ ${p.tipo_parte || p.titulo_parte} (${p.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'}) ➜ *${pubName}* (Status Atual: *${p.status}*)`;
       })));
       textDetails += uniquePts.join('\n');
     }
@@ -213,7 +222,10 @@ async function main() {
     .eq('key', 'week_published')
     .maybeSingle();
   const publishedMap = (wpData?.value as Record<string, string>) || {};
-  const publishedWeekIds = Object.keys(publishedMap).filter(wId => wId >= currentMondayStr);
+  const publishedWeekIds = Object.keys(publishedMap).filter(wId => {
+    const md = calculateMeetingDate(wId);
+    return md && md >= now;
+  });
   
   for (const w of weeksToProcess) {
     if (!publishedWeekIds.includes(w)) publishedWeekIds.push(w);
