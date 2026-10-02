@@ -34,48 +34,57 @@ function base64ToFile(base64, filename) {
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
 async function injectImages(images) {
+    console.log(`[Glide Sync] Recebidas ${images.length} imagens para injetar.`);
+    
+    // Procura todos os inputs do tipo arquivo
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    console.log(`[Glide Sync] Encontrados ${fileInputs.length} inputs de arquivo no DOM.`);
+
+    if (fileInputs.length === 0) {
+        throw new Error(`Não achei os botões "Choose an image" no Glide. A tela demorou muito para carregar ou o Glide mudou o layout.`);
+    }
+
+    if (fileInputs.length < images.length) {
+        throw new Error(`Achei apenas ${fileInputs.length} espaços para imagem, mas preciso de ${images.length}. Você está na tela correta do Glide?`);
+    }
+
     for (let i = 0; i < images.length; i++) {
         const fileObj = base64ToFile(images[i].base64, images[i].filename);
         
         // 1. Procurar botão de X (Excluir Imagem Antiga)
-        // O Glide usa aria-label="Clear value" ou "Remove image"
         const clearButtons = document.querySelectorAll('[aria-label="Clear value"], [aria-label="Remove image"]');
-        
         if (clearButtons.length > i) {
             console.log(`[Glide Sync] Clicando no X da semana ${i + 1}`);
             clearButtons[i].click();
             await delay(500);
             
             // Aceitar modal de Delete
-            // Busca botão contendo "Delete"
             const buttons = Array.from(document.querySelectorAll('button'));
-            const deleteBtn = buttons.find(b => b.innerText.includes('Delete'));
+            const deleteBtn = buttons.find(b => b.innerText.includes('Delete') || b.innerText.includes('Excluir'));
             if (deleteBtn) {
                 deleteBtn.click();
-                await delay(1500); // Dar tempo do Glide processar a deleção
+                await delay(1500);
             }
         }
 
-        // 2. Procurar Input de Arquivo
-        const fileInputs = document.querySelectorAll('input[type="file"]');
+        // 2. Injetar arquivo no Input
+        console.log(`[Glide Sync] Injetando arquivo na semana ${i + 1}`);
+        const input = fileInputs[i];
         
-        if (fileInputs.length > i) {
-            console.log(`[Glide Sync] Injetando arquivo na semana ${i + 1}`);
-            
-            // Criar um DataTransfer falso pra colocar o arquivo no Input
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(fileObj);
-            
-            const input = fileInputs[i];
-            input.files = dataTransfer.files;
-            
-            // Disparar eventos pro React do Glide perceber que o arquivo mudou
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            
-            // Aguardar upload do Glide (muito importante)
-            await delay(4000); 
-        } else {
-            console.warn(`[Glide Sync] Input ${i} não encontrado!`);
-        }
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(fileObj);
+        input.files = dataTransfer.files;
+        
+        // Disparar eventos pro React do Glide perceber que o arquivo mudou
+        const changeEvent = new Event('change', { bubbles: true });
+        // Hack para forçar o React a ver a mudança
+        Object.defineProperty(changeEvent, 'target', { writable: false, value: input });
+        input.dispatchEvent(changeEvent);
+        
+        const inputEvent = new Event('input', { bubbles: true });
+        input.dispatchEvent(inputEvent);
+        
+        // Aguardar upload do Glide
+        await delay(5000); 
     }
 }
