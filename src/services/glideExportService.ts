@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { generateS140ImageBase64 } from './s140GeneratorUnified';
 import type { WorkbookPart, Publisher } from '../types';
 import { getWeekMondayId } from './eligibilityService';
+import { isWeekPublished } from './weekPublishService';
 
 export async function exportGlideSyncZip(parts: WorkbookPart[], publishers: Publisher[]) {
     // 1. Identificar a semana corrente (ou a próxima disponível se estiver no fim de semana)
@@ -13,6 +14,10 @@ export async function exportGlideSyncZip(parts: WorkbookPart[], publishers: Publ
     
     // Filtrar da semana atual em diante
     let targetWeeks = allWeekIds.filter(wId => wId >= currentMonday);
+
+    // Filtrar apenas semanas publicadas
+    const publishedChecks = await Promise.all(targetWeeks.map(wId => isWeekPublished(wId)));
+    targetWeeks = targetWeeks.filter((_, idx) => publishedChecks[idx]);
     
     // Se não tiver semana corrente exata, pega as próximas 4
     if (targetWeeks.length === 0) {
@@ -61,9 +66,13 @@ export async function exportGlideInvisible(parts: WorkbookPart[], publishers: Pu
     const todayStr = new Date().toISOString().slice(0, 10);
     const currentMonday = getWeekMondayId(todayStr);
     const allWeekIds = [...new Set(parts.map(p => p.weekId))].sort();
-    let targetWeeks = allWeekIds.filter(wId => wId >= currentMonday).slice(0, 4);
+    let candidateWeeks = allWeekIds.filter(wId => wId >= currentMonday).slice(0, 4);
 
-    if (targetWeeks.length === 0) throw new Error('Nenhuma semana futura encontrada.');
+    // Filtrar apenas semanas publicadas
+    const publishedChecks = await Promise.all(candidateWeeks.map(wId => isWeekPublished(wId)));
+    const targetWeeks = candidateWeeks.filter((_, idx) => publishedChecks[idx]);
+
+    if (targetWeeks.length === 0) throw new Error('Nenhuma semana publicada encontrada.');
 
     const imagesPayload = [];
 
