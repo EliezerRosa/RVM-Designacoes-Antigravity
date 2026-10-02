@@ -33,119 +33,68 @@ function base64ToFile(base64, filename) {
 // Simulador de Delay
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
-function findAllElements(selector, root = document) {
-    let elements = Array.from(root.querySelectorAll(selector));
-    const allNodes = Array.from(root.querySelectorAll('*'));
-    for (const el of allNodes) {
-        if (el.shadowRoot) {
-            elements = elements.concat(findAllElements(selector, el.shadowRoot));
-        }
-    }
-    return elements;
-}
-
-function getDropZones() {
-    const allNodes = findAllElements('*');
-    // Encontra elementos que contêm o texto "Choose an image"
-    const zones = allNodes.filter(el => {
-        if (!el.innerText) return false;
-        if (el.children.length > 3) return false; // Evita pegar o body inteiro
-        return el.innerText.includes('Choose an image') || el.innerText.includes('Escolha uma imagem');
-    });
-    // Pega os 4 últimos (ou mais específicos)
-    return zones.slice(-4);
-}
-
-async function waitForInputs(expectedCount, maxWaitMs = 25000) {
-    console.log(`[Glide Sync] Aguardando a tela do Glide montar os campos de imagem...`);
+async function waitForInputs(expectedCount, maxWaitMs = 30000) {
+    console.log(`[Glide Sync] Aguardando o Glide carregar os campos de imagem...`);
     const start = Date.now();
     while (Date.now() - start < maxWaitMs) {
-        const inputs = findAllElements('input[type="file"]');
-        if (inputs.length > 0) {
-            console.log(`[Glide Sync] Achei ${inputs.length} inputs <input type="file">!`);
-            return { type: 'input', elements: inputs };
+        const fileInputs = document.querySelectorAll('input[type="file"]');
+        if (fileInputs.length >= expectedCount) {
+            console.log(`[Glide Sync] Inputs carregados! Encontrados: ${fileInputs.length}`);
+            return fileInputs;
         }
-        
-        const dropZones = getDropZones();
-        if (dropZones.length >= expectedCount) {
-            console.log(`[Glide Sync] Achei ${dropZones.length} DropZones (caixas visíveis)!`);
-            return { type: 'dropzone', elements: dropZones };
-        }
-
         await delay(1000);
     }
-    
-    // Tenta retornar o que tiver
-    const inputs = findAllElements('input[type="file"]');
-    if (inputs.length > 0) return { type: 'input', elements: inputs };
-    return { type: 'dropzone', elements: getDropZones() };
+    return document.querySelectorAll('input[type="file"]');
 }
 
 async function injectImages(images) {
     console.log(`[Glide Sync] Recebidas ${images.length} imagens para injetar.`);
     
-    // Procura todos os inputs do tipo arquivo ou Dropzones
-    const target = await waitForInputs(images.length);
-    const targetElements = target.elements;
+    // Aguarda o Glide montar a tela após o Ctrl+F5
+    const fileInputs = await waitForInputs(images.length);
 
-    if (targetElements.length === 0) {
-        throw new Error(`Não achei os botões "Choose an image" no Glide mesmo após aguardar. A tela não carregou ou o layout mudou.`);
-    }
-
-    if (targetElements.length < images.length) {
-        console.warn(`[Glide Sync] Achei apenas ${targetElements.length} espaços para imagem, mas preciso de ${images.length}. Vou injetar nos que encontrei!`);
+    if (fileInputs.length === 0) {
+        throw new Error(`Não achei os botões "Choose an image" no Glide. A tela demorou muito para carregar ou o Glide mudou o layout.`);
     }
 
     for (let i = 0; i < images.length; i++) {
-        if (!targetElements[i]) break;
-
         const fileObj = base64ToFile(images[i].base64, images[i].filename);
         
         // 1. Procurar botão de X (Excluir Imagem Antiga)
-        const clearButtons = findAllElements('[aria-label="Clear value"], [aria-label="Remove image"]');
+        const clearButtons = document.querySelectorAll('[aria-label="Clear value"], [aria-label="Remove image"]');
+        
         if (clearButtons.length > i) {
             console.log(`[Glide Sync] Clicando no X da semana ${i + 1}`);
             clearButtons[i].click();
             await delay(500);
             
             // Aceitar modal de Delete
-            const buttons = findAllElements('button');
-            const deleteBtn = buttons.find(b => b.innerText && (b.innerText.includes('Delete') || b.innerText.includes('Excluir')));
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const deleteBtn = buttons.find(b => b.innerText.includes('Delete'));
             if (deleteBtn) {
                 deleteBtn.click();
                 await delay(1500);
             }
         }
 
-        // 2. Injetar arquivo
-        console.log(`[Glide Sync] Injetando arquivo na semana ${i + 1} via ${target.type}`);
-        const el = targetElements[i];
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(fileObj);
+        // 2. Procurar Input de Arquivo
+        const currentInputs = document.querySelectorAll('input[type="file"]');
         
-        if (target.type === 'input') {
-            el.files = dataTransfer.files;
+        if (currentInputs.length > i) {
+            console.log(`[Glide Sync] Injetando arquivo na semana ${i + 1}`);
             
-            const changeEvent = new Event('change', { bubbles: true });
-            Object.defineProperty(changeEvent, 'target', { writable: false, value: el });
-            el.dispatchEvent(changeEvent);
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(fileObj);
             
-            const inputEvent = new Event('input', { bubbles: true });
-            el.dispatchEvent(inputEvent);
+            const input = currentInputs[i];
+            input.files = dataTransfer.files;
+            
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // Aguardar upload do Glide (muito importante)
+            await delay(4000); 
         } else {
-            // É um DropZone (div genérica)
-            // Simular drag and drop completo para o React Dropzone
-            const dragEnter = new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer });
-            el.dispatchEvent(dragEnter);
-            
-            const dragOver = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer });
-            el.dispatchEvent(dragOver);
-            
-            const dropEvent = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer });
-            el.dispatchEvent(dropEvent);
+            console.warn(`[Glide Sync] Input ${i} não encontrado!`);
         }
-        
-        // Aguardar upload do Glide
-        await delay(5000); 
     }
 }
