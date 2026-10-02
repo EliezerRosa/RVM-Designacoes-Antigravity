@@ -18,8 +18,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 glideTabId = tabs[0].id;
                 chrome.tabs.update(glideTabId, { active: true });
                 
-                console.log("[RVM Background] Aba encontrada. Forçando Ctrl+F5 (bypassCache)...");
-                chrome.tabs.reload(glideTabId, { bypassCache: true }, () => {
+                console.log("[RVM Background] Aba encontrada. Navegando para a tela correta e forçando reload...");
+                // Navega para a URL exata (deep link) para garantir que está na tela certa
+                chrome.tabs.update(glideTabId, { active: true, url: glideUrl }, () => {
                     let injected = false;
                     const inject = () => {
                         if (injected) return;
