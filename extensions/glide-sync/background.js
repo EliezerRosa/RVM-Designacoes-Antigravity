@@ -16,9 +16,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (tabs.length > 0) {
                 // Usa a aba existente
                 glideTabId = tabs[0].id;
-                // Opcional: trazer para frente
-                // chrome.tabs.update(glideTabId, { active: true });
-                sendImagesToGlide(glideTabId, request.payload, sendResponse);
+                
+                console.log("[RVM Background] Aba encontrada. Forçando Ctrl+F5 (bypassCache)...");
+                chrome.tabs.reload(glideTabId, { bypassCache: true }, () => {
+                    // Escutar quando o reload terminar
+                    chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
+                        if (tabId === glideTabId && info.status === 'complete') {
+                            chrome.tabs.onUpdated.removeListener(listener);
+                            console.log("[RVM Background] Reload concluído. Aguardando hidratação...");
+                            // Dar 3 segundos pro React do Glide hidratar
+                            setTimeout(() => {
+                                sendImagesToGlide(glideTabId, request.payload, sendResponse);
+                            }, 3000);
+                        }
+                    });
+                });
             } else {
                 // Abre uma nova aba (pode ser fixa, minimizada, ou normal)
                 chrome.tabs.create({ url: glideUrl, active: false }, (newTab) => {
