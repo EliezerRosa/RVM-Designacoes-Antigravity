@@ -20,34 +20,56 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 
                 console.log("[RVM Background] Aba encontrada. Forçando Ctrl+F5 (bypassCache)...");
                 chrome.tabs.reload(glideTabId, { bypassCache: true }, () => {
-                    // Escutar quando o reload terminar
+                    let injected = false;
+                    const inject = () => {
+                        if (injected) return;
+                        injected = true;
+                        console.log("[RVM Background] Injetando imagens...");
+                        setTimeout(() => sendImagesToGlide(glideTabId, request.payload, sendResponse), 3000);
+                    };
+
                     chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
                         if (tabId === glideTabId && info.status === 'complete') {
                             chrome.tabs.onUpdated.removeListener(listener);
-                            console.log("[RVM Background] Reload concluído. Aguardando hidratação...");
-                            // Dar 3 segundos pro React do Glide hidratar
-                            setTimeout(() => {
-                                sendImagesToGlide(glideTabId, request.payload, sendResponse);
-                            }, 3000);
+                            inject();
                         }
                     });
+                    
+                    // Fallback: se o Glide demorar demais para reportar 'complete', injeta mesmo assim após 15s
+                    setTimeout(() => {
+                        if (!injected) {
+                            console.warn("[RVM Background] Fallback: Aba não reportou 'complete' após 15s. Tentando injetar mesmo assim...");
+                            inject();
+                        }
+                    }, 15000);
                 });
             } else {
                 // Abre uma nova aba (trazendo-a para frente)
                 chrome.tabs.create({ url: glideUrl, active: true }, (newTab) => {
                     glideTabId = newTab.id;
                     
-                    // Como a aba acabou de ser criada, o glide-content.js ainda não carregou.
-                    // Precisamos escutar quando a aba terminar de carregar
+                    let injected = false;
+                    const inject = () => {
+                        if (injected) return;
+                        injected = true;
+                        console.log("[RVM Background] Injetando imagens...");
+                        setTimeout(() => sendImagesToGlide(glideTabId, request.payload, sendResponse), 3000);
+                    };
+
                     chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
                         if (tabId === glideTabId && info.status === 'complete') {
                             chrome.tabs.onUpdated.removeListener(listener);
-                            // Dar 2 segundos pro React do Glide hidratar
-                            setTimeout(() => {
-                                sendImagesToGlide(glideTabId, request.payload, sendResponse);
-                            }, 3000);
+                            inject();
                         }
                     });
+
+                    // Fallback
+                    setTimeout(() => {
+                        if (!injected) {
+                            console.warn("[RVM Background] Fallback: Aba não reportou 'complete' após 15s. Tentando injetar mesmo assim...");
+                            inject();
+                        }
+                    }, 15000);
                 });
             }
         });
