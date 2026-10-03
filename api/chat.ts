@@ -238,6 +238,7 @@ async function callOpenAICompat(
 ): Promise<CallResult> {
     const messages  = extractMessages(body);
     const genConfig = (body.generationConfig as Record<string, unknown>) ?? {};
+    const wantsJson = genConfig.responseMimeType === 'application/json';
 
     const res = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
@@ -246,7 +247,9 @@ async function callOpenAICompat(
             model,
             messages,
             temperature: (genConfig.temperature    as number) ?? 0.7,
-            max_tokens:  (genConfig.maxOutputTokens as number) ?? 8192,
+            // DeepSeek rejeita (400, não-retryable) max_tokens > 8192 — cap seguro.
+            max_tokens:  Math.min((genConfig.maxOutputTokens as number) ?? 8192, 8192),
+            ...(wantsJson ? { response_format: { type: 'json_object' } } : {}),
         }),
         signal,
     });
@@ -270,13 +273,20 @@ async function callCloudflare(
     accountId: string,
     signal: AbortSignal,
 ): Promise<CallResult> {
-    const messages = extractMessages(body);
+    const messages  = extractMessages(body);
+    const genConfig = (body.generationConfig as Record<string, unknown>) ?? {};
     const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
 
+    // 2026-10-03: Workers AI usa max_tokens=256 por padrão → truncava JSON em ~650 chars.
+    // Cap em 4096 para caber na janela de contexto dos modelos Llama do Workers AI.
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({
+            messages,
+            max_tokens:  Math.min((genConfig.maxOutputTokens as number) ?? 4096, 4096),
+            temperature: (genConfig.temperature as number) ?? 0.6,
+        }),
         signal,
     });
 
@@ -439,8 +449,26 @@ export default async function handler(request: Request) {
                     // o que fazia o JSON cru vazar pra UI. Aqui canonicalizamos.
                     sanitizeGeminiPayload(data);
 
+                    // 2026-10-03: Não cachear respostas JSON inválidas/truncadas — senão
+                    // todo retry do mesmo prompt recebe o mesmo lixo do cache.
+                    let cacheable = true;
+                    const reqGenConfig = (body.generationConfig as Record<string, unknown>) ?? {};
+                    if (reqGenConfig.responseMimeType === 'application/json') {
+                        const cands = (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })?.candidates;
+                        const txt = (cands?.[0]?.content?.parts ?? []).map(p => p.text ?? '').join('');
+                        const s = txt.indexOf('{');
+                        const e = txt.lastIndexOf('}');
+                        try {
+                            if (s === -1 || e <= s) throw new Error('no json');
+                            JSON.parse(txt.substring(s, e + 1));
+                        } catch {
+                            cacheable = false;
+                            console.warn(`[Cache] Resposta JSON inválida de ${entry.provider}/${entry.model} — não será cacheada.`);
+                        }
+                    }
+
                     // --- CACHE SAVE ---
-                    if (promptHash && process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {
+                    if (cacheable && promptHash && process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {
                         try {
                             const { createClient } = await import('@supabase/supabase-js');
                             const supabase = createClient(

@@ -93,6 +93,72 @@ const RESPONSE_SCHEMA = {
     required: ["regras"]
 };
 
+/**
+ * 2026-10-03: Extração tolerante de JSON.
+ * Modelos fallback (Llama/Cloudflare) envolvem o JSON em prosa, esquecem vírgulas
+ * entre objetos ou têm a saída truncada. Estratégia:
+ *   1) Tenta parse do bloco `{ ... }` completo.
+ *   2) Se falhar, varre o primeiro array e recupera cada objeto `{...}` completo
+ *      individualmente (descarta o último objeto incompleto).
+ */
+function extractRulesPayload(raw: string): { regras: any[]; salvaged: boolean } {
+    const text = raw.replace(/```(?:json)?/gi, '').trim();
+    const first = text.indexOf('{');
+    if (first === -1) throw new Error('Resposta da IA não contém JSON.');
+    const body = text.substring(first);
+
+    const last = body.lastIndexOf('}');
+    if (last !== -1) {
+        try {
+            const parsed = JSON.parse(body.substring(0, last + 1));
+            if (Array.isArray(parsed?.regras)) return { regras: parsed.regras, salvaged: false };
+            if (Array.isArray(parsed)) return { regras: parsed, salvaged: false };
+        } catch { /* cai no salvamento */ }
+    }
+
+    const arrStart = body.indexOf('[');
+    if (arrStart === -1) throw new Error('JSON da IA malformado e sem array de regras recuperável.');
+
+    const regras: any[] = [];
+    let depth = 0, inStr = false, esc = false, objStart = -1;
+    for (let i = arrStart + 1; i < body.length; i++) {
+        const ch = body[i];
+        if (esc) { esc = false; continue; }
+        if (ch === '\\') { if (inStr) esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (ch === '{') {
+            if (depth === 0) objStart = i;
+            depth++;
+        } else if (ch === '}') {
+            depth--;
+            if (depth === 0 && objStart !== -1) {
+                try { regras.push(JSON.parse(body.substring(objStart, i + 1))); } catch { /* objeto inválido, ignora */ }
+                objStart = -1;
+            }
+        } else if (ch === ']' && depth === 0) {
+            break;
+        }
+    }
+    return { regras, salvaged: true };
+}
+
+const JSON_EXAMPLE = `{
+  "regras": [
+    {
+      "part_id": "<copie exatamente o PART_ID>",
+      "titulo_parte": "<título>",
+      "perfil_sintetico": { "tipo": "iniciador_conversas", "peso": "DESEJAVEL" },
+      "demografia_alvo": "nenhum",
+      "genero_alvo": "nenhum",
+      "foco_treinamento": "nenhum",
+      "perfil_familiar": "nenhum",
+      "boost_tags": [],
+      "sugestao": "<frase curta>"
+    }
+  ]
+}`;
+
 export async function generateSemanticRulesForWeek(weekId: string, parts: WorkbookPart[]): Promise<string> {
     const proxyUrl = getAiProxyUrl();
 
@@ -136,13 +202,14 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         contents: [
             {
                 role: 'user',
-                parts: [{ text: `Aqui estão as partes da semana. Analise e retorne estritamente o JSON seguindo o schema.\n\n${partsTextContext}` }]
+                parts: [{ text: `Aqui estão as partes da semana. Analise e retorne SOMENTE o JSON (sem texto antes ou depois), com um objeto por parte, neste formato:\n${JSON_EXAMPLE}\n\n${partsTextContext}` }]
             }
         ],
         generationConfig: {
             responseMimeType: "application/json",
             responseSchema: RESPONSE_SCHEMA,
-            temperature: 0.1 // Força determinismo
+            temperature: 0.1, // Força determinismo
+            maxOutputTokens: 16384 // Evita truncamento (proxy aplica cap por provider)
         },
         thinking_level: 'LOW' // Força Gemini Flash (único que suporta responseSchema)
     };
@@ -174,61 +241,65 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         }
         console.log(`[SemanticAgent] rawResult.length=${rawResult.length}, preview=${rawResult.substring(0, 120)}`);
         
-        // Tenta extrair apenas o bloco JSON, ignorando conversas (Llama 3.1)
-        let cleanedResult = rawResult.trim();
-        const firstBrace = cleanedResult.indexOf('{');
-        const lastBrace = cleanedResult.lastIndexOf('}');
-        
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
-            // Recorta exatamente de onde começa até onde termina o objeto JSON principal
-            cleanedResult = cleanedResult.substring(firstBrace, lastBrace + 1);
-        } else {
-            // Fallback caso não ache chaves (improvável se for JSON válido)
-            cleanedResult = cleanedResult.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+        const { regras, salvaged } = extractRulesPayload(rawResult);
+        if (salvaged) {
+            console.warn(`[SemanticAgent] JSON malformado/truncado (modelo=${modelUsed}). Recuperadas ${regras.length} regras completas.`);
         }
-        
-        const parsedAi = JSON.parse(cleanedResult);
 
         // ETAPA 2: Validar que a IA retornou regras válidas antes de salvar lixo no banco
-        if (!parsedAi.regras || !Array.isArray(parsedAi.regras) || parsedAi.regras.length === 0) {
-            console.error('[SemanticAgent] IA retornou JSON sem regras válidas:', cleanedResult.substring(0, 200));
-            throw new Error(`IA retornou 0 regras (modelo=${modelUsed}). Resposta pode ser de provider não-Gemini sem suporte a responseSchema. Tente novamente.`);
+        if (regras.length === 0) {
+            console.error('[SemanticAgent] IA retornou JSON sem regras válidas:', rawResult.substring(0, 200));
+            throw new Error(`IA retornou 0 regras (modelo=${modelUsed}). Tente novamente.`);
         }
-        console.log(`[SemanticAgent] IA retornou ${parsedAi.regras.length} regras (modelo=${modelUsed})`);
+        console.log(`[SemanticAgent] IA retornou ${regras.length} regras (modelo=${modelUsed})`);
+
+        const validIds = new Set(weekParts.map(p => String(p.id)));
+        const normTitle = (s: unknown) => String(s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
 
         const weekKey = `semana_${weekId}`;
         const dict: any = { [weekKey]: {} };
         
-        if (parsedAi.regras && Array.isArray(parsedAi.regras)) {
-            for (const rule of parsedAi.regras) {
-                const { titulo_parte, part_id, ...ruleData } = rule;
-                
-                // Limpar campos "nenhum" para manter a estrutura limpa
-                for (const key of Object.keys(ruleData)) {
-                    const val = ruleData[key];
-                    if (val === 'nenhum' || val?.tipo === 'nenhum') {
-                        delete ruleData[key];
-                    }
+        for (const rule of regras) {
+            if (!rule || typeof rule !== 'object') continue;
+            // Modelos fracos variam o nome da chave (part_id | parte | partId | id)
+            const { titulo_parte, part_id, parte, partId, id, ...ruleData } = rule;
+            
+            // Limpar campos "nenhum" para manter a estrutura limpa
+            for (const key of Object.keys(ruleData)) {
+                const val = ruleData[key];
+                if (val === 'nenhum' || val?.tipo === 'nenhum') {
+                    delete ruleData[key];
                 }
-                
-                // Tratar caso a IA retorne a string bruta "[PART_ID: 12345]" em vez de apenas "12345"
-                let cleanPartId = part_id;
-                if (typeof cleanPartId === 'string' && cleanPartId.includes('[PART_ID:')) {
-                    cleanPartId = cleanPartId.replace(/\[PART_ID:\s*/i, '').replace(/\]/g, '').trim();
-                }
-                
-                // Gravar usando part_id como chave principal (fallback para titulo para retrocompatibilidade temporária se faltar id)
-                const key = cleanPartId || titulo_parte;
-                if (key) {
-                    dict[weekKey][key] = ruleData;
-                }
+            }
+            
+            // Tratar caso a IA retorne a string bruta "[PART_ID: 12345]" em vez de apenas "12345"
+            let cleanPartId = String(part_id ?? parte ?? partId ?? id ?? '');
+            if (cleanPartId.includes('PART_ID')) {
+                cleanPartId = cleanPartId.replace(/\[?PART_ID:\s*/i, '').replace(/\]/g, '').trim();
+            }
+            
+            // Só aceita IDs reais da semana; senão tenta casar pelo título
+            let key: string | undefined = validIds.has(cleanPartId) ? cleanPartId : undefined;
+            if (!key && titulo_parte) {
+                const match = weekParts.find(p => normTitle(p.tituloParte) === normTitle(titulo_parte));
+                if (match) key = String(match.id);
+            }
+            if (key) {
+                dict[weekKey][key] = ruleData;
+            } else {
+                console.warn(`[SemanticAgent] Regra descartada: part_id inválido "${cleanPartId}" / título "${titulo_parte ?? ''}"`);
             }
         }
 
         const rulesCount = Object.keys(dict[weekKey]).length;
-        console.log(`[SemanticAgent] Dict final: ${rulesCount} regras mapeadas para semana ${weekId}`);
+        console.log(`[SemanticAgent] Dict final: ${rulesCount}/${weekParts.length} regras mapeadas para semana ${weekId}`);
         if (rulesCount === 0) {
-            throw new Error(`Nenhuma regra foi mapeada após processar ${parsedAi.regras.length} itens da IA. Verifique part_id.`);
+            throw new Error(`Nenhuma regra foi mapeada após processar ${regras.length} itens da IA. Verifique part_id.`);
+        }
+        // Resposta truncada cobrindo menos da metade da semana: não salvar
+        // (senão o fluxo "gera uma única vez" nunca mais completaria a semana).
+        if (salvaged && rulesCount < Math.ceil(weekParts.length / 2)) {
+            throw new Error(`Resposta da IA truncada (${rulesCount}/${weekParts.length} partes, modelo=${modelUsed}). Tente novamente.`);
         }
 
         return JSON.stringify(dict, null, 2);
