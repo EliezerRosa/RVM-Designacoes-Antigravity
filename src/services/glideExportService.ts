@@ -135,7 +135,7 @@ export async function exportGlideInvisible(parts: WorkbookPart[], publishers: Pu
         
         setTimeout(() => {
             window.removeEventListener('message', listener);
-            reject(new Error('Timeout aguardando a Extensão do Chrome RVM Sync. Ela está instalada?'));
-        }, 60000);
+            reject(new Error('Timeout aguardando a Extensão do Chrome RVM Sync (esperou 120s). Ela está instalada e o Glide está aberto?'));
+        }, 120000);
     });
 }
