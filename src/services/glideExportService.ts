@@ -3,32 +3,65 @@ import { generateS140ImageBase64 } from './s140GeneratorUnified';
 import type { WorkbookPart, Publisher } from '../types';
 import { getWeekMondayId } from './eligibilityService';
 import { isWeekPublished } from './weekPublishService';
+import { api } from './api';
 
-export async function exportGlideSyncZip(parts: WorkbookPart[], publishers: Publisher[]) {
-    // 1. Identificar a semana corrente (ou a próxima disponível se estiver no fim de semana)
+const S89_MEETING_DAY_SETTING_KEY = 's89_meeting_day_by_week';
+const DEFAULT_MEETING_DAY_OF_WEEK = 4; // Quinta-feira
+
+async function getMeetingDayOfWeek(weekId: string): Promise<number> {
+    try {
+        const map = await api.getSetting<Record<string, number>>(S89_MEETING_DAY_SETTING_KEY, {});
+        const val = map[weekId];
+        if (typeof val === 'number' && val >= 0 && val <= 6) return val;
+        return DEFAULT_MEETING_DAY_OF_WEEK;
+    } catch {
+        return DEFAULT_MEETING_DAY_OF_WEEK;
+    }
+}
+
+async function getTargetWeeks(parts: WorkbookPart[]): Promise<string[]> {
     const todayStr = new Date().toISOString().slice(0, 10);
     const currentMonday = getWeekMondayId(todayStr);
 
-    // Pegar as semanas únicas
     const allWeekIds = [...new Set(parts.map(p => p.weekId))].sort();
-    
-    // Filtrar da semana atual em diante
-    let targetWeeks = allWeekIds.filter(wId => wId >= currentMonday);
+    let candidateWeeks = allWeekIds.filter(wId => wId >= currentMonday);
 
-    // Filtrar apenas semanas publicadas
-    const publishedChecks = await Promise.all(targetWeeks.map(wId => isWeekPublished(wId)));
-    targetWeeks = targetWeeks.filter((_, idx) => publishedChecks[idx]);
-    
-    // Se não tiver semana corrente exata, pega as próximas 4
-    if (targetWeeks.length === 0) {
-        throw new Error('Não há semanas futuras suficientes para exportar.');
+    if (candidateWeeks.length > 0) {
+        const currentWeekId = candidateWeeks[0];
+        if (currentWeekId === currentMonday) {
+            // Verifica se a reunião desta semana já passou com base no dia definido no banco
+            const meetingDayOfWeek = await getMeetingDayOfWeek(currentWeekId);
+            const [y, m, d] = currentWeekId.split('-').map(Number);
+            const weekDate = new Date(y, m - 1, d);
+            
+            // Monday is 1, so days to add is (day + 6) % 7
+            const daysToAdd = (meetingDayOfWeek + 6) % 7;
+            const meetingDate = new Date(weekDate);
+            meetingDate.setDate(weekDate.getDate() + daysToAdd);
+            
+            const meetingDateStr = meetingDate.toISOString().slice(0, 10);
+            
+            // Se o dia de hoje for MAIOR que o dia da reunião, ela já passou.
+            if (todayStr > meetingDateStr) {
+                // Remove a semana atual, avançando para a próxima disponível
+                candidateWeeks = candidateWeeks.slice(1);
+            }
+        }
     }
 
-    // Limitar a 4 semanas (corrente + 3)
-    targetWeeks = targetWeeks.slice(0, 4);
+    // Filtrar apenas semanas publicadas
+    const publishedChecks = await Promise.all(candidateWeeks.map(wId => isWeekPublished(wId)));
+    const targetWeeks = candidateWeeks.filter((_, idx) => publishedChecks[idx]);
+    
+    // Limitar a no máximo 4 semanas (Semana de partida + 3)
+    return targetWeeks.slice(0, 4);
+}
+
+export async function exportGlideSyncZip(parts: WorkbookPart[], publishers: Publisher[]) {
+    const targetWeeks = await getTargetWeeks(parts);
 
     if (targetWeeks.length === 0) {
-        throw new Error('Nenhuma semana encontrada para a exportação do Glide.');
+        throw new Error('Não há semanas futuras publicadas suficientes para exportar.');
     }
 
     const zip = new JSZip();
@@ -38,39 +71,31 @@ export async function exportGlideSyncZip(parts: WorkbookPart[], publishers: Publ
         const weekParts = parts.filter(p => p.weekId === weekId);
         
         if (weekParts.length > 0) {
-            // Gera a imagem em base64 (Formato PNG por padrão do html2canvas)
             const base64DataUrl = await generateS140ImageBase64(weekParts, publishers);
             
             if (base64DataUrl) {
-                // Remover prefixo "data:image/png;base64,"
                 const base64Data = base64DataUrl.split(',')[1];
-                
-                // Nomear como week1.png, week2.png, etc para o robô achar fácil
                 const filename = `week${i + 1}_${weekId}.png`;
                 zip.file(filename, base64Data, { base64: true });
             }
         }
     }
 
-    // Gerar o ZIP e fazer download
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(zipBlob);
+    
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const currentMonday = getWeekMondayId(todayStr);
     link.download = `Glide_S140_Export_${currentMonday}.zip`;
+    
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 }
 
 export async function exportGlideInvisible(parts: WorkbookPart[], publishers: Publisher[]): Promise<boolean> {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const currentMonday = getWeekMondayId(todayStr);
-    const allWeekIds = [...new Set(parts.map(p => p.weekId))].sort();
-    let candidateWeeks = allWeekIds.filter(wId => wId >= currentMonday).slice(0, 4);
-
-    // Filtrar apenas semanas publicadas
-    const publishedChecks = await Promise.all(candidateWeeks.map(wId => isWeekPublished(wId)));
-    const targetWeeks = candidateWeeks.filter((_, idx) => publishedChecks[idx]);
+    const targetWeeks = await getTargetWeeks(parts);
 
     if (targetWeeks.length === 0) throw new Error('Nenhuma semana publicada encontrada.');
 
@@ -92,10 +117,8 @@ export async function exportGlideInvisible(parts: WorkbookPart[], publishers: Pu
     }
 
     return new Promise((resolve, reject) => {
-        // Envia mensagem pro Content Script da Extensão
         window.postMessage({ type: 'RVM_SYNC_GLIDE', payload: imagesPayload }, '*');
 
-        // Escuta a resposta da extensão
         const listener = (event: MessageEvent) => {
             if (event.source !== window) return;
             if (event.data.type === 'RVM_SYNC_GLIDE_RESPONSE') {
@@ -110,11 +133,9 @@ export async function exportGlideInvisible(parts: WorkbookPart[], publishers: Pu
         
         window.addEventListener('message', listener);
         
-        // Timeout de segurança (60s)
         setTimeout(() => {
             window.removeEventListener('message', listener);
             reject(new Error('Timeout aguardando a Extensão do Chrome RVM Sync. Ela está instalada?'));
         }, 60000);
     });
 }
-
