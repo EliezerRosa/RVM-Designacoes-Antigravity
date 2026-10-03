@@ -174,12 +174,16 @@ export async function generateSemanticRulesForWeek(weekId: string, parts: Workbo
         }
         console.log(`[SemanticAgent] rawResult.length=${rawResult.length}, preview=${rawResult.substring(0, 120)}`);
         
-        // Tenta extrair um bloco de código json, caso a IA adicione conversa antes/depois
+        // Tenta extrair apenas o bloco JSON, ignorando conversas (Llama 3.1)
         let cleanedResult = rawResult.trim();
-        const jsonBlockMatch = cleanedResult.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-        if (jsonBlockMatch && jsonBlockMatch[1]) {
-            cleanedResult = jsonBlockMatch[1].trim();
+        const firstBrace = cleanedResult.indexOf('{');
+        const lastBrace = cleanedResult.lastIndexOf('}');
+        
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace >= firstBrace) {
+            // Recorta exatamente de onde começa até onde termina o objeto JSON principal
+            cleanedResult = cleanedResult.substring(firstBrace, lastBrace + 1);
         } else {
+            // Fallback caso não ache chaves (improvável se for JSON válido)
             cleanedResult = cleanedResult.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
         }
         
