@@ -28,6 +28,7 @@ import { usePermissions } from './hooks/usePermissions'
 import { ForceBiometricModal } from './components/ForceBiometricModal'
 import { AppLockScreen } from './components/AppLockScreen'
 import { AutomationWorker } from './components/AutomationWorker'
+import { GlideSentinel } from './components/GlideSentinel'
 import { PushOnboardingPortal } from './components/PushOnboardingPortal'
 
 // Lazy-loaded tabs (code splitting)
@@ -770,6 +771,9 @@ function AuthenticatedApp({ onSignOut, userEmail, isFocusMode, focusPartId }: { 
           )}
         </Suspense>
       </main>
+      
+      {/* Sentinela Global Invisível */}
+      <GlideSentinel publishers={publishers} />
 
       {showPublisherForm && (
         <PublisherForm
