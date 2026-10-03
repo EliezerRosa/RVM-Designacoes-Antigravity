@@ -50,13 +50,21 @@ async function waitForInputs(expectedCount, maxWaitMs = 30000) {
 async function injectImages(images) {
     console.log(`[Glide Sync] Recebidas ${images.length} imagens para injetar.`);
     
-    // 1. Limpar TODAS as imagens existentes na tela (até 4) ANTES de injetar as novas.
-    // Isso garante que se enviarmos 3 imagens, a 4ª não ficará com a foto velha.
-    const clearButtons = document.querySelectorAll('[aria-label="Clear value"], [aria-label="Remove image"]');
-    if (clearButtons.length > 0) {
-        console.log(`[Glide Sync] Encontradas ${clearButtons.length} imagens antigas. Limpando...`);
-        for (let i = 0; i < clearButtons.length; i++) {
-            console.log(`[Glide Sync] Clicando no X da posição ${i + 1}`);
+    // Aguarda o Glide montar a tela após o Ctrl+F5
+    const fileInputs = await waitForInputs(images.length);
+
+    if (fileInputs.length === 0) {
+        throw new Error(`Não achei os botões "Choose an image" no Glide. A tela demorou muito para carregar ou o Glide mudou o layout.`);
+    }
+
+    for (let i = 0; i < images.length; i++) {
+        const fileObj = base64ToFile(images[i].base64, images[i].filename);
+        
+        // 1. Procurar botão de X (Excluir Imagem Antiga)
+        const clearButtons = document.querySelectorAll('[aria-label="Clear value"], [aria-label="Remove image"]');
+        
+        if (clearButtons.length > i) {
+            console.log(`[Glide Sync] Clicando no X da semana ${i + 1}`);
             clearButtons[i].click();
             await delay(500);
             
@@ -68,24 +76,8 @@ async function injectImages(images) {
                 await delay(1500);
             }
         }
-    }
 
-    // 2. Aguarda o Glide montar a tela com os inputs vazios
-    const fileInputs = await waitForInputs(images.length);
-
-    if (fileInputs.length === 0) {
-        throw new Error(`Não achei os botões "Choose an image" no Glide. A tela demorou muito para carregar ou o Glide mudou o layout.`);
-    }
-    
-    if (fileInputs.length < images.length) {
-        throw new Error(`O Glide possui apenas ${fileInputs.length} campos, mas recebemos ${images.length} imagens para envio.`);
-    }
-
-    // 3. Injetar os novos arquivos
-    for (let i = 0; i < images.length; i++) {
-        const fileObj = base64ToFile(images[i].base64, images[i].filename);
-        
-        // Re-buscamos os inputs porque o DOM pode ter sido recriado
+        // 2. Procurar Input de Arquivo
         const currentInputs = document.querySelectorAll('input[type="file"]');
         
         if (currentInputs.length > i) {
@@ -99,11 +91,10 @@ async function injectImages(images) {
             
             input.dispatchEvent(new Event('change', { bubbles: true }));
             
-            // Aguardar upload do Glide (muito importante). Aumentamos um pouco para dar margem.
-            await delay(6000); 
+            // Aguardar upload do Glide (muito importante)
+            await delay(4000); 
         } else {
             console.warn(`[Glide Sync] Input ${i} não encontrado!`);
-            throw new Error(`Falha ao encontrar o input para a imagem ${i+1}. O layout mudou durante a injeção.`);
         }
     }
 }
