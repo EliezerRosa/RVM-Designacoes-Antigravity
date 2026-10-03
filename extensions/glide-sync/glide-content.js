@@ -50,33 +50,7 @@ async function waitForInputs(expectedCount, maxWaitMs = 30000) {
 async function injectImages(images) {
     console.log(`[Glide Sync] Recebidas ${images.length} imagens para injetar.`);
     
-    // --- PASSO 1: LIMPAR TODAS AS IMAGENS EXISTENTES ---
-    // Fazemos um loop enquanto houver botões de X na tela.
-    // Assim garantimos que se enviarmos menos de 4 imagens, as posições sobressalentes ficarão VAZIAS.
-    let clearButtons = document.querySelectorAll('[aria-label="Clear value"], [aria-label="Remove image"]');
-    while (clearButtons.length > 0) {
-        console.log(`[Glide Sync] Encontrados ${clearButtons.length} imagens antigas. Clicando em apagar...`);
-        clearButtons[0].click();
-        await delay(500);
-        
-        // Aceitar modal de Delete, se o Glide pedir confirmação
-        const buttons = Array.from(document.querySelectorAll('button'));
-        const deleteBtn = buttons.find(b => b.innerText.includes('Delete') || b.innerText.includes('Excluir'));
-        if (deleteBtn) {
-            deleteBtn.click();
-            await delay(1500);
-        } else {
-            await delay(500);
-        }
-        
-        // Busca novamente para ver se a tela limpou e se há mais botões
-        clearButtons = document.querySelectorAll('[aria-label="Clear value"], [aria-label="Remove image"]');
-    }
-
-    console.log('[Glide Sync] Todas as imagens antigas foram limpas com sucesso.');
-
-    // --- PASSO 2: INJETAR AS NOVAS IMAGENS ---
-    // Aguarda o Glide montar a tela e revelar os campos de upload vazios após a deleção
+    // Aguarda o Glide montar a tela após o Ctrl+F5
     const fileInputs = await waitForInputs(images.length);
 
     if (fileInputs.length === 0) {
@@ -86,7 +60,24 @@ async function injectImages(images) {
     for (let i = 0; i < images.length; i++) {
         const fileObj = base64ToFile(images[i].base64, images[i].filename);
         
-        // Buscar inputs novamente a cada iteração, pois o DOM pode atualizar
+        // 1. Procurar botão de X (Excluir Imagem Antiga)
+        const clearButtons = document.querySelectorAll('[aria-label="Clear value"], [aria-label="Remove image"]');
+        
+        if (clearButtons.length > i) {
+            console.log(`[Glide Sync] Clicando no X da semana ${i + 1}`);
+            clearButtons[i].click();
+            await delay(500);
+            
+            // Aceitar modal de Delete
+            const buttons = Array.from(document.querySelectorAll('button'));
+            const deleteBtn = buttons.find(b => b.innerText.includes('Delete'));
+            if (deleteBtn) {
+                deleteBtn.click();
+                await delay(1500);
+            }
+        }
+
+        // 2. Procurar Input de Arquivo
         const currentInputs = document.querySelectorAll('input[type="file"]');
         
         if (currentInputs.length > i) {
@@ -100,10 +91,10 @@ async function injectImages(images) {
             
             input.dispatchEvent(new Event('change', { bubbles: true }));
             
-            // Aguardar upload do Glide (muito importante para não dar timeout no backend deles)
+            // Aguardar upload do Glide (muito importante)
             await delay(4000); 
         } else {
-            console.warn(`[Glide Sync] Input ${i} não encontrado! Estão disponíveis apenas ${currentInputs.length} campos.`);
+            console.warn(`[Glide Sync] Input ${i} não encontrado!`);
         }
     }
 }
