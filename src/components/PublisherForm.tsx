@@ -669,6 +669,9 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                 {formData.availabilityMeta.source && ` · origem: ${formData.availabilityMeta.source}`}
                             </div>
                         )}
+                        <div style={{ marginBottom: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            <em>Nota: A disponibilidade é organizada por semanas. Independentemente do dia escolhido, o sistema registrará a <strong>semana correspondente (iniciada na segunda-feira)</strong>.</em>
+                        </div>
                         <div className="form-group">
                             <label className="form-label">Datas Indisponíveis</label>
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
@@ -736,7 +739,7 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                                 fontSize: '0.85rem',
                                             }}
                                         >
-                                            📅 Sem. {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                            📅 Semana de {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -837,7 +840,7 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                                 fontSize: '0.85rem',
                                             }}
                                         >
-                                            ✅ {new Date(date + 'T00:00').toLocaleDateString('pt-BR')}
+                                            ✅ Semana de {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}
                                             <button
                                                 type="button"
                                                 onClick={() => {

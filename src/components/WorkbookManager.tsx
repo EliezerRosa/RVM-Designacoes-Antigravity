@@ -345,8 +345,24 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
             const { supabase } = await import('../lib/supabase');
             if (!isMounted) return;
 
+            const triggerSync = (reason: string) => {
+                console.log(`[Sentinel] ${reason} detectada. Aguardando 60 segundos...`);
+                if ((window as any).sentinelTimer) clearTimeout((window as any).sentinelTimer);
+                (window as any).sentinelTimer = setTimeout(async () => {
+                    try {
+                        const freshParts = await workbookQueryService.getAllParts();
+                        const { exportGlideInvisible } = await import('../services/glideExportService');
+                        await exportGlideInvisible(freshParts, publishers);
+                        console.log('[Sentinel] Sincronização invisível concluída!');
+                    } catch (e) {
+                        console.warn('[Sentinel] Falha na sincronização invisível:', e);
+                    }
+                }, 60000); // Regra 2: Espera de 60 segundos
+            };
+
             channel = supabase
                 .channel('sentinel-glide-sync')
+                // 1. Escuta mudanças físicas nas partes
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'workbook_parts' }, async (payload) => {
                     const record = payload.new || payload.old;
                     const recordWeekId = record?.week_id;
@@ -368,23 +384,15 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
 
                         const published = await isWeekPublished(recordWeekId);
                         if (published) {
-                            console.log(`[Sentinel] Mudança na semana ${recordWeekId} detectada. Aguardando 60 segundos...`);
-                            
-                            if ((window as any).sentinelTimer) clearTimeout((window as any).sentinelTimer);
-                            (window as any).sentinelTimer = setTimeout(async () => {
-                                try {
-                                    const freshParts = await workbookQueryService.getAllParts();
-                                    const { exportGlideInvisible } = await import('../services/glideExportService');
-                                    await exportGlideInvisible(freshParts, publishers);
-                                    console.log('[Sentinel] Sincronização invisível concluída!');
-                                } catch (e) {
-                                    console.warn('[Sentinel] Falha na sincronização invisível:', e);
-                                }
-                            }, 60000); // Regra 2: Espera de 60 segundos
+                            triggerSync(`Mudança na parte da semana ${recordWeekId}`);
                         }
                     } catch (err) {
                         console.error('[Sentinel] Erro ao verificar se semana está publicada:', err);
                     }
+                })
+                // 2. Escuta mudanças no selo de publicação global
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: 'key=eq.week_published' }, async (payload) => {
+                    triggerSync('Mudança no status de publicação global (semana publicada)');
                 })
                 .subscribe();
         };
