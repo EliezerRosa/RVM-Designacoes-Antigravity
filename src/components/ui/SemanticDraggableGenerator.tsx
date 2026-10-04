@@ -141,22 +141,6 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         setIsDragging(false);
     };
 
-    const handleButtonClick = () => {
-        if (hasDraggedRef.current) {
-            // Apenas reposicionou o botão arrastando, não abre o painel
-            return;
-        }
-        // Se estiver muito próximo do chão da tela, sobe o Y para caber o painel
-        const panelHeight = Math.min(window.innerHeight * 0.85, 580);
-        if (position.y + panelHeight > window.innerHeight - 20) {
-            setPosition(prev => ({
-                ...prev,
-                y: Math.max(20, window.innerHeight - panelHeight - 20)
-            }));
-        }
-        setIsExpanded(true);
-    };
-
     useEffect(() => {
         if (isDragging) {
             window.addEventListener('mousemove', handleMouseMove);
@@ -283,65 +267,64 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
         }
     };
 
-    useEffect(() => {
-        // Se mudou de semana, sempre reposiciona para a esquerda no rodapé e recolhe
-        if (weekId !== lastAnalyzedWeekRef.current) {
-            setPosition(getDefaultBottomLeft());
-            setIsExpanded(false);
-            setAnalyses([]);
-            setActivePartId(null);
-            setStatus('idle');
-            setMessage('');
-        }
-
-        // Regra de Ouro: O Agente Curador só deve executar análise UMA VEZ na entrada na semana.
-        // Se a semana atual já foi analisada, ignora re-renderizações subsequentes de parts e publishers.
-        if (!weekId || lastAnalyzedWeekRef.current === weekId) {
+    const activateCurator = async () => {
+        if (!weekId || parts.length === 0 || status === 'loading' || lastAnalyzedWeekRef.current === weekId) {
             return;
         }
 
-        // Aguarda carregar as partes da apostila da semana antes de disparar
-        if (!parts || parts.length === 0) {
-            return;
-        }
-
-        let isMounted = true;
         lastAnalyzedWeekRef.current = weekId;
+        setStatus('loading');
+        setMessage('Carregando regras semânticas...');
 
-        async function checkAndGenerateOnce() {
-            if (!weekId) return;
+        try {
+            const rules = await fetchSemanticRulesForWeek(weekId);
+            const weekData = rules[`semana_${weekId}`];
+            const hasRules = !!weekData && Object.keys(weekData).length > 0;
 
-            console.log(`[SemanticUI] Análise inicial única na entrada da semana: weekId=${weekId}, parts=${parts.length}`);
-
-            try {
-                const rules = await fetchSemanticRulesForWeek(weekId);
-                const weekKey = `semana_${weekId}`;
-                const weekData = rules[weekKey];
-                const hasRules = !!weekData && Object.keys(weekData).length > 0;
-                console.log(`[SemanticUI] checkAndGenerateOnce: hasRules=${hasRules}, keys=${weekData ? Object.keys(weekData).length : 0}`);
-
-                if (!isMounted) return;
-
-                if (!hasRules) {
-                    console.log(`[SemanticUI] Sem regras salvas, gerando regras via IA uma única vez...`);
-                    await handleGenerate();
-                } else {
-                    setStatus('success');
-                    setMessage('Regras Semânticas ativas para esta semana.');
-                    runAnalysis(rules);
-                }
-            } catch (err: any) {
-                console.error('[SemanticUI] Erro na análise única da semana:', err);
-                if (isMounted) {
-                    setStatus('error');
-                    setMessage(`Falha: ${err.message || String(err)}`);
-                }
+            if (hasRules) {
+                setStatus('success');
+                setMessage('Regras Semânticas ativas para esta semana.');
+                runAnalysis(rules);
+                return;
             }
+
+            console.log(`[SemanticUI] Sem regras salvas para ${weekId}; gerando após clique no Curador.`);
+            await handleGenerate();
+        } catch (err: any) {
+            lastAnalyzedWeekRef.current = null;
+            console.error('[SemanticUI] Erro ao ativar o Curador:', err);
+            setStatus('error');
+            setMessage(`Falha: ${err.message || String(err)}`);
+        }
+    };
+
+    useEffect(() => {
+        if (lastAnalyzedWeekRef.current === weekId) return;
+
+        lastAnalyzedWeekRef.current = null;
+        setPosition(getDefaultBottomLeft());
+        setIsExpanded(false);
+        setAnalyses([]);
+        setActivePartId(null);
+        setStatus('idle');
+        setMessage('');
+    }, [weekId]);
+
+    const handleButtonClick = () => {
+        if (hasDraggedRef.current) {
+            return;
         }
 
-        checkAndGenerateOnce();
-        return () => { isMounted = false; };
-    }, [weekId, parts, publishers]);
+        const panelHeight = Math.min(window.innerHeight * 0.85, 580);
+        if (position.y + panelHeight > window.innerHeight - 20) {
+            setPosition(prev => ({
+                ...prev,
+                y: Math.max(20, window.innerHeight - panelHeight - 20)
+            }));
+        }
+        setIsExpanded(true);
+        void activateCurator();
+    };
 
     if (!weekId) return null;
 
