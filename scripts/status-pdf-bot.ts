@@ -85,8 +85,36 @@ async function sendPdf(phone: string, pdfBuffer: Buffer, caption: string, versio
 
 async function main() {
   console.log("Iniciando Status PDF Bot...");
+  const now = new Date();
   
-  // Buscar fila
+  // 1. Carregar configuração de reunião e Semanas Publicadas (O filtro mestre)
+  const { data: mdData } = await supabase.from('app_settings').select('value').eq('key', 'meeting_days').maybeSingle();
+  const meetingDays = (mdData?.value as Record<string, number>) || {};
+
+  function calculateMeetingDate(wId: string): Date | null {
+      const dp = wId.split('-');
+      if (dp.length !== 3) return null;
+      const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
+      const dow = meetingDays[wId] ?? 4; // fallback quinta-feira
+      const daysToMeeting = (dow - baseDate.getDay() + 7) % 7;
+      const meetingDate = new Date(baseDate);
+      meetingDate.setDate(meetingDate.getDate() + daysToMeeting);
+      // Set to end of day to include the day of the meeting
+      meetingDate.setHours(23, 59, 59, 999);
+      return meetingDate;
+  }
+
+  const { data: wpData } = await supabase.from('app_settings').select('value').eq('key', 'week_published').maybeSingle();
+  const publishedMap = (wpData?.value as Record<string, string>) || {};
+  
+  // As semanas que são OFICIAIS e ATIVAS (Data >= hoje)
+  const publishedWeekIds = Object.keys(publishedMap).filter(wId => {
+    const md = calculateMeetingDate(wId);
+    return md && md >= now;
+  });
+  publishedWeekIds.sort();
+
+  // 2. Buscar fila
   const { data: queue, error } = await supabase
     .from('status_pdf_queue')
     .select('*')
@@ -119,25 +147,6 @@ async function main() {
     }
   });
 
-  const now = new Date();
-  
-  // Fetch meeting days to accurately calculate the meeting date for each week
-  const { data: mdData } = await supabase.from('app_settings').select('value').eq('key', 'meeting_days').maybeSingle();
-  const meetingDays = (mdData?.value as Record<string, number>) || {};
-
-  function calculateMeetingDate(wId: string): Date | null {
-      const dp = wId.split('-');
-      if (dp.length !== 3) return null;
-      const baseDate = new Date(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2]));
-      const dow = meetingDays[wId] ?? 4; // fallback quinta-feira
-      const daysToMeeting = (dow - baseDate.getDay() + 7) % 7;
-      const meetingDate = new Date(baseDate);
-      meetingDate.setDate(meetingDate.getDate() + daysToMeeting);
-      // Set to end of day to include the day of the meeting
-      meetingDate.setHours(23, 59, 59, 999);
-      return meetingDate;
-  }
-
   const weeksToProcess: string[] = [];
   const processedIds: string[] = [];
 
@@ -145,23 +154,36 @@ async function main() {
     const lastChange = new Date(info.status_changed_at);
     const diffMin = (now.getTime() - lastChange.getTime()) / 60000;
     
-    if (diffMin >= DEBOUNCE_MINUTES) {
-      const meetingDate = calculateMeetingDate(weekId);
-      // Check if meetingDate is today or in the future
-      if (meetingDate && meetingDate >= now) {
-        weeksToProcess.push(weekId);
-      } else {
-        console.log(`Semana ${weekId} ignorada por ser do PASSADO (Reunião ocorreu em: ${meetingDate?.toISOString()}).`);
-      }
-      // Mesmo as semanas ignoradas do passado devem ser marcadas como processadas para limpar a fila
-      processedIds.push(...info.ids);
-    } else {
+    // Sempre processamos para limpar a fila
+    processedIds.push(...info.ids);
+
+    if (diffMin < DEBOUNCE_MINUTES) {
       console.log(`Semana ${weekId} ignorada por debounce (alterada há ${diffMin.toFixed(1)} min).`);
+      // Devolve para a fila removendo dos processados
+      for (const id of info.ids) {
+          const idx = processedIds.indexOf(id);
+          if (idx > -1) processedIds.splice(idx, 1);
+      }
+      continue;
     }
+
+    // === FILTRO RESTRITO ===
+    // Só prosseguimos se a semana ESTIVER PUBLICADA e ATIVA (mesma regra do S-140)
+    if (!publishedWeekIds.includes(weekId)) {
+        console.log(`Semana ${weekId} ignorada pois NÃO está publicada (ou já passou).`);
+        continue;
+    }
+
+    weeksToProcess.push(weekId);
   }
 
   if (weeksToProcess.length === 0) {
-    console.log("Nenhuma semana pronta para processar após debounce.");
+    console.log("Nenhuma semana válida/pública pronta para processar após debounce e filtros.");
+    // Limpar fila silenciosamente das semanas que foram ignoradas (ex: rascunhos ou passadas)
+    if (processedIds.length > 0) {
+      await supabase.from('status_pdf_queue').update({ processed: true }).in('id', processedIds);
+      console.log(`Fila limpa (${processedIds.length} eventos de rascunho/passado removidos).`);
+    }
     process.exit(0);
   }
 
@@ -186,7 +208,7 @@ async function main() {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: recentParts } = await supabase
     .from('workbook_parts')
-    .select('week_id, titulo_parte, descricao_parte, tipo_parte, funcao, status, status_changed_at, resolved_publisher_id')
+    .select('week_id, titulo_parte, descricao_parte, tipo_parte, funcao, status, status_changed_at, resolved_publisher_id, is_substitution, substituted_publisher_name')
     .in('week_id', weeksToProcess)
     .gte('status_changed_at', twentyFourHoursAgo)
     .order('status_changed_at', { ascending: false });
@@ -196,7 +218,11 @@ async function main() {
     .select('id, name');
   const pubMap = new Map(publishersData?.map(p => [p.id, p.name]) || []);
 
-  let textDetails = '';
+  const formatDatePTBR = (wId: string) => wId.split('-').reverse().join('/');
+
+  let newWeeksText = '';
+  let updatesText = '';
+
   if (recentParts && recentParts.length > 0) {
     const partsByWeek = recentParts.reduce((acc: any, p: any) => {
       if (!acc[p.week_id]) acc[p.week_id] = [];
@@ -204,33 +230,36 @@ async function main() {
       return acc;
     }, {});
 
-    textDetails = '\n\n*Mudanças Recentes Identificadas:*';
+    const weeksWithAdjustments = Object.keys(partsByWeek);
+    const weeksWithoutAdjustments = weeksToProcess.filter(w => !weeksWithAdjustments.includes(w));
+
+    if (weeksWithoutAdjustments.length > 0) {
+       newWeeksText = `\n\n✨ *Nova(s) Semana(s) Publicada(s):* ` + weeksWithoutAdjustments.map(w => `• Semana de ${formatDatePTBR(w)}`).join('; ');
+    }
+
+    updatesText = '\n\n🔄 *Ajustes de Designação Realizados:*';
     for (const [wId, pts] of Object.entries(partsByWeek)) {
-      textDetails += `\n🗓️ *Semana ${wId}:*\n`;
+      updatesText += `\n      • Semana de ${formatDatePTBR(wId)}:`;
       const uniquePts = Array.from(new Set(pts.map((p: any) => {
           const pubName = pubMap.get(p.resolved_publisher_id) || 'A Designar';
-          return `  ↳ ${p.tipo_parte || p.titulo_parte} (${p.funcao === 'Ajudante' ? 'Ajudante' : 'Titular'}) ➜ *${pubName}* (Status Atual: *${p.status}*)`;
+          const partName = p.tipo_parte || p.titulo_parte;
+          const roleLabel = p.funcao === 'Ajudante' ? '(Ajudante)' : '';
+          const roleDisplay = roleLabel ? ` ${roleLabel}` : '';
+          
+          if (p.is_substitution && p.substituted_publisher_name) {
+              return `            ${partName}${roleDisplay}: ${p.substituted_publisher_name} ➡️ ${pubName}`;
+          } else {
+              return `            ${partName}${roleDisplay}: ➡️ ${pubName}`;
+          }
       })));
-      textDetails += uniquePts.join('\n');
+      updatesText += '\n' + uniquePts.join('\n');
     }
+  } else {
+      newWeeksText = `\n\n✨ *Nova(s) Semana(s) Publicada(s):* ` + weeksToProcess.map(w => `• Semana de ${formatDatePTBR(w)}`).join('; ');
   }
 
-  // 2. Buscar semanas publicadas para gerar o PDF consolidado
-  const { data: wpData } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'week_published')
-    .maybeSingle();
-  const publishedMap = (wpData?.value as Record<string, string>) || {};
-  const publishedWeekIds = Object.keys(publishedMap).filter(wId => {
-    const md = calculateMeetingDate(wId);
-    return md && md >= now;
-  });
-  
-  for (const w of weeksToProcess) {
-    if (!publishedWeekIds.includes(w)) publishedWeekIds.push(w);
-  }
-  publishedWeekIds.sort();
+  // A lista publishedWeekIds já foi calculada no início do script.
+  // Ela contém estritamente as semanas publicadas e não vencidas.
 
   const combinedWeeks = publishedWeekIds.join(',');
   const versionHash = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -238,10 +267,17 @@ async function main() {
   
   // Tag com hash para o nome do arquivo (evita cache do WhatsApp)
   const versionTag = `[VERSÃO DE ATUALIZAÇÃO ${dataHoraStr} #${versionHash}]`;
-  // Tag sem hash para a mensagem de texto
-  const captionTag = `[VERSÃO DE ATUALIZAÇÃO ${dataHoraStr}]`;
   
-  const richCaption = `🚨 ${captionTag} 🚨\n\nSegue o Quadro Geral unificado contemplando as semanas afetadas:\n${weeksToProcess.map(w => `• ${w}`).join('\n')}${textDetails}\n\n_(Abra o PDF e clique no número de telefone para chamar no WhatsApp)_`;
+  const periodStart = publishedWeekIds.length > 0 ? formatDatePTBR(publishedWeekIds[0]) : '';
+  const periodEnd = publishedWeekIds.length > 0 ? formatDatePTBR(publishedWeekIds[publishedWeekIds.length - 1]) : '';
+  
+  const richCaption = `📦 *PACOTE DE STATUS RVM* — 🏛️ Congregação Parque Jacaraípe\n\n` +
+    `🚨 *VERSÃO GERENCIAL DO PACOTE*\n` +
+    `⏱️ *Emitido em:* ${dataHoraStr}\n` +
+    `📅 *Semanas Inclusas:* ${periodStart} até ${periodEnd}` +
+    `${newWeeksText}${updatesText}\n\n` +
+    `Segue anexo o Quadro de Status unificado em *PDF*.\n` +
+    `📌 *Ação Recomendada:* Abra o PDF e clique no número de telefone para chamar o publicador pendente no WhatsApp.`;
 
   console.log(`Gerando PDF ÚNICO para as semanas: ${combinedWeeks}...`);
   const page = await browser.newPage();
