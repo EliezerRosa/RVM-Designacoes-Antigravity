@@ -55,6 +55,7 @@ interface PartData {
     resolved_publisher_name: string | null;
     section: string;
     seq: number;
+    needs_reassignment: boolean;
 }
 
 // ============================================================================
@@ -628,6 +629,11 @@ async function runDailyCycle(
         // ===================== D-9, D-7 e D-2: LEMBRETES =====================
         // Envia lembretes para partes ativas (mesmo se continuam PROPOSTA confirmadas por outro fluxo)
         if (!['DESIGNADA', 'PROPOSTA'].includes(part.status)) continue;
+        
+        // Bloqueio Defensivo: Não enviar lembretes para partes que estão aguardando substituição
+        // Isso evita cobrar um publicador que já recusou a parte, mas cujo status foi
+        // acidentalmente revertido para PROPOSTA.
+        if ((part as any).needs_reassignment) continue;
 
         let dispatchType = '';
         let reminderLabel = '';
@@ -1139,7 +1145,7 @@ serve(async (req: Request) => {
     // Buscar partes — agora inclui PROPOSTA além de DESIGNADA
     const { data: rawParts, error } = await supabase
         .from('workbook_parts')
-        .select(`id, tipo_parte, part_title, week_id, status, funcao, raw_publisher_name, resolved_publisher_id, resolved_publisher_name, section, seq`)
+        .select(`id, tipo_parte, part_title, week_id, status, funcao, raw_publisher_name, resolved_publisher_id, resolved_publisher_name, section, seq, needs_reassignment`)
         .in('status', ['DESIGNADA', 'PROPOSTA']);
 
     if (error || !rawParts) {
