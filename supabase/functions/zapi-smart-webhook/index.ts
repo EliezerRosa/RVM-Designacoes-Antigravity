@@ -506,10 +506,33 @@ async function processWebhookPayload(body: any) {
       }
     }
 
-    // 🚨 INVARIANTE 2: Ação estrita para Texto Livre sem resposta a envio recente
     const hasExplicitInteraction = Boolean(buttonId || reactionVal || rawPollVote || quotedMsgId);
     
-    if (!hasExplicitInteraction && !recentDispatch) {
+    // HEURÍSTICA DE FALLBACK (Busca na agenda do publicador)
+    const lower = inboundText.toLowerCase();
+    const isConfirmKeyword = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower) || lower.includes("confirmar");
+    const isDeclineKeyword = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
+    const hasIntentKeyword = isConfirmKeyword || isDeclineKeyword;
+
+    if (!targetPartId && !recentDispatch && publisherData && hasIntentKeyword) {
+      const { data: upcomingParts } = await supabase
+        .from("workbook_parts")
+        .select("*")
+        .eq("resolved_publisher_id", publisherData.id)
+        .in("status", ["ENVIADA", "DESIGNADA"])
+        .gte("date", new Date().toISOString().split("T")[0])
+        .order("date", { ascending: true })
+        .limit(1);
+
+      if (upcomingParts && upcomingParts.length > 0) {
+        targetPart = upcomingParts[0];
+        targetPartId = String(targetPart.id);
+        matchedBy = "FALLBACK_CALENDAR";
+      }
+    }
+    
+    // 🚨 INVARIANTE 2: Ação estrita para Texto Livre sem resposta a envio recente E sem palavra-chave
+    if (!hasExplicitInteraction && !recentDispatch && !hasIntentKeyword) {
       console.log(`[zapi-smart-webhook] INVARIANTE 2: Texto livre ignorado por falta de envio recente para ${senderPhone}`);
       
       const processingTimeMs = Date.now() - startTime;
