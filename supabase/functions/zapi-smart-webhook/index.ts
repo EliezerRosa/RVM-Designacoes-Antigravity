@@ -147,13 +147,17 @@ async function verifyIntentWithAI(
 }
 
 serve(async (req: Request) => {
-  // Responder OPTIONS para CORS
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+
   if (req.method === "OPTIONS") {
-    return;
+    return new Response("ok", { headers });
   }
 
   if (req.method !== "POST") {
-    return;
+    return new Response("Method not allowed", { status: 405, headers });
   }
 
   try {
@@ -172,9 +176,9 @@ serve(async (req: Request) => {
       processWebhookPayload(body).catch(err => console.error("[zapi-smart-webhook] Background error:", err));
     }
 
-    return;
+    return new Response(JSON.stringify({ success: true, queued: true }), { headers, status: 200, headers: { "Content-Type": "application/json", ...headers } });
   } catch (err: any) {
-    return;
+    return new Response(JSON.stringify({ success: false, error: err.message }), { headers, status: 400 });
   }
 });
 

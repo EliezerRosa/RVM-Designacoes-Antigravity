@@ -10,16 +10,15 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function run() {
     const { data } = await supabase.from('zapi_smart_interactions')
         .select('*')
-        .not('inbound_text', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .gte('created_at', '2026-10-06T15:50:00')
+        .order('created_at', { ascending: false });
     
     if (data) {
         for (const item of data) {
-            console.log(`Time: ${item.created_at} | Pub: ${item.publisher_name} | Intent: ${item.detected_intent} | Action: ${item.action_taken}`);
+            console.log(`\n=======================`);
+            console.log(`Time: ${item.created_at} | Action: ${item.action_taken}`);
             console.log(`Text: ${item.inbound_text}`);
-            if (item.reason_extracted) console.log(`Reason: ${item.reason_extracted}`);
-            console.log('---');
+            console.log(`Payload: ${JSON.stringify(item.raw_payload, null, 2)}`);
         }
     }
 }
