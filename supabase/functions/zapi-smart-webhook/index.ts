@@ -111,7 +111,7 @@ async function verifyIntentWithAI(
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "typesafe/jev", 
+        model: "google/gemini-2.5-flash", 
         temperature: 0.0,
         response_format: { type: "json_object" },
         messages: [
