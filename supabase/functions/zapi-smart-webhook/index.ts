@@ -85,7 +85,8 @@ async function verifyIntentWithAI(
   detectedIntent: string,
   publisherName: string,
   partDate: string,
-  partTitle: string
+  partTitle: string,
+  chatHistory: string[] = []
 ): Promise<{ is_valid: boolean; certainty_percentage: number; reason: string }> {
   // @ts-ignore
   const apiKey = Deno.env.get("OPENROUTER_API_KEY");
@@ -99,18 +100,9 @@ async function verifyIntentWithAI(
   }
 
   try {
-    const prompt = `Você é um moderador de automação robótica. O usuário "${publisherName}" tem a designação "${partTitle}" agendada para a data: ${partDate}.
-Ele acabou de enviar a seguinte mensagem avulsa no WhatsApp: "${inboundText}".
-O sistema heurístico classificou a intenção primária como: ${detectedIntent}.
-
-Sua tarefa é cruzar o contexto temporal e textual. Verifique se há indícios de que:
-1. O usuário está repassando um recado de TERCEIROS (proxy) copiando e colando texto alheio.
-2. O usuário está falando sobre uma DATA, SEMANA ou PARTE incompatível com a que ele tem agendada.
-
-Qual a porcentagem de certeza (0 a 100) de que essa mensagem se refere legitimamente à designação original do próprio remetente?
-Se a certeza for menor que 70%, vete a ação (is_valid=false).
-
-Responda APENAS um objeto JSON estrito sem formatação adicional: {"is_valid": true|false, "certainty_percentage": 99, "reason": "sua explicacao breve"}`;
+    const historyText = chatHistory.length > 0 
+      ? `\n\n--- HISTÓRICO DE MENSAGENS RECENTES DESTE USUÁRIO (Cronológico) ---\n${chatHistory.join("\n")}\n--------------------------------------------------------------\n` 
+      : "";
 
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -119,10 +111,19 @@ Responda APENAS um objeto JSON estrito sem formatação adicional: {"is_valid": 
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash", // Fast, cheap, capable
-        messages: [{ role: "user", content: prompt }],
+        model: "typesafe/jev", 
+        temperature: 0.0,
         response_format: { type: "json_object" },
-        temperature: 0.1
+        messages: [
+          { 
+            role: "system", 
+            content: "Você é Jev AI, um moderador de automação robótica do Protocolo B. Retorne EXCLUSIVAMENTE JSON estrito com 'is_valid', 'certainty_percentage' e 'reason'. Proibido texto livre. Sua tarefa é cruzar contexto temporal e textual para vetar repasses (proxy) ou datas incompatíveis." 
+          },
+          { 
+            role: "user", 
+            content: `O usuário "${publisherName}" tem a designação "${partTitle}" agendada para a data: ${partDate}.${historyText}\nEle acabou de enviar a seguinte mensagem avulsa no WhatsApp (a última do histórico): "${inboundText}".\nO sistema heurístico classificou a intenção primária como: ${detectedIntent}.\n\nVerifique indícios de:\n1. Repasse de recado de TERCEIROS (proxy) copiando/colando (ex: "fulano pediu pra avisar", ou assinaturas diferentes no histórico).\n2. O usuário falando sobre uma DATA, SEMANA ou PARTE incompatível com o que ele tem agendado.\n\nQual a porcentagem de certeza (0 a 100) de que essa ÚLTIMA MENSAGEM se refere legitimamente à designação original do próprio remetente (sem ser proxy e para a data correta)? Se a certeza for menor que 70%, vete a ação (is_valid=false).` 
+          }
+        ]
       })
     });
     
@@ -613,12 +614,30 @@ async function processWebhookPayload(body: any) {
     // ========================================================================
     if ((detectedIntent === "RECUSAR" || detectedIntent === "CONFIRMAR") && inboundText && targetPart) {
       console.log(`[zapi-smart-webhook] Protocolo B: Invocando JEV AI para dupla checagem...`);
+      
+      let chatHistory: string[] = [];
+      if (senderPhone) {
+        // Busca as últimas interações deste telefone para dar contexto à IA
+        const { data: recentMsgs } = await supabase
+          .from("zapi_smart_interactions")
+          .select("inbound_text, created_at")
+          .eq("phone", senderPhone)
+          .order("created_at", { ascending: false })
+          .limit(5);
+          
+        if (recentMsgs && recentMsgs.length > 0) {
+          // Reverte para ficar em ordem cronológica (mais antiga -> mais nova)
+          chatHistory = recentMsgs.reverse().map(m => `[${m.created_at}] Usuário: "${m.inbound_text}"`);
+        }
+      }
+
       const aiResult = await verifyIntentWithAI(
         inboundText,
         detectedIntent,
         pubName || "Desconhecido",
         targetPart.date || "Data Desconhecida",
-        targetPart.part_title || "Parte Desconhecida"
+        targetPart.part_title || "Parte Desconhecida",
+        chatHistory
       );
       
       console.log(`[zapi-smart-webhook] JEV AI Result:`, aiResult);
