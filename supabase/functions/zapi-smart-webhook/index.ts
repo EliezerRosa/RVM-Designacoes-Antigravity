@@ -162,21 +162,14 @@ serve(async (req: Request) => {
 
   try {
     const body: any = await req.json();
-    console.log("[zapi-smart-webhook] Payload recebido (enfileirando):", JSON.stringify(body).slice(0, 400));
+    console.log("[zapi-smart-webhook] Payload recebido:", JSON.stringify(body).slice(0, 400));
 
-    // @ts-ignore
-    if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime.waitUntil === 'function') {
-      // @ts-ignore
-      EdgeRuntime.waitUntil(
-        (async () => {
-          await processWebhookPayload(body);
-        })()
-      );
-    } else {
-      processWebhookPayload(body).catch(err => console.error("[zapi-smart-webhook] Background error:", err));
-    }
+    // Aguardar o processamento COMPLETAMENTE antes de retornar.
+    // Em Serverless/Edge, retornar a Response precocemente congela a CPU (Isolate suspend),
+    // o que mata chamadas assíncronas (como fetch pro OpenRouter) no meio do voo!
+    await processWebhookPayload(body);
 
-    return new Response(JSON.stringify({ success: true, queued: true }), { headers, status: 200, headers: { "Content-Type": "application/json", ...headers } });
+    return new Response(JSON.stringify({ success: true }), { headers, status: 200, headers: { "Content-Type": "application/json", ...headers } });
   } catch (err: any) {
     return new Response(JSON.stringify({ success: false, error: err.message }), { headers, status: 400 });
   }
