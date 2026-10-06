@@ -668,10 +668,21 @@ async function processWebhookPayload(body: any) {
       );
       
       console.log(`[zapi-smart-webhook] JEV AI Result:`, aiResult);
-      if (!aiResult.is_valid) {
-        console.log(`[zapi-smart-webhook] JEV AI VETOU A AÇÃO: ${aiResult.reason} (Certeza: ${aiResult.certainty_percentage}%)`);
+      
+      const isRejectedByJev = aiResult.percentual_verdade < 60 || aiResult.sugestao_acao === "NOTIFICAR_COORDENADOR" || aiResult.sugestao_acao === "RECUSAR";
+      
+      if (isRejectedByJev) {
+        console.log(`[zapi-smart-webhook] JEV AI VETOU A AÇÃO: ${aiResult.analise_sintetica} (Certeza: ${aiResult.percentual_verdade}%)`);
         detectedIntent = "OUTRO"; // Reverte a intenção para OUTRO para forçar moderação manual
-        reasonExtracted = `[BLOQUEADO JEV AI (${aiResult.certainty_percentage}% certeza)] ${aiResult.reason} - Original: ${inboundText}`;
+        const divergentReason = aiResult.fatores_divergentes.length > 0 ? aiResult.fatores_divergentes.join(" | ") : "Incompatibilidade temporal/factual";
+        reasonExtracted = `[BLOQUEADO JEV AI (${aiResult.percentual_verdade}% verdade)] ${aiResult.analise_sintetica} | Fatores: ${divergentReason} - Original: ${inboundText}`;
+      } else {
+        // Enriquecer o reasonExtracted com a análise da IA se foi validado com sucesso!
+        if (detectedIntent === "RECUSAR") {
+          const enrichScore = aiResult.percentual_verdade;
+          const enrichFactors = aiResult.fatores_convergentes.length > 0 ? aiResult.fatores_convergentes.join(" | ") : "Plenamente justificado";
+          reasonExtracted = `${inboundText} (Aprovado JEV AI - Score: ${enrichScore}% - ${enrichFactors})`;
+        }
       }
     }
 
@@ -1176,3 +1187,4 @@ async function dispatchGitHubAction(targetPart: any, pubName: string, reason: st
     return false;
   }
 }
+
