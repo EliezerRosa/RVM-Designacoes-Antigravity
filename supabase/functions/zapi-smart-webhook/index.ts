@@ -76,6 +76,75 @@ function getHonorific(gender?: string): string {
     return gender === 'sister' ? 'Irmã' : 'Irmão';
 }
 
+/** 
+ * PROTOCOLO B: Verificação JEV AI via OpenRouter 
+ * Evita Ejeto Incorreto de Repasses (Proxies) e Datas Incompatíveis.
+ */
+async function verifyIntentWithAI(
+  inboundText: string,
+  detectedIntent: string,
+  publisherName: string,
+  partDate: string,
+  partTitle: string
+): Promise<{ is_valid: boolean; certainty_percentage: number; reason: string }> {
+  // @ts-ignore
+  const apiKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (!apiKey) {
+    console.log("[zapi-smart-webhook] OPENROUTER_API_KEY não encontrada, pulando Protocolo B.");
+    return { is_valid: true, certainty_percentage: 100, reason: "No API Key" };
+  }
+  
+  if (!inboundText || inboundText.length < 8) {
+    return { is_valid: true, certainty_percentage: 100, reason: "Mensagem curta, improvável ser proxy" };
+  }
+
+  try {
+    const prompt = `Você é um moderador de automação robótica. O usuário "${publisherName}" tem a designação "${partTitle}" agendada para a data: ${partDate}.
+Ele acabou de enviar a seguinte mensagem avulsa no WhatsApp: "${inboundText}".
+O sistema heurístico classificou a intenção primária como: ${detectedIntent}.
+
+Sua tarefa é cruzar o contexto temporal e textual. Verifique se há indícios de que:
+1. O usuário está repassando um recado de TERCEIROS (proxy) copiando e colando texto alheio.
+2. O usuário está falando sobre uma DATA, SEMANA ou PARTE incompatível com a que ele tem agendada.
+
+Qual a porcentagem de certeza (0 a 100) de que essa mensagem se refere legitimamente à designação original do próprio remetente?
+Se a certeza for menor que 70%, vete a ação (is_valid=false).
+
+Responda APENAS um objeto JSON estrito sem formatação adicional: {"is_valid": true|false, "certainty_percentage": 99, "reason": "sua explicacao breve"}`;
+
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash", // Fast, cheap, capable
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.1
+      })
+    });
+    
+    if (res.ok) {
+      const json = await res.json();
+      const content = json.choices?.[0]?.message?.content || "";
+      const parsed = JSON.parse(content);
+      return { 
+        is_valid: parsed.is_valid !== false, 
+        certainty_percentage: parsed.certainty_percentage || 0,
+        reason: parsed.reason || "Decisão da IA"
+      };
+    } else {
+      console.error("[zapi-smart-webhook] OpenRouter falhou com status:", res.status);
+    }
+  } catch (e) {
+    console.error("[zapi-smart-webhook] OpenRouter Error:", e);
+  }
+  // Em caso de falha na IA, fail-open
+  return { is_valid: true, certainty_percentage: 100, reason: "Fallback Heurístico" };
+}
+
 serve(async (req: Request) => {
   // Responder OPTIONS para CORS
   if (req.method === "OPTIONS") {
@@ -537,6 +606,28 @@ async function processWebhookPayload(body: any) {
     }
 
     console.log(`[zapi-smart-webhook] Intent: ${detectedIntent}, MatchedBy: ${matchedBy}, PartId: ${targetPartId}`);
+
+    // ========================================================================
+    // PROTOCOLO B: JEV AI (OpenRouter)
+    // Verifica se a heurística não caiu em uma armadilha de proxy/repasse
+    // ========================================================================
+    if ((detectedIntent === "RECUSAR" || detectedIntent === "CONFIRMAR") && inboundText && targetPart) {
+      console.log(`[zapi-smart-webhook] Protocolo B: Invocando JEV AI para dupla checagem...`);
+      const aiResult = await verifyIntentWithAI(
+        inboundText,
+        detectedIntent,
+        pubName || "Desconhecido",
+        targetPart.date || "Data Desconhecida",
+        targetPart.part_title || "Parte Desconhecida"
+      );
+      
+      console.log(`[zapi-smart-webhook] JEV AI Result:`, aiResult);
+      if (!aiResult.is_valid) {
+        console.log(`[zapi-smart-webhook] JEV AI VETOU A AÇÃO: ${aiResult.reason} (Certeza: ${aiResult.certainty_percentage}%)`);
+        detectedIntent = "OUTRO"; // Reverte a intenção para OUTRO para forçar moderação manual
+        reasonExtracted = `[BLOQUEADO JEV AI (${aiResult.certainty_percentage}% certeza)] ${aiResult.reason} - Original: ${inboundText}`;
+      }
+    }
 
     // --------------------------------------------------------------------------
     // 4. Fechamento de Ciclo (Ações e Respostas)
