@@ -380,13 +380,26 @@ async function autoRepairConfirmedParts(parts: PartData[]): Promise<string[]> {
     // Busca interações smart que detectaram intenção de CONFIRMAR para essas partes
     const { data: interactions, error } = await supabase
         .from('zapi_smart_interactions')
-        .select('workbook_part_id, detected_intent')
+        .select('workbook_part_id, detected_intent, publisher_id')
         .in('workbook_part_id', partIds)
         .eq('detected_intent', 'CONFIRMAR');
 
     if (error || !interactions || interactions.length === 0) return reports;
 
-    const partsToRepair = new Set(interactions.map((i: any) => i.workbook_part_id));
+    const partsToRepair = new Set<string>();
+    
+    for (const interaction of interactions) {
+        const part = parts.find(p => p.id === interaction.workbook_part_id);
+        if (!part) continue;
+
+        // BINDING SEGURO: Usar o ID oficial do publicador
+        // Evita qualquer ambiguidade textual e regex
+        if (interaction.publisher_id && part.resolved_publisher_id) {
+            if (String(interaction.publisher_id) === String(part.resolved_publisher_id)) {
+                partsToRepair.add(part.id);
+            }
+        }
+    }
 
     for (const partId of partsToRepair) {
         const part = parts.find(p => p.id === partId);
