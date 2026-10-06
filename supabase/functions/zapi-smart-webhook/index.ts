@@ -111,7 +111,7 @@ async function verifyIntentWithAI(
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash", 
+        model: Deno.env.get("JEV_MODEL_ID") || "typesafe/jev-router", 
         temperature: 0.0,
         response_format: { type: "json_object" },
         messages: [
