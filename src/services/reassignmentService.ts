@@ -36,6 +36,7 @@ export async function consultReassignmentSuggestion(
     workbookParts: WorkbookPart[],
     publishers: Publisher[],
     history: HistoryRecord[] = [],
+    originalPartForExclusion?: WorkbookPart
 ): Promise<ReassignmentSuggestion> {
     const weekParts = workbookParts.filter(part => part.weekId === targetPart.weekId);
     
@@ -45,6 +46,18 @@ export async function consultReassignmentSuggestion(
         console.error('[reassignmentService] Error fetching refusal_logs:', refusalError);
     }
     const excludedPublisherNames = refusals ? refusals.map(r => r.publisher_name) : [];
+
+    // EVITA PING-PONG CYCLIC BUG: Exclui expressamente o publicador original/substituído
+    const pToExclude = originalPartForExclusion || targetPart;
+    if (pToExclude.substitutedPublisherName && !excludedPublisherNames.includes(pToExclude.substitutedPublisherName)) {
+        excludedPublisherNames.push(pToExclude.substitutedPublisherName);
+    }
+    if (pToExclude.resolvedPublisherName && !excludedPublisherNames.includes(pToExclude.resolvedPublisherName)) {
+        excludedPublisherNames.push(pToExclude.resolvedPublisherName);
+    }
+    if (pToExclude.rawPublisherName && !excludedPublisherNames.includes(pToExclude.rawPublisherName)) {
+        excludedPublisherNames.push(pToExclude.rawPublisherName);
+    }
 
     const rankedResult = getRankedEligibleForPart(
         targetPart,
@@ -133,6 +146,7 @@ export async function reassignParts(
                 workingParts,
                 publishers,
                 history,
+                currentPart // Passa a parte original para exclusão
             );
 
             if (!suggestion.selectedPublisher) {
