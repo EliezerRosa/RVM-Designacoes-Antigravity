@@ -700,11 +700,13 @@ async function processWebhookPayload(body: any) {
 
     console.log(`[zapi-smart-webhook] Intent: ${detectedIntent}, MatchedBy: ${matchedBy}, PartId: ${targetPartId}`);
 
+    const isExplicitButtonOrReaction = matchedBy === "BUTTON" || matchedBy === "REACTION" || matchedBy === "POLL_VOTE";
+
     // ========================================================================
     // PROTOCOLO B: JEV AI (OpenRouter)
     // Verifica se a heurística não caiu em uma armadilha de proxy/repasse
     // ========================================================================
-    if ((detectedIntent === "RECUSAR" || detectedIntent === "CONFIRMAR") && inboundText && (targetPart || upcomingPartsList.length > 0)) {
+    if (!isExplicitButtonOrReaction && (detectedIntent === "RECUSAR" || detectedIntent === "CONFIRMAR") && inboundText && (targetPart || upcomingPartsList.length > 0)) {
       console.log(`[zapi-smart-webhook] Protocolo B: Invocando JEV AI para dupla checagem e roteamento...`);
       
       let chatHistory: string[] = [];
