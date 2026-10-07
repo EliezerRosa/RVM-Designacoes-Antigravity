@@ -129,7 +129,7 @@ export const replacementOrchestratorService = {
                 
                 const { data: dbPub } = await supabase.from('publishers').select('data').eq('id', oldPub.id).single();
                 if (dbPub && dbPub.data) {
-                    const newData = { ...dbPub.data, isIndefinitelyPaused: true, pauseReason: pauseReasonToSave };
+                    const newData = { ...dbPub.data, isIndefinitelyPaused: true, indefinitePauseReason: pauseReasonToSave };
                     await supabase.from('publishers').update({ data: newData }).eq('id', oldPub.id);
                 }
             }
