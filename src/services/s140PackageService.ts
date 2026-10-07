@@ -425,7 +425,7 @@ export const s140PackageService = {
      * MODO 1: Envio Regular de Segunda-feira (08:00 BRT).
      * Avalia novidades (novas semanas publicadas ou trocas acumuladas) e despacha.
      */
-    async dispatchWeeklyPackageIfPending(publishers: Publisher[]): Promise<{ sent: boolean; reason?: string }> {
+    async dispatchWeeklyPackageIfPending(publishers: Publisher[], forceDispatch = false): Promise<{ sent: boolean; reason?: string }> {
         console.log('[s140PackageService] Executando verificação regular de segunda-feira (MODO 1)...');
 
         const todayStr = new Date().toISOString().slice(0, 10);
@@ -489,7 +489,7 @@ export const s140PackageService = {
         }
 
         // Se NÃO houve novas semanas E NÃO houve alterações de designação:
-        if (newWeeks.length === 0 && modifiedWeeks.length === 0) {
+        if (newWeeks.length === 0 && modifiedWeeks.length === 0 && !forceDispatch) {
             console.log('[s140PackageService] Nenhuma novidade no Pacote (sem novas semanas e sem trocas). Silêncio total.');
             return { sent: false, reason: 'NO_CHANGES' };
         }
@@ -517,7 +517,10 @@ export const s140PackageService = {
         };
 
         let updatesText = '';
-        if (newWeeks.length > 0 && modifiedWeeks.length === 0) {
+        if (newWeeks.length === 0 && modifiedWeeks.length === 0) {
+            updatesText = `✨ *Pacote Reenviado (Envio Manual):*\n` +
+                `_Não houve novas publicações ou alterações de designações desde o último pacote._`;
+        } else if (newWeeks.length > 0 && modifiedWeeks.length === 0) {
             updatesText = `✨ *Nova(s) Semana(s) Oficialmente Publicada(s):*\n` +
                 newWeeks.map(w => `• *Semana de ${this.formatDateDisplay(w)}*`).join('\n') +
                 `\n\n_Nota: Não houve alterações de designações nas semanas anteriores._`;
@@ -618,15 +621,7 @@ export const s140PackageService = {
      */
     async dispatchPackageManual(publishers: Publisher[]): Promise<{ success: boolean; attempted: number }> {
         console.log('[s140PackageService] Disparo incidental manual (MODO 3) acionado...');
-        const res = await this.dispatchWeeklyPackageIfPending(publishers);
-        // Se res.sent for false por NO_CHANGES, força o envio manual
-        if (!res.sent && res.reason === 'NO_CHANGES') {
-            const snapshot = await this.loadSnapshot();
-            snapshot.weeks = {}; // Reseta o cache de assinaturas para forçar envio
-            await this.saveSnapshot(snapshot);
-            const retryRes = await this.dispatchWeeklyPackageIfPending(publishers);
-            return { success: retryRes.sent, attempted: 1 };
-        }
+        const res = await this.dispatchWeeklyPackageIfPending(publishers, true);
         return { success: res.sent, attempted: 1 };
     }
 };

@@ -914,7 +914,7 @@ export async function generateS140UnifiedMultiWeekPdfBase64(parts: WorkbookPart[
 
     // 1. Injetar Estilos
     const style = document.createElement('style');
-    // Forçar cor preta no cabeçalho
+    // Forçar cor preta no cabeçalho e adicionar page-break explícito
     const cssWithForcedColor = S140_CSS + `
         .s140-wrapper .congregation, 
         .s140-wrapper .title-year,
@@ -922,6 +922,10 @@ export async function generateS140UnifiedMultiWeekPdfBase64(parts: WorkbookPart[
             color: #000000 !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+        }
+        .page-break {
+            page-break-after: always !important;
+            break-after: page !important;
         }
     `;
     style.innerHTML = cssWithForcedColor;
@@ -996,7 +1000,7 @@ export async function generateS140UnifiedMultiWeekPdfBase64(parts: WorkbookPart[
                 scrollX: 0
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-            pagebreak: { mode: ['css', 'legacy'] }
+            pagebreak: { mode: 'css', after: '.page-break' }
         };
 
         const pdfBase64Url: string = await html2pdf().set(opt).from(contentContainer).output('datauristring');
