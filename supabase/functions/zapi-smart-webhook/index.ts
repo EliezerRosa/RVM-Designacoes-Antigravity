@@ -514,7 +514,7 @@ async function processWebhookPayload(body: any) {
     const isDeclineKeyword = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
     const hasIntentKeyword = isConfirmKeyword || isDeclineKeyword;
 
-    if (!targetPartId && !recentDispatch && publisherData && hasIntentKeyword) {
+    if (!targetPartId && publisherData && hasIntentKeyword) {
       const { data: upcomingParts } = await supabase
         .from("workbook_parts")
         .select("*")
