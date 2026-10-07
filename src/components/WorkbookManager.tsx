@@ -789,7 +789,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
         }
     };
 
-    const handleConfirmReplacement = async (options: { notifyOld: boolean; notifyNew: boolean; notifyPartner: boolean }) => {
+    const handleConfirmReplacement = async (options: { notifyOld: boolean; notifyNew: boolean; notifyPartner: boolean; pauseOldPublisher?: boolean; pauseReason?: string }) => {
         if (!replacementModalData) return;
         const { partId, newId, newName, oldName, part } = replacementModalData;
         setReplacementModalData(null); // Fechar modal

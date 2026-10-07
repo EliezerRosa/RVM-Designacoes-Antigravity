@@ -10,6 +10,8 @@ interface ManualReplacementModalProps {
         notifyOld: boolean;
         notifyNew: boolean;
         notifyPartner: boolean;
+        pauseOldPublisher: boolean;
+        pauseReason: string;
     }) => void;
     onCancel: () => void;
 }
@@ -25,6 +27,8 @@ export function ManualReplacementModal({
     const [notifyOld, setNotifyOld] = useState(true);
     const [notifyNew, setNotifyNew] = useState(true);
     const [notifyPartner, setNotifyPartner] = useState(true);
+    const [pauseOldPublisher, setPauseOldPublisher] = useState(false);
+    const [pauseReason, setPauseReason] = useState('');
 
     if (!isOpen || !part) return null;
 
@@ -98,18 +102,38 @@ export function ManualReplacementModal({
                         </div>
                     </label>
 
-                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer' }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', marginBottom: pauseOldPublisher ? '12px' : '0' }}>
                         <input 
                             type="checkbox" 
-                            checked={notifyPartner} 
-                            onChange={e => setNotifyPartner(e.target.checked)}
-                            style={{ marginTop: '4px', width: '16px', height: '16px', accentColor: '#3B82F6' }}
+                            checked={pauseOldPublisher} 
+                            onChange={e => setPauseOldPublisher(e.target.checked)}
+                            style={{ marginTop: '4px', width: '16px', height: '16px', accentColor: '#EF4444' }}
                         />
                         <div>
-                            <div style={{ color: '#F8FAFC', fontWeight: '500' }}>Avisar o Parceiro</div>
-                            <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Se houver ajudante/titular, avisa que a dupla mudou.</div>
+                            <div style={{ color: '#F8FAFC', fontWeight: '500' }}>Pausar publicador retirado?</div>
+                            <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Atualiza o cadastro definindo como Indisponível/Ausente.</div>
                         </div>
                     </label>
+
+                    {pauseOldPublisher && (
+                        <div style={{ marginLeft: '28px', marginBottom: '8px' }}>
+                            <input
+                                type="text"
+                                placeholder="Motivo (ex: Viagem, Doença, etc.)"
+                                value={pauseReason}
+                                onChange={e => setPauseReason(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    background: '#0F172A',
+                                    border: '1px solid #475569',
+                                    borderRadius: '6px',
+                                    color: '#F8FAFC',
+                                    fontSize: '0.9rem'
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <div style={{ padding: '16px 24px', background: '#0F172A', display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #334155' }}>
@@ -128,7 +152,7 @@ export function ManualReplacementModal({
                         Cancelar
                     </button>
                     <button
-                        onClick={() => onConfirm({ notifyOld, notifyNew, notifyPartner })}
+                        onClick={() => onConfirm({ notifyOld, notifyNew, notifyPartner, pauseOldPublisher, pauseReason })}
                         style={{
                             padding: '10px 16px',
                             background: '#3B82F6',

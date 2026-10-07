@@ -8,6 +8,8 @@ export interface ReplacementOptions {
     notifyOld: boolean;
     notifyNew: boolean;
     notifyPartner: boolean;
+    pauseOldPublisher?: boolean;
+    pauseReason?: string;
 }
 
 export type S89Provider = (
@@ -27,6 +29,13 @@ export const replacementOrchestratorService = {
         s140Provider?: (weekId: string) => Promise<string | null>
     ) {
         console.log(`[ReplacementOrchestrator] Iniciando troca automática para partId: ${partId}`);
+
+        // DB Fetch para evitar Race Conditions
+        const { data: freshPart } = await supabase.from('workbook_parts').select('needs_reassignment').eq('id', partId).single();
+        if (!freshPart || !freshPart.needs_reassignment) {
+            console.log(`[ReplacementOrchestrator] Abortando: A parte ${partId} não precisa mais de reatribuição (possível ajuste manual realizado).`);
+            return { success: false, reason: 'A parte não precisa mais de reatribuição.' };
+        }
 
         // Sempre usa applyEngineRules: true (Conservadorismo absoluto - cadeado fechado)
         const result = await reassignParts([partId], publishers, parts, { applyEngineRules: true });
@@ -111,6 +120,20 @@ export const replacementOrchestratorService = {
 
         // 1. Gravar atualização e metadados de substituição em um único UPDATE atômico no banco
         await this.directExecutePublisherUpdate(partId, newPublisherId, newPublisherName, part, oldPublisherName);
+
+        if (options.pauseOldPublisher) {
+            const oldPub = publishers.find(p => p.name === oldPublisherName || (part.substitutedPublisherName && part.substitutedPublisherName === p.name));
+            if (oldPub) {
+                console.log(`[ReplacementOrchestrator] Pausando publicador antigo ${oldPub.name}...`);
+                const pauseReasonToSave = options.pauseReason || 'Substituição Manual RVM (Ausência reportada)';
+                
+                const { data: dbPub } = await supabase.from('publishers').select('data').eq('id', oldPub.id).single();
+                if (dbPub && dbPub.data) {
+                    const newData = { ...dbPub.data, isIndefinitelyPaused: true, pauseReason: pauseReasonToSave };
+                    await supabase.from('publishers').update({ data: newData }).eq('id', oldPub.id);
+                }
+            }
+        }
 
         const updatedPart = { ...part, resolvedPublisherId: newPublisherId, resolvedPublisherName: newPublisherName, isSubstitution: true, substitutedPublisherName: oldPublisherName };
 
