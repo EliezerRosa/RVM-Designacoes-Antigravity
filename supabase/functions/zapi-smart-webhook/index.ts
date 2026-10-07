@@ -80,29 +80,86 @@ function getHonorific(gender?: string): string {
  * PROTOCOLO B: Verificação JEV AI via OpenRouter 
  * Evita Ejeto Incorreto de Repasses (Proxies) e Datas Incompatíveis.
  */
+export interface TruthAnalysis {
+  id_designacao_identificada: string | null;
+  percentual_verdade: number;
+  classificacao: 'ALTA_PLAUSIBILIDADE' | 'MEDIANA' | 'INCONSISTENTE' | 'DIVERGENCIA_CRITICA' | 'FALSO_ALUCINACAO';
+  fatores_convergentes: string[];
+  fatores_divergentes: string[];
+  analise_sintetica: string;
+  sugestao_acao: 'APROVAR_AUTOMATICO' | 'SOLICITAR_CONFIRMACAO' | 'NOTIFICAR_COORDENADOR' | 'RECUSAR';
+}
+
+/**
+ * PROTOCOLO B: MOTOR DETERMINÍSTICO (JEV AI - System One)
+ * Seleciona a designação correta e calcula o score de veracidade e coerência.
+ */
 async function verifyIntentWithAI(
   inboundText: string,
   detectedIntent: string,
   publisherName: string,
-  partDate: string,
-  partTitle: string,
+  upcomingPartsList: any[],
   chatHistory: string[] = []
-): Promise<{ is_valid: boolean; certainty_percentage: number; reason: string }> {
+): Promise<TruthAnalysis> {
   // @ts-ignore
   const apiKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!apiKey) {
     console.log("[zapi-smart-webhook] OPENROUTER_API_KEY não encontrada, pulando Protocolo B.");
-    return { is_valid: true, certainty_percentage: 100, reason: "No API Key" };
-  }
-  
-  if (!inboundText || inboundText.length < 8) {
-    return { is_valid: true, certainty_percentage: 100, reason: "Mensagem curta, improvável ser proxy" };
+    return {
+      id_designacao_identificada: upcomingPartsList.length > 0 ? String(upcomingPartsList[0].id) : null,
+      percentual_verdade: 100,
+      classificacao: "ALTA_PLAUSIBILIDADE",
+      fatores_convergentes: ["Bypass - API Key missing"],
+      fatores_divergentes: [],
+      analise_sintetica: "Fallback Heurístico de Segurança",
+      sugestao_acao: "APROVAR_AUTOMATICO"
+    };
   }
 
   try {
     const historyText = chatHistory.length > 0 
-      ? `\n\n--- HISTÓRICO DE MENSAGENS RECENTES DESTE USUÁRIO (Cronológico) ---\n${chatHistory.join("\n")}\n--------------------------------------------------------------\n` 
+      ? `\n\n--- HISTÓRICO DE MENSAGENS RECENTES (Cronológico) ---\n${chatHistory.join("\n")}\n--------------------------------------------------------------\n` 
       : "";
+
+    // Mapeamento simplificado para a IA consumir
+    const listaDesignacoes = upcomingPartsList.map(p => ({
+      id: String(p.id),
+      data: p.date,
+      semana: p.week_display,
+      titulo: p.part_title,
+      tipo_parte: p.tipo_parte
+    }));
+
+    const payload = {
+      mensagemRecebida: inboundText,
+      contexto: {
+        nomePublicador: publisherName,
+        intencaoPrimariaDetectada: detectedIntent,
+        designacoesAgendadas: listaDesignacoes
+      },
+      historicoChat: historyText || "Nenhum histórico recente."
+    };
+
+    const SYSTEM_PROMPT = `Você atua como Jev AI, um motor determinístico de verificação de coerência factual e plausibilidade para o Protocolo B (System One).
+
+TAREFA: Leia a mensagem avulsa do publicador e cruze-a com a lista de "designacoesAgendadas".
+Primeiro: Identifique a qual designação (id) ele está se referindo com base em datas, meses ou tipo de parte mencionados no texto.
+Segundo: Calcule o percentual de plausibilidade e correspondência fática (0 a 100%) da mensagem em relação à designação identificada.
+
+REGRAS ESTRITAS:
+- Retorne EXCLUSIVAMENTE um objeto JSON estrito com os seguintes campos (tipos exatos):
+  - id_designacao_identificada (string do ID ou null se a mensagem fala de uma data inexistente na lista)
+  - percentual_verdade (number 0 a 100)
+  - classificacao ("ALTA_PLAUSIBILIDADE" | "MEDIANA" | "INCONSISTENTE" | "DIVERGENCIA_CRITICA" | "FALSO_ALUCINACAO")
+  - fatores_convergentes (array de strings curtas)
+  - fatores_divergentes (array de strings curtas indicando por que a data não bate ou se parece recado de terceiro)
+  - analise_sintetica (string fria com max 20 palavras explicando a decisão)
+  - sugestao_acao ("APROVAR_AUTOMATICO" | "NOTIFICAR_COORDENADOR" | "RECUSAR")
+
+DIRETRIZES DE PONTUAÇÃO:
+- Se ele menciona uma data ou semana que não bate com NENHUMA das designações da lista, retorne id_designacao_identificada: null e percentual_verdade baixo (veto automático).
+- Analise se parece um repasse de terceiro (ex: "fulano pediu pra avisar que não vai", "meu marido não pode"). Isso reduz o percentual.
+- PROIBIDO incluir texto (markdown, backticks) antes ou depois do JSON.`;
 
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -115,14 +172,8 @@ async function verifyIntentWithAI(
         temperature: 0.0,
         response_format: { type: "json_object" },
         messages: [
-          { 
-            role: "system", 
-            content: "Você é Jev AI, um moderador de automação robótica do Protocolo B. Retorne EXCLUSIVAMENTE JSON estrito com 'is_valid', 'certainty_percentage' e 'reason'. Proibido texto livre. Sua tarefa é cruzar contexto temporal e textual para vetar repasses (proxy) ou datas incompatíveis." 
-          },
-          { 
-            role: "user", 
-            content: `O usuário "${publisherName}" tem a designação "${partTitle}" agendada para a data: ${partDate}.${historyText}\nEle acabou de enviar a seguinte mensagem avulsa no WhatsApp (a última do histórico): "${inboundText}".\nO sistema heurístico classificou a intenção primária como: ${detectedIntent}.\n\nVerifique indícios de:\n1. Repasse de recado de TERCEIROS (proxy) copiando/colando (ex: "fulano pediu pra avisar", ou assinaturas diferentes no histórico).\n2. O usuário falando sobre uma DATA, SEMANA ou PARTE incompatível com o que ele tem agendado.\n\nQual a porcentagem de certeza (0 a 100) de que essa ÚLTIMA MENSAGEM se refere legitimamente à designação original do próprio remetente (sem ser proxy e para a data correta)? Se a certeza for menor que 70%, vete a ação (is_valid=false).` 
-          }
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: JSON.stringify(payload) }
         ]
       })
     });
@@ -131,19 +182,34 @@ async function verifyIntentWithAI(
       const json = await res.json();
       const content = json.choices?.[0]?.message?.content || "";
       const parsed = JSON.parse(content);
-      return { 
-        is_valid: parsed.is_valid !== false, 
-        certainty_percentage: parsed.certainty_percentage || 0,
-        reason: parsed.reason || "Decisão da IA"
+      
+      // Validação defensiva (Deno runtime duck typing)
+      return {
+        id_designacao_identificada: parsed.id_designacao_identificada || null,
+        percentual_verdade: typeof parsed.percentual_verdade === "number" ? parsed.percentual_verdade : 0,
+        classificacao: parsed.classificacao || "DIVERGENCIA_CRITICA",
+        fatores_convergentes: Array.isArray(parsed.fatores_convergentes) ? parsed.fatores_convergentes : [],
+        fatores_divergentes: Array.isArray(parsed.fatores_divergentes) ? parsed.fatores_divergentes : [],
+        analise_sintetica: parsed.analise_sintetica || "Análise gerada.",
+        sugestao_acao: parsed.sugestao_acao || "NOTIFICAR_COORDENADOR"
       };
     } else {
-      console.error("[zapi-smart-webhook] OpenRouter falhou com status:", res.status);
+      console.error("[zapi-smart-webhook] OpenRouter falhou com status:", res.status, await res.text());
     }
   } catch (e) {
     console.error("[zapi-smart-webhook] OpenRouter Error:", e);
   }
-  // Em caso de falha na IA, fail-open
-  return { is_valid: true, certainty_percentage: 100, reason: "Fallback Heurístico" };
+  
+  // Em caso de falha na IA, fail-open com flag de atenção
+  return { 
+    id_designacao_identificada: upcomingPartsList.length > 0 ? String(upcomingPartsList[0].id) : null,
+    percentual_verdade: 100, 
+    classificacao: "ALTA_PLAUSIBILIDADE", 
+    fatores_convergentes: [], 
+    fatores_divergentes: ["Falha na API da IA"], 
+    analise_sintetica: "Fallback Heurístico de Resiliência", 
+    sugestao_acao: "APROVAR_AUTOMATICO" 
+  };
 }
 
 serve(async (req: Request) => {
@@ -514,6 +580,7 @@ async function processWebhookPayload(body: any) {
     const isDeclineKeyword = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
     const hasIntentKeyword = isConfirmKeyword || isDeclineKeyword;
 
+    let upcomingPartsList: any[] = [];
     if (!targetPartId && publisherData && hasIntentKeyword) {
       const { data: upcomingParts } = await supabase
         .from("workbook_parts")
@@ -525,31 +592,7 @@ async function processWebhookPayload(body: any) {
         .limit(5);
 
       if (upcomingParts && upcomingParts.length > 0) {
-        let selectedPart = upcomingParts[0];
-        
-        if (upcomingParts.length > 1) {
-          const lowerText = inboundText.toLowerCase();
-          let maxScore = -1;
-          
-          for (const p of upcomingParts) {
-            let score = 0;
-            const [yyyy, mm, dd] = p.date.split("-");
-            if (lowerText.includes(dd)) score += 2;
-            
-            const monthNames = ["", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-            const monthStr = monthNames[parseInt(mm, 10)];
-            if (monthStr && lowerText.includes(monthStr)) score += 2;
-            
-            if (score > maxScore) {
-              maxScore = score;
-              selectedPart = p;
-            }
-          }
-        }
-
-        targetPart = selectedPart;
-        targetPartId = String(targetPart.id);
-        matchedBy = "FALLBACK_CALENDAR";
+        upcomingPartsList = upcomingParts;
       }
     }
     
@@ -661,8 +704,8 @@ async function processWebhookPayload(body: any) {
     // PROTOCOLO B: JEV AI (OpenRouter)
     // Verifica se a heurística não caiu em uma armadilha de proxy/repasse
     // ========================================================================
-    if ((detectedIntent === "RECUSAR" || detectedIntent === "CONFIRMAR") && inboundText && targetPart) {
-      console.log(`[zapi-smart-webhook] Protocolo B: Invocando JEV AI para dupla checagem...`);
+    if ((detectedIntent === "RECUSAR" || detectedIntent === "CONFIRMAR") && inboundText && (targetPart || upcomingPartsList.length > 0)) {
+      console.log(`[zapi-smart-webhook] Protocolo B: Invocando JEV AI para dupla checagem e roteamento...`);
       
       let chatHistory: string[] = [];
       if (senderPhone) {
@@ -680,23 +723,29 @@ async function processWebhookPayload(body: any) {
         }
       }
 
+      const partsToPass = targetPart ? [targetPart] : upcomingPartsList;
       const aiResult = await verifyIntentWithAI(
         inboundText,
         detectedIntent,
         pubName || "Desconhecido",
-        targetPart.date || "Data Desconhecida",
-        targetPart.part_title || "Parte Desconhecida",
+        partsToPass,
         chatHistory
       );
       
       console.log(`[zapi-smart-webhook] JEV AI Result:`, aiResult);
+
+      if (aiResult.id_designacao_identificada && !targetPart) {
+        targetPartId = aiResult.id_designacao_identificada;
+        targetPart = upcomingPartsList.find(p => String(p.id) === targetPartId);
+        matchedBy = "JEV_AI_ROUTER";
+      }
       
-      const isRejectedByJev = aiResult.percentual_verdade < 60 || aiResult.sugestao_acao === "NOTIFICAR_COORDENADOR" || aiResult.sugestao_acao === "RECUSAR";
+      const isRejectedByJev = aiResult.percentual_verdade < 60 || aiResult.sugestao_acao === "NOTIFICAR_COORDENADOR" || aiResult.sugestao_acao === "RECUSAR" || !targetPart;
       
       if (isRejectedByJev) {
         console.log(`[zapi-smart-webhook] JEV AI VETOU A AÇÃO: ${aiResult.analise_sintetica} (Certeza: ${aiResult.percentual_verdade}%)`);
         detectedIntent = "OUTRO"; // Reverte a intenção para OUTRO para forçar moderação manual
-        const divergentReason = aiResult.fatores_divergentes.length > 0 ? aiResult.fatores_divergentes.join(" | ") : "Incompatibilidade temporal/factual";
+        const divergentReason = aiResult.fatores_divergentes.length > 0 ? aiResult.fatores_divergentes.join(" | ") : (targetPart ? "Incompatibilidade temporal/factual" : "Nenhuma data válida encontrada na lista");
         reasonExtracted = `[BLOQUEADO JEV AI (${aiResult.percentual_verdade}% verdade)] ${aiResult.analise_sintetica} | Fatores: ${divergentReason} - Original: ${inboundText}`;
       } else {
         // Enriquecer o reasonExtracted com a análise da IA se foi validado com sucesso!
