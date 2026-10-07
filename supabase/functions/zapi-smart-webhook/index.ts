@@ -522,10 +522,32 @@ async function processWebhookPayload(body: any) {
         .in("status", ["ENVIADA", "DESIGNADA"])
         .gte("date", new Date().toISOString().split("T")[0])
         .order("date", { ascending: true })
-        .limit(1);
+        .limit(5);
 
       if (upcomingParts && upcomingParts.length > 0) {
-        targetPart = upcomingParts[0];
+        let selectedPart = upcomingParts[0];
+        
+        if (upcomingParts.length > 1) {
+          const lowerText = inboundText.toLowerCase();
+          let maxScore = -1;
+          
+          for (const p of upcomingParts) {
+            let score = 0;
+            const [yyyy, mm, dd] = p.date.split("-");
+            if (lowerText.includes(dd)) score += 2;
+            
+            const monthNames = ["", "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+            const monthStr = monthNames[parseInt(mm, 10)];
+            if (monthStr && lowerText.includes(monthStr)) score += 2;
+            
+            if (score > maxScore) {
+              maxScore = score;
+              selectedPart = p;
+            }
+          }
+        }
+
+        targetPart = selectedPart;
         targetPartId = String(targetPart.id);
         matchedBy = "FALLBACK_CALENDAR";
       }
