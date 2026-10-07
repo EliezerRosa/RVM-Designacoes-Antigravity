@@ -12,20 +12,16 @@ async function checkLog() {
     const { data, error } = await supabase
         .from('zapi_smart_interactions')
         .select('*')
-        .eq('detected_intent', 'DISPONIBILIDADE')
         .order('created_at', { ascending: false })
         .limit(10);
     
     if (error) {
         console.error("Error:", error);
     } else {
-        const item = data[0];
-        if (item) {
-            console.log("Raw payload of the first DISPONIBILIDADE match:");
-            console.log(JSON.stringify(item.raw_payload, null, 2));
-        } else {
-            console.log("No data found.");
-        }
+        console.log(`Found ${data?.length} interactions for Eliezer:`);
+        data?.forEach(item => {
+            console.log(`- [${item.created_at}] Intent: ${item.detected_intent} | Action: ${item.action_taken} | Text: ${item.inbound_text}`);
+        });
     }
 }
 
