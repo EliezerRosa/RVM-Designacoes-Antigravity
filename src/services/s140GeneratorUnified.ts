@@ -700,7 +700,6 @@ const S140_CSS = `
         margin: 0 auto;
         padding: 6mm 6mm 10mm;
         background: white; 
-        min-height: 285mm;
     }
     .s140-wrapper .header-row {
         display: flex;
