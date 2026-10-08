@@ -234,7 +234,7 @@ async function main() {
     const weeksWithoutAdjustments = weeksToProcess.filter(w => !weeksWithAdjustments.includes(w));
 
     if (weeksWithoutAdjustments.length > 0) {
-       newWeeksText = `\n\n✨ *Nova(s) Semana(s) Publicada(s):* ` + weeksWithoutAdjustments.map(w => `• Semana de ${formatDatePTBR(w)}`).join('; ');
+       newWeeksText = `\n\n✅ *Semanas confirmadas (sem alterações):* ` + weeksWithoutAdjustments.map(w => `• Semana de ${formatDatePTBR(w)}`).join('; ');
     }
 
     updatesText = '\n\n🔄 *Ajustes de Designação Realizados:*';
@@ -255,7 +255,7 @@ async function main() {
       updatesText += '\n' + uniquePts.join('\n');
     }
   } else {
-      newWeeksText = `\n\n✨ *Nova(s) Semana(s) Publicada(s):* ` + weeksToProcess.map(w => `• Semana de ${formatDatePTBR(w)}`).join('; ');
+      newWeeksText = `\n\n✅ *Semanas confirmadas (sem alterações):* ` + weeksToProcess.map(w => `• Semana de ${formatDatePTBR(w)}`).join('; ');
   }
 
   // A lista publishedWeekIds já foi calculada no início do script.

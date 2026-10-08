@@ -124,7 +124,7 @@ export function StatusPdfPrintRoute({ weekId, secret }: StatusPdfPrintRouteProps
        </p>
 
        {weekIds.map((wId, index) => (
-         <div key={wId} style={{ marginBottom: '30px', pageBreakInside: 'avoid' }}>
+         <div key={wId} style={{ marginBottom: '30px' }}>
            <h2 style={{ fontSize: '18px', marginBottom: '10px', color: '#1e3a8a', padding: '5px', backgroundColor: '#f1f5f9', borderRadius: '4px' }}>
              Semana: {wId}
            </h2>
