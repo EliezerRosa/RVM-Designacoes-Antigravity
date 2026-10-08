@@ -612,6 +612,23 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
         }
     };
 
+    const handleDispatchStatusPdf = async () => {
+        if (!window.confirm('Deseja disparar manualmente o Status PDF (Pacote Gerencial)? Isso acionará o bot que verifica alterações nas últimas 24h e enviará o quadro gerencial aos superintendentes.')) return;
+        
+        try {
+            setLoading(true);
+            const { error } = await supabase.functions.invoke('trigger-github-workflow', { 
+                body: { action: 'trigger', workflow_id: 'status-pdf-bot.yml' } 
+            });
+            if (error) throw error;
+            setSuccessMessage('Ação disparada! O robô do Status PDF começará a rodar em alguns instantes no servidor (via GitHub Actions).');
+        } catch (err: any) {
+            setError('Erro ao acionar Status PDF: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     // Semanas únicas com ano e weekId para dropdown
     const uniqueWeeks = useMemo(() => {
@@ -945,6 +962,11 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                             <button onClick={() => setIsS140MultiModalOpen(true)} style={{ padding: '8px 16px', background: '#4F46E5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 📦 S-140 Pacote
                             </button>
+                            {isAdmin && (
+                                <button onClick={handleDispatchStatusPdf} style={{ padding: '8px 16px', background: '#DC2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} title="Disparo manual e totalmente desacoplado do robô de Status PDF (Gerencial)">
+                                    🚀 Disparo Status PDF
+                                </button>
+                            )}
                             {(isAdmin || profile?.publisher_id) && (
                                 <button onClick={() => setIsMyAssignmentsOpen(true)} style={{ padding: '8px 16px', background: '#0369A1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     📋 Minhas Designações
