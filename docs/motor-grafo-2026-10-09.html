@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Motor de Designações RVM — grafo da versão 2026-10-09.04</title>
+<title>Designações RVM — grafo completo do ecossistema (motor 2026-10-09.05)</title>
 <style>
   :root { --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; --changed:#16a34a; }
   * { box-sizing: border-box; }
@@ -15,10 +15,14 @@
   .legend span::before { content:''; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:5px; vertical-align:-2px; }
   .legend .n::before { background:#dbeafe; border:1px solid #93c5fd; }
   .legend .c::before { background:#dcfce7; border:1px solid #86efac; }
+  .legend .v::before { background:#ede9fe; border:1px solid #c4b5fd; }
   .legend .g::before { background:#fef3c7; border:1px solid #fcd34d; }
+  .legend .h::before { background:#f1f5f9; border:1px dashed #94a3b8; }
   main { display:grid; grid-template-columns: 1fr 440px; gap:0; height: calc(100vh - 70px); }
   #graph { overflow:auto; padding:20px 28px; }
-  #graph svg { max-width:none !important; }
+  #graph svg { max-width:none !important; transform-origin: top left; }
+  .zoom { display:inline-flex; align-items:center; gap:8px; margin-left:16px; font-size:12px; color:var(--muted); vertical-align:middle; }
+  .zoom button { font-size:12px; padding:2px 8px; border:1px solid var(--line); background:#fff; border-radius:4px; cursor:pointer; }
   .mermaid .node { cursor:pointer; }
   aside { border-left:1px solid var(--line); background:var(--card); padding:22px 24px; overflow:auto; }
   aside h2 { margin:0 0 6px; font-size:17px; }
@@ -37,19 +41,40 @@
 </head>
 <body>
 <header>
-  <h1>Motor de Designações — versão <code>2026-10-09.04</code> (motor-fix-1..10)
-    <span class="legend"><span class="n">inalterado</span><span class="c">alterado nesta versão</span><span class="g">decisão / gate</span></span>
+  <h1>Designações RVM — ecossistema completo · motor <code>2026-10-09.05</code> (motor-fix-1..13)
+    <span class="legend"><span class="n">inalterado</span><span class="c">alterado em .01–.04</span><span class="v">alterado em .05 / fix-11..13</span><span class="g">decisão / gate</span><span class="h">humano / externo</span></span>
+    <span class="zoom">zoom <input id="zoom" type="range" min="0.2" max="1.5" step="0.05" value="1"> <button id="fit" type="button">ajustar à largura</button> <button id="z100" type="button">100%</button></span>
   </h1>
-  <p>Clique em qualquer nó para ler, em linguagem natural, o que ele faz e qual o seu efeito efetivo nas designações. Passe o mouse para o resumo.</p>
+  <p>Da importação da apostila à reunião concluída: origem dos dados, motor, núcleo de ranking, ciclo de vida da parte, operação humana, comunicação, recusa/substituição e memória. Clique em qualquer nó para ler, em linguagem natural, o que ele faz e seu efeito nas designações.</p>
 </header>
 <main>
   <div id="graph">
 <pre class="mermaid">
 flowchart TB
+  %% ============== ORIGEM DOS DADOS ==============
+  subgraph ORIG [Origem dos dados]
+    direction LR
+    IMP[/Importação da apostila<br/>jw.org ou PDF → workbook_parts PENDENTE/]
+    PUB[/Cadastro de publicadores<br/>privilégios, condição, família, pausas/]
+    DISP[/Portal de disponibilidade<br/>exceções e modo never/]
+    EVT[/Eventos especiais<br/>visita SC, assembleia, boletim → CANCELADA ou ajuste/]
+    NLQ[/Fila de Necessidades Locais<br/>pré-designações humanas/]
+    CFG[/EngineConfig · 8 parâmetros<br/>EngineRulesPanel/]
+  end
+
+  IMP --> ENT
+  PUB --> ENT
+  DISP --> R1
+  EVT --> ESC
+  NLQ --> F4
+  CFG --> R7
+
+  %% ============== MOTOR ==============
   ENT([Entrada: partes da apostila + publicadores + config]) --> ESC[Filtro de escopo<br/>shouldIncludePartForGeneration]
-  ESC --> HIS[(Histórico: workbook_parts com publicador,<br/>qualquer status, 12 meses)]
+  ESC --> HIS[(Histórico: workbook_parts com publicador<br/>em status VIVO, 12 meses)]
   HIS --> GHO[Remove do histórico as partes<br/>que serão regeneradas]
-  GHO --> F0[F0 · Limpa cânticos]
+  GHO --> MEM[(Memória de Recusa da semana<br/>refusal_logs + substituted_publisher_name)]
+  MEM --> F0[F0 · Limpa cânticos]
   F0 --> F05[F0.5 · Sanity: designação inválida<br/>vira parte vazia a refazer]
   F05 --> F1[F1 · Presidentes de TODAS as semanas]
   F1 --> F15[F1.5 · Derivadas do presidente:<br/>oração inicial, comentários, elogios]
@@ -66,8 +91,8 @@ flowchart TB
   COM --> CP[proposal: PENDENTE/PROPOSTA → PROPOSTA<br/>is_manual_override = false]
   COM --> CC[cleanup cântico → CONCLUIDA]
   COM --> CI[cleanup-invalid → PENDENTE, sem id]
-  COM --> CD[direct-update: só troca o nome]
-  CP & CC & CI & CD --> AUD[Snapshot no audit_log<br/>ELIGIBILITY_RULES_VERSION 2026-10-09.01]
+  COM --> CD[direct-update: troca nome e id]
+  CP & CC & CI & CD --> AUD[Snapshot no audit_log<br/>ELIGIBILITY_RULES_VERSION · RULES_TEXT_VERSION]
 
   F1 -.-> PICK
   F2 -.-> PICK
@@ -75,12 +100,13 @@ flowchart TB
   F4 -.-> PICK
   PICK[[pickCanonicalCandidate →<br/>topo de eligibleCandidates]]
 
-  subgraph RANK [getRankedEligibleForPart — por parte, para cada publicador]
+  %% ============== NÚCLEO DE RANKING (FONTE ÚNICA) ==============
+  subgraph RANK [getRankedEligibleForPart — FONTE ÚNICA: motor, dropdown, painel, reatribuição, substituto]
     direction TB
     R1[Elegibilidade estrutural:<br/>atuante, disponível, privilégios, modalidade, ajudante]
     R1 --> R1b[Texto da apostila:<br/>gênero só em modalidades mistas]
-    R1b --> R2[Memória de recusa]
-    R2 --> R3[Uma parte por semana<br/>exceto Oração Final]
+    R1b --> R2[Memória de Recusa — M-12:<br/>recusou ou foi substituído nesta semana]
+    R2 --> R3[Uma parte por semana<br/>exceto Oração Final; derivadas não contam]
     R3 --> R4[Q2 · Alternância Titular↔Ajudante FSM]
     R4 --> R5[Q3 · Par titular+ajudante recente]
     R5 --> R6[calculateScore: proximidade MAIN,<br/>carga ±12 sem, frescor nesta parte]
@@ -88,20 +114,110 @@ flowchart TB
     R7 --> R8[Dívida de seção —<br/>só partes da mesma classe]
     R8 --> R9{Gates com relaxamento:<br/>Q2/Q3 + mesma-parte + seção → … → nenhum}
     R9 --> R10[Ordenação lexicográfica:<br/>proximidade › carga › frescor › esquecimento › total › nome]
-    R10 --> R11[eligibleCandidates ordenados<br/>allCandidates inclui barrados por gate]
+    R10 --> R11[eligibleCandidates ordenados<br/>allCandidates inclui barrados por gate, com motivo]
   end
   PICK --> R1
   R11 -.->|topo| PICK
+  MEM -.-> R2
+  HIS -.-> R6
+
+  %% ============== CICLO DE VIDA DA PARTE ==============
+  subgraph LIFE [Ciclo de vida da parte — status]
+    direction LR
+    S0[PENDENTE] --> S1[PROPOSTA]
+    S1 -->|aprovação / confirmação| S2[DESIGNADA]
+    S2 -->|cron após a reunião| S3[CONCLUIDA]
+    S1 -->|cron após a reunião| S3
+    S1 -->|evento / lápis| S4[CANCELADA]
+    S2 -->|evento / lápis| S4
+    S1 -->|webhook Z-API «Não poderei»| S5[REJEITADA + needs_reassignment]
+    S2 -->|webhook Z-API «Não poderei»| S5
+    S5 -->|reatribuição| S0
+  end
+  CP --> S1
+  CI --> S0
+  EVT --> S4
+  S4 -. "nome fica, NÃO conta (M-6)" .-> HIS
+  S5 -. "nome fica, NÃO conta (M-6)" .-> HIS
+
+  %% ============== OPERAÇÃO HUMANA ==============
+  subgraph HUM [Operação humana]
+    direction LR
+    DROP[Aba Apostila · dropdown PublisherSelect<br/>fonte única, badges 🔁 🧩 ↔️, memória de recusa]
+    LAPIS[Aba Apostila · lápis PartEditModal<br/>status e metadados; não aciona motor]
+    AGT[Aba Agente · ActionControlPanel + chat<br/>melhor candidato, top-4, EXPLAIN, ações]
+    CUR[Curador · SemanticDraggableGenerator<br/>regras semânticas por semana]
+    APR[Aprovações · PROPOSTA → DESIGNADA]
+    GEN[Botão Gerar · semanas nomeadas]
+  end
+  DROP -.-> R1
+  AGT -.-> R1
+  GEN --> ENT
+  DROP -->|semana não publicada: assignPublisher manual| S1
+  DROP -->|semana publicada: ManualReplacementModal| SUB
+  LAPIS -->|status| LIFE
+  APR --> S2
+  AGT -->|reatribuir / designar| S1
+
+  %% ============== COMUNICAÇÃO E RESPOSTA ==============
+  subgraph COMM [Comunicação e resposta do publicador]
+    direction TB
+    PUBW[Publicar semana · weekPublishService<br/>S-89 WhatsApp Z-API + S-140 + aviso liderança]
+    CRON[cron-whatsapp-reminders<br/>D-23 alerta buracos · D-15 auto-publica · D-9/D-7/D-2 lembretes · conclui após reunião]
+    PORT[Portal de confirmação · link com token<br/>confirmar → DESIGNADA · recusar → RPC limpa nome, PENDENTE + needs_reassignment]
+    ZAPI[Webhook Z-API · «Não poderei»<br/>REJEITADA + refusal_logs; mantém nome]
+    AUTO{Automação ON?}
+    GHA[GitHub Action → robô headless<br/>executeAutoReassignment]
+    ALERT[Alerta à liderança com sugestão<br/>buildRefusalAlertMessage — fonte única]
+    REAS[reassignParts · limpa a parte, consulta o motor<br/>com memória de recusa, grava substituted_publisher_name]
+    SUB[Substituição · is_substitution + substituted_publisher_name<br/>notifica antigo, novo, parceiro; S-140 modo 2]
+  end
+  S1 --> PUBW
+  S2 --> PUBW
+  PUBW --> PORT
+  PUBW --> CRON
+  CRON --> PORT
+  CRON -->|conclusão server-side| S3
+  PORT -->|confirmou| S2
+  PORT -->|recusou| RLOG
+  PORT -->|recusou| S0
+  ZAPI --> S5
+  ZAPI --> RLOG
+  ZAPI --> AUTO
+  AUTO -->|ON| GHA --> REAS --> SUB
+  AUTO -->|OFF| ALERT
+  ALERT -.-> R1
+  PORT -.->|needs_reassignment| REAS
+  REAS -.-> R1
+  SUB --> S1
+  RLOG[(refusal_logs<br/>part, publisher_name, week_id, motivo)]
+  RLOG --> MEM
+  SUB --> MEM
+
+  %% ============== AUDITORIA ==============
+  AUD --> ADM[AdminDashboard · sincronia de versões<br/>regras × texto do agente]
+  COM --> UNDO[undoService · snapshot para reverter]
 
   classDef changed fill:#dcfce7,stroke:#16a34a,color:#052e16;
+  classDef v5 fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
   classDef gate fill:#fef3c7,stroke:#d97706,color:#431407;
+  classDef human fill:#f1f5f9,stroke:#94a3b8,stroke-dasharray:4 3,color:#0f172a;
   class GHO,F05,F2,SYN,INV,SEL,CI,CD,AUD,R1b,R4,R5,R6,R7,R8,R9,R10,R11 changed;
-  class R3,DRY,WK gate;
+  class HIS,MEM,R2,R3,DROP,AGT,ALERT,REAS,SUB,RLOG v5;
+  class DRY,WK,AUTO gate;
+  class IMP,PUB,DISP,EVT,NLQ,CFG,LAPIS,CUR,APR,GEN,PORT,ZAPI,GHA,PUBW,CRON human;
 
+  click IMP call showNode("IMP") "De onde vêm as partes"
+  click PUB call showNode("PUB") "De onde vêm os candidatos"
+  click DISP call showNode("DISP") "Disponibilidade declarada pelo próprio publicador"
+  click EVT call showNode("EVT") "Semanas atípicas"
+  click NLQ call showNode("NLQ") "Pré-decisão humana para NL"
+  click CFG call showNode("CFG") "Os únicos números que decidem"
   click ENT call showNode("ENT") "Dados de entrada do motor"
   click ESC call showNode("ESC") "Quais partes o motor pode tocar"
   click HIS call showNode("HIS") "O que conta como participação"
   click GHO call showNode("GHO") "Fim do histórico-fantasma na regeneração"
+  click MEM call showNode("MEM") "Quem não volta nesta semana"
   click F0 call showNode("F0") "Cânticos nunca têm publicador"
   click F05 call showNode("F05") "Inválidos são refeitos, não apagados"
   click F1 call showNode("F1") "Presidência tem precedência sobre tudo"
@@ -120,10 +236,12 @@ flowchart TB
   click CI call showNode("CI") "Inválido removido volta a pendente"
   click CD call showNode("CD") "Parte já finalizada regenerada"
   click AUD call showNode("AUD") "Qual motor gerou cada semana"
+  click ADM call showNode("ADM") "Regras e texto do agente em sincronia"
+  click UNDO call showNode("UNDO") "Reverter uma geração"
   click PICK call showNode("PICK") "Quem é escolhido"
   click R1 call showNode("R1") "Gate duro de elegibilidade"
   click R1b call showNode("R1b") "O texto da apostila é lei — com uma exceção"
-  click R2 call showNode("R2") "Quem recusou há pouco não é reproposto"
+  click R2 call showNode("R2") "Recusou ou foi substituído: fora da semana inteira"
   click R3 call showNode("R3") "Uma pessoa, uma parte por semana"
   click R4 call showNode("R4") "Progressão pedagógica"
   click R5 call showNode("R5") "Variar os pares"
@@ -133,11 +251,33 @@ flowchart TB
   click R9 call showNode("R9") "Nunca deixar parte vazia"
   click R10 call showNode("R10") "O critério real — não é o score"
   click R11 call showNode("R11") "Saída honesta"
+  click S0 call showNode("S0") "Parte vazia"
+  click S1 call showNode("S1") "Proposta do motor ou do operador"
+  click S2 call showNode("S2") "Aceita"
+  click S3 call showNode("S3") "Reunião aconteceu"
+  click S4 call showNode("S4") "Parte não aconteceu"
+  click S5 call showNode("S5") "Recusa via WhatsApp sem portal"
+  click DROP call showNode("DROP") "O operador vê o mesmo que o motor"
+  click LAPIS call showNode("LAPIS") "Edita a parte, não a pessoa"
+  click AGT call showNode("AGT") "Explicações e ações pelo agente"
+  click CUR call showNode("CUR") "Regras semânticas da semana"
+  click APR call showNode("APR") "Aprovação direta"
+  click GEN call showNode("GEN") "Disparo do motor"
+  click PUBW call showNode("PUBW") "A semana sai para os publicadores"
+  click CRON call showNode("CRON") "O relógio do ciclo"
+  click PORT call showNode("PORT") "Confirmar ou recusar pelo link"
+  click ZAPI call showNode("ZAPI") "Recusa espontânea no WhatsApp"
+  click AUTO call showNode("AUTO") "Quem substitui: robô ou humano"
+  click GHA call showNode("GHA") "Robô de substituição"
+  click ALERT call showNode("ALERT") "Liderança decide com a sugestão do motor"
+  click REAS call showNode("REAS") "Reatribuição cirúrgica"
+  click SUB call showNode("SUB") "Substituição registrada"
+  click RLOG call showNode("RLOG") "Registro de recusas"
 </pre>
   </div>
   <aside id="panel">
     <h2>Selecione um nó</h2>
-    <p class="empty">O painel mostra o que o nó faz, o efeito efetivo sobre quem é designado e o que mudou na versão 2026-10-09.04.</p>
+    <p class="empty">O painel mostra o que o nó faz, o efeito efetivo sobre quem é designado e em que versão mudou (regras 2026-10-09.05).</p>
   </aside>
 </main>
 
@@ -145,12 +285,64 @@ flowchart TB
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs';
 
 const NODES = {
+IMP: { t:'Importação da apostila', faz:'Lê a programação da semana (jw.org ou PDF), cria uma linha em workbook_parts por parte (titular e, quando há, ajudante), com seção, tipo, modalidade, título, descrição, duração e horário, em status PENDENTE e sem publicador.',
+  efeito:'Define o que existe para designar. O texto importado (título/descrição) vira restrição no motor (R1b): um título mal lido pode barrar ou liberar candidatos. Reimportar uma semana não mexe em quem já está designado.', codigo:'jwOrgService.importWorkbookFromJwOrg · workbookImportService' },
+PUB: { t:'Cadastro de publicadores', faz:'Fonte dos candidatos: gênero, condição (ancião/SM/publicador), batismo, privilégios (presidir, orar, discursar, EBC, leitor), opt-out por seção, "só ajudante", pausas, família (cônjuge, pais/filhos) e aliases.',
+  efeito:'Tudo que R1 verifica vem daqui. Um privilégio esquecido tira a pessoa de toda uma classe de partes; a família cadastrada libera pares de gêneros diferentes e repetição de dupla.', codigo:'publishers.data · PublisherForm' },
+DISP: { t:'Portal de disponibilidade', faz:'O próprio publicador marca datas em que não pode (exceções) ou declara que não está disponível por ora (modo never). Se já tinha parte na data marcada, dispara alerta de recusa à liderança.',
+  efeito:'Indisponível na semana = inelegível (R1), sem relaxamento. Para presidência, isso restringe o pool da semana, não a fila (M-1).', codigo:'PublisherAvailabilityPortal · availability.exceptionDates / mode' },
+EVT: { t:'Eventos especiais', faz:'Visita do superintendente, assembleia, boletim etc. cancelam partes (status CANCELADA, nome mantido para aviso), ajustam durações ou criam partes. Reverter o evento restaura.',
+  efeito:'Partes CANCELADAS saem do escopo do motor e não contam como participação (M-6, desde .05) — antes, quem tinha a parte cancelada era tratado como se tivesse feito.', codigo:'specialEventService' },
+NLQ: { t:'Fila de Necessidades Locais', faz:'A liderança pré-decide quem faz as próximas Necessidades Locais; o motor consome a fila em F4 em vez de escolher.',
+  efeito:'Decisão humana prevalece sobre o ranking para esta parte. Trocar à mão no dropdown desvincula a pré-designação.', codigo:'localNeedsService.getPendingQueue' },
+CFG: { t:'EngineConfig', faz:'Os únicos números que decidem: janela de histórico (52), raio de proximidade (4), janelas Q2 e Q3 (4), gate de seção on/off, ciclo da presidência (52), garantia de estudante (13) e teto semanal (2). Editáveis no painel do admin.',
+  efeito:'Mudar um valor muda o ranking de todas as partes a partir da próxima geração; não há mais parâmetros "de exibição" que parecem decidir e não decidem.', codigo:'EngineRulesPanel · getRotationConfig (Proxy vivo)' },
+MEM: { t:'Memória de Recusa da semana', mudou:'2026-10-09.05', faz:'Antes de ranquear, o motor carrega os nomes de refusal_logs para cada semana do escopo e, dentro do ranking, lê substituted_publisher_name das partes da semana. Dropdown, painel, reatribuição e sugestão de substituto fazem o mesmo.',
+  efeito:'Quem recusou (portal, Z-API ou agente) ou foi substituído numa semana não recebe nenhuma outra parte daquela semana, em nenhuma superfície (M-12). Fora da semana, a recusa é neutra. Antes isso só valia na reatribuição automática, e o campo de substituição nem era lido do banco.', codigo:'refusalMemoryService.loadRefusedNamesByWeek · weekExcludedNames' },
+ADM: { t:'AdminDashboard · sincronia', faz:'Compara a versão das regras do motor com a versão do texto que o agente lê como system prompt.',
+  efeito:'Se divergirem, o agente explica regras que o motor não aplica. Todo bump de regra exige bump do texto (invariante do runbook).', codigo:'ELIGIBILITY_RULES_VERSION === RULES_TEXT_VERSION' },
+UNDO: { t:'Undo', faz:'Antes de gravar uma geração ou troca manual, guarda o estado anterior das partes afetadas.',
+  efeito:'Permite reverter uma geração inteira ou uma troca sem SQL manual.', codigo:'undoService.captureSingle / captureBatch' },
+S0: { t:'PENDENTE', faz:'Parte sem publicador. Entra no escopo padrão do motor.', efeito:'É o que o motor preenche e o que a liderança vê como buraco (alerta D-23).', codigo:"status: 'PENDENTE'" },
+S1: { t:'PROPOSTA', faz:'Publicador atribuído pelo motor (is_manual_override=false) ou pelo operador (true), ainda não confirmado.', efeito:'Já conta como participação (M-6). Pode ser publicada e lembrada; é regenerável se a semana for nomeada na geração — inclusive a manual.', codigo:'proposePublisher / assignPublisher' },
+S2: { t:'DESIGNADA', faz:'Aceita: aprovação direta do admin ou confirmação do publicador pelo portal.', efeito:'Congelada para o motor (só direct-update em regeneração explícita). Conta como participação.', codigo:'approveProposal · portal RPC' },
+S3: { t:'CONCLUIDA', faz:'Após a reunião, o cron conclui PROPOSTA/DESIGNADA/APROVADA que têm publicador.', efeito:'Histórico definitivo. Nunca reaberta pelo motor.', codigo:'cron-whatsapp-reminders · markPastWeeksAsCompleted' },
+S4: { t:'CANCELADA', faz:'Parte que não acontecerá (evento especial, agente ou lápis). O nome pode ficar na linha para avisar o publicador.', efeito:'Fora do escopo do motor, fora do histórico (M-6, .05), não ocupa a semana. Antes contava como participação fantasma.', codigo:"DEAD_PARTICIPATION_STATUSES" },
+S5: { t:'REJEITADA', faz:'Produzida só pelo webhook Z-API («Não poderei»): mantém o nome, marca needs_reassignment e had_refusal.', efeito:'Ainda ocupa a semana para o recusante (não recebe outra parte), mas não conta como participação (M-6, .05). Antes, se ninguém trocasse, virava crédito perpétuo — caso Emerson França 04/2026.', codigo:'zapi-smart-webhook' },
+DROP: { t:'Dropdown da Apostila', mudou:'2026-10-09.05', faz:'Lista candidatos pela fonte única: elegíveis ordenados, depois elegíveis barrados por gate com marcador (🔁 mesma parte, 🧩 seção, ↔️ alternância/par), depois inelegíveis com motivo. Carrega a memória de recusa da semana.',
+  efeito:'O operador vê exatamente a fila do motor e por que alguém está atrás. Escolher gera PROPOSTA manual (semana não publicada) ou abre a substituição formal (semana publicada).', codigo:'PublisherSelect → getRankedEligibleForPart' },
+LAPIS: { t:'Lápis (editar parte)', faz:'Edita metadados da parte e o status (uma parte ou a semana toda). Não tem campo de publicador e não aciona o motor. Voltar a PENDENTE limpa o publicador.',
+  efeito:'Muda o que o motor pode tocar (escopo) e, via status, o que conta como participação. Mudar tipo/modalidade/seção reclassifica a parte para gates e faixas.', codigo:'PartEditModal → updatePart / updateWeekStatus' },
+AGT: { t:'Aba Agente', mudou:'2026-10-09.05', faz:'Painel "Controle & Explicações" mostra melhor candidato, top-4 com faixa e análise do designado pela fonte única (parte avaliada como vaga, memória de recusa incluída). O chat executa ações (designar, reatribuir, cancelar, explicar) com o mesmo ranking.',
+  efeito:'O que o agente diz que o motor faria é o que o motor faz. O prompt do agente descreve o modelo lexicográfico, M-6 e M-12.', codigo:'ActionControlPanel · agentActionService · contextBuilder' },
+CUR: { t:'Curador', faz:'Gera e salva regras semânticas por semana a partir do texto da apostila, sob disparo explícito.', efeito:'Alimenta restrições textuais (R1b); desempate por posição no ranking, sem score.', codigo:'SemanticDraggableGenerator' },
+APR: { t:'Aprovações', faz:'Admin aceita uma PROPOSTA sem esperar o portal.', efeito:'PROPOSTA → DESIGNADA; a parte fica congelada para o motor.', codigo:'approveProposal' },
+GEN: { t:'Gerar', faz:'Dispara o motor para semanas nomeadas (tudo não finalizado nelas) ou para buracos.', efeito:'Com semanas nomeadas, PROPOSTA manual também é refeita — is_manual_override não é lido pelo motor.', codigo:'generationService.generateDesignations' },
+PUBW: { t:'Publicar semana', faz:'Marca a semana publicada, envia S-89 individual por WhatsApp (Z-API) com link do portal, pacote S-140 e aviso à liderança. Chamada pelo botão, pelo agente ou pelo robô D-21/D-15.',
+  efeito:'A partir daqui, trocar alguém é substituição formal (notifica antigo, novo e parceiro).', codigo:'weekPublishService.publishWeek' },
+CRON: { t:'cron-whatsapp-reminders', faz:'Rotina diária: alerta de buracos (D-23), auto-publicação (D-15), lembretes D-9/D-7/D-2 com link, e conclusão das partes de reuniões passadas.',
+  efeito:'É o relógio do ciclo de vida: sem ele PROPOSTA/DESIGNADA nunca viram CONCLUIDA. Não toca CANCELADA/REJEITADA.', codigo:'supabase/functions/cron-whatsapp-reminders' },
+PORT: { t:'Portal de confirmação', faz:'Link com token opaco. Confirmar → DESIGNADA. Recusar → RPC limpa nome/id, volta a PENDENTE, marca needs_reassignment e grava refusal_logs.',
+  efeito:'Recusa pelo portal nunca gera crédito e entra na Memória de Recusa da semana (M-12).', codigo:'submit_confirmation_portal_response' },
+ZAPI: { t:'Webhook Z-API', faz:'Interpreta respostas livres no WhatsApp. «Não poderei» → REJEITADA (nome mantido), refusal_logs, resposta ao publicador; decide entre robô e humano.',
+  efeito:'Entra na Memória de Recusa (M-12) e deixa de contar como participação (M-6). Nome fica para avisar e para a substituição registrar quem saiu.', codigo:'zapi-smart-webhook' },
+AUTO: { t:'Automação ON/OFF', faz:'Chave app_settings.zapi_automation_active.', efeito:'ON: o robô substitui sozinho e avisa a liderança depois. OFF: a liderança recebe a sugestão do motor e troca à mão.', codigo:'zapi_automation_active' },
+GHA: { t:'Robô de substituição', faz:'repository_dispatch → GitHub Action headless → executeAutoReassignment: verifica needs_reassignment, chama reassignParts, registra substituição, notifica e gera S-140 modo 2.',
+  efeito:'Se o motor estrito não acha ninguém, escala para fallback humano em vez de forçar.', codigo:'replacementOrchestratorService.executeAutoReassignment' },
+ALERT: { t:'Alerta à liderança', mudou:'2026-10-09.05', faz:'Mensagem ao SRVM/admins com motivo, parceiro e sugestão de substituto calculada pela fonte única (parte avaliada como vaga, recusante e demais recusas da semana excluídos).',
+  efeito:'A sugestão respeita fila de presidência, garantia de estudante e gates — antes usava um ranking paralelo e passava a modalidade como tipo de parte.', codigo:'communicationService.buildRefusalAlertMessage' },
+REAS: { t:'Reatribuição cirúrgica', mudou:'2026-10-09.05', faz:'Limpa só a parte alvo, consulta o motor com a Memória de Recusa da semana (refusal_logs + nome anterior + substituídos), aplica o topo da fila e grava substituted_publisher_name — recuperando o nome de refusal_logs quando o portal já limpou a parte.',
+  efeito:'Nunca devolve a parte a quem recusou nem a quem já saiu de outra parte da semana (anti ping-pong).', codigo:'reassignmentService.reassignParts · consultReassignmentSuggestion' },
+SUB: { t:'Substituição registrada', mudou:'2026-10-09.05', faz:'is_substitution=true e substituted_publisher_name=quem saiu; nova PROPOSTA; notifica antigo, novo e parceiro; S-140 modo 2 se for a semana corrente. Troca manual em semana publicada passa por aqui (ManualReplacementModal).',
+  efeito:'Quem saiu fica inelegível para o resto da semana (M-12) e aparece na pilha «recusas» do gráfico. Em semana NÃO publicada a troca é remanejo simples e não gera exclusão.', codigo:'executeManualReplacement · directExecutePublisherUpdate' },
+RLOG: { t:'refusal_logs', mudou:'2026-10-09.05', faz:'Uma linha por recusa: parte, nome, semana, tipo, motivo. Gravada pelo portal (RPC), pelo webhook Z-API e pelo agente.',
+  efeito:'É a fonte da Memória de Recusa semanal (M-12). Não penaliza fora da semana.', codigo:'refusal_logs' },
 ENT: { t:'Entrada', faz:'O motor recebe todas as partes carregadas da apostila (com status e publicador atual), a lista completa de publicadores com privilégios e disponibilidade, e a configuração: dry-run, semanas pedidas e pesos do motor (EngineConfig).',
   efeito:'Nada é decidido aqui, mas tudo depende da qualidade destes dados: um privilégio errado no cadastro ou um id trocado numa parte muda o resultado de todas as fases seguintes.', codigo:'generationService.generateDesignations(parts, publishers, config)' },
 ESC: { t:'Filtro de escopo', faz:'Decide quais partes o motor pode tocar. Nunca o passado, nunca CONCLUIDA ou CANCELADA. Por padrão só partes vazias ou PENDENTE — mais as que têm um publicador atualmente inelegível (sanity). Se o operador nomeou semanas, tudo que não está finalizado nelas entra.',
   efeito:'Determina a diferença entre "preencher buracos" e "regenerar a semana inteira". Com semanas nomeadas, designações PROPOSTA e DESIGNADA existentes são refeitas.', codigo:'shouldIncludePartForGeneration' },
-HIS: { t:'Histórico', faz:'Carrega da tabela workbook_parts toda linha dos últimos 12 meses que tenha publicador (por nome ou id), independentemente do status.',
-  efeito:'Uma PROPOSTA ainda não aprovada pesa tanto quanto uma parte CONCLUIDA. O motor enxerga carga planejada, não só carga realizada — por isso quem tem partes marcadas no futuro não é tratado como "livre".', codigo:'historyAdapter.loadCompletedParticipations' },
+HIS: { t:'Histórico', mudou:'2026-10-09.05', faz:'Carrega da tabela workbook_parts toda linha dos últimos 12 meses que tenha publicador (por nome ou id) em status VIVO — PROPOSTA, DESIGNADA, APROVADA, CONCLUIDA. CANCELADA e REJEITADA ficam fora mesmo com nome na linha.',
+  efeito:'Uma PROPOSTA ainda não aprovada pesa tanto quanto uma parte CONCLUIDA: o motor enxerga carga planejada. Mas quem teve a parte cancelada por evento ou recusou pelo WhatsApp não é mais tratado como se tivesse participado (M-6 restrito em .05).', codigo:'historyAdapter.loadCompletedParticipations · partsToHistoryRecords · DEAD_PARTICIPATION_STATUSES' },
 GHO: { t:'Remoção do histórico-fantasma', mudou:true, faz:'Antes de ranquear, remove do histórico exatamente as partes que estão no escopo de regeneração, identificando-as pelo id.',
   efeito:'Ao regenerar as semanas 1–4, a designação antiga da semana 3 deixa de penalizar o candidato que o motor está prestes a escolher para a semana 2. Antes, a mesma semana contava duas vezes (a antiga do banco e a nova sintética), muitas vezes com pessoas diferentes.', codigo:'excludeRegeneratedFromHistory' },
 F0: { t:'F0 · Limpeza de cânticos', faz:'Qualquer cântico que tenha um nome de publicador é marcado para limpeza.',
@@ -187,17 +379,17 @@ CI: { t:'cleanup-invalid', mudou:true, faz:'Parte não-cântico cujo publicador 
 CD: { t:'direct-update', mudou:true, faz:'Parte já DESIGNADA/APROVADA incluída por regeneração explícita recebe o novo nome e o novo id.',
   efeito:'Identidade coerente: o motor passa a creditar a pessoa certa. Antes só o nome mudava e o id continuava apontando para a anterior.', codigo:'updatePart({ resolvedPublisherName, resolvedPublisherId })' },
 AUD: { t:'Snapshot de auditoria', mudou:true, faz:'Para cada semana gerada, grava no audit_log a configuração vigente e a versão das regras.',
-  efeito:'Agora certifica a versão real (2026-10-09.04) e o AdminDashboard audita se o texto lido pelo agente (RULES_TEXT_VERSION) acompanha. Estava congelada em 2024-01-27 enquanto as regras mudaram dezenas de vezes.', codigo:'ELIGIBILITY_RULES_VERSION · RULES_TEXT_VERSION' },
+  efeito:'Agora certifica a versão real (2026-10-09.05) e o AdminDashboard audita se o texto lido pelo agente (RULES_TEXT_VERSION) acompanha. Estava congelada em 2024-01-27 enquanto as regras mudaram dezenas de vezes.', codigo:'ELIGIBILITY_RULES_VERSION · RULES_TEXT_VERSION' },
 PICK: { t:'pickCanonicalCandidate', faz:'Chama o ranking para a parte, usando as partes da semana já materializadas com as escolhas do batch, e pega o primeiro de eligibleCandidates.',
   efeito:'Greedy puro: não há retrocesso. A parte recebe quem está no topo naquele instante, dado tudo que já foi decidido antes dela.', codigo:'rankedResult.eligibleCandidates[0]' },
 R1: { t:'Elegibilidade estrutural', faz:'Gate duro: atuante, não desqualificado, não pediu ausência, não pausado, disponível na semana (só para o futuro), "só ajudante" nunca titular, opt-out por seção, e as regras da modalidade (presidir exige canPreside; oração exige irmão batizado; discurso de ensino exige ancião/SM; EBC exige ancião; Leitor exige irmão batizado; etc.). Ajudante deve ser do mesmo sexo do titular, salvo cônjuge e pai/filho.',
   efeito:'Quem falha aqui não aparece como candidato. Sem relaxamento.', codigo:'checkEligibility' },
 R1b: { t:'Texto da apostila', mudou:true, faz:'Lê título/descrição da parte: se exige irmã/irmão, ancião/SM, função específica ou batizado, vira gate. Exceção acordada: "ancião" em Tesouros inclui SM. Nova exceção: gênero extraído do texto só se aplica a modalidades mistas (demonstração, ajudante).',
   efeito:'Um Discurso Tesouros cujo tema menciona "irmã" não bloqueia mais todos os irmãos — falso positivo observado em 28/09/2026. Em demonstrações o texto continua mandando.', codigo:'parseTextualConstraints + BROTHER_ONLY_MODALITIES' },
-R2: { t:'Memória de recusa', faz:'Nomes passados em excludedPublisherNames (quem recusou esta parte recentemente) ficam inelegíveis.',
-  efeito:'Evita repropor a mesma parte a quem acabou de recusá-la. O motor automático não usa esta opção; o agente e a reatribuição usam.', codigo:'options.excludedPublisherNames' },
-R3: { t:'Uma parte por semana', faz:'Quem já tem parte designada na semana (incluindo escolhas do batch) é inelegível — exceto para Oração Final.',
-  efeito:'Gate duro sem relaxamento. Oração Final prefere quem não tem parte (bucket 1), aceita quem tem (bucket 2), nunca o presidente.', codigo:'inWeekMap + excludeAssignedInSameWeek' },
+R2: { t:'Memória de Recusa (M-12)', mudou:'2026-10-09.05', faz:'Inelegível para QUALQUER parte da semana quem está em refusal_logs daquela semana (recebido via excludedPublisherNames) ou aparece como substituted_publisher_name em alguma parte da semana (lido das próprias partes).',
+  efeito:'Recusou ou saiu: fora da semana inteira, em todas as superfícies. Fora da semana, nada muda — nem crédito nem penalidade. Antes só a reatribuição automática aplicava isso, e só à parte recusada.', codigo:'weekExcludedNames · refusalMemoryService' },
+R3: { t:'Uma parte por semana', mudou:'2026-10-09.05', faz:'Quem já tem parte designada na semana (incluindo escolhas do batch) é inelegível — exceto para Oração Final. Derivadas do presidente (comentários, oração inicial, elogios) não contam como designação própria.',
+  efeito:'Gate duro sem relaxamento. Corrigido em fix-12: o presidente atual se auto-excluía da própria Presidência por causa das derivadas — painel e dropdown o mostravam inelegível e a regeneração evitava reescolhê-lo.', codigo:'buildInWeekMap + isAutoAssignedToChairman' },
 R4: { t:'Q2 · Alternância FSM', mudou:true, faz:'Em partes do Faça Seu Melhor: quem foi Titular nas últimas 4 semanas não é Titular; quem foi Ajudante não é Ajudante (salvo "só ajudante"). Agora é um gate do motor, não inelegibilidade.',
   efeito:'Força a progressão Ajudante → Titular → Ajudante enquanto houver alternativa; se o pool esvaziar, relaxa (4º estágio) em vez de deixar a parte vazia. O candidato barrado aparece em allCandidates com engineGateReason.', codigo:'getMostRecentFSMRole → engineGateReason' },
 R5: { t:'Q3 · Par recente', mudou:true, faz:'Ajudante que fez par com este mesmo titular nas últimas 4 semanas fica barrado, salvo cônjuge ou pai/filho. Gate relaxável.',
@@ -222,7 +414,7 @@ window.showNode = (id) => {
   if (!n) { el.innerHTML = '<h2>Nó desconhecido</h2>'; return; }
   el.innerHTML = `
     <h2>${n.t}</h2>
-    ${n.mudou ? '<span class="badge">alterado em 2026-10-09.01</span>' : ''}
+    ${n.mudou ? `<span class="badge">alterado em ${n.mudou === true ? '2026-10-09.01–.04' : n.mudou}</span>` : ''}
     <h3>O que faz</h3><p>${n.faz}</p>
     <h3>Efeito efetivo</h3><p>${n.efeito}</p>
     <h3>Código</h3><p><code>${n.codigo}</code></p>`;
@@ -233,6 +425,26 @@ mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'base',
   themeVariables: { primaryColor: '#dbeafe', primaryBorderColor: '#93c5fd', primaryTextColor: '#0f172a', lineColor: '#64748b', fontSize: '13px' },
   flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis', nodeSpacing: 30, rankSpacing: 40 } });
 await mermaid.run({ querySelector: '.mermaid' });
+
+const svg = document.querySelector('#graph svg');
+const graph = document.getElementById('graph');
+const zoom = document.getElementById('zoom');
+const applyZoom = (z) => {
+  zoom.value = z;
+  svg.style.transform = `scale(${z})`;
+  // transform não altera o layout: reservar espaço para o scroll acompanhar
+  const vb = svg.viewBox.baseVal;
+  svg.parentElement.style.width = `${vb.width * z}px`;
+  svg.parentElement.style.height = `${vb.height * z}px`;
+};
+const fit = () => {
+  const vb = svg.viewBox.baseVal;
+  applyZoom(Math.max(0.2, Math.min(1.5, (graph.clientWidth - 56) / vb.width)));
+};
+zoom.addEventListener('input', () => applyZoom(parseFloat(zoom.value)));
+document.getElementById('fit').addEventListener('click', fit);
+document.getElementById('z100').addEventListener('click', () => applyZoom(1));
+fit();
 </script>
 </body>
 </html>
