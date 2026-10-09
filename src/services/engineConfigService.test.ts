@@ -18,9 +18,9 @@ const baseConfig: EngineConfig = {
     ROLE_ALTERNATION_WINDOW_WEEKS: 4,
     PAIR_REPETITION_WINDOW_WEEKS: 4,
     ENABLE_SECTION_ROTATION_GATE: true,
-    FSM_ELDER_DROUGHT_WEEKS: 13,
-    FSM_MS_DROUGHT_WEEKS: 10,
-    FSM_ESCALATION_THRESHOLD_WEEKS: 4,
+    PRESIDENCY_CYCLE_WINDOW_WEEKS: 52,
+    STUDENT_PART_GUARANTEE_WEEKS: 13,
+    STUDENT_GUARANTEE_MAX_PER_WEEK: 2,
 };
 
 test('updateEngineConfig shallow-merges flat settings, persists merged config and applies runtime delta', async () => {

@@ -172,16 +172,64 @@ test('allCandidates inclui elegíveis barrados por gate, fora de eligibleCandida
     assert.equal(result.allCandidates.length, 2);
 });
 
-test('PROMOÇÃO FSM: Ancião em seca (>13 sem sem FSM + cobertura Tesouros/Vida) sobe para Bucket 1 FSM', () => {
+test('GARANTIA DE ESTUDANTE: ancião sem parte FSM em 13 semanas vai ao bucket 0, antes da irmã', () => {
     const history = [
         h(mockElder, { id: 'h-t1', weekId: '2026-20', date: '2026-05-15', section: TESOUROS, tipoParte: 'Discurso Tesouros', modalidade: 'Discurso de Ensino' }),
-        h(mockElder, { id: 'h-v1', weekId: '2026-22', date: '2026-06-01', section: 'Nossa Vida Cristã', tipoParte: 'Parte Vida Cristã', modalidade: 'Discurso de Ensino' }),
     ];
 
     const result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [mockElder, mockSister], history);
     const elderCand = result.allCandidates.find(c => c.publisher.id === mockElder.id);
     const sisterCand = result.allCandidates.find(c => c.publisher.id === mockSister.id);
 
-    assert.equal(sisterCand?.priorityBucket, 1, 'Irmã deve estar no Bucket 1');
-    assert.equal(elderCand?.priorityBucket, 1, 'Ancião em seca + cobertura deve ser promovido ao Bucket 1 FSM');
+    assert.equal(sisterCand?.priorityBucket, 1, 'Irmã fica no Bucket 1');
+    assert.equal(elderCand?.priorityBucket, 0, 'Ancião em seca vai ao Bucket 0');
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, mockElder.id, 'Ancião em seca é o primeiro da fila');
+});
+
+test('GARANTIA DE ESTUDANTE: ajudante conta — ancião que foi ajudante há 6 semanas NÃO está em seca', () => {
+    const history = [
+        h(mockElder, { id: 'h-aj', weekId: '2026-26', date: '2026-06-29', section: 'Faça Seu Melhor no Ministério', tipoParte: 'Iniciando Conversas (Ajudante)', modalidade: 'Demonstração', funcao: 'Ajudante' }),
+    ];
+
+    const result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [mockElder, mockSister], history);
+    const elderCand = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+
+    assert.equal(elderCand?.priorityBucket, 4, 'Fora da seca, ancião volta ao bucket 4 em demonstração');
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, mockSister.id);
+});
+
+test('GARANTIA DE ESTUDANTE: teto semanal — com 2 anciãos/SMs já em partes de estudante na semana, seca não promove', () => {
+    const elderB: Publisher = { ...mockElder, id: 'pub-elder-b', name: 'Ancião B' };
+    const elderC: Publisher = { ...mockElder, id: 'pub-elder-c', name: 'Ancião C' };
+    const weekParts: WorkbookPart[] = [
+        targetFSMPart,
+        { ...targetFSMPart, id: 'fsm-2', seq: 4, tipoParte: 'Cultivando o Interesse', resolvedPublisherId: elderB.id, resolvedPublisherName: elderB.name },
+        { ...targetFSMPart, id: 'fsm-3', seq: 5, tipoParte: 'Leitura da Bíblia', modalidade: 'Leitura de Estudante', resolvedPublisherId: elderC.id, resolvedPublisherName: elderC.name },
+    ];
+
+    const result = getRankedEligibleForPart(targetFSMPart, weekParts, [mockElder, mockSister, elderB, elderC], []);
+    const elderCand = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+
+    assert.equal(elderCand?.priorityBucket, 4, 'Teto atingido: ancião em seca fica no bucket normal');
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, mockSister.id);
+});
+
+test('FILA DE PRESIDÊNCIA: bucket = nº de presidências na janela; quem presidiu menos vem antes', () => {
+    const elderB: Publisher = { ...mockElder, id: 'pub-elder-b', name: 'Ancião B' };
+    const presidentePart: WorkbookPart = { ...targetTreasuresPart, id: 'part-pres', section: 'Presidência', tipoParte: 'Presidente', modalidade: 'Presidência', tituloParte: 'Presidente' };
+    const history = [
+        h(mockElder, { id: 'p1', weekId: '2026-10', date: '2026-03-02', section: 'Presidência', tipoParte: 'Presidente', modalidade: 'Presidência' }),
+        h(mockElder, { id: 'p2', weekId: '2026-18', date: '2026-04-27', section: 'Presidência', tipoParte: 'Presidente', modalidade: 'Presidência' }),
+        h(elderB, { id: 'p3', weekId: '2026-14', date: '2026-03-30', section: 'Presidência', tipoParte: 'Presidente', modalidade: 'Presidência' }),
+        // Ancião A com proximidade zero e carga menor; B com parte há 2 semanas — mesmo assim B vem antes, porque presidiu menos.
+        h(elderB, { id: 'x1', weekId: '2026-29', date: '2026-07-27', section: TESOUROS, tipoParte: 'Joias Espirituais', modalidade: 'Discurso de Ensino' }),
+    ];
+
+    const result = getRankedEligibleForPart(presidentePart, [presidentePart], [mockElder, elderB], history);
+    const a = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+    const b = result.allCandidates.find(c => c.publisher.id === elderB.id);
+
+    assert.equal(a?.priorityBucket, 2);
+    assert.equal(b?.priorityBucket, 1);
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, elderB.id, 'Fila cíclica vence proximidade/carga');
 });
