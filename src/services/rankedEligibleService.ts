@@ -136,18 +136,20 @@ function resolveTitularName(targetPart: WorkbookPart, allWeekParts: WorkbookPart
 }
 
 /**
- * Mapeia os tipos de parte elegíveis de uma seção para determinação de sectionDebt
+ * Mapeia os tipos de parte elegíveis de uma seção para determinação de sectionDebt.
+ * Só partes da MESMA CLASSE (ensino): Leitura da Bíblia e Leitor EBC ficam fora —
+ * incluí-las tornava anciãos perpetuamente `sectionBlocked` (caso Israel Vieira, 2026-10-08).
  */
 function getEligibleSectionPartTypes(section: string, publisher: Publisher): string[] {
     const secLower = (section || '').toLowerCase();
 
     if (secLower.includes('tesouros')) {
-        const parts = ['Discurso Tesouros', 'Joias Espirituais', 'Leitura da Bíblia'];
+        const parts = ['Discurso Tesouros', 'Joias Espirituais'];
         return parts.filter(p => checkEligibility(publisher, getModalidadeFromTipo(p, section) as never, EnumFuncao.TITULAR).eligible);
     }
 
     if (secLower.includes('vida cristã') || secLower.includes('vida crista')) {
-        const parts = ['Parte Vida Cristã', 'Dirigente EBC', 'Leitor EBC'];
+        const parts = ['Parte Vida Cristã', 'Dirigente EBC'];
         return parts.filter(p => checkEligibility(publisher, getModalidadeFromTipo(p, section) as never, EnumFuncao.TITULAR).eligible);
     }
 
@@ -436,12 +438,17 @@ export function getRankedEligibleForPart(
     }
 
     const eligibleCandidates = [...rankedById.values()];
+    // Elegíveis barrados por gate (samePart/section) ficam visíveis em allCandidates com seus flags;
+    // antes sumiam de ambas as listas e a UI não conseguia explicar a ausência.
+    const gatedOutCandidates = precomputedCandidates
+        .filter(candidate => candidate.eligible && !rankedById.has(candidate.publisher.id))
+        .sort((a, b) => a.publisher.name.localeCompare(b.publisher.name));
     const ineligibleCandidates = precomputedCandidates
         .filter(candidate => !candidate.eligible)
         .sort((a, b) => a.publisher.name.localeCompare(b.publisher.name));
 
     return {
-        allCandidates: [...eligibleCandidates, ...ineligibleCandidates],
+        allCandidates: [...eligibleCandidates, ...gatedOutCandidates, ...ineligibleCandidates],
         eligibleCandidates,
         currentPresident,
         inWeekMap,
