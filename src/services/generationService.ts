@@ -19,6 +19,15 @@ export interface GenerationConfig {
     forceAllPartsInPeriod?: boolean;  // Se true, ignora status quando período definido
 }
 
+export interface GenerationSelection {
+    partId: string;
+    weekId: string;
+    tipoParte: string;
+    funcao: string;
+    publisherId: string;
+    publisherName: string;
+}
+
 export interface GenerationResult {
     success: boolean;
     partsGenerated: number;
@@ -27,6 +36,42 @@ export interface GenerationResult {
     dryRun: boolean;
     generatedWeeks?: string[];
     message?: string;
+    /** Escolhas do motor (inclui CLEANUP com publisherId 'CLEANUP'). Base para diff de dry-run. */
+    selections?: GenerationSelection[];
+}
+
+/** Remove do histórico as próprias partes que serão regeneradas — senão a designação antiga pesa contra o candidato que vai substituí-la. */
+export function excludeRegeneratedFromHistory(history: HistoryRecord[], partsToRegenerate: Pick<WorkbookPart, 'id'>[]): HistoryRecord[] {
+    const regenIds = new Set(partsToRegenerate.map(p => p.id));
+    return history.filter(h => !regenIds.has(h.id));
+}
+
+/** Registro sintético intra-batch: carrega resolvedPublisherId para casar por id como o histórico do banco. */
+export function buildSyntheticHistoryRecord(part: WorkbookPart, selected: { id: string; name: string }): HistoryRecord {
+    return {
+        id: `synth-${part.id}`,
+        weekId: part.weekId,
+        weekDisplay: part.weekDisplay,
+        date: part.date,
+        section: part.section,
+        tipoParte: part.tipoParte,
+        modalidade: part.modalidade || '',
+        tituloParte: part.tituloParte || '',
+        descricaoParte: part.descricaoParte || '',
+        detalhesParte: part.detalhesParte || '',
+        seq: part.seq,
+        funcao: part.funcao as 'Titular' | 'Ajudante',
+        duracao: parseInt(part.duracao) || 0,
+        horaInicio: part.horaInicio || '',
+        horaFim: part.horaFim || '',
+        rawPublisherName: selected.name,
+        resolvedPublisherName: selected.name,
+        resolvedPublisherId: selected.id !== 'preassigned' ? selected.id : undefined,
+        status: HistoryStatus.APPROVED,
+        importSource: 'AUTO_INJECTED',
+        importBatchId: '',
+        createdAt: new Date().toISOString(),
+    };
 }
 
 function parseGenerationDate(dateStr: string): Date {
@@ -145,6 +190,17 @@ export const generationService = {
             } catch (e) {
                 console.warn('[GenerationService] Failed to load history:', e);
             }
+
+            // Designações que serão sobrescritas não podem pesar como histórico (ghost history na regeneração).
+            historyRecords = excludeRegeneratedFromHistory(historyRecords, partsNeedingAssignment);
+
+            // Cada parte entra no histórico sintético uma única vez (presidente era injetado em F1 e no loop semanal).
+            const synthesizedIds = new Set<string>();
+            const pushSynthetic = (part: WorkbookPart, selected: { id: string; name: string }) => {
+                if (synthesizedIds.has(part.id)) return;
+                synthesizedIds.add(part.id);
+                historyRecords.push(buildSyntheticHistoryRecord(part, selected));
+            };
 
             // Agrupar por semana
             const byWeek = partsNeedingAssignment.reduce((acc, part) => {
@@ -273,31 +329,8 @@ export const generationService = {
                     selectedPublisherByPart.set(part.id, { id: candidate.id, name: candidate.name });
                     totalWithPublisher++;
 
-                    // Intra-batch: Injeta como histórico sintético para que a próxima semana
-                    // veja esta presidência e não repita o mesmo ancião consecutivamente
-                    historyRecords.push({
-                        id: `synth-pres-${part.id}`,
-                        weekId: part.weekId,
-                        weekDisplay: part.weekDisplay,
-                        date: part.date,
-                        section: part.section,
-                        tipoParte: part.tipoParte,
-                        modalidade: part.modalidade || '',
-                        tituloParte: '',
-                        descricaoParte: '',
-                        detalhesParte: '',
-                        seq: part.seq,
-                        funcao: 'Titular',
-                        duracao: 0,
-                        horaInicio: '',
-                        horaFim: '',
-                        rawPublisherName: candidate.name,
-                        resolvedPublisherName: candidate.name,
-                        status: HistoryStatus.APPROVED,
-                        importSource: 'AUTO_INJECTED',
-                        importBatchId: '',
-                        createdAt: new Date().toISOString(),
-                    });
+                    // Intra-batch: a próxima semana vê esta presidência e não repete o mesmo ancião
+                    pushSynthetic(part, { id: candidate.id, name: candidate.name });
                 }
             }
 
@@ -490,34 +523,17 @@ export const generationService = {
                 for (const part of weekParts) {
                     const selected = selectedPublisherByPart.get(part.id);
                     if (selected && selected.name && selected.id !== 'CLEANUP') {
-                        historyRecords.push({
-                            id: `synth-${part.id}`,
-                            weekId: part.weekId,
-                            weekDisplay: part.weekDisplay,
-                            date: part.date,
-                            section: part.section,
-                            tipoParte: part.tipoParte,
-                            modalidade: part.modalidade || '',
-                            tituloParte: part.tituloParte || '',
-                            descricaoParte: part.descricaoParte || '',
-                            detalhesParte: part.detalhesParte || '',
-                            seq: part.seq,
-                            funcao: part.funcao as 'Titular' | 'Ajudante',
-                            duracao: parseInt(part.duracao) || 0,
-                            horaInicio: part.horaInicio || '',
-                            horaFim: part.horaFim || '',
-                            rawPublisherName: selected.name,
-                            resolvedPublisherName: selected.name,
-                            status: HistoryStatus.APPROVED,
-                            importSource: 'AUTO_INJECTED',
-                            importBatchId: '',
-                            createdAt: new Date().toISOString(),
-                        });
+                        pushSynthetic(part, selected);
                     }
                 }
 
                 totalCreated += weekPartsToAssign.length;
             }
+
+            const selections: GenerationSelection[] = [...selectedPublisherByPart.entries()].map(([partId, sel]) => {
+                const p = parts.find(x => x.id === partId);
+                return { partId, weekId: p?.weekId || '', tipoParte: p?.tipoParte || '', funcao: p?.funcao || '', publisherId: sel.id, publisherName: sel.name };
+            });
 
             if (isDryRun) {
                 return {
@@ -526,6 +542,8 @@ export const generationService = {
                     warnings,
                     errors: [],
                     dryRun: true,
+                    generatedWeeks: Object.keys(byWeek),
+                    selections,
                     message: `Simulação: ${totalWithPublisher} preenchidas.`
                 };
             }
@@ -586,6 +604,7 @@ export const generationService = {
                 errors: [],
                 dryRun: false,
                 generatedWeeks: Object.keys(byWeek),
+                selections,
                 message: `${savedCount} designações geradas com sucesso!`
             };
 
