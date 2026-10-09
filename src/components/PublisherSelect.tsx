@@ -416,11 +416,11 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             fontSize: '0.8em',
                             color: '#9ca3af'
                         }}>
-                            <div>📊 <strong>Pontuação:</strong> {sd.explanation}</div>
+                            <div>📊 <strong>Critérios:</strong> {sd.explanation}</div>
 
                             {/* 2) Carga recente (frequência) — QUANTIFICADA */}
                             <div style={{ marginTop: '4px', color: '#d1d5db' }}>
-                                🔢 <strong>Carga recente (frequência):</strong> {sd.details.recentCount} parte{sd.details.recentCount === 1 ? '' : 's'} (passadas e futuras, ±12 sem.){sd.details.frequencyPenalty > 0 ? <> → <span style={{ color: '#fca5a5' }}>−{sd.details.frequencyPenalty} pts</span></> : null}
+                                🔢 <strong>Carga recente (frequência):</strong> {sd.details.recentCount} parte{sd.details.recentCount === 1 ? '' : 's'} (passadas e futuras, ±12 sem.) — 2ª chave
                             </div>
 
                             {/* 3) Última parte principal + zona de bloqueio duro */}
@@ -431,18 +431,18 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                                     : <span style={{ color: '#9ca3af' }}>nenhuma registrada</span>}
                                 {ci && (
                                     ci.isInCooldown ? (
-                                        <span style={{ marginLeft: '6px', padding: '1px 6px', background: 'rgba(239,68,68,0.22)', borderRadius: '4px', color: '#fca5a5', fontWeight: 'bold', fontSize: '0.9em' }}>
-                                            🔒 BLOQUEIO DURO ({ci.weeksSinceLast} de {ci.weeksSinceLast + ci.cooldownRemaining} sem)
+                                        <span style={{ marginLeft: '6px', padding: '1px 6px', background: 'rgba(245,158,11,0.22)', borderRadius: '4px', color: '#fcd34d', fontWeight: 'bold', fontSize: '0.9em' }}>
+                                            ⏳ intervalo curto ({ci.weeksSinceLast} de {ci.weeksSinceLast + ci.cooldownRemaining} sem) — indicador
                                         </span>
                                     ) : (
                                         <span style={{ marginLeft: '6px', padding: '1px 6px', background: 'rgba(16,185,129,0.18)', borderRadius: '4px', color: '#6ee7b7', fontWeight: 'bold', fontSize: '0.9em' }}>
-                                            🔓 fora do bloqueio ({ci.weeksSinceLast} sem)
+                                            🔓 intervalo ok ({ci.weeksSinceLast} sem)
                                         </span>
                                     )
                                 )}
                             </div>
                             {/* 4) Proximidade de parte MAIN — CHAVE PRIMÁRIA da ordenação lexicográfica */}
-                            {sd.details.mainProximityPenalty > 0 ? (
+                            {sd.details.proximityCost > 0 ? (
                                 <div style={{ marginTop: '6px', padding: '4px 6px', background: 'rgba(239,68,68,0.18)', borderRadius: '4px', color: '#fca5a5', fontSize: '0.9em', lineHeight: 1.4 }}>
                                     📍 <strong>Proximidade de parte (MAIN):</strong> custo {sd.details.proximityCost.toFixed(2)}
                                     <div style={{ color: '#f87171', fontSize: '0.85em', marginTop: '2px' }}>(parte designável a ≤4 semanas desta data — chave primária de prioridade)</div>

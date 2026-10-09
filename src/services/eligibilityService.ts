@@ -25,7 +25,7 @@ type TipoParte = typeof EnumTipoParte[keyof typeof EnumTipoParte];
 type Funcao = typeof EnumFuncao[keyof typeof EnumFuncao];
 
 // Bump obrigatório a cada mudança de regra em eligibility/ranked/unifiedRotation/generation — vai para o audit_log de cada geração.
-export const ELIGIBILITY_RULES_VERSION = '2026-10-09.03'; // .03: Q2/Q3 relaxáveis (4º estágio), Oração Final fora da carga ao avaliar outras partes, direct-update grava id, datas T12, explicação lexicográfica
+export const ELIGIBILITY_RULES_VERSION = '2026-10-09.04'; // .04: Ensino por escassez real em runtime (3.5b); score aditivo e seus 5 parâmetros removidos (3.7a)
 
 export interface EligibilityContext {
     date?: string;           // Data da reunião (para verificar disponibilidade)

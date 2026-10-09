@@ -93,19 +93,18 @@ test('PROTEÇÃO: mesmo sem pré-filtrar a semana corrente, calculateScore com T
     // Com a proteção interna (h.date < refDateStrForFilter), o motor descarta automaticamente a designação da própria TARGET_DATE
     const scoreLoop = calculateScore(marcus, PART_TYPE, history, TARGET_DATE);
     assert.ok(scoreLoop.weeksSinceLast >= 35 && scoreLoop.weeksSinceLast <= 45, 'weeksSinceLast protegido contra loop');
-    assert.ok(scoreLoop.details.timeBonus > 1500, 'timeBonus protegido contra loop');
 });
 
-test('FIX: filtrando a semana corrente, weeksSinceLast e timeBonus refletem realidade', () => {
+test('FIX: filtrando a semana corrente, weeksSinceLast reflete realidade', () => {
     const historyFiltered = history.filter(h => h.weekId !== TARGET_WEEK);
     const scoreFixed = calculateScore(marcus, PART_TYPE, historyFiltered, TARGET_DATE);
     // Última vez como Presidente foi 2025-08-04 → ~40 semanas antes de 2026-05-11
     assert.ok(scoreFixed.weeksSinceLast >= 35 && scoreFixed.weeksSinceLast <= 45,
         `esperado ~40 semanas, obtido ${scoreFixed.weeksSinceLast}`);
-    assert.ok(scoreFixed.details.timeBonus > 1500, 'timeBonus deveria ser alto (~40^1.5*8)');
+    assert.equal(scoreFixed.details.recentCount, 3, '3 partes na janela ±12 semanas');
 });
 
-test('CONSISTÊNCIA: getRankedCandidates com referenceDate produz mesmo score que calculateScore direto', () => {
+test('CONSISTÊNCIA: getRankedCandidates com referenceDate produz mesmas chaves que calculateScore direto', () => {
     const historyFiltered = history.filter(h => h.weekId !== TARGET_WEEK);
     const ranked = getRankedCandidates(
         [marcus, eliezer, emerson],
@@ -116,8 +115,8 @@ test('CONSISTÊNCIA: getRankedCandidates com referenceDate produz mesmo score qu
     );
     const direct = calculateScore(marcus, PART_TYPE, historyFiltered, TARGET_DATE);
     const rankedMarcus = ranked.find(r => r.publisher.id === marcus.id)!;
-    assert.equal(rankedMarcus.scoreData.score, direct.score,
-        'lista do agente DEVE bater com score do card de detalhes');
+    assert.equal(rankedMarcus.scoreData.explanation, direct.explanation,
+        'lista do agente DEVE bater com o card de detalhes');
 });
 
 test('REGRESSÃO: getRankedCandidates SEM referenceDate (default = hoje) diverge do card', () => {
@@ -136,8 +135,8 @@ test('REGRESSÃO: getRankedCandidates SEM referenceDate (default = hoje) diverge
         TARGET_DATE,
     );
     const agentMarcus = rankedAgentOld.find(r => r.publisher.id === marcus.id)!;
-    assert.notEqual(agentMarcus.scoreData.score, cardScore.score,
-        'reproduz a inconsistência observada no print (1580 vs 3100)');
+    assert.notEqual(agentMarcus.scoreData.explanation, cardScore.explanation,
+        'reproduz a inconsistência observada no print');
 });
 
 test('CONSISTÊNCIA TOTAL após fix: agente e card produzem mesma decomposição para o designado', () => {
@@ -151,10 +150,10 @@ test('CONSISTÊNCIA TOTAL após fix: agente e card produzem mesma decomposição
     );
     const cardScore = calculateScore(marcus, PART_TYPE, historyFiltered, TARGET_DATE);
     const agentMarcus = agentRanked.find(r => r.publisher.id === marcus.id)!;
-    assert.equal(agentMarcus.scoreData.score, cardScore.score);
     assert.equal(agentMarcus.scoreData.explanation, cardScore.explanation);
-    assert.equal(agentMarcus.scoreData.details.timeBonus, cardScore.details.timeBonus);
-    assert.equal(agentMarcus.scoreData.details.frequencyPenalty, cardScore.details.frequencyPenalty);
+    assert.equal(agentMarcus.scoreData.weeksSinceLast, cardScore.weeksSinceLast);
+    assert.equal(agentMarcus.scoreData.details.recentCount, cardScore.details.recentCount);
+    assert.equal(agentMarcus.scoreData.details.proximityCost, cardScore.details.proximityCost);
 });
 
 // ---------- Gate duro: NÃO repetir a MESMA parte na janela de proximidade (±4 sem, simétrico) ----------

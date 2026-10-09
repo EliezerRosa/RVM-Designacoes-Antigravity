@@ -87,13 +87,17 @@ const history: HistoryRecord[] = [
 
 // ---------- Simuladores de cada caminho ----------
 
+// Tupla das chaves que DECIDEM (proximidade | carga | frescor | conflito) — substitui o score aditivo removido em 2026-10-09.
+const keyOf = (s: { details: { proximityCost: number; recentCount: number; samePartConflict: boolean }; weeksSinceLast: number }) =>
+    `${s.details.proximityCost.toFixed(4)}|${s.details.recentCount}|${s.weeksSinceLast}|${s.details.samePartConflict}`;
+
 /** A. ActionControlPanel — após fix */
 function pathA(focus: Publisher) {
     const historyForRanking = history.filter(h => h.weekId !== TARGET_WEEK);
     const ranked = getRankedCandidates(candidates, PART_TYPE, historyForRanking, undefined, TARGET_DATE);
     const r = ranked.find(x => x.publisher.id === focus.id)!;
     const direct = calculateScore(focus, PART_TYPE, historyForRanking, TARGET_DATE);
-    return { listScore: r.scoreData.score, cardScore: direct.score, exp: direct.explanation };
+    return { listScore: keyOf(r.scoreData), cardScore: keyOf(direct), exp: direct.explanation };
 }
 
 /** B. agentActionService CHECK_SCORE — após fix */
@@ -101,7 +105,7 @@ function pathB(focus: Publisher) {
     const historyForScoring = history.filter(h => h.weekId !== TARGET_WEEK);
     const ranked = getRankedCandidates(candidates, PART_TYPE, historyForScoring, undefined, TARGET_DATE);
     const r = ranked.find(x => x.publisher.id === focus.id)!;
-    return { score: r.scoreData.score, exp: r.scoreData.explanation };
+    return { score: keyOf(r.scoreData), exp: r.scoreData.explanation };
 }
 
 /** C. agentActionService EXPLAIN_PART — após fix */
@@ -109,16 +113,14 @@ function pathC(focus: Publisher) {
     const historyForScoring = history.filter(h => h.weekId !== TARGET_WEEK);
     const ranked = getRankedCandidates(candidates, PART_TYPE, historyForScoring, undefined, TARGET_DATE);
     const r = ranked.find(x => x.publisher.id === focus.id)!;
-    return { score: r.scoreData.score, exp: r.scoreData.explanation };
+    return { score: keyOf(r.scoreData), exp: r.scoreData.explanation };
 }
 
 /** D. PublisherSelect (dropdown) — após fix: filtra weekId atual */
 function pathD(focus: Publisher) {
-    // Mesma chamada do PublisherSelect (após fix):
-    //   calculateScore(p, part.tipoParte, historyRecords.filter(h => h.weekId !== part.weekId), referenceDate, currentPresident)
     const historyForCooldown = history.filter(h => h.weekId !== TARGET_WEEK);
     const score = calculateScore(focus, PART_TYPE, historyForCooldown, TARGET_DATE);
-    return { score: score.score, exp: score.explanation };
+    return { score: keyOf(score), exp: score.explanation };
 }
 
 /** E. generationService — após fix: filtra weekId + passa refDate */
@@ -126,7 +128,7 @@ function pathE(focus: Publisher) {
     const historyForRanking = history.filter(h => h.weekId !== TARGET_WEEK);
     const ranked = getRankedCandidates(candidates, PART_TYPE, historyForRanking, undefined, TARGET_DATE);
     const r = ranked.find(x => x.publisher.id === focus.id)!;
-    return { score: r.scoreData.score, exp: r.scoreData.explanation };
+    return { score: keyOf(r.scoreData), exp: r.scoreData.explanation };
 }
 
 /** F. communicationService — após fix: filtra weekId + passa refDate */
@@ -134,7 +136,7 @@ function pathF(focus: Publisher) {
     const historyForRanking = history.filter(h => h.weekId !== TARGET_WEEK);
     const ranked = getRankedCandidates(candidates, PART_TYPE, historyForRanking, undefined, TARGET_DATE);
     const r = ranked.find(x => x.publisher.id === focus.id)!;
-    return { score: r.scoreData.score, exp: r.scoreData.explanation };
+    return { score: keyOf(r.scoreData), exp: r.scoreData.explanation };
 }
 
 // ---------- Execução & Relatório ----------

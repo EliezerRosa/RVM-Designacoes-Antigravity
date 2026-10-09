@@ -33,7 +33,8 @@ interface PublisherStats {
 
 interface CandidatePanelItem {
     name: string;
-    score: number;
+    rank: number;
+    explanation: string;
     lastDate: string | null;
     cooldownInfo: CooldownInfo | null;
 }
@@ -68,7 +69,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     const [cooldown, setCooldown] = useState<CooldownInfo | null>(null);
     const [, setStats] = useState<PublisherStats | null>(null);
     const [scoreData, setScoreData] = useState<RotationScore | null>(null);
-    const [bestCandidate, setBestCandidate] = useState<{ name: string; score: number } | null>(null);
+    const [bestCandidate, setBestCandidate] = useState<{ name: string; explanation: string } | null>(null);
     const [topCandidates, setTopCandidates] = useState<CandidatePanelItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [showPartHistory, setShowPartHistory] = useState(false);
@@ -175,9 +176,10 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
 
                 if (isMounted) {
                     setTopCandidates(
-                        ranked.slice(0, 4).map(item => ({
+                        ranked.slice(0, 4).map((item, idx) => ({
                             name: item.publisher.name,
-                            score: item.scoreData.score,
+                            rank: idx + 1,
+                            explanation: item.scoreData.explanation,
                             lastDate: item.scoreData.lastDate || null,
                             cooldownInfo: getBlockInfo(item.publisher.name, historyForRanking, targetDate, item.publisher.id)
                         }))
@@ -187,7 +189,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 if (best && isMounted) {
                     setBestCandidate({
                         name: best.publisher.name,
-                        score: best.scoreData.score
+                        explanation: best.scoreData.explanation
                     });
                 } else if (isMounted) {
                     setBestCandidate(null);
@@ -340,7 +342,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
     // Intervenção manual real = parte marcada como is_manual_override E o escolhido não é o melhor candidato
     // (se o usuário escolheu manualmente mas coincidiu com o melhor, não há motivo para alarme)
     const isManuallyAssigned = selectedPart?.isManualOverride === true;
-    const hasManualOverride = !!(isManuallyAssigned && bestCandidate && assignedPublisher && scoreData && bestCandidate.name !== assignedPublisher.name && bestCandidate.score > scoreData.score);
+    const hasManualOverride = !!(isManuallyAssigned && bestCandidate && assignedPublisher && scoreData && bestCandidate.name !== assignedPublisher.name);
     const isAssignedTopScored = !!(bestCandidate && assignedPublisher && bestCandidate.name === assignedPublisher.name);
 
     const formatCandidateContext = (candidate: CandidatePanelItem) => {
@@ -366,48 +368,45 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
         if (!assignedPublisher || !selectedPart || !scoreData) return null;
 
         const parts: string[] = [];
+        const d = scoreData.details;
 
-        // 1. Time bonus / Esquecimento
-        if (scoreData.details.timeBonus > 0) {
-            parts.push(`Faz um bom tempo que ${firstName} não recebe uma designação, o que aumentou suas chances de ser escolhido(a) agora.`);
+        // 1. Proximidade — 1ª chave
+        if (d.proximityCost > 0) {
+            parts.push(`${firstName} tem outra participação principal a menos de 4 semanas desta data — é o critério que mais pesa; quem está mais distante de qualquer parte vem primeiro.`);
+        } else {
+            parts.push(`${firstName} não tem nenhuma parte principal a menos de 4 semanas desta data — está no grupo prioritário por espaçamento.`);
         }
 
-        // 2. Cooldown / Descanso direto
+        // 2. Cooldown visual (informativo)
         if (cooldown?.isInCooldown) {
             const weekOrDate = cooldown.weekDisplay || formatWeekFromDate(cooldown.lastDate || '') || formatDate(cooldown.lastDate);
             const targetRef = selectedPart.date || selectedPart.weekId || null;
             const lastRef = cooldown.lastDate || null;
             const relation = compareIsoDates(lastRef, targetRef);
-            const verbPhrase = relation > 0
-                ? 'está designado para realizar'
-                : relation === 0
-                    ? 'está designado para realizar'
-                    : 'realizou';
-            parts.push(`${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${weekOrDate}; por isso, está no período de descanso recomendado e idealmente não receberia esta parte.`);
-        } else if (scoreData.details.cooldownPenalty > 0) {
-            parts.push(`${firstName} realizou partes há pouco tempo, o que sugere que um descanso seria bem-vindo.`);
+            const verbPhrase = relation >= 0 ? 'está designado para realizar' : 'realizou';
+            parts.push(`${firstName} ${verbPhrase} "${cooldown.lastPartType}" na semana de ${weekOrDate}.`);
         }
 
-        // 3. Proximidade com outras partes principais
-        if (scoreData.details.mainProximityPenalty > 0) {
-            parts.push(`Notamos que ${firstName} tem outras participações principais marcadas em datas muito próximas a esta semana, o que sobrecarrega um pouco a agenda.`);
+        // 3. Carga — 2ª chave
+        if (d.recentCount > 0) {
+            parts.push(`${firstName} soma ${d.recentCount} participação${d.recentCount === 1 ? '' : 'ões'} em ±12 semanas (passadas e já marcadas); entre candidatos igualmente espaçados, quem carrega menos vem antes.`);
+        } else {
+            parts.push(`${firstName} não tem nenhuma participação em ±12 semanas — carga mínima.`);
         }
 
-        // 4. Contagem geral de partes
-        if (scoreData.details.recentCount > 0) {
-            parts.push(`${firstName} tem ${scoreData.details.recentCount} participação${scoreData.details.recentCount === 1 ? '' : 'ões'} nos arredores desta semana. O sistema procurou equilibrar isso.`);
-        } else if (scoreData.details.timeBonus === 0) {
-            parts.push(`${firstName} está com a agenda livre nas proximidades desta semana.`);
+        // 4. Frescor nesta parte — 3ª chave
+        if (scoreData.weeksSinceLast >= 52) {
+            parts.push(`Não há registro de ${firstName} nesta parte no último ano.`);
+        } else {
+            parts.push(`${firstName} fez esta parte pela última vez há ${scoreData.weeksSinceLast} semana${scoreData.weeksSinceLast === 1 ? '' : 's'}.`);
+        }
+        if (d.samePartConflict && d.samePartConflictDate) {
+            parts.push(`Atenção: mesma parte em ${formatDate(d.samePartConflictDate)} — o motor evitaria repetir se houvesse alternativa.`);
         }
 
-        // 5. Ajustes e bônus de papel
-        if (scoreData.details.roleBonus > 0) {
-            parts.push(`As habilidades e privilégios de ${firstName} combinam perfeitamente com o que esta parte exige.`);
-        }
-        
-        // 6. Regras manuais / custom
-        if (scoreData.details.specificAdjustments && scoreData.details.specificAdjustments.length > 0) {
-            parts.push(`A escolha considerou algumas regras locais da congregação: ${scoreData.details.specificAdjustments.join(', ')}.`);
+        // 5. Regras manuais / custom
+        if (d.specificAdjustments && d.specificAdjustments.length > 0) {
+            parts.push(`Observações: ${d.specificAdjustments.join(', ')}.`);
         }
 
         // 7. Manual override ou adequação

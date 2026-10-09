@@ -20,10 +20,6 @@ import { isManuallyAssignable } from '../constants/s140Template';
 // sobre este MESMO objeto plano via `engineConfigService`.
 let CURRENT_SCORING_CONFIG: EngineConfig = { ...DEFAULT_ENGINE_CONFIG };
 
-// Bônus do score LEGADO (exibição). Não decidem ordenação — irmãs e progressão FSM são tratadas por bucket/gates.
-const LEGACY_SISTER_DEMO_BONUS = 50;
-const LEGACY_FSM_TITULAR_PROMOTION_BONUS = 80;
-
 /**
  * Atualiza a configuração do motor em tempo real
  */
@@ -96,31 +92,27 @@ export const isStatPart = (title: string) => {
     return !EXCLUDED_STATS_PARTS.some(k => lower.includes(k.toLowerCase()));
 };
 
+/**
+ * Medidas de rotação de um candidato para uma parte. NÃO há score aditivo (removido 2026-10-09, decisão 3.7):
+ * a ordenação é lexicográfica sobre proximityCost ▸ recentCount ▸ weeksSinceLast (ver getRankedCandidates).
+ */
 export interface RotationScore {
-    score: number;
     details: {
-        base: number;
-        timeBonus: number;
-        frequencyPenalty: number;
-        /** Nº de partes contabilizadas na janela ±12 semanas (gera frequencyPenalty). */
+        /** Nº de partes contabilizadas na janela ±12 semanas (2ª chave: carga). */
         recentCount: number;
         /** Datas (ISO) das partes contabilizadas na janela ±12 semanas, ordenadas. */
         recentDates: string[];
-        cooldownPenalty: number;
-        /** Penalidade graduada de proximidade de parte MAIN em ±HEAVY_ROLE_RADIUS semanas (Camada 2, chave primária do ranqueamento). */
-        mainProximityPenalty: number;
-        /** Soma bruta do gradiente de proximidade (Σ (radius−weeksAway)/radius). Chave de ordenação fina. */
+        /** Soma do gradiente de proximidade de partes MAIN em ±HEAVY_ROLE_RADIUS (1ª chave). */
         proximityCost: number;
-        /** True se o candidato já fez ESTA mesma parte dentro da janela ±HEAVY_ROLE_RADIUS (gate duro Camada 1, não-repetição). */
+        /** True se o candidato já fez ESTA mesma parte dentro da janela ±HEAVY_ROLE_RADIUS (gate relaxável de não-repetição). */
         samePartConflict: boolean;
         /** Data (ISO) da ocorrência mais próxima da mesma parte na janela, para exibição/explicação. */
         samePartConflictDate: string | null;
-        roleBonus: number;
         specificAdjustments: string[];
-        scoreAdjustment?: number;
     };
     explanation: string;
     lastDate?: string;
+    /** Semanas desde a última vez NESTA parte (3ª chave: frescor), cap MAX_LOOKBACK_WEEKS. */
     weeksSinceLast: number;
     isInCooldown: boolean;
 }
@@ -287,7 +279,7 @@ export function wasRecentlyPairedWith(
 }
 
 /**
- * Calcula a pontuação unificada usando Lógica Científica (Crescimento Exponencial).
+ * Calcula as medidas de rotação (proximidade, carga, frescor, conflito de mesma-parte) de um candidato.
  */
 export function calculateScore(
     publisher: Publisher,
@@ -296,20 +288,13 @@ export function calculateScore(
     referenceDate: Date = new Date(),
     _currentPresident?: string
 ): RotationScore {
-    const details = {
-        base: CURRENT_SCORING_CONFIG.BASE_SCORE,
-        timeBonus: 0,
-        frequencyPenalty: 0,
+    const details: RotationScore['details'] = {
         recentCount: 0,
         recentDates: [] as string[],
-        cooldownPenalty: 0, // mantido em 0 (visual only) — score usa mainProximityPenalty
-        mainProximityPenalty: 0,
         proximityCost: 0,
         samePartConflict: false,
         samePartConflictDate: null as string | null,
-        roleBonus: 0,
         specificAdjustments: [] as string[],
-        scoreAdjustment: 0
     };
 
     // 1. Separar Histórico em duas visões temporais distintas:
@@ -416,27 +401,19 @@ export function calculateScore(
         weeksSinceLast = CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS;
     }
 
-    // 2. CÁLCULO CIENTÍFICO: Tempo (Exponencial) — só passado importa
-    details.timeBonus = Math.round(Math.pow(weeksSinceLast, CURRENT_SCORING_CONFIG.TIME_POWER) * CURRENT_SCORING_CONFIG.TIME_FACTOR);
-
-    // 3. Penalidade de Frequência: carga na janela ±12 semanas (passado E futuro)
-    const recentCount = windowHistory.length;
-    details.recentCount = recentCount;
+    // 2. Carga: nº de partes na janela ±12 semanas (passado E futuro)
+    details.recentCount = windowHistory.length;
     details.recentDates = windowHistory
         .map(h => h.date || '')
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b));
-    details.frequencyPenalty = recentCount * CURRENT_SCORING_CONFIG.RECENT_PARTICIPATION_PENALTY;
 
-    // 3b. Penalidade de Proximidade de Parte MAIN (Main Proximity Penalty) — Camada 2, chave primária.
-    // QUALQUER parte MAIN (isMainPart) nos ±HEAVY_ROLE_RADIUS semanas impõe penalidade graduada:
+    // 3. Proximidade de parte MAIN — 1ª chave da ordenação.
+    // QUALQUER parte MAIN (isMainPart) nos ±HEAVY_ROLE_RADIUS semanas contribui com
     //   factor = max(0, (radius - weeksAway) / radius)   → 1 sem ≈ 0.75 ... 4 sem = 0
-    // Cada ocorrência contribui independentemente (soma). Exclui a própria data.
-    // A MAGNITUDE (escala HEAVY_ROLE_BASE) é só para exibição; o ranqueamento é lexicográfico
-    // e usa proximityCost (soma do gradiente) como ordem, não como parcela somada ao score.
+    // Cada ocorrência soma independentemente. Exclui a própria data.
     {
         const heavyRadius = CURRENT_SCORING_CONFIG.HEAVY_ROLE_RADIUS;
-        const heavyBase = CURRENT_SCORING_CONFIG.HEAVY_ROLE_BASE;
         const refMs = referenceDate.getTime();
         const hwWinMs = heavyRadius * 7 * 24 * 60 * 60 * 1000;
         const hwStartStr = new Date(refMs - hwWinMs).toISOString().split('T')[0];
@@ -453,9 +430,7 @@ export function calculateScore(
             if (!d || d === refDateStrForFilter) continue;
             if (d < hwStartStr || d > hwEndStr) continue;
             const weeksAway = Math.abs(new Date(d + 'T12:00:00').getTime() - refMs) / (7 * 24 * 60 * 60 * 1000);
-            // Gate duro de NÃO-REPETIÇÃO da MESMA parte na janela (±radius, simétrico):
-            // se já fez ESTA mesma parte dentro da janela (antes ou depois), marca conflito.
-            // Camada 1 (restrição) — aplicada em rankedEligibleService com fallback de relaxamento.
+            // Gate relaxável de NÃO-REPETIÇÃO da MESMA parte na janela (±radius, simétrico).
             if (isSamePartType(h)) {
                 details.samePartConflict = true;
                 if (weeksAway < samePartClosestWeeks) {
@@ -463,57 +438,21 @@ export function calculateScore(
                     details.samePartConflictDate = d;
                 }
             }
-            // Part-agnóstico: QUALQUER parte MAIN conta (não mais só os 5 papéis pesados).
+            // Part-agnóstico: QUALQUER parte MAIN conta.
             if (!isMainPart(h.tipoParte || '')) continue;
             const factor = Math.max(0, (heavyRadius - weeksAway) / heavyRadius);
             proximityCost += factor;
         }
         details.proximityCost = proximityCost;
-        details.mainProximityPenalty = Math.round(heavyBase * proximityCost);
-        if (details.mainProximityPenalty > 0) {
-            details.specificAdjustments.push(`Proximidade MAIN: -${details.mainProximityPenalty}`);
-        }
     }
 
-    // 4. Bônus de Função
-    const isDemonstration = pType.includes('demonstra') || pType.includes('estudante');
-    if (isDemonstration && publisher.gender === 'sister') {
-        details.roleBonus += LEGACY_SISTER_DEMO_BONUS;
-        details.specificAdjustments.push('Prioridade Irmã (Demo)');
-    }
-
-    // Item 2: Bônus de Promoção FSM — se a última participação na seção
-    // Faça Seu Melhor foi como Ajudante, aumentar prioridade para partes de Titular.
-    // Implementa a progressão pedagógica: Ajudante → Titular (sem impedimento).
-    const isTitularMinistryPart = !pType.includes('ajudante') &&
-        (pType.includes('ministerio') || pType.includes('demonstra') || pType.includes('estudante'));
-    if (isTitularMinistryPart) {
-        const lastFsmRecord = pastHistory.find(h => (h.funcao || '').toLowerCase() === 'ajudante' || isFSMHistoryRecord(h));
-        if (lastFsmRecord?.funcao === 'Ajudante') {
-            details.roleBonus += LEGACY_FSM_TITULAR_PROMOTION_BONUS;
-            details.specificAdjustments.push('Progressão FSM: última part. foi Ajudante');
-        }
-    }
-
-    // Presidente na Oração Final: agora é bloqueio duro em eligibilityService (Regra 8)
-    // Penalidade soft removida — não é mais necessária
-
-    // 5. Cooldown — mantido APENAS para indicador visual (isInCooldown)
-    // O score não usa mais cooldownPenalty; o espaçamento é governado pela proximidade MAIN (passo 3b).
+    // 4. Cooldown — mantido APENAS para indicador visual (isInCooldown)
     const blocked = isBlocked(publisher.name, history, referenceDate, publisher.id);
     if (blocked) {
         details.specificAdjustments.push('Intervalo ativo (visual)');
     }
 
-    // 6. Score Final (COMPOSTO INFORMATIVO).
-    // ATENÇÃO: o ranqueamento real é LEXICOGRÁFICO (getRankedCandidates): proximidade ▸ frequência ▸
-    // esquecimento ▸ nome — NÃO é este score somado. Este número é mantido só como indicador de
-    // exibição (legado) e aproxima a ordem na maioria dos casos. timeBonus/roleBonus aqui NÃO
-    // decidem QUEM; servem à Camada 3 (roteamento por tipo de parte).
-    const score = details.base + details.timeBonus - details.frequencyPenalty
-        + details.roleBonus + (details.scoreAdjustment || 0) - details.mainProximityPenalty;
-
-    // Explicação pelas chaves que DECIDEM (ordem lexicográfica), não pelo score aditivo.
+    // Explicação pelas chaves que DECIDEM (ordem lexicográfica).
     const explanationParts = [
         `Proximidade MAIN ±${CURRENT_SCORING_CONFIG.HEAVY_ROLE_RADIUS}s: ${details.proximityCost.toFixed(2)}`,
         `Carga ±12s: ${details.recentCount}`,
@@ -521,12 +460,10 @@ export function calculateScore(
     ];
     if (details.samePartConflict) explanationParts.push(`Mesma parte em ${details.samePartConflictDate}`);
     if (blocked) explanationParts.push('Intervalo ativo');
-    if (details.scoreAdjustment) explanationParts.push(`Ajuste: ${details.scoreAdjustment}`);
 
     const explanation = explanationParts.join(' · ');
 
     return {
-        score,
         details,
         explanation,
         lastDate: lastParticipation?.date,
@@ -599,10 +536,10 @@ export function getRankedCandidates(
         const fb = b.scoreData.details.recentCount ?? 0;
         if (fa !== fb) return fa - fb;
         // CAMADA 3 (QUAL PARTE) — roteamento por contenção:
-        // 3) timeBonus do tipo de parte (descending) — entre igualmente devidos, esta parte
-        //    fica com quem está mais fresco PARA ELA; o outro permanece livre p/ parte mais fresca.
-        const ta = a.scoreData.details.timeBonus ?? 0;
-        const tb = b.scoreData.details.timeBonus ?? 0;
+        // 3) frescor nesta parte (weeksSinceLast, descending) — entre igualmente devidos, esta parte
+        //    fica com quem está há mais tempo sem fazê-la; o outro permanece livre p/ parte mais fresca.
+        const ta = a.scoreData.weeksSinceLast ?? 0;
+        const tb = b.scoreData.weeksSinceLast ?? 0;
         if (tb !== ta) return tb - ta;
         // 4) última participação em QUALQUER parte (ascending — data mais antiga primeiro = mais esquecido)
         const da = lastAnyDateByName.get(a.publisher.name) ?? '';
@@ -619,7 +556,7 @@ export function getRankedCandidates(
 
 export function explainScoreForAgent(candidate: RankedCandidate): string {
     const { publisher, scoreData } = candidate;
-    return `${publisher.name}: Score ${scoreData.score}. Razão: ${scoreData.explanation}.`;
+    return `${publisher.name}: ${scoreData.explanation}.`;
 }
 
 export function generateNaturalLanguageExplanation(
