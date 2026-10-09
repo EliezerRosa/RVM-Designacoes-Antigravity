@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Motor de Designações RVM — grafo da versão 2026-10-09.01</title>
+<title>Motor de Designações RVM — grafo da versão 2026-10-09.02</title>
 <style>
   :root { --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; --changed:#16a34a; }
   * { box-sizing: border-box; }
@@ -37,7 +37,7 @@
 </head>
 <body>
 <header>
-  <h1>Motor de Designações — versão <code>2026-10-09.01</code> (motor-fix-1..6)
+  <h1>Motor de Designações — versão <code>2026-10-09.02</code> (motor-fix-1..7)
     <span class="legend"><span class="n">inalterado</span><span class="c">alterado nesta versão</span><span class="g">decisão / gate</span></span>
   </h1>
   <p>Clique em qualquer nó para ler, em linguagem natural, o que ele faz e qual o seu efeito efetivo nas designações. Passe o mouse para o resumo.</p>
@@ -84,7 +84,7 @@ flowchart TB
     R3 --> R4[Q2 · Alternância Titular↔Ajudante FSM]
     R4 --> R5[Q3 · Par titular+ajudante recente]
     R5 --> R6[calculateScore: proximidade MAIN,<br/>carga ±12 sem, frescor nesta parte]
-    R6 --> R7[Bucket categórico:<br/>irmãs, Leitor EBC, promoção ancião/SM]
+    R6 --> R7[Bucket categórico: fila de presidência,<br/>garantia de estudante, irmãs, Leitor EBC]
     R7 --> R8[Dívida de seção —<br/>só partes da mesma classe]
     R8 --> R9{Gates com relaxamento:<br/>mesma-parte + seção → mesma-parte → nenhum}
     R9 --> R10[Ordenação lexicográfica:<br/>proximidade › carga › frescor › esquecimento › total › nome]
@@ -95,7 +95,7 @@ flowchart TB
 
   classDef changed fill:#dcfce7,stroke:#16a34a,color:#052e16;
   classDef gate fill:#fef3c7,stroke:#d97706,color:#431407;
-  class GHO,F05,SYN,INV,SEL,CI,AUD,R1b,R6,R8,R11 changed;
+  class GHO,F05,SYN,INV,SEL,CI,AUD,R1b,R6,R7,R8,R11 changed;
   class R3,R4,R5,R9,DRY,WK gate;
 
   click ENT call showNode("ENT") "Dados de entrada do motor"
@@ -128,7 +128,7 @@ flowchart TB
   click R4 call showNode("R4") "Progressão pedagógica"
   click R5 call showNode("R5") "Variar os pares"
   click R6 call showNode("R6") "As três medidas que decidem"
-  click R7 call showNode("R7") "Prioridades categóricas absolutas"
+  click R7 call showNode("R7") "Fila de presidência, garantia de estudante e demais faixas"
   click R8 call showNode("R8") "Rodar pela seção antes de repetir"
   click R9 call showNode("R9") "Nunca deixar parte vazia"
   click R10 call showNode("R10") "O critério real — não é o score"
@@ -158,7 +158,7 @@ F0: { t:'F0 · Limpeza de cânticos', faz:'Qualquer cântico que tenha um nome d
 F05: { t:'F0.5 · Sanity check', mudou:true, faz:'Para cada parte que já tem publicador, verifica se ele ainda é elegível (ex.: uma irmã num Discurso Tesouros, alguém que ficou indisponível). Se não é, a parte passa a ser tratada como vazia e entra na fila das fases 2–4.',
   efeito:'A designação inválida é substituída por um candidato legítimo. Antes, a parte era marcada CLEANUP, as fases seguintes a pulavam e ela era gravada como CONCLUIDA sem ninguém — desaparecendo das pendências.', codigo:'invalidPartIds + materializeSelectedPublisher' },
 F1: { t:'F1 · Presidentes', faz:'Escolhe o presidente de todas as semanas do batch antes de qualquer outra parte, em ordem de data. Cada escolha entra imediatamente no histórico sintético.',
-  efeito:'A presidência tem precedência sobre todos os outros usos de anciãos: os presidentes ficam com o melhor espaçamento e as partes de ensino recebem os anciãos que sobraram. É uma prioridade implícita, não declarada em configuração.', codigo:'presidenteParts.sort(date) → pickCanonicalCandidate' },
+  efeito:'A presidência tem precedência sobre todos os outros usos de anciãos. Quem preside é decidido pela fila cíclica (faixa = nº de presidências em 52 semanas) e, dentro da mesma faixa, por proximidade/carga.', codigo:'presidenteParts.sort(date) → pickCanonicalCandidate' },
 F15: { t:'F1.5 · Derivadas do presidente', faz:'Oração inicial, comentários iniciais/finais e elogios recebem automaticamente o presidente da semana. Se não há presidente, ficam pendentes.',
   efeito:'Essas partes nunca rodam sozinhas nem contam como participação para espaçamento ou carga.', codigo:'isAutoAssignedToChairman' },
 WK: { t:'Loop semanal', faz:'Processa as semanas em ordem cronológica. Dentro de cada semana, roda F2 → F3 → F4 e depois injeta as escolhas no histórico sintético.',
@@ -166,7 +166,7 @@ WK: { t:'Loop semanal', faz:'Processa as semanas em ordem cronológica. Dentro d
 F2: { t:'F2 · Ensino', faz:'Preenche, numa ordem fixa, as partes cujo pool é pequeno: Discurso Tesouros, Joias, Dirigente EBC, Leitor EBC, Discurso de Ensino, Parte Vida Cristã.',
   efeito:'Pools escassos (anciãos/SMs) escolhem antes de pools largos, para que um ancião não seja "gasto" numa demonstração e falte para o EBC. A ordem interna do array define, implicitamente, qual parte de ensino tem prioridade sobre qual.', codigo:'tiposEnsino[]' },
 F3: { t:'F3 · Estudante', faz:'Preenche titulares de Leitura da Bíblia, demonstrações e Discurso de Estudante.',
-  efeito:'Anciãos e SMs ainda são elegíveis à Leitura da Bíblia em igualdade com estudantes (sem bucket) — decisão 3.2 em aberto.', codigo:'LEITURA_ESTUDANTE | DEMONSTRACAO | DISCURSO_ESTUDANTE' },
+  efeito:'Anciãos/SMs em seca de estudante (13 sem) entram aqui na faixa 0, até 2 por semana; fora da seca, publicadores vêm antes de SMs e anciãos também na Leitura e no Discurso de Estudante.', codigo:'LEITURA_ESTUDANTE | DEMONSTRACAO | DISCURSO_ESTUDANTE' },
 F4: { t:'F4 · Demais partes', faz:'Ajudantes (depois de o titular existir, para checar gênero e família), Necessidades Locais pela fila de pré-designações, Oração Final e qualquer outra parte designável.',
   efeito:'Ajudante de parte solo (leitura, discurso de estudante) é limpo. NL honra a pré-decisão humana da fila. Oração Final pode ir para alguém que já tem parte na semana.', codigo:'F4 loop' },
 SYN: { t:'Histórico sintético', mudou:true, faz:'Cada escolha do batch vira um registro de histórico em memória, uma única vez por parte, com resolvedPublisherId.',
@@ -187,7 +187,7 @@ CI: { t:'cleanup-invalid', mudou:true, faz:'Parte não-cântico cujo publicador 
 CD: { t:'direct-update', faz:'Parte já DESIGNADA/APROVADA incluída por regeneração explícita recebe apenas o novo nome.',
   efeito:'Atenção: o resolvedPublisherId antigo permanece (bug B5, ainda aberto) — o motor continuará creditando a pessoa anterior até que o id seja corrigido.', codigo:'updatePart({ resolvedPublisherName })' },
 AUD: { t:'Snapshot de auditoria', mudou:true, faz:'Para cada semana gerada, grava no audit_log a configuração vigente e a versão das regras.',
-  efeito:'Agora certifica a versão real (2026-10-09.01). Estava congelada em 2024-01-27 enquanto as regras mudaram dezenas de vezes.', codigo:'ELIGIBILITY_RULES_VERSION' },
+  efeito:'Agora certifica a versão real (2026-10-09.02). Estava congelada em 2024-01-27 enquanto as regras mudaram dezenas de vezes.', codigo:'ELIGIBILITY_RULES_VERSION' },
 PICK: { t:'pickCanonicalCandidate', faz:'Chama o ranking para a parte, usando as partes da semana já materializadas com as escolhas do batch, e pega o primeiro de eligibleCandidates.',
   efeito:'Greedy puro: não há retrocesso. A parte recebe quem está no topo naquele instante, dado tudo que já foi decidido antes dela.', codigo:'rankedResult.eligibleCandidates[0]' },
 R1: { t:'Elegibilidade estrutural', faz:'Gate duro: atuante, não desqualificado, não pediu ausência, não pausado, disponível na semana (só para o futuro), "só ajudante" nunca titular, opt-out por seção, e as regras da modalidade (presidir exige canPreside; oração exige irmão batizado; discurso de ensino exige ancião/SM; EBC exige ancião; Leitor exige irmão batizado; etc.). Ajudante deve ser do mesmo sexo do titular, salvo cônjuge e pai/filho.',
@@ -204,8 +204,8 @@ R5: { t:'Q3 · Par recente', faz:'Ajudante que fez par com este mesmo titular na
   efeito:'Varia as duplas. Família pode repetir.', codigo:'wasRecentlyPairedWith' },
 R6: { t:'calculateScore', mudou:true, faz:'Calcula três medidas: proximidade (soma graduada de qualquer parte MAIN em ±4 semanas, passado e futuro), carga (nº de partes em ±12 semanas) e frescor nesta parte (semanas desde a última vez, elevado a 1,5). Também marca conflito de mesma-parte em ±4 semanas.',
   efeito:'Para demonstrações, o "mesma parte" agora reconhece quem foi titular de qualquer demonstração — antes só via ajudantes, então todo titular recente aparecia como "nunca fez" (frescor máximo) e escapava do gate de não-repetição. O número "score" continua existindo, mas não decide nada.', codigo:'isSamePartType por modalidade' },
-R7: { t:'Bucket categórico', faz:'Antes de ordenar, separa em faixas: demonstrações — irmãs 1, irmãos 2, SM 3, anciãos 4 (ancião/SM promovido a 1 após seca de 13/10 semanas com cobertura em Tesouros e Vida Cristã); Leitor EBC — publicador 1, SM 2, ancião 3; Oração Final — sem outra parte 1, com parte 2.',
-  efeito:'Faixa vence tudo: uma irmã com proximidade alta ainda vem antes de um irmão com proximidade zero. É política, não rotação (decisão 3.3 em aberto).', codigo:'computePriorityBucket' },
+R7: { t:'Bucket categórico', mudou:true, faz:'Antes de ordenar, separa em faixas (menor = primeiro). <b>Presidente</b>: faixa = nº de presidências nas últimas 52 semanas — fila cíclica: ninguém recebe a (k+1)-ésima enquanto houver elegível disponível com k. <b>Partes de estudante</b> (leitura, demonstração, discurso de estudante): ancião/SM sem nenhuma parte de estudante, como titular ou ajudante, em ±13 semanas → faixa 0, antes das irmãs, limitado a 2 titulares ancião/SM por semana; fora da seca, demonstração: irmãs 1, irmãos 2, SM 3, anciãos 4; leitura/discurso: publicador 1, SM 2, ancião 3. <b>Leitor EBC</b>: publicador 1, SM 2, ancião 3. <b>Oração Final</b>: sem outra parte 1, com parte 2.',
+  efeito:'Faixa vence proximidade e carga. A presidência passa a rodar por todos os presidenciáveis antes de repetir (decisão 2026-10-09; antes José Luiz chegava à 8ª enquanto outros tinham 2). Todo ancião/SM volta a fazer uma parte de estudante a cada ~3 meses, sem inundar as semanas (teto 2) nem tirar anciãos do ensino (F1/F2 rodam antes de F3). A antiga promoção condicionada a cobertura de Tesouros+Vida Cristã foi removida.', codigo:'computePriorityBucket · countPresidenciesInCycle · isElderOrMSInStudentDrought · PRESIDENCY_CYCLE_WINDOW_WEEKS / STUDENT_PART_GUARANTEE_WEEKS / STUDENT_GUARANTEE_MAX_PER_WEEK' },
 R8: { t:'Dívida de seção', mudou:true, faz:'Soft gate: não repetir uma parte da seção antes de fazer as outras partes da mesma classe que ainda não fez desde então. Tesouros: Discurso ↔ Joias. Vida Cristã: Parte VC ↔ Dirigente EBC.',
   efeito:'Antes a lista incluía Leitura da Bíblia e Leitor EBC: um ancião que nunca faz essas partes ficava bloqueado para sempre no primeiro passe — caso Israel Vieira, que só recebia parte por fallback ou à mão. Agora a dívida só envolve partes que ele realmente roda.', codigo:'getEligibleSectionPartTypes' },
 R9: { t:'Gates com relaxamento', faz:'Tenta montar o ranking com mesma-parte + seção. Se ninguém sobra, só mesma-parte. Se ainda ninguém, aceita todos os elegíveis.',

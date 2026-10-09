@@ -156,82 +156,53 @@ function getEligibleSectionPartTypes(section: string, publisher: Publisher): str
     return [];
 }
 
+function isRecordOf(h: HistoryRecord, publisher: Publisher): boolean {
+    return h.resolvedPublisherId
+        ? h.resolvedPublisherId === publisher.id
+        : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
+}
+
+/** Registros do publicador dentro de ±windowWeeks da data de referência (passado e futuro; a semana-alvo já foi removida do histórico). */
+function recordsInSymmetricWindow(publisher: Publisher, history: HistoryRecord[], referenceDate: Date, windowWeeks: number): HistoryRecord[] {
+    const refMs = referenceDate.getTime();
+    const winMs = windowWeeks * 7 * 24 * 60 * 60 * 1000;
+    return history.filter(h => {
+        if (!isRecordOf(h, publisher) || !h.date) return false;
+        const d = new Date(h.date + 'T12:00:00').getTime();
+        return Math.abs(d - refMs) <= winMs;
+    });
+}
+
 /**
- * Avalia se Ancião/SM qualifica para Bucket 1 FSM devido a seca + cobertura prévia em Tesouros E Vida Cristã
+ * Fila cíclica de presidência (decisão Eliezer 2026-10-09): nº de presidências na janela ±PRESIDENCY_CYCLE_WINDOW_WEEKS.
+ * Usado como bucket → quem presidiu menos vem antes; ninguém recebe a (k+1)-ésima enquanto houver elegível com k.
  */
-function checkElderMSFSMPromotion(
-    publisher: Publisher,
-    history: HistoryRecord[],
-    referenceDate: Date,
-    config: ReturnType<typeof getRotationConfig>
-): { promoted: boolean; consecutiveWeeksInB1: number } {
-    if (!isElderOrMS(publisher)) return { promoted: false, consecutiveWeeksInB1: 0 };
+export function countPresidenciesInCycle(publisher: Publisher, history: HistoryRecord[], referenceDate: Date, windowWeeks: number): number {
+    return recordsInSymmetricWindow(publisher, history, referenceDate, windowWeeks)
+        .filter(h => h.funcao !== 'Ajudante' && normalizePartType(h.tipoParte).includes('presidente'))
+        .length;
+}
 
-    const isElder = publisher.condition === 'Ancião' || publisher.condition === 'Anciao';
-    const droughtWeeks = isElder ? config.FSM_ELDER_DROUGHT_WEEKS : config.FSM_MS_DROUGHT_WEEKS;
+/**
+ * Garantia de parte de estudante (decisão Eliezer 2026-10-09): ancião/SM sem NENHUMA parte FSM
+ * (titular ou ajudante) em ±STUDENT_PART_GUARANTEE_WEEKS está "em seca" → bucket 0 nas modalidades de estudante.
+ */
+export function isElderOrMSInStudentDrought(publisher: Publisher, history: HistoryRecord[], referenceDate: Date, windowWeeks: number): boolean {
+    if (!isElderOrMS(publisher) || windowWeeks <= 0) return false;
+    return !recordsInSymmetricWindow(publisher, history, referenceDate, windowWeeks).some(isFSMHistoryRecord);
+}
 
-    if (droughtWeeks <= 0) return { promoted: false, consecutiveWeeksInB1: 0 };
+const STUDENT_MODALITIES: string[] = [EnumModalidade.LEITURA_ESTUDANTE, EnumModalidade.DEMONSTRACAO, EnumModalidade.DISCURSO_ESTUDANTE];
 
-    const refDateStr = referenceDate.toISOString().split('T')[0];
-    const cutoffDate = new Date(referenceDate);
-    cutoffDate.setDate(cutoffDate.getDate() - (droughtWeeks * 7));
-    const cutoffStr = cutoffDate.toISOString().split('T')[0];
-
-    // 1. Não realizou parte FSM como Titular nos últimos droughtWeeks
-    const recentFsmAsTitular = history.find(h => {
-        const matches = h.resolvedPublisherId ? h.resolvedPublisherId === publisher.id : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
-        if (!matches) return false;
-        if (h.funcao === 'Ajudante') return false;
-        const d = h.date || '';
-        if (d >= refDateStr || d < cutoffStr) return false;
-        return isFSMHistoryRecord(h);
-    });
-
-    if (recentFsmAsTitular) return { promoted: false, consecutiveWeeksInB1: 0 };
-
-    // 2. Teve cobertura prévia em Tesouros E Vida Cristã dentro da janela de droughtWeeks
-    let hasTreasures = false;
-    let hasLife = false;
-
-    history.forEach(h => {
-        const matches = h.resolvedPublisherId ? h.resolvedPublisherId === publisher.id : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
-        if (!matches) return;
-        const d = h.date || '';
-        if (d >= refDateStr || d < cutoffStr) return;
-
-        const sec = (h.section || '').toLowerCase();
-        const tipo = (h.tipoParte || '').toLowerCase();
-
-        if (sec.includes('tesouros') || tipo.includes('discurso') || tipo.includes('joias') || tipo.includes('leitura')) {
-            hasTreasures = true;
-        }
-        if (sec.includes('vida') || tipo.includes('dirigente') || tipo.includes('leitor') || tipo.includes('vida cristã')) {
-            hasLife = true;
-        }
-    });
-
-    if (!hasTreasures || !hasLife) {
-        return { promoted: false, consecutiveWeeksInB1: 0 };
-    }
-
-    // 3. Estimar semanas consecutivas sem designação após entrar em seca
-    // Se a última participação FSM foi a mais de (droughtWeeks + X) semanas, X é o tempo em seca
-    let weeksSinceLastFsm = droughtWeeks + 4;
-    const lastFsmAnyDate = history
-        .filter(h => {
-            const matches = h.resolvedPublisherId ? h.resolvedPublisherId === publisher.id : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
-            return matches && h.funcao !== 'Ajudante' && isFSMHistoryRecord(h) && (h.date || '') < refDateStr;
-        })
-        .sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]?.date;
-
-    if (lastFsmAnyDate) {
-        const diffMs = referenceDate.getTime() - new Date(lastFsmAnyDate + 'T12:00:00').getTime();
-        weeksSinceLastFsm = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
-    }
-
-    const consecutiveWeeksInB1 = Math.max(0, weeksSinceLastFsm - droughtWeeks);
-
-    return { promoted: true, consecutiveWeeksInB1 };
+/** Titulares ancião/SM já em partes de estudante nesta semana (para o teto semanal da garantia). */
+function countElderMSStudentTitularsInWeek(targetPart: WorkbookPart, allWeekParts: WorkbookPart[], publishers: Publisher[]): number {
+    return allWeekParts.filter(p => {
+        if (p.id === targetPart.id || p.weekId !== targetPart.weekId || p.status === 'CANCELADA' || p.funcao !== 'Titular') return false;
+        const mod = p.modalidade || getModalidadeFromTipo(p.tipoParte, p.section);
+        if (!STUDENT_MODALITIES.includes(mod)) return false;
+        const pub = publishers.find(x => (p.resolvedPublisherId && x.id === p.resolvedPublisherId) || (!!p.resolvedPublisherName && x.name === p.resolvedPublisherName));
+        return !!pub && isElderOrMS(pub);
+    }).length;
 }
 
 function computePriorityBucket(
@@ -243,7 +214,8 @@ function computePriorityBucket(
     applyEngineRules: boolean,
     history: HistoryRecord[] = [],
     referenceDate: Date = new Date(),
-    config: ReturnType<typeof getRotationConfig> = getRotationConfig()
+    config: ReturnType<typeof getRotationConfig> = getRotationConfig(),
+    droughtPromotionOpen = true,
 ): number {
     if (!applyEngineRules) return 1;
 
@@ -253,22 +225,22 @@ function computePriorityBucket(
         if (publisher.name === currentPresident) return 3;
     }
 
+    if (targetPart.funcao === EnumFuncao.TITULAR && modalidade === EnumModalidade.PRESIDENCIA) {
+        return countPresidenciesInCycle(publisher, history, referenceDate, config.PRESIDENCY_CYCLE_WINDOW_WEEKS ?? 52);
+    }
+
     if (targetPart.funcao === EnumFuncao.TITULAR && modalidade === EnumModalidade.LEITOR_EBC) {
         if (!isElderOrMS(publisher)) return 1;
         if (publisher.condition === 'Servo Ministerial') return 2;
         return 3;
     }
 
-    if (targetPart.funcao === EnumFuncao.TITULAR && modalidade === EnumModalidade.DEMONSTRACAO) {
-        if (publisher.gender === 'sister') return 1;
-
-        // Promoção Elder/SM para Bucket 1 FSM se qualificado por Seca + Cobertura
-        const { promoted } = checkElderMSFSMPromotion(publisher, history, referenceDate, config);
-        if (promoted) return 1;
-
-        if (publisher.gender === 'brother' && !isElderOrMS(publisher)) return 2;
-        if (publisher.condition === 'Servo Ministerial') return 3;
-        return 4;
+    if (targetPart.funcao === EnumFuncao.TITULAR && STUDENT_MODALITIES.includes(modalidade)) {
+        if (droughtPromotionOpen && isElderOrMSInStudentDrought(publisher, history, referenceDate, config.STUDENT_PART_GUARANTEE_WEEKS ?? 13)) return 0;
+        if (modalidade === EnumModalidade.DEMONSTRACAO && publisher.gender === 'sister') return 1;
+        if (!isElderOrMS(publisher)) return modalidade === EnumModalidade.DEMONSTRACAO ? 2 : 1;
+        if (publisher.condition === 'Servo Ministerial') return modalidade === EnumModalidade.DEMONSTRACAO ? 3 : 2;
+        return modalidade === EnumModalidade.DEMONSTRACAO ? 4 : 3;
     }
 
     return 1;
@@ -295,6 +267,7 @@ export function getRankedEligibleForPart(
 
     const config = getRotationConfig();
     const titularNameResolved = resolveTitularName(targetPart, allWeekParts, publishers, eligibilityContext.titularPublisherId);
+    const droughtPromotionOpen = countElderMSStudentTitularsInWeek(targetPart, allWeekParts, publishers) < (config.STUDENT_GUARANTEE_MAX_PER_WEEK ?? 2);
 
     const precomputedCandidates = publishers.map((publisher): RankedEligibleCandidate => {
         let eligibility = checkEligibility(
@@ -347,17 +320,7 @@ export function getRankedEligibleForPart(
             }
         }
 
-        let scoreData = calculateScore(publisher, scoringPartType, historyForScoring, referenceDate, currentPresident);
-
-        // Escalação suave FSM se em B1 a ≥4 semanas sem designação
-        if (applyEngineRules && modalidade === EnumModalidade.DEMONSTRACAO && funcao === EnumFuncao.TITULAR && isElderOrMS(publisher)) {
-            const { promoted, consecutiveWeeksInB1 } = checkElderMSFSMPromotion(publisher, historyForScoring, referenceDate, config);
-            if (promoted && consecutiveWeeksInB1 >= config.FSM_ESCALATION_THRESHOLD_WEEKS) {
-                // Remove efeito do SISTER_DEMO_PRIORITY das irmãs no score relativo concedendo bônus compensatório
-                scoreData.score += config.SISTER_DEMO_PRIORITY;
-                scoreData.details.specificAdjustments.push(`Escalação FSM Elder/SM (${consecutiveWeeksInB1} sem em B1)`);
-            }
-        }
+        const scoreData = calculateScore(publisher, scoringPartType, historyForScoring, referenceDate, currentPresident);
 
         const blocked = isBlocked(publisher.name, historyForScoring, referenceDate, publisher.id);
         const cooldownInfo = getBlockInfo(publisher.name, historyForScoring, referenceDate, publisher.id);
@@ -393,7 +356,7 @@ export function getRankedEligibleForPart(
             inOtherPartSameWeek,
             isSisterForDemo: modalidade === EnumModalidade.DEMONSTRACAO && funcao === EnumFuncao.TITULAR && publisher.gender === 'sister',
             lastAnyDate,
-            priorityBucket: computePriorityBucket(targetPart, modalidade, publisher, inOtherPartSameWeek, currentPresident, applyEngineRules, historyForScoring, referenceDate, config),
+            priorityBucket: computePriorityBucket(targetPart, modalidade, publisher, inOtherPartSameWeek, currentPresident, applyEngineRules, historyForScoring, referenceDate, config, droughtPromotionOpen),
             samePartBlocked: !!scoreData.details.samePartConflict,
             samePartConflictDate: scoreData.details.samePartConflictDate || undefined,
             sectionBlocked,

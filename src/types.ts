@@ -412,12 +412,12 @@ export interface EngineConfig {
     PAIR_REPETITION_WINDOW_WEEKS: number;
     /** Habilita soft gate de rotação intra-seção (evita repetição da mesma parte antes de rodar pelas demais partes elegíveis da seção). */
     ENABLE_SECTION_ROTATION_GATE: boolean;
-    /** Janela de seca FSM em semanas para Anciãos se qualificarem ao Bucket 1. */
-    FSM_ELDER_DROUGHT_WEEKS: number;
-    /** Janela de seca FSM em semanas para Servos Ministeriais se qualificarem ao Bucket 1. */
-    FSM_MS_DROUGHT_WEEKS: number;
-    /** Semanas consecutivas em Bucket 1 FSM sem designação para acionar escalação suave. */
-    FSM_ESCALATION_THRESHOLD_WEEKS: number;
+    /** Presidência como fila cíclica: bucket = nº de presidências na janela ±N semanas; quem presidiu menos vem antes. */
+    PRESIDENCY_CYCLE_WINDOW_WEEKS: number;
+    /** Ancião/SM sem parte de estudante (titular ou ajudante) há N semanas vai ao bucket 0 nas modalidades de estudante. */
+    STUDENT_PART_GUARANTEE_WEEKS: number;
+    /** Equilíbrio: no máximo N titulares ancião/SM em partes de estudante por semana via bucket 0 (evita inundação no arranque). */
+    STUDENT_GUARANTEE_MAX_PER_WEEK: number;
 }
 
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
@@ -435,9 +435,9 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     ROLE_ALTERNATION_WINDOW_WEEKS: 4,
     PAIR_REPETITION_WINDOW_WEEKS: 4,
     ENABLE_SECTION_ROTATION_GATE: true,
-    FSM_ELDER_DROUGHT_WEEKS: 13,
-    FSM_MS_DROUGHT_WEEKS: 10,
-    FSM_ESCALATION_THRESHOLD_WEEKS: 4,
+    PRESIDENCY_CYCLE_WINDOW_WEEKS: 52,
+    STUDENT_PART_GUARANTEE_WEEKS: 13,
+    STUDENT_GUARANTEE_MAX_PER_WEEK: 2,
 };
 
 export interface RankedCandidate {
