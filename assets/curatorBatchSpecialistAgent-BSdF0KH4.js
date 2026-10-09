@@ -1,4 +1,4 @@
-import{at as l,as as A}from"./index-Cp-Icvms.js";import"./charts-DhiMQyMT.js";import"./vendor-Bce9NwRC.js";import"./supabase-C3yYnmbr.js";const y=`Você é o Agente Especialista em Taxonomia e Síntese Curatorial da Reunião Vida e Ministério (RVM) das Testemunhas de Jeová.
+import{au as l,at as A}from"./index-CJA32R0J.js";import"./charts-DhiMQyMT.js";import"./vendor-Bce9NwRC.js";import"./supabase-C3yYnmbr.js";const y=`Você é o Agente Especialista em Taxonomia e Síntese Curatorial da Reunião Vida e Ministério (RVM) das Testemunhas de Jeová.
 Sua missão é analisar um LOTE COMPLETO de apostilas recém-importadas, comparar as lições bíblicas, demonstrações do ministério e considerações com a Base de Conhecimento de Perfis existente.
 
 Suas diretrizes:
