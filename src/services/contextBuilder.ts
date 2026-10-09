@@ -12,7 +12,7 @@ import { toLocalISODate } from '../utils/dateUtils';
 
 // Deve ser igual a ELIGIBILITY_RULES_VERSION sempre que o texto de regras lido pelo agente for atualizado
 // (AdminDashboard audita a sincronia). Bump manual = confirmação de que o prompt reflete o motor.
-export const RULES_TEXT_VERSION = '2026-10-09.04';
+export const RULES_TEXT_VERSION = '2026-10-09.05';
 
 // ===== Tipos =====
 
@@ -860,7 +860,8 @@ SISTEMA DE ROTAÇÃO (modelo lexicográfico — versão ${ELIGIBILITY_RULES_VERS
 - MAIN = toda parte designável exceto Oração Final, cânticos e derivadas do presidente. Ajudante conta como MAIN. Necessidades Locais conta.
 - Oração Final não conta como carga ao avaliar outras partes.
 - GATES relaxáveis (nunca deixam parte vazia; relaxam em cascata se o pool esvaziar): não repetir a MESMA parte em ±${ROTATION_CONFIG.HEAVY_ROLE_RADIUS} sem; rotação intra-seção (Tesouros: Discurso↔Joias; Vida Cristã: Parte VC↔Dirigente EBC); alternância FSM e par recente (regras B e C abaixo).
-- GATES absolutos: elegibilidade estrutural, disponibilidade, uma parte por semana (exceto Oração Final).
+- GATES absolutos: elegibilidade estrutural, disponibilidade, uma parte por semana (exceto Oração Final), Memória de Recusa (quem recusou ou foi substituído numa semana não recebe nenhuma parte dessa semana).
+- HISTÓRICO: toda parte com publicador em status vivo (PROPOSTA/DESIGNADA/CONCLUIDA) conta como participação; CANCELADA e REJEITADA NÃO contam, mesmo com nome na linha.
 
 BLOQUEIOS AUTOMÁTICOS:
 - isServing = false → Não designar

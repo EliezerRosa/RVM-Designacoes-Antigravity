@@ -5,7 +5,8 @@ import { getBlockInfo, type CooldownInfo } from '../services/cooldownService';
 import { calculateScore, isStatPart, type RotationScore } from '../services/unifiedRotationService';
 import { getRankedEligibleForPart } from '../services/rankedEligibleService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
-import { workbookPartToHistoryRecord } from '../services/historyAdapter';
+import { partsToHistoryRecords } from '../services/historyAdapter';
+import { loadRefusedNamesForWeek } from '../services/refusalMemoryService';
 import { formatWeekFromDate } from '../utils/dateUtils';
 import { usePublisherProfileNotifications } from '../hooks/usePublisherProfileNotifications';
 import { ProfileChangeTooltipChip } from './admin/ProfileChangeTooltipChip';
@@ -150,7 +151,7 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 // Memoize or assume stable inside effect
                 const allHistory = historyRecords && historyRecords.length > 0
                     ? historyRecords
-                    : parts.map(workbookPartToHistoryRecord);
+                    : partsToHistoryRecords(parts);
 
                 // Criar o contexto usando o builder oficial (resolve gênero do titular)
                 if (!eligibilityCtx) {
@@ -164,9 +165,11 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                 // 1. MELHOR CANDIDATO e TOP-4 pela FONTE ÚNICA do motor (faixas + gates + ordem lexicográfica).
                 // A semana é avaliada como se a parte-alvo estivesse vaga (o designado atual não ocupa a si mesmo).
                 const weekPartsAsVacant = weekParts.map(p => p.id === selectedPart.id ? { ...p, resolvedPublisherId: undefined, resolvedPublisherName: '', rawPublisherName: '' } : p);
+                const refusedThisWeek = await loadRefusedNamesForWeek(selectedPart.weekId).catch(() => [] as string[]);
                 const rankedResult = getRankedEligibleForPart(selectedPart, weekPartsAsVacant, publishers, allHistory, {
                     applyEngineRules: true,
                     excludeAssignedInSameWeek: true,
+                    excludedPublisherNames: refusedThisWeek,
                 });
                 const targetDate = rankedResult.referenceDate;
                 const historyForRanking = rankedResult.historyForScoring;

@@ -11,6 +11,21 @@ import type { WorkbookPart, HistoryRecord } from '../types';
 import { WorkbookStatus, HistoryStatus } from '../types';
 
 /**
+ * Status em que a parte NÃO representa participação: a pessoa não fez (CANCELADA) ou disse que não fará (REJEITADA).
+ * O nome pode continuar na linha para avisos/S-140, mas não pode pesar em proximidade/carga/frescor (M-12).
+ */
+export const DEAD_PARTICIPATION_STATUSES: readonly string[] = ['CANCELADA', 'REJEITADA'];
+
+export function isLiveParticipationStatus(status: string | undefined | null): boolean {
+    return !DEAD_PARTICIPATION_STATUSES.includes(String(status || '').toUpperCase());
+}
+
+/** Converte partes em histórico do motor, descartando status mortos. Use SEMPRE em vez de `parts.map(workbookPartToHistoryRecord)`. */
+export function partsToHistoryRecords(parts: WorkbookPart[]): HistoryRecord[] {
+    return parts.filter(part => isLiveParticipationStatus(part.status)).map(workbookPartToHistoryRecord);
+}
+
+/**
  * Converte WorkbookPart para HistoryRecord
  * Formato esperado pelo cooldownService e motor de elegibilidade
  */
@@ -45,8 +60,8 @@ export function workbookPartToHistoryRecord(part: WorkbookPart): HistoryRecord {
 
 /**
  * Carrega histórico de participações da tabela workbook_parts
- * ATUALIZADO: Carrega TODAS as partes que têm publicador atribuído, independente do status.
- * Isso garante que o motor considere designações recentes (PROPOSTA, APROVADA, etc.)
+ * Carrega todas as partes com publicador em status VIVO (exclui CANCELADA/REJEITADA).
+ * Isso garante que o motor considere designações recentes (PROPOSTA, DESIGNADA, etc.)
  * para calcular prioridade corretamente.
  */
 import { fetchAllRows } from './supabasePagination';
@@ -82,10 +97,11 @@ export async function loadCompletedParticipations(forceRefresh = false): Promise
     const data = await fetchAllRows<Record<string, unknown>>(
         'workbook_parts',
         (query) => query
-            // NÃO FILTRAR POR STATUS - carregar todas que têm publicador atribuído.
+            // Qualquer status VIVO conta (PROPOSTA/DESIGNADA/CONCLUIDA...). CANCELADA/REJEITADA não são participação.
             // Inclui partes atribuídas por ID mesmo quando resolved_publisher_name está NULL
             // (ex.: ajudantes resolvidos só por id) para não subcontar a frequência.
             .or('resolved_publisher_name.not.is.null,resolved_publisher_id.not.is.null')
+            .not('status', 'in', `(${DEAD_PARTICIPATION_STATUSES.join(',')})`)
             .gte('date', dateStr)
             .order('date', { ascending: false })
     );
@@ -114,7 +130,7 @@ export async function loadPublisherParticipations(publisherName: string): Promis
         .from('workbook_parts')
         .select('*')
         .eq('resolved_publisher_name', publisherName)
-        // NÃO FILTRAR POR STATUS
+        .not('status', 'in', `(${DEAD_PARTICIPATION_STATUSES.join(',')})`)
         .order('date', { ascending: false })
         .range(0, 9999);
 

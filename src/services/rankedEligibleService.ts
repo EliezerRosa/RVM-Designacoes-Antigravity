@@ -33,6 +33,7 @@ export interface RankedEligibleOptions {
     currentPresident?: string;
     excludeAssignedInSameWeek?: boolean;
     applyEngineRules?: boolean;
+    /** Nomes inelegiveis para toda a semana-alvo (ex.: refusal_logs da semana). Substituições são lidas de allWeekParts. */
     excludedPublisherNames?: string[];
 }
 
@@ -267,6 +268,14 @@ export function getRankedEligibleForPart(
     const scoringPartType = resolveScoringPartType(targetPart, modalidade);
     const inWeekMap = buildInWeekMap(targetPart, allWeekParts);
     const excludeAssignedInSameWeek = options.excludeAssignedInSameWeek ?? true;
+    // M-12: quem recusou/foi substituído nesta semana não volta em nenhuma parte dela.
+    // Recusas vêm do caller (refusal_logs); substituições são lidas das próprias partes da semana.
+    const weekExcludedNames = new Set<string>([
+        ...(options.excludedPublisherNames || []),
+        ...allWeekParts
+            .filter(p => p.weekId === targetPart.weekId && p.substitutedPublisherName)
+            .map(p => String(p.substitutedPublisherName).trim()),
+    ].map(n => n.trim()).filter(Boolean));
 
     const config = getRotationConfig();
     const titularNameResolved = resolveTitularName(targetPart, allWeekParts, publishers, eligibilityContext.titularPublisherId);
@@ -280,8 +289,8 @@ export function getRankedEligibleForPart(
             eligibilityContext,
         );
 
-        if (eligibility.eligible && options.excludedPublisherNames?.includes(publisher.name)) {
-            eligibility = { eligible: false, reason: 'Recusou esta parte recentemente (Memória de Recusa)' };
+        if (eligibility.eligible && weekExcludedNames.has(publisher.name.trim())) {
+            eligibility = { eligible: false, reason: 'Recusou ou foi substituído nesta semana (Memória de Recusa)' };
         }
 
         const inOtherPartSameWeek = inWeekMap.get(publisher.name);

@@ -156,6 +156,8 @@ export function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart 
         originalDuration: (row.original_duration as string) || undefined,
         // Auditoria de designação
         isManualOverride: (row.is_manual_override as boolean) ?? false,
+        isSubstitution: (row.is_substitution as boolean) ?? false,
+        substitutedPublisherName: (row.substituted_publisher_name as string) || undefined,
         // Substitui o sentinel legado 'AUTO_CHAIRMAN' em resolved_publisher_id
         isChairmanDerived: (row.is_chairman_derived as boolean) ?? false,
     };
