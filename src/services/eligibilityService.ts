@@ -24,7 +24,8 @@ type Modalidade = typeof EnumModalidade[keyof typeof EnumModalidade];
 type TipoParte = typeof EnumTipoParte[keyof typeof EnumTipoParte];
 type Funcao = typeof EnumFuncao[keyof typeof EnumFuncao];
 
-export const ELIGIBILITY_RULES_VERSION = '2024-01-27.01'; // v8.3 - Sync com contextBuilder
+// Bump obrigatório a cada mudança de regra em eligibility/ranked/unifiedRotation/generation — vai para o audit_log de cada geração.
+export const ELIGIBILITY_RULES_VERSION = '2026-10-09.01'; // motor-fix-1..5: gate de seção mesma classe, gender textual, ghost history, sintético único, sanity refaz, FSM same-part
 
 export interface EligibilityContext {
     date?: string;           // Data da reunião (para verificar disponibilidade)
