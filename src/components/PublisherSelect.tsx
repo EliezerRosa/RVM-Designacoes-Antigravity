@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { type Publisher, type WorkbookPart, type HistoryRecord } from '../types';
 import { checkEligibility, buildEligibilityContext, isPastWeekDate, getTextualConstraintSummary } from '../services/eligibilityService';
 import { getBlockInfo, checkMultipleAssignments, type AssignmentWarning } from '../services/cooldownService';
@@ -33,7 +33,8 @@ interface PublisherSelectProps {
 
 // Importar mapeamento centralizado (substitui definição local)
 import { getModalidadeFromTipo } from '../constants/mappings';
-import { workbookPartToHistoryRecord } from '../services/historyAdapter';
+import { partsToHistoryRecords } from '../services/historyAdapter';
+import { loadRefusedNamesForWeek } from '../services/refusalMemoryService';
 import { formatWeekFromDate, toLocalISODate } from '../utils/dateUtils';
 
 const getModalidade = (part: WorkbookPart): string => {
@@ -46,8 +47,18 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Converter allParts para HistoryRecord[] (Memoizado para uso geral)
     // Se history já for fornecido (preferencial), usa ele.
     const historyRecords = useMemo(() =>
-        history || (allParts || weekParts || []).map(workbookPartToHistoryRecord),
+        history || partsToHistoryRecords(allParts || weekParts || []),
         [history, allParts, weekParts]);
+
+    // Memória de Recusa da semana (M-12): quem recusou não aparece como elegível em nenhuma parte dela.
+    const [refusedThisWeek, setRefusedThisWeek] = useState<string[]>([]);
+    useEffect(() => {
+        let active = true;
+        loadRefusedNamesForWeek(part.weekId)
+            .then(names => { if (active) setRefusedThisWeek(names); })
+            .catch(() => { if (active) setRefusedThisWeek([]); });
+        return () => { active = false; };
+    }, [part.weekId]);
 
     // CORRECTION O: Use target date for cooldown reference instead of today
     const referenceDate = useMemo(() => {
@@ -64,8 +75,9 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         return getRankedEligibleForPart(part, weekPartsSnapshot, publishers, historyRecords, {
             applyEngineRules: !ignoreEngineRules,
             excludeAssignedInSameWeek: true,
+            excludedPublisherNames: refusedThisWeek,
         }).allCandidates;
-    }, [part, publishers, weekPartsSnapshot, historyRecords, ignoreEngineRules]);
+    }, [part, publishers, weekPartsSnapshot, historyRecords, ignoreEngineRules, refusedThisWeek]);
 
     const visibleOptions = useMemo(() => sortedOptions.filter(o => o.eligible), [sortedOptions]);
     const selectedIneligibleOption = useMemo(

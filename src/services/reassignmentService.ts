@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { loadCompletedParticipations } from './historyAdapter';
+import { loadRefusedNamesForWeek } from './refusalMemoryService';
 import { getRankedEligibleForPart, type RankedEligibleCandidate } from './rankedEligibleService';
 import { workbookAssignmentService } from './workbookAssignmentService';
 import { workbookService } from './workbookService';
@@ -40,12 +41,8 @@ export async function consultReassignmentSuggestion(
 ): Promise<ReassignmentSuggestion> {
     const weekParts = workbookParts.filter(part => part.weekId === targetPart.weekId);
     
-    // FETCH REFUSAL LOGS
-    const { data: refusals, error: refusalError } = await supabase.from('refusal_logs').select('publisher_name').eq('week_id', targetPart.weekId);
-    if (refusalError) {
-        console.error('[reassignmentService] Error fetching refusal_logs:', refusalError);
-    }
-    const excludedPublisherNames = refusals ? refusals.map(r => r.publisher_name) : [];
+    // Memória de Recusa da semana (refusal_logs)
+    const excludedPublisherNames = [...await loadRefusedNamesForWeek(targetPart.weekId)];
 
     // EVITA PING-PONG CYCLIC BUG: Exclui expressamente o publicador original/substituído
     const pToExclude = originalPartForExclusion || targetPart;

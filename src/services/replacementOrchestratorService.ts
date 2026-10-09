@@ -3,6 +3,7 @@ import { reassignParts } from './reassignmentService';
 import { zapiOrchestrator } from './zapiOrchestrator';
 import { communicationService } from './communicationService';
 import { supabase } from '../lib/supabase';
+import { loadLastRefusedNameForPart } from './refusalMemoryService';
 
 export interface ReplacementOptions {
     notifyOld: boolean;
@@ -57,19 +58,21 @@ export const replacementOrchestratorService = {
         const newPubId = updatedPartRaw.resolved_publisher_id;
         if (!newPubId) return { success: false, reason: 'Novo publicador não resolvido após reassignParts' };
 
-        // Marcamos os metadados de substituição
+        // Recusa via portal já limpou o nome da parte → recuperar de refusal_logs para a Memória de Recusa (M-12).
+        const oldPublisherName = part.resolvedPublisherName || part.rawPublisherName || part.substitutedPublisherName
+            || (await loadLastRefusedNameForPart(partId)) || '';
         await supabase.from('workbook_parts').update({
             is_substitution: true,
-            substituted_publisher_name: part.resolvedPublisherName || part.rawPublisherName,
+            substituted_publisher_name: oldPublisherName || null,
             needs_reassignment: false
         }).eq('id', partId);
 
-        const updatedPart: WorkbookPart = { ...part, resolvedPublisherId: newPubId, resolvedPublisherName: publishers.find(p => p.id === newPubId)?.name || '' };
+        const updatedPart: WorkbookPart = { ...part, resolvedPublisherId: newPubId, resolvedPublisherName: publishers.find(p => p.id === newPubId)?.name || '', isSubstitution: true, substitutedPublisherName: oldPublisherName || undefined };
 
         // Agora executa o pipeline universal
         await this.executeNotificationPipeline(
             updatedPart,
-            part.resolvedPublisherName || part.rawPublisherName || '',
+            oldPublisherName,
             publishers,
             parts,
             { notifyOld: true, notifyNew: true, notifyPartner: true },
@@ -79,7 +82,7 @@ export const replacementOrchestratorService = {
         // Alertar liderança sobre o sucesso da automação
         await this.alertLeadershipAboutReplacement(
             updatedPart,
-            part.resolvedPublisherName || part.rawPublisherName || '',
+            oldPublisherName,
             updatedPart.resolvedPublisherName || '',
             publishers,
             false
@@ -92,7 +95,7 @@ export const replacementOrchestratorService = {
             // AGORA COM AWAIT PARA NÃO MATAR O ROBO ANTES DA HORA
             await s140PackageService.handlePartAdjustment({
                 part: updatedPart,
-                oldPublisherName: part.resolvedPublisherName || part.rawPublisherName || '',
+                oldPublisherName,
                 newPublisherName: updatedPart.resolvedPublisherName || '',
                 weekParts,
                 publishers,

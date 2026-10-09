@@ -6,6 +6,7 @@ import { EnumModalidade } from '../types';
 import { loadCompletedParticipations } from './historyAdapter';
 import { EVENT_TEMPLATES } from './specialEventService';
 import { getRankedEligibleForPart } from './rankedEligibleService';
+import { loadRefusedNamesForWeek } from './refusalMemoryService';
 import { getAppBaseUrl } from '../utils/appUrl';
 import { workbookQueryService } from './workbookQueryService';
 import { publisherDirectoryService } from './publisherDirectoryService';
@@ -469,10 +470,11 @@ export const communicationService = {
         //    avaliando a parte como vaga e excluindo quem recusou.
         const partAsVacant: WorkbookPart = { ...part, resolvedPublisherId: undefined, resolvedPublisherName: '', rawPublisherName: '' };
         const weekPartsAsVacant = weekParts.map(wp => wp.id === part.id ? partAsVacant : wp);
+        const refusedThisWeek = await loadRefusedNamesForWeek(part.weekId);
         const rankedResult = getRankedEligibleForPart(partAsVacant, weekPartsAsVacant, publishers, history, {
             applyEngineRules: true,
             excludeAssignedInSameWeek: true,
-            excludedPublisherNames: publisherName ? [publisherName] : [],
+            excludedPublisherNames: [...refusedThisWeek, ...(publisherName ? [publisherName] : [])],
         });
         const bestRanked = rankedResult.eligibleCandidates[0];
         const bestCandidate = bestRanked?.publisher?.name || 'Não encontrado';

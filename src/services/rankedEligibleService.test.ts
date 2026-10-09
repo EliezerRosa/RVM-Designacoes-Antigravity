@@ -246,6 +246,26 @@ test('PRESIDÊNCIA: derivadas do presidente (Comentários/Oração Inicial) não
     assert.equal(result.eligibleCandidates[0]?.publisher.id, mockElder.id);
 });
 
+test('M-12 MEMÓRIA DE RECUSA: quem foi substituído em qualquer parte da semana fica inelegível nas demais partes da semana', () => {
+    const elderB: Publisher = { ...mockElder, id: 'pub-elder-b', name: 'Ancião B' };
+    const joias: WorkbookPart = { ...targetTreasuresPart, id: 'part-joias', tipoParte: 'Joias Espirituais', seq: 2, resolvedPublisherId: elderB.id, resolvedPublisherName: elderB.name, isSubstitution: true, substitutedPublisherName: mockElder.name };
+
+    const result = getRankedEligibleForPart(targetTreasuresPart, [targetTreasuresPart, joias], [mockElder, elderB], []);
+    const a = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+
+    assert.equal(a?.eligible, false);
+    assert.match(a?.reason || '', /Memória de Recusa/);
+    assert.equal(result.eligibleCandidates.length, 0, 'B já tem parte na semana e A foi substituído → ninguém');
+});
+
+test('M-12 MEMÓRIA DE RECUSA: excludedPublisherNames (refusal_logs) torna o recusante inelegível na semana', () => {
+    const elderB: Publisher = { ...mockElder, id: 'pub-elder-b', name: 'Ancião B' };
+    const result = getRankedEligibleForPart(targetTreasuresPart, [targetTreasuresPart], [mockElder, elderB], [], { excludedPublisherNames: [' Ancião Teste '] });
+
+    assert.deepEqual(result.eligibleCandidates.map(c => c.publisher.id), [elderB.id]);
+    assert.match(result.allCandidates.find(c => c.publisher.id === mockElder.id)?.reason || '', /Memória de Recusa/);
+});
+
 test('Q2 ALTERNÂNCIA: bloqueia enquanto há alternativa, mas relaxa (4º estágio) quando todos estão barrados', () => {
     const sisterB: Publisher = { ...mockSister, id: 'pub-sister-2', name: 'Irmã B' };
     const fsmTitular = (pub: Publisher, id: string, date: string) =>

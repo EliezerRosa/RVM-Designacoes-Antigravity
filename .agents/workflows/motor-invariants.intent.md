@@ -7,7 +7,7 @@ invariants:
   - "A ordem lexicográfica e as faixas (buckets) são a ÚNICA fonte de decisão; não reintroduzir score aditivo"
 ---
 
-# Motor de Designações — Invariantes (2026-10-09, versão de regras 2026-10-09.04)
+# Motor de Designações — Invariantes (2026-10-09, versão de regras 2026-10-09.05)
 
 > Documento canônico. Em caso de conflito, a regra aqui prevalece sobre o código.
 > Decisões registradas do Eliezer em 2026-10-09 (itens 3.1–3.7 do parecer do motor).
@@ -46,8 +46,10 @@ invariants:
   da MENOR para a MAIOR quantidade de candidatos elegíveis naquele momento (`countEligibleCandidates`), desempate por `seq`.
 - Não existe lista fixa de prioridade entre tipos de ensino.
 
-## M-6. Toda parte com publicador é participação (3.6 = a)
+## M-6. Toda parte com publicador em status VIVO é participação (3.6 = a, restrito em .05)
 - PROPOSTA, DESIGNADA, APROVADA e CONCLUIDA pesam igual no histórico (carga, proximidade, fila).
+- CANCELADA e REJEITADA **não são participação**, mesmo com nome na linha (o nome fica só para avisos/S-140).
+  Fonte única: `historyAdapter` (`DEAD_PARTICIPATION_STATUSES`, `partsToHistoryRecords`).
 - Higiene de propostas recusadas/expiradas é responsabilidade do ciclo de vida, não do motor.
 
 ## M-7. Gate de seção só compara partes da mesma classe
@@ -72,3 +74,10 @@ invariants:
 ## M-11. Operador > motor
 - Na UI manual (`applyEngineRules=false`) não há texto da apostila, Q2/Q3 nem gates de parte/seção — só elegibilidade estrutural.
 - Propostas manuais (`is_manual_override`) e partes DESIGNADA/APROVADA não são regeneradas sem pedido explícito.
+
+## M-12. Memória de Recusa é semanal e vale para toda a semana (decisão 2026-10-09)
+- Quem **recusou** (`refusal_logs` da semana: portal, Z-API, agente) ou **foi substituído** (`substituted_publisher_name`
+  em qualquer parte da semana) fica inelegível para QUALQUER parte daquela semana — motor, dropdown, painel, reatribuição e sugestão de substituto.
+- Fora da semana a recusa é neutra: nem crédito (M-6) nem penalidade.
+- Aplicação: `getRankedEligibleForPart` lê substituições de `allWeekParts` e recebe recusas via `excludedPublisherNames` (`refusalMemoryService`).
+- Troca manual em semana NÃO publicada não grava `substituted_publisher_name` (é remanejo, não ausência) — não gera exclusão.

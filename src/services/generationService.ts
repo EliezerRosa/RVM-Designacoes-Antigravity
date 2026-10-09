@@ -1,6 +1,7 @@
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { EnumModalidade, EnumFuncao, HistoryStatus } from '../types';
 import { loadCompletedParticipations } from './historyAdapter';
+import { loadRefusedNamesByWeek } from './refusalMemoryService';
 import { checkEligibility } from './eligibilityService';
 import { getRotationConfig } from './unifiedRotationService';
 import { getRankedEligibleForPart } from './rankedEligibleService';
@@ -194,6 +195,14 @@ export const generationService = {
             // Designações que serão sobrescritas não podem pesar como histórico (ghost history na regeneração).
             historyRecords = excludeRegeneratedFromHistory(historyRecords, partsNeedingAssignment);
 
+            // M-12: quem recusou numa semana não recebe nenhuma parte dessa semana.
+            let refusedByWeek: Record<string, string[]> = {};
+            try {
+                refusedByWeek = await loadRefusedNamesByWeek([...new Set(partsNeedingAssignment.map(p => p.weekId))]);
+            } catch (e) {
+                console.warn('[GenerationService] Failed to load refusal memory:', e);
+            }
+
             // Cada parte entra no histórico sintético uma única vez (presidente era injetado em F1 e no loop semanal).
             const synthesizedIds = new Set<string>();
             const pushSynthetic = (part: WorkbookPart, selected: { id: string; name: string }) => {
@@ -257,6 +266,7 @@ export const generationService = {
                     {
                         applyEngineRules: true,
                         excludeAssignedInSameWeek: true,
+                        excludedPublisherNames: refusedByWeek[targetPart.weekId] || [],
                     },
                 );
 
@@ -275,6 +285,7 @@ export const generationService = {
                 getRankedEligibleForPart(targetPart, buildWorkingWeekParts(targetPart.weekId), publishers, historyRecords, {
                     applyEngineRules: true,
                     excludeAssignedInSameWeek: true,
+                    excludedPublisherNames: refusedByWeek[targetPart.weekId] || [],
                 }).allCandidates.filter(c => c.eligible).length;
 
             // Rastreamento in-loop para cooldown imediato

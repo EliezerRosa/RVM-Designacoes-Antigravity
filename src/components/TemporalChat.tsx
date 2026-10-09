@@ -17,7 +17,7 @@ import { askAgent, isAgentConfigured, getSuggestedQuestions } from '../services/
 import type { ChatMessage } from '../services/agentService';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { agentActionService, type AgentAction, type AgentActionType } from '../services/agentActionService';
-import { workbookPartToHistoryRecord } from '../services/historyAdapter';
+import { partsToHistoryRecords } from '../services/historyAdapter';
 import type { ActionResult } from '../services/agentActionService';
 import html2canvas from 'html2canvas';
 import { prepareS140UnifiedData, renderS140ToElement } from '../services/s140GeneratorUnified';
@@ -372,7 +372,7 @@ export default function TemporalChat({
         if (nextTopic) setActiveTopic(nextTopic);
 
         try {
-            const fallbackHistory = parts.map(part => workbookPartToHistoryRecord(part));
+            const fallbackHistory = partsToHistoryRecords(parts);
             const result = await agentActionService.executeAction(
                 action,
                 parts,
@@ -1038,7 +1038,7 @@ export default function TemporalChat({
             if (deterministicAction) {
                 console.log('[TemporalChat] Fast-path determinístico:', deterministicAction.type);
                 try {
-                    const history = parts.map(p => workbookPartToHistoryRecord(p));
+                    const history = partsToHistoryRecords(parts);
                     const result = await agentActionService.executeAction(
                         deterministicAction, parts, publishers, history, currentWeekId
                     );
@@ -1335,7 +1335,7 @@ export default function TemporalChat({
                 }, []);
 
                 // EXECUTE ALL ACTIONS SEQUENTIALLY
-                const history = parts.map(p => workbookPartToHistoryRecord(p));
+                const history = partsToHistoryRecords(parts);
                 const results: ActionResult[] = [];
 
                 for (const action of collapsedActions) {
