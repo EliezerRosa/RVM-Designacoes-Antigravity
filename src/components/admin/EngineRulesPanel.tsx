@@ -25,20 +25,28 @@ import { DEFAULT_ENGINE_CONFIG, type EngineConfig } from '../../types';
 type ConfigKV = EngineConfig;
 
 const KEY_DESCRIPTIONS: Record<string, string> = {
-    BASE_SCORE: 'Pontuação base de qualquer candidato elegível.',
-    TIME_POWER: 'Expoente do bônus de tempo: weeks^POWER (curva exponencial).',
-    TIME_FACTOR: 'Multiplicador do bônus de tempo: × FACTOR.',
-    RECENT_PARTICIPATION_PENALTY: 'Penalidade por cada participação na janela ±12 semanas.',
-    COOLDOWN_PENALTY: 'Legado — não usado no score (mantido para UI). Penalidade visual de cooldown.',
-    ELDER_BONUS: 'Bônus pequeno para anciãos em partes ambíguas.',
-    SISTER_DEMO_PRIORITY: 'Bônus de prioridade para irmãs em demonstrações.',
-    FSM_TITULAR_PROMOTION_BONUS: 'Bônus de progressão pedagógica: ajudante → titular.',
-    MAX_LOOKBACK_WEEKS: 'Janela histórica máxima (semanas) para weeksSinceLast e contagens.',
-    HEAVY_ROLE_BASE: 'Escala de exibição da Proximidade MAIN (chave primária da ordenação). Aplicada em gradiente sobre QUALQUER parte designável adjacente: 1 semana≈75%, 4 semanas=0%.',
-    HEAVY_ROLE_RADIUS: 'Raio em semanas (±) da janela de Proximidade MAIN (passado + futuro).',
-    ROLE_ALTERNATION_WINDOW_WEEKS: 'Motor — janela (semanas) para forçar alternância Titular↔Ajudante em partes FSM (leitura/demonstração/discurso estudante). Bidirecional. Escape: publicador "Só Ajudante". 0 desliga.',
-    PAIR_REPETITION_WINDOW_WEEKS: 'Motor — janela (semanas) para vetar repetição do par titular+ajudante em demonstrações. Bypass: cônjuge e pai/filho podem repetir. 0 desliga.',
+    // — Decidem a ordenação —
+    HEAVY_ROLE_RADIUS: 'Raio (±semanas) da Proximidade MAIN — 1ª chave da ordenação e janela do gate de não-repetição da mesma parte. Passado + futuro.',
+    MAX_LOOKBACK_WEEKS: 'Janela histórica máxima (semanas): cap do frescor nesta parte (3ª chave) e janela do total de participações (5ª chave).',
+    PRESIDENCY_CYCLE_WINDOW_WEEKS: 'Fila cíclica de presidência: faixa = nº de presidências em ±N semanas; quem presidiu menos vem antes. Ninguém preside pela k+1ª vez enquanto houver elegível com k.',
+    STUDENT_PART_GUARANTEE_WEEKS: 'Garantia de parte de estudante: ancião/SM sem nenhuma parte de estudante (titular ou ajudante) em ±N semanas vai à faixa 0 (antes das irmãs) em leitura/demonstração/discurso de estudante.',
+    STUDENT_GUARANTEE_MAX_PER_WEEK: 'Teto semanal da garantia acima: no máximo N titulares ancião/SM em partes de estudante por semana (equilíbrio com o ensino).',
+    ROLE_ALTERNATION_WINDOW_WEEKS: 'Gate relaxável — janela (semanas) de alternância Titular↔Ajudante em partes FSM. Escape: publicador "Só Ajudante". 0 desliga.',
+    PAIR_REPETITION_WINDOW_WEEKS: 'Gate relaxável — janela (semanas) para não repetir o par titular+ajudante. Bypass: cônjuge e pai/filho. 0 desliga.',
+    ENABLE_SECTION_ROTATION_GATE: 'Gate relaxável — rotação intra-seção (Tesouros: Discurso↔Joias; Vida Cristã: Parte VC↔Dirigente EBC). 1 liga, 0 desliga.',
+    // — Apenas exibição (score legado) —
+    BASE_SCORE: 'Exibição: base do score legado. Não altera quem é designado.',
+    TIME_POWER: 'Exibição: expoente do bônus de tempo. Transformação monótona — não altera a ordem.',
+    TIME_FACTOR: 'Exibição: fator do bônus de tempo. Não altera a ordem.',
+    RECENT_PARTICIPATION_PENALTY: 'Exibição: penalidade por participação no score legado. A chave real é a contagem em ±12 semanas.',
+    HEAVY_ROLE_BASE: 'Exibição: escala da penalidade de proximidade no score legado. A chave real é proximityCost.',
 };
+
+const DECISIVE_KEYS: Array<keyof EngineConfig> = [
+    'HEAVY_ROLE_RADIUS', 'MAX_LOOKBACK_WEEKS', 'PRESIDENCY_CYCLE_WINDOW_WEEKS', 'STUDENT_PART_GUARANTEE_WEEKS',
+    'STUDENT_GUARANTEE_MAX_PER_WEEK', 'ROLE_ALTERNATION_WINDOW_WEEKS', 'PAIR_REPETITION_WINDOW_WEEKS', 'ENABLE_SECTION_ROTATION_GATE',
+];
+const DISPLAY_ONLY_KEYS = (Object.keys(DEFAULT_ENGINE_CONFIG) as Array<keyof EngineConfig>).filter(k => !DECISIVE_KEYS.includes(k));
 
 export function EngineRulesPanel() {
     const initial = useMemo<ConfigKV>(() => ({ ...DEFAULT_ENGINE_CONFIG, ...getRotationConfig() }), []);
@@ -122,10 +130,14 @@ export function EngineRulesPanel() {
     return (
         <div style={{ padding: 16 }}>
             <div style={{ marginBottom: 16, padding: 12, background: '#f0f4f8', borderRadius: 8, fontSize: 13 }}>
-                <div><strong>Versão das regras de elegibilidade:</strong> <code>{ELIGIBILITY_RULES_VERSION}</code></div>
-                <div><strong>Cooldown TITULAR:</strong> {COOLDOWN_WEEKS} semanas — <strong>AJUDANTE:</strong> {COOLDOWN_WEEKS_HELPER} semanas (constantes do código)</div>
+                <div><strong>Versão das regras:</strong> <code>{ELIGIBILITY_RULES_VERSION}</code></div>
+                <div><strong>Ordenação real</strong> (dentro de cada faixa): proximidade MAIN › carga ±12 sem › frescor nesta parte › mais esquecido › menos partes no ano › nome. O número “score” é legado e não decide.</div>
+                <div><strong>Cooldown visual:</strong> {COOLDOWN_WEEKS} semanas (titular) / {COOLDOWN_WEEKS_HELPER} (ajudante) — só indicador; não bloqueia.</div>
             </div>
 
+            {[{ title: 'Decidem quem é designado', keys: DECISIVE_KEYS }, { title: 'Apenas exibição (score legado)', keys: DISPLAY_ONLY_KEYS }].map(group => (
+            <div key={group.title} style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: '#334155', margin: '8px 0' }}>{group.title}</div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
@@ -136,7 +148,7 @@ export function EngineRulesPanel() {
                     </tr>
                 </thead>
                 <tbody>
-                    {(Object.keys(DEFAULT_ENGINE_CONFIG) as Array<keyof EngineConfig>).map(key => {
+                    {group.keys.map(key => {
                         const def = DEFAULT_ENGINE_CONFIG[key];
                         const cur = config[key] ?? def;
                         const changed = cur !== def;
@@ -153,13 +165,15 @@ export function EngineRulesPanel() {
                                         disabled={saving}
                                     />
                                 </td>
-                                <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', color: '#64748b', fontFamily: 'monospace', fontSize: 12 }}>{def}</td>
+                                <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', color: '#64748b', fontFamily: 'monospace', fontSize: 12 }}>{String(def)}</td>
                                 <td style={{ padding: 8, borderBottom: '1px solid #f1f5f9', fontSize: 12, color: '#475569' }}>{KEY_DESCRIPTIONS[key as string]}</td>
                             </tr>
                         );
                     })}
                 </tbody>
             </table>
+            </div>
+            ))}
 
             <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button

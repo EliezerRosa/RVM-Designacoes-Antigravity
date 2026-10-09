@@ -5,7 +5,7 @@
  */
 
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
-import { getEligibilityStats } from './eligibilityService';
+import { getEligibilityStats, ELIGIBILITY_RULES_VERSION } from './eligibilityService';
 import { calculateScore, getRankedCandidates, ROTATION_CONFIG, isStatPart } from './unifiedRotationService';
 import { AGENT_CONTEXT_WEEKS, AGENT_HISTORY_LOOKBACK_WEEKS, AGENT_LIST_LOOKBACK_WEEKS } from '../constants/config';
 import { toLocalISODate } from '../utils/dateUtils';
@@ -853,12 +853,17 @@ REGRAS DE ELEGIBILIDADE DO SISTEMA:
    - Somente irmãos
    - Requer privilégio canReadCBS
 
-SISTEMA DE ROTAÇÃO (Unificado v9.0):
-- COOLDOWN (BLOQUEIO DURO): 3 semanas. Universal — NÃO varia por tipo de parte. NÃO existe "cooldown maior para Presidente" nem para qualquer outra parte. Disparado por QUALQUER participação MAIN nas últimas 3 semanas (Presidente, Discurso, Jóias, Tesouros, Leitura, Vida Cristã, EBC, Demonstração titular, Oração Final). Ajudante = 2 semanas. Aplica penalidade de -1500 no score.
-- FREQUENCY PENALTY (suave): -${ROTATION_CONFIG.RECENT_PARTICIPATION_PENALTY} pontos por participação na janela de ±12 semanas (passadas E futuras). Conta TODAS as partes exceto oração — INCLUINDO Ajudante. Distinto do cooldown.
-- Prioridade Baseada em Tempo (EXPONENCIAL): Tempo de espera gera urgência crescente (Weeks^1.5). Calculado por TIPO DE PARTE (semanas desde última vez NESSA parte específica).
-- Fórmula Real: Score = ${ROTATION_CONFIG.BASE_SCORE} + (SemanasSemEstaParte ^ ${ROTATION_CONFIG.TIME_POWER} * ${ROTATION_CONFIG.TIME_FACTOR}) - (PartesMainEm12Sem * ${ROTATION_CONFIG.RECENT_PARTICIPATION_PENALTY}) - (CooldownAtivo ? 1500 : 0)
-- Bônus: +${ROTATION_CONFIG.SISTER_DEMO_PRIORITY} pts para Irmãs em demonstrações.
+SISTEMA DE ROTAÇÃO (modelo lexicográfico — versão ${ELIGIBILITY_RULES_VERSION}):
+- NÃO existe score aditivo decisório nem cooldown bloqueante. O "cooldown de 3 semanas" é só indicador visual.
+- Passo 1 — FAIXA (bucket; menor vem primeiro, vence qualquer outro critério):
+  · Presidente: faixa = nº de presidências nas últimas ${ROTATION_CONFIG.PRESIDENCY_CYCLE_WINDOW_WEEKS} semanas (fila cíclica: ninguém preside pela k+1ª vez enquanto houver elegível disponível com k).
+  · Partes de estudante (leitura, demonstração, discurso de estudante): ancião/SM sem nenhuma parte de estudante (titular ou ajudante) em ±${ROTATION_CONFIG.STUDENT_PART_GUARANTEE_WEEKS} semanas → faixa 0 (antes das irmãs), no máximo ${ROTATION_CONFIG.STUDENT_GUARANTEE_MAX_PER_WEEK} por semana. Fora disso: demonstração irmãs 1 › irmãos 2 › SM 3 › anciãos 4; leitura/discurso publicador 1 › SM 2 › ancião 3.
+  · Leitor EBC: publicador 1 › SM 2 › ancião 3. Oração Final: sem outra parte na semana 1 › com parte 2; presidente nunca.
+- Passo 2 — dentro da faixa, ordem ESTRITA: (1) menor proximidade de qualquer parte MAIN em ±${ROTATION_CONFIG.HEAVY_ROLE_RADIUS} semanas (passado e futuro, graduada pela distância); (2) menor carga em ±12 semanas (partes passadas E já marcadas); (3) mais semanas desde a última vez NESTA parte; (4) há mais tempo sem qualquer parte; (5) menos participações no ano; (6) nome.
+- MAIN = toda parte designável exceto Oração Final, cânticos e derivadas do presidente. Ajudante conta como MAIN. Necessidades Locais conta.
+- Oração Final não conta como carga ao avaliar outras partes.
+- GATES relaxáveis (nunca deixam parte vazia; relaxam em cascata se o pool esvaziar): não repetir a MESMA parte em ±${ROTATION_CONFIG.HEAVY_ROLE_RADIUS} sem; rotação intra-seção (Tesouros: Discurso↔Joias; Vida Cristã: Parte VC↔Dirigente EBC); alternância FSM e par recente (regras B e C abaixo).
+- GATES absolutos: elegibilidade estrutural, disponibilidade, uma parte por semana (exceto Oração Final).
 
 BLOQUEIOS AUTOMÁTICOS:
 - isServing = false → Não designar

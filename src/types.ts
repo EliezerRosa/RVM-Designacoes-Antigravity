@@ -393,16 +393,17 @@ export type TeachingCategory = typeof TeachingCategory[keyof typeof TeachingCate
  * `UPDATE_ENGINE_RULES` operam todos sobre este mesmo objeto plano.
  */
 export interface EngineConfig {
+    /** [exibição] Base do score legado. Não altera a ordenação. */
     BASE_SCORE: number;
+    /** [exibição] Expoente do timeBonus. Transformação monótona — não altera a ordenação. */
     TIME_POWER: number;
+    /** [exibição] Fator do timeBonus. Não altera a ordenação. */
     TIME_FACTOR: number;
+    /** [exibição] Penalidade por participação no score legado. A chave real é a contagem. */
     RECENT_PARTICIPATION_PENALTY: number;
-    COOLDOWN_PENALTY: number;
-    ELDER_BONUS: number;
-    SISTER_DEMO_PRIORITY: number;
-    FSM_TITULAR_PROMOTION_BONUS: number;
+    /** Janela histórica máxima (semanas): cap do frescor e janela do total de participações (5ª chave). */
     MAX_LOOKBACK_WEEKS: number;
-    /** Penalidade máxima por papel pesado (ex: Presidente, EBC) na janela adjacente. */
+    /** [exibição] Escala da penalidade de proximidade no score legado. A chave real é proximityCost. */
     HEAVY_ROLE_BASE: number;
     /** Raio em semanas (passado + futuro) da janela de papel pesado. */
     HEAVY_ROLE_RADIUS: number;
@@ -425,10 +426,6 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     TIME_POWER: 1.5,
     TIME_FACTOR: 8,
     RECENT_PARTICIPATION_PENALTY: 50,
-    COOLDOWN_PENALTY: 1500,
-    ELDER_BONUS: 5,
-    SISTER_DEMO_PRIORITY: 50,
-    FSM_TITULAR_PROMOTION_BONUS: 80,
     MAX_LOOKBACK_WEEKS: 52,
     HEAVY_ROLE_BASE: 4000,
     HEAVY_ROLE_RADIUS: 4,
