@@ -198,3 +198,16 @@ test('SAME-PART GATE: parte DIFERENTE na janela NÃO dispara o gate (é só prox
     assert.equal(sd.details.samePartConflict, false, 'parte diferente não dispara gate de mesma-parte');
     assert.ok(sd.details.proximityCost > 0, 'mas continua pagando proximidade mole (part-agnóstica)');
 });
+
+test('FSM: titular de demonstração conta como "mesma parte" para o tipo canônico Parte de Estudante', () => {
+    const ref = new Date('2026-06-22T12:00:00');
+    const hist: HistoryRecord[] = [
+        { ...mkHist({ name: 'Ana', date: '2026-06-08', weekId: '2026-06-08', tipoParte: 'Iniciando Conversas' }), modalidade: 'Demonstração' },
+    ];
+    const sd = calculateScore(mkPub('p-ana', 'Ana'), 'Parte de Estudante', hist, ref);
+    assert.equal(sd.weeksSinceLast, 2, 'timeBonus deve enxergar a demo como titular há 2 semanas (antes: 52)');
+    assert.equal(sd.details.samePartConflict, true, 'demo em ±4 semanas dispara o gate de mesma-parte');
+
+    const sdOther = calculateScore(mkPub('p-ana', 'Ana'), 'Discurso Tesouros', hist, ref);
+    assert.equal(sdOther.details.samePartConflict, false, 'para outro tipo de parte a demo não é "mesma parte"');
+});

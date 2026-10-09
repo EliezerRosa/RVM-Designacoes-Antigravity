@@ -10,7 +10,7 @@ import type { Publisher, HistoryRecord, EngineConfig } from '../types';
 import { DEFAULT_ENGINE_CONFIG } from '../types';
 import { isBlocked } from './cooldownService';
 import { toLocalISODate } from '../utils/dateUtils';
-import { isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
+import { isCleanablePart, isAutoAssignedToChairman, getModalidadeFromTipo } from '../constants/mappings';
 import { isManuallyAssignable } from '../constants/s140Template';
 
 // ===== CONFIGURAÇÃO DE PESOS (DINÂMICA) =====
@@ -378,6 +378,13 @@ export function calculateScore(
         const isMinistryPart = pType.includes('ministerio') || pType.includes('demonstra') || pType.includes('estudante');
         if (isMinistryPart && hFuncao === 'ajudante') return true;
 
+        // FSM: o tipo canônico ('Parte de Estudante') nunca casa com os nomes reais
+        // ('Iniciando Conversas', 'Leitura da Bíblia'...). Compara por modalidade do registro.
+        if (isMinistryPart) {
+            const hMod = (h.modalidade || getModalidadeFromTipo(h.tipoParte || '', h.section)).toLowerCase();
+            if (hMod.includes('demonstra') || hMod.includes('estudante')) return true;
+        }
+
         // Comparação direta (sem normalização) — cobre casos onde os nomes já coincidem
         if (hType === pType || hType.includes(pType)) return true;
         // Comparação normalizada — cobre divergências com artigos/preposições
@@ -473,12 +480,7 @@ export function calculateScore(
     const isTitularMinistryPart = !pType.includes('ajudante') &&
         (pType.includes('ministerio') || pType.includes('demonstra') || pType.includes('estudante'));
     if (isTitularMinistryPart) {
-        const lastFsmRecord = pastHistory.find(h => {
-            const hFuncao = (h.funcao || '').toLowerCase();
-            const hType = (h.tipoParte || '').toLowerCase();
-            return hFuncao === 'ajudante' ||
-                hType.includes('ministerio') || hType.includes('demonstra') || hType.includes('estudante');
-        });
+        const lastFsmRecord = pastHistory.find(h => (h.funcao || '').toLowerCase() === 'ajudante' || isFSMHistoryRecord(h));
         if (lastFsmRecord?.funcao === 'Ajudante') {
             details.roleBonus += CURRENT_SCORING_CONFIG.FSM_TITULAR_PROMOTION_BONUS;
             details.specificAdjustments.push('Progressão FSM: última part. foi Ajudante');
