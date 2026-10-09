@@ -308,6 +308,18 @@ export function checkEligibility(
         textualConstraints.allowedConditions = ['elder', 'ministerial'];
     }
 
+    // Gênero extraído do texto só faz sentido em modalidades mistas (demonstração/ajudante).
+    // Em modalidades já exclusivas de irmãos, "irmã" no enunciado é conteúdo, não restrição
+    // (falso positivo observado: Discurso Tesouros 2026-09-28 bloqueou todos os irmãos).
+    const BROTHER_ONLY_MODALITIES: Modalidade[] = [
+        EnumModalidade.PRESIDENCIA, EnumModalidade.ORACAO, EnumModalidade.ACONSELHAMENTO,
+        EnumModalidade.DISCURSO_ENSINO, EnumModalidade.LEITURA_ESTUDANTE, EnumModalidade.DISCURSO_ESTUDANTE,
+        EnumModalidade.DIRIGENTE_EBC, EnumModalidade.LEITOR_EBC, EnumModalidade.NECESSIDADES_LOCAIS,
+    ];
+    if (funcao !== EnumFuncao.AJUDANTE && BROTHER_ONLY_MODALITIES.includes(modalidade)) {
+        delete textualConstraints.requiredGender;
+    }
+
     // ===== FILTROS GLOBAIS (Regras 1-3) =====
 
     // Regra 1: Não designar publicadores não atuantes
