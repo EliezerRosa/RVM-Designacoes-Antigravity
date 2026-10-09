@@ -7,6 +7,16 @@
 
 import { supabase } from '../lib/supabase';
 import type { AgentActionType } from './agentActionService';
+import type { PublisherAccessScope } from './permissionFilterCore';
+
+export {
+    filterPublishersByScope,
+    filterAndRedactPublishers,
+    filterPublisherRowsByScope,
+    redactSensitivePublisherFields,
+    isPublisherVisibleInScope,
+} from './permissionFilterCore';
+export type { PublisherAccessScope } from './permissionFilterCore';
 
 // ===== Types =====
 
@@ -30,6 +40,8 @@ export interface ResolvedPermissions {
     canSendZap: boolean;
     publisherFilters: PublisherFilterCriteria;
     isAdmin: boolean;
+    /** publisher_id do profile logado — necessário para `dataAccessLevel = 'self'`. */
+    selfPublisherId: string | null;
     resolvedAt: number;
 }
 
@@ -41,6 +53,8 @@ export interface PermissionGate {
     canSendZap(): boolean;
     getAccessLevel(): 'elder' | 'publisher';
     getPublisherFilters(): PublisherFilterCriteria;
+    /** Escopo completo para filtrar publicadores (ver permissionFilterCore). */
+    getPublisherScope(): PublisherAccessScope;
     getAllowedAgentActions(): AgentActionType[];
     isFullAdmin(): boolean;
     isLoaded(): boolean;
@@ -102,6 +116,7 @@ const FALLBACK_PERMISSIONS: ResolvedPermissions = {
     canSendZap: false,
     publisherFilters: { accessLevel: 'self' },
     isAdmin: false,
+    selfPublisherId: null,
     resolvedAt: 0,
 };
 
@@ -124,6 +139,7 @@ const FULL_ADMIN_PERMISSIONS: ResolvedPermissions = {
     canSendZap: true,
     publisherFilters: { accessLevel: 'all' },
     isAdmin: true,
+    selfPublisherId: null,
     resolvedAt: 0,
 };
 
@@ -193,6 +209,7 @@ function mergeWithOverride(policy: PermissionPolicy, override: PermissionOverrid
         canSendZap: false, // Set by loadPermissions based on condition+funcao
         publisherFilters,
         isAdmin: false,
+        selfPublisherId: null, // Set by loadPermissions
         resolvedAt: Date.now(),
     };
 }
@@ -211,7 +228,7 @@ export async function loadPermissions(
 ): Promise<ResolvedPermissions> {
     // Admin = full access, no query needed
     if (profileRole === 'admin') {
-        const perms = { ...FULL_ADMIN_PERMISSIONS, resolvedAt: Date.now() };
+        const perms = { ...FULL_ADMIN_PERMISSIONS, selfPublisherId: publisherId, resolvedAt: Date.now() };
         _cachedPermissions = perms;
         _scheduleRefresh(profileId, profileRole, publisherId);
         return perms;
@@ -260,7 +277,7 @@ export async function loadPermissions(
 
         if (!bestPolicy) {
             console.warn('[Permissions] No matching policy for:', { condition, funcao });
-            _cachedPermissions = { ...FALLBACK_PERMISSIONS, resolvedAt: Date.now() };
+            _cachedPermissions = { ...FALLBACK_PERMISSIONS, selfPublisherId: publisherId, resolvedAt: Date.now() };
             _scheduleRefresh(profileId, profileRole, publisherId);
             return _cachedPermissions;
         }
@@ -275,6 +292,7 @@ export async function loadPermissions(
 
         // 5. Merge and cache
         const resolved = mergeWithOverride(bestPolicy, overrides || null);
+        resolved.selfPublisherId = publisherId;
 
         // 6. Compute column-level visibility for Agent control panel (Column 3)
         resolved.canSeeAgentControlPanel =
@@ -303,7 +321,7 @@ export async function loadPermissions(
         return resolved;
     } catch (err) {
         console.error('[Permissions] Failed to load, using fallback:', err);
-        _cachedPermissions = { ...FALLBACK_PERMISSIONS, resolvedAt: Date.now() };
+        _cachedPermissions = { ...FALLBACK_PERMISSIONS, selfPublisherId: publisherId, resolvedAt: Date.now() };
         _scheduleRefresh(profileId, profileRole, publisherId);
         return _cachedPermissions;
     }
@@ -358,6 +376,16 @@ export function createPermissionGate(perms: ResolvedPermissions): PermissionGate
 
         getPublisherFilters(): PublisherFilterCriteria {
             return perms.publisherFilters;
+        },
+
+        getPublisherScope(): PublisherAccessScope {
+            return {
+                isAdmin: perms.isAdmin,
+                accessLevel: perms.dataAccessLevel,
+                selfPublisherId: perms.selfPublisherId,
+                canSeeSensitiveData: perms.isAdmin || perms.canSeeSensitiveData,
+                filters: perms.publisherFilters,
+            };
         },
 
         getAllowedAgentActions(): AgentActionType[] {
