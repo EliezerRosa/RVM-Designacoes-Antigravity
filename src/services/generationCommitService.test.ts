@@ -49,7 +49,7 @@ test('commitGeneratedAssignment updates local needs title before proposing the p
     ]);
 });
 
-test('commitGeneratedAssignment cleans non-designable parts through the workbook mutation boundary', async () => {
+test('commitGeneratedAssignment: designação inválida removida volta a PENDENTE (não some como CONCLUIDA)', async () => {
     const updates: Array<Record<string, unknown>> = [];
     const service = createGenerationCommitService({
         localNeedsClient: {
@@ -72,12 +72,28 @@ test('commitGeneratedAssignment cleans non-designable parts through the workbook
         publisher: { id: 'CLEANUP', name: '' },
     });
 
-    assert.equal(result.mode, 'cleanup');
+    assert.equal(result.mode, 'cleanup-invalid');
     assert.deepEqual(updates, [{
         resolvedPublisherName: null,
+        resolvedPublisherId: null,
         rawPublisherName: '',
-        status: 'CONCLUIDA',
+        status: 'PENDENTE',
     }]);
+});
+
+test('commitGeneratedAssignment: cântico limpo continua CONCLUIDA', async () => {
+    const updates: Array<Record<string, unknown>> = [];
+    const service = createGenerationCommitService({
+        localNeedsClient: { assignToPart: async () => undefined },
+        workbookMutations: { updatePart: async (_partId, nextUpdates) => { updates.push(nextUpdates); return undefined; } },
+        workbookAssignments: { assignPublisher: async () => undefined },
+    });
+
+    const song = buildWorkbookPart({ tipoParte: 'Cântico Inicial', modalidade: 'Cântico', status: 'DESIGNADA', resolvedPublisherName: 'Lixo' }) as WorkbookPart;
+    const result = await service.commitGeneratedAssignment({ partId: 'part-song', part: song, publisher: { id: 'CLEANUP', name: '' } });
+
+    assert.equal(result.mode, 'cleanup');
+    assert.equal(updates[0].status, 'CONCLUIDA');
 });
 
 test('commitGeneratedAssignment updates assigned parts directly when they are already finalized', async () => {

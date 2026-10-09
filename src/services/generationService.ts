@@ -213,13 +213,18 @@ export const generationService = {
             let totalCreated = 0;
             let totalWithPublisher = 0;
             const selectedPublisherByPart = new Map<string, { id: string; name: string }>();
+            // Designações inválidas (sanity): tratadas como vazias para o motor tentar refazer; só viram CLEANUP se ninguém for encontrado.
+            const invalidPartIds = new Set<string>();
 
             const getFullWeekParts = (weekId: string) =>
                 parts.filter(part => part.weekId === weekId);
 
             const materializeSelectedPublisher = (part: WorkbookPart): WorkbookPart => {
                 const selected = selectedPublisherByPart.get(part.id);
-                if (!selected) return part;
+                if (!selected) {
+                    if (!invalidPartIds.has(part.id)) return part;
+                    return { ...part, resolvedPublisherId: undefined, resolvedPublisherName: '', rawPublisherName: '' };
+                }
 
                 if (selected.id === 'CLEANUP') {
                     return {
@@ -306,8 +311,8 @@ export const generationService = {
                         });
 
                         if (!eligibility.eligible) {
-                            // MARCA PARA LIMPEZA. Se o motor encontrar alguém, sobrescreve. Se não, fica limpo.
-                            selectedPublisherByPart.set(part.id, { id: 'CLEANUP', name: '' });
+                            // Não marca CLEANUP aqui: as fases 2–4 pulam partes já selecionadas e a parte sumiria como CONCLUIDA vazia.
+                            invalidPartIds.add(part.id);
                         }
                     }
                 }
@@ -528,6 +533,13 @@ export const generationService = {
                 }
 
                 totalCreated += weekPartsToAssign.length;
+            }
+
+            // Inválidos que o motor não conseguiu refazer são limpos (voltam a PENDENTE no commit).
+            for (const partId of invalidPartIds) {
+                if (!selectedPublisherByPart.has(partId)) {
+                    selectedPublisherByPart.set(partId, { id: 'CLEANUP', name: '' });
+                }
             }
 
             const selections: GenerationSelection[] = [...selectedPublisherByPart.entries()].map(([partId, sel]) => {
