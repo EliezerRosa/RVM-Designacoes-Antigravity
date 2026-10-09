@@ -26,6 +26,8 @@ export interface RankedEligibleCandidate {
     sectionDebt?: number;
     /** Lista das partes elegíveis da seção pendentes de realização. */
     unperformedSectionParts?: string[];
+    /** Gate do motor Q2/Q3 (alternância FSM / par recente): relaxável em último caso; motivo para exibição. */
+    engineGateReason?: string;
 }
 
 export interface RankedEligibleOptions {
@@ -288,12 +290,15 @@ export function getRankedEligibleForPart(
             eligibility = { eligible: false, reason: 'Já tem designação nesta semana' };
         }
 
+        // Q2/Q3: gates do motor relaxáveis em último caso (4º estágio) — não tornam o candidato inelegível.
+        let engineGateReason: string | undefined;
+
         if (eligibility.eligible && applyEngineRules && isFSMTitularPart(targetPart, modalidade)) {
             const alternWeeks = config.ROLE_ALTERNATION_WINDOW_WEEKS ?? 0;
             if (alternWeeks > 0) {
                 const lastRole = getMostRecentFSMRole(publisher.name, historyForScoring, referenceDate, alternWeeks);
                 if (lastRole === 'Titular') {
-                    eligibility = { eligible: false, reason: 'Motor: alternância FSM bloqueia novo Titular nesta janela' };
+                    engineGateReason = 'Motor: alternância FSM bloqueia novo Titular nesta janela';
                 }
             }
         }
@@ -303,19 +308,19 @@ export function getRankedEligibleForPart(
             if (alternWeeks > 0 && !publisher.isHelperOnly) {
                 const lastRole = getMostRecentFSMRole(publisher.name, historyForScoring, referenceDate, alternWeeks);
                 if (lastRole === 'Ajudante') {
-                    eligibility = { eligible: false, reason: 'Motor: alternância FSM bloqueia novo Ajudante nesta janela' };
+                    engineGateReason = 'Motor: alternância FSM bloqueia novo Ajudante nesta janela';
                 }
             }
 
             const pairWeeks = config.PAIR_REPETITION_WINDOW_WEEKS ?? 0;
-            if (eligibility.eligible && pairWeeks > 0 && titularNameResolved && eligibilityContext.titularPublisherId) {
+            if (!engineGateReason && pairWeeks > 0 && titularNameResolved && eligibilityContext.titularPublisherId) {
                 const isSpouseBypass = !!eligibilityContext.titularSpouseId && publisher.id === eligibilityContext.titularSpouseId;
                 const isParentChildBypass = (eligibilityContext.titularParentIds || []).includes(publisher.id)
                     || (eligibilityContext.titularChildIds || []).includes(publisher.id)
                     || (publisher.parentIds || []).includes(eligibilityContext.titularPublisherId);
 
                 if (!isSpouseBypass && !isParentChildBypass && wasRecentlyPairedWith(publisher.name, titularNameResolved, historyForScoring, referenceDate, pairWeeks)) {
-                    eligibility = { eligible: false, reason: 'Motor: par recente com o titular nesta janela' };
+                    engineGateReason = 'Motor: par recente com o titular nesta janela';
                 }
             }
         }
@@ -362,6 +367,7 @@ export function getRankedEligibleForPart(
             sectionBlocked,
             sectionDebt,
             unperformedSectionParts,
+            engineGateReason,
         };
     });
 
@@ -385,16 +391,19 @@ export function getRankedEligibleForPart(
 
     // GATE DURO (Camada 1) — NÃO REPETIR a MESMA parte na janela de proximidade (±radius, simétrico).
     // SOFT GATE — ROTAÇÃO INTRA-SEÇÃO (`sectionBlocked`): evita repetir a mesma parte se deve outras da seção.
-    // FALLBACK duplo de relaxamento:
-    // 1. Tenta passar com hardSamePartGate + sectionGate
-    // 2. Se esvaziar, tenta apenas hardSamePartGate
-    // 3. Se esvaziar, aceita todos (sem gates) para nunca deixar a parte desamparada.
+    // GATES DO MOTOR Q2/Q3 (`engineGateReason`): alternância FSM e par recente.
+    // Relaxamento em cascata para nunca deixar a parte desamparada:
+    // 1. Q2/Q3 + mesma-parte + seção → 2. Q2/Q3 + mesma-parte → 3. só Q2/Q3 → 4. nenhum gate.
     const hardSamePartGate = (candidate: RankedEligibleCandidate) => !(applyEngineRules && candidate.samePartBlocked);
     const sectionGate = (candidate: RankedEligibleCandidate) => !(applyEngineRules && config.ENABLE_SECTION_ROTATION_GATE && candidate.sectionBlocked);
+    const engineGate = (candidate: RankedEligibleCandidate) => !candidate.engineGateReason;
 
-    let rankedById = buildRankedMap(c => hardSamePartGate(c) && sectionGate(c));
+    let rankedById = buildRankedMap(c => engineGate(c) && hardSamePartGate(c) && sectionGate(c));
     if (rankedById.size === 0) {
-        rankedById = buildRankedMap(hardSamePartGate);
+        rankedById = buildRankedMap(c => engineGate(c) && hardSamePartGate(c));
+    }
+    if (rankedById.size === 0) {
+        rankedById = buildRankedMap(engineGate);
     }
     if (rankedById.size === 0) {
         rankedById = buildRankedMap(() => true);

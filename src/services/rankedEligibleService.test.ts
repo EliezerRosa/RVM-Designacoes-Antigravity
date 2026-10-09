@@ -233,3 +233,21 @@ test('FILA DE PRESIDÊNCIA: bucket = nº de presidências na janela; quem presid
     assert.equal(b?.priorityBucket, 1);
     assert.equal(result.eligibleCandidates[0]?.publisher.id, elderB.id, 'Fila cíclica vence proximidade/carga');
 });
+
+test('Q2 ALTERNÂNCIA: bloqueia enquanto há alternativa, mas relaxa (4º estágio) quando todos estão barrados', () => {
+    const sisterB: Publisher = { ...mockSister, id: 'pub-sister-2', name: 'Irmã B' };
+    const fsmTitular = (pub: Publisher, id: string, date: string) =>
+        h(pub, { id, weekId: date, date, section: 'Faça Seu Melhor no Ministério', tipoParte: 'Iniciando Conversas', modalidade: 'Demonstração' });
+
+    // Só a irmã A foi titular FSM há 2 semanas → Q2 a barra; irmã B passa.
+    let result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [mockSister, sisterB], [fsmTitular(mockSister, 'q2-a', '2026-07-27')]);
+    assert.deepEqual(result.eligibleCandidates.map(c => c.publisher.id), [sisterB.id]);
+    const gatedA = result.allCandidates.find(c => c.publisher.id === mockSister.id);
+    assert.equal(gatedA?.eligible, true, 'Q2 não torna inelegível');
+    assert.match(gatedA?.engineGateReason || '', /alternância FSM/);
+
+    // Ambas foram titulares FSM há 2 semanas → pool esvazia → relaxamento libera as duas.
+    result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [mockSister, sisterB],
+        [fsmTitular(mockSister, 'q2-a', '2026-07-27'), fsmTitular(sisterB, 'q2-b', '2026-07-27')]);
+    assert.equal(result.eligibleCandidates.length, 2, 'Parte nunca fica desamparada por Q2');
+});

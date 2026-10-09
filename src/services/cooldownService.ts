@@ -1,14 +1,13 @@
 /**
- * Cooldown & Blocking Service - RVM Designações v9.0
- * 
- * MUDANÇA v9.0: O cooldown agora é um BLOQUEIO REAL, não apenas penalização.
- * Publicadores em cooldown são PULADOS pelo motor de rotação.
- * Seleção manual via Dropdown pode "atropelar" com confirmação do usuário.
- * 
- * Implementa as regras de:
- * - Bloqueio por cooldown (3 semanas sem poder participar)
- * - Gap mínimo entre participações (2 semanas = alerta visual)
- * - Detecção de múltiplas designações na mesma semana
+ * Cooldown & Blocking Service - RVM Designações
+ *
+ * ESTADO ATUAL (2026-10): o cooldown de 3 semanas é INDICADOR VISUAL (`isInCooldown`/`blocked`).
+ * O espaçamento efetivo é governado pela proximidade MAIN em `unifiedRotationService.calculateScore`
+ * e pela ordenação lexicográfica em `getRankedCandidates`. Nenhuma função deste arquivo decide quem é designado.
+ *
+ * Ainda fornece:
+ * - Detecção de múltiplas designações na mesma semana / semanas adjacentes (avisos de UI)
+ * - Estatísticas de participação
  */
 
 import type { HistoryRecord } from '../types';

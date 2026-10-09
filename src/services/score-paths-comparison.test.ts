@@ -208,12 +208,12 @@ test('CONVERGÊNCIA TOTAL pós-fix: TODOS os 6 caminhos retornam o mesmo score (
     assert.equal(resMarcos.F.score, ref);
 });
 
-test('SANITY: scores corrigidos (A/B/C) refletem decomposição real, sem cooldown loop', () => {
-    // Marcus: timeBonus alto + freq -150 (3 participações últimas 12 sem @ 50 cada)
-    assert.match(resMarcus.A.exp, /Tempo Exp: \+\d{3,4}/);
-    assert.match(resMarcus.A.exp, /Freq: -150/);
-    assert.doesNotMatch(resMarcus.A.exp, /Cooldown/, 'após filtrar a semana atual, cooldown não acende');
-    // Marcos: timeBonus alto + freq 0 (sem participações recentes)
-    assert.match(resMarcos.A.exp, /Freq: -0/);
-    assert.doesNotMatch(resMarcos.A.exp, /Cooldown/);
+test('SANITY: explicação (A) reflete as chaves lexicográficas reais, sem cooldown loop', () => {
+    // Marcus: 3 participações nas últimas 12 sem; frescor alto nesta parte
+    assert.match(resMarcus.A.exp, /Carga ±12s: 3/);
+    assert.match(resMarcus.A.exp, /Frescor nesta parte: (\d+|≥\d+) sem/);
+    assert.doesNotMatch(resMarcus.A.exp, /Cooldown|Intervalo ativo/, 'após filtrar a semana atual, cooldown não acende');
+    // Marcos: sem participações recentes
+    assert.match(resMarcos.A.exp, /Carga ±12s: 0/);
+    assert.doesNotMatch(resMarcos.A.exp, /Cooldown|Intervalo ativo/);
 });

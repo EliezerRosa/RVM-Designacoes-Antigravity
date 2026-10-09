@@ -237,7 +237,7 @@ export function getMostRecentFSMRole(
         const hDate = new Date(h.date + 'T12:00:00');
         if (hDate >= referenceDate) continue;     // só passado
         if (hDate < cutoff) continue;             // dentro da janela
-        if (!best || new Date(best.date) < hDate) best = h;
+        if (!best || new Date(best.date + 'T12:00:00') < hDate) best = h;
     }
     return best ? (best.funcao as 'Titular' | 'Ajudante') : null;
 }
@@ -328,11 +328,15 @@ export function calculateScore(
     // crédito-fantasma e enxerga partes sem nome, ex. ajudante). Sem id resolvido,
     // fallback por nome cobre apenas registros legados/placeholders — que nunca
     // correspondem a publicador registrado.
+    // Oração Final é isenta de carga/frescor ao avaliar OUTRAS partes (decisão Eliezer),
+    // mas conta ao avaliar a própria Oração Final — senão a rotação dela perde o frescor.
     const isMine = (h: HistoryRecord) => {
         const matches = h.resolvedPublisherId
             ? h.resolvedPublisherId === publisher.id
             : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
-        return matches && isStatPart(h.tipoParte || h.funcao);
+        if (!matches) return false;
+        if (isOracaoFinalPart(h.tipoParte || '')) return isOracaoFinalPart(partType);
+        return isStatPart(h.tipoParte || h.funcao);
     };
 
     // PASSADO ESTRITO (Time Bonus): h.date < refDate
@@ -397,7 +401,7 @@ export function calculateScore(
     let weeksSinceLast = CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS;
 
     if (lastParticipation) {
-        const lastDate = new Date(lastParticipation.date);
+        const lastDate = new Date(lastParticipation.date + 'T12:00:00');
         // Garantido > 0 porque pastHistory já é estritamente anterior a refDate.
         const diffTime = referenceDate.getTime() - lastDate.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -505,17 +509,17 @@ export function calculateScore(
     const score = details.base + details.timeBonus - details.frequencyPenalty
         + details.roleBonus + (details.scoreAdjustment || 0) - details.mainProximityPenalty;
 
+    // Explicação pelas chaves que DECIDEM (ordem lexicográfica), não pelo score aditivo.
     const explanationParts = [
-        `Base: ${details.base}`,
-        `Tempo Exp: +${details.timeBonus}`,
-        `Freq: -${details.frequencyPenalty}`,
+        `Proximidade MAIN ±${CURRENT_SCORING_CONFIG.HEAVY_ROLE_RADIUS}s: ${details.proximityCost.toFixed(2)}`,
+        `Carga ±12s: ${details.recentCount}`,
+        `Frescor nesta parte: ${weeksSinceLast >= CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS ? `≥${CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS}` : weeksSinceLast} sem`,
     ];
-    if (details.mainProximityPenalty > 0) explanationParts.push(`Proximidade MAIN: -${details.mainProximityPenalty}`);
+    if (details.samePartConflict) explanationParts.push(`Mesma parte em ${details.samePartConflictDate}`);
     if (blocked) explanationParts.push('Intervalo ativo');
-    if (details.roleBonus !== 0) explanationParts.push(`Bônus: +${details.roleBonus}`);
     if (details.scoreAdjustment) explanationParts.push(`Ajuste: ${details.scoreAdjustment}`);
 
-    const explanation = `Score ${score} [${explanationParts.join(', ')}]`;
+    const explanation = explanationParts.join(' · ');
 
     return {
         score,
@@ -657,25 +661,37 @@ export function generateNaturalLanguageExplanation(
         ? `Últimas participações: ${recentDates.join(', ')}.`
         : `${firstName} não tem participações anteriores registradas.`;
 
-    // Frequência geral (agenda lotada ou livre)
-    // Limiar atualizado: penalidade = 50/participação → 2 participações = 100
+    // Narrativa na ordem das chaves que decidem: proximidade › carga › frescor nesta parte.
+    const radius = CURRENT_SCORING_CONFIG.HEAVY_ROLE_RADIUS;
     let narrative = "";
-    if (details.frequencyPenalty > 100) {
-        narrative = `${firstName} participou bastante nos últimos 3 meses — participação recente pesa mais no cálculo do que a vantagem de ter participado poucas vezes; a prioridade cai de forma mais acentuada.`;
-    } else if (details.frequencyPenalty > 0) {
-        narrative = `${firstName} teve algumas participações recentes, o que foi levado em conta no cálculo.`;
+    if (details.proximityCost > 0) {
+        const n = details.recentDates.filter(d => Math.abs(new Date(d + 'T12:00:00').getTime() - referenceDate.getTime()) < radius * 7 * 86400000).length || 1;
+        narrative = `${firstName} tem ${n === 1 ? 'uma parte' : `${n} partes`} a menos de ${radius} semanas desta data — é o critério que mais pesa: quem está mais distante de qualquer parte vem primeiro.`;
     } else {
-        narrative = `${firstName} está com a agenda tranquila — sem participações recentes que reduzam a prioridade.`;
+        narrative = `${firstName} não tem nenhuma parte a menos de ${radius} semanas desta data — está no grupo prioritário por espaçamento.`;
     }
 
-    // Tempo específico nesta parte
+    if (details.recentCount >= 3) {
+        narrative += ` Em ±12 semanas soma ${details.recentCount} participações (passadas e já marcadas), o que o coloca atrás de quem está menos carregado nesse mesmo grupo.`;
+    } else if (details.recentCount > 0) {
+        narrative += ` Em ±12 semanas soma ${details.recentCount} participa${details.recentCount === 1 ? 'ção' : 'ções'}.`;
+    } else {
+        narrative += ` Nenhuma participação em ±12 semanas — carga mínima.`;
+    }
+
+    // Tempo específico nesta parte (3ª chave — roteia a parte para quem está mais "devido" dela)
     const partLabel = partType ? `"${partType}"` : 'esta parte específica';
-    if (weeksSinceLast > 20) {
-        narrative += ` Além disso, há bastante tempo que não realiza ${partLabel}, o que aumenta a prioridade para ela.`;
+    if (weeksSinceLast >= CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS) {
+        narrative += ` Não há registro de ${partLabel} no último ano.`;
+    } else if (weeksSinceLast > 20) {
+        narrative += ` Há ${weeksSinceLast} semanas não realiza ${partLabel}, o que o favorece em empates para ela.`;
     } else if (weeksSinceLast > 10) {
-        narrative += ` Já faz um tempo considerável desde a última vez em ${partLabel}.`;
-    } else if (weeksSinceLast <= 4 && weeksSinceLast >= 0) {
-        narrative += ` Realizou ${partLabel} recentemente.`;
+        narrative += ` Já faz ${weeksSinceLast} semanas desde a última vez em ${partLabel}.`;
+    } else {
+        narrative += ` Realizou ${partLabel} há ${weeksSinceLast} semana${weeksSinceLast === 1 ? '' : 's'}.`;
+    }
+    if (details.samePartConflict && details.samePartConflictDate) {
+        narrative += ` Atenção: mesma parte em ${details.samePartConflictDate} — bloqueado pelo gate de não-repetição salvo se não houver alternativa.`;
     }
 
     return `${narrative}\n\n📅 ${datesText}`;
