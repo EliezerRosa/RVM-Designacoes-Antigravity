@@ -1,5 +1,5 @@
 import { EnumFuncao, EnumModalidade, type HistoryRecord, type Publisher, type WorkbookPart } from '../types';
-import { getModalidadeFromTipo } from '../constants/mappings';
+import { getModalidadeFromTipo, isAutoAssignedToChairman } from '../constants/mappings';
 import { getBlockInfo, isBlocked, type CooldownInfo } from './cooldownService';
 import { buildEligibilityContext, checkEligibility, getCompatiblePartTypes, isElderOrMS } from './eligibilityService';
 import { calculateScore, getMostRecentFSMRole, getRankedCandidates, getRotationConfig, type RotationScore, wasRecentlyPairedWith, calculateSectionDebt, isFSMHistoryRecord } from './unifiedRotationService';
@@ -83,6 +83,8 @@ function buildInWeekMap(targetPart: WorkbookPart, allWeekParts: WorkbookPart[]):
         if (weekPart.id === targetPart.id) continue;
         if (weekPart.weekId !== targetPart.weekId) continue;
         if (weekPart.status === 'CANCELADA') continue;
+        // Derivadas do presidente são espelho da Presidência, não designação própria — senão o presidente atual se auto-exclui da própria parte.
+        if (isAutoAssignedToChairman(weekPart.tipoParte)) continue;
 
         const assignedName = weekPart.resolvedPublisherName || weekPart.rawPublisherName;
         if (!assignedName || inWeekMap.has(assignedName)) continue;

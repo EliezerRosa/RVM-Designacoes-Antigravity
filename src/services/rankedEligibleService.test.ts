@@ -234,6 +234,18 @@ test('FILA DE PRESIDÊNCIA: bucket = nº de presidências na janela; quem presid
     assert.equal(result.eligibleCandidates[0]?.publisher.id, elderB.id, 'Fila cíclica vence proximidade/carga');
 });
 
+test('PRESIDÊNCIA: derivadas do presidente (Comentários/Oração Inicial) não excluem o próprio presidente ao avaliar a Presidência como vaga', () => {
+    const presidentePart: WorkbookPart = { ...targetTreasuresPart, id: 'part-pres', section: 'Presidência', tipoParte: 'Presidente', modalidade: 'Presidência', tituloParte: 'Presidente' };
+    const derived: WorkbookPart = { ...presidentePart, id: 'part-ci', tipoParte: 'Comentários Iniciais', modalidade: 'Comentários', tituloParte: 'Comentários Iniciais', resolvedPublisherId: mockElder.id, resolvedPublisherName: mockElder.name, rawPublisherName: mockElder.name };
+
+    const result = getRankedEligibleForPart(presidentePart, [presidentePart, derived], [mockElder], []);
+    const cand = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+
+    assert.equal(cand?.eligible, true, 'Derivada não conta como designação própria');
+    assert.equal(cand?.inOtherPartSameWeek, undefined);
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, mockElder.id);
+});
+
 test('Q2 ALTERNÂNCIA: bloqueia enquanto há alternativa, mas relaxa (4º estágio) quando todos estão barrados', () => {
     const sisterB: Publisher = { ...mockSister, id: 'pub-sister-2', name: 'Irmã B' };
     const fsmTitular = (pub: Publisher, id: string, date: string) =>
