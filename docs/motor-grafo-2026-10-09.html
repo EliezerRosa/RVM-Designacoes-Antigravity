@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Motor de Designações RVM — grafo da versão 2026-10-09.02</title>
+<title>Motor de Designações RVM — grafo da versão 2026-10-09.03</title>
 <style>
   :root { --bg:#f8fafc; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --accent:#2563eb; --changed:#16a34a; }
   * { box-sizing: border-box; }
@@ -37,7 +37,7 @@
 </head>
 <body>
 <header>
-  <h1>Motor de Designações — versão <code>2026-10-09.02</code> (motor-fix-1..7)
+  <h1>Motor de Designações — versão <code>2026-10-09.03</code> (motor-fix-1..8)
     <span class="legend"><span class="n">inalterado</span><span class="c">alterado nesta versão</span><span class="g">decisão / gate</span></span>
   </h1>
   <p>Clique em qualquer nó para ler, em linguagem natural, o que ele faz e qual o seu efeito efetivo nas designações. Passe o mouse para o resumo.</p>
@@ -86,7 +86,7 @@ flowchart TB
     R5 --> R6[calculateScore: proximidade MAIN,<br/>carga ±12 sem, frescor nesta parte]
     R6 --> R7[Bucket categórico: fila de presidência,<br/>garantia de estudante, irmãs, Leitor EBC]
     R7 --> R8[Dívida de seção —<br/>só partes da mesma classe]
-    R8 --> R9{Gates com relaxamento:<br/>mesma-parte + seção → mesma-parte → nenhum}
+    R8 --> R9{Gates com relaxamento:<br/>Q2/Q3 + mesma-parte + seção → … → nenhum}
     R9 --> R10[Ordenação lexicográfica:<br/>proximidade › carga › frescor › esquecimento › total › nome]
     R10 --> R11[eligibleCandidates ordenados<br/>allCandidates inclui barrados por gate]
   end
@@ -95,8 +95,8 @@ flowchart TB
 
   classDef changed fill:#dcfce7,stroke:#16a34a,color:#052e16;
   classDef gate fill:#fef3c7,stroke:#d97706,color:#431407;
-  class GHO,F05,SYN,INV,SEL,CI,AUD,R1b,R6,R7,R8,R11 changed;
-  class R3,R4,R5,R9,DRY,WK gate;
+  class GHO,F05,SYN,INV,SEL,CI,CD,AUD,R1b,R4,R5,R6,R7,R8,R9,R11 changed;
+  class R3,DRY,WK gate;
 
   click ENT call showNode("ENT") "Dados de entrada do motor"
   click ESC call showNode("ESC") "Quais partes o motor pode tocar"
@@ -184,10 +184,10 @@ CP: { t:'proposal', faz:'Parte PENDENTE ou PROPOSTA recebe o publicador via prop
 CC: { t:'cleanup de cântico', faz:'Cântico com lixo é zerado e fica CONCLUIDA.', efeito:'Comportamento inalterado: cânticos não aparecem como pendência.', codigo:'isCleanablePart → CONCLUIDA' },
 CI: { t:'cleanup-invalid', mudou:true, faz:'Parte não-cântico cujo publicador era inelegível e não teve substituto é zerada (nome e id) e volta a PENDENTE.',
   efeito:'A pendência continua visível para o operador. Antes virava CONCLUIDA vazia.', codigo:"status: 'PENDENTE', resolvedPublisherId: null" },
-CD: { t:'direct-update', faz:'Parte já DESIGNADA/APROVADA incluída por regeneração explícita recebe apenas o novo nome.',
-  efeito:'Atenção: o resolvedPublisherId antigo permanece (bug B5, ainda aberto) — o motor continuará creditando a pessoa anterior até que o id seja corrigido.', codigo:'updatePart({ resolvedPublisherName })' },
+CD: { t:'direct-update', mudou:true, faz:'Parte já DESIGNADA/APROVADA incluída por regeneração explícita recebe o novo nome e o novo id.',
+  efeito:'Identidade coerente: o motor passa a creditar a pessoa certa. Antes só o nome mudava e o id continuava apontando para a anterior.', codigo:'updatePart({ resolvedPublisherName, resolvedPublisherId })' },
 AUD: { t:'Snapshot de auditoria', mudou:true, faz:'Para cada semana gerada, grava no audit_log a configuração vigente e a versão das regras.',
-  efeito:'Agora certifica a versão real (2026-10-09.02). Estava congelada em 2024-01-27 enquanto as regras mudaram dezenas de vezes.', codigo:'ELIGIBILITY_RULES_VERSION' },
+  efeito:'Agora certifica a versão real (2026-10-09.03). Estava congelada em 2024-01-27 enquanto as regras mudaram dezenas de vezes.', codigo:'ELIGIBILITY_RULES_VERSION' },
 PICK: { t:'pickCanonicalCandidate', faz:'Chama o ranking para a parte, usando as partes da semana já materializadas com as escolhas do batch, e pega o primeiro de eligibleCandidates.',
   efeito:'Greedy puro: não há retrocesso. A parte recebe quem está no topo naquele instante, dado tudo que já foi decidido antes dela.', codigo:'rankedResult.eligibleCandidates[0]' },
 R1: { t:'Elegibilidade estrutural', faz:'Gate duro: atuante, não desqualificado, não pediu ausência, não pausado, disponível na semana (só para o futuro), "só ajudante" nunca titular, opt-out por seção, e as regras da modalidade (presidir exige canPreside; oração exige irmão batizado; discurso de ensino exige ancião/SM; EBC exige ancião; Leitor exige irmão batizado; etc.). Ajudante deve ser do mesmo sexo do titular, salvo cônjuge e pai/filho.',
@@ -198,18 +198,18 @@ R2: { t:'Memória de recusa', faz:'Nomes passados em excludedPublisherNames (que
   efeito:'Evita repropor a mesma parte a quem acabou de recusá-la. O motor automático não usa esta opção; o agente e a reatribuição usam.', codigo:'options.excludedPublisherNames' },
 R3: { t:'Uma parte por semana', faz:'Quem já tem parte designada na semana (incluindo escolhas do batch) é inelegível — exceto para Oração Final.',
   efeito:'Gate duro sem relaxamento. Oração Final prefere quem não tem parte (bucket 1), aceita quem tem (bucket 2), nunca o presidente.', codigo:'inWeekMap + excludeAssignedInSameWeek' },
-R4: { t:'Q2 · Alternância FSM', faz:'Em partes do Faça Seu Melhor: quem foi Titular nas últimas 4 semanas não é Titular; quem foi Ajudante não é Ajudante (salvo "só ajudante").',
-  efeito:'Força a progressão Ajudante → Titular → Ajudante. Gate duro, sem relaxamento (bug B6 aberto: pool pequeno pode ficar vazio).', codigo:'getMostRecentFSMRole' },
-R5: { t:'Q3 · Par recente', faz:'Ajudante que fez par com este mesmo titular nas últimas 4 semanas é inelegível, salvo cônjuge ou pai/filho.',
-  efeito:'Varia as duplas. Família pode repetir.', codigo:'wasRecentlyPairedWith' },
+R4: { t:'Q2 · Alternância FSM', mudou:true, faz:'Em partes do Faça Seu Melhor: quem foi Titular nas últimas 4 semanas não é Titular; quem foi Ajudante não é Ajudante (salvo "só ajudante"). Agora é um gate do motor, não inelegibilidade.',
+  efeito:'Força a progressão Ajudante → Titular → Ajudante enquanto houver alternativa; se o pool esvaziar, relaxa (4º estágio) em vez de deixar a parte vazia. O candidato barrado aparece em allCandidates com engineGateReason.', codigo:'getMostRecentFSMRole → engineGateReason' },
+R5: { t:'Q3 · Par recente', mudou:true, faz:'Ajudante que fez par com este mesmo titular nas últimas 4 semanas fica barrado, salvo cônjuge ou pai/filho. Gate relaxável.',
+  efeito:'Varia as duplas sem jamais deixar um ajudante por preencher. Família pode repetir.', codigo:'wasRecentlyPairedWith → engineGateReason' },
 R6: { t:'calculateScore', mudou:true, faz:'Calcula três medidas: proximidade (soma graduada de qualquer parte MAIN em ±4 semanas, passado e futuro), carga (nº de partes em ±12 semanas) e frescor nesta parte (semanas desde a última vez, elevado a 1,5). Também marca conflito de mesma-parte em ±4 semanas.',
-  efeito:'Para demonstrações, o "mesma parte" agora reconhece quem foi titular de qualquer demonstração — antes só via ajudantes, então todo titular recente aparecia como "nunca fez" (frescor máximo) e escapava do gate de não-repetição. O número "score" continua existindo, mas não decide nada.', codigo:'isSamePartType por modalidade' },
+  efeito:'Para demonstrações, o "mesma parte" reconhece quem foi titular de qualquer demonstração. Oração Final deixou de contar como carga ao avaliar outras partes (continua contando ao avaliar a própria Oração Final). A explicação textual agora mostra as três chaves que decidem — o número "score" é legado e não decide nada.', codigo:'isSamePartType por modalidade · isMine com exceção Oração Final · explanation lexicográfica' },
 R7: { t:'Bucket categórico', mudou:true, faz:'Antes de ordenar, separa em faixas (menor = primeiro). <b>Presidente</b>: faixa = nº de presidências nas últimas 52 semanas — fila cíclica: ninguém recebe a (k+1)-ésima enquanto houver elegível disponível com k. <b>Partes de estudante</b> (leitura, demonstração, discurso de estudante): ancião/SM sem nenhuma parte de estudante, como titular ou ajudante, em ±13 semanas → faixa 0, antes das irmãs, limitado a 2 titulares ancião/SM por semana; fora da seca, demonstração: irmãs 1, irmãos 2, SM 3, anciãos 4; leitura/discurso: publicador 1, SM 2, ancião 3. <b>Leitor EBC</b>: publicador 1, SM 2, ancião 3. <b>Oração Final</b>: sem outra parte 1, com parte 2.',
   efeito:'Faixa vence proximidade e carga. A presidência passa a rodar por todos os presidenciáveis antes de repetir (decisão 2026-10-09; antes José Luiz chegava à 8ª enquanto outros tinham 2). Todo ancião/SM volta a fazer uma parte de estudante a cada ~3 meses, sem inundar as semanas (teto 2) nem tirar anciãos do ensino (F1/F2 rodam antes de F3). A antiga promoção condicionada a cobertura de Tesouros+Vida Cristã foi removida.', codigo:'computePriorityBucket · countPresidenciesInCycle · isElderOrMSInStudentDrought · PRESIDENCY_CYCLE_WINDOW_WEEKS / STUDENT_PART_GUARANTEE_WEEKS / STUDENT_GUARANTEE_MAX_PER_WEEK' },
 R8: { t:'Dívida de seção', mudou:true, faz:'Soft gate: não repetir uma parte da seção antes de fazer as outras partes da mesma classe que ainda não fez desde então. Tesouros: Discurso ↔ Joias. Vida Cristã: Parte VC ↔ Dirigente EBC.',
   efeito:'Antes a lista incluía Leitura da Bíblia e Leitor EBC: um ancião que nunca faz essas partes ficava bloqueado para sempre no primeiro passe — caso Israel Vieira, que só recebia parte por fallback ou à mão. Agora a dívida só envolve partes que ele realmente roda.', codigo:'getEligibleSectionPartTypes' },
-R9: { t:'Gates com relaxamento', faz:'Tenta montar o ranking com mesma-parte + seção. Se ninguém sobra, só mesma-parte. Se ainda ninguém, aceita todos os elegíveis.',
-  efeito:'Garante que a parte nunca fica vazia por causa destes dois gates. Q2/Q3 e mesma-semana não participam do relaxamento.', codigo:'buildRankedMap ×3' },
+R9: { t:'Gates com relaxamento', mudou:true, faz:'Tenta montar o ranking com Q2/Q3 + mesma-parte + seção. Se ninguém sobra: Q2/Q3 + mesma-parte. Depois só Q2/Q3. Por fim, aceita todos os elegíveis.',
+  efeito:'Garante que a parte nunca fica vazia por causa de nenhum gate do motor. Só elegibilidade estrutural e mesma-semana permanecem absolutos.', codigo:'buildRankedMap ×4' },
 R10: { t:'Ordenação lexicográfica', faz:'Dentro de cada bucket, ordena estritamente por: menor proximidade MAIN; depois menor carga ±12; depois maior frescor nesta parte; depois quem está há mais tempo sem qualquer parte; depois menos participações no ano; depois nome.',
   efeito:'É este critério — e não o score aditivo — que decide quem é designado. Espaçamento é o valor supremo; carga só desempata entre proximidades iguais; frescor roteia a parte para quem está mais "devido" dela.', codigo:'getRankedCandidates' },
 R11: { t:'Saída', mudou:true, faz:'eligibleCandidates: os que passaram em tudo, ordenados. allCandidates: eles + os elegíveis barrados por gate (com samePartBlocked/sectionBlocked) + os inelegíveis com motivo.',

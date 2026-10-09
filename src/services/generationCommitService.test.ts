@@ -120,5 +120,5 @@ test('commitGeneratedAssignment updates assigned parts directly when they are al
     });
 
     assert.equal(result.mode, 'direct-update');
-    assert.deepEqual(updates, [{ resolvedPublisherName: 'Carlos Dias' }]);
+    assert.deepEqual(updates, [{ resolvedPublisherName: 'Carlos Dias', resolvedPublisherId: 'pub-1' }]);
 });

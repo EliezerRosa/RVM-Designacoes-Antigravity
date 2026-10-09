@@ -60,6 +60,7 @@ export function createGenerationCommitService(dependencies: GenerationCommitDepe
 
             await dependencies.workbookMutations.updatePart(partId, {
                 resolvedPublisherName: publisher.name,
+                ...(publisher.id && publisher.id !== 'preassigned' ? { resolvedPublisherId: publisher.id } : {}),
             });
             return { committed: true, mode: 'direct-update' as const };
         },
