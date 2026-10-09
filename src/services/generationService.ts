@@ -270,6 +270,13 @@ export const generationService = {
                 return rankedResult.eligibleCandidates[0]?.publisher || null;
             };
 
+            // Tamanho do pool elegível (antes dos gates relaxáveis) — mede a escassez real da parte nesta semana.
+            const countEligibleCandidates = (targetPart: WorkbookPart): number =>
+                getRankedEligibleForPart(targetPart, buildWorkingWeekParts(targetPart.weekId), publishers, historyRecords, {
+                    applyEngineRules: true,
+                    excludeAssignedInSameWeek: true,
+                }).allCandidates.filter(c => c.eligible).length;
+
             // Rastreamento in-loop para cooldown imediato
 
 
@@ -397,31 +404,26 @@ export const generationService = {
                 const presidentePart = weekParts.find(p => p.tipoParte.toLowerCase().includes('presidente') && p.funcao === 'Titular');
                 const presidenteDaSemana = presidentePart ? selectedPublisherByPart.get(presidentePart.id)?.name : undefined;
 
-                // --- FASE 2: ENSINO ---
-                // v9.5: Add missing Teaching types to ensure they use Ranked Selection (not strict blocking)
-                const tiposEnsino = [
-                    'Discurso Tesouros',
-                    'Joias Espirituais',
-                    'Dirigente EBC',
-                    'Leitor EBC',
-                    'Discurso de Ensino',
-                    'Parte Vida Cristã',
-                    'Parte Vida Crista'
-                ];
-                for (const tipoEnsino of tiposEnsino) {
-                    const ensinoParts = weekPartsToAssign.filter(p =>
-                        p.tipoParte === tipoEnsino &&
-                        p.funcao === 'Titular' &&
-                        !selectedPublisherByPart.has(p.id)
-                    );
+                // --- FASE 2: ENSINO — ordem por ESCASSEZ REAL (decisão Eliezer 2026-10-09, 3.5b) ---
+                // Cada parte de ensino da semana é ordenada pelo nº de candidatos elegíveis no momento;
+                // a de pool menor escolhe primeiro. Substitui a lista fixa (Tesouros › Joias › EBC › …).
+                const ENSINO_MODALIDADES: string[] = [EnumModalidade.DISCURSO_ENSINO, EnumModalidade.DIRIGENTE_EBC, EnumModalidade.LEITOR_EBC];
+                const ensinoParts = weekPartsToAssign.filter(p =>
+                    p.funcao === 'Titular' &&
+                    !selectedPublisherByPart.has(p.id) &&
+                    ENSINO_MODALIDADES.includes(p.modalidade || getModalidadeFromTipo(p.tipoParte, p.section))
+                );
+                const ensinoByScarcity = ensinoParts
+                    .map(p => ({ p, pool: countEligibleCandidates(p) }))
+                    .sort((a, b) => a.pool - b.pool || a.p.seq - b.p.seq);
 
-                    for (const ensinoPart of ensinoParts) {
-                        const candidate = pickCanonicalCandidate(ensinoPart);
+                for (const { p: ensinoPart } of ensinoByScarcity) {
+                    if (selectedPublisherByPart.has(ensinoPart.id)) continue;
+                    const candidate = pickCanonicalCandidate(ensinoPart);
 
-                        if (candidate) {
-                            selectedPublisherByPart.set(ensinoPart.id, { id: candidate.id, name: candidate.name });
-                            totalWithPublisher++;
-                        }
+                    if (candidate) {
+                        selectedPublisherByPart.set(ensinoPart.id, { id: candidate.id, name: candidate.name });
+                        totalWithPublisher++;
                     }
                 }
 

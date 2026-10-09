@@ -8,7 +8,6 @@ export interface RankedEligibleCandidate {
     publisher: Publisher;
     eligible: boolean;
     reason?: string;
-    score: number;
     scoreData: RotationScore;
     blocked: boolean;
     cooldownInfo: CooldownInfo | null;
@@ -354,7 +353,6 @@ export function getRankedEligibleForPart(
             publisher,
             eligible: eligibility.eligible,
             reason: eligibility.reason,
-            score: scoreData.score,
             scoreData,
             blocked,
             cooldownInfo,

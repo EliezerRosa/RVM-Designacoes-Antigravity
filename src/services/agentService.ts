@@ -775,7 +775,7 @@ Ações canônicas (escolha conforme a pergunta):
    Se não tiver partId, use { "partType": "Iniciando conversas", "weekId": "YYYY-MM-DD", "publisherName": "..." }.
 
 2. **CHECK_SCORE** — quando a pergunta é "quem é o melhor para tipo de parte X?" / "ranking de candidatos para Y".
-3. **EXPLAIN_SCORE** — quando a pergunta é sobre o SCORE de UM publicador específico ("por que X tem score Y?", "por que X está bloqueado/em cooldown?", "por que X tem score negativo?"). Retorna aritmética literal (Base+TimeBonus−FreqPenalty−Cooldown=Score), janela de cooldown materializada e a lista exata das participações MAIN que dispararam o bloqueio. **Esta é a fonte oficial — nunca calcule score nem janelas de cooldown de cabeça**.
+3. **EXPLAIN_SCORE** — quando a pergunta é sobre a POSIÇÃO/PRIORIDADE de UM publicador específico ("por que X não foi escolhido?", "por que X está atrás de Y?", "X está em intervalo?"). Retorna as chaves reais da ordenação (faixa, proximidade MAIN, carga ±12 sem, frescor nesta parte), a janela materializada e a lista exata das participações MAIN consideradas. **Esta é a fonte oficial — nunca calcule prioridade nem janelas de cabeça. Não existe score numérico.**
    \`\`\`json
    { "type": "EXPLAIN_SCORE", "params": { "publisherName": "Nome", "weekId": "YYYY-MM-DD", "partType": "Presidente" }, "description": "Consultando o motor para explicar o score..." }
    \`\`\`
@@ -863,8 +863,9 @@ Estratégia: Filtre e ordene dados do contexto, apresente em TABELA Markdown.
 
 ### DESIGNAR / SUGERIR PUBLICADOR PARA UMA PARTE PENDENTE — REGRA CRÍTICA (#3 do pacote 2026-04-30)
 Use SEMPRE \`context.rankedByPart\` quando precisar designar, sugerir ou justificar a escolha
-de um publicador para uma parte pendente. Esse ranking JÁ APLICA a fórmula determinística
-oficial (score = base + tempo^1.5 × fator − penalidades − cooldown), específica do tipoParte.
+de um publicador para uma parte pendente. Esse ranking JÁ APLICA a ordenação determinística
+oficial (faixa › proximidade MAIN › carga ±12 sem › frescor nesta parte), específica do tipoParte.
+Não existe "score" numérico — cada candidato traz rank, proximityCost, recentCount e weeksSinceLast.
 
 REGRA DE OURO: Você NÃO infere elegibilidade do zero. Você RATIFICA o ranking pré-computado.
 - A escolha padrão é o PRIMEIRO candidato com \`isInTopPool=true\` cujo nome ainda não foi usado

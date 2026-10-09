@@ -6,11 +6,13 @@
 
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { getEligibilityStats, ELIGIBILITY_RULES_VERSION } from './eligibilityService';
-import { calculateScore, getRankedCandidates, ROTATION_CONFIG, isStatPart } from './unifiedRotationService';
+import { getRankedCandidates, ROTATION_CONFIG, isStatPart } from './unifiedRotationService';
 import { AGENT_CONTEXT_WEEKS, AGENT_HISTORY_LOOKBACK_WEEKS, AGENT_LIST_LOOKBACK_WEEKS } from '../constants/config';
 import { toLocalISODate } from '../utils/dateUtils';
 
-export const RULES_TEXT_VERSION = '2024-01-27.01'; // v8.3 - Elegibilidade no contexto
+// Deve ser igual a ELIGIBILITY_RULES_VERSION sempre que o texto de regras lido pelo agente for atualizado
+// (AdminDashboard audita a sincronia). Bump manual = confirmação de que o prompt reflete o motor.
+export const RULES_TEXT_VERSION = '2026-10-09.04';
 
 // ===== Tipos =====
 
@@ -145,7 +147,9 @@ export interface AgentContext {
         funcao: string;
         topCandidates: Array<{
             name: string;
-            score: number;
+            rank: number;
+            proximityCost: number;
+            recentCount: number;
             weeksSinceLast: number;
             isInTopPool: boolean;
         }>;
@@ -442,9 +446,7 @@ export function buildAgentContext(
     // Analytics de participação (usa lista completa 'parts')
     const participationAnalytics = buildParticipationAnalytics(parts, publishers);
 
-    // GERAR LISTA DE PRIORIDADE (GENÉRICA)
-    // Calcula score considerando uma parte "padrão" (sem bônus de irmã/função específica)
-    // Isso dá ao agente uma visão clara de quem está "na fila" há mais tempo
+    // GERAR LISTA DE PRIORIDADE (GENÉRICA) — ordem lexicográfica real (proximidade › carga › frescor), parte "Generic".
     const historyRecords = _history.length > 0 ? _history : parts.map(p => ({
         ...p,
         duracao: parseInt(p.duracao) || 0,
@@ -456,17 +458,9 @@ export function buildAgentContext(
         createdAt: new Date().toISOString()
     } as unknown as HistoryRecord)); // Fallback simples se history não vier
 
-    const priorityList = activePublishers.map(p => {
-        const scoreData = calculateScore(p, 'Generic', historyRecords);
-        return {
-            name: p.name,
-            score: scoreData.score,
-            explanation: scoreData.explanation
-        };
-    })
-        .sort((a, b) => b.score - a.score) // Maior score primeiro
+    const priorityList = getRankedCandidates(activePublishers, 'Generic', historyRecords)
         .slice(0, 20) // Top 20
-        .map(res => `${res.name} (Score ${res.score}): ${res.explanation}`);
+        .map((r, i) => `${i + 1}. ${r.publisher.name}: ${r.scoreData.explanation}`);
 
     // RANKING POR PARTE PENDENTE (#3 do pacote 2026-04-30).
     // Top-5 candidatos por parte sem designado, com score específico do tipoParte.
@@ -477,18 +471,21 @@ export function buildAgentContext(
         const histForRanking = historyRecords.filter(h => h.weekId !== part.weekId);
         const ranked = getRankedCandidates(activePublishers, part.tipoParte, histForRanking, undefined, refDate);
         const top = ranked.slice(0, TOP_K);
-        const topScore = top.length > 0 ? top[0].scoreData.score : 0;
+        const topKey = top.length > 0 ? `${top[0].scoreData.details.proximityCost}|${top[0].scoreData.details.recentCount}` : '';
         return {
             partId: part.id,
             weekDisplay: part.weekDisplay,
             section: part.section,
             tipoParte: part.tipoParte,
             funcao: part.funcao,
-            topCandidates: top.map(r => ({
+            topCandidates: top.map((r, i) => ({
                 name: r.publisher.name,
-                score: r.scoreData.score,
+                rank: i + 1,
+                proximityCost: r.scoreData.details.proximityCost,
+                recentCount: r.scoreData.details.recentCount,
                 weeksSinceLast: r.scoreData.weeksSinceLast,
-                isInTopPool: r.scoreData.score === topScore,
+                // Empate nas duas primeiras chaves com o 1º colocado — "igualmente devidos".
+                isInTopPool: `${r.scoreData.details.proximityCost}|${r.scoreData.details.recentCount}` === topKey,
             })),
         };
     });

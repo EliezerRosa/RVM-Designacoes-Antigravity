@@ -213,11 +213,12 @@ export const SemanticDraggableGenerator: React.FC<Props> = ({ weekId, parts, pub
             const candidatePublishers = eligibleResult.eligibleCandidates.map(c => c.publisher);
 
             const ranked: RankedSuggestion[] = candidatePublishers.map(pub => {
-                const rotationCandidate = eligibleResult.eligibleCandidates.find(c => c.publisher.id === pub.id);
+                const rotationRank = eligibleResult.eligibleCandidates.findIndex(c => c.publisher.id === pub.id);
                 const semanticScore = calculateSemanticScore(pub, finalRule, publishers, affinityMap);
-                
-                // Combina pontuação semântica com o score de rotação (critério de desempate)
-                const combinedScore = semanticScore.score + (rotationCandidate ? rotationCandidate.score / 100 : 0);
+
+                // Desempate pela posição no ranking lexicográfico do motor (1º lugar = +1, decrescendo).
+                const rotationTieBreak = rotationRank >= 0 ? (candidatePublishers.length - rotationRank) / candidatePublishers.length : 0;
+                const combinedScore = semanticScore.score + rotationTieBreak;
 
                 return {
                     publisher: pub,

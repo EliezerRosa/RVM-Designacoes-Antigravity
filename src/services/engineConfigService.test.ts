@@ -4,12 +4,7 @@ import type { EngineConfig } from '../types';
 import { createEngineConfigService } from './engineConfigServiceCore';
 
 const baseConfig: EngineConfig = {
-    BASE_SCORE: 100,
-    TIME_POWER: 1.5,
-    TIME_FACTOR: 8,
-    RECENT_PARTICIPATION_PENALTY: 50,
     MAX_LOOKBACK_WEEKS: 52,
-    HEAVY_ROLE_BASE: 4000,
     HEAVY_ROLE_RADIUS: 4,
     ROLE_ALTERNATION_WINDOW_WEEKS: 4,
     PAIR_REPETITION_WINDOW_WEEKS: 4,
@@ -39,7 +34,7 @@ test('updateEngineConfig shallow-merges flat settings, persists merged config an
 
     assert.equal(result.mergedConfig.HEAVY_ROLE_RADIUS, 5);
     assert.equal(result.mergedConfig.STUDENT_GUARANTEE_MAX_PER_WEEK, 1);
-    assert.equal(result.mergedConfig.BASE_SCORE, 100);
+    assert.equal(result.mergedConfig.PRESIDENCY_CYCLE_WINDOW_WEEKS, 52);
     assert.equal(result.mergedConfig.MAX_LOOKBACK_WEEKS, 52);
     assert.deepEqual(persistedConfig, result.mergedConfig);
     assert.deepEqual(appliedSettings, {

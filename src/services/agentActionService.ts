@@ -314,10 +314,9 @@ export const agentActionService = {
                 }
 
                 case 'EXPLAIN_SCORE': {
-                    // Determinístico: explica POR QUE um publicador tem o score X numa parte/semana,
-                    // com aritmética literal (Base + TimeBonus - FreqPenalty - Cooldown) e a janela
-                    // de cooldown materializada (lista de participações MAIN nas últimas N semanas).
-                    // Substitui o LLM como fonte de verdade para "por que X tem score Y / está bloqueado".
+                    // Determinístico: explica a POSIÇÃO de um publicador numa parte/semana pelas chaves reais
+                    // (faixa › proximidade MAIN › carga › frescor) e materializa as janelas consideradas.
+                    // Substitui o LLM como fonte de verdade para "por que X não foi escolhido / está atrás de Y".
                     const { publisherName, partType: ptHint, weekId: wHint, partId } = action.params;
 
                     const norm = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -402,13 +401,16 @@ export const agentActionService = {
                     lines.push(`Parte: *${targetPart.tituloParte || targetPart.tipoParte}* — Semana ${targetPart.weekId}`);
                     if (candidateSnapshot) {
                         lines.push(`Pode participar agora: **${candidateSnapshot.eligible ? 'sim' : `não (${candidateSnapshot.reason})`}**`);
+                        const rankPos = rankedResult.eligibleCandidates.findIndex(c => c.publisher.id === publisher.id);
+                        lines.push(`Posição na fila desta parte: **${rankPos >= 0 ? `${rankPos + 1}º de ${rankedResult.eligibleCandidates.length}` : 'fora da fila'}** — faixa ${candidateSnapshot.priorityBucket}${candidateSnapshot.sectionBlocked ? ' · deve outras partes da seção' : ''}${candidateSnapshot.engineGateReason ? ` · ${candidateSnapshot.engineGateReason}` : ''}`);
                     }
                     lines.push('');
                     lines.push(`**Como o sistema decide quem entra (em ordem de prioridade):**`);
+                    lines.push(`0º) Faixa: regras categóricas (fila de presidência, garantia de estudante para anciãos/SMs, irmãs em demonstrações).`);
                     lines.push(`1º) Quem não tem outra parte importante em semanas próximas — este é o critério principal.`);
                     lines.push(`2º) Em caso de empate: quem tem menos partes nas últimas e próximas semanas.`);
-                    lines.push(`3º) Em novo empate: quem está há mais tempo sem participar.`);
-                    lines.push(`O número ao lado (${sd.score}) é só um indicador antigo de exibição — não é ele que decide.`);
+                    lines.push(`3º) Em novo empate: quem está há mais tempo sem fazer esta parte.`);
+                    lines.push(`Não existe pontuação numérica — são estes critérios, nesta ordem.`);
                     lines.push('');
                     lines.push(`**Há quanto tempo não faz esta mesma parte:** ${sd.weeksSinceLast} semana(s).`);
                     if (sd.lastDate) lines.push(`Última vez nesta parte: ${fmtDate(sd.lastDate)}.`);
@@ -416,8 +418,8 @@ export const agentActionService = {
                     lines.push(`**Quantas partes tem por perto** (somando as últimas e as próximas semanas): ${sd.details.recentCount}.`);
                     lines.push('');
                     lines.push(`**Tem outra parte importante em semanas próximas?** (até 4 semanas antes ou depois) — critério principal:`);
-                    if (sd.details.mainProximityPenalty > 0) {
-                        lines.push(`Sim — e isso reduz a prioridade dela. Partes próximas:`);
+                    if (sd.details.proximityCost > 0) {
+                        lines.push(`Sim — e isso reduz a prioridade dela (custo de proximidade ${sd.details.proximityCost.toFixed(2)}). Partes próximas:`);
                         const mainProxInWindow = history.filter(h => {
                             const isThis = (publisher?.id && h.resolvedPublisherId === publisher.id) || h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name;
                             if (!isThis) return false;
@@ -467,7 +469,7 @@ export const agentActionService = {
                     return {
                         success: true,
                         message: lines.join('\n'),
-                        data: { publisher: publisher.name, partId: targetPart.id, score: sd.score, breakdown: sd.details, mainInWindow, blocked, cooldownWeeks, windowStart: wStartStr, windowEnd: wEndStr },
+                        data: { publisher: publisher.name, partId: targetPart.id, breakdown: sd.details, weeksSinceLast: sd.weeksSinceLast, bucket: candidateSnapshot?.priorityBucket, mainInWindow, blocked, cooldownWeeks, windowStart: wStartStr, windowEnd: wEndStr },
                         actionType: 'EXPLAIN_SCORE',
                     };
                 }
@@ -506,7 +508,7 @@ export const agentActionService = {
                     if (assignedPub) {
                         lines.push(`\nDesignado atual: **${assignedPub.name}** — Elegível: ${assignedSnapshot?.eligible ? 'sim' : `não (${assignedSnapshot?.reason || 'fora da lista canônica atual'})`}`);
                         if (assignedSnapshot) {
-                            lines.push(`Score: ${assignedSnapshot.scoreData.score} — ${assignedSnapshot.scoreData.explanation}`);
+                            lines.push(`Critérios: ${assignedSnapshot.scoreData.explanation} — faixa ${assignedSnapshot.priorityBucket}`);
                         }
                     } else {
                         // FIX A (2026-04-29): label inequívoco. Antes "— (vago)" era ambíguo;
@@ -516,7 +518,7 @@ export const agentActionService = {
 
                     if (focusPub && (!assignedPub || focusPub.id !== assignedPub.id)) {
                         lines.push(`\nFoco: **${focusPub.name}** — Elegível: ${focusSnapshot?.eligible ? 'sim' : `não (${focusSnapshot?.reason || 'fora da lista canônica atual'})`}`);
-                        if (focusSnapshot) lines.push(`Score: ${focusSnapshot.scoreData.score} — ${focusSnapshot.scoreData.explanation}`);
+                        if (focusSnapshot) lines.push(`Critérios: ${focusSnapshot.scoreData.explanation} — faixa ${focusSnapshot.priorityBucket}`);
                     }
 
                     lines.push(`\n**Top 5 candidatos pelo motor (fonte determinística):**`);
@@ -562,15 +564,17 @@ export const agentActionService = {
                     const top = rankedResult.eligibleCandidates.slice(0, limit).map((c, i) => ({
                         rank: i + 1,
                         name: c.publisher.name,
-                        score: c.scoreData.score,
+                        bucket: c.priorityBucket,
+                        proximityCost: c.scoreData.details.proximityCost,
+                        recentCount: c.scoreData.details.recentCount,
                         weeksSinceLast: c.scoreData.weeksSinceLast,
                         isInCooldown: c.blocked,
                         explanation: c.scoreData.explanation,
                     }));
                     const lines = [`**Ranking determinístico — Top ${limit}** para *${targetPart.tituloParte || partType}* (semana ${targetPart.weekId}):`];
                     top.forEach(t => {
-                        const cd = t.isInCooldown ? ' [⏸ cooldown]' : '';
-                        lines.push(`${t.rank}. ${t.name} — Score ${t.score}${cd} — ${t.explanation}`);
+                        const cd = t.isInCooldown ? ' [⏳ intervalo]' : '';
+                        lines.push(`${t.rank}. ${t.name} — faixa ${t.bucket}${cd} — ${t.explanation}`);
                     });
                     return {
                         success: true,
@@ -2170,14 +2174,14 @@ export const agentActionService = {
                         '',
                         `${elig.eligible ? '✅' : '❌'} **Elegível:** ${elig.eligible ? 'SIM' : 'NÃO'}`,
                         `**Motivo:** ${elig.reason || '(sem restrição)'}`,
-                        `**Score atual:** ${score.score.toFixed(2)}`,
+                        `**Critérios:** ${score.explanation}`,
                         `**Semana:** ${part.weekId}  |  **Seção:** ${part.section || '—'}`,
                     ];
 
                     return {
                         success: true,
                         message: lines.join('\n'),
-                        data: { publisherName: pub.name, part, eligible: elig.eligible, reason: elig.reason, score },
+                        data: { publisherName: pub.name, part, eligible: elig.eligible, reason: elig.reason, criteria: score.details, weeksSinceLast: score.weeksSinceLast },
                         actionType: 'QUERY_ELIGIBILITY'
                     };
                 }

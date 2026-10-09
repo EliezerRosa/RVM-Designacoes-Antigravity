@@ -34,19 +34,9 @@ const KEY_DESCRIPTIONS: Record<string, string> = {
     ROLE_ALTERNATION_WINDOW_WEEKS: 'Gate relaxável — janela (semanas) de alternância Titular↔Ajudante em partes FSM. Escape: publicador "Só Ajudante". 0 desliga.',
     PAIR_REPETITION_WINDOW_WEEKS: 'Gate relaxável — janela (semanas) para não repetir o par titular+ajudante. Bypass: cônjuge e pai/filho. 0 desliga.',
     ENABLE_SECTION_ROTATION_GATE: 'Gate relaxável — rotação intra-seção (Tesouros: Discurso↔Joias; Vida Cristã: Parte VC↔Dirigente EBC). 1 liga, 0 desliga.',
-    // — Apenas exibição (score legado) —
-    BASE_SCORE: 'Exibição: base do score legado. Não altera quem é designado.',
-    TIME_POWER: 'Exibição: expoente do bônus de tempo. Transformação monótona — não altera a ordem.',
-    TIME_FACTOR: 'Exibição: fator do bônus de tempo. Não altera a ordem.',
-    RECENT_PARTICIPATION_PENALTY: 'Exibição: penalidade por participação no score legado. A chave real é a contagem em ±12 semanas.',
-    HEAVY_ROLE_BASE: 'Exibição: escala da penalidade de proximidade no score legado. A chave real é proximityCost.',
 };
 
-const DECISIVE_KEYS: Array<keyof EngineConfig> = [
-    'HEAVY_ROLE_RADIUS', 'MAX_LOOKBACK_WEEKS', 'PRESIDENCY_CYCLE_WINDOW_WEEKS', 'STUDENT_PART_GUARANTEE_WEEKS',
-    'STUDENT_GUARANTEE_MAX_PER_WEEK', 'ROLE_ALTERNATION_WINDOW_WEEKS', 'PAIR_REPETITION_WINDOW_WEEKS', 'ENABLE_SECTION_ROTATION_GATE',
-];
-const DISPLAY_ONLY_KEYS = (Object.keys(DEFAULT_ENGINE_CONFIG) as Array<keyof EngineConfig>).filter(k => !DECISIVE_KEYS.includes(k));
+const ALL_KEYS = Object.keys(DEFAULT_ENGINE_CONFIG) as Array<keyof EngineConfig>;
 
 export function EngineRulesPanel() {
     const initial = useMemo<ConfigKV>(() => ({ ...DEFAULT_ENGINE_CONFIG, ...getRotationConfig() }), []);
@@ -131,11 +121,11 @@ export function EngineRulesPanel() {
         <div style={{ padding: 16 }}>
             <div style={{ marginBottom: 16, padding: 12, background: '#f0f4f8', borderRadius: 8, fontSize: 13 }}>
                 <div><strong>Versão das regras:</strong> <code>{ELIGIBILITY_RULES_VERSION}</code></div>
-                <div><strong>Ordenação real</strong> (dentro de cada faixa): proximidade MAIN › carga ±12 sem › frescor nesta parte › mais esquecido › menos partes no ano › nome. O número “score” é legado e não decide.</div>
+                <div><strong>Ordenação real</strong> (dentro de cada faixa): proximidade MAIN › carga ±12 sem › frescor nesta parte › mais esquecido › menos partes no ano › nome. Todos os parâmetros abaixo decidem quem é designado.</div>
                 <div><strong>Cooldown visual:</strong> {COOLDOWN_WEEKS} semanas (titular) / {COOLDOWN_WEEKS_HELPER} (ajudante) — só indicador; não bloqueia.</div>
             </div>
 
-            {[{ title: 'Decidem quem é designado', keys: DECISIVE_KEYS }, { title: 'Apenas exibição (score legado)', keys: DISPLAY_ONLY_KEYS }].map(group => (
+            {[{ title: 'Parâmetros do motor', keys: ALL_KEYS }].map(group => (
             <div key={group.title} style={{ marginBottom: 16 }}>
             <div style={{ fontWeight: 600, fontSize: 13, color: '#334155', margin: '8px 0' }}>{group.title}</div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
