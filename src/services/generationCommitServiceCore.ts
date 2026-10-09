@@ -1,4 +1,5 @@
 import type { WorkbookPart } from '../types';
+import { isCleanablePart } from '../constants/mappings';
 
 export interface GeneratedPublisherSelection {
     id: string;
@@ -40,12 +41,15 @@ export function createGenerationCommitService(dependencies: GenerationCommitDepe
             }
 
             if (publisher.id === 'CLEANUP' && publisher.name === '') {
+                // Cântico limpo fica CONCLUIDA (não é designável); designação inválida removida volta a PENDENTE para ser refeita.
+                const isSong = isCleanablePart(part.tipoParte);
                 await dependencies.workbookMutations.updatePart(partId, {
                     resolvedPublisherName: null,
+                    resolvedPublisherId: null,
                     rawPublisherName: '',
-                    status: 'CONCLUIDA',
+                    status: isSong ? 'CONCLUIDA' : 'PENDENTE',
                 });
-                return { committed: true, mode: 'cleanup' as const };
+                return { committed: true, mode: isSong ? ('cleanup' as const) : ('cleanup-invalid' as const) };
             }
 
             if (part.status === 'PENDENTE' || part.status === 'PROPOSTA') {
