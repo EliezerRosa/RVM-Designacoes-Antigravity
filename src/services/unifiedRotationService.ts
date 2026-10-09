@@ -20,6 +20,10 @@ import { isManuallyAssignable } from '../constants/s140Template';
 // sobre este MESMO objeto plano via `engineConfigService`.
 let CURRENT_SCORING_CONFIG: EngineConfig = { ...DEFAULT_ENGINE_CONFIG };
 
+// Bônus do score LEGADO (exibição). Não decidem ordenação — irmãs e progressão FSM são tratadas por bucket/gates.
+const LEGACY_SISTER_DEMO_BONUS = 50;
+const LEGACY_FSM_TITULAR_PROMOTION_BONUS = 80;
+
 /**
  * Atualiza a configuração do motor em tempo real
  */
@@ -474,7 +478,7 @@ export function calculateScore(
     // 4. Bônus de Função
     const isDemonstration = pType.includes('demonstra') || pType.includes('estudante');
     if (isDemonstration && publisher.gender === 'sister') {
-        details.roleBonus += CURRENT_SCORING_CONFIG.SISTER_DEMO_PRIORITY;
+        details.roleBonus += LEGACY_SISTER_DEMO_BONUS;
         details.specificAdjustments.push('Prioridade Irmã (Demo)');
     }
 
@@ -486,7 +490,7 @@ export function calculateScore(
     if (isTitularMinistryPart) {
         const lastFsmRecord = pastHistory.find(h => (h.funcao || '').toLowerCase() === 'ajudante' || isFSMHistoryRecord(h));
         if (lastFsmRecord?.funcao === 'Ajudante') {
-            details.roleBonus += CURRENT_SCORING_CONFIG.FSM_TITULAR_PROMOTION_BONUS;
+            details.roleBonus += LEGACY_FSM_TITULAR_PROMOTION_BONUS;
             details.specificAdjustments.push('Progressão FSM: última part. foi Ajudante');
         }
     }
@@ -697,4 +701,9 @@ export function generateNaturalLanguageExplanation(
     return `${narrative}\n\n📅 ${datesText}`;
 }
 
-export const ROTATION_CONFIG = CURRENT_SCORING_CONFIG;
+// Leitura viva da config (antes era snapshot dos defaults e ficava obsoleto após updateRotationConfig).
+export const ROTATION_CONFIG: Readonly<EngineConfig> = new Proxy({} as EngineConfig, {
+    get: (_t, key) => CURRENT_SCORING_CONFIG[key as keyof EngineConfig],
+    ownKeys: () => Object.keys(CURRENT_SCORING_CONFIG),
+    getOwnPropertyDescriptor: (_t, key) => ({ enumerable: true, configurable: true, value: CURRENT_SCORING_CONFIG[key as keyof EngineConfig] }),
+});

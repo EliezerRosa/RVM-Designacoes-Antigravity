@@ -8,10 +8,6 @@ const baseConfig: EngineConfig = {
     TIME_POWER: 1.5,
     TIME_FACTOR: 8,
     RECENT_PARTICIPATION_PENALTY: 50,
-    COOLDOWN_PENALTY: 1500,
-    ELDER_BONUS: 5,
-    SISTER_DEMO_PRIORITY: 50,
-    FSM_TITULAR_PROMOTION_BONUS: 80,
     MAX_LOOKBACK_WEEKS: 52,
     HEAVY_ROLE_BASE: 4000,
     HEAVY_ROLE_RADIUS: 4,
@@ -37,17 +33,17 @@ test('updateEngineConfig shallow-merges flat settings, persists merged config an
     });
 
     const result = await service.updateEngineConfig({
-        COOLDOWN_PENALTY: 2000,
-        ELDER_BONUS: 10,
+        HEAVY_ROLE_RADIUS: 5,
+        STUDENT_GUARANTEE_MAX_PER_WEEK: 1,
     });
 
-    assert.equal(result.mergedConfig.COOLDOWN_PENALTY, 2000);
-    assert.equal(result.mergedConfig.ELDER_BONUS, 10);
+    assert.equal(result.mergedConfig.HEAVY_ROLE_RADIUS, 5);
+    assert.equal(result.mergedConfig.STUDENT_GUARANTEE_MAX_PER_WEEK, 1);
     assert.equal(result.mergedConfig.BASE_SCORE, 100);
     assert.equal(result.mergedConfig.MAX_LOOKBACK_WEEKS, 52);
     assert.deepEqual(persistedConfig, result.mergedConfig);
     assert.deepEqual(appliedSettings, {
-        COOLDOWN_PENALTY: 2000,
-        ELDER_BONUS: 10,
+        HEAVY_ROLE_RADIUS: 5,
+        STUDENT_GUARANTEE_MAX_PER_WEEK: 1,
     });
 });
