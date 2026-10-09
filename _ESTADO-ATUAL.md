@@ -1,8 +1,9 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-09-26 11:50 (BRT)  
+> **Última Atualização**: 2026-10-09 19:50 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável e Operacional em Produção (Fases 12 e 13 Concluídas).  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`), último commit `9bc5524`, árvore limpa.  
+> **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
 > **Checkpoint / Tag Git**: `4aeff4a` (checkpoint-s140-arquitetura)
 
@@ -508,7 +509,52 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ---
 
+## 18. Correções S-140 / Status PDF, Reatribuição e Webhook Jev AI (2026-10-07)
+
+- **S-140 / Status PDF**: resolvida página em branco inicial e página final sobrando (`min-height` do wrapper); texto enganoso de "novas semanas" corrigido; memória de estado errada no despacho manual Modo 3 corrigida. Novo botão de despacho manual do *Status PDF Bot* na Apostila (`6e24429`).
+- **Reatribuição**: bugs cíclicos resolvidos; modal manual ganhou opção de pausar publicador (nome correto da propriedade de motivo de pausa).
+- **Webhook Z-API**: Roteador Cognitivo Jev AI para resolver múltiplas partes futuras no fallback de agenda; ações estritas de botões ignoram protocolo B e o roteador.
+- Scripts utilitários de query/teste do Jev AI commitados em `scripts/` (`77631ad`).
+
+---
+
+## 19. Reforma do Motor de Designações — regras `2026-10-09.05` (2026-10-09)
+
+15 commits (`0a4914a` → `9bc5524`). Decisões do Eliezer registradas nos itens 3.1–3.7 do parecer do motor e consolidadas em `.agents/workflows/motor-invariants.intent.md`.
+
+- **Modelo de decisão (M-0)**: score aditivo REMOVIDO. Escolha = faixa (bucket) + ordem lexicográfica estrita: proximidade MAIN ±4 › carga ±12 › frescor na parte › mais esquecido › menos partes no ano › nome. Gates relaxáveis em cascata (Q2/Q3 + mesma-parte + seção → … → nenhum); gates absolutos: elegibilidade estrutural, disponibilidade, 1 parte/semana (exceto Oração Final).
+- **Presidência (M-1/M-2)**: fila cíclica na janela ±52 sem; F1 roda para todas as semanas antes de F2–F4. Derivadas do presidente não contam como designação própria no `inWeekMap` (motor-fix-12).
+- **Garantia de parte de estudante (M-3)**: ancião/SM sem parte de estudante em ±13 sem → faixa 0; teto 2 titulares/semana. Irmãs têm faixa absoluta em demonstrações fora da seca (M-4).
+- **Ensino por escassez real (M-5)**: partes de ensino processadas da menor para a maior quantidade de candidatos (`countEligibleCandidates`).
+- **Participação (M-6)**: PROPOSTA/DESIGNADA/APROVADA/CONCLUIDA pesam igual; CANCELADA/REJEITADA não contam (`historyAdapter.DEAD_PARTICIPATION_STATUSES`).
+- **Gate de seção (M-7)**: só compara partes da mesma classe (caso Israel Vieira — Leitura da Bíblia e Leitor EBC fora da dívida de seção).
+- **Memória de Recusa semanal universal (M-12)**: quem recusou (`refusal_logs`) ou foi substituído (`substituted_publisher_name`) fica inelegível para qualquer parte da semana — motor, dropdown, painel, reatribuição e sugestão de substituto (`refusalMemoryService`, `getRankedEligibleForPart` como fonte única no `ActionControlPanel`).
+- **Fidelidade do histórico (M-10)**: sem ghost history na regeneração; sanity-check refaz designação inválida em vez de marcar CONCLUIDA vazia.
+- **UI/Agente**: badges de gate no dropdown (`PublisherSelect`), painel de regras honesto (`EngineRulesPanel`), prompt do agente com o modelo lexicográfico (`contextBuilder` RULES_TEXT_VERSION).
+- **Docs**: grafo interativo do ecossistema completo em `docs/motor-grafo-2026-10-09.html` (origem, motor, ranking, ciclo de vida, operação humana, comunicação, recusa, memória) — versão .05 com zoom.
+- **Regra de manutenção**: qualquer alteração em `eligibilityService`/`rankedEligibleService`/`unifiedRotationService`/`generationService` exige bump de `ELIGIBILITY_RULES_VERSION` + `RULES_TEXT_VERSION` + testes `node --test`.
+- **Estado ao encerrar (19:37)**: árvore limpa; não rastreados apenas `scratch/*_probe.ts`, `scripts/check_*.ts`, `participations_out.json`, `backups/`. Excalidraw MCP foi iniciado às 19:18–19:37 (possível intenção de desenhar o grafo) — sem artefato gerado.
+
+---
+
+## 20. ✅ Auditoria Agente (aba Chat) × Permissões × Micro-ações × Micro-modais × Modais de Relatório — 4 gaps resolvidos (2026-10-09 14:51 → 20:30)
+
+- **Pergunta de origem (14:51)**: *"Agente-chat(aba) X permissões (funcionalidades granulares) X micro-actions X micro-modais X modais-relatórios"*.
+- **Relatório (14:55)**: mapa source-only em 5 eixos + **adendo de resolução (20:30)** em `docs/auditoria-agente-permissoes-2026-10-09.md`.
+- **Interrupção 15:05–15:42**: erro **402 `additional_spend_limit_reached`** (teto de gasto adicional do Copilot, não saldo) — 4 "Prossiga" sem resposta. Contexto recuperado às 19:55 a partir do transcript do VS Code.
+- **Resolução dos gaps**:
+  1. 🔴→✅ `FETCH_DATA`/`QUERY_PUBLISHER_*` agora respeitam `dataAccessLevel` + `publisherFilters` e redigem campos pastorais: `permissionFilterCore.ts` (puro, 6 testes), `PermissionGate.getPublisherScope()`, `ResolvedPermissions.selfPublisherId`.
+  2. 🔴→✅ Revalidação **server-side** de TODAS as 21 ações de escrita do agente: RPCs `can_agent_action` / `assert_agent_action` (migration `20261009200000`, aplicada em prod), chamadas fail-closed em `executeAction` (`WRITE_AGENT_ACTIONS`).
+  3. 🟠→✅ Gate local em `TemporalChat.handleQuickEditPublisher` / `handlePreviewPublisherEdit` (único caminho que gravava sem passar por `executeAction`). Aprovar/rejeitar/bloquear data já passavam pelo gate.
+  4. 🟡→✅ (já estava) RLS `publishers`/`workbook_parts` verificado em `pg_policies`: todas as operações exigem `is_editor()` desde 05/08. Residual aceito: granularidade por ação depende do item 2 (RPC chamada pelo cliente).
+- **Regra nova**: ao adicionar `AgentActionType` que grava no banco, incluir em `WRITE_AGENT_ACTIONS`; ao mudar a resolução de permissões no cliente, espelhar em `can_agent_action` (SQL).
+- **Validação**: `tsc --noEmit` limpo; `npm test` 97/97.
+
+---
+
 ## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
+
+0. **Decidir destino dos arquivos não rastreados** (`scratch/`, `scripts/check_*.ts`, `participations_out.json`): commitar como utilitários ou descartar.
 
 1. **Alerta de Desconexão Z-API (P10)**: Implementar monitoramento ativo de webhooks (`on-disconnected`) para alertar o SRVM caso o celular da congregação fique offline ou despareado.
 2. **Monitor Canônico 2.0 (P2)**: Criar a tabela `system_canonical_events` e consolidar todo o fluxo 360º de comunicação visual.

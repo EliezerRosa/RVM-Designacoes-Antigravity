@@ -451,6 +451,12 @@ export default function TemporalChat({
     };
 
     const handleQuickEditPublisher = async (publisherId: string, updates: Partial<Publisher>) => {
+        // Revalidação local: este caminho grava direto no serviço (não passa por executeAction)
+        if (!permissionGate.canAgentAction('UPDATE_PUBLISHER') || !permissionGate.canSeeSensitiveData()) {
+            await appendAssistantMessage('🔒 Seu perfil de permissão não autoriza editar a ficha de publicadores.');
+            return;
+        }
+
         const publisher = publishers.find(item => item.id === publisherId);
         if (!publisher) {
             await appendAssistantMessage('⚠️ Não foi possível localizar o publicador selecionado para edição rápida.');
@@ -489,6 +495,10 @@ export default function TemporalChat({
     };
 
     const handlePreviewPublisherEdit = async (publisherId: string, updates: Partial<Publisher>) => {
+        if (!permissionGate.canAgentAction('UPDATE_PUBLISHER') || !permissionGate.canSeeSensitiveData()) {
+            throw new Error('Seu perfil de permissão não autoriza editar a ficha de publicadores.');
+        }
+
         const publisher = publishers.find(item => item.id === publisherId);
         if (!publisher) {
             throw new Error('Publicador não encontrado para preview.');

@@ -1,6 +1,6 @@
 import type { WorkbookPart, Publisher, HistoryRecord } from '../types';
 import { markManualSelection } from './manualSelectionTracker';
-import { getPermissions, createPermissionGate } from './permissionService';
+import { getPermissions, createPermissionGate, filterAndRedactPublishers, filterPublisherRowsByScope } from './permissionService';
 
 import { generationService } from './generationService';
 import { undoService } from './undoService';
@@ -25,6 +25,7 @@ import { permissionPolicyService } from './permissionPolicyService';
 import { isManuallyAssignable } from '../constants/s140Template';
 import { hasMeetingOccurred, toLocalISODate } from '../utils/dateUtils';
 import { api } from './api';
+import { supabase } from '../lib/supabase';
 
 export type AgentActionType =
     | 'GENERATE_WEEK'
@@ -77,6 +78,32 @@ export interface AgentAction {
     type: AgentActionType;
     params: Record<string, any>;
     description: string;
+}
+
+/**
+ * Ações que gravam no banco. Antes de executá-las, `executeAction` revalida a
+ * permissão no servidor via RPC `assert_agent_action` (espelho de canAgentAction).
+ * Fail-closed: qualquer erro na revalidação bloqueia a escrita.
+ */
+export const WRITE_AGENT_ACTIONS: ReadonlySet<AgentActionType> = new Set<AgentActionType>([
+    'GENERATE_WEEK', 'ASSIGN_PART', 'APPROVE_PROPOSAL', 'REJECT_PROPOSAL', 'COMPLETE_PART',
+    'UNDO_COMPLETE_PART', 'UNDO_LAST', 'CLEAR_WEEK', 'CLEAR_RANGE', 'UPDATE_PUBLISHER',
+    'UPDATE_AVAILABILITY', 'UPDATE_ENGINE_RULES', 'MANAGE_SPECIAL_EVENT', 'SEND_S140', 'SEND_S89',
+    'NOTIFY_REFUSAL', 'MANAGE_LOCAL_NEEDS', 'IMPORT_WORKBOOK', 'MANAGE_WORKBOOK_PART',
+    'MANAGE_WORKBOOK_WEEK', 'MANAGE_PERMISSIONS',
+]);
+
+async function assertServerSideAgentAction(actionType: AgentActionType): Promise<string | null> {
+    try {
+        const { error } = await supabase.rpc('assert_agent_action', { p_action: actionType });
+        if (!error) return null;
+        const denied = error.code === '42501' || /agent_action_denied/i.test(error.message || '');
+        return denied
+            ? `Ação "${actionType}" negada pelo servidor para seu perfil de permissão.`
+            : `Não foi possível revalidar a permissão de "${actionType}" no servidor (${error.message || error.code}). Escrita bloqueada por segurança.`;
+    } catch (e) {
+        return `Não foi possível revalidar a permissão de "${actionType}" no servidor (${e instanceof Error ? e.message : 'erro desconhecido'}). Escrita bloqueada por segurança.`;
+    }
 }
 
 export interface ActionResult {
@@ -195,6 +222,19 @@ export const agentActionService = {
                 message: `Ação "${action.type}" não permitida para seu perfil de permissão.`,
                 actionType: action.type
             };
+        }
+
+        // Escopo de leitura de publicadores (dataAccessLevel + publisherFilters).
+        // Aplicado nas ações de consulta; o pool completo continua disponível para o motor.
+        const publisherScope = gate.getPublisherScope();
+        const scopedPublishers = filterAndRedactPublishers(publishers, publisherScope);
+
+        // Revalidação server-side para ações de escrita (gap 2 da auditoria 2026-10-09)
+        if (WRITE_AGENT_ACTIONS.has(action.type)) {
+            const denial = await assertServerSideAgentAction(action.type);
+            if (denial) {
+                return { success: false, message: denial, actionType: action.type };
+            }
         }
 
         try {
@@ -1030,13 +1070,16 @@ export const agentActionService = {
 
                         const results: Record<string, any[]> = {};
                         for (const t of tablesToQuery) {
-                            results[t] = await dataDiscoveryService.fetchData({
+                            const rows = await dataDiscoveryService.fetchData({
                                 table: t,
                                 select,
                                 filters,
                                 limit: limit || 50,
                                 order
                             });
+                            results[t] = t === 'publishers'
+                                ? filterPublisherRowsByScope((rows || []) as Array<{ id: string; data?: Record<string, unknown> | null }>, publisherScope)
+                                : rows;
                         }
 
                         return {
@@ -2193,11 +2236,11 @@ export const agentActionService = {
                     }
 
                     const normP = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-                    const pub = publishers.find(p => normP(p.name) === normP(profPub))
-                        || publishers.find(p => normP(p.name).includes(normP(profPub)) || normP(profPub).includes(normP(p.name)));
+                    const pub = scopedPublishers.find(p => normP(p.name) === normP(profPub))
+                        || scopedPublishers.find(p => normP(p.name).includes(normP(profPub)) || normP(profPub).includes(normP(p.name)));
 
                     if (!pub) {
-                        return { success: false, message: `Publicador "${profPub}" não encontrado.`, actionType: 'QUERY_PUBLISHER_PROFILE' };
+                        return { success: false, message: `Publicador "${profPub}" não encontrado ou fora do seu escopo de acesso.`, actionType: 'QUERY_PUBLISHER_PROFILE' };
                     }
 
                     const genderLabel = pub.gender === 'brother' ? '👨 Irmão' : '👩 Irmã';
@@ -2253,7 +2296,7 @@ export const agentActionService = {
                     const normL = (s: any) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
                     const f = normL(listFilter || '');
 
-                    let filtered = [...publishers];
+                    let filtered = [...scopedPublishers];
                     if (['active', 'ativos', 'ativo'].includes(f)) filtered = filtered.filter(p => p.isServing !== false);
                     else if (['inactive', 'inativos', 'inativo'].includes(f)) filtered = filtered.filter(p => p.isServing === false);
                     else if (['qualified', 'qualificados', 'aptos'].includes(f)) filtered = filtered.filter(p => !p.isNotQualified && !p.isIndefinitelyPaused);
