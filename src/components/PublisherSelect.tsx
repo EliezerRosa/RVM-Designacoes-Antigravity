@@ -214,9 +214,17 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
     // Avisos informativos das regras do Motor automático (Q2 alternância FSM, Q3 par recente).
     // NÃO bloqueiam designação manual — só informam que o Motor evitaria.
     const motorWarnings = useMemo(() => {
-        const warnings: { kind: 'alternation' | 'pair'; message: string }[] = [];
+        const warnings: { kind: 'alternation' | 'pair' | 'samePart' | 'section'; message: string }[] = [];
         if (!foundPublisher) return warnings;
         const cfg = getRotationConfig();
+
+        // Gates relaxáveis do motor já calculados pela fonte única (rankedEligibleService).
+        if (selectedCandidate?.samePartBlocked) {
+            warnings.push({ kind: 'samePart', message: `Fez esta mesma parte em ${selectedCandidate.samePartConflictDate || 'data próxima'} (±${cfg.HEAVY_ROLE_RADIUS} sem.) — Motor evita repetir; manual: permitido.` });
+        }
+        if (selectedCandidate?.sectionBlocked && (selectedCandidate.unperformedSectionParts || []).length > 0) {
+            warnings.push({ kind: 'section', message: `Ainda deve ${selectedCandidate.unperformedSectionParts!.join(' e ')} nesta seção antes de repetir — Motor prefere rodar; manual: permitido.` });
+        }
         const historyExcludingWeek = historyRecords.filter(h => h.weekId !== part.weekId);
         const t = part.tipoParte.toLowerCase();
         const m = (part.modalidade || '').toLowerCase();
@@ -273,7 +281,7 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             }
         }
         return warnings;
-    }, [foundPublisher, part, historyRecords, referenceDate, weekParts, publishers]);
+    }, [foundPublisher, selectedCandidate, part, historyRecords, referenceDate, weekParts, publishers]);
 
     // Renderizar conteúdo do tooltip (JSX)
     const renderTooltipContent = () => {
@@ -395,7 +403,11 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             }}>
                                 {w.kind === 'alternation'
                                     ? <><strong>↔️ Alternância de função (FSM):</strong> {w.message}</>
-                                    : <><strong>👥 Repetição de par (demonstração):</strong> {w.message}</>}
+                                    : w.kind === 'pair'
+                                        ? <><strong>👥 Repetição de par (demonstração):</strong> {w.message}</>
+                                        : w.kind === 'samePart'
+                                            ? <><strong>🔁 Mesma parte recente:</strong> {w.message}</>
+                                            : <><strong>🧩 Rotação na seção:</strong> {w.message}</>}
                             </div>
                         ))}
                     </div>
@@ -555,23 +567,28 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         ⚠️ {selectedIneligibleOption.publisher.name} (não elegível no contexto)
                     </option>
                 )}
-                {visibleOptions.map(({ publisher: p, cooldownInfo }) => {
-                    const icon = cooldownInfo?.isInCooldown ? '⏳ ' : '';
+                {visibleOptions.map(({ publisher: p, cooldownInfo, samePartBlocked, sectionBlocked, engineGateReason }) => {
+                    // Marcadores de gate relaxável: o motor pularia enquanto houver alternativa; manual continua livre.
+                    const gateIcon = samePartBlocked ? '🔁 ' : sectionBlocked ? '🧩 ' : engineGateReason ? '↔️ ' : '';
+                    const icon = `${gateIcon}${cooldownInfo?.isInCooldown ? '⏳ ' : ''}`;
+                    const gateTitle = samePartBlocked ? '🔁 Fez esta mesma parte em ±4 sem. — motor evita repetir'
+                        : sectionBlocked ? '🧩 Deve outras partes da seção — motor prefere rodar'
+                        : engineGateReason ? `↔️ ${engineGateReason}` : '';
 
                     return (
                         <option
                             key={p.id}
                             value={p.id}
                             style={{
-                                color: 'inherit',
+                                color: gateIcon ? '#a16207' : 'inherit',
                                 fontStyle: 'normal',
                                 fontWeight: cooldownInfo?.isInCooldown ? 'bold' : 'normal'
                             }}
-                            title={cooldownInfo?.isInCooldown
+                            title={[gateTitle, cooldownInfo?.isInCooldown
                                 ? ((cooldownInfo.lastDate || '') <= toLocalISODate()
                                     ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `
                                     : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `)
-                                : '✅ Elegível'}
+                                : (gateTitle ? '' : '✅ Elegível')].filter(Boolean).join(' · ')}
                         >
                             {icon}{p.name}
                         </option>

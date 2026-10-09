@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Publisher, WorkbookPart, HistoryRecord, SpecialEvent } from '../types';
 import { checkEligibility, buildEligibilityContext, getTextualConstraintSummary, type EligibilityResult } from '../services/eligibilityService';
-import { getBlockInfo, isBlocked, type CooldownInfo } from '../services/cooldownService';
-import { calculateScore, getRankedCandidates, isStatPart, type RotationScore } from '../services/unifiedRotationService';
+import { getBlockInfo, type CooldownInfo } from '../services/cooldownService';
+import { calculateScore, isStatPart, type RotationScore } from '../services/unifiedRotationService';
+import { getRankedEligibleForPart } from '../services/rankedEligibleService';
 import { isNonDesignatablePart, isCleanablePart, isAutoAssignedToChairman } from '../constants/mappings';
 import { workbookPartToHistoryRecord } from '../services/historyAdapter';
 import { formatWeekFromDate } from '../utils/dateUtils';
@@ -160,28 +161,26 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     return;
                 }
 
-                // 1. Calcular o MELHOR CANDIDATO (Top Recommendation)
-                const eligibleCandidates = publishers.filter(p =>
-                    checkEligibility(p, selectedPart.modalidade as any, selectedPart.funcao as any, eligibilityCtx).eligible
-                );
-
-                // Usar a data da parte como referência (não hoje) e filtrar histórico
-                // da semana atual — mesma fonte usada pelo agente (CHECK_SCORE/EXPLAIN_PART)
-                const partDateStr = selectedPart.date || selectedPart.weekId || '';
-                const targetDate = partDateStr ? new Date(`${partDateStr}T12:00:00`) : new Date();
-                const historyForRanking = allHistory.filter(h => h.weekId !== selectedPart.weekId);
-                const ranked = getRankedCandidates(eligibleCandidates, selectedPart.tipoParte, historyForRanking, undefined, targetDate);
-                const rankedNonBlocked = ranked.filter(r => !isBlocked(r.publisher.name, historyForRanking, targetDate, r.publisher.id));
-                const best = rankedNonBlocked.length > 0 ? rankedNonBlocked[0] : null;
+                // 1. MELHOR CANDIDATO e TOP-4 pela FONTE ÚNICA do motor (faixas + gates + ordem lexicográfica).
+                // A semana é avaliada como se a parte-alvo estivesse vaga (o designado atual não ocupa a si mesmo).
+                const weekPartsAsVacant = weekParts.map(p => p.id === selectedPart.id ? { ...p, resolvedPublisherId: undefined, resolvedPublisherName: '', rawPublisherName: '' } : p);
+                const rankedResult = getRankedEligibleForPart(selectedPart, weekPartsAsVacant, publishers, allHistory, {
+                    applyEngineRules: true,
+                    excludeAssignedInSameWeek: true,
+                });
+                const targetDate = rankedResult.referenceDate;
+                const historyForRanking = rankedResult.historyForScoring;
+                const ranked = rankedResult.eligibleCandidates;
+                const best = ranked[0] || null;
 
                 if (isMounted) {
                     setTopCandidates(
                         ranked.slice(0, 4).map((item, idx) => ({
                             name: item.publisher.name,
                             rank: idx + 1,
-                            explanation: item.scoreData.explanation,
+                            explanation: `${item.scoreData.explanation} · faixa ${item.priorityBucket}`,
                             lastDate: item.scoreData.lastDate || null,
-                            cooldownInfo: getBlockInfo(item.publisher.name, historyForRanking, targetDate, item.publisher.id)
+                            cooldownInfo: item.cooldownInfo
                         }))
                     );
                 }
@@ -195,30 +194,26 @@ export default function ActionControlPanel({ selectedPartId, parts, publishers, 
                     setBestCandidate(null);
                 }
 
-                // 2. Analisar o DESIGNADO (Se houver)
+                // 2. Analisar o DESIGNADO (Se houver) — mesmo snapshot do ranking
                 if (assignedPublisher) {
-                    const elig = checkEligibility(
-                        assignedPublisher,
-                        selectedPart.modalidade as any, // Cast to any to accept string
-                        selectedPart.funcao as any,
-                        eligibilityCtx
-                    );
+                    const snapshot = rankedResult.allCandidates.find(c => c.publisher.id === assignedPublisher.id);
+                    const elig: EligibilityResult = snapshot
+                        ? { eligible: snapshot.eligible, reason: snapshot.reason }
+                        : checkEligibility(assignedPublisher, selectedPart.modalidade as any, selectedPart.funcao as any, eligibilityCtx);
 
-                    // v9.5: Filtrar histórico para excluir a semana ATUAL
-                    // Evita que a designação atual afete o cooldown/score (loop)
-                    const historyForCooldown = allHistory.filter(h => h.weekId !== selectedPart.weekId);
+                    const historyForCooldown = historyForRanking;
 
-                    const cdInfo = getBlockInfo(
+                    const cdInfo = snapshot?.cooldownInfo ?? getBlockInfo(
                         assignedPublisher.name,
-                        historyForCooldown, // Use filtered history
+                        historyForCooldown,
                         targetDate,
                         assignedPublisher.id
                     );
 
-                    const score = calculateScore(
+                    const score = snapshot?.scoreData ?? calculateScore(
                         assignedPublisher,
-                        selectedPart.tipoParte,
-                        historyForCooldown, // Use filtered history
+                        rankedResult.scoringPartType,
+                        historyForCooldown,
                         targetDate
                     );
 

@@ -3,10 +3,9 @@ import type { WorkbookPart, Publisher } from '../types';
 import { generateWhatsAppMessage } from './s89Generator';
 import { getModalidadeFromTipo } from '../constants/mappings';
 import { EnumModalidade } from '../types';
-import { checkEligibility } from './eligibilityService';
 import { loadCompletedParticipations } from './historyAdapter';
 import { EVENT_TEMPLATES } from './specialEventService';
-import { getRankedCandidates } from './unifiedRotationService';
+import { getRankedEligibleForPart } from './rankedEligibleService';
 import { getAppBaseUrl } from '../utils/appUrl';
 import { workbookQueryService } from './workbookQueryService';
 import { publisherDirectoryService } from './publisherDirectoryService';
@@ -463,27 +462,20 @@ export const communicationService = {
         const srvmPhone = srvm?.phone || '';
         const srvmName = srvm?.name || 'Edmardo Queiroz';
 
-        // 3. Buscar todas as partes da semana para evitar sugerir alguém já designado nela
+        // 3. Buscar todas as partes da semana (contexto do motor: quem já está designado nela)
         const weekParts = await workbookQueryService.getWeekParts(part.weekId);
-        const assignedInWeek = new Set(
-            weekParts.map(wp => resolvePartPublisherName(wp, publishers)?.trim()).filter(Boolean)
-        );
 
-        // 4. Buscar sugestão de substituto
-        const eligible = publishers.filter(p => {
-            if (p.name === publisherName) return false;
-            if (assignedInWeek.has(p.name.trim())) return false; // Bloqueia quem já tem parte na semana
-            const res = checkEligibility(p, part.modalidade as any, part.funcao as any, {
-                date: part.date,
-                secao: part.section
-            });
-            return res.eligible;
+        // 4. Sugestão de substituto pela FONTE ÚNICA do motor (faixas + gates + ordem lexicográfica),
+        //    avaliando a parte como vaga e excluindo quem recusou.
+        const partAsVacant: WorkbookPart = { ...part, resolvedPublisherId: undefined, resolvedPublisherName: '', rawPublisherName: '' };
+        const weekPartsAsVacant = weekParts.map(wp => wp.id === part.id ? partAsVacant : wp);
+        const rankedResult = getRankedEligibleForPart(partAsVacant, weekPartsAsVacant, publishers, history, {
+            applyEngineRules: true,
+            excludeAssignedInSameWeek: true,
+            excludedPublisherNames: publisherName ? [publisherName] : [],
         });
-
-        const refDate = new Date(((part.date || part.weekId) as string) + 'T12:00:00');
-        const historyForRanking = history.filter(h => h.weekId !== part.weekId);
-        const ranked = getRankedCandidates(eligible, part.modalidade, historyForRanking, undefined, refDate);
-        const bestCandidate = ranked[0]?.publisher?.name || 'Não encontrado';
+        const bestRanked = rankedResult.eligibleCandidates[0];
+        const bestCandidate = bestRanked?.publisher?.name || 'Não encontrado';
 
         // 5. Buscar parceiro (Titular/Ajudante) da mesma semana
         const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
@@ -533,8 +525,8 @@ export const communicationService = {
 
         alertMsg += `──────────────────\n`;
         let candidateStr = bestCandidate;
-        if (ranked[0]?.publisher?.phone) {
-            candidateStr += ` (${ranked[0].publisher.phone})`;
+        if (bestRanked?.publisher?.phone) {
+            candidateStr += ` (${bestRanked.publisher.phone})`;
         }
         alertMsg += `💡 *Sugestão de Substituto:* ${candidateStr}\n`;
         alertMsg += `──────────────────\n\n`;
