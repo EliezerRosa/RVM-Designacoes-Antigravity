@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
+import { HistoryStatus } from '../types';
 import { getRankedEligibleForPart } from './rankedEligibleService';
 
 const mockElder: Publisher = {
@@ -105,65 +106,76 @@ const targetFSMPart: WorkbookPart = {
     createdAt: '2026-08-01T00:00:00Z',
 };
 
+type HistorySeed = Pick<HistoryRecord, 'id' | 'weekId' | 'date' | 'section' | 'tipoParte' | 'modalidade'> & Partial<HistoryRecord>;
+const h = (publisher: Publisher, seed: HistorySeed): HistoryRecord => ({
+    weekDisplay: `Semana ${seed.weekId}`,
+    tituloParte: seed.tipoParte,
+    descricaoParte: '',
+    detalhesParte: '',
+    seq: 1,
+    funcao: 'Titular',
+    duracao: 0,
+    horaInicio: '',
+    horaFim: '',
+    rawPublisherName: publisher.name,
+    resolvedPublisherId: publisher.id,
+    resolvedPublisherName: publisher.name,
+    status: HistoryStatus.APPROVED,
+    importSource: 'Manual',
+    importBatchId: '',
+    createdAt: `${seed.date}T00:00:00Z`,
+    ...seed,
+});
+
+const TESOUROS = 'Tesouros da Palavra de Deus';
+
 test('SECTION ROTATION GATE: marca sectionBlocked quando candidato deve outras partes elegíveis da seção', () => {
-    const history: HistoryRecord[] = [
-        {
-            id: 'h-1',
-            weekId: '2026-25',
-            weekDisplay: 'Semana 25',
-            date: '2026-07-01',
-            section: 'Tesouros da Palavra de Deus',
-            tipoParte: 'Discurso Tesouros',
-            modalidade: 'Discurso de Ensino',
-            funcao: 'Titular',
-            resolvedPublisherId: mockElder.id,
-            resolvedPublisherName: mockElder.name,
-            rawPublisherName: mockElder.name,
-            status: "CONCLUIDA" as any,
-            createdAt: '2026-07-01T00:00:00Z'
-        }
+    const history = [
+        h(mockElder, { id: 'h-1', weekId: '2026-25', date: '2026-07-01', section: TESOUROS, tipoParte: 'Discurso Tesouros', modalidade: 'Discurso de Ensino' }),
     ];
 
     const result = getRankedEligibleForPart(targetTreasuresPart, [targetTreasuresPart], [mockElder], history);
     const candidate = result.allCandidates.find(c => c.publisher.id === mockElder.id);
 
     assert.ok(candidate, 'Candidato deveria ser retornado');
-    assert.equal(candidate?.sectionBlocked, true, 'Deveria estar sectionBlocked porque deve Joias e Leitura');
+    assert.equal(candidate?.sectionBlocked, true, 'Deveria estar sectionBlocked porque deve Joias');
     assert.ok((candidate?.sectionDebt || 0) >= 1, 'sectionDebt deveria ser >= 1');
 });
 
+test('SECTION ROTATION GATE: Leitura da Bíblia / Leitor EBC NÃO entram na dívida de seção (mesma classe apenas)', () => {
+    const history = [
+        h(mockElder, { id: 'h-dt', weekId: '2026-25', date: '2026-07-01', section: TESOUROS, tipoParte: 'Discurso Tesouros', modalidade: 'Discurso de Ensino' }),
+        h(mockElder, { id: 'h-je', weekId: '2026-27', date: '2026-07-15', section: TESOUROS, tipoParte: 'Joias Espirituais', modalidade: 'Discurso de Ensino' }),
+    ];
+
+    const result = getRankedEligibleForPart(targetTreasuresPart, [targetTreasuresPart], [mockElder], history);
+    const candidate = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+
+    assert.equal(candidate?.sectionDebt, 0, 'Fez Joias desde o último Discurso → dívida zero (Leitura não conta)');
+    assert.equal(candidate?.sectionBlocked, false);
+    assert.deepEqual(candidate?.unperformedSectionParts, []);
+});
+
+test('allCandidates inclui elegíveis barrados por gate, fora de eligibleCandidates, com flags', () => {
+    const freeElder: Publisher = { ...mockElder, id: 'pub-elder-2', name: 'Ancião Livre' };
+    const history = [
+        h(mockElder, { id: 'h-gate', weekId: '2026-25', date: '2026-07-01', section: TESOUROS, tipoParte: 'Discurso Tesouros', modalidade: 'Discurso de Ensino' }),
+    ];
+
+    const result = getRankedEligibleForPart(targetTreasuresPart, [targetTreasuresPart], [mockElder, freeElder], history);
+
+    assert.deepEqual(result.eligibleCandidates.map(c => c.publisher.id), [freeElder.id], 'Só o ancião livre passa no 1º passe');
+    const gated = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+    assert.ok(gated, 'Barrado por gate deve aparecer em allCandidates');
+    assert.equal(gated?.eligible, true);
+    assert.equal(gated?.sectionBlocked, true);
+    assert.equal(result.allCandidates.length, 2);
+});
+
 test('PROMOÇÃO FSM: Ancião em seca (>13 sem sem FSM + cobertura Tesouros/Vida) sobe para Bucket 1 FSM', () => {
-    const history: HistoryRecord[] = [
-        {
-            id: 'h-t1',
-            weekId: '2026-20',
-            weekDisplay: 'Semana 20',
-            date: '2026-05-15',
-            section: 'Tesouros da Palavra de Deus',
-            tipoParte: 'Discurso Tesouros',
-            modalidade: 'Discurso de Ensino',
-            funcao: 'Titular',
-            resolvedPublisherId: mockElder.id,
-            resolvedPublisherName: mockElder.name,
-            rawPublisherName: mockElder.name,
-            status: "CONCLUIDA" as any,
-            createdAt: '2026-05-15T00:00:00Z'
-        },
-        {
-            id: 'h-v1',
-            weekId: '2026-22',
-            weekDisplay: 'Semana 22',
-            date: '2026-06-01',
-            section: 'Nossa Vida Cristã',
-            tipoParte: 'Parte Vida Cristã',
-            modalidade: 'Discurso de Ensino',
-            funcao: 'Titular',
-            resolvedPublisherId: mockElder.id,
-            resolvedPublisherName: mockElder.name,
-            rawPublisherName: mockElder.name,
-            status: "CONCLUIDA" as any,
-            createdAt: '2026-06-01T00:00:00Z'
-        }
+    const history = [
+        h(mockElder, { id: 'h-t1', weekId: '2026-20', date: '2026-05-15', section: TESOUROS, tipoParte: 'Discurso Tesouros', modalidade: 'Discurso de Ensino' }),
+        h(mockElder, { id: 'h-v1', weekId: '2026-22', date: '2026-06-01', section: 'Nossa Vida Cristã', tipoParte: 'Parte Vida Cristã', modalidade: 'Discurso de Ensino' }),
     ];
 
     const result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [mockElder, mockSister], history);
