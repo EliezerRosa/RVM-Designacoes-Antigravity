@@ -14,7 +14,7 @@
 - **Vercel CLI / Deploy**: 🟢 **Ativo & Autenticado**
   - Autenticação permanente configurada via `VERCEL_TOKEN` nas variáveis de ambiente do sistema Windows.
   - Deploys e automações via CLI/MCP acontecem 100% em segundo plano sem solicitações de login no navegador ou 2FA.
-- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy `dpl_6hXPt84GbSaT9oTh4N7gcz88JbZR` ativo em cima de `16024a4`).
+- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy `rvm-designacoes-antigravity-6wpdsemmq` ● Ready em cima de `a16efd0`, 2026-10-09 20:20).
 - **Frontend GitHub Pages**: Ativo (`https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/`), sincronizado via `npm run deploy`.
 - **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas).
 - **Último Commit Estável / Checkpoint**: `7fedb03` (Tag: `v2.6.0-checkpoint-s140-monitor`)
@@ -549,6 +549,14 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
   4. 🟡→✅ (já estava) RLS `publishers`/`workbook_parts` verificado em `pg_policies`: todas as operações exigem `is_editor()` desde 05/08. Residual aceito: granularidade por ação depende do item 2 (RPC chamada pelo cliente).
 - **Regra nova**: ao adicionar `AgentActionType` que grava no banco, incluir em `WRITE_AGENT_ACTIONS`; ao mudar a resolução de permissões no cliente, espelhar em `can_agent_action` (SQL).
 - **Validação**: `tsc --noEmit` limpo; `npm test` 97/97.
+- **Deploy (20:20)**: Vercel produção `rvm-designacoes-antigravity-6wpdsemmq` ● Ready, alias `https://rvm-designacoes-antigravity.vercel.app`; GitHub Pages publicado via `npm run deploy`. Commit em produção: `a16efd0`.
+
+---
+
+## 21–26. Benchmark Hourglass, escrutínios/planos (RM, Territórios, Designações, Estanques), UML/MER, casos de uso e atividades (2026-10-09 20:30–22:15)
+
+- Mantidos **apenas localmente** por decisão de Eliezer (22:24): `docs-local/_ESTADO-LOCAL.md` (seções completas) e `docs-local/hourglass/` (7 documentos + diagramas). Pasta ignorada pelo git. Backup do histórico anterior em `docs-local/backup-main-pre-rewrite-2026-10-09.bundle`.
+- Decisões pendentes continuam listadas lá (D1–D6, T1–T5, G1–G7, E1–E7).
 
 ---
 

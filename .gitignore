@@ -79,3 +79,6 @@ build/
 __pycache__/
 *.pyc
 .env*
+
+# Documentação de trabalho mantida só localmente (decisão 2026-10-09)
+docs-local/
