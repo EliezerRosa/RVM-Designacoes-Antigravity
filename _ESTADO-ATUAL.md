@@ -1,8 +1,8 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-09 19:50 (BRT)  
+> **Última Atualização**: 2026-10-11 13:20 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`), último commit `9bc5524`, árvore limpa.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass (HG) implementada e validada para privilégios de partes de estudante e sincronização.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
 > **Checkpoint / Tag Git**: `4aeff4a` (checkpoint-s140-arquitetura)
@@ -555,14 +555,37 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ## 21–26. Benchmark Hourglass, escrutínios/planos (RM, Territórios, Designações, Estanques), UML/MER, casos de uso e atividades (2026-10-09 20:30–22:15)
 
-- Mantidos **apenas localmente** por decisão de Eliezer (22:24): `docs-local/_ESTADO-LOCAL.md` (seções completas) e `docs-local/hourglass/` (7 documentos + diagramas). Pasta ignorada pelo git. Backup do histórico anterior em `docs-local/backup-main-pre-rewrite-2026-10-09.bundle`.
+- Mantidos **apenas localmente** por decisão de Eliezer (22:24): `docs-local/_ESTADO-LOCAL.md` (seções completas) e `docs-local/hourglass/` (documentos + diagramas + debug). Pasta ignorada pelo git. Backup do histórico anterior em `docs-local/backup-main-pre-rewrite-2026-10-09.bundle`.
 - Decisões pendentes continuam listadas lá (D1–D6, T1–T5, G1–G7, E1–E7).
+
+---
+
+## 27. Automação Hourglass (HG) — Sincronização, Privilégios por Gênero e Otimização Playwright (2026-10-11)
+
+- **Contexto**: Integração e espelhamento entre o banco RVM (Supabase) e o Hourglass (HG) para gestão de privilégios de partes de estudante e pautas.
+- **Scripts em `scripts/`**:
+  - `scripts/activate_privileges.ts`: Robô Playwright com perfil persistente (`hourglass_session/`) para concessão automatizada de privilégios com base em regras litúrgicas e de gênero.
+  - `scripts/export_to_hourglass.ts`: Pipeline de sincronização e exportação de pautas.
+  - `scripts/sync_hourglass_publishers.ts`: Mapeamento de identificadores de publicadores (`hg_id`).
+- **Regras Litúrgicas de Gênero**:
+  - **Varões**: Ativação de todas as partes de estudante na seção *Faça Seu Melhor no Ministério* (`Como ter mais alegria...`, `Iniciando conversas`, `Cultivando o interesse`, `Fazendo discípulos`, `Explicando suas crenças`, `Ajudante`, `Discurso`) + `Leitura da Bíblia`.
+  - **Irmãs**: Ativação das partes de conversas/demonstrações e ajudante; desativação estrita de `Leitura da Bíblia` e `Discurso` (se previamente marcadas, o script faz `uncheck`).
+  - **Proteção contra Grayed-Out**: Respeito a `checkbox.isDisabled()` do Hourglass para não disparar exceções Playwright de clique inalterado.
+- **Otimização de Salto Rápido (Skip)**:
+  - Verificação prévia da flag `Iniciando conversas`: se já estiver marcada no perfil do publicador, o robô salta imediatamente para o próximo com respiro de 500ms, otimizando o tempo total em mais de 90%.
+- **Resiliência do DOM no Playwright**:
+  - Checkboxes com `display: none` / `opacity: 0` (ocultos por CSS sob SVGs) aguardados com `{ state: 'attached' }` em vez do padrão de visibilidade.
+  - Localização estrita via `label[for] -> input#${forAttr}` para prevenir colisão com opções adjacentes (ex: Discurso Público).
+- **Isolamento de Documentação e Sessões**:
+  - Todos os artefatos de engenharia reversa, dumps de DOM, respostas de rede e capturas de tela foram movidos para a pasta local dedicada `docs-local/hourglass/debug/`.
+  - Documentação técnica consolidada em `docs-local/hourglass/automacao-privilegios-e-sync-2026-10-11.md`.
+  - Pasta `docs-local/`, diretório de sessão `hourglass_session/`, e arquivos temporários de tela/dump mantidos e blindados estritamente no `.gitignore`.
 
 ---
 
 ## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
 
-0. **Decidir destino dos arquivos não rastreados** (`scratch/`, `scripts/check_*.ts`, `participations_out.json`): commitar como utilitários ou descartar.
+0. **Decidir destino dos arquivos não rastreados** (`scratch/`, `scripts/check_*.ts`): mantidos no `.gitignore` ou commitados seletivamente.
 
 1. **Alerta de Desconexão Z-API (P10)**: Implementar monitoramento ativo de webhooks (`on-disconnected`) para alertar o SRVM caso o celular da congregação fique offline ou despareado.
 2. **Monitor Canônico 2.0 (P2)**: Criar a tabela `system_canonical_events` e consolidar todo o fluxo 360º de comunicação visual.
