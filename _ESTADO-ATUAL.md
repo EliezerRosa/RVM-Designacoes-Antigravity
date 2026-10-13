@@ -1,11 +1,12 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-11 13:20 (BRT)  
+> **Última Atualização**: 2026-10-13 11:00 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass (HG) implementada e validada para privilégios de partes de estudante e sincronização.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Axioma Irrevogável de Memória Persistente Multi-IDE com Sincronização Remota ativo.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
+> **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
-> **Checkpoint / Tag Git**: `4aeff4a` (checkpoint-s140-arquitetura)
+> **Checkpoint / Tag Git**: `fff327c` (feat-hourglass-automacao)
 
 ---
 
@@ -580,6 +581,22 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
   - Todos os artefatos de engenharia reversa, dumps de DOM, respostas de rede e capturas de tela foram movidos para a pasta local dedicada `docs-local/hourglass/debug/`.
   - Documentação técnica consolidada em `docs-local/hourglass/automacao-privilegios-e-sync-2026-10-11.md`.
   - Pasta `docs-local/`, diretório de sessão `hourglass_session/`, e arquivos temporários de tela/dump mantidos e blindados estritamente no `.gitignore`.
+
+---
+
+## 28. Axioma Irrevogável: Memória Persistente Multi-IDE com Sincronização Remota Obrigatória (2026-10-13)
+
+- **Decisão Canônica**: Estabelecido protocolo universal de persistência para permitir transição transparente do usuário Eliezer entre múltiplos IDEs (VS Code, Cursor, Antigravity IDE, Claude Code).
+- **Estrutura Canônica no Git**:
+  - `/memories/repo/_ESTADO-ATUAL.md`: Estado vivo canônico resumido e alinhado com `_ESTADO-ATUAL.md`.
+  - `/memories/copilot-operacao.md`: Aprendizados operacionais e transversais (cotas, bypass de 402, modelos, BYOK, etc.).
+  - `/memories/session/<sessao>.md`: Histórico vivo de decisões e passos da conversa.
+- **Protocolo de Execução**:
+  1. **Entrada**: Todo agente, em qualquer IDE, inicia lendo as memórias antes de qualquer ação.
+  2. **Saída**: Todo agente, ao término de cada bloco ou antes de mudar de agente/IDE, salva as memórias e executa `git commit` + `git push origin main`.
+  3. **Segurança**: Arquivos protegidos pelo `.gitignore` (ex: material local do HG em `docs-local/`, dumps, sessões de browser, tokens e credenciais) NUNCA sobem para o remoto.
+- **Auditoria BYOK Google Developer Program Premium**:
+  - Confirmado via `gcloud` que a chave "Gemini GitHub API Key" pertence ao projeto "Antigravity Project" (`gen-lang-client-0179700161`), com faturamento ativo vinculado à "Conta RVM Pro" (`017DC8-83643E-7F9157`), debitando dos créditos do Google Developer Program Premium (~R$ 58/mês) e preservando a cota do GitHub Copilot.
 
 ---
 

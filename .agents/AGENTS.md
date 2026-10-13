@@ -1,5 +1,15 @@
 # Regras Persistentes — RVM Designações
 
+## AXIOMA IRREVOGÁVEL: Memória Persistente Multi-IDE com Sincronização Remota Obrigatória
+
+> **DATA**: 2026-10-13  
+> **DECISÃO DO USUÁRIO**: "Toda a memória de conversas, estado atual e correlatos, deve subir para o remoto, exceto o que está no .gitignore, como ex o material relativo ao HG. Isto deve ser um axioma irrevogável. Os agentes, no início de uma conversa, devem primeiro ler as memórias, e no final, se mudarmos de agente no percurso, devem salvar as memórias. Uma vez que mudo vez por outra para outro IDE, este protocolo será útil, tanto aqui, quanto em qualquer outra plataforma de IDE que venha a usar para o mesmo projeto."
+
+1. **Leitura no Início**: Todo agente em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code) DEVE ler as memórias (`/memories/repo/_ESTADO-ATUAL.md`, `_ESTADO-ATUAL.md`, `/memories/` e `/memories/session/`) antes de qualquer ação.
+2. **Registro Contínuo**: Registrar notas em `/memories/session/<assunto>.md` e atualizar `_ESTADO-ATUAL.md` in-place a cada marco.
+3. **Commit e Push Obrigatório**: Ao final de blocos ou antes de trocar de agente/IDE, salvar e commitar/pushar para `origin/main`.
+4. **Isolamento**: Respeitar estritamente o `.gitignore` (material confidencial de HG em `docs-local/`, dumps de DOM, sessões de browser, segredos).
+
 ## Política de Acesso e Visibilidade (CONDIÇÃO TEMPORÁRIA)
 
 > **DATA**: 2026-07-01  

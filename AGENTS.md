@@ -1,5 +1,12 @@
 # Regras e Diretrizes do Agente Antigravity
 
+## AXIOMA IRREVOGÁVEL: Memória Persistente Multi-IDE com Sincronização Remota Obrigatória
+
+1. **Leitura Obrigatória no Início**: Ao iniciar qualquer conversa ou sessão em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code), o agente DEVE PRIMEIRO ler `/memories/repo/_ESTADO-ATUAL.md`, `_ESTADO-ATUAL.md` e os arquivos relevantes em `/memories/` e `/memories/session/`.
+2. **Atualização Contínua**: Durante a sessão, manter notas em `/memories/session/<assunto>.md` e atualizar o estado em `_ESTADO-ATUAL.md`.
+3. **Commit e Push Obrigatório para o Remoto**: Toda a memória de conversas, estado atual e correlatos DEVE ser commitada e enviada para o repositório remoto Git (`origin/main`) ao final de cada bloco lógico ou sessão, e obrigatoriamente antes de trocar de agente ou mudar de IDE.
+4. **Isolamento de Segredos e HG**: Somente arquivos protegidos pelo `.gitignore` (ex: material de Hourglass em `docs-local/`, dumps de DOM, sessões de browser, tokens/senhas) NÃO sobem para o remoto. Todo o restante do ecossistema de memória deve ser versionado no GitHub.
+
 ## Auditoria de Código e Investigação
 
 **Diretriz Absoluta:**
