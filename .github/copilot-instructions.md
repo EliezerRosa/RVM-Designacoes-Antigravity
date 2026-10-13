@@ -13,6 +13,7 @@ A cada conversa neste workspace você DEVE:
 4. **Nunca esperar comando explícito** ("salve", "memorize") para gravar. O default é gravar.
 5. **A cada bloco lógico fechado, salvar ANTES de prosseguir** — reduz janela de perda por shutdown/crash.
 6. **Antes de criar arquivo novo** — Listar primeiro para evitar duplicatas; preferir atualizar.
+7. **SINCRONIZAÇÃO REMOTA OBRIGATÓRIA (Axioma Irrevogável Multi-IDE)** — Toda memória de conversas (`/memories/session/`), estado atual (`_ESTADO-ATUAL.md`) e aprendizados correlatos (`/memories/`) DEVE subir para o repositório remoto (`git commit` + `git push`) ao final de cada bloco lógico ou sessão, e obrigatoriamente antes de trocar de agente ou mudar de IDE. Qualquer agente, ao iniciar a conversa em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code), DEVE primeiro ler as memórias antes de agir. Exceção estrita de envio: apenas o que estiver no `.gitignore` (ex: material de HG em `docs-local/`, dumps, sessões de browser, tokens/chaves).
 
 ### O que MERECE memória
 - Decisões arquiteturais, restrições descobertas.
