@@ -353,14 +353,14 @@ export async function buildUpcomingAssignmentsSummary(
     let effectivePortalUrl = availabilityUrl;
     if (!effectivePortalUrl) {
         try {
-            effectivePortalUrl = await communicationService.getAvailabilityUrl(publisher.id, publisher.name);
+            effectivePortalUrl = await communicationService.getOrCreateAvailabilityLink(publisher.id, publisher.name);
         } catch {
             // fallback
         }
     }
 
     if (effectivePortalUrl) {
-        text += `\n\n📱 _Para gerenciar suas designações ou informar indisponibilidade de datas, acesse seu portal:_\n${effectivePortalUrl}`;
+        text += `\n\n📅 _Para informar datas em que estará ausente ou atualizar sua disponibilidade, acesse seu calendário:_\n${effectivePortalUrl}`;
     }
 
     // Montar as opções e botões rápidos

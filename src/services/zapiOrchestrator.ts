@@ -536,9 +536,14 @@ class ZApiOrchestrator {
             }
         }
 
-        // 2. Resolve link do portal e monta o resumo
-        const pubName = options.publishers?.find(p => p.id === publisherId)?.name;
-        const availabilityUrl = await communicationService.getAvailabilityUrl(publisherId, pubName);
+        // 2. Resolve link do portal de disponibilidade e monta o resumo
+        let availabilityUrl: string | null = null;
+        try {
+            const pubName = options.publishers?.find(p => p.id === publisherId)?.name;
+            availabilityUrl = await communicationService.getOrCreateAvailabilityLink(publisherId, pubName || '');
+        } catch (err) {
+            console.warn('[zapiOrchestrator] Falha ao obter availabilityUrl para resumo:', err);
+        }
         const summary = await buildUpcomingAssignmentsSummary(publisherId, options.publishers, availabilityUrl);
         if (!summary || summary.assignments.length < 2) {
             return { success: true, skipped: true }; // Menos de 2 partes futuras publicadas
