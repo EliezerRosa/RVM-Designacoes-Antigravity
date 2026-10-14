@@ -101,9 +101,14 @@ export async function getFuturePublishedAssignments(
         return { publisher: null, assignments: [] };
     }
 
-    // Data de corte: Hoje em UTC-3 (Brasília)
+    // Data de corte: Segunda-feira da semana corrente em UTC-3 (Brasília),
+    // pois a coluna `workbook_parts.date` armazena a SEGUNDA-FEIRA de cada semana.
     const nowBrt = new Date(Date.now() - 3 * 3600 * 1000);
-    const todayStr = nowBrt.toISOString().slice(0, 10);
+    const dayOfWeek = nowBrt.getDay(); // 0=dom, 1=seg, 2=ter...
+    const daysSinceMonday = (dayOfWeek + 6) % 7;
+    const currentMonday = new Date(nowBrt);
+    currentMonday.setDate(nowBrt.getDate() - daysSinceMonday);
+    const currentMondayStr = currentMonday.toISOString().slice(0, 10);
 
     // 1. Buscar semanas publicadas
     let publishedWeeksMap: Record<string, string> = {};
@@ -114,11 +119,11 @@ export async function getFuturePublishedAssignments(
     }
 
     // 2. Buscar partes futuras ativas do publicador (titular ou ajudante)
-    // Filtramos partes com status ativos
+    // Filtramos partes com status ativos a partir da segunda-feira da semana corrente
     const { data: rawParts, error: partsErr } = await supabase
         .from('workbook_parts')
         .select('*')
-        .gte('date', todayStr)
+        .gte('date', currentMondayStr)
         .in('status', ['PROPOSTA', 'DESIGNADA', 'APROVADA'])
         .or(`resolved_publisher_id.eq.${publisherId},raw_publisher_name.ilike.%${publisher.name.trim()}%`)
         .order('date', { ascending: true })
@@ -150,13 +155,22 @@ export async function getFuturePublishedAssignments(
         }
     });
 
-    // 4. Filtrar partes que foram de fato publicadas (por semana ou por log individual)
-    const candidateParts = rawParts.filter(p => {
-        // Se a semana está em week_published OU se a parte teve S-89 disparado
+    // 4. Filtrar partes que foram de fato publicadas e cuja reunião ainda não ocorreu
+    const candidateParts: typeof rawParts = [];
+    for (const p of rawParts) {
         const isWeekPub = Boolean(publishedWeeksMap[p.week_id]);
         const isPartPub = publishedPartIdsSet.has(p.id);
-        return isWeekPub || isPartPub;
-    });
+        if (!isWeekPub && !isPartPub) continue;
+
+        // Se a semana for a corrente, verificar se a reunião já ocorreu
+        if (p.date === currentMondayStr) {
+            const meetingDow = await getMeetingDayOfWeek(p.week_id);
+            // Se hoje já passou do dia da reunião da semana corrente, descartar
+            if (dayOfWeek > meetingDow) continue;
+        }
+
+        candidateParts.push(p);
+    }
 
     if (candidateParts.length === 0) {
         return { publisher, assignments: [] };
