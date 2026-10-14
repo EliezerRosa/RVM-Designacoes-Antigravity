@@ -361,6 +361,13 @@ export const communicationService = {
     },
 
     /**
+     * Alias canônico para getOrCreateAvailabilityLink
+     */
+    async getAvailabilityUrl(publisherId: string, publisherName?: string): Promise<string | null> {
+        return this.getOrCreateAvailabilityLink(publisherId, publisherName || '');
+    },
+
+    /**
      * Prepara a mensagem de S-140 para o Agente
      */
     async prepareS140Message(weekId: string, _parts: WorkbookPart[]): Promise<string> {
