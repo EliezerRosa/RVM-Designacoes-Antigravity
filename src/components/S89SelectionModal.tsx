@@ -597,13 +597,25 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                 });
 
                 // Disparo desacoplado do resumo consolidado de designações futuras (se publicador tiver >= 2 publicadas)
-                const targetPubId = foundPub?.id || (part as any).resolvedPublisherId;
+                const targetPubId = foundPublisher?.id || foundPub?.id || part.resolvedPublisherId || (part as any).publisher_id || publishers.find(p => p.name?.trim().toLowerCase() === publisherName?.trim().toLowerCase())?.id;
+                let summaryNotice = '';
                 if (targetPubId) {
-                    zapiOrchestrator.dispatchUpcomingAssignmentsSummary(targetPubId, String(phone), { publishers }).catch(err => {
-                        console.warn('[S89SelectionModal] Falha ao enviar resumo de próximas designações:', err);
-                    });
+                    try {
+                        console.log(`[S89SelectionModal] Acionando resumo desacoplado para ${publisherName} (id: ${targetPubId})...`);
+                        // Pausa de 1.5s para cadência cronológica estrita no WhatsApp (S-89 primeiro, Resumo em seguida)
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        const summaryRes = await zapiOrchestrator.dispatchUpcomingAssignmentsSummary(targetPubId, String(phone), { publishers });
+                        if (summaryRes.success && !summaryRes.skipped) {
+                            summaryNotice = '\n📋 Resumo com as próximas designações futuras enviado com sucesso em seguida.';
+                            console.log(`[S89SelectionModal] Resumo de designações futuras enviado com sucesso para ${publisherName}.`);
+                        } else if (summaryRes.skipped) {
+                            console.log(`[S89SelectionModal] Resumo dispensado (menos de 2 partes futuras publicadas ou debounce ativo):`, summaryRes);
+                        }
+                    } catch (summaryErr) {
+                        console.warn('[S89SelectionModal] Falha ao enviar resumo de próximas designações:', summaryErr);
+                    }
                 }
-                alert('✅ S-89 enviado via Z-API para ' + publisherName + '.');
+                alert(`✅ S-89 enviado via Z-API para ${publisherName}.${summaryNotice}`);
             } else {
                 alert('❌ Falha no envio via Z-API: ' + (result.error || 'erro desconhecido'));
             }
