@@ -1,12 +1,12 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-14 08:35 (BRT)  
+> **Última Atualização**: 2026-10-14 13:30 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Axioma Irrevogável de Memória Multi-IDE ativo.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
-> **Checkpoint / Tag Git**: `373b0fd` (feat-resumo-zapi-multiplas-partes)
+> **Checkpoint / Tag Git**: `be2c7c7` (feat: aprimorar redacao cordial, formatacao de datas e notificacoes de designacoes)
 
 ---
 
@@ -618,6 +618,30 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
   - Edge Functions Supabase: `send-whatsapp`, `zapi-smart-webhook` e `cron-whatsapp-reminders` redeployadas no projeto `pevstuyzlewvjidjkmea`.
   - Frontend: Vercel Produção e GitHub Pages atualizados.
   - Testes: 98/98 testes automatizados aprovados (adicionado `publisherUpcomingAssignmentsService.test.ts`).
+
+---
+
+## 30. Refinamento de Redação Cordial, Formatação de Datas e Notificações Z-API (2026-10-14)
+
+- **Objetivo**: Humanizar e elevar o tom teocrático e cordial das comunicações via WhatsApp, assegurando formatação padronizada de datas no formato brasileiro (`DD/MM/AAAA`) e maior clareza em todas as etapas de notificação.
+- **Implementações e Refinamentos**:
+  1. **Formatação de Datas**: Introduzida a função `formatPartDateStr` no webhook e orquestrador para exibir `DD/MM/AAAA` consistentemente nas mensagens de WhatsApp em vez de formato ISO cru.
+  2. **Tom Cordial e Pastoral**:
+     - Mensagens de confirmação, recusa, duplicidade ("já constava confirmada") e pedidos de permuta ganharam tom mais caloroso e respeitoso ("Que Jeová abençoe sua preparação", referências litúrgicas adequadas, citação correta do Salmo 90:17 da TNM).
+     - Alertas à liderança e ao SRVM padronizados com estrutura visual limpa (ícones 🚨, 👤, 📖, 📅, 💬, 📌) e orientações claras de procedimento.
+     - Avisos de substituição e alteração de parceiro ajustados com instruções prévias de contato entre a dupla.
+  3. **Cartões S-89 e S-140**:
+     - Padronização do bloco de ações rápidas e do contato com o Superintendente da Reunião (`wa.me`).
+     - Legenda do pacote S-140 atualizada com redação fraterna e citação bíblica da Tradução do Novo Mundo (TNM).
+- **Arquivos Atualizados e Sincronizados**:
+  - `src/services/communicationService.ts`
+  - `src/services/publisherUpcomingAssignmentsService.ts`
+  - `src/services/s89Generator.ts`
+  - `src/services/weekPublishService.ts`
+  - `src/services/zapiOrchestrator.ts`
+  - `supabase/functions/cron-whatsapp-reminders/index.ts`
+  - `supabase/functions/zapi-smart-webhook/index.ts`
+- **Sincronização Git**: Commit `be2c7c7` enviado para `origin/main` (branch 100% atualizada).
 
 ---
 
