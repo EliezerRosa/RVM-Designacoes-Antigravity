@@ -1,12 +1,12 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-13 23:05 (BRT)  
+> **Última Atualização**: 2026-10-14 08:35 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API implementado e ativo. Axioma Irrevogável de Memória Multi-IDE ativo.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Axioma Irrevogável de Memória Multi-IDE ativo.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
-> **Checkpoint / Tag Git**: `beafcd8` (docs-memories-sync) -> novo checkpoint
+> **Checkpoint / Tag Git**: `373b0fd` (feat-resumo-zapi-multiplas-partes)
 
 ---
 
@@ -15,18 +15,19 @@
 - **Vercel CLI / Deploy**: 🟢 **Ativo & Autenticado**
   - Autenticação permanente configurada via `VERCEL_TOKEN` nas variáveis de ambiente do sistema Windows.
   - Deploys e automações via CLI/MCP acontecem 100% em segundo plano sem solicitações de login no navegador ou 2FA.
-- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy de produção Vercel e GitHub Pages atualizados em 2026-10-13).
+- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy de produção Vercel e GitHub Pages atualizados).
 - **Frontend GitHub Pages**: Ativo (`https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/`), sincronizado via `npm run deploy`.
-- **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas). Edge functions `send-whatsapp` e `zapi-smart-webhook` atualizadas e redeployadas.
+- **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas). Edge functions `send-whatsapp`, `zapi-smart-webhook` e `cron-whatsapp-reminders` atualizadas e redeployadas.
 - **Último Commit Estável / Checkpoint**: `7fedb03` (Tag: `v2.6.0-checkpoint-s140-monitor`)
   - `20fa331`: fix(automation): resolver apontamentos da auditoria de fluxos P1-P8
   - `f831850`: feat(s140): automação de envio de S-140 via Z-API, CRUD de funções congregacionais e permissões
   - `94cc17a`: fix(reassignment): resetar needs_reassignment ao atribuir publicador e blindar cron contra partes resolvidas
   - `7fedb03`: feat(cron): detalhar semana, parte e publicador no alerta de substituicoes pendentes
 - **Edge Functions Supabase Ativas (`pevstuyzlewvjidjkmea` em Produção)**:
-  - `cron-whatsapp-reminders`: Blindada contra falsos alarmes de partes resolvidas e com alerta matinal detalhado por semana, data, parte e publicador.
+  - `cron-whatsapp-reminders`: Atualizada com suporte a publisherId e acionamento desacoplado do resumo de próximas partes nos lembretes de falta de confirmação (COBRANCA_72H e LEMBRETE_D9).
   - `trigger-github-workflow`: v2 ativa para orquestração de disparos.
-  - `zapi-smart-webhook`: v19 ativa com processamento assíncrono de botões nativos.
+  - `zapi-smart-webhook`: v20 ativa com processamento assíncrono de botões nativos e de listas interativas (listResponseMessage.selectedRowId).
+  - `send-whatsapp`: Atualizada com action send-option-list para listas interativas Z-API.
   - `cron-alert-notifications` e `cron-web-push`: operacionais.
 
 ---
@@ -610,8 +611,11 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - Se o total de ações for $> 3$: envia menu interativo gaveta via `send-option-list` da Z-API (`[ 📋 Ver Ações / Responder ]`), contendo até 10 opções com título e descrição.
   - **Paridade Funcional Total**: IDs de botão e lista usam o padrão canônico `CONFIRMAR:<partId>` e `RECUSAR:<partId>`, executados diretamente pelo `zapi-smart-webhook` com atualização no banco, registro em `confirmation_portal_responses`, alerta ao SRVM e aviso à dupla.
   - **Segurança contra Tempestade**: Debounce automático de 10 minutos por publicador registrado em `zapi_dispatch_log` com tipo `RESUMO_DESIGNAGOES_FUTURAS`. No envio em lote (`publishWeek`), os destinatários são agrupados e notificados 1x ao final do lote.
+  - **Gatilho Cirúrgico em Lembretes de Confirmação Pendente (2026-10-14)**:
+    - Integrado no `cron-whatsapp-reminders` e `whatsapp-queue-consumer.ts`: sempre que um lembrete de falta de confirmação (`COBRANCA_72H` ou `LEMBRETE_D9` para partes com status `PROPOSTA`) é enviado com sucesso, o robô automaticamente aciona o `dispatchUpcomingAssignmentsSummary(publisherId, phone)`.
+    - Respeita o debounce de 10 minutos e a regra de $\ge 2$ partes futuras publicadas (se o irmão só tiver aquela parte pendente, nenhum resumo é disparado).
 - **Deploys Concluídos**:
-  - Edge Functions Supabase: `send-whatsapp` e `zapi-smart-webhook` redeployadas no projeto `pevstuyzlewvjidjkmea`.
+  - Edge Functions Supabase: `send-whatsapp`, `zapi-smart-webhook` e `cron-whatsapp-reminders` redeployadas no projeto `pevstuyzlewvjidjkmea`.
   - Frontend: Vercel Produção e GitHub Pages atualizados.
   - Testes: 98/98 testes automatizados aprovados (adicionado `publisherUpcomingAssignmentsService.test.ts`).
 

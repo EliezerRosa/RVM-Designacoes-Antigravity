@@ -1,9 +1,9 @@
 # Estado Atual do Workspace — Antigravity / RVM Designações
 
 > **Fonte Canônica Principal de RVM**: `_ESTADO-ATUAL.md` (na raiz do repositório `rvm-designacoes-unified/`, prevalece para regras, motor, histórico e pendências de RVM)  
-> **Última Atualização**: 2026-10-13 23:05 (BRT)  
+> **Última Atualização**: 2026-10-14 08:35 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-09.05`. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API implementado e ativo.
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-09.05`. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9).
 
 ---
 
@@ -13,14 +13,14 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 - **Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Vercel CLI autenticado com `VERCEL_TOKEN`).
 - **GitHub Pages**: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/` (`npm run deploy`).
 - **Supabase**: Projeto `pevstuyzlewvjidjkmea`.
-- **Último Checkpoint Git RVM**: `beafcd8` (docs: axioma irrevogavel de memoria persistente).
+- **Último Checkpoint Git RVM**: `373b0fd` (feat: resumo desacoplado de designacoes futuras).
 
 ---
 
 ## 2. Invariantes Canônicos
 
 1. **Estado Vivo**: Sempre consultar `_ESTADO-ATUAL.md` e manter este `/memories/repo/_ESTADO-ATUAL.md` atualizado in-place.
-2. **Resumo Desacoplado de Próximas Designações Z-API**: Se um publicador receber S-89 e possuir $\ge 2$ designações futuras já publicadas, recebe uma mensagem extra desacoplada com o resumo de todas as suas próximas partes, com status e botões de confirmação/recusa rápidos (`send-button-actions` se $\le 3$ botões) ou Lista Interativa gaveta (`send-option-list` se $> 3$ botões), com debounce de 10 min.
+2. **Resumo Desacoplado de Próximas Designações Z-API**: Se um publicador receber S-89 (manual/lote) OU lembrete de falta de confirmação (`COBRANCA_72H` ou `LEMBRETE_D9` para partes `PROPOSTA`), e possuir $\ge 2$ designações futuras já publicadas, recebe uma mensagem extra desacoplada com o resumo de todas as suas próximas partes, com status e botões de confirmação/recusa rápidos (`send-button-actions` se $\le 3$ botões) ou Lista Interativa gaveta (`send-option-list` se $> 3$ botões), com debounce de 10 min.
 3. **AXIOMA IRREVOGÁVEL (Multi-IDE e Sync Remoto)**:
    - Toda a memória de conversas (`/memories/session/`), estado atual (`_ESTADO-ATUAL.md`) e aprendizados correlatos (`/memories/`) DEVE subir para o repositório remoto Git (`git commit` + `git push`) ao final de cada bloco lógico ou sessão, e obrigatoriamente antes de trocar de agente ou IDE.
    - Qualquer agente iniciando conversa em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code) DEVE primeiro ler as memórias antes de agir.

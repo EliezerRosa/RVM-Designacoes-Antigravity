@@ -7,7 +7,7 @@
   - **Limite rígido do WhatsApp (3 botões)**: WhatsApp rejeita mensagens com $> 3$ botões de resposta rápida. Solução planejada: arquitetura adaptativa (se $\le 3$ ações, usa botões rápidos `send-button-actions`; se $> 3$ ações, usa Lista Interativa Z-API `send-option-list`).
   - **Paridade de Ações no Webhook**: Os IDs dos botões/itens seguem estritamente `CONFIRMAR:<partId>` e `RECUSAR:<partId>`, garantindo que o webhook existente `zapi-smart-webhook` execute exatamente a mesma lógica (atualização de status, logs, alertas de recusa ao SRVM e ao parceiro).
   - **Mitigação de Tempestade em Lote**: No envio em lote (`publishWeek`), as mensagens de resumo são agregadas e despachadas ao final do lote, 1x por publicador, com trava de debounce de 15 minutos em `zapi_dispatch_log`.
-- **Status**: ✅ IMPLEMENTADO, TESTADO E EM PRODUÇÃO (2026-10-13)
+- **Status**: ✅ IMPLEMENTADO, TESTADO E EM PRODUÇÃO (2026-10-13 / 2026-10-14)
 - **Arquivos Criados / Modificados**:
   - [src/services/publisherUpcomingAssignmentsService.ts](./../../src/services/publisherUpcomingAssignmentsService.ts) (Serviço de consulta e formatação do resumo)
   - [src/services/publisherUpcomingAssignmentsService.test.ts](./../../src/services/publisherUpcomingAssignmentsService.test.ts) (Testes automatizados do serviço)
@@ -16,10 +16,12 @@
   - [src/components/S89SelectionModal.tsx](./../../src/components/S89SelectionModal.tsx) (Gatilho em segundo plano pós-envio individual manual)
   - [supabase/functions/send-whatsapp/index.ts](./../../supabase/functions/send-whatsapp/index.ts) (Ação `send-option-list` implementada e testada)
   - [supabase/functions/zapi-smart-webhook/index.ts](./../../supabase/functions/zapi-smart-webhook/index.ts) (Captura de `listResponseMessage.selectedRowId` integrada ao fluxo normal)
+  - [supabase/functions/cron-whatsapp-reminders/index.ts](./../../supabase/functions/cron-whatsapp-reminders/index.ts) (Adicionado publisherId e flag isLackOfConfirmation para COBRANCA_72H e LEMBRETE_D9)
+  - [scripts/whatsapp-queue-consumer.ts](./../../scripts/whatsapp-queue-consumer.ts) (Disparo desacoplado do resumo pós-lembrete de falta de confirmação com delay de 2s)
 - **Validações e Deploys**:
   - `tsc --noEmit`: 0 erros.
   - `npm test`: 98/98 testes passando.
-  - Supabase Edge Functions: `send-whatsapp` e `zapi-smart-webhook` redeployadas no projeto `pevstuyzlewvjidjkmea`.
+  - Supabase Edge Functions: `send-whatsapp`, `zapi-smart-webhook` e `cron-whatsapp-reminders` redeployadas no projeto `pevstuyzlewvjidjkmea`.
   - Vercel: Deploy de produção ativo (`rvm-designacoes-antigravity.vercel.app`).
   - GitHub Pages: Deploy concluído (`npm run deploy`).
 - **Próximos Passos**:

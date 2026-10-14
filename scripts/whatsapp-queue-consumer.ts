@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/node';
+import { zapiOrchestrator } from '../src/services/zapiOrchestrator';
 
 Sentry.init({
   dsn: "https://741525a522be9026c6301d772ee77f35@o4512163872505856.ingest.de.sentry.io/4512163900686416",
@@ -97,6 +98,35 @@ async function main() {
       
       if (shouldLogToCanonical && partId) {
          await logToCanonical(partId, item.type, phone, result.success ? 'SUCCESS' : 'ERROR', result.messageId);
+      }
+
+      // 3.1. Resumo Desacoplado de Designações Futuras pós-lembrete de falta de confirmação
+      const isLackOfConfirmation = Boolean(
+        item.payload?.isLackOfConfirmation ||
+        item.type === 'COBRANCA_72H'
+      );
+
+      if (result.success && isLackOfConfirmation) {
+        let targetPublisherId = item.payload?.publisherId;
+        if (!targetPublisherId && partId) {
+          const cleanPartId = String(partId).replace(/-(titular|ajudante)$/i, '');
+          const { data: partRow } = await supabase
+            .from('workbook_parts')
+            .select('resolved_publisher_id')
+            .eq('id', cleanPartId)
+            .maybeSingle();
+          targetPublisherId = partRow?.resolved_publisher_id;
+        }
+
+        if (targetPublisherId) {
+          try {
+            console.log(`[whatsapp-queue-consumer] Verificando resumo desacoplado para publicador ${targetPublisherId}...`);
+            await sleep(2000); // Respiro orgânico de 2s antes do resumo
+            await zapiOrchestrator.dispatchUpcomingAssignmentsSummary(targetPublisherId, phone);
+          } catch (sumErr) {
+            console.warn(`[whatsapp-queue-consumer] Falha ao enviar resumo desacoplado para ${phone}:`, sumErr);
+          }
+        }
       }
 
       // 4. Atualiza o status na fila

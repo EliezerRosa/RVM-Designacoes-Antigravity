@@ -77,10 +77,24 @@ async function checkDispatched(partId: string, dispatchType: string) {
 
 let globalQueue: any[] = [];
 
-function enqueueWhatsApp(type: string, phone: string, message: string, options?: any, partId?: string) {
+function enqueueWhatsApp(
+    type: string,
+    phone: string,
+    message: string,
+    options?: any,
+    partId?: string,
+    extraPayload?: { publisherId?: string; isLackOfConfirmation?: boolean }
+) {
     globalQueue.push({
         type,
-        payload: { phone, message, options, partId }
+        payload: {
+            phone,
+            message,
+            options,
+            partId,
+            publisherId: extraPayload?.publisherId,
+            isLackOfConfirmation: extraPayload?.isLackOfConfirmation ?? (type === 'COBRANCA_72H')
+        }
     });
 }
 
@@ -328,7 +342,10 @@ async function runContinuousReminderCycle(
                     isRepublish = true;
                 }
 
-                enqueueWhatsApp('COBRANCA_72H', pub.phone, msg, options, part.id);
+                enqueueWhatsApp('COBRANCA_72H', pub.phone, msg, options, part.id, {
+                    publisherId: pub.id,
+                    isLackOfConfirmation: true,
+                });
                 sentCount++;
             }
         }
@@ -750,7 +767,11 @@ async function runDailyCycle(
             buttonActions
         } : {};
 
-        enqueueWhatsApp(dispatchType, pub.phone, msg, options, part.id);
+        const isLackOfConfirmation = part.status === 'PROPOSTA' && dispatchType === 'LEMBRETE_D9';
+        enqueueWhatsApp(dispatchType, pub.phone, msg, options, part.id, {
+            publisherId: pub.id,
+            isLackOfConfirmation,
+        });
         sentCount++;
     }
 
