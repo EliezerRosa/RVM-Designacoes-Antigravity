@@ -179,11 +179,11 @@ class ZApiOrchestrator {
         const roleText = isNewSubstituteAjudante ? 'Ajudante' : 'Titular';
         const phoneText = newSubstitutePhone ? `\n📞 Contato: ${newSubstitutePhone}` : '';
 
-        const msg = `🔄 *Aviso de Mudança — RVM*\n\n` +
-            `Olá, ${partnerName}! Tudo bem?\n` +
-            `Informamos que houve uma substituição na sua parte de *${partType}* do dia *${partDate}*.\n\n` +
-            `O seu novo ${roleText} será o(a) irmão(ã): *${newSubstituteName}*${phoneText}\n\n` +
-            `Este é apenas um aviso automático para que você possa entrar em contato com sua nova dupla para os ensaios. Que Jeová abençoe! 🙏`;
+        const msg = `🔄 *Ajuste na Programação — Reunião Vida e Ministério*\n\n` +
+            `Olá, ${partnerName}! Saudações.\n\n` +
+            `Informamos que houve uma alteração na sua parte de *${partType}* para a reunião de *${partDate}*.\n\n` +
+            `Seu novo companheiro de designação (${roleText}) será: *${newSubstituteName}*${phoneText}\n\n` +
+            `Pedimos a gentileza de entrarem em contato com antecedência para alinharem os ensaios. Que Jeová abençoe o preparo de vocês! 🙏`;
 
         const result = await this.sendTextDirect(partnerPhone, msg);
         await this.logDispatch(null, 'ALERTA_PARCEIRO', partnerPhone, result.success ? 'SUCCESS' : 'ERROR: ' + result.error, result.messageId);
@@ -199,12 +199,10 @@ class ZApiOrchestrator {
     ): Promise<boolean> {
         if (!oldPhone) return false;
 
-        const msg = `🔄 *Aviso de Ajuste na Tabela — RVM*\n\n` +
-            `Olá, ${oldName}! Tudo bem?\n` +
-            `Informamos que, devido a um ajuste manual na tabela, houve uma alteração na sua designação:\n\n` +
-            `📝 *Parte:* ${partType}\n` +
-            `📅 *Data:* ${partDate}\n\n` +
-            `Esta parte foi repassada para outro irmão. Portanto, você não precisará mais realizá-la. Agradecemos a sua compreensão e apoio! 🙏`;
+        const msg = `🔄 *Ajuste na Programação — Reunião Vida e Ministério*\n\n` +
+            `Prezado(a) ${oldName}, saudações.\n\n` +
+            `Informamos que, devido a uma necessidade de ajuste na programação da reunião de *${partDate}*, a parte de *${partType}* foi redesignada para outro publicador.\n\n` +
+            `Portanto, você não precisará mais realizar esta designação. Agradecemos imensamente a sua disposição e cooperação! Que Jeová abençoe seu serviço. 🙏`;
 
         const result = await this.sendTextDirect(oldPhone, msg);
         await this.logDispatch(partId || null, 'ALERTA_REMOCAO', oldPhone, result.success ? 'SUCCESS' : 'ERROR: ' + result.error, result.messageId, publisherId);

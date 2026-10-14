@@ -380,8 +380,8 @@ export const communicationService = {
         // PT-BR: "dia" é masculino (bom dia), "tarde" e "noite" são femininos (boa tarde/noite)
         const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
-        let text = `Olá, amados irmãos! ${greeting}. 👋\n\n`;
-        text += `Compartilhamos com alegria a *Programação da Reunião de Meio de Semana* para o dia *${displayDate}*:\n\n`;
+        let text = `Queridos irmãos, saudações! 👋\n\n`;
+        text += `Compartilhamos com alegria a programação da *Reunião Nossa Vida e Ministério Cristão* para a reunião de *${displayDate}*:\n\n`;
 
         // Add special events notes
         try {
@@ -441,8 +441,8 @@ export const communicationService = {
             text += `\n`;
         }
 
-        text += `📜 *Acesse o programa completo anexo.* ⬆️\n\n`;
-        text += `_"Que esteja sobre nós o favor de Jeová, nosso Deus; Que faças prosperar a obra das nossas mãos. Sim, faz prosperar a obra das nossas mãos."_ (Salmo 90:17) ✨`;
+        text += `📜 *O programa completo (S-140) segue anexo em imagem.* ⬆️\n\n`;
+        text += `_"Que a bondade de Jeová, nosso Deus, esteja sobre nós; faze prosperar o trabalho das nossas mãos. Sim, faze prosperar o trabalho das nossas mãos."_ (Salmo 90:17 — TNM) ✨`;
 
         return text;
     },
@@ -509,14 +509,18 @@ export const communicationService = {
             thursdayStr = `${DIAS_PT[meetingDow]}, ${meetingDate.getDate()} de ${MESES[meetingDate.getMonth()]} de ${meetingDate.getFullYear()}`;
         }
 
-        // 6. Montar mensagem de alerta
-        let alertMsg = `📢 *ALERTA DE RECUSA - RVM*\n\n`;
-        alertMsg += `O irmão *${publisherName}* informou que *NÃO PODERÁ* realizar a designação abaixo:\n\n`;
+        // 6. Montar mensagem de alerta com clareza contextual
+        const pubGender = publishers.find(p => p.name.trim() === publisherName.trim())?.gender;
+        const pubLabel = pubGender === 'sister' ? `A irmã *${publisherName}*` : `O irmão *${publisherName}*`;
+        const localStr = part.modalidade?.toLowerCase().includes('b') ? 'Sala auxiliar B' : 'Salão Principal';
+
+        let alertMsg = `📢 *Aviso de Recusa de Designação — Reunião Vida e Ministério*\n\n`;
+        alertMsg += `${pubLabel} informou que *não poderá* realizar a designação abaixo:\n\n`;
         alertMsg += `📖 *Parte:* ${part.tipoParte}\n`;
         if (part.tituloParte) alertMsg += `🎯 *Tema:* ${part.tituloParte}\n`;
-        alertMsg += `📅 *Data:* ${thursdayStr}\n`;
-        alertMsg += `📍 *Local:* ${part.modalidade?.toLowerCase().includes('b') ? 'SALA B' : 'SALÃO PRINCIPAL'}\n`;
-        alertMsg += `❌ *Motivo:* ${reason || 'Não informado'}\n\n`;
+        alertMsg += `📅 *Data da reunião:* ${thursdayStr}\n`;
+        alertMsg += `🏛️ *Local:* ${localStr}\n`;
+        alertMsg += `❌ *Motivo informado:* ${reason || 'Não informado'}\n\n`;
 
         if (partnerName) {
             const partnerRole = partnerPart?.funcao === 'Ajudante' ? 'Ajudante' : 'Titular';
@@ -530,13 +534,13 @@ export const communicationService = {
         if (bestRanked?.publisher?.phone) {
             candidateStr += ` (${bestRanked.publisher.phone})`;
         }
-        alertMsg += `💡 *Sugestão de Substituto:* ${candidateStr}\n`;
+        alertMsg += `💡 *Sugestão de substituto:* ${candidateStr}\n`;
         alertMsg += `──────────────────\n\n`;
 
         const baseUrl = getAppBaseUrl();
 
         alertMsg += `👉 *Designar substituto:* ${baseUrl}/?action=focus_part&partId=${part.id}\n\n`;
-        alertMsg += `👤 *Responsável RVM:* ${srvmName} (${srvmPhone})`;
+        alertMsg += `👤 *Superintendente da Reunião:* ${srvmName} (${srvmPhone})`;
 
         return { alertMsg, srvmPhone, bestCandidate, srvmName };
     },
@@ -568,14 +572,27 @@ export const communicationService = {
 
         // Verificar se a parte foi CANCELADA por evento
         if (part.status === 'CANCELADA' && (part as any).affectedByEventId) {
-            const greeting = recipientGender === 'sister' ? 'Querida irmã' : 'Querido irmão';
-            let cancelMsg = `${greeting} *${publisherName}*, paz! 🙏\n\n`;
-            cancelMsg += `Informamos que a sua designação para a parte *"${part.tituloParte || part.tipoParte}"* `;
-            cancelMsg += `foi *cancelada* devido a uma alteração na programação da semana.\n\n`;
+            const greeting = recipientGender === 'sister' ? 'Prezada irmã' : 'Prezado irmão';
+            const dateParts = (part.date || part.weekId || '').split('-');
+            let meetingDateDisplay = part.date || part.weekId || '';
+            if (dateParts.length === 3) {
+                const baseDate = new Date(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10));
+                const dayOfWeek = baseDate.getDay();
+                const daysToTarget = (meetingDayOfWeek - dayOfWeek + 7) % 7;
+                const targetDate = new Date(baseDate);
+                targetDate.setDate(baseDate.getDate() + daysToTarget);
+                const MESES_LOCAL = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+                const DIAS_LOCAL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+                meetingDateDisplay = `${DIAS_LOCAL[meetingDayOfWeek]}, ${targetDate.getDate()} de ${MESES_LOCAL[targetDate.getMonth()]} de ${targetDate.getFullYear()}`;
+            }
+
+            let cancelMsg = `${greeting} *${publisherName}*, saudações! 🙏\n\n`;
+            cancelMsg += `Informamos que a sua designação para a parte *"${part.tituloParte || part.tipoParte}"* na reunião de *${meetingDateDisplay}* `;
+            cancelMsg += `precisou ser cancelada devido a um ajuste na programação da semana.\n\n`;
             if ((part as any).cancelReason) {
                 cancelMsg += `📌 *Motivo:* ${(part as any).cancelReason}\n\n`;
             }
-            cancelMsg += `Agradecemos sua compreensão e disposição! 💛`;
+            cancelMsg += `Agradecemos muito sua compreensão e disposição em servir! Que Jeová abençoe seu esforço. ✨`;
             return { content: cancelMsg, phone: pub?.phone };
         }
 

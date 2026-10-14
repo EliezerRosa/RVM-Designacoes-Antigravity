@@ -273,7 +273,7 @@ export function generateWhatsAppMessage(
     if (pType.includes('oração')) emoji = '🙏';
 
     // Determinar Sala
-    const room = part.modalidade?.toLowerCase().includes('b') ? 'SALA B 🏛️' : 'SALÃO PRINCIPAL 🏟️';
+    const room = part.modalidade?.toLowerCase().includes('b') ? 'Sala auxiliar B' : 'Salão Principal';
     const time = part.horaInicio ? ` às *${part.horaInicio}*` : '';
 
     // Determinar nomes dos papéis (parceiro) por tipo de parte
@@ -287,39 +287,38 @@ export function generateWhatsAppMessage(
     }
     const partnerEmoji = isForAssistant ? '👤' : '👥';
 
-    // Função em destaque, colada à saudação
-    let highlightFunction = 'TITULAR';
+    // Função por extenso com boa semântica teocrática
+    let highlightFunction = 'Titular';
     if (isForAssistant) {
-        highlightFunction = isLeitorEBC ? 'LEITOR' : 'AJUDANTE';
+        highlightFunction = isLeitorEBC ? 'Leitor do Estudo Bíblico de Congregação' : 'Ajudante';
     } else if (isDirigenteEBC) {
-        highlightFunction = 'DIRIGENTE';
+        highlightFunction = 'Dirigente do Estudo Bíblico de Congregação';
     } else if (part.tipoParte?.toLowerCase().includes('presidente')) {
-        highlightFunction = 'PRESIDENTE';
+        highlightFunction = 'Presidente da Reunião';
     } else if (part.tipoParte?.toLowerCase().includes('oração')) {
-        highlightFunction = 'ORAÇÃO';
+        highlightFunction = 'Oração';
     }
 
     // Bloco de Ações Rápidas em texto (apenas para envio clássico via WhatsApp Web sem botões nativos)
     const dispLinkText = availabilityUrl ? `[ 📅 Disponibilidade ](${availabilityUrl})` : `[ 📅 Disponibilidade ]`;
     const actionBlock = (posLabel: string) => {
         if (isZApiFlow) return '';
-        return `\n🔘 *AÇÕES RÁPIDAS (${posLabel}):*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n──────────────────────────────────────────\n`;
+        return `\n🔘 *Ações Rápidas (${posLabel}):*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n──────────────────────────────────────────\n`;
     };
 
-    let msg = `Olá *${salutation} ${studentName}*! 👋\n`;
-    msg += `*SUA FUNÇÃO: ${highlightFunction}*\n`;
+    let msg = `${salutation} *${studentName}*, saudações! 👋\n\n`;
+    msg += `Você recebeu uma designação na *Reunião Nossa Vida e Ministério Cristão*:\n\n`;
     const partLabel = part.tituloParte || part.tipoParte || '';
-    if (partLabel) msg += `📝 *Parte:* ${partLabel}\n`;
+    if (partLabel) msg += `📖 *Parte:* ${partLabel}\n`;
+    msg += `👤 *Sua designação:* ${highlightFunction}\n`;
     if (isSubstitution) {
-        msg += `\n🔄 *PEDIDO DE SUBSTITUIÇÃO*\n`;
-        msg += `_Esta parte foi reatribuída a você. Pedimos a gentileza de avaliar e responder o quanto antes._\n`;
+        msg += `\n🔄 *Pedido de Substituição:*\n_Esta designação foi transferida para você. Por favor, confirme se poderá realizá-la._\n`;
     }
 
     // 1. Ações Rápidas (Início - apenas clássico)
     if (!isZApiFlow) msg += actionBlock('INÍCIO');
 
-    msg += `📅 *Data:* ${displayDate}\n`;
-    msg += `⏰ *Início:*${time}\n`;
+    msg += `📅 *Data da reunião:* ${displayDate}${time}\n`;
     msg += `🏛️ *Local:* ${room}\n`;
 
     // 2. Ações Rápidas (Meio - apenas clássico)
@@ -330,20 +329,18 @@ export function generateWhatsAppMessage(
         if (partnerPhone) msg += `📱 *WhatsApp do ${partnerRoleName}:* ${partnerPhone}\n`;
     }
 
-    if (!isForAssistant) {
-        msg += `\nBom preparo! Que Jeová abençoe seu esforço. ✨\n`;
-    }
+    msg += `\nBom preparo! Que Jeová abençoe seu esforço. ✨\n`;
 
     if (srvmName && srvmPhone) {
-        msg += `👤 *Responsável RVM:* ${srvmName} (${srvmPhone})\n`;
+        msg += `\n👤 *Superintendente da Reunião:* ${srvmName} (${srvmPhone})\n`;
         let cleaned = srvmPhone.replace(/[^0-9]/g, '');
         if (cleaned && cleaned.length <= 11 && !cleaned.startsWith('55')) cleaned = '55' + cleaned;
-        msg += `📱 *Falar com ele (Zap):* https://wa.me/${cleaned}\n`;
+        msg += `💬 *Contato no WhatsApp:* https://wa.me/${cleaned}\n`;
     }
 
     // 3. Ações Rápidas (Fim - apenas clássico)
     if (!isZApiFlow) {
-        msg += `\n🔘 *AÇÕES RÁPIDAS (FIM):*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n`;
+        msg += `\n🔘 *Ações Rápidas:*\n[ ✅ Confirmar ]  [ ❌ Não Poderei ]  ${dispLinkText}\n`;
     }
 
     // Compatibilidade retroativa apenas se confirmationUrl for explicitamente fornecido e NÃO for fluxo Z-API

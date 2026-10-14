@@ -76,6 +76,16 @@ function getHonorific(gender?: string): string {
     return gender === 'sister' ? 'Irmã' : 'Irmão';
 }
 
+/** Formata data YYYY-MM-DD para DD/MM/YYYY */
+function formatPartDateStr(dateStr?: string): string {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
 /** 
  * PROTOCOLO B: Verificação JEV AI via OpenRouter 
  * Evita Ejeto Incorreto de Repasses (Proxies) e Datas Incompatíveis.
@@ -782,6 +792,9 @@ async function processWebhookPayload(body: any) {
 
     // CENÁRIO 1: CONFIRMAÇÃO
     if (detectedIntent === "CONFIRMAR") {
+      const tipoParte = targetPart?.tipo_parte || targetPart?.part_title || "sua designação";
+      const partDateStr = targetPart?.date ? ` da reunião de *${formatPartDateStr(targetPart.date)}*` : "";
+
       if (!targetPart) {
         actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
         console.log(`[zapi-smart-webhook] Texto de confirmação ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
@@ -797,13 +810,13 @@ async function processWebhookPayload(body: any) {
           console.log(`[zapi-smart-webhook] Confirmação ignorada silenciosamente (Duplo clique em menos de 5 min)`);
         } else {
           actionTaken = "ALREADY_PROCESSED_SPAM_LOCKED";
-          outboundReply = `✅ ${greeting}, ${honorific} *${pubName}*! Vimos que sua designação já constava como confirmada. Muito obrigado pela sua disposição!`;
+          outboundReply = `✅ ${greeting}, ${honorific} *${pubName}*! Vimos que sua designação de *${tipoParte}*${partDateStr} já estava confirmada. Muito obrigado pela sua disposição! Que Jeová abençoe sua preparação. 🙏`;
           console.log(`[zapi-smart-webhook] Confirmação ignorada (Duplo Clique): Parte já estava DESIGNADA para ${pubName}`);
           await dispatchTextMessage(replyPhone, outboundReply);
         }
       } else if (targetPart.resolved_publisher_id && targetPart.resolved_publisher_id !== publisherData?.id) {
         actionTaken = "ALREADY_REASSIGNED";
-        outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. Como esta parte já foi repassada para outro publicador, não é mais possível confirmá-la. Agradecemos imensamente a sua disposição e o seu espírito voluntário!`;
+        outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. A designação de *${tipoParte}*${partDateStr} já foi repassada para outro irmão. Agradecemos de coração a sua disposição e o seu espírito voluntário! Que Jeová o(a) abençoe. 🙏`;
         console.log(`[zapi-smart-webhook] Confirmação negada: Parte já repassada para outro publicador.`);
         await dispatchTextMessage(replyPhone, outboundReply);
       } else {
@@ -830,8 +843,7 @@ async function processWebhookPayload(body: any) {
 
         actionTaken = "STATUS_CONFIRMADA";
 
-        const tipoParte = targetPart.tipo_parte || targetPart.part_title || "Designação";
-        outboundReply = `✅ *Confirmação Registrada!*\n\n${greeting}, ${honorific} *${pubName}*, ficamos muito felizes! Sua designação de *${tipoParte}* está confirmada no programa da reunião.\n\nQue Jeová abençoe ricamente a sua preparação! 🙏`;
+        outboundReply = `✅ *Confirmação Registrada!*\n\n${greeting}, ${honorific} *${pubName}*! Ficamos muito felizes com a sua confirmação para a parte de *${tipoParte}*${partDateStr}.\n\nQue Jeová abençoe ricamente a sua preparação! 🙏`;
         console.log(`[zapi-smart-webhook] Despachando resposta cordial de confirmação para ${replyPhone}...`);
         await dispatchTextMessage(replyPhone, outboundReply);
       }
@@ -839,6 +851,9 @@ async function processWebhookPayload(body: any) {
 
     // CENÁRIO 2: RECUSA
     else if (detectedIntent === "RECUSAR") {
+      const tipoParte = targetPart?.tipo_parte || targetPart?.part_title || "sua designação";
+      const partDateStr = targetPart?.date ? ` da reunião de *${formatPartDateStr(targetPart.date)}*` : "";
+
       if (!targetPart) {
         actionTaken = "IGNORED_NO_PRECEDING_DISPATCH";
         console.log(`[zapi-smart-webhook] Texto de recusa ignorado: nenhum dispatch prévio recente para ${senderPhone}`);
@@ -852,7 +867,7 @@ async function processWebhookPayload(body: any) {
           console.log(`[zapi-smart-webhook] Recusa ignorada silenciosamente (Duplo clique em menos de 5 min)`);
         } else {
           actionTaken = "ALREADY_REJECTED_SPAM_LOCKED";
-          outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. Identificamos que você já havia recusado esta parte. Fique tranquilo(a), o responsável já foi notificado.`;
+          outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. Já havíamos registrado que você não poderá realizar a parte de *${tipoParte}*${partDateStr}. Fique em paz, os irmãos responsáveis já foram avisados. 🙏`;
           console.log(`[zapi-smart-webhook] Recusa ignorada (Duplo Clique): Parte já estava REJEITADA/EM_SUBSTITUICAO`);
           await dispatchTextMessage(replyPhone, outboundReply);
         }
@@ -903,7 +918,7 @@ async function processWebhookPayload(body: any) {
 
         if (isAutoReassignON) {
           console.log(`[zapi-smart-webhook] AUTOMAÇÃO ON: Disparando GitHub Action (repository_dispatch) para a parte ${targetPart.id}`);
-          outboundReply = `Muito obrigado por avisar, ${honorific} *${pubName}*! Já registramos e o sistema providenciará a substituição automaticamente. Desejamos tudo de bom! 💛`;
+          outboundReply = `Muito obrigado por nos avisar com antecedência, ${honorific} *${pubName}*! Registramos que você não poderá realizar a parte de *${tipoParte}*${partDateStr}. Os irmãos responsáveis pela reunião já foram informados para providenciar um substituto. Que Jeová continue abençoando seu serviço! 🙏`;
           await dispatchTextMessage(replyPhone, outboundReply);
 
           // Disparar o GitHub Actions webhook com fallback defensivo para a liderança
@@ -926,10 +941,10 @@ async function processWebhookPayload(body: any) {
         } else {
           console.log(`[zapi-smart-webhook] AUTOMAÇÃO OFF: Fluxo semi-automático tradicional.`);
           if (!reasonExtracted) {
-            outboundReply = `${greeting}, ${honorific} *${pubName}*, já registramos que não será possível realizar esta designação.\n\nPor favor, poderia nos informar brevemente o *motivo* para podermos repassar aos irmãos responsáveis?`;
+            outboundReply = `${greeting}, ${honorific} *${pubName}*. Registramos que não será possível realizar a parte de *${tipoParte}*${partDateStr}.\n\nPor favor, poderia nos informar brevemente o *motivo* para que possamos repassar aos irmãos responsáveis pela reunião?`;
             await dispatchTextMessage(replyPhone, outboundReply);
           } else {
-            outboundReply = `Muito obrigado por nos avisar com antecedência, ${honorific} *${pubName}*! Já registramos sua justificativa e iremos providenciar a substituição. Desejamos tudo de bom e, se for o caso, uma pronta recuperação! 💛`;
+            outboundReply = `Muito obrigado por nos avisar com antecedência, ${honorific} *${pubName}*! Registramos que não poderá realizar a parte de *${tipoParte}*${partDateStr}. Já informamos aos irmãos responsáveis para providenciar a substituição. Desejamos tudo de bom e, se for o caso de saúde, uma pronta recuperação! 🙏`;
             await dispatchTextMessage(replyPhone, outboundReply);
             await dispatchAlertToLeadership(targetPart, pubName, reason);
           }
@@ -1102,15 +1117,15 @@ async function dispatchAlertToLeadership(part: any, publisherName: string, reaso
     }
 
     const tipoParte = part?.tipo_parte || part?.part_title || "Designação";
-    const dataPart = part?.date || part?.week_id || "Próxima reunião";
+    const dataPart = formatPartDateStr(part?.date) || part?.week_id || "Próxima reunião";
 
     const alertMessage =
-      `🚨 *ALERTA DE RECUSA — REUNIÃO VIDA E MINISTÉRIO*\n\n` +
+      `🚨 *Aviso de Recusa de Designação — Reunião Vida e Ministério*\n\n` +
       `👤 *Publicador:* ${publisherName}\n` +
-      `📝 *Parte:* ${tipoParte}\n` +
-      `📅 *Data/Semana:* ${dataPart}\n` +
+      `📖 *Parte:* ${tipoParte}\n` +
+      `📅 *Data da reunião:* ${dataPart}\n` +
       `💬 *Motivo informado:* "${reason}"\n\n` +
-      `⚡ *Ação no Sistema:* A parte foi marcada como REJEITADA e já aguarda novo publicador no Painel de Designações.`;
+      `📌 *Situação:* A parte foi atualizada e aguarda designação de um substituto no programa da reunião.`;
 
     for (const phone of targetPhones) {
       const success = await dispatchTextMessage(phone, alertMessage);
@@ -1155,15 +1170,15 @@ async function dispatchSwapAlertToLeadership(part: any, publisherName: string, s
     }
 
     const tipoParte = part?.tipo_parte || part?.part_title || "Designação";
-    const dataPart = part?.date || part?.week_id || "Próxima reunião";
+    const dataPart = formatPartDateStr(part?.date) || part?.week_id || "Próxima reunião";
 
     const alertMessage =
-      `🔄 *PEDIDO DE PERMUTA (TROCA) — RVM*\n\n` +
+      `🔄 *Pedido de Troca de Designação — Reunião Vida e Ministério*\n\n` +
       `👤 *Publicador:* ${publisherName}\n` +
-      `📝 *Parte:* ${tipoParte}\n` +
-      `📅 *Data/Semana:* ${dataPart}\n` +
-      `💬 *Mensagem do Publicador:* "${swapDetails}"\n\n` +
-      `⚠️ *Nota:* Nenhuma alteração foi feita no RVM. A troca aguarda aprovação da comissão no Painel de Designações.`;
+      `📖 *Parte:* ${tipoParte}\n` +
+      `📅 *Data da reunião:* ${dataPart}\n` +
+      `💬 *Mensagem do publicador:* "${swapDetails}"\n\n` +
+      `📌 *Nota:* A solicitação aguarda avaliação e alinhamento dos irmãos responsáveis.`;
 
     for (const phone of targetPhones) {
       const success = await dispatchTextMessage(phone, alertMessage);
