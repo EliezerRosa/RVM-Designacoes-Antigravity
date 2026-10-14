@@ -8,6 +8,8 @@
 
 import { supabase } from '../lib/supabase';
 import { api } from './api';
+import { isManuallyAssignable } from '../constants/s140Template';
+import { communicationService } from './communicationService';
 import type { Publisher, WorkbookPart } from '../types';
 
 export interface UpcomingAssignmentItem {
@@ -46,6 +48,44 @@ const DIAS_PT = [
 ];
 
 const DEFAULT_MEETING_DOW = 4; // Quinta-feira
+
+/**
+ * Determina se a parte é uma designação litúrgica real e independente para o publicador,
+ * descartando partes secundárias/automáticas implícitas de quando designado presidente:
+ * - Oração Inicial
+ * - Comentários Iniciais
+ * - Elogios e Conselhos
+ * - Comentários Finais
+ * E também Cânticos (que não são designáveis a publicadores).
+ * Mantém Presidente, Discursos, Leituras, Demonstrações, Dirigente/Leitor EBC, Necessidades Locais, Oração Final.
+ */
+export function isRealUpcomingAssignment(tipoParte?: string | null): boolean {
+    if (!tipoParte) return false;
+    const norm = tipoParte
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+
+    // 1. Partes secundárias/automáticas implícitas da presidência
+    if (
+        norm.includes('oracao inicial') ||
+        norm.includes('comentarios iniciais') ||
+        norm.includes('comentarios finais') ||
+        norm.includes('elogios e conselhos') ||
+        norm.includes('elogios')
+    ) {
+        return false;
+    }
+
+    // 2. Cânticos
+    if (norm.startsWith('cantico') || norm.includes('cantico')) {
+        return false;
+    }
+
+    // 3. Validação canônica S-140 (apenas partes MANUAL ou MANUAL_PAIR)
+    return isManuallyAssignable(tipoParte);
+}
 
 /** Resolve o dia da semana configurado para a reunião daquela semana (0 a 6). */
 async function getMeetingDayOfWeek(weekId: string): Promise<number> {
@@ -156,8 +196,12 @@ export async function getFuturePublishedAssignments(
     });
 
     // 4. Filtrar partes que foram de fato publicadas e cuja reunião ainda não ocorreu
+    // IMPORTANTE: descarta partes secundárias/automáticas implícitas da presidência (oração inicial,
+    // comentários iniciais/finais, conselhos) e cânticos.
     const candidateParts: typeof rawParts = [];
     for (const p of rawParts) {
+        if (!isRealUpcomingAssignment(p.tipo_parte)) continue;
+
         const isWeekPub = Boolean(publishedWeeksMap[p.week_id]);
         const isPartPub = publishedPartIdsSet.has(p.id);
         if (!isWeekPub && !isPartPub) continue;
@@ -249,7 +293,8 @@ export async function getFuturePublishedAssignments(
  */
 export async function buildUpcomingAssignmentsSummary(
     publisherId: string,
-    publishersList?: Publisher[]
+    publishersList?: Publisher[],
+    availabilityUrl?: string | null
 ): Promise<UpcomingSummaryResult | null> {
     const { publisher, assignments } = await getFuturePublishedAssignments(publisherId, publishersList);
 
@@ -294,28 +339,41 @@ export async function buildUpcomingAssignmentsSummary(
         }
     });
 
+    const hasPending = assignments.some(a => !a.isConfirmed);
+
     text += `━━━━━━━━━━━━━━━━━━━━\n`;
     text += `💡 *Ações Rápidas:*\n`;
-    text += `Você pode confirmar partes pendentes ou avisar com antecedência caso não possa realizar alguma delas tocando nas opções abaixo:`;
+    if (hasPending) {
+        text += `Por favor, confirme se poderá realizar as partes pendentes ou avise com antecedência caso não possa tocando nos botões abaixo:`;
+    } else {
+        text += `Todas as suas designações acima já estão confirmadas. Caso surja algum imprevisto e não possa realizar alguma delas, avise com antecedência tocando no botão abaixo:`;
+    }
 
-    // Montar as opções/botões
+    // Se disponibilidade fornecida ou puder ser resolvida, adiciona link útil para web/PC
+    let effectivePortalUrl = availabilityUrl;
+    if (!effectivePortalUrl) {
+        try {
+            effectivePortalUrl = await communicationService.getAvailabilityUrl(publisher.id, publisher.name);
+        } catch {
+            // fallback
+        }
+    }
+
+    if (effectivePortalUrl) {
+        text += `\n\n📱 _Para gerenciar suas designações ou informar indisponibilidade de datas, acesse seu portal:_\n${effectivePortalUrl}`;
+    }
+
+    // Montar as opções e botões rápidos
+    // Limite rígido da Meta para botões de ação rápida no WhatsApp: máximo 3 botões.
+    const pendingItems = assignments.filter(a => !a.isConfirmed);
+    const confirmedItems = assignments.filter(a => a.isConfirmed);
+
     const buttonActions: Array<{ id: string; type: 'REPLY'; label: string }> = [];
     const listOptions: Array<{ id: string; title: string; description?: string }> = [];
 
+    // Preenche a lista completa para histórico e fallback
     for (const item of assignments) {
         if (!item.isConfirmed) {
-            // Parte Pendente: Botão Confirmar + Botão Recusar
-            buttonActions.push({
-                id: `CONFIRMAR:${item.realPartId}`,
-                type: 'REPLY',
-                label: `✅ Sim (${item.shortDate})`,
-            });
-            buttonActions.push({
-                id: `RECUSAR:${item.realPartId}`,
-                type: 'REPLY',
-                label: `❌ Não posso (${item.shortDate})`,
-            });
-
             listOptions.push({
                 id: `CONFIRMAR:${item.realPartId}`,
                 title: `✅ Confirmar (${item.shortDate})`,
@@ -327,17 +385,49 @@ export async function buildUpcomingAssignmentsSummary(
                 description: `${item.tipoParte} (${item.funcao})`,
             });
         } else {
-            // Parte já Confirmada: Apenas Botão Recusar (para desistência)
-            buttonActions.push({
-                id: `RECUSAR:${item.realPartId}`,
-                type: 'REPLY',
-                label: `❌ Não posso (${item.shortDate})`,
-            });
-
             listOptions.push({
                 id: `RECUSAR:${item.realPartId}`,
                 title: `❌ Não Poderei (${item.shortDate})`,
                 description: `${item.tipoParte} (Já confirmada)`,
+            });
+        }
+    }
+
+    // Prioriza até 3 botões nativos para garantir renderização direta
+    if (pendingItems.length > 0) {
+        const firstPending = pendingItems[0];
+        buttonActions.push({
+            id: `CONFIRMAR:${firstPending.realPartId}`,
+            type: 'REPLY',
+            label: `✅ Sim (${firstPending.shortDate})`,
+        });
+        buttonActions.push({
+            id: `RECUSAR:${firstPending.realPartId}`,
+            type: 'REPLY',
+            label: `❌ Não posso (${firstPending.shortDate})`,
+        });
+
+        if (pendingItems.length > 1) {
+            const secondPending = pendingItems[1];
+            buttonActions.push({
+                id: `CONFIRMAR:${secondPending.realPartId}`,
+                type: 'REPLY',
+                label: `✅ Sim (${secondPending.shortDate})`,
+            });
+        } else if (confirmedItems.length > 0) {
+            const firstConfirmed = confirmedItems[0];
+            buttonActions.push({
+                id: `RECUSAR:${firstConfirmed.realPartId}`,
+                type: 'REPLY',
+                label: `❌ Não posso (${firstConfirmed.shortDate})`,
+            });
+        }
+    } else {
+        for (const item of confirmedItems.slice(0, 3)) {
+            buttonActions.push({
+                id: `RECUSAR:${item.realPartId}`,
+                type: 'REPLY',
+                label: `❌ Não posso (${item.shortDate})`,
             });
         }
     }
