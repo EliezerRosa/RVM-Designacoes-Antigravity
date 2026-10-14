@@ -645,6 +645,28 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ---
 
+## 31. Descarte de Partes Secundárias/Implícitas da Presidência e Blindagem de Botões Nativos Z-API (2026-10-14)
+
+- **Problema Identificado**:
+  - Ao ser designado Presidente da Reunião, o banco de dados atribui o presidente também às partes secundárias automáticas (`Oração Inicial`, `Comentários Iniciais`, `Elogios e Conselhos` [múltiplas ocorrências] e `Comentários Finais`).
+  - No resumo consolidado de próximas designações enviado via Z-API, todas essas 5 micro-partes apareciam na lista junto com a Presidência e demais partes (totalizando 7 itens no exemplo real).
+  - Com 7 partes confirmadas, o sistema gerava 7 botões de recusa. Como o total ultrapassava 3 botões, o robô chaveava para `/send-option-list` (Lista Interativa gaveta), que no WhatsApp Web/Desktop não renderiza botões nativos e no mobile esconde as ações em um menu, fazendo com que os botões planejados não aparecessem.
+- **Soluções Implementadas**:
+  1. **Filtro Canônico `isRealUpcomingAssignment` (`publisherUpcomingAssignmentsService.ts`)**:
+     - Descarta de forma cirúrgica e resiliente (com normalização unicode e semântica S-140) todas as atribuições secundárias/implícitas da presidência (`Oração Inicial`, `Comentários Iniciais`, `Elogios e Conselhos`, `Comentários Finais`) e Cânticos.
+     - Preserva rigorosamente a designação principal `Presidente` e todas as designações litúrgicas manuais (`Necessidades Locais`, `Discurso Tesouros`, `Joias Espirituais`, `Leitura da Bíblia`, demonstrações do ministério, `Dirigente/Leitor EBC` e `Oração Final`).
+  2. **Redução e Renderização de Botões Nativos WhatsApp (`send-button-actions`)**:
+     - No caso real (Presidente em 15/10 e Necessidades Locais em 29/10), a lista cai de 7 para 2 partes reais.
+     - A quantidade de botões cai para 2 (`[ ❌ Não posso (15/10) ]` e `[ ❌ Não posso (29/10) ]`), caindo perfeitamente dentro da cota de $\le 3$ botões nativos (`sendButtonActionsDirect` via `/send-button-actions` da Z-API).
+     - Priorização inteligente de até 3 botões: se houver partes pendentes, recebem prioridade máxima (`✅ Sim` e `❌ Não posso`); partes confirmadas recebem botão de recusa das datas mais próximas.
+     - Redação contextual: se todas as designações estiverem confirmadas, o texto adapta para: *"Todas as suas designações acima já estão confirmadas. Caso surja algum imprevisto e não possa realizar alguma delas, avise com antecedência tocando no botão abaixo:"*.
+     - Inclusão do link permanente do Portal de Disponibilidade / Designações no rodapé para contingência em computadores / WhatsApp Web.
+- **Validação Automatizada & Qualidade**:
+  - Suíte de testes expandida para **99 testes automatizados (99/99 aprovados, 0 falhas)**.
+  - Build de produção (`npm run build`) validado sem erros.
+
+---
+
 ## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
 
 0. **Decidir destino dos arquivos não rastreados** (`scratch/`, `scripts/check_*.ts`): mantidos no `.gitignore` ou commitados seletivamente.

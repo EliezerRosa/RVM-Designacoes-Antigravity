@@ -536,31 +536,32 @@ class ZApiOrchestrator {
             }
         }
 
-        // 2. Monta o resumo
-        const summary = await buildUpcomingAssignmentsSummary(publisherId, options.publishers);
+        // 2. Resolve link do portal e monta o resumo
+        const pubName = options.publishers?.find(p => p.id === publisherId)?.name;
+        const availabilityUrl = await communicationService.getAvailabilityUrl(publisherId, pubName);
+        const summary = await buildUpcomingAssignmentsSummary(publisherId, options.publishers, availabilityUrl);
         if (!summary || summary.assignments.length < 2) {
             return { success: true, skipped: true }; // Menos de 2 partes futuras publicadas
         }
 
         console.log(`[zapiOrchestrator] Disparando resumo de ${summary.assignments.length} próximas partes para ${summary.publisher.name} (${phone})...`);
 
-        // 3. Escolhe entre botões rápidos (<= 3 botões) ou Lista Interativa (> 3 botões)
+        // 3. Envia os botões nativos de resposta rápida da Z-API (máx 3)
         let sendResult: { success: boolean; messageId?: string; error?: string };
 
-        if (summary.buttonActions.length <= 3) {
+        if (summary.buttonActions.length > 0) {
+            const buttonsToSend = summary.buttonActions.slice(0, 3);
             sendResult = await this.sendButtonActionsDirect(
                 phone,
                 summary.messageText,
-                summary.buttonActions
+                buttonsToSend
             );
+            if (!sendResult.success) {
+                console.warn('[zapiOrchestrator] Falha em sendButtonActionsDirect no resumo, tentando texto puro:', sendResult.error);
+                sendResult = await this.sendTextDirect(phone, summary.messageText);
+            }
         } else {
-            sendResult = await this.sendOptionListDirect(
-                phone,
-                summary.messageText,
-                'Próximas Designações',
-                '📋 Ver Ações / Responder',
-                summary.listOptions
-            );
+            sendResult = await this.sendTextDirect(phone, summary.messageText);
         }
 
         // 4. Registra log de envio
