@@ -497,7 +497,7 @@ export async function publishWeek(
         if (recipients.length > 0) {
             const statusBase64 = await generateStatusBoardImageBase64(weekId, weekParts, publishers);
             if (statusBase64) {
-                const caption = `Status atual das designações — semana ${weekId}.`;
+                const caption = `Acompanhamento do status das designações — semana de ${weekId}.`;
                 const rs = await zapiOrchestrator.dispatchImageToRecipients(statusBase64, caption, recipients);
                 result.status = { attempted: rs.length, ok: rs.filter(r => r.success).length };
                 rs.filter(r => !r.success).forEach(r => result.errors.push(`Status ${r.phone}: ${r.error || 'falha'}`));
@@ -604,5 +604,5 @@ function buildS140Caption(weekId: string, meetingDayOfWeek: number): string {
     const month = months[targetDate.getMonth()];
     const year = targetDate.getFullYear();
     const formattedDate = `${day} de ${month} de ${year}`;
-    return `Olá irmãos! ${greeting.charAt(0).toUpperCase() + greeting.slice(1)}!\n\nSegue programação da reunião de meio de semana, para ${dayName}, dia ${formattedDate}.\n\n_"Que esteja sobre nós o favor de Jeová, nosso Deus; Que faças prosperar a obra das nossas mãos. Sim, faz prosperar a obra das nossas mãos."_ (Salmo 90:17) ✨`;
+    return `Queridos irmãos, saudações! 👋\n\nCompartilhamos a programação da *Reunião Nossa Vida e Ministério Cristão* para ${dayName}, dia ${formattedDate}.\n\n_"Que a bondade de Jeová, nosso Deus, esteja sobre nós; faze prosperar o trabalho das nossas mãos. Sim, faze prosperar o trabalho das nossas mãos."_ (Salmo 90:17 — TNM) ✨`;
 }

@@ -215,31 +215,31 @@ function buildReminderMessage(
     const tipoParte = part.tipo_parte || '';
     const titulo = part.part_title || '';
 
-    let body = `${greeting}, ${honorific} ${pub.name}!\n`;
-    body += `Lembrando que ${reminderLabel} para sua parte na reunião de *${meetingDateLabel}*:\n\n`;
-    body += `📖 *${tipoParte}*\n`;
-    if (titulo) body += `🎯 *${titulo}*\n`;
+    let body = `${greeting}, ${honorific} ${pub.name}! Saudações.\n\n`;
+    body += `Lembrando que ${reminderLabel} para sua designação na reunião de *${meetingDateLabel}*:\n\n`;
+    body += `📖 *Parte:* ${tipoParte}\n`;
+    if (titulo) body += `🎯 *Tema:* ${titulo}\n`;
 
     // Templates por tipo de parte
     const lower = tipoParte.toLowerCase();
     if (lower.includes('leitura da bíblia') || lower.includes('leitura da biblia')) {
-        body += `\n📗 Pratique a leitura em voz alta para garantir fluência e pronúncia clara.`;
+        body += `\n📗 Pratique a leitura em voz alta para aprimorar a fluência e a pronúncia clara.`;
     } else if (lower.includes('iniciando') || lower.includes('cultivando') || lower.includes('fazendo disc') || lower.includes('explicando')) {
         body += `\n🎭 Lembre-se de ensaiar a demonstração com antecedência.`;
         if (partnerInfo) {
-            body += `\n👥 Sua dupla de ensaio: ${partnerInfo}`;
+            body += `\n👥 Companheiro(a) de designação: ${partnerInfo}`;
         }
     } else if (lower.includes('discurso tesouros') || lower.includes('joias espirituais')) {
-        body += `\n🎤 Revise bem o conteúdo e o tempo disponível para seu discurso.`;
+        body += `\n🎤 Revise bem o conteúdo e o tempo disponível para o seu discurso.`;
     } else if (lower.includes('dirigente ebc') || lower.includes('leitor ebc')) {
-        body += `\n📚 Prepare-se bem para conduzir o estudo com clareza e edificação.`;
+        body += `\n📚 Prepare-se bem para conduzir/ler o estudo com clareza e edificação.`;
     } else if (lower.includes('presidente')) {
-        body += `\n🎙️ Revise o programa da semana para conduzir a reunião com fluidez.`;
+        body += `\n🎙️ Revise a programação da reunião para conduzir com fluidez.`;
     } else if (lower.includes('oração final') || lower.includes('oracao final')) {
-        body += `\n🙏 Prepare uma oração que reflita os pontos abordados na reunião.`;
+        body += `\n🙏 Prepare uma oração que reflita os pontos principais abordados na reunião.`;
     }
 
-    body += `\n\nPor favor, garanta que seu preparo esteja em dia. ✨`;
+    body += `\n\nQue Jeová abençoe a sua preparação! ✨`;
     return body;
 }
 
@@ -252,13 +252,13 @@ function buildChargeD9Message(
     const greeting = getGreeting();
     const honorific = getHonorific(pub.gender);
 
-    let msg = `${greeting}, ${honorific} ${pub.name}!\n\n`;
-    msg += `Você recebeu uma designação para a reunião de *${meetingDateLabel}*:\n\n`;
-    msg += `📖 *${part.tipo_parte}*\n`;
-    if (part.part_title) msg += `🎯 *${part.part_title}*\n`;
-    msg += `\nPor favor, confirme se poderá participar clicando no link abaixo:\n`;
+    let msg = `${greeting}, ${honorific} ${pub.name}! Saudações.\n\n`;
+    msg += `Você tem uma designação programada para a reunião de *${meetingDateLabel}*:\n\n`;
+    msg += `📖 *Parte:* ${part.tipo_parte}\n`;
+    if (part.part_title) msg += `🎯 *Tema:* ${part.part_title}\n`;
+    msg += `\nAinda não recebemos sua confirmação. Por favor, confirme se poderá realizar esta parte clicando no link abaixo:\n`;
     msg += `👉 ${confirmLink}\n\n`;
-    msg += `Se não puder, use o mesmo link para nos avisar. Contamos com você! 🙏`;
+    msg += `Se não puder, use o mesmo link para nos avisar com antecedência. Contamos com sua cooperação! Que Jeová o(a) abençoe. 🙏`;
     return msg;
 }
 
@@ -318,16 +318,20 @@ async function runContinuousReminderCycle(
                 const options: any = {};
                 let isRepublish = false;
 
+                const meetingDate = calculateMeetingDate(part.week_id, meetingDays);
+                const meetingDateLabel = meetingDate ? formatMeetingDate(meetingDate) : 'próxima reunião';
+                const honorific = getHonorific(pub.gender);
+                const partLabel = part.part_title || part.tipo_parte || 'designação';
+
                 if (latestDispatch.message_id) {
                     // Tem message_id: Faz a cobrança por Reply
-                    const honorific = getHonorific(pub.gender);
-                    msg = `Olá, ${honorific} ${pub.name}! Este é um lembrete automático. Ainda não recebemos sua confirmação para a designação acima. Por favor, veja a msg referida aqui e retorne para nos avisar!`;
+                    msg = `Olá, ${honorific} ${pub.name}! Saudações.\n\n` +
+                          `Gostaríamos de lembrar sobre a sua designação de *${partLabel}*, programada para a reunião de *${meetingDateLabel}*.\n\n` +
+                          `Ainda não recebemos sua confirmação. Por favor, nos avise se poderá realizar esta parte respondendo a esta mensagem ou selecionando as opções. Contamos com você! 🙏`;
                     options.referenceMessageId = latestDispatch.message_id;
                 } else {
                     // NÃO tem message_id (legado): Republica o S-89 original!
-                    const meetingDate = calculateMeetingDate(part.week_id, meetingDays);
                     if (!meetingDate) continue;
-                    const meetingDateLabel = formatMeetingDate(meetingDate);
                     const confirmationToken = await getOrCreateConfirmationToken(part.id, pub.id);
                     if (!confirmationToken) continue;
                     
@@ -879,12 +883,12 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
 
         const honorific = getHonorific(pub.gender);
         const greeting = getGreeting();
-        const msg = `${greeting}, ${honorific} ${pub.name}! 🌸\n\n` +
-            `Gostaríamos gentilmente de saber se já se sente à vontade para voltar a receber designações na Reunião Vida e Ministério.\n\n` +
-            `Sabemos que cada pessoa tem seu tempo, e respeitamos isso completamente. ` +
-            `Se desejar reconsiderar, basta clicar no link abaixo:\n\n` +
+        const msg = `${greeting}, ${honorific} ${pub.name}! Saudações. 🌸\n\n` +
+            `Gostaríamos gentilmente de saber se já se sente à vontade para voltar a receber designações na Reunião Nossa Vida e Ministério Cristão.\n\n` +
+            `Sabemos que as circunstâncias de cada um variam, e respeitamos muito a sua situação. ` +
+            `Se desejar reconsiderar e voltar a participar, basta acessar o link abaixo:\n\n` +
             `👉 ${APP_BASE_URL}/?portal=preferences&action=rejoin&pubId=${pub.id}\n\n` +
-            `Se preferir continuar como está, não precisa fazer nada. Estamos à disposição! 🙏`;
+            `Se preferir continuar como está no momento, fique tranquilo(a). Estamos sempre à disposição! Que Jeová o(a) abençoe. 🙏`;
 
         const { success, messageId } = await sendWhatsApp(pub.phone, msg);
         await logDispatch(pub.id, dispatchKey, pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);
@@ -900,13 +904,13 @@ async function runMonthlyCycle(publishers: PublisherData[]): Promise<string[]> {
 
         const honorific = getHonorific(pub.gender);
         const greeting = getGreeting();
-        const msg = `${greeting}, ${honorific} ${pub.name}! 🌸\n\n` +
-            `Atualmente você está configurada(o) para receber apenas partes como ajudante. ` +
-            `Se já se sente preparada(o) para também fazer partes como titular (leitura, demonstrações, etc.), ` +
-            `ficaríamos felizes!\n\n` +
-            `Basta clicar no link abaixo para atualizar sua preferência:\n\n` +
+        const msg = `${greeting}, ${honorific} ${pub.name}! Saudações. 🌸\n\n` +
+            `Atualmente, consta em seu cadastro a preferência de participar apenas como ajudante nas partes de estudante da reunião. ` +
+            `Se já se sente em condições de também realizar partes como titular (leitura da Bíblia, demonstrações e discursos), ` +
+            `ficaremos muito felizes em contar com você!\n\n` +
+            `Basta acessar o link abaixo para atualizar a sua preferência de participação:\n\n` +
             `👉 ${APP_BASE_URL}/?portal=preferences&action=full-participation&pubId=${pub.id}\n\n` +
-            `Se preferir continuar como está, não precisa fazer nada. Respeitamos! 🙏`;
+            `Se preferir continuar participando apenas como ajudante, não há problema algum. Agradecemos muito pelo seu apoio! 🙏`;
 
         const { success, messageId } = await sendWhatsApp(pub.phone, msg);
         await logDispatch(pub.id, dispatchKey, pub.phone, success ? 'SUCCESS' : 'ERROR', messageId);

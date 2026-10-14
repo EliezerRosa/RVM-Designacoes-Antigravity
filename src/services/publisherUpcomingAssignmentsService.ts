@@ -22,7 +22,7 @@ export interface UpcomingAssignmentItem {
     tituloParte?: string;
     funcao: 'Titular' | 'Ajudante';
     modalidade?: string;
-    sala: 'Salão Principal' | 'Sala B';
+    sala: 'Salão Principal' | 'Sala auxiliar B';
     partnerName?: string;
     status: 'DESIGNADA' | 'PROPOSTA' | 'APROVADA';
     isConfirmed: boolean;
@@ -182,7 +182,7 @@ export async function getFuturePublishedAssignments(
     for (const p of candidateParts) {
         const dates = await formatMeetingDate(p.date, p.week_id);
         const isSalaB = String(p.modalidade || '').toLowerCase().includes('b');
-        const sala: 'Salão Principal' | 'Sala B' = isSalaB ? 'Sala B' : 'Salão Principal';
+        const sala: 'Salão Principal' | 'Sala auxiliar B' = isSalaB ? 'Sala auxiliar B' : 'Salão Principal';
         const isConfirmed = p.status === 'DESIGNADA';
 
         // Localizar parceiro(a) se for parte em dupla
@@ -247,9 +247,9 @@ export async function buildUpcomingAssignmentsSummary(
     const nowHour = (new Date().getUTCHours() - 3 + 24) % 24;
     const greeting = nowHour < 12 ? 'Bom dia' : nowHour < 18 ? 'Boa tarde' : 'Boa noite';
 
-    let text = `📋 *Suas Próximas Designações — RVM*\n\n`;
-    text += `${greeting}, ${honorific} *${publisher.name}*! Tudo bem? 👋\n`;
-    text += `Além do cartão de designação que acabamos de enviar, segue o resumo consolidado de todas as suas próximas participações publicadas na Reunião Vida e Ministério:\n\n`;
+    let text = `📋 *Próximas Designações — Reunião Vida e Ministério*\n\n`;
+    text += `${greeting}, ${honorific} *${publisher.name}*! Saudações. 👋\n\n`;
+    text += `Para seu bom planejamento, segue o resumo das suas próximas designações na Reunião Nossa Vida e Ministério Cristão:\n\n`;
 
     const numberEmojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
 
@@ -271,18 +271,18 @@ export async function buildUpcomingAssignmentsSummary(
             text += `👥 ${partnerRole}: ${item.partnerName}\n`;
         }
 
-        text += `📍 Local: ${item.sala}\n`;
+        text += `🏛️ Local: ${item.sala}\n`;
 
         if (item.isConfirmed) {
-            text += `🏷️ Status: ✅ *Confirmada (Aceita)*\n\n`;
+            text += `🏷️ Situação: ✅ *Confirmada*\n\n`;
         } else {
-            text += `🏷️ Status: ⏳ *Resposta Pendente*\n\n`;
+            text += `🏷️ Situação: ⏳ *Aguardando confirmação*\n\n`;
         }
     });
 
     text += `━━━━━━━━━━━━━━━━━━━━\n`;
     text += `💡 *Ações Rápidas:*\n`;
-    text += `Você pode confirmar partes pendentes ou nos avisar com antecedência caso não possa realizar alguma delas usando as opções abaixo:`;
+    text += `Você pode confirmar partes pendentes ou avisar com antecedência caso não possa realizar alguma delas tocando nas opções abaixo:`;
 
     // Montar as opções/botões
     const buttonActions: Array<{ id: string; type: 'REPLY'; label: string }> = [];
