@@ -2,9 +2,10 @@ import { supabase } from '../lib/supabase';
 import { createWhatsAppAutoServiceFromEnv } from './whatsappAutoService';
 import { communicationService } from './communicationService';
 import { publisherDirectoryService } from './publisherDirectoryService';
-import type { WorkbookPart } from '../types';
+import { buildUpcomingAssignmentsSummary } from './publisherUpcomingAssignmentsService';
+import type { WorkbookPart, Publisher } from '../types';
 
-export type DispatchType = 'RECIBO_S89' | 'LEMBRETE_D7' | 'LEMBRETE_D2' | 'LEMBRETE_D1' | 'RECUSA_ALERTA' | 'PUBLICACAO_S89' | 'COBRANCA_D9';
+export type DispatchType = 'RECIBO_S89' | 'LEMBRETE_D7' | 'LEMBRETE_D2' | 'LEMBRETE_D1' | 'RECUSA_ALERTA' | 'PUBLICACAO_S89' | 'COBRANCA_D9' | 'RESUMO_DESIGNAGOES_FUTURAS';
 
 class ZApiOrchestrator {
     private waService = createWhatsAppAutoServiceFromEnv();
@@ -464,6 +465,143 @@ class ZApiOrchestrator {
         } catch (err) {
             return { success: false, error: err instanceof Error ? err.message : String(err) };
         }
+    }
+
+    /**
+     * Envia mensagem com lista de opções interativa via Edge Function `send-whatsapp` (action `send-option-list`).
+     */
+    async sendOptionListDirect(
+        phone: string,
+        message: string,
+        title: string,
+        buttonLabel: string,
+        options: Array<{ id: string; title: string; description?: string }>
+    ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+        if (!phone) {
+            return { success: false, error: 'Destinatário vazio.' };
+        }
+        try {
+            const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+                body: {
+                    action: 'send-option-list',
+                    phone,
+                    message,
+                    title,
+                    buttonLabel,
+                    options,
+                },
+            });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+            return { success: data?.success ?? true, messageId: data?.messageId, error: data?.error };
+        } catch (err) {
+            return { success: false, error: err instanceof Error ? err.message : String(err) };
+        }
+    }
+
+    /**
+     * Dispara o resumo de designações futuras já publicadas para o publicador,
+     * caso ele possua >= 2 designações futuras no horizonte.
+     * Desacoplado: enviado como mensagem Z-API extra com botões de confirmação/desistência.
+     */
+    async dispatchUpcomingAssignmentsSummary(
+        publisherId: string,
+        phone: string,
+        options: { publishers?: Publisher[]; force?: boolean } = {}
+    ): Promise<{ success: boolean; skipped?: boolean; messageId?: string; error?: string }> {
+        if (!(await this.isAutomationActive())) {
+            return { success: true, skipped: true, error: 'Automação Z-API inativa' };
+        }
+
+        if (!phone || !String(phone).trim()) {
+            return { success: false, error: 'Telefone ausente' };
+        }
+
+        // 1. Debounce de 10 minutos para não disparar resumos repetidos
+        if (!options.force) {
+            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+            const { data: recentLog } = await supabase
+                .from('zapi_dispatch_log')
+                .select('id')
+                .eq('dispatch_type', 'RESUMO_DESIGNAGOES_FUTURAS')
+                .eq('publisher_id', publisherId)
+                .eq('status', 'SUCCESS')
+                .gte('dispatched_at', tenMinutesAgo)
+                .limit(1)
+                .maybeSingle();
+
+            if (recentLog) {
+                console.log(`[zapiOrchestrator] Debounce ativo: resumo já enviado para o publicador ${publisherId} nos últimos 10 min.`);
+                return { success: true, skipped: true };
+            }
+        }
+
+        // 2. Monta o resumo
+        const summary = await buildUpcomingAssignmentsSummary(publisherId, options.publishers);
+        if (!summary || summary.assignments.length < 2) {
+            return { success: true, skipped: true }; // Menos de 2 partes futuras publicadas
+        }
+
+        console.log(`[zapiOrchestrator] Disparando resumo de ${summary.assignments.length} próximas partes para ${summary.publisher.name} (${phone})...`);
+
+        // 3. Escolhe entre botões rápidos (<= 3 botões) ou Lista Interativa (> 3 botões)
+        let sendResult: { success: boolean; messageId?: string; error?: string };
+
+        if (summary.buttonActions.length <= 3) {
+            sendResult = await this.sendButtonActionsDirect(
+                phone,
+                summary.messageText,
+                summary.buttonActions
+            );
+        } else {
+            sendResult = await this.sendOptionListDirect(
+                phone,
+                summary.messageText,
+                'Próximas Designações',
+                '📋 Ver Ações / Responder',
+                summary.listOptions
+            );
+        }
+
+        // 4. Registra log de envio
+        if (sendResult.success) {
+            await this.logDispatch(
+                null,
+                'RESUMO_DESIGNAGOES_FUTURAS',
+                phone,
+                'SUCCESS',
+                sendResult.messageId,
+                publisherId
+            );
+
+            await communicationService.logNotification({
+                type: 'SYSTEM',
+                recipient_name: summary.publisher.name,
+                recipient_phone: phone,
+                title: `Resumo de Próximas Designações (${summary.assignments.length} partes)`,
+                content: summary.messageText,
+                status: 'SENT',
+                metadata: {
+                    channel: 'z-api',
+                    publisherId,
+                    totalParts: summary.assignments.length,
+                    messageId: sendResult.messageId,
+                },
+            });
+        } else {
+            await this.logDispatch(
+                null,
+                'RESUMO_DESIGNAGOES_FUTURAS',
+                phone,
+                'ERROR: ' + (sendResult.error || 'falha no envio'),
+                undefined,
+                publisherId
+            );
+        }
+
+        return sendResult;
     }
 
     /**

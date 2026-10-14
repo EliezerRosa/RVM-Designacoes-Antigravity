@@ -396,6 +396,9 @@ export async function publishWeek(
     const cards = await buildDesignatableCards(weekParts, publishers);
     const getPublisher = (name?: string) => publishers.find(p => p.name === name);
 
+    // Mapeia publicadores que receberam S-89 neste lote para envio posterior do resumo de próximas partes
+    const sentPublishersMap = new Map<string, string>();
+
     // 1) Cartões S-89 individuais (idempotente por parte).
     for (const card of cards) {
         try {
@@ -437,6 +440,10 @@ export async function publishWeek(
                 result.s89Skipped++;
             } else if (sent.success) {
                 result.s89Sent++;
+                const pubId = foundPublisher?.id || (card as any).resolvedPublisherId;
+                if (pubId && phone) {
+                    sentPublishersMap.set(pubId, String(phone));
+                }
                 await communicationService.logNotification({
                     type: 'S89',
                     recipient_name: publisherName,
@@ -453,6 +460,15 @@ export async function publishWeek(
         } catch (err) {
             result.s89Failed++;
             result.errors.push(`${card.id}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+
+    // 1.8) Disparo desacoplado do resumo consolidado de designações futuras (para publicadores com >= 2 partes)
+    for (const [pubId, pubPhone] of sentPublishersMap.entries()) {
+        try {
+            await zapiOrchestrator.dispatchUpcomingAssignmentsSummary(pubId, pubPhone, { publishers });
+        } catch (sumErr) {
+            console.warn('[publishWeek] Falha ao enviar resumo de próximas designações:', pubId, sumErr);
         }
     }
 

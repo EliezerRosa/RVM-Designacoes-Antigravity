@@ -595,6 +595,14 @@ export function S89SelectionModal({ isOpen, onClose, weekParts, weekId, publishe
                     arr.unshift({ sentAt: nowIso, kind: substitutionIds.has(part.id) ? 'substituicao' : 'inicial' });
                     return { ...prev, [part.id]: arr };
                 });
+
+                // Disparo desacoplado do resumo consolidado de designações futuras (se publicador tiver >= 2 publicadas)
+                const targetPubId = foundPub?.id || (part as any).resolvedPublisherId;
+                if (targetPubId) {
+                    zapiOrchestrator.dispatchUpcomingAssignmentsSummary(targetPubId, String(phone), { publishers }).catch(err => {
+                        console.warn('[S89SelectionModal] Falha ao enviar resumo de próximas designações:', err);
+                    });
+                }
                 alert('✅ S-89 enviado via Z-API para ' + publisherName + '.');
             } else {
                 alert('❌ Falha no envio via Z-API: ' + (result.error || 'erro desconhecido'));

@@ -1,0 +1,26 @@
+# Sessão: Análise e Planejamento — Resumo Z-API de Designações Futuras Publicadas (2026-10-13)
+
+- **Objetivo**: Analisar, mapear impactos e planejar a funcionalidade de envio adicional, desacoplado e em mensagem única Z-API com a lista de designações futuras já publicadas para publicadores com múltiplas partes, incluindo botões/ações nativas de confirmação e recusa (desistência).
+- **Decisões de Design**:
+  - **Condição de disparo**: Disparar apenas quando o publicador tiver $\ge 2$ designações futuras publicadas no total.
+  - **Desacoplamento**: O envio do cartão S-89 individual (imagem + botões) permanece 100% inalterado e prioritário. A mensagem de resumo é enviada em seguida, como mensagem separada.
+  - **Limite rígido do WhatsApp (3 botões)**: WhatsApp rejeita mensagens com $> 3$ botões de resposta rápida. Solução planejada: arquitetura adaptativa (se $\le 3$ ações, usa botões rápidos `send-button-actions`; se $> 3$ ações, usa Lista Interativa Z-API `send-option-list`).
+  - **Paridade de Ações no Webhook**: Os IDs dos botões/itens seguem estritamente `CONFIRMAR:<partId>` e `RECUSAR:<partId>`, garantindo que o webhook existente `zapi-smart-webhook` execute exatamente a mesma lógica (atualização de status, logs, alertas de recusa ao SRVM e ao parceiro).
+  - **Mitigação de Tempestade em Lote**: No envio em lote (`publishWeek`), as mensagens de resumo são agregadas e despachadas ao final do lote, 1x por publicador, com trava de debounce de 15 minutos em `zapi_dispatch_log`.
+- **Status**: ✅ IMPLEMENTADO, TESTADO E EM PRODUÇÃO (2026-10-13)
+- **Arquivos Criados / Modificados**:
+  - [src/services/publisherUpcomingAssignmentsService.ts](./../../src/services/publisherUpcomingAssignmentsService.ts) (Serviço de consulta e formatação do resumo)
+  - [src/services/publisherUpcomingAssignmentsService.test.ts](./../../src/services/publisherUpcomingAssignmentsService.test.ts) (Testes automatizados do serviço)
+  - [src/services/zapiOrchestrator.ts](./../../src/services/zapiOrchestrator.ts) (Métodos `sendOptionListDirect` e `dispatchUpcomingAssignmentsSummary` com debounce de 10 min)
+  - [src/services/weekPublishService.ts](./../../src/services/weekPublishService.ts) (Agrupamento pós-lote de publicadores e envio desacoplado)
+  - [src/components/S89SelectionModal.tsx](./../../src/components/S89SelectionModal.tsx) (Gatilho em segundo plano pós-envio individual manual)
+  - [supabase/functions/send-whatsapp/index.ts](./../../supabase/functions/send-whatsapp/index.ts) (Ação `send-option-list` implementada e testada)
+  - [supabase/functions/zapi-smart-webhook/index.ts](./../../supabase/functions/zapi-smart-webhook/index.ts) (Captura de `listResponseMessage.selectedRowId` integrada ao fluxo normal)
+- **Validações e Deploys**:
+  - `tsc --noEmit`: 0 erros.
+  - `npm test`: 98/98 testes passando.
+  - Supabase Edge Functions: `send-whatsapp` e `zapi-smart-webhook` redeployadas no projeto `pevstuyzlewvjidjkmea`.
+  - Vercel: Deploy de produção ativo (`rvm-designacoes-antigravity.vercel.app`).
+  - GitHub Pages: Deploy concluído (`npm run deploy`).
+- **Próximos Passos**:
+  - Commitar e pushar para `origin/main` (Axioma Irrevogável Multi-IDE).

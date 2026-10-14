@@ -1,12 +1,12 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-13 11:00 (BRT)  
+> **Última Atualização**: 2026-10-13 23:05 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Axioma Irrevogável de Memória Persistente Multi-IDE com Sincronização Remota ativo.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API implementado e ativo. Axioma Irrevogável de Memória Multi-IDE ativo.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
-> **Checkpoint / Tag Git**: `fff327c` (feat-hourglass-automacao)
+> **Checkpoint / Tag Git**: `beafcd8` (docs-memories-sync) -> novo checkpoint
 
 ---
 
@@ -15,9 +15,9 @@
 - **Vercel CLI / Deploy**: 🟢 **Ativo & Autenticado**
   - Autenticação permanente configurada via `VERCEL_TOKEN` nas variáveis de ambiente do sistema Windows.
   - Deploys e automações via CLI/MCP acontecem 100% em segundo plano sem solicitações de login no navegador ou 2FA.
-- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy `rvm-designacoes-antigravity-6wpdsemmq` ● Ready em cima de `a16efd0`, 2026-10-09 20:20).
+- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy de produção Vercel e GitHub Pages atualizados em 2026-10-13).
 - **Frontend GitHub Pages**: Ativo (`https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/`), sincronizado via `npm run deploy`.
-- **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas).
+- **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas). Edge functions `send-whatsapp` e `zapi-smart-webhook` atualizadas e redeployadas.
 - **Último Commit Estável / Checkpoint**: `7fedb03` (Tag: `v2.6.0-checkpoint-s140-monitor`)
   - `20fa331`: fix(automation): resolver apontamentos da auditoria de fluxos P1-P8
   - `f831850`: feat(s140): automação de envio de S-140 via Z-API, CRUD de funções congregacionais e permissões
@@ -597,6 +597,23 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
   3. **Segurança**: Arquivos protegidos pelo `.gitignore` (ex: material local do HG em `docs-local/`, dumps, sessões de browser, tokens e credenciais) NUNCA sobem para o remoto.
 - **Auditoria BYOK Google Developer Program Premium**:
   - Confirmado via `gcloud` que a chave "Gemini GitHub API Key" pertence ao projeto "Antigravity Project" (`gen-lang-client-0179700161`), com faturamento ativo vinculado à "Conta RVM Pro" (`017DC8-83643E-7F9157`), debitando dos créditos do Google Developer Program Premium (~R$ 58/mês) e preservando a cota do GitHub Copilot.
+
+---
+
+## 29. Resumo Desacoplado de Próximas Designações Publicadas via Z-API (2026-10-13)
+
+- **Comportamento Implementado**:
+  - Para cada S-89 enviado (lote ou manual), se o publicador tiver $\ge 2$ designações futuras já publicadas no horizonte ativo ($\ge \text{hoje}$), ele recebe adicionalmente uma **mensagem única Z-API extra, separada e desacoplada**.
+  - A mensagem lista de forma cordial todas as suas próximas participações com: data por extenso, parte, função (Titular/Ajudante), dupla/parceiro(a), local (Salão Principal / Sala B) e status claro (`✅ Confirmada (Aceita)` vs `⏳ Resposta Pendente`).
+  - **Ações Rápidas Nativa do WhatsApp**:
+    - Se o total de ações for $\le 3$: envia botões de ação rápida nativos via `send-button-actions` (`[ ✅ Sim (DD/MM) ]`, `[ ❌ Não posso (DD/MM) ]`).
+    - Se o total de ações for $> 3$: envia menu interativo gaveta via `send-option-list` da Z-API (`[ 📋 Ver Ações / Responder ]`), contendo até 10 opções com título e descrição.
+  - **Paridade Funcional Total**: IDs de botão e lista usam o padrão canônico `CONFIRMAR:<partId>` e `RECUSAR:<partId>`, executados diretamente pelo `zapi-smart-webhook` com atualização no banco, registro em `confirmation_portal_responses`, alerta ao SRVM e aviso à dupla.
+  - **Segurança contra Tempestade**: Debounce automático de 10 minutos por publicador registrado em `zapi_dispatch_log` com tipo `RESUMO_DESIGNAGOES_FUTURAS`. No envio em lote (`publishWeek`), os destinatários são agrupados e notificados 1x ao final do lote.
+- **Deploys Concluídos**:
+  - Edge Functions Supabase: `send-whatsapp` e `zapi-smart-webhook` redeployadas no projeto `pevstuyzlewvjidjkmea`.
+  - Frontend: Vercel Produção e GitHub Pages atualizados.
+  - Testes: 98/98 testes automatizados aprovados (adicionado `publisherUpcomingAssignmentsService.test.ts`).
 
 ---
 

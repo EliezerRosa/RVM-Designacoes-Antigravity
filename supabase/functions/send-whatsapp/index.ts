@@ -384,6 +384,41 @@ async function sendButtonActionsViaZApi(phone: string, message: string, buttonAc
   return { success: true, messageId: data.messageId, provider: 'z-api' };
 }
 
+/** Envia texto com lista interativa de opções via Z-API (/send-option-list). */
+async function sendOptionListViaZApi(phone: string, message: string, title: string, buttonLabel: string, options: any[]) {
+  const creds = await getZApiCredentials();
+  if (!creds) {
+    return { success: false, error: 'Z-API não configurada.' };
+  }
+
+  const { instanceId, instanceToken, clientToken } = creds;
+
+  const payload: any = {
+    phone,
+    message,
+    buttonLabel: buttonLabel || 'Ver Opções',
+    options,
+  };
+  if (title) payload.title = title;
+
+  const res = await fetch(`https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-option-list`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'client-token': clientToken,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    return { success: false, error: `Z-API ${res.status}: ${body}` };
+  }
+
+  const data = await res.json();
+  return { success: true, messageId: data.messageId, provider: 'z-api' };
+}
+
 /** Envia enquete (poll) via Z-API (/send-poll). */
 async function sendPollViaZApi(phone: string, message: string, poll: { name: string }[]) {
   const creds = await getZApiCredentials();
@@ -1370,6 +1405,14 @@ serve(async (req: Request) => {
       result = await sendButtonListViaZApi(normalizedPhone, message || '', body.buttons);
     } else if (action === 'send-button-actions' || (body.buttonActions && Array.isArray(body.buttonActions))) {
       result = await sendButtonActionsViaZApi(normalizedPhone, message || '', body.buttonActions, referenceMessageId);
+    } else if (action === 'send-option-list' || (body.options && Array.isArray(body.options))) {
+      result = await sendOptionListViaZApi(
+        normalizedPhone,
+        message || '',
+        body.title || '',
+        body.buttonLabel || 'Ver Opções',
+        body.options
+      );
     } else if (action === 'send-poll' || (body.poll && Array.isArray(body.poll))) {
       result = await sendPollViaZApi(normalizedPhone, message || 'Como você responde à sua designação?', body.poll);
     } else if (action === 'send-link' || (body.linkUrl && (body.title || body.linkDescription))) {
