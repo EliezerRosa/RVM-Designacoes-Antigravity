@@ -352,6 +352,11 @@ export default function AgentModalHost({ modal, onClose, publishers, weekParts, 
                                         { isSubstitution: true, isZApiFlow: true }
                                     );
                                     await zapiOrchestrator.sendS89Direct(partId, newPub.phone, msg, pdfBase64, undefined, availabilityUrl, newPub.id);
+                                    try {
+                                        await zapiOrchestrator.dispatchUpcomingAssignmentsSummary(newPub.id, newPub.phone, { publishers });
+                                    } catch (sumErr) {
+                                        console.warn('[AgentModalHost] Falha ao enviar resumo para novo pub:', sumErr);
+                                    }
                                 }
                             }
                             if (options.notifyPartner && partnerPub?.phone && newPub) {

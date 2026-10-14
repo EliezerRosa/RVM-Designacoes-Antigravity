@@ -387,6 +387,13 @@ export const replacementOrchestratorService = {
                         availabilityUrl,
                         newPub.id
                     );
+
+                    // Disparo desacoplado do resumo de próximas designações para o novo publicador
+                    try {
+                        await zapiOrchestrator.dispatchUpcomingAssignmentsSummary(newPub.id, newPub.phone, { publishers });
+                    } catch (sumErr) {
+                        console.warn('[ReplacementOrchestrator] Falha ao enviar resumo para novo pub:', sumErr);
+                    }
                 }
             } catch (errNew) {
                 console.error('[ReplacementOrchestrator] Erro novo pub:', errNew);
