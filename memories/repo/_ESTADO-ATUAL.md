@@ -13,7 +13,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 - **Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Vercel CLI autenticado com `VERCEL_TOKEN`).
 - **GitHub Pages**: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/` (`npm run deploy`).
 - **Supabase**: Projeto `pevstuyzlewvjidjkmea`.
-- **Último Checkpoint Git RVM**: `ae1629a` (fix: sequenciamento estrito do resumo de designacoes futuras no envio manual S-89 Z-API).
+- **Último Checkpoint Git RVM**: `7078a95` (fix: incluir semana corrente no filtro de partes futuras de publicadores alinhado com dia da reuniao).
 
 ---
 

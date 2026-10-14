@@ -6,7 +6,7 @@
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
-> **Checkpoint / Tag Git**: `ae1629a` (fix: sequenciamento estrito do resumo de designacoes futuras no envio manual S-89 Z-API)
+> **Checkpoint / Tag Git**: `7078a95` (fix: incluir semana corrente no filtro de partes futuras de publicadores alinhado com dia da reuniao)
 
 ---
 
