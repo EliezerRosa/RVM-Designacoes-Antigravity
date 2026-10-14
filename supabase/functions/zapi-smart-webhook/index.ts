@@ -256,6 +256,18 @@ async function processWebhookPayload(body: any) {
     const rawPollVote = (payload as any).pollVote || dataObj.pollVote || (payload as any).poll || dataObj.poll;
     const isPoll = Boolean(rawPollVote);
 
+    const listRowId = payload.listResponseMessage?.selectedRowId ||
+                     payload.listResponseMessage?.rowId ||
+                     payload.listResponseMessage?.id ||
+                     (payload as any).data?.listResponseMessage?.selectedRowId ||
+                     (payload as any).data?.listResponseMessage?.rowId ||
+                     dataObj.listResponseMessage?.selectedRowId ||
+                     (payload as any).selectedRowId;
+    const listRowTitle = payload.listResponseMessage?.title ||
+                         (payload as any).data?.listResponseMessage?.title ||
+                         dataObj.listResponseMessage?.title ||
+                         "";
+
     const buttonId = payload.buttonsResponseMessage?.buttonId || 
                      payload.buttonsResponseMessage?.selectedButtonId ||
                      (payload as any).buttonReply?.buttonId ||
@@ -263,12 +275,14 @@ async function processWebhookPayload(body: any) {
                      (payload as any).data?.buttonsResponseMessage?.selectedButtonId ||
                      (payload as any).data?.buttonReply?.buttonId ||
                      (payload as any).selectedButtonId ||
-                     (payload as any).buttonId;
+                     (payload as any).buttonId ||
+                     listRowId;
     const buttonMessage = payload.buttonsResponseMessage?.message || 
                           (payload as any).buttonReply?.message ||
                           (payload as any).data?.buttonsResponseMessage?.message || 
                           (payload as any).data?.buttonReply?.message ||
                           (payload as any).buttonText ||
+                          listRowTitle ||
                           "";
     const reactionVal = payload.reaction?.value || payload.reactionMessage?.value;
     const reactionMsgId = payload.reaction?.messageId || payload.reactionMessage?.messageId;
@@ -279,7 +293,7 @@ async function processWebhookPayload(body: any) {
     const inboundText = (payload.text?.message || payload.message || buttonMessage || (payload as any).body || "").trim();
 
     const hasQuotedMsg = Boolean(quotedMsgId);
-    const isInteraction = Boolean(buttonId || reactionVal || rawPollVote || hasQuotedMsg);
+    const isInteraction = Boolean(buttonId || reactionVal || rawPollVote || hasQuotedMsg || listRowId);
 
     // Ignora absolutamente mensagens disparadas por nossa própria API
     if (payload.fromApi === true) {
@@ -410,9 +424,9 @@ async function processWebhookPayload(body: any) {
     // 2. Resolução do Contexto (Botão, Reação, QuotedMsg ou Janela Temporal)
     // --------------------------------------------------------------------------
 
-    // VIA A: Botão Clicado
+    // VIA A: Botão Clicado ou Opção de Lista Selecionada
     if (buttonId) {
-      matchedBy = "BUTTON";
+      matchedBy = listRowId ? "LIST_OPTION" : "BUTTON";
       const bIdUpper = String(buttonId).toUpperCase().trim();
       if (bIdUpper.includes("CONFIRM") || bIdUpper === "SIM") {
         detectedIntent = "CONFIRMAR";
