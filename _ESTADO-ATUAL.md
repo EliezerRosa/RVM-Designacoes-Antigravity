@@ -1,8 +1,8 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-14 13:30 (BRT)  
+> **Última Atualização**: 2026-10-15 09:00 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
@@ -664,6 +664,29 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 - **Validação Automatizada & Qualidade**:
   - Suíte de testes expandida para **99 testes automatizados (99/99 aprovados, 0 falhas)**.
   - Build de produção (`npm run build`) validado sem erros.
+
+---
+
+## 32. Análise e Planejamento: 6 Invariantes de Botões Z-API em Lembretes (2026-10-15)
+
+- **Contexto & Solicitação**:
+  - Ajuste na composição de botões interativos nativos do WhatsApp via Z-API (`send-button-actions`) nas mensagens de lembretes (manual e robô).
+  - Análise e planejamento rigorosos sem implementação de código imediata, reportando impactos prováveis.
+- **As 6 Invariantes Fixadas**:
+  1. *Quando destinatário ainda NÃO CONFIRMOU aceite* (`part.status === 'PROPOSTA'`).
+  2. *Neste caso (invariante 1), e somente neste caso* (se já confirmou, não exibe "Confirmar").
+  3. *O botão "Confirmar" DEVE ser exibido sempre* (quando sob a invariante 1).
+  4. *Se Z-API/Meta não permite 4 botões, no caso invariante 1, omitir "Ativar Notificações"* dos botões interativos rápidos.
+  5. *No caso de 4 botões permitidos, sob invariante 1-2, vale invariante 3 imperativo*.
+  6. *Senão (limite de $\le 3$ botões rápidos da Meta em vigor), vale invariante 4 imperativo*.
+- **Diagnóstico da Causa-Raiz**:
+  - `cron-whatsapp-reminders/index.ts` (D-9, D-7, D-2): Atualmente só enviava `RECUSAR`, `DISPONIBILIDADE` e `PUSH_ONBOARDING`. Nunca incluía `CONFIRMAR` para partes `PROPOSTA`.
+  - `zapiOrchestrator.ts` (`sendS89Direct`): Tentava empurrar 4 botões (`CONFIRMAR` + `RECUSAR` + `DISPONIBILIDADE` + `PUSH_ONBOARDING`), estourando a cota de 3 botões da Meta e gerando erro HTTP 400 com fallback indesejado.
+- **Matriz de Decisão Arquitetada**:
+  - Se `PROPOSTA` (Não confirmou): 1. `[ ✅ Confirmar ]`, 2. `[ ❌ Não Poderei ]`, 3. `[ 📅 Disponibilidade ]`. Push onboarding omitido dos botões (preservado no texto de rodapé).
+  - Se `DESIGNADA` (Já confirmou): 1. `[ ❌ Não Poderei ]`, 2. `[ 📅 Disponibilidade ]`, 3. `[ 🔔 Ativar Notificações ]` (se não tiver push ativo).
+- **Impactos Relatados**: Aumento das confirmações antecipadas em 1 toque, fim dos erros HTTP 400 na Meta, total compatibilidade com o webhook existente (`zapi-smart-webhook`) e preservação da oferta de push onboarding.
+- **Memória de Sessão**: Documentada em detalhes em [`memories/session/plano-ajuste-botoes-lembretes-zapi.md`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/memories/session/plano-ajuste-botoes-lembretes-zapi.md).
 
 ---
 
