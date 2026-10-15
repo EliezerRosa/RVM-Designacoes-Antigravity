@@ -25,7 +25,7 @@ type TipoParte = typeof EnumTipoParte[keyof typeof EnumTipoParte];
 type Funcao = typeof EnumFuncao[keyof typeof EnumFuncao];
 
 // Bump obrigatório a cada mudança de regra em eligibility/ranked/unifiedRotation/generation — vai para o audit_log de cada geração.
-export const ELIGIBILITY_RULES_VERSION = '2026-10-09.05'; // .05: CANCELADA/REJEITADA não são participação (M-6); Memória de Recusa semanal universal (M-12)
+export const ELIGIBILITY_RULES_VERSION = '2026-10-15.01'; // .01: Blindagem bidirecional de gênero e parentesco (Titular ↔ Ajudante) no motor
 
 export interface EligibilityContext {
     date?: string;           // Data da reunião (para verificar disponibilidade)
@@ -41,6 +41,11 @@ export interface EligibilityContext {
     titularSpouseId?: string;              // spouseId cadastrado no titular (para bypass bidirecional)
     titularParentIds?: string[];           // IDs dos pais do titular (para bypass pai/filho)
     titularChildIds?: string[];            // IDs dos filhos do titular (para bypass pai/filho reverso)
+    assistantGender?: 'brother' | 'sister'; // Gênero do ajudante (para validar titular quando ajudante já está definido)
+    assistantPublisherId?: string;         // ID do publicador ajudante (para bypass de cônjuge)
+    assistantSpouseId?: string;            // spouseId cadastrado no ajudante (para bypass bidirecional)
+    assistantParentIds?: string[];         // IDs dos pais do ajudante (para bypass pai/filho)
+    assistantChildIds?: string[];          // IDs dos filhos do ajudante (para bypass pai/filho reverso)
     presidentName?: string;  // Nome do presidente da semana (para bloquear na oração final)
     ignoreTextualConstraints?: boolean; // Se verdadeiro, ignora filtros baseados em texto da apostila
 }
@@ -85,7 +90,20 @@ export function buildEligibilityContext(
             wp.funcao === 'Titular'
         );
 
-        // Se não achou por SEQ, tentar por Título Similar (Heurística para linhas separadas)
+        // Se não achou por SEQ, tentar por número do título (ex: "4. Iniciando conversas")
+        if (!titularPart) {
+            const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
+            const partNum = partNumMatch ? partNumMatch[1] : null;
+            if (partNum) {
+                titularPart = weekParts.find(wp => {
+                    if (wp.weekId !== part.weekId || wp.funcao !== 'Titular') return false;
+                    const otherNum = (wp.tituloParte || wp.tipoParte || '').match(/^(\d+)/)?.[1];
+                    return otherNum === partNum;
+                });
+            }
+        }
+
+        // Se não achou por número, tentar por Título Similar (Heurística para linhas separadas)
         if (!titularPart) {
             // Remove sufixos comuns de ajudante para pegar o "núcleo" do título
             // Ex: "4. Iniciando conversas - Ajudante (Ajudante)" -> "4. Iniciando conversas"
@@ -118,9 +136,13 @@ export function buildEligibilityContext(
             }
         }
 
-        if (titularPart?.resolvedPublisherName) {
-            const resolvedName = titularPart.resolvedPublisherName.trim();
-            const titularPub = publishers.find(p => p.name.trim() === resolvedName);
+        if (titularPart) {
+            const resolvedName = (titularPart.resolvedPublisherName || titularPart.rawPublisherName)?.trim();
+            const resolvedId = titularPart.resolvedPublisherId;
+            const titularPub = publishers.find(p =>
+                (resolvedId && p.id === resolvedId) ||
+                (resolvedName && p.name.trim() === resolvedName)
+            );
 
             // Log detalhado para diagnóstico de falha no vínculo
             // console.log(`[Eligibility] Titular na parte pai: "${resolvedName}". Busca Pub: ${titularPub ? 'SUCESSO' : 'FALHA'}. Gênero: ${titularPub?.gender}`);
@@ -134,9 +156,84 @@ export function buildEligibilityContext(
                     .filter(p => (p.parentIds || []).includes(titularPub.id))
                     .map(p => p.id);
             }
-        } else {
-            if (titularPart) {
-                // console.log(`[Eligibility] Parte Titular ENCONTRADA ("${titularPart.tituloParte}"), mas resolvedPublisherName está VAZIO/NULL.`);
+        }
+    }
+
+    // Lógica de Gênero do Ajudante (se for titular avaliando compatibilidade com ajudante já definido)
+    let assistantGender: 'brother' | 'sister' | undefined = undefined;
+    let assistantPublisherId: string | undefined = undefined;
+    let assistantSpouseId: string | undefined = undefined;
+    let assistantParentIds: string[] = [];
+    let assistantChildIds: string[] = [];
+    if (funcao === EnumFuncao.TITULAR && weekParts.length > 0) {
+        // Tentar encontrar ajudante da mesma parte
+        // 1) Por SEQ compartilhado
+        let assistantPart = weekParts.find(wp =>
+            wp.weekId === part.weekId &&
+            wp.id !== part.id &&
+            wp.funcao === 'Ajudante' &&
+            wp.seq === part.seq &&
+            (wp.resolvedPublisherName || wp.resolvedPublisherId || wp.rawPublisherName)
+        );
+
+        // 2) Por número inicial do título (ex: "4. Iniciando conversas" vs "4. Iniciando conversas - Ajudante")
+        if (!assistantPart) {
+            const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
+            const partNum = partNumMatch ? partNumMatch[1] : null;
+            if (partNum) {
+                assistantPart = weekParts.find(wp => {
+                    if (wp.weekId !== part.weekId || wp.id === part.id || wp.funcao !== 'Ajudante') return false;
+                    if (!wp.resolvedPublisherName && !wp.resolvedPublisherId && !wp.rawPublisherName) return false;
+                    const otherNum = (wp.tituloParte || wp.tipoParte || '').match(/^(\d+)/)?.[1];
+                    return otherNum === partNum;
+                });
+            }
+        }
+
+        // 3) Por título base similar
+        if (!assistantPart) {
+            const currentTitle = part.tituloParte;
+            const baseTitle = currentTitle
+                .replace(/\s*-\s*Titular.*/i, '')
+                .replace(/\(Titular\)/i, '')
+                .trim()
+                .toLowerCase();
+
+            assistantPart = weekParts.find(wp => {
+                if (wp.weekId !== part.weekId || wp.id === part.id || wp.funcao !== 'Ajudante') return false;
+                if (!wp.resolvedPublisherName && !wp.resolvedPublisherId && !wp.rawPublisherName) return false;
+                const candidateTitle = wp.tituloParte.toLowerCase();
+                return candidateTitle.includes(baseTitle);
+            });
+        }
+
+        // 4) Por seq imediatamente posterior (seq + 1)
+        if (!assistantPart && part.seq !== undefined) {
+            assistantPart = weekParts.find(wp =>
+                wp.weekId === part.weekId &&
+                wp.id !== part.id &&
+                wp.funcao === 'Ajudante' &&
+                wp.seq === part.seq + 1 &&
+                (wp.resolvedPublisherName || wp.resolvedPublisherId || wp.rawPublisherName)
+            );
+        }
+
+        if (assistantPart) {
+            const resolvedName = (assistantPart.resolvedPublisherName || assistantPart.rawPublisherName)?.trim();
+            const resolvedId = assistantPart.resolvedPublisherId;
+            const assistantPub = publishers.find(p =>
+                (resolvedId && p.id === resolvedId) ||
+                (resolvedName && p.name.trim() === resolvedName)
+            );
+
+            if (assistantPub) {
+                assistantGender = assistantPub.gender;
+                assistantPublisherId = assistantPub.id;
+                assistantSpouseId = assistantPub.spouseId;
+                assistantParentIds = assistantPub.parentIds || [];
+                assistantChildIds = publishers
+                    .filter(p => (p.parentIds || []).includes(assistantPub.id))
+                    .map(p => p.id);
             }
         }
     }
@@ -155,6 +252,11 @@ export function buildEligibilityContext(
         titularSpouseId,
         titularParentIds,
         titularChildIds,
+        assistantGender,
+        assistantPublisherId,
+        assistantSpouseId,
+        assistantParentIds,
+        assistantChildIds,
         presidentName
     };
 }
@@ -474,6 +576,32 @@ export function checkEligibility(
         case EnumModalidade.DEMONSTRACAO:
             // Regra 10: Irmãs só em Ministério (demonstração é Ministério)
             // Demonstrações são permitidas para irmãs
+            // BLINDAGEM BIDIRECIONAL: Se a parte for de TITULAR e já houver um Ajudante definido,
+            // o Titular DEVE ser compatível com o Ajudante (mesmo sexo, cônjuge ou pai/filho).
+            if (context.assistantGender) {
+                // BYPASS DE CÔNJUGE: Casais podem formar dupla independente de gênero
+                const isSpouse = !!(context.assistantPublisherId && (
+                    publisher.spouseId === context.assistantPublisherId ||
+                    publisher.id === context.assistantSpouseId
+                ));
+
+                // BYPASS PAI/FILHO: Pais e filhos podem formar dupla independente de gênero (bidirecional)
+                const isParentOrChild = !!(
+                    context.assistantParentIds?.includes(publisher.id) ||
+                    context.assistantChildIds?.includes(publisher.id) ||
+                    (context.assistantPublisherId && (publisher.parentIds || []).includes(context.assistantPublisherId))
+                );
+
+                if (!isSpouse && !isParentOrChild && publisher.gender !== context.assistantGender) {
+                    const publisherGenderLabel = publisher.gender === 'brother' ? 'Irmão' : 'Irmã';
+                    const assistantGenderLabel = context.assistantGender === 'brother' ? 'irmão' : 'irmã';
+                    return {
+                        eligible: false,
+                        reason: `BLOQUEADO: ${publisherGenderLabel} não pode ser titular com ajudante ${assistantGenderLabel}`
+                    };
+                }
+            }
+
             return checkStudentPartEligibility(publisher);
 
         case EnumModalidade.DISCURSO_ESTUDANTE:
@@ -776,7 +904,11 @@ function canBeHelper(publisher: Publisher, context: EligibilityContext = {}): El
     }
 
     // BYPASS PAI/FILHO: Pais podem ser ajudantes de seus filhos (e vice-versa) independente de gênero
-    if (context.titularParentIds?.includes(publisher.id) || context.titularChildIds?.includes(publisher.id)) {
+    if (
+        context.titularParentIds?.includes(publisher.id) ||
+        context.titularChildIds?.includes(publisher.id) ||
+        (context.titularPublisherId && (publisher.parentIds || []).includes(context.titularPublisherId))
+    ) {
         return { eligible: true };
     }
 
