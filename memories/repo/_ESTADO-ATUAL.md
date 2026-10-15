@@ -1,9 +1,9 @@
 # Estado Atual do Workspace — Antigravity / RVM Designações
 
 > **Fonte Canônica Principal de RVM**: `_ESTADO-ATUAL.md` (na raiz do repositório `rvm-designacoes-unified/`, prevalece para regras, motor, histórico e pendências de RVM)  
-> **Última Atualização**: 2026-10-15 09:00 (BRT)  
+> **Última Atualização**: 2026-10-15 17:05 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-09.05`. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-15.01` com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.
 
 ---
 
@@ -13,7 +13,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 - **Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Vercel CLI autenticado com `VERCEL_TOKEN`).
 - **GitHub Pages**: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/` (`npm run deploy`).
 - **Supabase**: Projeto `pevstuyzlewvjidjkmea`.
-- **Último Checkpoint Git RVM**: `7078a95` (fix: incluir semana corrente no filtro de partes futuras de publicadores alinhado com dia da reuniao).
+- **Último Checkpoint Git RVM**: `cb2b3aa` (docs: sincronizar memórias persistentes e plano de botões de lembretes Z-API).
 
 ---
 
@@ -26,7 +26,13 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
    - Toda a memória de conversas (`/memories/session/`), estado atual (`_ESTADO-ATUAL.md`) e aprendizados correlatos (`/memories/`) DEVE subir para o repositório remoto Git (`git commit` + `git push`) ao final de cada bloco lógico ou sessão, e obrigatoriamente antes de trocar de agente ou IDE.
    - Qualquer agente iniciando conversa em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code) DEVE primeiro ler as memórias antes de agir.
    - O que estiver no `.gitignore` (ex: material de HG em `docs-local/`, dumps de DOM, sessões de browser, tokens/chaves) NUNCA sobe para o remoto.
-5. **Motor de Designações**: Regras `2026-10-09.05` em `.agents/workflows/motor-invariants.intent.md` (M-0…M-12). Modelo de decisão lexicográfico por faixas (buckets).
+5. **Motor de Designações**: Regras `2026-10-15.01` em `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `eligibilityService.ts`. Modelo de decisão lexicográfico por faixas (buckets).
+   - **Blindagem Bidirecional de Gênero (Titular ↔ Ajudante)**: Duplas de demonstração de estudantes DEVEM ser do mesmo sexo (irmão+irmão ou irmã+irmã), tanto quando o ajudante é designado tendo o titular definido, quanto quando o titular é designado/substituído tendo o ajudante já definido.
+   - **Exceções de Parentesco Preservadas Integralmente**:
+     - *Cônjuges*: Marido e esposa podem formar dupla independente do sexo (`spouseId` cruzado).
+     - *Pais e Filhos*: Pai/mãe com filho/filha podem formar dupla independente do sexo (`parentIds` / `childIds` bidirecionais).
+     - Pares de sexos opostos sem parentesco comprovado são sumariamente bloqueados (`eligible: false`), impedindo reincidências tanto no robô automático de reatribuição quanto na seleção manual.
+     - **BD Intocado**: Registros do banco de dados não são alterados retroativamente sem autorização expressa.
 6. **Publicação S-89**: Apenas o SRVM publica via botão manual; Crons D-7 e D-2 exigem registro prévio `PUBLICACAO_S89` com `SUCCESS`.
 7. **Isolamento de Segurança**: Pasta `docs-local/`, diretórios de sessão (`hourglass_session/`, `whatsapp_session_data/`) e credenciais nunca sobem para repositórios públicos.
 8. **Faturamento BYOK**: Modelo Google com API Key própria consome créditos da Conta RVM Pro (`017DC8-83643E-7F9157`) do Google Developer Program Premium (~R$ 58/mês), preservando a cota do Copilot Pro+/Max.

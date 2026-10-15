@@ -12,7 +12,7 @@ import { toLocalISODate } from '../utils/dateUtils';
 
 // Deve ser igual a ELIGIBILITY_RULES_VERSION sempre que o texto de regras lido pelo agente for atualizado
 // (AdminDashboard audita a sincronia). Bump manual = confirmação de que o prompt reflete o motor.
-export const RULES_TEXT_VERSION = '2026-10-09.05';
+export const RULES_TEXT_VERSION = '2026-10-15.01';
 
 // ===== Tipos =====
 
@@ -871,10 +871,11 @@ BLOQUEIOS AUTOMÁTICOS:
 
 REGRAS DO MOTOR AUTOMÁTICO (aplicadas SÓ na geração automática; designação manual fica livre):
 
-A. BYPASS DE GÊNERO PARA AJUDANTE (cônjuge / pai-filho):
-   - Cônjuges podem ser par mesmo em demonstrações independente do gênero.
-   - Pai/mãe e filho(a) também podem ser par.
-   - Motor automático respeita esse bypass ao escolher o Ajudante.
+A. BLINDAGEM BIDIRECIONAL DE GÊNERO (Titular ↔ Ajudante) COM BYPASS DE PARENTESCO (cônjuge / pai-filho):
+   - A dupla de demonstração DEVE ser do mesmo sexo (irmão+irmão ou irmã+irmã), quer esteja sendo escolhido o Titular ou o Ajudante.
+   - Cônjuges podem ser par mesmo em demonstrações independente do gênero (marido e esposa).
+   - Pai/mãe e filho(a) também podem ser par independente do gênero.
+   - Motor automático e validação de elegibilidade barram estritamente pares de sexo oposto sem parentesco comprovado.
 
 B. ALTERNÂNCIA FSM (Titular ↔ Ajudante) — janela ${ROTATION_CONFIG.ROLE_ALTERNATION_WINDOW_WEEKS} semanas:
    - Em partes FSM (leitura, demonstração, discurso estudante), o Motor força alternância bidirecional.

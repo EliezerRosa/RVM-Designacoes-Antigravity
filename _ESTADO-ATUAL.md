@@ -1,12 +1,12 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-15 09:00 (BRT)  
+> **Última Atualização**: 2026-10-15 17:05 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-09.05`). Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
-> **Checkpoint / Tag Git**: `7078a95` (fix: incluir semana corrente no filtro de partes futuras de publicadores alinhado com dia da reuniao)
+> **Checkpoint / Tag Git**: `cb2b3aa` (docs: sincronizar memórias persistentes e plano de botões de lembretes Z-API)
 
 ---
 
@@ -690,6 +690,34 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ---
 
+## 33. Entrega: Blindagem Bidirecional de Gênero e Parentesco no Motor (Regras `2026-10-15.01`) (2026-10-15)
+
+- **Contexto & Diagnóstico da Reincidência**:
+  - Em 15/10/2026 às 14:57 BRT, a irmã Raquel Rocha (Raquel Oliveira) recusou a parte de estudante *4. Iniciando conversas* na semana de 26/10/2026 via botão WhatsApp `RECUSAR`.
+  - O webhook acionou o GitHub Actions (`headless-auto-reassign.yml` run `38781608206`), chamando `executeAutoReassignment` com `applyEngineRules: true`.
+  - O motor de elegibilidade anterior (`2026-10-09.05`) possuía verificação de gênero assimétrica: checava o gênero do Titular apenas quando a vaga em aberto era de *Ajudante* (`funcao === 'Ajudante'`).
+  - Quando a vaga em aberto era de *Titular* e o *Ajudante* já estava definido (irmã Rosa), o motor não validava o gênero do ajudante preexistente. Como o irmão Felipe de Oliveira estava em seca de partes de estudante há >13 semanas (`isElderOrMSInStudentDrought` = Faixa 0), o motor o escolheu como titular, gerando uma dupla de sexos opostos não aparentados (Felipe e Rosa).
+- **Implementação da Blindagem Bidirecional (`eligibilityService.ts`)**:
+  1. **Detecção Simétrica do Ajudante (`buildEligibilityContext`)**:
+     - Quando `funcao === 'Titular'`, o contexto agora busca ativamente a parte de ajudante correspondente na semana (por `seq` compartilhado, número do título ex: `4.`, título base similar ou `seq + 1`).
+     - Se o ajudante tiver publicador definido, extrai: `assistantGender`, `assistantPublisherId`, `assistantSpouseId`, `assistantParentIds`, `assistantChildIds`.
+  2. **Bloqueio Inexorável de Gênero com Bypass de Família (`checkEligibility`)**:
+     - Sob `EnumModalidade.DEMONSTRACAO`:
+       - Se `context.assistantGender` estiver definido:
+         - **Bypass de Cônjuge**: Casados entre si (`spouseId` cruzado) podem formar dupla de demonstração independente do gênero.
+         - **Bypass Pai/Filho**: Pais e filhos (pai/mãe com filho/filha em ambos os sentidos) podem formar dupla independente do gênero.
+         - **Demais Casos**: `publisher.gender` DEVE ser estritamente igual a `context.assistantGender`. Caso contrário, bloqueio sumário com motivo: `BLOQUEADO: Irmão não pode ser titular com ajudante irmã` (ou vice-versa).
+  3. **Preservação de Invariantes & BD Intocado**:
+     - **Banco de Dados 100% Intocado**: Nenhuma alteração retroativa realizada no banco de dados; o pareamento atual no BD foi mantido intacto conforme restrição expressa.
+     - **Sincronia Total de Regras**: Versão das regras atualizada para `2026-10-15.01` em `eligibilityService.ts` e `RULES_TEXT_VERSION` em `contextBuilder.ts` (mantendo sincronia com `AdminDashboard.tsx`).
+     - **Prompt do Agente Atualizado**: Regra A em `contextBuilder.ts` documenta a blindagem bidirecional e bypass familiar.
+- **Validação Automatizada & Qualidade**:
+  - Testes unitários novos cobrindo varão com irmã (bloqueio), irmã com varão (bloqueio), varão com varão (ok), irmã com irmã (ok), bypass cônjuge (ok), bypass pai/filha (ok), bypass filho/mãe (ok), e resolução no `buildEligibilityContext`.
+  - Suíte completa expandida para **110 testes automatizados (110/110 aprovados, 0 falhas)**.
+  - Build de produção (`npm run build`) validado com 100% de sucesso.
+
+---
+
 ## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
 
 0. **Decidir destino dos arquivos não rastreados** (`scratch/`, `scripts/check_*.ts`): mantidos no `.gitignore` ou commitados seletivamente.
@@ -700,3 +728,4 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 4. **Evolução Cognitiva (A1-A6)**: Habilitar o `pgvector` no Supabase e avançar para o motor hiper-dimensional de perfis.
 5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Decidir entre injetar a tranca do `logDispatch` na Central de Comunicações ou aposentar a rota do Chatbot para S-89 em favor da interface visual.
 6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais, garantindo observabilidade total de que os Responsáveis pelo Quadro receberam o artefato.
+
