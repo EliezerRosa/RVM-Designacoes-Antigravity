@@ -1,12 +1,12 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-15 17:05 (BRT)  
+> **Última Atualização**: 2026-10-17 11:45 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
-> **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) — prevalece sobre o código.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Verificador de Diffs Jev Gate v2** calibrado e ativo (`scripts/jev-check.mjs`) com 100% de acurácia. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md`. **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
+> **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
-> **Checkpoint / Tag Git**: `cb2b3aa` (docs: sincronizar memórias persistentes e plano de botões de lembretes Z-API)
+
 
 ---
 
@@ -716,9 +716,50 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
   - Suíte completa expandida para **110 testes automatizados (110/110 aprovados, 0 falhas)**.
   - Build de produção (`npm run build`) validado com 100% de sucesso.
 
+
+---
+
+## 34. Entrega: Governança Jev v2, Regras Canônicas de Intenção e FinOps de IA Multi-IDE (2026-10-17)
+
+- **Consolidação das Regras de Intenção (`memories/regras-intencao.md`)**:
+  - Formalizado documento canônico de 51 linhas definindo todas as diretrizes invioláveis do projeto:
+    * **Motor de Designações**: Decisão por faixas (buckets) lexicográficos (M-0), sem pontuação aditiva solta; gates de disponibilidade e cota de 1 parte por semana (exceto Oração Final).
+    * **Blindagem Bidirecional**: Titular e ajudante de sexos opostos apenas se cônjuges ou pai/mãe↔filho(a) em ambos os sentidos (`2026-10-15.01`).
+    * **Módulo RM (Relatório Mensal)**: Eixos ortogonais estritos entre `is_congregated` (membresia) e `field_service_status` (campo) (I-0); cálculo do ano de serviço iniciando em setembro (I-1).
+    * **Convenções e Qualidade**: TypeScript strict sem `any`/`@ts-ignore`, suite de testes obrigatória antes de commits.
+    * **Segurança e LGPD**: Isolamento absoluto de arquivos `.env*`, proibição de commits/push automáticos sem consentimento explícito.
+
+- **Calibração e Upgrade do Verificador Jev (`scripts/jev-check.mjs` Gate v2)**:
+  - **Diagnóstico da Fragilidade do v1**: O gate v1 dependia da métrica subjetiva `noul >= 0.8`, causando falsos positivos em diffs legítimos médios com `violacao=nenhuma`; ao mesmo tempo, `risco < 2` permitia que vazamentos de credenciais (`bad-2`) passassem com risco ~1.60.
+  - **Resultados da Calibração Empírica (`_jev_calibrate.mjs`)**:
+    * 6 fixtures de teste (3 bons: `ok-1..3`, 3 ruins: `bad-1..3`) avaliados em 5 rodadas consecutivas cada.
+    * Gate v2 atingiu **30/30 acertos (100% de separação estatística)**.
+    * Limiares calibrados: `LIMIAR_NENHUMA = 0.90` (gap de 0.88 para o pior bad) e `LIMIAR_RISCO = 1.0` (exige risco estritamente abaixo de Médio; gap de 0.57 para bad-2).
+    * Enriquecimento de saída: Exit 0 (Aprovado), Exit 1 (Reprovado por violação), Exit 2 (Erro de infraestrutura/HTTP 402/dados ausentes).
+  - **Regra para Agentes de IDE (`.roo/rules/10-jev-verificacao.md`)**: Documentado o fluxo obrigatório de pré-verificação antes de aplicar diffs no projeto.
+
+- **Blindagem de Segurança Multi-IDE (`.rooignore` e `.gitignore`)**:
+  - Auditoria revelou que enquanto `.gitignore` protege contra rastreamento no Git, extensões agênticas como o Roo Code conseguiam inspecionar arquivos locais caso instruídas.
+  - Criado e sincronizado `.rooignore` bloqueando terminantemente `.env`, `.env.*`, `supabase/.env` e pastas sensíveis tanto na raiz quanto dentro do workspace.
+  - Adicionada regra `.tmp/` no `.gitignore` para isolar rascunhos de patches do verificador Jev.
+
+- **Auditoria Forense de Custos de IA (OpenRouter) & Plano FinOps**:
+  - Mapeadas todas as chamadas no código duro:
+    1. `supabase/functions/zapi-smart-webhook/index.ts` (Protocolo B / Jev AI via OpenRouter).
+    2. `scripts/jev-check.mjs` (Decisions API `typesafe/jev-1.14`).
+    3. `scripts/s38-sync-bot.ts` (Scraping WOL via `anthropic/claude-sonnet-5.5`).
+    4. `src/components/S38ProfilesTab.tsx` (Catálogo de modelos).
+  - Diagnóstico do consumo diário de US$ 23,06 decorrente de loops de contexto pesado do Roo Code com Claude 3.5 Sonnet + calibrações repetidas.
+  - Identificado erro HTTP 402 (`limit_source: "openrouter_credits"`) indicando esgotamento da carteira pré-paga da conta.
+  - Proposta de Governança Inteligente: migração para tiering de custo ultrabaixo (`deepseek/deepseek-chat` e `google/gemini-2.0-flash-001` a frações de centavo), atalho heurístico no webhook e script de monitoramento `npm run ai:status`.
+
+- **Qualidade & Validação**:
+  - Suíte completa de 110 testes automatizados (`npm test`) executada com **110/110 aprovados (0 falhas)**.
+
 ---
 
 ## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
+
 
 0. **Decidir destino dos arquivos não rastreados** (`scratch/`, `scripts/check_*.ts`): mantidos no `.gitignore` ou commitados seletivamente.
 

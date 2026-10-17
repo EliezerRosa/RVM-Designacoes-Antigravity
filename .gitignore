@@ -94,3 +94,6 @@ tela*.html
 learn_dom.cjs
 participations_out.json
 scratch/
+
+# Área temporária do verificador Jev (patches propostos)
+.tmp/
