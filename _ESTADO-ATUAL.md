@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-10-17 11:45 (BRT)  
+> **Última Atualização**: 2026-11-02 08:30 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Verificador de Diffs Jev Gate v2** calibrado e ativo (`scripts/jev-check.mjs`) com 100% de acurácia. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md`. **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -755,6 +755,24 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 - **Qualidade & Validação**:
   - Suíte completa de 110 testes automatizados (`npm test`) executada com **110/110 aprovados (0 falhas)**.
+
+---
+
+## 35. Entrega: Sincronização de Designações de Fim de Semana (Hourglass) & Mapeamento Canônico (2026-11-02)
+
+- **Mapeamento Canônico do Fim de Semana (`scripts/weekend_data.ts`)**:
+  - Extraído o arquivo oficial `PRESIDENTE E LEITOR.pdf` cobrindo 26 semanas (domingos de 18/10/2026 a 11/04/2027).
+  - Todos os 26 pares de Presidente e Leitor de A Sentinela mapeados com seus respectivos nomes normalizados e IDs canônicos (`hg_id`) do Hourglass.
+  - Criado script de dados `scripts/weekend_data.ts` e automação Playwright stealth `scripts/sync_weekend_assignments.ts`.
+
+- **Engenharia Reversa & Descoberta da Interface React do Hourglass (`/scheduling/wm`)**:
+  - Identificada a dinâmica de estado do Hourglass para Fim de Semana: a tela opera em modo protegido de leitura até que o botão "Editar" seja acionado.
+  - Descoberta a estrutura de dropdowns de seleção (`dropdown-toggle btn btn-secondary`) associados aos blocos `Presidente` e `Leitor de A Sentinela`.
+  - Validação interativa via DevTools Console comprovando a seleção reativa com sucesso (Presidente **Renato** selecionado no domingo 01/11/2026 na tela ativa).
+
+- **Próximos Passos Imediatos**:
+  - Concluir a seleção de Leitor (`Allan Roger`) e salvar o card de 01/11/2026.
+  - Executar a iteração automática em lote para os 7 meses mapeados (Out/2026 a Abr/2027).
 
 ---
 
