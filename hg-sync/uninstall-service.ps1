@@ -14,3 +14,4 @@ try {
 } catch {
     Write-Host "`nℹ️ Tarefa '$TaskName' nao estava registrada ou erro: $_" -ForegroundColor DarkGray
 }
+

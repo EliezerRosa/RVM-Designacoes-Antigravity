@@ -154,3 +154,4 @@ export class HgSessionManager {
 }
 
 export const hgSession = new HgSessionManager();
+

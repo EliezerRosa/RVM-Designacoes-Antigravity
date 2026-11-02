@@ -45,3 +45,4 @@ try {
 } catch {
     Write-Host "`n❌ Erro ao registrar tarefa agendada: $_" -ForegroundColor Red
 }
+

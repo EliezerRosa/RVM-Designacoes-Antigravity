@@ -46,3 +46,4 @@ export async function scanDownloadsFolder(): Promise<ParsedDocument[]> {
 
   return results;
 }
+

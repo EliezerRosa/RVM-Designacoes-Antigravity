@@ -186,3 +186,4 @@ export class SyncWorker {
 }
 
 export const syncWorker = new SyncWorker();
+

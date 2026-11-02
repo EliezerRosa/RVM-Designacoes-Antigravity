@@ -63,3 +63,4 @@ export function normalizeDateSequence(rawDates: string[], startYear: number, end
     return `${currentYear}-${mm}-${dd}`;
   });
 }
+

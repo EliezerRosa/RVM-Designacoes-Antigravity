@@ -51,3 +51,4 @@ export async function extractPdfRows(filePath: string): Promise<{ title: string;
 
   return { title, rows: allRows };
 }
+

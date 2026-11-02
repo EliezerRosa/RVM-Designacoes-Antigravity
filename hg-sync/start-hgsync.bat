@@ -14,3 +14,4 @@ if not exist "node_modules\" (
 REM Inicia o servidor Node com tsx
 echo Iniciando servidor em http://localhost:4610...
 npm start
+

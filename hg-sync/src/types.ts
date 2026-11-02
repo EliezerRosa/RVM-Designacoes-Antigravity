@@ -90,3 +90,4 @@ export interface SyncLogEntry {
   status: 'success' | 'partial' | 'error';
   details?: any;
 }
+

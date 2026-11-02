@@ -90,3 +90,4 @@ hg-sync/
 ├── run-silent.vbs        # Launcher invisível para background
 └── start-hgsync.bat      # Script batch para execução direta
 ```
+
