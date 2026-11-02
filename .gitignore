@@ -95,5 +95,10 @@ learn_dom.cjs
 participations_out.json
 scratch/
 
+# HG-Sync Decoupled Module local state
+hg-sync/data/
+hg-sync/node_modules/
+hg-sync/.env
+
 # Área temporária do verificador Jev (patches propostos)
 .tmp/
