@@ -54,6 +54,7 @@ function setupTabs() {
 async function checkSessionStatus() {
   try {
     const res = await fetch('/api/status/session');
+    if (!res.ok) return false;
     const data = await res.json();
     const dot = document.querySelector('.status-dot');
     const text = document.querySelector('.status-text');
@@ -63,20 +64,45 @@ async function checkSessionStatus() {
       dot.className = 'status-dot online';
       text.innerText = `Conectado como ${data.user?.firstname || 'Irmão'}`;
       loginBtn.style.display = 'none';
+      return true;
     } else {
       dot.className = 'status-dot offline';
       text.innerText = 'Desconectado';
       loginBtn.style.display = 'inline-block';
+      return false;
     }
   } catch (e) {
     console.warn('Erro ao checar sessão:', e);
+    return false;
   }
 }
 
 async function triggerLogin() {
-  showToast('Abrindo navegador para login no Google...');
-  await fetch('/api/session/login', { method: 'POST' });
-  setTimeout(checkSessionStatus, 5000);
+  try {
+    showToast('Abrindo janela do Google Chrome para login...');
+    const res = await fetch('/api/session/login', { method: 'POST' });
+    if (!res.ok) {
+      showToast('Erro ao solicitar abertura do navegador.', true);
+      return;
+    }
+    
+    // Monitora o status a cada 3 segundos nos próximos 45 segundos
+    let checks = 0;
+    const interval = setInterval(async () => {
+      checks++;
+      const isAuth = await checkSessionStatus();
+      if (isAuth) {
+        clearInterval(interval);
+        showToast('Login detectado com sucesso!');
+        loadMidweekSchedule();
+      } else if (checks >= 15) {
+        clearInterval(interval);
+      }
+    }, 3000);
+  } catch (err) {
+    showToast(`Erro de conexão com o servidor: ${err.message}`, true);
+    console.warn('Erro ao acionar login:', err);
+  }
 }
 
 // 2. Downloads Scanner

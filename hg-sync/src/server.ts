@@ -12,6 +12,14 @@ import { rvmReader } from './rvm/reader.js';
 import { scanDownloadsFolder } from './imports/scan.js';
 import { mapWeekPartsToHgSlots } from './midweek/mapper.js';
 
+// Tratamento de segurança contra encerramento inesperado do processo
+process.on('uncaughtException', (err) => {
+  console.error('[Server] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Server] Unhandled Rejection:', reason);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_DIR = path.resolve(__dirname, '../ui');
@@ -80,7 +88,10 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (reqUrl === '/api/session/login' && method === 'POST') {
-        hgSession.openLoginWindow(); // Executa em background
+        // Dispara o login interativo em background sem bloquear a resposta HTTP
+        hgSession.openLoginWindow().catch(err => {
+          console.error('[Session] Erro ao aguardar login:', err.message);
+        });
         return sendJson(res, 200, { ok: true, message: 'Janela de login aberta no navegador.' });
       }
 
