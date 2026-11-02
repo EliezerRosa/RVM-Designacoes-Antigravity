@@ -58,3 +58,4 @@
 ## 2. Próximos Passos (Retomada)
 1. Completar a seleção do Leitor (`Allan Roger`) do dia 01/11/2026 e salvar o card.
 2. Executar script iterativo na sessão aberta no navegador para preencher os meses de Outubro/2026 a Abril/2027.
+

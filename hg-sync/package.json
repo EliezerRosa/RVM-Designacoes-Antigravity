@@ -1,0 +1,25 @@
+{
+  "name": "hg-sync",
+  "version": "1.0.0",
+  "description": "Módulo desacoplado de sincronização RVM Designações <-> Hourglass",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --import tsx src/server.ts",
+    "dev": "node --import tsx --watch src/server.ts",
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.91.1",
+    "date-fns": "^4.4.0",
+    "dotenv": "^17.2.4",
+    "pdfjs-dist": "^5.4.449",
+    "playwright": "^1.63.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.3"
+  }
+}

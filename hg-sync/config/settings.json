@@ -1,0 +1,9 @@
+{
+  "port": 4610,
+  "downloadsDir": "C:\\Users\\Eliez\\Downloads",
+  "lgroup": "39934",
+  "pollIntervalMinutes": 5,
+  "autoSyncEnabled": true,
+  "autoSyncScope": "current_and_future_published",
+  "headlessBrowser": true
+}

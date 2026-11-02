@@ -1,0 +1,39 @@
+{
+  "documentTypes": [
+    {
+      "id": "presidente_leitor",
+      "name": "Presidente e Leitor (Fim de Semana)",
+      "targetModule": "wm",
+      "headerMatchAny": ["PRESIDENTE", "LEITOR"],
+      "columns": [
+        { "name": "DATA", "field": "date", "role": "date" },
+        { "name": "PRESIDENTE", "field": "wm_chairman", "role": "brother", "label": "Presidente" },
+        { "name": "LEITOR", "field": "wm_reader", "role": "brother", "label": "Leitor" }
+      ]
+    },
+    {
+      "id": "indicadores_microfone",
+      "name": "Indicadores e Microfones",
+      "targetModule": "av",
+      "headerMatchAny": ["IND.", "INDICADOR", "MICROFONE"],
+      "columns": [
+        { "name": "DATA", "field": "date", "role": "date" },
+        { "name": "IND. PORTEIRO", "field": "attendants_0", "role": "brother", "label": "Indicador Porteiro" },
+        { "name": "IND. AUDITÓRIO", "field": "attendants_1", "role": "brother", "label": "Indicador Auditório" },
+        { "name": "MICROFONE 1", "field": "mics_0", "role": "brother", "label": "Microfone 1" },
+        { "name": "MICROFONE 2", "field": "mics_1", "role": "brother", "label": "Microfone 2" }
+      ]
+    },
+    {
+      "id": "limpeza",
+      "name": "Escala de Limpeza",
+      "targetModule": "clean",
+      "headerMatchAny": ["LIMPEZA", "GRUPO DE LIMPEZA"],
+      "columns": [
+        { "name": "DATA", "field": "date", "role": "date" },
+        { "name": "GRUPO", "field": "clean_group", "role": "group", "label": "Grupo de Limpeza" },
+        { "name": "RESPONSAVEL", "field": "clean_leader", "role": "brother", "label": "Responsável" }
+      ]
+    }
+  ]
+}

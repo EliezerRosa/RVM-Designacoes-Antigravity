@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HG-Sync — Sincronizador RVM & Hourglass</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="logo-icon">⏳</div>
+      <div>
+        <h1>HG-Sync</h1>
+        <span class="subtitle">Sincronizador Desacoplado RVM & Hourglass</span>
+      </div>
+    </div>
+    <div class="session-badge" id="sessionStatus">
+      <span class="status-dot"></span>
+      <span class="status-text">Verificando sessão...</span>
+      <button class="btn btn-sm btn-outline" id="btnLogin" style="display: none;">Conectar ao HG</button>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- NAVEGAÇÃO POR ABAS -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-downloads">📂 Arquivos em Downloads</button>
+      <button class="tab-btn" data-tab="tab-midweek">🏛️ Meio de Semana (RVM ➡️ HG)</button>
+      <button class="tab-btn" data-tab="tab-aliases">👥 Dicionário de Apelidos</button>
+      <button class="tab-btn" data-tab="tab-logs">📜 Histórico & Auditoria</button>
+    </nav>
+
+    <!-- ABA 1: DOWNLOADS -->
+    <section class="tab-content active" id="tab-downloads">
+      <div class="section-header">
+        <div>
+          <h2>Extração de Arquivos em Downloads</h2>
+          <p class="desc">Vasculha automaticamente por escalas (Presidente/Leitor, Indicadores/Microfones, Limpeza).</p>
+        </div>
+        <button class="btn btn-primary" id="btnScanDownloads">🔄 Escanear Pasta</button>
+      </div>
+
+      <div id="downloadsList" class="cards-grid">
+        <div class="loading-box">Clique em "Escanear Pasta" para carregar arquivos...</div>
+      </div>
+
+      <!-- Modal de Prévia de Documento -->
+      <div id="previewModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-dialog">
+          <div class="modal-header">
+            <h3 id="modalDocTitle">Prévia de Designações</h3>
+            <button class="modal-close" id="btnClosePreview">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div id="modalSummary" class="summary-bar"></div>
+            <div class="table-container">
+              <table id="modalTable" class="data-table">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" id="btnSimulateDoc">Simular Envio</button>
+            <button class="btn btn-success" id="btnSyncDoc">Sincronizar no Hourglass</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: MEIO DE SEMANA -->
+    <section class="tab-content" id="tab-midweek">
+      <div class="section-header">
+        <div>
+          <h2>Sincronização da Reunião de Meio de Semana</h2>
+          <p class="desc">Espelhamento automático e contínuo: RVM ➡️ Hourglass (sempre prevalecendo o RVM).</p>
+        </div>
+        <div class="header-actions">
+          <label class="toggle-control">
+            <input type="checkbox" id="autoSyncToggle" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Vigia Automático</span>
+          </label>
+          <button class="btn btn-primary" id="btnSyncMidweekNow">⚡ Sincronizar Agora</button>
+        </div>
+      </div>
+
+      <div class="worker-status-card" id="workerStatusCard">
+        <div class="status-indicator">
+          <strong>Status do Vigia:</strong> <span id="workerStatusText">Iniciando...</span>
+        </div>
+        <div class="status-last">
+          <strong>Última Execução:</strong> <span id="workerLastRun">—</span>
+        </div>
+      </div>
+
+      <div class="section-subtitle">Semanas Publicadas no RVM a Sincronizar:</div>
+      <div id="midweekList" class="weeks-grid">
+        <div class="loading-box">Carregando semanas do RVM...</div>
+      </div>
+    </section>
+
+    <!-- ABA 3: APELIDOS -->
+    <section class="tab-content" id="tab-aliases">
+      <div class="section-header">
+        <div>
+          <h2>Dicionário de Apelidos e Correções de Nomes</h2>
+          <p class="desc">Mapeia abreviações e apelidos de PDFs diretamente para os publicadores oficiais do Hourglass.</p>
+        </div>
+        <button class="btn btn-outline" id="btnNewAlias">+ Novo Apelido</button>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table" id="aliasesTable">
+          <thead>
+            <tr>
+              <th>Texto / Apelido no PDF</th>
+              <th>Nome Canônico</th>
+              <th>Hourglass ID</th>
+              <th>Regra Específica</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ABA 4: HISTÓRICO & LOGS -->
+    <section class="tab-content" id="tab-logs">
+      <div class="section-header">
+        <div>
+          <h2>Registro de Auditoria de Sincronizações</h2>
+          <p class="desc">Histórico completo de alterações realizadas no Hourglass por este módulo.</p>
+        </div>
+        <button class="btn btn-outline" id="btnRefreshLogs">Atualizar Logs</button>
+      </div>
+
+      <div class="table-container">
+        <table class="data-table" id="logsTable">
+          <thead>
+            <tr>
+              <th>Data/Hora</th>
+              <th>Módulo</th>
+              <th>Disparador</th>
+              <th>Resumo</th>
+              <th>Alterações</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast-notification"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
