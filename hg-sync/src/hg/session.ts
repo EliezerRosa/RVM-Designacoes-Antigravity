@@ -9,13 +9,14 @@ export class HgSessionManager {
   private sessionDir: string;
   private xsrfToken: string = '';
   private currentUser: any = null;
+  private isLoggingIn: boolean = false;
   
-  // Cache de autenticação para evitar recarregar a página a cada 10s
+  // Cache de autenticação para evitar recarregar a página desnecessariamente
   private authCache: { authenticated: boolean; timestamp: number } | null = null;
-  private readonly AUTH_CACHE_TTL_MS = 30000; // 30 segundos de cache
+  private readonly AUTH_CACHE_TTL_MS = 30000; // 30 segundos
 
-  // Fila de operações (Mutex simples para prevenir concorrência com o perfil do Chrome)
-  private operationQueue: Promise<any> = Promise.resolve();
+  // Mutex para evitar concorrência no lançamento/fechamento do Chrome
+  private launchLock: Promise<any> = Promise.resolve();
 
   constructor() {
     this.sessionDir = config.sessionDir;
@@ -25,7 +26,7 @@ export class HgSessionManager {
   }
 
   private runExclusive<T>(fn: () => Promise<T>): Promise<T> {
-    const next = this.operationQueue.then(async () => {
+    const next = this.launchLock.then(async () => {
       try {
         return await fn();
       } catch (err) {
@@ -33,7 +34,7 @@ export class HgSessionManager {
         throw err;
       }
     });
-    this.operationQueue = next.catch(() => {});
+    this.launchLock = next.catch(() => {});
     return next;
   }
 
@@ -44,8 +45,6 @@ export class HgSessionManager {
 
     // Se já havia um contexto, fecha antes de criar outro
     await this.closeContextInternal();
-
-    // Limpeza de arquivo de trava residual do Chrome se existir
     this.cleanupSingletonLock();
 
     try {
@@ -63,7 +62,6 @@ export class HgSessionManager {
 
       this.page = this.context.pages().length > 0 ? this.context.pages()[0] : await this.context.newPage();
 
-      // Monitora tokens de requisições nativas
       this.page.on('request', req => {
         const token = req.headers()['x-hourglass-xsrf-token'];
         if (token) this.xsrfToken = token;
@@ -92,12 +90,16 @@ export class HgSessionManager {
       } catch {}
       this.context = null;
       this.page = null;
-      // Pequena pausa para o sistema operacional liberar os arquivos do Chrome
       await new Promise(r => setTimeout(r, 800));
     }
   }
 
   async isAuthenticated(): Promise<boolean> {
+    // Se a janela interativa de login estiver aberta pelo usuário, não bloqueia
+    if (this.isLoggingIn) {
+      return this.authCache?.authenticated || false;
+    }
+
     const now = Date.now();
     if (this.authCache && (now - this.authCache.timestamp < this.AUTH_CACHE_TTL_MS)) {
       return this.authCache.authenticated;
@@ -107,7 +109,6 @@ export class HgSessionManager {
       try {
         const { page } = await this.getContext(true);
         
-        // Se a página já está no app, apenas checa via fetch in page
         let currentUrl = page.url();
         if (!currentUrl.includes('/page/app')) {
           await page.goto('https://app.hourglass-app.com/v2/page/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -149,27 +150,24 @@ export class HgSessionManager {
   }
 
   async openLoginWindow(): Promise<boolean> {
-    return this.runExclusive(async () => {
+    this.invalidateCache();
+    this.isLoggingIn = true;
+
+    try {
       console.log('[HgSession] 🌐 Abrindo janela interativa do Chrome para login no Hourglass...');
-      this.invalidateCache();
-
-      // Fecha o modo headless anterior para abrir a janela visível
-      await this.closeContextInternal();
-
-      const { context, page } = await this.getContext(false);
-      await page.goto('https://app.hourglass-app.com/v2/page/app/scheduling/mm', { waitUntil: 'domcontentloaded' });
-
-      // Monitora abas extras (como o popup de login do Google)
-      let activePage = page;
-      context.on('page', newPage => {
-        activePage = newPage;
+      
+      // Abre o Chrome interativo protegido pelo mutex curto
+      const { context, page } = await this.runExclusive(async () => {
+        await this.closeContextInternal();
+        return await this.getContext(false);
       });
 
-      // Aguarda até 5 minutos para o usuário logar
+      await page.goto('https://app.hourglass-app.com/v2/page/app/scheduling/mm', { waitUntil: 'domcontentloaded' });
+
+      // O laço de espera roda FORA do mutex para não travar outras chamadas da API
       for (let i = 0; i < 300; i++) {
         await new Promise(r => setTimeout(r, 1000));
         
-        // Percorre todas as abas abertas procurando confirmação de login
         for (const p of context.pages()) {
           try {
             const u = p.url();
@@ -183,7 +181,6 @@ export class HgSessionManager {
                 console.log('[HgSession] ✅ Login detectado com sucesso!');
                 this.authCache = { authenticated: true, timestamp: Date.now() };
                 
-                // Tenta coletar dados do usuário logado
                 try {
                   const startup = await p.evaluate(async () => {
                     const res = await fetch('/api/v0.2/fsreport/startup');
@@ -194,6 +191,7 @@ export class HgSessionManager {
                   }
                 } catch {}
 
+                this.isLoggingIn = false;
                 return true;
               }
             }
@@ -202,8 +200,13 @@ export class HgSessionManager {
       }
 
       console.warn('[HgSession] Tempo limite de login esgotado.');
+      this.isLoggingIn = false;
       return false;
-    });
+    } catch (err: any) {
+      console.error('[HgSession] Erro ao abrir janela de login:', err.message);
+      this.isLoggingIn = false;
+      return false;
+    }
   }
 
   async fetchInPage<T = any>(url: string, options: { method?: string; body?: any; headers?: Record<string, string> } = {}): Promise<{ status: number; data: T | null; error?: string }> {
@@ -220,7 +223,6 @@ export class HgSessionManager {
             h['Content-Type'] = 'application/json';
           }
 
-          // Tenta obter XSRF token dos cookies caso não tenha vindo
           const match = document.cookie.match(/(?:^|;\s*)(?:XSRF-TOKEN|x-hourglass-xsrf-token|_xsrf)=([^;]+)/i);
           if (match && !h['x-hourglass-xsrf-token']) {
             h['x-hourglass-xsrf-token'] = decodeURIComponent(match[1]);
