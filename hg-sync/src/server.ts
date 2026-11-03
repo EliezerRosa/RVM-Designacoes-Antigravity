@@ -206,6 +206,13 @@ const server = http.createServer(async (req, res) => {
   let pathname = reqUrl.split('?')[0];
   if (pathname === '/') pathname = '/index.html';
 
+  if (pathname === '/favicon.ico') {
+    const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏳</text></svg>`;
+    res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
+    res.end(svgIcon);
+    return;
+  }
+
   const ext = path.extname(pathname);
   const mimeTypes: Record<string, string> = {
     '.html': 'text/html; charset=utf-8',
