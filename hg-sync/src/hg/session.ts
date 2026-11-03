@@ -170,30 +170,23 @@ export class HgSessionManager {
         
         for (const p of context.pages()) {
           try {
-            const u = p.url();
-            if (u.includes('/app') && !u.includes('login') && !u.includes('auth')) {
-              const isSignInScreen = await p.evaluate(() => {
-                const text = document.body ? document.body.innerText : '';
-                return text.includes('Hourglass Sign In') || !!document.querySelector('#email');
-              });
-
-              if (!isSignInScreen) {
-                console.log('[HgSession] ✅ Login detectado com sucesso!');
-                this.authCache = { authenticated: true, timestamp: Date.now() };
-                
-                try {
-                  const startup = await p.evaluate(async () => {
-                    const res = await fetch('/api/v0.2/fsreport/startup');
-                    return res.ok ? await res.json() : null;
-                  });
-                  if (startup?.whoami?.user) {
-                    this.currentUser = startup.whoami.user;
-                  }
-                } catch {}
-
-                this.isLoggingIn = false;
-                return true;
+            const isActuallyLogged = await p.evaluate(async () => {
+              try {
+                const res = await fetch('/api/v0.2/fsreport/startup');
+                if (!res.ok) return null;
+                const d = await res.json();
+                return d?.whoami?.user || null;
+              } catch {
+                return null;
               }
+            });
+
+            if (isActuallyLogged && isActuallyLogged.id) {
+              console.log(`[HgSession] ✅ Login confirmado no Hourglass como: ${isActuallyLogged.firstname || ''} ${isActuallyLogged.lastname || ''}`);
+              this.currentUser = isActuallyLogged;
+              this.authCache = { authenticated: true, timestamp: Date.now() };
+              this.isLoggingIn = false;
+              return true;
             }
           } catch {}
         }

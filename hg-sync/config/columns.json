@@ -8,7 +8,7 @@
       "columns": [
         { "name": "DATA", "field": "date", "role": "date" },
         { "name": "PRESIDENTE", "field": "wm_chairman", "role": "brother", "label": "Presidente" },
-        { "name": "LEITOR", "field": "wm_reader", "role": "brother", "label": "Leitor" }
+        { "name": "LEITOR", "field": "wm_reader", "role": "brother", "label": "Leitor de A Sentinela" }
       ]
     },
     {
@@ -18,8 +18,8 @@
       "headerMatchAny": ["IND.", "INDICADOR", "MICROFONE"],
       "columns": [
         { "name": "DATA", "field": "date", "role": "date" },
-        { "name": "IND. PORTEIRO", "field": "attendants_0", "role": "brother", "label": "Indicador Porteiro" },
-        { "name": "IND. AUDITÓRIO", "field": "attendants_1", "role": "brother", "label": "Indicador Auditório" },
+        { "name": "IND. PORTEIRO", "field": "attendants_0", "role": "brother", "label": "Porteiro" },
+        { "name": "IND. AUDITÓRIO", "field": "attendants_1", "role": "brother", "label": "Auditório" },
         { "name": "MICROFONE 1", "field": "mics_0", "role": "brother", "label": "Microfone 1" },
         { "name": "MICROFONE 2", "field": "mics_1", "role": "brother", "label": "Microfone 2" }
       ]
@@ -37,4 +37,3 @@
     }
   ]
 }
-
