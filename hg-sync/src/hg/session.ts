@@ -6,6 +6,7 @@ import { config } from '../config.js';
 export class HgSessionManager {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
+  private currentHeadless: boolean | null = null;
   private sessionDir: string;
   private xsrfToken: string = '';
   private currentUser: any = null;
@@ -40,7 +41,12 @@ export class HgSessionManager {
 
   async getContext(headless = true): Promise<{ context: BrowserContext; page: Page }> {
     if (this.context && this.page && !this.page.isClosed()) {
-      return { context: this.context, page: this.page };
+      if (this.currentHeadless === headless) {
+        return { context: this.context, page: this.page };
+      }
+      // Se o modo mudou (ex: de headless para visível ou vice-versa), fecha antes de recriar
+      console.log(`[HgSession] Alternando modo do Chrome (headless: ${this.currentHeadless} -> ${headless})...`);
+      await this.closeContextInternal();
     }
 
     // Se já havia um contexto, fecha antes de criar outro
@@ -55,11 +61,14 @@ export class HgSessionManager {
         args: [
           '--disable-blink-features=AutomationControlled',
           '--no-first-run',
-          '--no-default-browser-check'
+          '--no-default-browser-check',
+          '--start-maximized',
+          '--window-position=100,100'
         ],
-        viewport: { width: 1280, height: 800 }
+        viewport: null
       });
 
+      this.currentHeadless = headless;
       this.page = this.context.pages().length > 0 ? this.context.pages()[0] : await this.context.newPage();
 
       this.page.on('request', req => {
@@ -90,7 +99,8 @@ export class HgSessionManager {
       } catch {}
       this.context = null;
       this.page = null;
-      await new Promise(r => setTimeout(r, 800));
+      this.currentHeadless = null;
+      await new Promise(r => setTimeout(r, 600));
     }
   }
 
@@ -150,6 +160,10 @@ export class HgSessionManager {
   }
 
   async openLoginWindow(): Promise<boolean> {
+    if (this.isLoggingIn) {
+      console.log('[HgSession] Processo de login já está em andamento...');
+      return false;
+    }
     this.invalidateCache();
     this.isLoggingIn = true;
 
@@ -159,15 +173,25 @@ export class HgSessionManager {
       // Abre o Chrome interativo protegido pelo mutex curto
       const { context, page } = await this.runExclusive(async () => {
         await this.closeContextInternal();
+        this.cleanupSingletonLock();
         return await this.getContext(false);
       });
 
-      await page.goto('https://app.hourglass-app.com/v2/page/app/scheduling/mm', { waitUntil: 'domcontentloaded' });
+      try {
+        await page.bringToFront();
+      } catch {}
+
+      await page.goto('https://app.hourglass-app.com/v2/page/app/scheduling/mm', { waitUntil: 'domcontentloaded', timeout: 30000 });
 
       // O laço de espera roda FORA do mutex para não travar outras chamadas da API
       for (let i = 0; i < 300; i++) {
         await new Promise(r => setTimeout(r, 1000));
         
+        if (page.isClosed()) {
+          console.log('[HgSession] Janela do navegador foi fechada pelo usuário.');
+          break;
+        }
+
         for (const p of context.pages()) {
           try {
             const isActuallyLogged = await p.evaluate(async () => {
@@ -192,7 +216,7 @@ export class HgSessionManager {
         }
       }
 
-      console.warn('[HgSession] Tempo limite de login esgotado.');
+      console.warn('[HgSession] Tempo limite de login esgotado ou janela fechada.');
       this.isLoggingIn = false;
       return false;
     } catch (err: any) {
@@ -200,6 +224,15 @@ export class HgSessionManager {
       this.isLoggingIn = false;
       return false;
     }
+  }
+
+  async openNativeLoginChrome(): Promise<void> {
+    await this.closeContextInternal();
+    this.cleanupSingletonLock();
+    const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+    const targetUrl = 'https://app.hourglass-app.com/v2/page/app/scheduling/mm';
+    const { exec } = await import('child_process');
+    exec(`start "" "${chromePath}" --user-data-dir="${this.sessionDir}" "${targetUrl}"`);
   }
 
   async fetchInPage<T = any>(url: string, options: { method?: string; body?: any; headers?: Record<string, string> } = {}): Promise<{ status: number; data: T | null; error?: string }> {

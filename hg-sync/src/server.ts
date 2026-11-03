@@ -95,6 +95,11 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, { ok: true, message: 'Janela de login aberta no navegador.' });
       }
 
+      if (reqUrl === '/api/session/native-login' && method === 'POST') {
+        await hgSession.openNativeLoginChrome();
+        return sendJson(res, 200, { ok: true, message: 'Google Chrome nativo aberto no desktop.' });
+      }
+
       // 2. Status do Worker Contínuo
       if (reqUrl === '/api/status/worker' && method === 'GET') {
         return sendJson(res, 200, syncWorker.getStatus());
@@ -121,6 +126,10 @@ const server = http.createServer(async (req, res) => {
         const body = await readJsonBody(req);
         if (!body.doc) {
           return sendJson(res, 400, { success: false, error: 'Documento ausente no payload.' });
+        }
+        const isAuthed = await hgSession.isAuthenticated();
+        if (!isAuthed) {
+          return sendJson(res, 401, { success: false, error: 'Hourglass não está conectado. Por favor, conecte-se ao HG no topo da tela antes de sincronizar.' });
         }
         const result = await hgBrowser.syncDocument(body.doc);
         return sendJson(res, result.success ? 200 : 500, result);

@@ -51,6 +51,8 @@ function setupTabs() {
 }
 
 // 1. Status da Sessão Hourglass
+window.isHgAuthenticated = false;
+
 async function checkSessionStatus() {
   try {
     const res = await fetch('/api/status/session');
@@ -59,6 +61,8 @@ async function checkSessionStatus() {
     const dot = document.querySelector('.status-dot');
     const text = document.querySelector('.status-text');
     const loginBtn = document.getElementById('btnLogin');
+
+    window.isHgAuthenticated = Boolean(data.authenticated);
 
     if (data.authenticated) {
       dot.className = 'status-dot online';
@@ -79,26 +83,28 @@ async function checkSessionStatus() {
 
 async function triggerLogin() {
   try {
-    showToast('Abrindo janela do Google Chrome para login...');
+    showToast('Abrindo Google Chrome para login...');
     const res = await fetch('/api/session/login', { method: 'POST' });
     if (!res.ok) {
-      showToast('Erro ao solicitar abertura do navegador.', true);
-      return;
+      await fetch('/api/session/native-login', { method: 'POST' });
     }
     
-    // Monitora o status a cada 3 segundos nos próximos 45 segundos
+    showToast('Janela do Chrome aberta. Faça login com sua conta Google no Hourglass.');
+    
+    // Monitora o status a cada 2.5s por até 2 minutos
     let checks = 0;
     const interval = setInterval(async () => {
       checks++;
       const isAuth = await checkSessionStatus();
       if (isAuth) {
         clearInterval(interval);
-        showToast('Login detectado com sucesso!');
+        showToast('✅ Login detectado com sucesso no Hourglass!');
         loadMidweekSchedule();
-      } else if (checks >= 15) {
+        scanDownloads();
+      } else if (checks >= 48) {
         clearInterval(interval);
       }
-    }, 3000);
+    }, 2500);
   } catch (err) {
     showToast(`Erro de conexão com o servidor: ${err.message}`, true);
     console.warn('Erro ao acionar login:', err);
@@ -221,6 +227,12 @@ window.syncDocByIndex = async function(docIndex) {
 
 async function syncActiveDoc() {
   if (!activePreviewDoc) return;
+
+  if (!window.isHgAuthenticated) {
+    showToast('⚠️ Conecte-se ao Hourglass primeiro! Clique em "Conectar ao HG" no topo da tela.', true);
+    return;
+  }
+
   if (!confirm(`Confirma sincronizar as ${activePreviewDoc.rows.length} semanas de "${activePreviewDoc.fileName}" no Hourglass?`)) return;
 
   showToast(`Sincronizando ${activePreviewDoc.fileName}...`);
@@ -232,7 +244,7 @@ async function syncActiveDoc() {
     });
     const result = await res.json();
     if (result.success) {
-      showToast('Sincronização concluída com sucesso!');
+      showToast('✅ Sincronização concluída com sucesso!');
       closePreviewModal();
       loadLogs();
     } else {
