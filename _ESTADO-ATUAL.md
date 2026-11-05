@@ -1,12 +1,22 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-02 08:30 (BRT)  
+> **Última Atualização**: 2026-11-05 19:15 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Verificador de Diffs Jev Gate v2** calibrado e ativo (`scripts/jev-check.mjs`) com 100% de acurácia. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md`. **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
 
+
+---
+
+## 0. HG-Sync (RVM ⇄ Hourglass) — Estado em 2026-11-05
+
+- **Módulo**: `hg-sync/` (desacoplado; painel `http://localhost:4610`; Supabase RVM somente leitura; RVM→HG unidirecional). Memória detalhada: `memories/repo/hg-sync-estado-2026-11-05.md`. Prompt de continuação: `hg-sync/PROMPT-CLAUDE.md`.
+- **Pronto**: extração dos PDFs de Downloads (26 + 23 semanas), UI, resolvedor de apelidos, cliente REST/automação de UI do HG, worker de 5 min, login via Chrome nativo + CDP (`80915b0`), testes 9/9.
+- **Não verificado**: login real concluído e **nenhuma escrita real** no HG (rotas de escrita do meio de semana ainda inferidas).
+- **Bloqueio**: processos iniciados pelo agente não têm janela visível. O servidor deve ser iniciado **pelo usuário** (`start-hgsync.bat`) ou pela tarefa `RVM-HG-Sync` (`install-service.ps1`). O agente não deve subir o daemon para login.
+- **Pendências**: consolidar 3 perfis `hourglass_session`; reduzir custo do worker quando desconectado; validar escrita com 1 data antes do lote.
 
 ---
 
