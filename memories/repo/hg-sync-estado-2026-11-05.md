@@ -41,3 +41,4 @@
 2. Validar leitura (dry-run) e, só então, escrita: 1 semana → documento inteiro.
 3. Confirmar rotas de escrita do meio de semana (captura de rede) ou manter fallback por UI.
 4. Reduzir custo do worker; consolidar perfis; instalar tarefa agendada; atualizar README/memória; commit + push.
+

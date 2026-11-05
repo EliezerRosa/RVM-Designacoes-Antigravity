@@ -49,3 +49,4 @@ Você é o agente de engenharia do projeto **RVM Designações**. Continue o mó
 - Faça uma tarefa por vez, valide, commite (`fix(hg-sync): ...` / `feat(hg-sync): ...`) e dê push.
 - Pare e pergunte ao usuário antes de qualquer escrita real no HG e sempre que precisar de ação na tela dele.
 - Seja honesto sobre o que foi/não foi verificado; não declare "funcionando" sem releitura do HG.
+
