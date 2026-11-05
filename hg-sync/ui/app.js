@@ -86,9 +86,9 @@ async function triggerLogin() {
     showToast('Abrindo Google Chrome para login...');
     const res = await fetch('/api/session/login', { method: 'POST' });
     if (!res.ok) {
-      await fetch('/api/session/native-login', { method: 'POST' });
+      showToast('Erro ao solicitar abertura do navegador.', true);
+      return;
     }
-    
     showToast('Janela do Chrome aberta. Faça login com sua conta Google no Hourglass.');
     
     // Monitora o status a cada 2.5s por até 2 minutos
@@ -101,7 +101,7 @@ async function triggerLogin() {
         showToast('✅ Login detectado com sucesso no Hourglass!');
         loadMidweekSchedule();
         scanDownloads();
-      } else if (checks >= 48) {
+      } else if (checks >= 130) {
         clearInterval(interval);
       }
     }, 2500);

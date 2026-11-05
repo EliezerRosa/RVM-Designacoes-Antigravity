@@ -2,10 +2,8 @@
 title Login no Hourglass
 chcp 65001 >nul
 echo ======================================================
-echo    Abrindo Google Chrome para login no Hourglass...
+echo    Solicitando abertura do Chrome para login no HG...
 echo ======================================================
-echo.
-echo 1. Faca login na sua conta Google / Hourglass na janela.
-echo 2. Quando a tela do Hourglass carregar, a sessao estara salva!
-echo.
-start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir="%~dp0..\hourglass_session" "https://app.hourglass-app.com/v2/page/app/scheduling/mm"
+echo (O servidor HG-Sync precisa estar rodando: start-hgsync.bat)
+powershell -NoProfile -Command "try { Invoke-RestMethod -Method Post http://localhost:4610/api/session/login | Out-Null; Write-Host 'OK - aguarde a janela do Chrome abrir e faca login.' } catch { Write-Host 'ERRO: servidor HG-Sync nao esta rodando. Execute start-hgsync.bat primeiro.' }"
+pause

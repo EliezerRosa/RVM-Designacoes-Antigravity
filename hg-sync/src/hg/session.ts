@@ -1,13 +1,18 @@
-import { chromium, BrowserContext, Page } from 'playwright';
+import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import { spawn, execFile } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { config } from '../config.js';
+
+const LOGIN_DEBUG_PORT = 9333;
+const HG_LOGIN_URL = 'https://app.hourglass-app.com/v2/page/app/scheduling/mm';
 
 export class HgSessionManager {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private currentHeadless: boolean | null = null;
   private sessionDir: string;
+  private cookiesFile: string = path.join(config.dataDir, 'hg-cookies.json');
   private xsrfToken: string = '';
   private currentUser: any = null;
   private isLoggingIn: boolean = false;
@@ -69,6 +74,18 @@ export class HgSessionManager {
       });
 
       this.currentHeadless = headless;
+
+      // Reaplica cookies salvos no ultimo login (cobre cookies de sessao que o perfil nao persiste)
+      try {
+        if (fs.existsSync(this.cookiesFile)) {
+          const saved = JSON.parse(fs.readFileSync(this.cookiesFile, 'utf-8'));
+          if (Array.isArray(saved.cookies) && saved.cookies.length) {
+            await this.context.addCookies(saved.cookies);
+          }
+        }
+      } catch (e: any) {
+        console.warn('[HgSession] Falha ao reaplicar cookies salvos:', e.message);
+      }
       this.page = this.context.pages().length > 0 ? this.context.pages()[0] : await this.context.newPage();
 
       this.page.on('request', req => {
@@ -159,6 +176,11 @@ export class HgSessionManager {
     this.authCache = null;
   }
 
+  /**
+   * Login interativo: abre o Google Chrome NATIVO (sem flags de automação, para o Google
+   * aceitar o login/passkey) usando o mesmo perfil da sessão, com porta de depuração local.
+   * O servidor só observa (via CDP) até detectar o login, salva os cookies e fecha a janela.
+   */
   async openLoginWindow(): Promise<boolean> {
     if (this.isLoggingIn) {
       console.log('[HgSession] Processo de login já está em andamento...');
@@ -168,55 +190,89 @@ export class HgSessionManager {
     this.isLoggingIn = true;
 
     try {
-      console.log('[HgSession] 🌐 Abrindo janela interativa do Chrome para login no Hourglass...');
-      
-      // Abre o Chrome interativo protegido pelo mutex curto
-      const { context, page } = await this.runExclusive(async () => {
+      console.log('[HgSession] 🌐 Abrindo Google Chrome (nativo) para login no Hourglass...');
+
+      await this.runExclusive(async () => {
         await this.closeContextInternal();
+        await this.killProfileChrome();
         this.cleanupSingletonLock();
-        return await this.getContext(false);
       });
 
-      try {
-        await page.bringToFront();
-      } catch {}
+      const chromePath = HgSessionManager.findChromePath();
+      const child = spawn(chromePath, [
+        `--user-data-dir=${this.sessionDir}`,
+        `--remote-debugging-port=${LOGIN_DEBUG_PORT}`,
+        '--remote-allow-origins=*',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--start-maximized',
+        HG_LOGIN_URL
+      ], { detached: true, stdio: 'ignore' });
+      child.unref();
 
-      await page.goto('https://app.hourglass-app.com/v2/page/app/scheduling/mm', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      // Dá tempo do Chrome subir e abrir a porta de depuração
+      await new Promise(r => setTimeout(r, 3000));
 
-      // O laço de espera roda FORA do mutex para não travar outras chamadas da API
-      for (let i = 0; i < 300; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-        
-        if (page.isClosed()) {
-          console.log('[HgSession] Janela do navegador foi fechada pelo usuário.');
-          break;
-        }
+      let browser: Browser | null = null;
+      const deadline = Date.now() + 5 * 60 * 1000;
 
-        for (const p of context.pages()) {
-          try {
-            const isActuallyLogged = await p.evaluate(async () => {
-              try {
-                const res = await fetch('/api/v0.2/fsreport/startup');
-                if (!res.ok) return null;
-                const d = await res.json();
-                return d?.whoami?.user || null;
-              } catch {
-                return null;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 2000));
+
+        try {
+          if (!browser) {
+            browser = await chromium.connectOverCDP(`http://127.0.0.1:${LOGIN_DEBUG_PORT}`, { timeout: 5000 });
+          }
+          if (!browser.isConnected()) { browser = null; continue; }
+
+          for (const ctx of browser.contexts()) {
+            for (const p of ctx.pages()) {
+              if (!p.url().startsWith('https://app.hourglass-app.com')) continue;
+              const user = await p.evaluate(async () => {
+                try {
+                  const res = await fetch('/api/v0.2/fsreport/startup');
+                  if (!res.ok) return null;
+                  const d = await res.json();
+                  return d?.whoami?.user || null;
+                } catch {
+                  return null;
+                }
+              }).catch(() => null);
+
+              if (user && user.id) {
+                console.log(`[HgSession] ✅ Login confirmado no Hourglass como: ${user.firstname || ''} ${user.lastname || ''}`);
+                this.currentUser = user;
+                this.authCache = { authenticated: true, timestamp: Date.now() };
+
+                // Salva cookies para reutilizar no modo automático (independente de expiração de sessão)
+                try {
+                  await ctx.storageState({ path: this.cookiesFile });
+                } catch (e: any) {
+                  console.warn('[HgSession] Não foi possível salvar cookies:', e.message);
+                }
+
+                // Fecha o Chrome nativo para liberar o perfil
+                try {
+                  const cdp = await browser.newBrowserCDPSession();
+                  await cdp.send('Browser.close');
+                } catch {}
+                await new Promise(r => setTimeout(r, 2000));
+                await this.killProfileChrome();
+                this.cleanupSingletonLock();
+
+                this.isLoggingIn = false;
+                return true;
               }
-            });
-
-            if (isActuallyLogged && isActuallyLogged.id) {
-              console.log(`[HgSession] ✅ Login confirmado no Hourglass como: ${isActuallyLogged.firstname || ''} ${isActuallyLogged.lastname || ''}`);
-              this.currentUser = isActuallyLogged;
-              this.authCache = { authenticated: true, timestamp: Date.now() };
-              this.isLoggingIn = false;
-              return true;
             }
-          } catch {}
+          }
+        } catch {
+          browser = null; // Chrome ainda subindo ou usuário fechou a janela; tenta de novo
         }
       }
 
-      console.warn('[HgSession] Tempo limite de login esgotado ou janela fechada.');
+      console.warn('[HgSession] Tempo limite de login esgotado.');
+      await this.killProfileChrome();
+      this.cleanupSingletonLock();
       this.isLoggingIn = false;
       return false;
     } catch (err: any) {
@@ -226,13 +282,24 @@ export class HgSessionManager {
     }
   }
 
-  async openNativeLoginChrome(): Promise<void> {
-    await this.closeContextInternal();
-    this.cleanupSingletonLock();
-    const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-    const targetUrl = 'https://app.hourglass-app.com/v2/page/app/scheduling/mm';
-    const { exec } = await import('child_process');
-    exec(`start "" "${chromePath}" --user-data-dir="${this.sessionDir}" "${targetUrl}"`);
+  private static findChromePath(): string {
+    const candidates = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe')
+    ];
+    return candidates.find(p => fs.existsSync(p)) || candidates[0];
+  }
+
+  /** Encerra qualquer Chrome (inclusive órfão/headless) que esteja usando o perfil da sessão. */
+  private killProfileChrome(): Promise<void> {
+    return new Promise(resolve => {
+      const script = `Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -like ('*' + $env:HG_SESSION_DIR + '*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
+      execFile('powershell', ['-NoProfile', '-Command', script], {
+        env: { ...process.env, HG_SESSION_DIR: this.sessionDir.replace(/\//g, '\\') },
+        windowsHide: true
+      }, () => setTimeout(resolve, 1000));
+    });
   }
 
   async fetchInPage<T = any>(url: string, options: { method?: string; body?: any; headers?: Record<string, string> } = {}): Promise<{ status: number; data: T | null; error?: string }> {

@@ -95,11 +95,6 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, { ok: true, message: 'Janela de login aberta no navegador.' });
       }
 
-      if (reqUrl === '/api/session/native-login' && method === 'POST') {
-        await hgSession.openNativeLoginChrome();
-        return sendJson(res, 200, { ok: true, message: 'Google Chrome nativo aberto no desktop.' });
-      }
-
       // 2. Status do Worker Contínuo
       if (reqUrl === '/api/status/worker' && method === 'GET') {
         return sendJson(res, 200, syncWorker.getStatus());
