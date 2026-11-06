@@ -17,8 +17,8 @@
 - Login via Chrome nativo + CDP (`80915b0`), sem flags de automação (`navigator.webdriver = false`), salvando `storageState` em `hg-sync/data/hg-cookies.json`.
 
 ## 3. O que falta implementar/validar (ver `hg-sync/PROMPT-CLAUDE.md`)
-1. **Bloco 1 (Jev Gate + Sessão e Auto-Login)**:
-   - Registrar escopo `hg-sync/**` em `memories/regras-intencao.md` para o verificador Jev (`scripts/jev-check.mjs`).
+1. **Bloco 1 (Sessão e Auto-Login)**:
+   - *Nota de Governança*: O uso do Jev da TypeSafe (`scripts/jev-check.mjs`) foi idealizado para a extensão do projeto **`idd-ide`**; por ora, **não** deve ser acionado como gate aqui no RVM Designações (ver `.roo/rules/10-jev-verificacao.md`).
    - Consolidar `sessionDir` único em `hg-sync/data/hourglass_session`.
    - Evitar lançamento de Chrome headless quando `!hasSavedSession()` e adicionar `ensureAuthenticatedForAutoSync()` (auto-popup com cooldown de 6h).
 2. **Bloco 2 (Meio de Semana 100% Automático — Core + TGW/FM/LAC)**:
