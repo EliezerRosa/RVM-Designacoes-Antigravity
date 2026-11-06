@@ -35,7 +35,7 @@ export async function scanDownloadsFolder(): Promise<ParsedDocument[]> {
         upper.includes('CAMPO')
       ) {
         const parsed = await parseAssignmentFile(fullPath);
-        if (parsed) {
+        if (parsed && parsed.rows.length > 0) {
           results.push(parsed);
         }
       }

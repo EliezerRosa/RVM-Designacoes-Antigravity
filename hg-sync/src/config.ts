@@ -45,14 +45,8 @@ if (fs.existsSync(columnsPath)) {
   }
 }
 
-// Localiza perfil persistente do Chrome com sessão existente do Hourglass
-const candidateSessions = [
-  path.join(REPO_ROOT, 'hourglass_session'),
-  path.join(REPO_ROOT, '..', 'hourglass_session'),
-  path.join(HGSYNC_ROOT, 'data/hourglass_session')
-];
-const sessionDir = candidateSessions.find(p => fs.existsSync(p) && fs.readdirSync(p).length > 2) 
-  || path.join(HGSYNC_ROOT, 'data/hourglass_session');
+// Perfil persistente único do Chrome para sessão do Hourglass
+const sessionDir = path.join(HGSYNC_ROOT, 'data/hourglass_session');
 
 export const config = {
   port: parseInt(process.env.PORT || String(fileSettings.port || 4610)),

@@ -1,8 +1,8 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-05 21:09 (BRT)  
+> **Última Atualização**: 2026-11-05 22:25 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa (**HG-Sync 100% Automático** concluído e validado com 14/14 testes). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
@@ -10,13 +10,13 @@
 
 ---
 
-## 0. HG-Sync (RVM ⇄ Hourglass) — Plano 100% Automático (2026-11-05)
+## 0. HG-Sync (RVM ⇄ Hourglass) — 100% Automático Concluído (2026-11-05)
 
-- **Módulo**: `hg-sync/` (desacoplado; painel `http://localhost:4610`; Supabase RVM somente leitura; RVM→HG unidirecional). Memória detalhada: `memories/repo/hg-sync-estado-2026-11-05.md`. Prompt de execução: `hg-sync/PROMPT-CLAUDE.md`.
-- **Arquitetura 100% Automática (Zero Clique)**:
-  1. **Meio de Semana (`RVM ➡️ HG`)**: gatilho imediato por mudança em `workbook_parts`/`published_weeks` + ciclo de 5 min; cobertura completa (`core` + `tgw` + `fm` + `lac`) com escrita híbrida (REST API + fallback automático por UI headless com auto-captura de endpoints em `data/endpoints.json`) e releitura de verificação.
-  2. **Downloads (`Downloads ➡️ HG`)**: watcher automático (`fs.watch` + hash `SHA-256` em `data/processed-files.json`) sincronizando em background qualquer PDF/XLSX novo ou atualizado em `C:\Users\Eliez\Downloads`.
-  3. **Auto-Recuperação de Sessão**: perfil único em `hg-sync/data/hourglass_session` + `hg-cookies.json`; se a sessão expirar, o serviço (rodando no logon do usuário via `RVM-HG-Sync`) abre automaticamente 1 única janela do Chrome nativo (cooldown 6h), detecta o login via CDP (`9333`), salva os cookies, fecha a janela e retoma o sync automático.
+- **Módulo**: `hg-sync/` (desacoplado; painel `http://localhost:4610`; Supabase RVM somente leitura; RVM→HG unidirecional; **14/14 testes passando**). Memória detalhada: `memories/repo/hg-sync-estado-2026-11-05.md`.
+- **Arquitetura 100% Automática (Zero Clique — Implementada)**:
+  1. **Meio de Semana (`RVM ➡️ HG`)**: detector de hash a cada 60s + ciclo de 5 min; cobertura completa (`core` + `cbs` + `tgw` + `fm` titular/ajudante + `lac`) via `saveMidweekSlot()` com escrita híbrida (REST API + fallback automático por UI headless com auto-captura de endpoints em `data/endpoints.json`) e releitura de verificação.
+  2. **Downloads (`Downloads ➡️ HG`)**: watcher automático (`fs.watch` + hash `SHA-256` em `data/processed-files.json`) sincronizando em background (`headless`) `PRESIDENTE E LEITOR.pdf` (26 semanas, 0 pendências), `INDICADORES E MICROFONE.pdf` (23 semanas, 0 pendências) e `DESIGNAÇÕES LIMPEZA.pdf` (7 semanas, 0 pendências).
+  3. **Auto-Recuperação de Sessão (`ensureAuthenticatedForAutoSync`)**: perfil único em `hg-sync/data/hourglass_session` + `hg-cookies.json`; se a sessão expirar, o serviço (rodando no logon interativo do usuário via `RVM-HG-Sync`) abre automaticamente 1 única janela do Chrome nativo (cooldown 6h), detecta o login via CDP (`9333`), salva os cookies, fecha a janela e retoma o sync automático.
 
 ---
 

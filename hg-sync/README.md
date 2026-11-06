@@ -11,19 +11,22 @@ Módulo autônomo e permanente projetado para sincronizar de forma bidirecional/
    - Não interfere no build, testes ou deploy do RVM principal.
    - Acesso ao Supabase do RVM estritamente como **somente leitura** (`SELECT`), nunca alterando o banco do RVM.
 
-2. **Sincronização Contínua do Meio de Semana (RVM ➡️ Hourglass)**:
-   - Vigia em segundo plano (a cada 5 minutos por padrão).
-   - Abrange todas as semanas publicadas a partir da semana em curso.
-   - Regra estrita: O RVM é a fonte da verdade. Se uma designação for alterada ou removida no RVM, ela é atualizada ou esvaziada no Hourglass.
+2. **Sincronização 100% Automática do Meio de Semana (RVM ➡️ Hourglass)**:
+   - Vigia em segundo plano (ciclo completo a cada 5 minutos + detector rápido de mudanças do RVM a cada 60 segundos).
+   - Abrange todas as semanas publicadas a partir da semana em curso (`core` + `cbs` + `tgw` + `fm` titular/ajudante + `lac`), com estratégia híbrida REST/DOM e releitura automática de verificação.
+   - Regra estrita: O RVM é a fonte da verdade. Se uma designação for alterada ou removida no RVM, ela é atualizada ou esvaziada no Hourglass (`assignee: 0`).
 
-3. **Extração de Escalas em Downloads**:
-   - Escaneia automaticamente `C:\Users\Eliez\Downloads` procurando arquivos de escalas (`.pdf`, `.xlsx`, `.csv`).
-   - Extrai automaticamente:
-     - **Presidente e Leitor** (Reunião do Fim de Semana)
-     - **Indicadores e Microfones** (Áudio/Vídeo e Indicadores)
-     - **Limpeza do Salão**
-   - Resolve nomes abreviados usando um dicionário de apelidos pré-calibrado e correspondência fonética/prefixada.
-   - Permite prévia visual e resolução de apelidos com 1 clique.
+3. **Sincronização 100% Automática de Escalas em Downloads (Downloads ➡️ Hourglass)**:
+   - Monitora `C:\Users\Eliez\Downloads` em tempo real (`fs.watch` com debounce + controle de hash SHA-256 em `data/processed-files.json`).
+   - Extrai e sincroniza automaticamente em segundo plano (`headless`):
+     - **Presidente e Leitor** (`PRESIDENTE E LEITOR.pdf` ➡️ `/scheduling/wm`)
+     - **Indicadores e Microfones** (`INDICADORES E MICROFONE.pdf` ➡️ `/scheduling/av_attendant`)
+     - **Limpeza do Salão** (`DESIGNAÇÕES LIMPEZA.pdf` ➡️ `/scheduling/other/clean`)
+   - Resolve nomes abreviados usando dicionário pré-calibrado e sincronização automática de IDs com a lista oficial do Hourglass/RVM.
+
+4. **Auto-Login Inteligente com Cooldown**:
+   - Perfil único consolidado em `hg-sync/data/hourglass_session` + `hg-sync/data/hg-cookies.json`.
+   - Quando o serviço roda na sessão interativa do usuário e precisa sincronizar sem sessão ativa, abre automaticamente 1 janela do Chrome nativo via CDP (`127.0.0.1:9333`, com cooldown de 6h), aguarda o login/Passkey, salva os cookies, fecha a janela e conclui a sincronização.
 
 4. **Painel Local Dedicado (UI)**:
    - Interface web moderna disponível em `http://localhost:4610`.

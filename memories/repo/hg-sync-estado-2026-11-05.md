@@ -1,29 +1,29 @@
 # HG-Sync — Estado e Memória Persistente (2026-11-05)
 
 > Módulo desacoplado em `rvm-designacoes-unified/hg-sync/` (painel `http://localhost:4610`). Sincroniza RVM ⇄ Hourglass (HG).
-> Diretriz atualizada em 2026-11-05 19:45 (BRT): **Sincronização 100% Automática (Zero Clique)** tanto para Meio de Semana (`RVM ➡️ HG`) quanto para Escalas em Downloads (`Downloads ➡️ HG`), com auto-popup de login na sessão do usuário quando a sessão expirar.
+> Atualizado em 2026-11-05 22:25 (BRT): **Blocos 1 a 4 Concluídos — Sincronização 100% Automática (Zero Clique)** implementada e testada (`14/14` testes unitários em `hg-sync` + `110/110` testes no RVM principal).
 
 ## 1. Requisitos e Invariantes (Não Negociar)
 - **100% Automático (Hands-Free)**:
-  - **Meio de semana (`RVM ➡️ HG`)**: monitora continuamente o RVM (Supabase Realtime / hash de mudanças + ciclo de 5 min) e grava automaticamente no HG todas as partes (`core` + `tgw` + `fm` + `lac`) das semanas publicadas da semana atual em diante. O RVM sempre prevalece; parte vazia no RVM ⇒ esvazia automaticamente no HG (`assignee: 0`).
-  - **Downloads (`Downloads ➡️ HG`)**: monitora `C:\Users\Eliez\Downloads` (`fs.watch` + hash `SHA-256` em `data/processed-files.json`) e sincroniza automaticamente em background (headless) qualquer arquivo novo ou modificado de escala (`PRESIDENTE E LEITOR.pdf`, `INDICADORES E MICROFONE.pdf`, Limpeza) sem exigir clique no painel.
-  - **Auto-Recuperação de Sessão**: se houver pendências de sincronização e a sessão do HG estiver desconectada/expirada, o serviço (rodando na sessão de logon do usuário) abre automaticamente uma única janela do Chrome nativo (com cooldown de 6h), aguarda o login/Passkey via CDP (`9333`), salva `data/hg-cookies.json`, fecha a janela e executa imediatamente o sync pendente.
-- **Desacoplado**: nada de HG-Sync no build/test/deploy do RVM principal. Supabase do RVM é **somente leitura** (`SELECT`). Nunca escrever do HG para o RVM.
-- **Permanente**: Tarefa Agendada do Windows (`install-service.ps1`, tarefa `RVM-HG-Sync`, no logon do usuário, via `run-silent.vbs`).
+  - **Meio de semana (`RVM ➡️ HG`)**: monitora continuamente o RVM (detector rápido de hash a cada 60s + ciclo completo de 5 min) e grava automaticamente no HG todas as partes (`core` + `cbs` + `tgw` + `fm` titular/ajudante + `lac`) das semanas publicadas da semana atual em diante. O RVM sempre prevalece; parte vazia no RVM ⇒ esvazia automaticamente no HG (`assignee: 0`).
+  - **Downloads (`Downloads ➡️ HG`)**: monitora `C:\Users\Eliez\Downloads` (`fs.watch` com debounce de 3s + hash `SHA-256` em `data/processed-files.json`) e sincroniza automaticamente em background (`headless: config.headlessBrowser`) qualquer arquivo novo ou modificado de escala (`PRESIDENTE E LEITOR.pdf`, `INDICADORES E MICROFONE.pdf`, `DESIGNAÇÕES LIMPEZA.pdf`) sem exigir clique no painel.
+  - **Auto-Recuperação de Sessão (`ensureAuthenticatedForAutoSync`)**: se houver pendências de sincronização e a sessão do HG estiver desconectada/expirada, o serviço (rodando na sessão interativa do usuário) abre automaticamente uma única janela do Chrome nativo (com cooldown de 6h), aguarda o login/Passkey via CDP (`9333`), salva `data/hg-cookies.json`, fecha a janela e executa imediatamente o sync pendente.
+- **Desacoplamento**: nada de HG-Sync no build/test/deploy do RVM principal. Supabase do RVM é **somente leitura** (`SELECT`). Nunca escrever do HG para o RVM.
+- **Governança Jev**: O uso do Jev da TypeSafe (`scripts/jev-check.mjs`) pertence ao projeto futuro **`idd-ide`** e está suspenso no RVM Designações (ver `.roo/rules/10-jev-verificacao.md`).
 
-## 2. O que já está pronto e verificado
-- Extração real: `PRESIDENTE E LEITOR.pdf` = 26 semanas (100% nomes resolvidos); `INDICADORES E MICROFONE.pdf` = 23 semanas (3 pendências de nome a resolver automaticamente ao carregar a lista de usuários do HG).
-- UI (`http://localhost:4610`), scanner de Downloads, resolvedor de nomes, `src/hg/api.ts`, `src/hg/browser.ts`, `src/worker.ts`.
-- Login via Chrome nativo + CDP (`80915b0`), sem flags de automação (`navigator.webdriver = false`), salvando `storageState` em `hg-sync/data/hg-cookies.json`.
-
-## 3. O que falta implementar/validar (ver `hg-sync/PROMPT-CLAUDE.md`)
-1. **Bloco 1 (Sessão e Auto-Login)**:
-   - *Nota de Governança*: O uso do Jev da TypeSafe (`scripts/jev-check.mjs`) foi idealizado para a extensão do projeto **`idd-ide`**; por ora, **não** deve ser acionado como gate aqui no RVM Designações (ver `.roo/rules/10-jev-verificacao.md`).
-   - Consolidar `sessionDir` único em `hg-sync/data/hourglass_session`.
-   - Evitar lançamento de Chrome headless quando `!hasSavedSession()` e adicionar `ensureAuthenticatedForAutoSync()` (auto-popup com cooldown de 6h).
-2. **Bloco 2 (Meio de Semana 100% Automático — Core + TGW/FM/LAC)**:
-   - Gravação híbrida (REST API + fallback automático por UI headless com captura de endpoint em `data/endpoints.json`) e releitura automática de verificação.
-3. **Bloco 3 (Downloads 100% Automático — Watcher SHA-256)**:
-   - `fs.watch` + controle de hash em `data/processed-files.json` disparando `hgBrowser.syncDocument(doc)` em modo headless automaticamente.
-4. **Bloco 4 (Serviço Permanente na Sessão do Usuário)**:
-   - Rodar `start-hgsync.bat` / `install-service.ps1` na sessão do usuário para concluir o primeiro login e manter o serviço ativo no logon.
+## 2. Entregas Concluídas e Verificadas (Blocos 1 a 4)
+1. **Bloco 1 (Higiene de Sessão e Auto-Login Inteligente)**:
+   - `config.ts`: `sessionDir` consolidado exclusivamente em `hg-sync/data/hourglass_session`.
+   - `session.ts`: `hasSavedSession()`, `isAuthenticated(forceLaunch)` sem abrir Chrome headless quando não há sessão salva, `ensureAuthenticatedForAutoSync()` com cooldown de 6h, `startLoginWindow()`, `cancelLogin()` e diagnóstico completo em `/api/status/session` (`pid`, `chromePath`, `cdpReachable`, `lastError`).
+2. **Bloco 2 (Meio de Semana 100% Automático — Core + CBS + TGW + FM + LAC)**:
+   - `reconcile.ts` + `api.ts` + `browser.ts`: `saveMidweekSlot()` grava todas as seções via REST API com fallback automático via DOM headless (`saveMidweekSlotViaDom`) e captura automática de endpoints em `data/endpoints.json`, além de releitura de verificação pós-escrita.
+   - `worker.ts`: detector de hash do RVM a cada 60s + ciclo completo de 5 min.
+3. **Bloco 3 (Downloads 100% Automático — Watcher + SHA-256 + Apelidos 100% Resolvidos)**:
+   - `store.ts`: persistência de `data/processed-files.json` (`sha256`, `unresolvedCount`, `syncedCount`), apelidos calibrados para `ELIEZER` (`Eliezer Rosa`) e `LUIZ ALEXAND` (`Luiz Alexandrino`), e `syncAliasesWithKnownUsers()` para atualizar `hg_id` automaticamente com a lista oficial do HG/RVM.
+   - `columns.json` + `dates.ts` + `detect.ts` + `scan.ts`: suporte completo às 3 escalas em `C:\Users\Eliez\Downloads`:
+     - `PRESIDENTE E LEITOR.pdf`: 26 semanas, **0 pendências**.
+     - `INDICADORES E MICROFONE.pdf`: 23 semanas, **0 pendências**.
+     - `DESIGNAÇÕES LIMPEZA.pdf`: 7 semanas extraídas (Mês + faixa de datas + grupo multi-linha), **0 pendências**.
+4. **Bloco 4 (Serviço Permanente no Logon Interativo do Usuário)**:
+   - `install-service.ps1`: configurado com `New-ScheduledTaskPrincipal -LogonType Interactive` para garantir que a tarefa `RVM-HG-Sync` rode na sessão interativa do desktop do usuário.
+   - Suíte de testes `npm test --prefix hg-sync`: **14/14 passando**.

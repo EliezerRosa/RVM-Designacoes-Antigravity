@@ -1,29 +1,38 @@
 const MONTH_MAP: Record<string, number> = {
-  'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
-  'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
+  'jan': 1, 'janeiro': 1,
+  'fev': 2, 'fevereiro': 2,
+  'mar': 3, 'marco': 3, 'março': 3,
+  'abr': 4, 'abril': 4,
+  'mai': 5, 'maio': 5,
+  'jun': 6, 'junho': 6,
+  'jul': 7, 'julho': 7,
+  'ago': 8, 'agosto': 8,
+  'set': 9, 'setembro': 9,
+  'out': 10, 'outubro': 10,
+  'nov': 11, 'novembro': 11,
+  'dez': 12, 'dezembro': 12
 };
 
 export function parsePortugueseDate(rawStr: string, contextYear?: number): { dateIso: string; month: number; day: number; year: number } | null {
   if (!rawStr) return null;
   const cleaned = rawStr.trim().toLowerCase().replace(/\s+/g, '');
-  
-  // Ex: 18/out, 01/nov, 2026-10-18
+
+  // Ex: 2026-10-18
   if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
     const [y, m, d] = cleaned.split('-').map(Number);
     return { dateIso: cleaned, year: y, month: m, day: d };
   }
 
-  const match = cleaned.match(/^(\d{1,2})\/([a-z]{3})/i);
+  // Ex: 18/out, 01/nov, 12-18/outubro
+  const match = cleaned.match(/^(\d{1,2})(?:-\d{1,2})?\/([a-zç]+)/i);
   if (!match) return null;
 
   const day = parseInt(match[1]);
   const monthStr = match[2];
-  const month = MONTH_MAP[monthStr];
+  const month = MONTH_MAP[monthStr] || MONTH_MAP[monthStr.substring(0, 3)];
   if (!month) return null;
 
-  const baseYear = contextYear || new Date().getFullYear();
-  // Se o mês for 1 a 6 e o ano base for 2026 (outubro..dezembro), provavelmente é 2027
-  let year = baseYear;
+  const year = contextYear || new Date().getFullYear();
 
   const mm = String(month).padStart(2, '0');
   const dd = String(day).padStart(2, '0');
@@ -31,7 +40,6 @@ export function parsePortugueseDate(rawStr: string, contextYear?: number): { dat
 }
 
 export function inferDocumentYears(titleText: string): { startYear: number; endYear: number } {
-  // Ex: 2026/2027 ou 2026-2027 ou 2026
   const matchRange = titleText.match(/(20\d\d)\s*[\/\-]\s*(20\d\d)/);
   if (matchRange) {
     return { startYear: parseInt(matchRange[1]), endYear: parseInt(matchRange[2]) };
@@ -52,7 +60,6 @@ export function normalizeDateSequence(rawDates: string[], startYear: number, end
     const parsed = parsePortugueseDate(raw, currentYear);
     if (!parsed) return raw;
 
-    // Se o mês anterior era nov/dez e o atual é jan/fev, virou o ano!
     if (lastMonth >= 9 && parsed.month <= 4 && currentYear < endYear) {
       currentYear = endYear;
     }
@@ -63,4 +70,3 @@ export function normalizeDateSequence(rawDates: string[], startYear: number, end
     return `${currentYear}-${mm}-${dd}`;
   });
 }
-

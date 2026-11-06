@@ -6,11 +6,11 @@ import { config } from './config.js';
 import { store } from './store.js';
 import { syncWorker } from './worker.js';
 import { hgSession } from './hg/session.js';
-import { hgApi } from './hg/api.js';
 import { hgBrowser } from './hg/browser.js';
-import { rvmReader } from './rvm/reader.js';
+import { rvmReader, RvmWorkbookPart } from './rvm/reader.js';
 import { scanDownloadsFolder } from './imports/scan.js';
 import { mapWeekPartsToHgSlots } from './midweek/mapper.js';
+import type { ParsedDocument } from './types.js';
 
 // Tratamento de segurança contra encerramento inesperado do processo
 process.on('uncaughtException', (err) => {
@@ -25,13 +25,13 @@ const __dirname = path.dirname(__filename);
 const UI_DIR = path.resolve(__dirname, '../ui');
 
 // Helper para ler body JSON
-function readJsonBody(req: http.IncomingMessage): Promise<any> {
+function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     let data = '';
     req.on('data', chunk => { data += chunk; });
     req.on('end', () => {
       try {
-        resolve(data ? JSON.parse(data) : {});
+        resolve(data ? (JSON.parse(data) as Record<string, unknown>) : {});
       } catch (e) {
         reject(e);
       }
@@ -41,7 +41,7 @@ function readJsonBody(req: http.IncomingMessage): Promise<any> {
 }
 
 // Helper para responder JSON
-function sendJson(res: http.ServerResponse, statusCode: number, data: any) {
+function sendJson(res: http.ServerResponse, statusCode: number, data: unknown) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
@@ -82,17 +82,19 @@ const server = http.createServer(async (req, res) => {
     try {
       // 1. Status da Sessão Hourglass
       if (reqUrl === '/api/status/session' && method === 'GET') {
-        const authenticated = await hgSession.isAuthenticated();
-        const user = authenticated ? hgSession.getCurrentUser() : null;
-        return sendJson(res, 200, { authenticated, user });
+        const status = await hgSession.getSessionStatus(false);
+        return sendJson(res, 200, status);
       }
 
       if (reqUrl === '/api/session/login' && method === 'POST') {
-        // Dispara o login interativo em background sem bloquear a resposta HTTP
-        hgSession.openLoginWindow().catch(err => {
-          console.error('[Session] Erro ao aguardar login:', err.message);
-        });
-        return sendJson(res, 200, { ok: true, message: 'Janela de login aberta no navegador.' });
+        hgSession.resetAutoLoginCooldown();
+        const launchInfo = await hgSession.startLoginWindow();
+        return sendJson(res, 200, launchInfo);
+      }
+
+      if (reqUrl === '/api/session/cancel' && method === 'POST') {
+        const cancelInfo = await hgSession.cancelLogin();
+        return sendJson(res, 200, cancelInfo);
       }
 
       // 2. Status do Worker Contínuo
@@ -122,11 +124,11 @@ const server = http.createServer(async (req, res) => {
         if (!body.doc) {
           return sendJson(res, 400, { success: false, error: 'Documento ausente no payload.' });
         }
-        const isAuthed = await hgSession.isAuthenticated();
+        const isAuthed = await hgSession.isAuthenticated(true);
         if (!isAuthed) {
           return sendJson(res, 401, { success: false, error: 'Hourglass não está conectado. Por favor, conecte-se ao HG no topo da tela antes de sincronizar.' });
         }
-        const result = await hgBrowser.syncDocument(body.doc);
+        const result = await hgBrowser.syncDocument(body.doc as ParsedDocument, 'manual_ui');
         return sendJson(res, result.success ? 200 : 500, result);
       }
 
@@ -143,7 +145,7 @@ const server = http.createServer(async (req, res) => {
         const publishers = await rvmReader.getPublishers();
         const pubMap = new Map(publishers.map(p => [p.id, p]));
 
-        const partsByWeek: Record<string, any[]> = {};
+        const partsByWeek: Record<string, RvmWorkbookPart[]> = {};
         for (const p of allParts) {
           if (!partsByWeek[p.week_id]) partsByWeek[p.week_id] = [];
           partsByWeek[p.week_id].push(p);
@@ -175,11 +177,14 @@ const server = http.createServer(async (req, res) => {
 
       if (reqUrl === '/api/aliases/save' && method === 'POST') {
         const body = await readJsonBody(req);
-        const { rawName, canonicalName, hg_id, role } = body;
-        if (!rawName || !canonicalName || !hg_id) {
+        const rawName = String(body.rawName || '');
+        const canonicalName = String(body.canonicalName || '');
+        const hgId = Number(body.hg_id || 0);
+        const role = body.role ? String(body.role) : undefined;
+        if (!rawName || !canonicalName || !hgId) {
           return sendJson(res, 400, { error: 'Campos rawName, canonicalName e hg_id são obrigatórios.' });
         }
-        store.setAlias(rawName, canonicalName, hg_id, role);
+        store.setAlias(rawName, canonicalName, hgId, role);
         return sendJson(res, 200, { ok: true });
       }
 
@@ -200,9 +205,10 @@ const server = http.createServer(async (req, res) => {
       }
 
       return sendJson(res, 404, { error: 'Endpoint não encontrado' });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.error('[Server] Erro na requisição API:', err);
-      return sendJson(res, 500, { error: err.message });
+      return sendJson(res, 500, { error: msg });
     }
   }
 
@@ -255,10 +261,10 @@ server.listen(config.port, () => {
   console.log(`🚀 HG-Sync Server iniciado com sucesso!`);
   console.log(`🌐 Painel de Controle: http://localhost:${config.port}`);
   console.log(`📂 Pasta de Downloads monitorada: ${config.downloadsDir}`);
+  console.log(`🔐 Perfil de Sessão HG: ${config.sessionDir}`);
   console.log(`======================================================\n`);
 
   if (config.autoSyncEnabled) {
     syncWorker.start();
   }
 });
-

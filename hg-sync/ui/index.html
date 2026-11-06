@@ -20,6 +20,7 @@
       <span class="status-dot offline"></span>
       <span class="status-text">Desconectado</span>
       <button class="btn btn-sm btn-outline" id="btnLogin">Conectar ao HG</button>
+      <button class="btn btn-sm btn-outline" id="btnCancelLogin" style="display: none;">Cancelar</button>
     </div>
   </header>
 
@@ -37,7 +38,7 @@
       <div class="section-header">
         <div>
           <h2>Extração de Arquivos em Downloads</h2>
-          <p class="desc">Vasculha automaticamente por escalas (Presidente/Leitor, Indicadores/Microfones, Limpeza).</p>
+          <p class="desc">Vasculha e sincroniza automaticamente escalas (Presidente/Leitor, Indicadores/Microfones, Limpeza).</p>
         </div>
         <button class="btn btn-primary" id="btnScanDownloads">🔄 Escanear Pasta</button>
       </div>
@@ -75,7 +76,7 @@
       <div class="section-header">
         <div>
           <h2>Sincronização da Reunião de Meio de Semana</h2>
-          <p class="desc">Espelhamento automático e contínuo: RVM ➡️ Hourglass (sempre prevalecendo o RVM).</p>
+          <p class="desc">Espelhamento 100% automático e contínuo: RVM ➡️ Hourglass (sempre prevalecendo o RVM).</p>
         </div>
         <div class="header-actions">
           <label class="toggle-control">
@@ -161,4 +162,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-

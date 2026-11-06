@@ -1,6 +1,7 @@
 // HG-Sync Frontend App
 let currentDocs = [];
 let activePreviewDoc = null;
+let loginPollInterval = null;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Eventos de botões
   document.getElementById('btnScanDownloads')?.addEventListener('click', scanDownloads);
   document.getElementById('btnLogin')?.addEventListener('click', triggerLogin);
+  document.getElementById('btnCancelLogin')?.addEventListener('click', cancelLogin);
   document.getElementById('btnSyncMidweekNow')?.addEventListener('click', syncMidweekNow);
   document.getElementById('autoSyncToggle')?.addEventListener('change', toggleAutoSync);
   document.getElementById('btnClosePreview')?.addEventListener('click', closePreviewModal);
@@ -33,7 +35,7 @@ function showToast(message, isError = false) {
   toast.innerText = message;
   toast.style.borderColor = isError ? 'var(--danger)' : 'var(--primary)';
   toast.style.display = 'block';
-  setTimeout(() => { toast.style.display = 'none'; }, 4000);
+  setTimeout(() => { toast.style.display = 'none'; }, 5000);
 }
 
 // Navegação por Abas
@@ -61,6 +63,7 @@ async function checkSessionStatus() {
     const dot = document.querySelector('.status-dot');
     const text = document.querySelector('.status-text');
     const loginBtn = document.getElementById('btnLogin');
+    const cancelBtn = document.getElementById('btnCancelLogin');
 
     window.isHgAuthenticated = Boolean(data.authenticated);
 
@@ -68,13 +71,29 @@ async function checkSessionStatus() {
       dot.className = 'status-dot online';
       text.innerText = `Conectado como ${data.user?.firstname || 'Irmão'}`;
       loginBtn.style.display = 'none';
+      if (cancelBtn) cancelBtn.style.display = 'none';
       return true;
-    } else {
-      dot.className = 'status-dot offline';
-      text.innerText = 'Desconectado';
-      loginBtn.style.display = 'inline-block';
+    }
+
+    if (data.loggingIn) {
+      dot.className = 'status-dot';
+      if (data.lastError) {
+        text.innerText = `⚠️ ${data.lastError}`;
+      } else if (data.cdpReachable) {
+        text.innerText = `Aguardando login (PID ${data.loginPid || '?'}, até 5 min)...`;
+      } else {
+        text.innerText = `Abrindo Chrome (PID ${data.loginPid || '?'})...`;
+      }
+      loginBtn.style.display = 'none';
+      if (cancelBtn) cancelBtn.style.display = 'inline-block';
       return false;
     }
+
+    dot.className = 'status-dot offline';
+    text.innerText = data.lastError ? `Desconectado (${data.lastError})` : 'Desconectado';
+    loginBtn.style.display = 'inline-block';
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    return false;
   } catch (e) {
     console.warn('Erro ao checar sessão:', e);
     return false;
@@ -89,25 +108,43 @@ async function triggerLogin() {
       showToast('Erro ao solicitar abertura do navegador.', true);
       return;
     }
-    showToast('Janela do Chrome aberta. Faça login com sua conta Google no Hourglass.');
-    
-    // Monitora o status a cada 2.5s por até 2 minutos
+    const info = await res.json();
+    showToast(`Chrome iniciado (PID: ${info.pid ?? '?'}) em ${info.chromePath}. Conclua o login na janela aberta.`);
+    await checkSessionStatus();
+
+    if (loginPollInterval) clearInterval(loginPollInterval);
     let checks = 0;
-    const interval = setInterval(async () => {
+    loginPollInterval = setInterval(async () => {
       checks++;
       const isAuth = await checkSessionStatus();
       if (isAuth) {
-        clearInterval(interval);
+        clearInterval(loginPollInterval);
+        loginPollInterval = null;
         showToast('✅ Login detectado com sucesso no Hourglass!');
         loadMidweekSchedule();
         scanDownloads();
       } else if (checks >= 130) {
-        clearInterval(interval);
+        clearInterval(loginPollInterval);
+        loginPollInterval = null;
       }
     }, 2500);
   } catch (err) {
     showToast(`Erro de conexão com o servidor: ${err.message}`, true);
     console.warn('Erro ao acionar login:', err);
+  }
+}
+
+async function cancelLogin() {
+  try {
+    if (loginPollInterval) {
+      clearInterval(loginPollInterval);
+      loginPollInterval = null;
+    }
+    await fetch('/api/session/cancel', { method: 'POST' });
+    showToast('Login cancelado.');
+    await checkSessionStatus();
+  } catch (err) {
+    showToast(`Erro ao cancelar login: ${err.message}`, true);
   }
 }
 
@@ -165,11 +202,9 @@ window.openPreview = function(docIndex) {
   const thead = document.querySelector('#modalTable thead');
   const tbody = document.querySelector('#modalTable tbody');
 
-  // Cabeçalhos
   const cols = doc.detectedType.columns;
   thead.innerHTML = `<tr>${cols.map(c => `<th>${c.label || c.name}</th>`).join('')}</tr>`;
 
-  // Linhas
   tbody.innerHTML = doc.rows.map(row => {
     return `<tr>
       <td><strong>${row.date}</strong> <span style="font-size:0.75rem; color:var(--text-muted)">(${row.rawDate})</span></td>
@@ -214,7 +249,7 @@ window.promptSaveAlias = async function(rawName, role) {
   });
 
   showToast(`Apelido salvo para ${rawName}!`);
-  scanDownloads(); // Re-escaneia para atualizar
+  scanDownloads();
   closePreviewModal();
 };
 
@@ -295,7 +330,7 @@ async function loadWorkerStatus() {
   try {
     const res = await fetch('/api/status/worker');
     const status = await res.json();
-    document.getElementById('workerStatusText').innerText = status.isRunning ? 'Sincronizando...' : (status.enabled ? 'Ativo (Vigiando RVM)' : 'Pausado');
+    document.getElementById('workerStatusText').innerText = status.isRunning ? 'Sincronizando...' : (status.enabled ? 'Ativo (Vigiando RVM + Downloads)' : 'Pausado');
     document.getElementById('workerLastRun').innerText = status.lastRunTime ? new Date(status.lastRunTime).toLocaleTimeString('pt-BR') + ' — ' + status.lastResultSummary : 'Aguardando';
     document.getElementById('autoSyncToggle').checked = status.enabled;
   } catch {}
@@ -351,4 +386,3 @@ async function loadLogs() {
     `).join('');
   } catch {}
 }
-

@@ -16,6 +16,14 @@ export interface AliasRecord {
   byRole?: Record<string, { hg_id: number; canonicalName: string }>;
 }
 
+export interface ProcessedFileRecord {
+  fileName: string;
+  sha256: string;
+  lastSyncedAt: string;
+  unresolvedCount: number;
+  syncedCount: number;
+}
+
 export class DataStore {
   private dataDir: string;
 
@@ -45,7 +53,9 @@ export class DataStore {
 
   // --- ALIASES ---
   getAliases(): Record<string, AliasRecord> {
-    return this.readJson<Record<string, AliasRecord>>('aliases.json', this.getDefaultAliases());
+    const defaults = this.getDefaultAliases();
+    const saved = this.readJson<Record<string, AliasRecord>>('aliases.json', {});
+    return { ...defaults, ...saved };
   }
 
   saveAlias(rawName: string, record: AliasRecord, role?: string) {
@@ -65,6 +75,45 @@ export class DataStore {
     this.saveAlias(rawName, { hg_id, canonicalName }, role);
   }
 
+  /**
+   * Atualiza automaticamente o hg_id de apelidos cujo canonicalName bate com a lista
+   * real de publicadores carregada do Hourglass ou RVM.
+   */
+  syncAliasesWithKnownUsers(users: Array<{ hg_id: number; name: string }>): number {
+    if (!users || users.length === 0) return 0;
+    const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const aliases = this.getAliases();
+    let updated = 0;
+
+    for (const [, rec] of Object.entries(aliases)) {
+      const targetNorm = norm(rec.canonicalName);
+      const match = users.find(u => {
+        const uNorm = norm(u.name);
+        return uNorm === targetNorm || uNorm.startsWith(targetNorm) || targetNorm.startsWith(uNorm);
+      });
+      if (match && match.hg_id > 0 && rec.hg_id !== match.hg_id) {
+        rec.hg_id = match.hg_id;
+        updated++;
+      }
+    }
+
+    if (updated > 0) {
+      this.writeJson('aliases.json', aliases);
+    }
+    return updated;
+  }
+
+  // --- ARQUIVOS DE DOWNLOADS PROCESSADOS (SHA-256) ---
+  getProcessedFiles(): Record<string, ProcessedFileRecord> {
+    return this.readJson<Record<string, ProcessedFileRecord>>('processed-files.json', {});
+  }
+
+  saveProcessedFile(record: ProcessedFileRecord) {
+    const all = this.getProcessedFiles();
+    all[record.fileName] = record;
+    this.writeJson('processed-files.json', all);
+  }
+
   // --- LEDGER ---
   getLedger(): SyncLedgerEntry[] {
     return this.readJson<SyncLedgerEntry[]>('ledger.json', []);
@@ -74,7 +123,6 @@ export class DataStore {
     const ledger = this.getLedger();
     const now = new Date().toISOString();
     for (const e of entries) {
-      // Remove registro anterior para a mesma chave de slot/data se existir
       const existingIdx = ledger.findIndex(l => l.module === e.module && l.date === e.date && l.slotKey === e.slotKey);
       const newEntry: SyncLedgerEntry = {
         ...e,
@@ -119,7 +167,7 @@ export class DataStore {
     this.writeJson('endpoints.json', ep);
   }
 
-  // Apelidos padrão conhecidos e pré-calibrados das 26 semanas
+  // Apelidos padrão conhecidos e pré-calibrados das escalas de Downloads
   private getDefaultAliases(): Record<string, AliasRecord> {
     return {
       'EDMILSON': {
@@ -130,6 +178,9 @@ export class DataStore {
           'wm_reader': { hg_id: 3331200, canonicalName: 'Edmilson Pessanha' }
         }
       },
+      'ELIEZER': { hg_id: 2491201, canonicalName: 'Eliezer Rosa' },
+      'ELIÉZER': { hg_id: 2491201, canonicalName: 'Eliezer Rosa' },
+      'ELIEZER ROSA': { hg_id: 2491201, canonicalName: 'Eliezer Rosa' },
       'VICTOR': { hg_id: 3331161, canonicalName: 'Victor Correa' },
       'ROGÉRIO': { hg_id: 2489454, canonicalName: 'Marcos Rogério Oliveira' },
       'MARCOS ROGERIO OLIVEIRA': { hg_id: 2489454, canonicalName: 'Marcos Rogério Oliveira' },
@@ -172,8 +223,10 @@ export class DataStore {
       },
       'CARLOS ELIAS': { hg_id: 3331158, canonicalName: 'Carlos Elias' },
       'CLAUDIO SILVA': { hg_id: 3331159, canonicalName: 'Claudio Silva' },
-      'LUIZ ALEXANDR': { hg_id: 3331196, canonicalName: 'Luiz Alexandre' },
-      'LUIZ ALEXANDRI': { hg_id: 3331196, canonicalName: 'Luiz Alexandre' },
+      'LUIZ ALEXAND': { hg_id: 3331204, canonicalName: 'Luiz Alexandrino' },
+      'LUIZ ALEXANDR': { hg_id: 3331204, canonicalName: 'Luiz Alexandrino' },
+      'LUIZ ALEXANDRI': { hg_id: 3331204, canonicalName: 'Luiz Alexandrino' },
+      'LUIZ ALEXANDRINO': { hg_id: 3331204, canonicalName: 'Luiz Alexandrino' },
       'LUIZ ALEXANDRE': { hg_id: 3331196, canonicalName: 'Luiz Alexandre' }
     };
   }

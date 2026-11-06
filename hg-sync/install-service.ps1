@@ -22,8 +22,9 @@ if (-not (Test-Path (Join-Path $ScriptDir "node_modules"))) {
 # Cria a Acao para rodar wscript com o VBS silencioso
 $Action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$VbsScript`"" -WorkingDirectory $ScriptDir
 
-# Cria o Gatilho para iniciar no logon do usuario
-$Trigger = New-ScheduledTaskTrigger -AtLogOn
+# Cria o Gatilho para iniciar no logon interativo do usuario
+$Trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$Principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
 # Configuracoes de resiliencia: sem limite de tempo, auto-restart em caso de falha
 $Settings = New-ScheduledTaskSettingsSet `
@@ -35,7 +36,7 @@ $Settings = New-ScheduledTaskSettingsSet `
 
 # Registra a tarefa
 try {
-    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Description "Sincronizador permanente e desacoplado RVM Designacoes <-> Hourglass" -Force
+    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Description "Sincronizador permanente e desacoplado RVM Designacoes <-> Hourglass" -Force
     Write-Host "`n✅ Tarefa agendada '$TaskName' criada com sucesso!" -ForegroundColor Green
 
     # Inicia imediatamente

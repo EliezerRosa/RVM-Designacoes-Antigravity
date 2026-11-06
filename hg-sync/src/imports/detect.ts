@@ -30,14 +30,18 @@ async function parsePdfDocument(filePath: string, fileName: string): Promise<Par
 
   const { startYear, endYear } = inferDocumentYears(title + ' ' + fileName);
 
+  // Tratamento específico para Escala de Limpeza (onde MÊS e DATA vêm em colunas separadas e GRUPO quebra em múltiplas linhas)
+  if (docType.targetModule === 'clean') {
+    return parseCleaningPdfRows(filePath, fileName, docType, rows, startYear, endYear);
+  }
+
   // 2. Localiza a linha do cabeçalho
   let headerRowIndex = -1;
   let columnPositions: { name: string; x: number; field: string; role: string }[] = [];
 
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
     const row = rows[i];
-    const rowText = row.items.map(it => it.text.toUpperCase()).join(' | ');
-    
+
     // Procura colunas configuradas na linha
     const matches: typeof columnPositions = [];
     for (const col of docType.columns) {
@@ -63,12 +67,10 @@ async function parsePdfDocument(filePath: string, fileName: string): Promise<Par
     const r = rows[i];
     if (r.items.length === 0) continue;
 
-    // Associa cada item de texto à coluna mais próxima horizontalmente
     const rowValues: Record<string, string> = {};
     let rawDate = '';
 
     for (const item of r.items) {
-      // Acha a coluna mais próxima
       let closestCol = columnPositions[0];
       let minDiff = Math.abs(item.x - closestCol.x);
 
@@ -137,6 +139,68 @@ async function parsePdfDocument(filePath: string, fileName: string): Promise<Par
   };
 }
 
+function parseCleaningPdfRows(
+  filePath: string,
+  fileName: string,
+  docType: DocumentTypeConfig,
+  rows: PdfRow[],
+  startYear: number,
+  endYear: number
+): ParsedDocument {
+  const rawRows: { rawDate: string; values: Record<string, string> }[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    // Procura linha principal que tenha MÊS (x < 160) e faixa de DATA (180 <= x <= 260, ex: "12 - 18", "2 -8")
+    const monthItem = r.items.find(it => it.x < 160 && /^(JANEIRO|FEVEREIRO|MARÇO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)$/i.test(it.text.trim()));
+    const dateRangeItem = r.items.find(it => it.x >= 180 && it.x <= 265 && /^\d{1,2}\s*-\s*\d{1,2}$/.test(it.text.trim()));
+
+    if (!monthItem || !dateRangeItem) continue;
+
+    // Coleta fragmentos da coluna GRUPO (x >= 390) na linha anterior, atual e seguinte
+    const groupParts: string[] = [];
+    for (const offset of [-1, 0, 1]) {
+      const targetRow = rows[i + offset];
+      if (!targetRow) continue;
+      // Não pega cabeçalho nem outra linha que já tenha mês próprio (exceto offset 0)
+      if (offset !== 0) {
+        const hasOwnMonth = targetRow.items.some(it => it.x < 160 && /^(JANEIRO|FEVEREIRO|MARÇO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)$/i.test(it.text.trim()));
+        if (hasOwnMonth) continue;
+      }
+      for (const it of targetRow.items) {
+        if (it.x >= 390 && it.text.trim().toUpperCase() !== 'GRUPO') {
+          groupParts.push(it.text.trim());
+        }
+      }
+    }
+
+    const rawDate = `${dateRangeItem.text.replace(/\s+/g, '')}/${monthItem.text.trim().toLowerCase()}`;
+    const cleanGroup = groupParts.join(' ').replace(/\s+/g, ' ').trim();
+    rawRows.push({
+      rawDate,
+      values: { clean_group: cleanGroup }
+    });
+  }
+
+  const normalizedDates = normalizeDateSequence(rawRows.map(r => r.rawDate), startYear, endYear);
+  const assignmentRows: ExtractedAssignmentRow[] = rawRows.map((r, idx) => ({
+    date: normalizedDates[idx],
+    rawDate: r.rawDate,
+    values: {
+      clean_group: { raw: r.values.clean_group || '' }
+    }
+  }));
+
+  return {
+    filePath,
+    fileName,
+    detectedType: docType,
+    yearInferred: startYear,
+    rows: assignmentRows,
+    unresolvedCount: 0
+  };
+}
+
 function parseSpreadsheetDocument(filePath: string, fileName: string): ParsedDocument | null {
   const workbook = xlsx.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
@@ -150,7 +214,6 @@ function parseSpreadsheetDocument(filePath: string, fileName: string): ParsedDoc
 
   const { startYear, endYear } = inferDocumentYears(allText + ' ' + fileName);
 
-  // Acha linha de cabeçalho
   let headerIndex = -1;
   const colMap: Record<number, { field: string; role: string }> = {};
 
