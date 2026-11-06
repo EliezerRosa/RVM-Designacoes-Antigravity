@@ -1,9 +1,9 @@
 # Estado Atual do Workspace — Antigravity / RVM Designações
 
 > **Fonte Canônica Principal de RVM**: `_ESTADO-ATUAL.md` (na raiz do repositório `rvm-designacoes-unified/`, prevalece para regras, motor, histórico e pendências de RVM)  
-> **Última Atualização**: 2026-11-02 08:30 (BRT)  
+> **Última Atualização**: 2026-11-06 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-15.01` com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-15.01` com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa. Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado. **Pacote de reengenharia HG → RVM (documentação, 2026-11-06) concluído e aguardando decisões R1–R12** (ver §4 e `_ESTADO-ATUAL.md` raiz §36).
 
 ---
 
@@ -48,3 +48,14 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 4. **Evolução Cognitiva (A1-A6)**: Habilitar `pgvector` no Supabase e avançar para motor de perfis.
 5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Tranca de `logDispatch` vs aposentadoria do Chatbot para S-89.
 6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais para os Responsáveis pelo Quadro.
+7. **Reengenharia HG → RVM**: responder R1–R12 em `docs-local/hourglass/reengenharia-2026-11-06/00-indice-e-parecer.md`; se aprovado, abrir issues RF-PES-04 / RF-AGT-01 / RF-FRM-01 e iniciar M0/I0.
+
+---
+
+## 4. Reengenharia HG → RVM (2026-11-06) — resumo para posicionamento
+
+- **Pacote** (local, gitignored, sem dados pessoais): `docs-local/hourglass/reengenharia-2026-11-06/00…07` + `diagramas/` (13 Mermaid `.mmd`/`.svg`). Detalhes em `_ESTADO-ATUAL.md` raiz §36 e em `memories/repo/reengenharia-hg-2026-11-06.md`.
+- **Tese**: absorver o que falta do HG por **ações de chat + imagem exata dos S-n** (não por telas); alicerce primeiro (cadastro único M1 → catálogo de privilégios M2 → estado unificado M3).
+- **IA**: "último recurso" — L0 gramática → L1 cache → **L2 Jev** (0,90 escrita / 0,75 leitura) → L3/L4 LLM `:free` com schema → L5 humano; teto US$ 3/mês. FinOps OpenRouter: comprar US$ 10 uma vez, saldo nunca negativo, chave por carga.
+- **Normas**: S-38 vigente **S-38-T 8/26** (28 §; antecedência 3 semanas §24); territórios 4 meses (od 9§30–34); 12 itens NÃO CONFIRMADOS (V1–V12) permanecem parâmetros.
+- **Aguardando**: decisões R1–R12 do Eliezer. Pesquisa pública concluída (S-38/od/LGPD + HG/concorrentes/fontes jw.org) e incorporada ao doc 07.

@@ -825,6 +825,21 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ---
 
+## 36. Entrega: Reengenharia Reversa do Hourglass → Especificação Alvo do RVM + Plano de IA Econômica (2026-11-06)
+
+- **Natureza**: somente documentação (nenhum código alterado). Pacote local (gitignored, sem dados pessoais) em `docs-local/hourglass/reengenharia-2026-11-06/`: `00-indice-e-parecer`, `01-engenharia-reversa-hg`, `02-mer-alvo-rvm`, `03-uml-alvo-rvm`, `04-especificacao-requisitos`, `05-plano-ia-economica-deterministica`, `06-ergonomia-acessibilidade-whatsapp`, `07-fontes-publicas` + `diagramas/` (13 Mermaid `.mmd` + `.svg`: MER 02a–02d, UML 03a–03i).
+- **Tese**: absorver o que falta do HG **por ações de chat + imagem exata dos S-n**, não por telas. Cada funcionalidade = tabela/vista + ação no `agentActionService` com micro-UI de confirmação + template WhatsApp + formulário S-n.
+- **MER alvo**: princípios P1–P16; ~30 entidades (cadastro único tipado, `PRIVILEGE_CATALOG` versionado ligado à regra pública S-38 §, `PART_ASSIGNMENT` com 7 estados derivados por `fn_assignment_state`, `MONTH_CLOSURE`, `ATTENDANCE_*`, `FORM_INSTANCE` com `form_version`/`render_hash`, `MESSAGE_*` unificado com `resolution ∈ {deterministic,cache,jev,llm,human}`, `AI_DECISION_LOG`, `SCHEDULE_SLOT`, `WEEKEND_PROGRAM`, territórios com ciclo de vida). Migração sem big-bang M0–M7.
+- **Requisitos**: catálogo normativo N-01…N-43 rastreado a **S-38-T 8/26 (28 §)**, *Organizados* (cap. 5–10) e página oficial de LGPD; RF por módulo com Tier A/B/C; +26 ações de chat propostas; RNFs. 12 itens NÃO CONFIRMADOS publicamente ficam como parâmetros (V1–V12) até validação com o corpo de anciãos.
+- **S-38-T 8/26 confirmado**: antecedência mínima **3 semanas**, S-89 para estudantes, designação bimestral pelo SRVM, só anciãos designam partes não-estudante (§24); presidente ancião (§25); gênero por parte (§5, §11, §12); Necessidades locais só anciãos (§16); EBC com rodízio semanal recomendado (§17); SC = discurso de serviço 30 min e sem sala adicional (§21); assembleia sem reunião (§22); Celebração em dia de semana ⇒ sem RVM (§23); 1h45 (§20). *Organizados*: território **4 meses** (od 9§30–34); inativo = 6+ meses; ano de serviço 1/set–31/ago.
+- **Plano de IA (L0→L5)**: gramática/botões → cache → **Jev (TypeSafe)** com limiares 0,90 escrita/0,75 leitura → LLM `:free` com schema/temperatura 0 → humano. Orçamento ≈ US$ 0,15–0,60/mês, teto US$ 3 com kill-switch a 80 %. FinOps OpenRouter: comprar **US$ 10 uma vez** (1.000 req/dia em `:free`), saldo nunca negativo (402 em tudo), chave por carga com limite, monitorar `GET /api/v1/key`. GitHub: issue por RF → Copilot coding agent → PR → code review + CodeQL + golden set; `s38-sync-bot` → diff da tabela §→N-xx + Jev `noul`.
+- **Ergonomia**: 10 princípios (um toque > texto; 1 pergunta por vez; ≤ 3 botões + fallback "1/2/3"; imagem oficial; silêncio respeitoso; saída humana sempre); 15 fluxos WhatsApp F1–F15; `FormRenderer` único (S-89 → S-4 → S-140 → S-21 → S-1); acessibilidade para idosos; impressão preservada; métricas de adoção.
+- **Fontes públicas do jw.org (para o import da apostila)**: WOL `/wol/meetings/r5/lp-t/{ano}/{semana-ISO}`; documento da semana com ID numérico igual entre idiomas; `data-pid` por parágrafo (mesmo esquema do `.jwpub`); `GETPUBMEDIALINKS` (JSON público não documentado; `langwritten` obrigatório; cânticos `pub=sjjm`). Esboços de discursos públicos **não são públicos** ⇒ numeração como dado cadastrado.
+- **Decisões solicitadas (R1–R12, doc 00 §4)**: adotar P1–P16/M0–M7; 7 estados + catálogo como vocabulário oficial; reativar Jev em modo sombra 2 semanas; comprar US$ 10 OpenRouter; chat router-first; s38-sync por diff; fluxo issue→coding agent começando por RF-PES-04; `FormRenderer` único; fim de semana no escopo (M6); validar V1–V12; teto de IA; política LGPD.
+- **Hourglass público (07 §5.4–5.5)**: sem API pública nem cláusula de integração (só import/export CSV/JSON/PDF/DOCX e formatos KHS/NWS/TSWIN); aceite/recusa só por push **no app** (o RVM entrega S-89 em imagem via WhatsApp sem app — diferencial confirmado); "Delegado" ≈ delegação familiar (P15); reclamações: notificação ao grupo inteiro, sem central de ajuda; ToS lei EUA, DPA cita LGPD; concorrentes competem em telas/mapas (NW Scheduler incumbente pago; `sws2apps/organized-app` referência open source). Módulos Manutenção/Personalizado/Celebração confirmados pelo DOM local apesar de ausentes do site público.
+
+---
+
 ## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
 
 
@@ -836,4 +851,5 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 4. **Evolução Cognitiva (A1-A6)**: Habilitar o `pgvector` no Supabase e avançar para o motor hiper-dimensional de perfis.
 5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Decidir entre injetar a tranca do `logDispatch` na Central de Comunicações ou aposentar a rota do Chatbot para S-89 em favor da interface visual.
 6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais, garantindo observabilidade total de que os Responsáveis pelo Quadro receberam o artefato.
+7. **Reengenharia HG → RVM (§36)**: responder R1–R12 (`docs-local/hourglass/reengenharia-2026-11-06/00-indice-e-parecer.md`); se aprovado, abrir issues RF-PES-04, RF-AGT-01, RF-FRM-01 e iniciar M0/I0 (catálogos + `AI_DECISION_LOG` + chaves por carga + US$ 10 OpenRouter).
 

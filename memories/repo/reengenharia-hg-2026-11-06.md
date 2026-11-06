@@ -1,0 +1,33 @@
+# Reengenharia reversa do Hourglass → especificação alvo do RVM (2026-11-06)
+
+> Fatos duráveis promovidos da sessão `memories/session/reengenharia-hg-2026-11-06.md`. Pacote completo (local, gitignored): `docs-local/hourglass/reengenharia-2026-11-06/00…07` + `diagramas/`. Nenhum código foi alterado.
+
+## Decisões de desenho propostas (aguardam R1–R12 do Eliezer — doc 00 §4)
+- Absorver funcionalidades do HG por **ações de chat + imagem exata dos S-n**, não por telas: funcionalidade = tabela/vista + ação em `agentActionService` com micro-UI + template WhatsApp + S-n.
+- Alicerce antes de módulos: M0 catálogos → M1 cadastro único tipado (`rm.publishers` vira view) → M2 `PRIVILEGE_CATALOG` versionado ligado à regra pública (S-38 §) → M3 `PART_ASSIGNMENT` com 7 estados derivados (`fn_assignment_state`) → M4 fechamento mensal/assistência/`FORM_INSTANCE` → M5 mensageria unificada → M6 slots + fim de semana → M7 territórios.
+- `FORM_INSTANCE` com `form_version` (ex.: "S-4-T 11/23") e `render_hash` = sha256 do snapshot canônico ⇒ reuso de imagem, cache e rastreio. `FormRenderer` único: template oficial como fundo + mapeamento JSON de caixas; PNG 2× para WhatsApp, PDF para impressão. Ordem: S-89 → S-4 → S-140 → S-21 → S-1.
+- Fim de semana entra no escopo (E2 = sim) como M6; `due_days` de território = 120 (od 4 meses); aquiescência tácita só anciãos/SM em D-2; lembretes D-7/D-2 (S-89) e D+3/D+7 (relatório); ≤ 3 botões nativos, senão lista; fallback "1/2/3"; 1 pergunta por vez; handoff humano silencia o robô no assunto.
+- Fora de escopo: contas, literatura, manutenção.
+
+## IA econômica e determinística (doc 05)
+- Camadas: L0 gramática/botões/datas → L1 cache por `context_class` → **L2 Jev** (limiares 0,90 escrita / 0,75 leitura; modo sombra 2 semanas antes de ativar) → L3/L4 LLM `:free` via OpenRouter com zod + temperatura 0 + array de fallback → L5 humano. `AI_DECISION_LOG` registra camada/custo por decisão.
+- Jev (TypeSafe) 1.14: US$ 0,042/1M tokens de entrada, saída grátis; 64k/req, 32k/pergunta (262k com header `TypeSafe-Danger-Zone-Long-Context: true`); tipos `noul|choice|score|box`; aceita imagem; endpoints `POST /api/alpha/decisions` (OpenRouter) ou `https://api.typesafe.ai/v1/systemone`. Shape: `{model,state,questions:{name:{type,instructions,criteria}}}` → `answers[name].{noul|choice|score,probabilities}`.
+- OpenRouter: modelos `:free` = 20 req/min; 50 req/dia, ou **1.000 req/dia após compra única de US$ 10**; **saldo negativo ⇒ 402 em tudo** (causa dos erros de out/2026). Regras: saldo ≥ US$ 2, uma chave por carga com limite de crédito, monitorar `GET /api/v1/key`, lista de free em configuração (muda com frequência).
+- Orçamento alvo ≈ US$ 0,15–0,60/mês por congregação (~120 publicadores); teto US$ 3 com kill-switch a 80 %; golden set (~200 mensagens anonimizadas) em CI.
+- GitHub: issue por RF (IDs do doc 04) → Copilot coding agent → PR → code review + CodeQL + golden set; `s38-sync-bot` passa a diff da tabela §→N-xx + Jev `noul` (sem LLM mensal). Começar por RF-PES-04 (ausências por intervalo).
+
+## Normas públicas confirmadas (doc 07)
+- **S-38-T 8/26** (28 §, WOL doc `1201038`): §1 pré-requisitos do estudante (→ od 8§8); §2 abertura 1 min; §3 Tesouros 10 min (ancião/SM); §4 Joias 10 min; §5 Leitura 4 min (homem); §6 Faça seu melhor 15 min; §7–§10 demonstrações M/F com ajudante do mesmo sexo ou família; §9 "O que você diria?"; §11 Explicando crenças (demo M/F; discurso só homem); §12 Discurso (homem); §13–§16 Nossa vida cristã (§16 Necessidades locais só anciãos); §17 EBC 30 min (ancião aprovado; rodízio semanal recomendado); §18 encerramento 3 min; §19 conselho 1 min, não revelar lição (th / Ame as pessoas / be); §20 total 1h45; §21 SC = discurso de serviço 30 min, sem sala adicional; §22 assembleia sem reunião; §23 Celebração em dia de semana ⇒ sem RVM; **§24 SRVM designa bimestre, só anciãos designam não-estudante, 3 semanas mínimas, S-89, programação no quadro**; §25 presidente ancião (SM se poucos); §26 conselheiro assistente; §27 salas adicionais.
+- **Organizados (WOL docs 1102014935…940)**: cap.5 coordenador §25–26/42–44, secretário §27, sup. de serviço §28 (visita grupos mensalmente), grupos §29–34, comissão de serviço §35; cap.6 SM §3/§12; cap.7 fim de semana §5/§11; cap.8 não batizado §8–10 (dois anciãos, 10 pontos), prazo relatório §10–11, S-4 §23–29 (texto antigo com horas), S-21 §30; cap.9 território §30–34 (**4 meses**, servo de territórios, proteção de dados); cap.10 pioneiros §12–14. Inativo = 6+ meses; ano de serviço 1/set–31/ago; LGPD oficial "Tratamento de Dados Pessoais – Brasil" (13/08/2024): interesse legítimo, consentimento só exceção (menores), retenção por ano.
+- **NÃO CONFIRMADOS publicamente** (ficam parâmetros V1–V12): orações por batizado; gênero de "O que você diria?"; elegibilidade fina de Nossa vida cristã; registro de conselho no S-89; critério de "irregular"; metas de pioneiro pós-2023 (≈ 50/30/15); relatório atrasado; campos de S-1/S-10/S-88; S-12/S-13 pt-BR; presidente/leitor/oradores do fim de semana e catálogo de esboços; cargo "coordenador de discursos públicos".
+- **Nenhum S-n é baixável publicamente**; templates do repo (`templates/S-89_T.pdf`, `dados_sensiveis/S-140_T.*`, S-4-T 11/23 em `RmS4Modal.tsx`) são de uso interno — nunca em docs públicos.
+
+## Fontes de dados públicas do jw.org (para `workbook-import`)
+- WOL: `wol.jw.org/pt/wol/meetings/r5/lp-t` → `/{ano}/{semana-ISO}`; documento da semana `wol.jw.org/pt/wol/d/r5/lp-t/<id>` com ID igual entre idiomas; seções por ícone `dc-icon--gem|wheat|sheep`; parágrafos `id="pN" data-pid="N"` (mesmo esquema do `.jwpub`); duração "(N min.)"; vídeos `webpubvid://`; sem JSON-LD. `/wol/dt/…` não existe.
+- `https://b.jw-cdn.org/apis/pub-media/GETPUBMEDIALINKS?output=json&pub=mwb&issue=AAAAMM&fileformat=MP3&langwritten=T` (público, não documentado; `langwritten` obrigatório; `markers.mepsParagraphId` = `data-pid`). Cânticos: `pub=sjjm`. Esboços de discursos públicos não são públicos.
+- Regra RVM: só leitura de apostila/cânticos, com cache, teste de contrato e fallback manual; nenhum dado pessoal trafega.
+
+## Ferramental / armadilhas
+- Mermaid via `npx -y -p @mermaid-js/mermaid-cli mmdc -i X.mmd -o X.svg -b white` (rodar em `diagramas/`): `;` em texto de mensagem de sequenceDiagram quebra o parser (usar `,`/`+`); `<id>`/`<data>` viram tag HTML (usar `[id]`); subgraph com acento precisa `id["Título"]`; membros de classDiagram sem espaços nem `{}`. PlantUML MCP falha com acento no `output_path`.
+- Saídas grandes de ferramentas vão para `%LOCALAPPDATA%\Temp\*copilot-tool-output-*.txt`; ler com `view` + `view_range`.
+- Respostas longas de agentes `research` podem chegar truncadas no início — pedir reenvio compacto por `write_agent` em vez de relançar.
