@@ -1,8 +1,8 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-05 22:25 (BRT)  
+> **Última Atualização**: 2026-11-05 23:25 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa (**HG-Sync 100% Automático** concluído e validado com 14/14 testes). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Automação Hourglass ativa (**HG-Sync 100% Automático** concluído e validado com 14/14 testes). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
 > **Axioma Irrevogável de Memória Multi-IDE**: Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente.  
 > **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
@@ -10,7 +10,25 @@
 
 ---
 
-## 0. HG-Sync (RVM ⇄ Hourglass) — 100% Automático Concluído (2026-11-05)
+## 0.A Arquitetura de Armazenamento, Junções NTFS & OneDrive 1 TB (2026-11-05)
+
+- **Memória Canônica Completa**: [`memories/repo/arquitetura-armazenamento-onedrive.md`](memories/repo/arquitetura-armazenamento-onedrive.md) (e espelhada globalmente em `C:\MAPA-PROJETOS-E-ONEDRIVE.md`, `C:\Users\Eliez\.gemini\GEMINI.md` e `C:\Users\Eliez\OneDrive\Artefatos_IDEs\README-ARQUITETURA-ONEDRIVE.md`).
+- **Os 3 Únicos Projetos Ativos em Curso no Disco `C:\`**:
+  1. **RVM Designações**: `C:\Antigravity - RVM Designações\rvm-designacoes-unified`
+  2. **idd-ide**: `C:\IDE IDD Claude-VS Code\idd-ide`
+  3. **IDD Refrigeração**: `C:\Antigravity - IDD Refrigeração`
+- **Mapeamento Transparente para a Nuvem (`mklink /J` + `attrib +U -P`)**:
+  - Todas as pastas de artefatos pesados dos 3 projetos (`paradigma`, `IDD Paradigma`, `producao_yt`, `motion_graphics_renderer`, `apresentacao`, `artefatos`, `_render_work` e legados `S-89`/`CRUD`/`Form RVM`) apontam via **Junção NTFS (`mklink /J`)** para `C:\Users\Eliez\OneDrive\Artefatos_IDEs\*`.
+  - Os ~50 projetos antigos/protótipos inativos foram limpos de `node_modules`/`.venv` e arquivados em `OneDrive\Artefatos_IDEs\Projetos_Arquivados_Raiz_C` e `Projetos_Arquivados_Usuario`.
+  - A tarefa agendada `\OneDrive-AutoDehydrate-Artefatos` roda a cada 15 min aplicando `attrib +U -P` para liberar automaticamente o espaço no SSD `C:\` assim que o OneDrive conclui o upload.
+- **Regras Invioláveis para Agentes**:
+  1. **Proibido** criar `node_modules` ou `.venv` dentro de pastas mapeadas para o OneDrive.
+  2. **Proibido** rodar `grep`/leitura de conteúdo recursiva sobre pastas de vídeo/mídia desidratadas (evita re-download desnecessário da nuvem).
+  3. Novos artefatos pesados (vídeos, áudios, renders, `.zip`) devem sempre ser salvos nas pastas com junção para o OneDrive.
+
+---
+
+## 0.B HG-Sync (RVM ⇄ Hourglass) — 100% Automático Concluído (2026-11-05)
 
 - **Módulo**: `hg-sync/` (desacoplado; painel `http://localhost:4610`; Supabase RVM somente leitura; RVM→HG unidirecional; **14/14 testes passando**). Memória detalhada: `memories/repo/hg-sync-estado-2026-11-05.md`.
 - **Arquitetura 100% Automática (Zero Clique — Implementada)**:
