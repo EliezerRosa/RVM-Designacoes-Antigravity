@@ -173,9 +173,22 @@ export class HgBrowserAutomation {
         await this.navigateToMonth(page, ym);
         await page.waitForTimeout(800);
 
+        const monday = new Date(weekDate + 'T12:00:00Z');
+        const thursday = new Date(monday.getTime() + 3 * 86400000);
+        const tuesday = new Date(monday.getTime() + 1 * 86400000);
         const dayNumber = parseInt(weekDate.split('-')[2], 10);
+        const thursdayDay = thursday.getUTCDate();
+        const tuesdayDay = tuesday.getUTCDate();
         const searchLabel = slotLabel.split(':')[0].trim();
-        const ok = await this.selectAssignmentInDay(page, dayNumber, searchLabel, personName || '—');
+
+        // Tenta encontrar pela quinta-feira (dia padrão), depois terça (visita) ou pela própria segunda-feira
+        let ok = await this.selectAssignmentInDay(page, thursdayDay, searchLabel, personName || '—');
+        if (!ok) {
+          ok = await this.selectAssignmentInDay(page, tuesdayDay, searchLabel, personName || '—');
+        }
+        if (!ok) {
+          ok = await this.selectAssignmentInDay(page, dayNumber, searchLabel, personName || '—');
+        }
         if (ok) {
           await this.clickSaveButton(page);
           await page.waitForTimeout(800);
@@ -318,20 +331,20 @@ export class HgBrowserAutomation {
    */
   async selectAssignmentInDay(page: Page, dayNumber: number, fieldLabel: string, personName: string): Promise<boolean> {
     try {
-      const dropdownOpened = await page.evaluate(({ day, label, person }) => {
-        const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const dropdownOpened = await page.evaluate(`(({ day, label, person }) => {
+        const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim();
         const searchLabel = norm(label);
 
         const allButtons = Array.from(document.querySelectorAll('button.dropdown-toggle'));
 
         for (const btn of allButtons) {
-          const dayContainer = btn.closest('.card, .row, .day-container, div') as HTMLElement;
+          const dayContainer = btn.closest('.card, .row, .day-container, div');
           const containerText = dayContainer?.innerText || '';
 
-          const dayRegex = new RegExp(`\\b${day}\\b`);
+          const dayRegex = new RegExp('\\\\b' + day + '\\\\b');
           if (!dayRegex.test(containerText)) continue;
 
-          const parentCol = (btn.closest('div, .col, .row') || btn.parentElement) as HTMLElement;
+          const parentCol = btn.closest('div, .col, .row') || btn.parentElement;
           const parentText = norm(parentCol?.innerText || '');
 
           const labelMatches =
@@ -355,7 +368,7 @@ export class HgBrowserAutomation {
         }
 
         return { success: false };
-      }, { day: dayNumber, label: fieldLabel, person: personName });
+      })(${JSON.stringify({ day: dayNumber, label: fieldLabel, person: personName })})`) as { success: boolean; clicked?: boolean; alreadySelected?: boolean };
 
       if (!dropdownOpened || !dropdownOpened.success) {
         return false;
@@ -367,8 +380,8 @@ export class HgBrowserAutomation {
 
       await page.waitForTimeout(400);
 
-      const selected = await page.evaluate((targetPerson) => {
-        const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const selected = await page.evaluate(`((targetPerson) => {
+        const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim();
         const target = norm(targetPerson);
 
         const menuEl = document.querySelector('.dropdown-menu.show, .dropdown-menu');
@@ -376,16 +389,16 @@ export class HgBrowserAutomation {
 
         if (!target || target === '—' || target === 'vazio') {
           const clearBtn = Array.from(menuEl.querySelectorAll('.dropdown-item, button, a, div')).find(el => {
-            const t = norm((el as HTMLElement).innerText || '');
+            const t = norm(el.innerText || '');
             return t === '' || t === 'nenhum' || t === 'limpar' || t === 'remover' || t === '—';
-          }) as HTMLElement | undefined;
+          });
           if (clearBtn) {
             clearBtn.click();
             return true;
           }
         }
 
-        const searchInput = menuEl.querySelector('input') as HTMLInputElement;
+        const searchInput = menuEl.querySelector('input');
         if (searchInput) {
           searchInput.focus();
           searchInput.value = targetPerson;
@@ -395,18 +408,18 @@ export class HgBrowserAutomation {
 
         const items = Array.from(menuEl.querySelectorAll('.dropdown-item, [role="button"], button, div, a'));
         const match = items.find(el => {
-          const txt = norm((el as HTMLElement).innerText || '');
+          const txt = norm(el.innerText || '');
           return txt.includes(target) || (target.split(' ').length > 1 && txt.includes(norm(target.split(' ')[0])));
         });
 
         if (match) {
-          const clickable = (match.closest('button, [role="button"], a, div') || match) as HTMLElement;
+          const clickable = match.closest('button, [role="button"], a, div') || match;
           clickable.click();
           return true;
         }
 
         return false;
-      }, personName);
+      })(${JSON.stringify(personName)})`) as boolean;
 
       await page.waitForTimeout(400);
 

@@ -134,14 +134,10 @@ const server = http.createServer(async (req, res) => {
 
       // 4. Meio de Semana RVM
       if (reqUrl === '/api/midweek/weeks' && method === 'GET') {
-        const now = new Date();
-        const day = now.getDay();
-        const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1);
-        const currentMonday = new Date(now.setDate(diffToMonday));
-        const currentWeekId = currentMonday.toISOString().split('T')[0];
+        const startWeekId = syncWorker.getSyncStartWeekIso();
 
         const publishedWeeks = await rvmReader.getPublishedWeeks();
-        const allParts = await rvmReader.getMidweekParts(currentWeekId);
+        const allParts = await rvmReader.getMidweekParts(startWeekId);
         const publishers = await rvmReader.getPublishers();
         const pubMap = new Map(publishers.map(p => [p.id, p]));
 
@@ -153,7 +149,17 @@ const server = http.createServer(async (req, res) => {
 
         const weeks = Object.keys(partsByWeek).sort().map(wId => {
           const isPublished = Boolean(publishedWeeks[wId]);
-          const schedule = mapWeekPartsToHgSlots(wId, partsByWeek[wId] || [], pubMap, true);
+          const schedule = mapWeekPartsToHgSlots(
+            wId,
+            partsByWeek[wId] || [],
+            pubMap,
+            true,
+            (pub, resolvedHgId, canonicalName) => {
+              rvmReader.savePublisherHgId(pub.id, resolvedHgId, canonicalName).catch(err => {
+                console.warn(`[Server] Erro ao reter hg_id do publicador ${pub.name}:`, err.message);
+              });
+            }
+          );
           return {
             weekId: wId,
             weekDisplay: formatWeekDisplay(wId),

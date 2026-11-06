@@ -28,13 +28,23 @@
 
 ---
 
-## 0.B HG-Sync (RVM ⇄ Hourglass) — 100% Automático Concluído (2026-11-05)
+## 0.B HG-Sync (RVM ⇄ Hourglass) — 100% Automático Concluído (2026-11-06)
 
-- **Módulo**: `hg-sync/` (desacoplado; painel `http://localhost:4610`; Supabase RVM somente leitura; RVM→HG unidirecional; **14/14 testes passando**). Memória detalhada: `memories/repo/hg-sync-estado-2026-11-05.md`.
-- **Arquitetura 100% Automática (Zero Clique — Implementada)**:
-  1. **Meio de Semana (`RVM ➡️ HG`)**: detector de hash a cada 60s + ciclo de 5 min; cobertura completa (`core` + `cbs` + `tgw` + `fm` titular/ajudante + `lac`) via `saveMidweekSlot()` com escrita híbrida (REST API + fallback automático por UI headless com auto-captura de endpoints em `data/endpoints.json`) e releitura de verificação.
-  2. **Downloads (`Downloads ➡️ HG`)**: watcher automático (`fs.watch` + hash `SHA-256` em `data/processed-files.json`) sincronizando em background (`headless`) `PRESIDENTE E LEITOR.pdf` (26 semanas, 0 pendências), `INDICADORES E MICROFONE.pdf` (23 semanas, 0 pendências) e `DESIGNAÇÕES LIMPEZA.pdf` (7 semanas, 0 pendências).
-  3. **Auto-Recuperação de Sessão (`ensureAuthenticatedForAutoSync`)**: perfil único em `hg-sync/data/hourglass_session` + `hg-cookies.json`; se a sessão expirar, o serviço (rodando no logon interativo do usuário via `RVM-HG-Sync`) abre automaticamente 1 única janela do Chrome nativo (cooldown 6h), detecta o login via CDP (`9333`), salva os cookies, fecha a janela e retoma o sync automático.
+- **Módulo**: `hg-sync/` (desacoplado; painel `http://localhost:4610`; Supabase RVM somente leitura para dados de designação; **14/14 testes passando**).
+- **Arquitetura 100% Automática (Zero Clique — REST API Nativa do Hourglass)**:
+  1. **Meio de Semana (`RVM ➡️ HG`)**:
+     - **Endpoints REST Nativos Mapeados**:
+       - Core (`chairman`, `openprayer`, `closeprayer`, `cbs_reader`): `PUT /api/v0.2/scheduling/mm/schedule/{date}/core?lgroup={lgroup}` com payload `{ assignee: number, part_type: string }`.
+       - Seções (`tgw`, `fm` titular/ajudante, `lac`, e `cbs` dirigente): `PUT /api/v0.2/scheduling/mm/schedule/{date}/asmt?lgroup={lgroup}` com payload `{ assignee: number, assistant: boolean, classroom: 0, part: number }`.
+       - Mapeamento de `part`: obtido automaticamente em paralelo de `/api/v0.2/scheduling/mm/meeting/{start}_{end}?lgroup={lgroup}&no_subs=true`.
+     - **Janela de Sincronização Estendida (`getSyncStartWeekIso`)**: retrocede 35 dias para cobrir o mês corrente e semanas ativas imediatamente anteriores (ex: Outubro quando em Novembro).
+     - **Retenção Cirúrgica de `hg_id` por Fallback de Nome**:
+       - Quando um publicador ainda não possui `hg_id` cadastrado na coluna `publishers.hg_id`, o motor resolve via `nameResolver` e persiste automaticamente no Supabase via RPC `public.save_publisher_hg_id(publisher_id, hg_id, canonical_name)`.
+       - Os 7 publicadores chave (`Eliezer Rosa`, `Israel Vieira`, `Marcos Rogério`, `Edmardo Queiroz`, `Emerson França`, `Renato Oliveira`, `Edmilson Monteiro`) tiveram seus `hg_id` validados e persistidos com sucesso no Supabase.
+       - Zero modificação no código fonte principal do RVM (`src/` intacto).
+     - **Tratamento de Robustez no DOM Fallback**: avaliações em `page.evaluate` do Playwright convertidas para expressões seguras contra injeção de helper `__name` do esbuild/tsx.
+  2. **Downloads (`Downloads ➡️ HG`)**: watcher automático (`fs.watch` + hash `SHA-256` em `data/processed-files.json`) sincronizando em background (`headless`) `PRESIDENTE E LEITOR.pdf`, `INDICADORES E MICROFONE.pdf` e `DESIGNAÇÕES LIMPEZA.pdf`.
+  3. **Auto-Recuperação de Sessão (`ensureAuthenticatedForAutoSync`)**: perfil único em `hg-sync/data/hourglass_session` + `hg-cookies.json`.
 
 ---
 

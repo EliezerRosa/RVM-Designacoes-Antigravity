@@ -57,22 +57,24 @@ export class RvmReader {
     }
   }
 
-  // 2. Lista de publicadores do RVM (com hg_id se houver)
+  // 2. Lista de publicadores do RVM (lendo a coluna dedicada hg_id e fallback em data.hg_id)
   async getPublishers(): Promise<RvmPublisher[]> {
     if (!this.client) return [];
     try {
       const { data, error } = await this.client
         .from('publishers')
-        .select('id, data');
+        .select('id, hg_id, data');
 
       if (error || !data) return [];
 
       return data.map((row: any) => {
         const d = row.data || {};
+        const colHgId = row.hg_id ? parseInt(String(row.hg_id), 10) : null;
+        const jsonHgId = d.hg_id ? parseInt(String(d.hg_id), 10) : null;
         return {
           id: row.id,
           name: (d.name || '').trim(),
-          hg_id: d.hg_id ? parseInt(d.hg_id) : null,
+          hg_id: colHgId || jsonHgId || null,
           hg_name: d.hg_name || d.name,
           gender: d.gender
         };
@@ -80,6 +82,27 @@ export class RvmReader {
     } catch (e) {
       console.warn('[RVM Reader] Erro ao ler publishers:', e);
       return [];
+    }
+  }
+
+  // 2.1. Salva o hg_id resolvido por fallback na coluna publishers.hg_id do Supabase (exclusivo para retenção de hg_id)
+  async savePublisherHgId(publisherId: string, hgId: number, hgName?: string): Promise<boolean> {
+    if (!this.client || !publisherId || !hgId || hgId <= 0) return false;
+    try {
+      const { error } = await this.client.rpc('save_publisher_hg_id', {
+        p_publisher_id: publisherId,
+        p_hg_id: hgId,
+        p_hg_name: hgName || null
+      });
+      if (error) {
+        console.warn(`[RVM Reader] Falha ao salvar hg_id=${hgId} para publisher=${publisherId}:`, error.message);
+        return false;
+      }
+      console.log(`[RVM Reader] 💾 hg_id=${hgId} retido na coluna publishers.hg_id para "${hgName || publisherId}" (ID: ${publisherId})`);
+      return true;
+    } catch (e: any) {
+      console.warn(`[RVM Reader] Exceção ao salvar hg_id para publisher=${publisherId}:`, e.message);
+      return false;
     }
   }
 

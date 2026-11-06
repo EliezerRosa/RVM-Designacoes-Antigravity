@@ -7,9 +7,10 @@ export interface HgWeekScheduleCurrent {
   closeprayer?: number;
   cbs_reader?: number;
   cbs?: number;
-  tgw?: Array<{ id: number; assignee: number; part: number }>;
+  cbsPartId?: number;
+  tgw?: Array<{ id: number; assignee: number; assistant?: number; part: number }>;
   fm?: Array<{ id: number; assignee: number; assistant: number; part: number }>;
-  lac?: Array<{ id: number; assignee: number; part: number }>;
+  lac?: Array<{ id: number; assignee: number; assistant?: number; part: number }>;
 }
 
 export function computeMidweekDiff(
@@ -31,10 +32,27 @@ export function computeMidweekDiff(
     slotLabel: string,
     rvmHgId?: number,
     hgCurrentId?: number,
-    partId?: number
+    partId?: number,
+    rvmAssigneeName?: string
   ) => {
     const curId = hgCurrentId || 0;
     const newId = rvmHgId || 0;
+
+    // Se há um nome atribuído no RVM mas o hg_id não pôde ser resolvido (ex: orador visitante / SC),
+    // nunca apagar (clear) o que já estiver no Hourglass.
+    if (newId === 0 && rvmAssigneeName && rvmAssigneeName.trim().length > 0) {
+      diffs.push({
+        weekId,
+        slotKey,
+        slotLabel,
+        partId,
+        action: 'noop',
+        previousAssignee: getName(curId),
+        newAssignee: { name: rvmAssigneeName.trim(), hgId: 0 },
+        reason: 'Designado externo/sem hg_id no Hourglass (preservado)'
+      });
+      return;
+    }
 
     if (newId === curId) {
       diffs.push({
@@ -93,12 +111,12 @@ export function computeMidweekDiff(
   };
 
   // 1. Core Slots (incluindo Dirigente do EBC quando presente)
-  compareSimpleSlot('chairman', 'Presidente', rvmSchedule.slots['chairman']?.assigneeHgId, hgCurrent?.chairman);
-  compareSimpleSlot('openprayer', 'Oração Inicial', rvmSchedule.slots['openprayer']?.assigneeHgId, hgCurrent?.openprayer);
-  compareSimpleSlot('closeprayer', 'Oração Final', rvmSchedule.slots['closeprayer']?.assigneeHgId, hgCurrent?.closeprayer);
-  compareSimpleSlot('cbs_reader', 'Leitor do EBC', rvmSchedule.slots['cbs_reader']?.assigneeHgId, hgCurrent?.cbs_reader);
+  compareSimpleSlot('chairman', 'Presidente', rvmSchedule.slots['chairman']?.assigneeHgId, hgCurrent?.chairman, undefined, rvmSchedule.slots['chairman']?.assigneeName);
+  compareSimpleSlot('openprayer', 'Oração Inicial', rvmSchedule.slots['openprayer']?.assigneeHgId, hgCurrent?.openprayer, undefined, rvmSchedule.slots['openprayer']?.assigneeName);
+  compareSimpleSlot('closeprayer', 'Oração Final', rvmSchedule.slots['closeprayer']?.assigneeHgId, hgCurrent?.closeprayer, undefined, rvmSchedule.slots['closeprayer']?.assigneeName);
+  compareSimpleSlot('cbs_reader', 'Leitor do EBC', rvmSchedule.slots['cbs_reader']?.assigneeHgId, hgCurrent?.cbs_reader, undefined, rvmSchedule.slots['cbs_reader']?.assigneeName);
   if (rvmSchedule.slots['cbs'] || hgCurrent?.cbs) {
-    compareSimpleSlot('cbs', 'Dirigente do EBC', rvmSchedule.slots['cbs']?.assigneeHgId, hgCurrent?.cbs);
+    compareSimpleSlot('cbs', 'Dirigente do EBC', rvmSchedule.slots['cbs']?.assigneeHgId, hgCurrent?.cbs, undefined, rvmSchedule.slots['cbs']?.assigneeName);
   }
 
   // 2. TGW Slots
@@ -107,7 +125,7 @@ export function computeMidweekDiff(
     const rvmSlot = rvmSchedule.slots[`tgw_${i}`];
     const hgSlot = hgTgw[i];
     const slotLabel = rvmSlot?.partTitle || `Tesouros da Palavra #${i + 1}`;
-    compareSimpleSlot(`tgw_${i}`, slotLabel, rvmSlot?.assigneeHgId, hgSlot?.assignee, hgSlot?.id);
+    compareSimpleSlot(`tgw_${i}`, slotLabel, rvmSlot?.assigneeHgId, hgSlot?.assignee, hgSlot?.id, rvmSlot?.assigneeName);
   }
 
   // 3. FM Slots (Ministério)
@@ -123,7 +141,8 @@ export function computeMidweekDiff(
         `Ministério #${i + 1} (Titular): ${rvmTitular?.partTitle || ''}`,
         rvmTitular?.assigneeHgId,
         hgSlot?.assignee,
-        hgSlot?.id
+        hgSlot?.id,
+        rvmTitular?.assigneeName
       );
     }
     if (rvmAjudante || hgSlot?.assistant) {
@@ -132,7 +151,8 @@ export function computeMidweekDiff(
         `Ministério #${i + 1} (Ajudante): ${rvmAjudante?.partTitle || ''}`,
         rvmAjudante?.assigneeHgId,
         hgSlot?.assistant,
-        hgSlot?.id
+        hgSlot?.id,
+        rvmAjudante?.assigneeName
       );
     }
   }
@@ -148,7 +168,8 @@ export function computeMidweekDiff(
         `Vida Cristã #${i + 1}: ${rvmSlot?.partTitle || ''}`,
         rvmSlot?.assigneeHgId,
         hgSlot?.assignee,
-        hgSlot?.id
+        hgSlot?.id,
+        rvmSlot?.assigneeName
       );
     }
   }

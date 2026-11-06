@@ -139,11 +139,21 @@ export class SyncWorker {
     return currentMonday.toISOString().split('T')[0];
   }
 
+  public getSyncStartWeekIso(): string {
+    const now = new Date();
+    // Retrocede 35 dias para cobrir o mês corrente e semanas ativas publicadas imediatamente anteriores (ex: Outubro quando em Novembro)
+    now.setDate(now.getDate() - 35);
+    const day = now.getDay();
+    const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diffToMonday));
+    return monday.toISOString().split('T')[0];
+  }
+
   private async hasRvmChangedSinceLastHash(): Promise<boolean> {
     if (!rvmReader.isAvailable()) return false;
-    const currentWeekId = this.getCurrentMondayIso();
+    const startWeekId = this.getSyncStartWeekIso();
     const publishedWeeks = await rvmReader.getPublishedWeeks();
-    const allParts = await rvmReader.getMidweekParts(currentWeekId);
+    const allParts = await rvmReader.getMidweekParts(startWeekId);
     const relevantParts = allParts
       .filter(p => Boolean(publishedWeeks[p.week_id]))
       .map(p => `${p.week_id}:${p.id}:${p.status}:${p.resolved_publisher_id || ''}:${p.resolved_publisher_name || ''}:${p.raw_publisher_name || ''}`);
@@ -191,9 +201,9 @@ export class SyncWorker {
       }
 
       // 3. Verifica semanas publicadas no RVM
-      const currentWeekId = this.getCurrentMondayIso();
+      const startWeekId = this.getSyncStartWeekIso();
       const publishedWeeks = rvmReader.isAvailable() ? await rvmReader.getPublishedWeeks() : {};
-      const allParts = rvmReader.isAvailable() ? await rvmReader.getMidweekParts(currentWeekId) : [];
+      const allParts = rvmReader.isAvailable() ? await rvmReader.getMidweekParts(startWeekId) : [];
       const partsByWeek: Record<string, any[]> = {};
       for (const p of allParts) {
         if (!partsByWeek[p.week_id]) partsByWeek[p.week_id] = [];
@@ -239,7 +249,17 @@ export class SyncWorker {
 
         for (const weekId of targetWeeks) {
           const weekParts = partsByWeek[weekId] || [];
-          const rvmSchedule = mapWeekPartsToHgSlots(weekId, weekParts, pubMap, true);
+          const rvmSchedule = mapWeekPartsToHgSlots(
+            weekId,
+            weekParts,
+            pubMap,
+            true,
+            (pub, resolvedHgId, canonicalName) => {
+              rvmReader.savePublisherHgId(pub.id, resolvedHgId, canonicalName).catch(err => {
+                console.warn(`[Worker] Erro ao reter hg_id do publicador ${pub.name}:`, err.message);
+              });
+            }
+          );
           const hgCurrent = hgMap.get(weekId) || null;
 
           const diffs = computeMidweekDiff(rvmSchedule, hgCurrent, knownPublishersMap);
