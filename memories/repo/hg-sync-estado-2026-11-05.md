@@ -1,29 +1,45 @@
-# HG-Sync — Estado e Memória Persistente (2026-11-05)
+# HG-Sync — Estado e Memória Persistente (2026-11-06)
 
 > Módulo desacoplado em `rvm-designacoes-unified/hg-sync/` (painel `http://localhost:4610`). Sincroniza RVM ⇄ Hourglass (HG).
-> Atualizado em 2026-11-05 22:25 (BRT): **Blocos 1 a 4 Concluídos — Sincronização 100% Automática (Zero Clique)** implementada e testada (`14/14` testes unitários em `hg-sync` + `110/110` testes no RVM principal).
+> Atualizado em 2026-11-06 13:40 (BRT): **REST API Nativa Mapeada + Retenção Cirúrgica de `hg_id` no Supabase + Invariante "RVM Prevalece Sempre" no Código Duro** implementada e testada (`14/14` testes unitários passando em `hg-sync`).
 
-## 1. Requisitos e Invariantes (Não Negociar)
-- **100% Automático (Hands-Free)**:
-  - **Meio de semana (`RVM ➡️ HG`)**: monitora continuamente o RVM (detector rápido de hash a cada 60s + ciclo completo de 5 min) e grava automaticamente no HG todas as partes (`core` + `cbs` + `tgw` + `fm` titular/ajudante + `lac`) das semanas publicadas da semana atual em diante. O RVM sempre prevalece; parte vazia no RVM ⇒ esvazia automaticamente no HG (`assignee: 0`).
-  - **Downloads (`Downloads ➡️ HG`)**: monitora `C:\Users\Eliez\Downloads` (`fs.watch` com debounce de 3s + hash `SHA-256` em `data/processed-files.json`) e sincroniza automaticamente em background (`headless: config.headlessBrowser`) qualquer arquivo novo ou modificado de escala (`PRESIDENTE E LEITOR.pdf`, `INDICADORES E MICROFONE.pdf`, `DESIGNAÇÕES LIMPEZA.pdf`) sem exigir clique no painel.
-  - **Auto-Recuperação de Sessão (`ensureAuthenticatedForAutoSync`)**: se houver pendências de sincronização e a sessão do HG estiver desconectada/expirada, o serviço (rodando na sessão interativa do usuário) abre automaticamente uma única janela do Chrome nativo (com cooldown de 6h), aguarda o login/Passkey via CDP (`9333`), salva `data/hg-cookies.json`, fecha a janela e executa imediatamente o sync pendente.
-- **Desacoplamento**: nada de HG-Sync no build/test/deploy do RVM principal. Supabase do RVM é **somente leitura** (`SELECT`). Nunca escrever do HG para o RVM.
+## 1. Requisitos e Invariantes Inegociáveis
+- **100% Automático e Contínuo**:
+  - **Meio de semana (`RVM ➡️ HG`)**: monitora continuamente o RVM (detector rápido de hash a cada 60s + ciclo completo de 5 min) e grava automaticamente no HG todas as partes (`core` + `cbs` + `tgw` + `fm` titular/ajudante + `lac`) das semanas publicadas da semana atual em diante.
+  - **Invariante no Código Duro ("RVM Prevalece Sempre")**:
+    - O RVM é a fonte única e absoluta da verdade (`midweek/reconcile.ts`).
+    - Se houver diferença entre RVM e HG: RVM sobrescreve (`action: 'update'`).
+    - Se o RVM tiver nova designação e HG estiver vazio: RVM preenche (`action: 'insert'`).
+    - Se a parte foi esvaziada no RVM: o HG é esvaziado (`action: 'clear'`, `assignee: 0`, motivo: `'Removido no RVM (RVM prevalece)'`).
+    - Salvaguarda: nomes externos sem `hg_id` numérico (oradores visitantes ou SC) são preservados no HG sem apagar.
+  - **Downloads (`Downloads ➡️ HG`)**: monitora `C:\Users\Eliez\Downloads` (`fs.watch` com debounce de 3s + hash `SHA-256` em `data/processed-files.json`) e sincroniza automaticamente em background (`headless: config.headlessBrowser`) arquivos de escalas (`PRESIDENTE E LEITOR.pdf`, `INDICADORES E MICROFONE.pdf`, `DESIGNAÇÕES LIMPEZA.pdf`) sem exigir clique no painel.
+  - **Auto-Recuperação de Sessão (`ensureAuthenticatedForAutoSync`)**: perfil persistente em `hg-sync/data/hourglass_session` + `hg-cookies.json`. Se desconectado, abre 1 janela do Chrome nativo (cooldown 6h), captura sessão via CDP (`9333`), fecha e retoma.
+- **Desacoplamento e Escrita no Banco**:
+  - Supabase do RVM é **somente leitura** (`SELECT`) para todas as tabelas de designação (`workbook_parts`, `app_settings`).
+  - O Hourglass **nunca** altera partes nem grava nada de volta no RVM.
+  - **Exceção única e cirúrgica permitida**: Retenção do `hg_id` do publicador na coluna `publishers.hg_id` (via RPC `public.save_publisher_hg_id`) apenas quando resolvido por fallback de nome no `mapper.ts`.
 - **Governança Jev**: O uso do Jev da TypeSafe (`scripts/jev-check.mjs`) pertence ao projeto futuro **`idd-ide`** e está suspenso no RVM Designações (ver `.roo/rules/10-jev-verificacao.md`).
 
-## 2. Entregas Concluídas e Verificadas (Blocos 1 a 4)
-1. **Bloco 1 (Higiene de Sessão e Auto-Login Inteligente)**:
-   - `config.ts`: `sessionDir` consolidado exclusivamente em `hg-sync/data/hourglass_session`.
-   - `session.ts`: `hasSavedSession()`, `isAuthenticated(forceLaunch)` sem abrir Chrome headless quando não há sessão salva, `ensureAuthenticatedForAutoSync()` com cooldown de 6h, `startLoginWindow()`, `cancelLogin()` e diagnóstico completo em `/api/status/session` (`pid`, `chromePath`, `cdpReachable`, `lastError`).
-2. **Bloco 2 (Meio de Semana 100% Automático — Core + CBS + TGW + FM + LAC)**:
-   - `reconcile.ts` + `api.ts` + `browser.ts`: `saveMidweekSlot()` grava todas as seções via REST API com fallback automático via DOM headless (`saveMidweekSlotViaDom`) e captura automática de endpoints em `data/endpoints.json`, além de releitura de verificação pós-escrita.
-   - `worker.ts`: detector de hash do RVM a cada 60s + ciclo completo de 5 min.
-3. **Bloco 3 (Downloads 100% Automático — Watcher + SHA-256 + Apelidos 100% Resolvidos)**:
-   - `store.ts`: persistência de `data/processed-files.json` (`sha256`, `unresolvedCount`, `syncedCount`), apelidos calibrados para `ELIEZER` (`Eliezer Rosa`) e `LUIZ ALEXAND` (`Luiz Alexandrino`), e `syncAliasesWithKnownUsers()` para atualizar `hg_id` automaticamente com a lista oficial do HG/RVM.
-   - `columns.json` + `dates.ts` + `detect.ts` + `scan.ts`: suporte completo às 3 escalas em `C:\Users\Eliez\Downloads`:
-     - `PRESIDENTE E LEITOR.pdf`: 26 semanas, **0 pendências**.
-     - `INDICADORES E MICROFONE.pdf`: 23 semanas, **0 pendências**.
-     - `DESIGNAÇÕES LIMPEZA.pdf`: 7 semanas extraídas (Mês + faixa de datas + grupo multi-linha), **0 pendências**.
-4. **Bloco 4 (Serviço Permanente no Logon Interativo do Usuário)**:
-   - `install-service.ps1`: configurado com `New-ScheduledTaskPrincipal -LogonType Interactive` para garantir que a tarefa `RVM-HG-Sync` rode na sessão interativa do desktop do usuário.
-   - Suíte de testes `npm test --prefix hg-sync`: **14/14 passando**.
+## 2. Entregas e Avanços Técnicos Consolidados (2026-11-06)
+1. **REST Endpoints Nativos do Hourglass**:
+   - `PUT /api/v0.2/scheduling/mm/schedule/{date}/core?lgroup={lgroup}` com payload `{ assignee: number, part_type: string }` para partes core (`chairman`, `openprayer`, `closeprayer`, `cbs_reader`).
+   - `PUT /api/v0.2/scheduling/mm/schedule/{date}/asmt?lgroup={lgroup}` com payload `{ assignee: number, assistant: boolean, classroom: 0, part: number }` para seções (`tgw`, `fm`, `lac`, `cbs`).
+   - Obtenção dinâmica dos partIds via `/api/v0.2/scheduling/mm/meeting/{start}_{end}?lgroup={lgroup}&no_subs=true`.
+2. **Retenção de `hg_id` por Fallback de Nome no Supabase**:
+   - Corrigida a tipagem e propriedades no `midweek/mapper.ts` (`resolved.confidence !== 'unresolved'` e `resolved.hg_id`).
+   - RPC `public.save_publisher_hg_id` ativada e validada.
+   - Todos os 7 publicadores chave agora possuem seus `hg_id` salvos e confirmados no banco de produção:
+     - Eliezer Rosa (`id: 3`): `hg_id = 2491248`
+     - Marcos Rogério (`id: 17`): `hg_id = 2489454`
+     - Renato Oliveira (`id: 19`): `hg_id = 2491349`
+     - Emerson França (`id: 20`): `hg_id = 3296264`
+     - Israel Vieira (`id: 21`): `hg_id = 2491316`
+     - Edmardo Queiroz (`id: 23`): `hg_id = 2491469`
+     - Edmilson Monteiro (`id: 28`): `hg_id = 3296262`
+3. **Robustez no DOM Fallback de `browser.ts`**:
+   - Expressões em `page.evaluate` convertidas para strings auto-contidas, prevenindo que o transpilador `tsx/esbuild` injete o helper `__name` no contexto da página.
+4. **Mapeamento da UI & Mensageria do Hourglass**:
+   - **Botão Amarelo com `⚠️`**: indica estado de rascunho com pendências ou partes incompletas (designação oculta para o publicador); ao ser clicado, converte-se no aviãozinho `✈` (*"Enviar designações"*).
+   - **Mensageria Real do Hourglass**: atua exclusivamente via **Push Notification no App Mobile do Hourglass** e **E-mail transacional**. O Hourglass **não possui integração com WhatsApp**.
+   - **Menu `☰ ▾` da Semana**: exclusivo para exportar/imprimir o S-140 em PDF ou Word.
+   - **Complementaridade do RVM**: o RVM Designações cobre a lacuna do WhatsApp entregando o S-89 oficial com botões interativos via Z-API.
