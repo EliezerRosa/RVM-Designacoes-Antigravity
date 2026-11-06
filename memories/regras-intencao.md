@@ -1,9 +1,9 @@
 # Regras de Intenção do Projeto RVM
 
-> Enviado integralmente ao verificador Jev em cada checagem. Regras curtas, verificáveis por leitura de diff.
 > Fontes canônicas (prevalecem sobre o código): `.agents/workflows/motor-invariants.intent.md` (M-0…M-12),
 > `rm-invariants.intent.md` (I-0…I-7), `supabase-migration.intent.md`, `deploy-and-validate.intent.md`,
 > `rotate-secrets.intent.md`, `AGENTS.md`, `_ESTADO-ATUAL.md`.
+> **Nota sobre o Jev (`typesafe/jev`)**: O uso do Jev como gate de diffs foi idealizado para a futura extensão do projeto **`idd-ide`**. Por ora, **não** usar `scripts/jev-check.mjs` nas sessões do RVM Designações.
 
 ## Regras de negócio
 - Motor: não introduzir score numérico/aditivo; a decisão é por faixa (bucket) e ordem lexicográfica estrita (M-0).

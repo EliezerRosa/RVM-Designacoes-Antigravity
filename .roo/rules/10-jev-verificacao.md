@@ -1,20 +1,12 @@
-# Verificação obrigatória com Jev antes de aplicar código
+# Diretriz sobre o Verificador Jev (Projeto `idd-ide`)
 
-Toda alteração em arquivos de código passa antes pelo verificador Jev
-(`node scripts/jev-check.mjs .tmp/jev/proposta.patch`). O Jev NÃO gera
-código nem texto: devolve decisões tipadas; a decisão de aplicar é do agente.
+> **Status no RVM Designações (2026-11-05)**: **SUSPENSO / NÃO USAR POR ORA.**
 
-## Fluxo obrigatório
-1. NÃO aplique ainda. Monte o diff proposto e salve em `.tmp/jev/proposta.patch`
-   (crie a pasta se preciso).
-2. Execute: `node scripts/jev-check.mjs .tmp/jev/proposta.patch`
-3. Aprovado (exit 0): pode aplicar. Reprovado (exit 1): revise o ponto indicado
-   por `violacao.choice` e volte ao passo 1.
-4. Limite de 3 iterações; persistindo, PARE e peça orientação ao usuário.
-5. No resumo final informe: iterações, `conforme.noul`, `violacao.choice`, `risco.score`.
+## Esclarecimento Canônico
+- O uso do verificador **Jev da TypeSafe** (`typesafe/jev-1.14` via `scripts/jev-check.mjs`) como gate de pré-aplicação de diffs foi idealizado como parte do projeto **`idd-ide`**.
+- Somente quando a extensão do **`idd-ide`** estiver operacional e instalada na IDE como política de Governança é que essa verificação passará a valer efetivamente.
+- **Por ora, NÃO utilize o `scripts/jev-check.mjs` com este propósito aqui no projeto RVM Designações.**
 
-## Nunca
-- Aplicar código sem rodar a verificação.
-- Ler, imprimir ou incluir no diff o conteúdo de `.env.local`, `supabase/.env`
-  ou qualquer segredo (referencie variáveis pelo NOME).
-- `git commit` / `git push` / `git reset --hard` sem autorização explícita.
+## Regras permanentes mantidas no RVM Designações
+- Validar alterações de código com as ferramentas nativas do projeto (`npm test`, `npm run type-check`, `npm run lint`, `npm run build`).
+- Nunca ler, imprimir ou incluir em commits/diffs o conteúdo de `.env`, `.env.local`, `supabase/.env` ou qualquer segredo.
