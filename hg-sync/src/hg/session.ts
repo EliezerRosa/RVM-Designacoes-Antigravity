@@ -191,7 +191,7 @@ export class HgSessionManager {
 
     return this.runExclusive(async () => {
       try {
-        const { page } = await this.getContext(true);
+        const { context, page } = await this.getContext(true);
 
         const currentUrl = page.url();
         if (!currentUrl.includes('/page/app')) {
@@ -201,7 +201,12 @@ export class HgSessionManager {
 
         const startup = await page.evaluate(async () => {
           try {
-            const res = await fetch('/api/v0.2/fsreport/startup');
+            const match = document.cookie.match(/(?:^|;\s*)(?:X-Hourglass-XSRF-Token|XSRF-TOKEN|x-hourglass-xsrf-token|_xsrf)=([^;]+)/i);
+            const headers: Record<string, string> = { 'accept': 'application/json' };
+            if (match) {
+              headers['x-hourglass-xsrf-token'] = decodeURIComponent(match[1]);
+            }
+            const res = await fetch('/api/v0.2/fsreport/startup', { headers });
             if (!res.ok) return null;
             return await res.json();
           } catch {
@@ -212,6 +217,9 @@ export class HgSessionManager {
         if (startup?.whoami?.user) {
           this.currentUser = startup.whoami.user;
           this.authCache = { authenticated: true, timestamp: Date.now() };
+          try {
+            await context.storageState({ path: this.cookiesFile });
+          } catch { /* ignore */ }
           return true;
         }
 
@@ -228,7 +236,7 @@ export class HgSessionManager {
 
   /**
    * Garante sessão autenticada para o worker automático:
-   * 1. Usa cache ou valida cookies salvos em modo headless.
+   * 1. Usa cache ou valida cookies/perfil salvos em modo headless.
    * 2. Se não estiver autenticado e houver pendências para sincronizar, abre automaticamente
    *    1 janela do Chrome nativo (com cooldown de 6h entre aberturas automáticas), aguarda o
    *    usuário autenticar, salva cookies, fecha a janela e retorna true para o sync prosseguir.
@@ -238,7 +246,7 @@ export class HgSessionManager {
       return true;
     }
 
-    if (this.hasSavedSession()) {
+    if (this.hasSavedSession() || fs.existsSync(path.join(this.sessionDir, 'Default', 'Network', 'Cookies'))) {
       const validFromCookies = await this.isAuthenticated(true);
       if (validFromCookies) return true;
     }
@@ -405,7 +413,12 @@ export class HgSessionManager {
             if (!p.url().startsWith('https://app.hourglass-app.com')) continue;
             const user = await p.evaluate(async () => {
               try {
-                const res = await fetch('/api/v0.2/fsreport/startup');
+                const match = document.cookie.match(/(?:^|;\s*)(?:X-Hourglass-XSRF-Token|XSRF-TOKEN|x-hourglass-xsrf-token|_xsrf)=([^;]+)/i);
+                const headers: Record<string, string> = { 'accept': 'application/json' };
+                if (match) {
+                  headers['x-hourglass-xsrf-token'] = decodeURIComponent(match[1]);
+                }
+                const res = await fetch('/api/v0.2/fsreport/startup', { headers });
                 if (!res.ok) return null;
                 const d = await res.json();
                 return d?.whoami?.user || null;
