@@ -13,7 +13,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 - **Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Vercel CLI autenticado com `VERCEL_TOKEN`).
 - **GitHub Pages**: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/` (`npm run deploy`).
 - **Supabase**: Projeto `pevstuyzlewvjidjkmea`.
-- **Último Checkpoint Git RVM**: commit "chore(policy): isolamento da integração externa e de sessões de navegador no repositório público (2026-11-07)" — único commit à frente de `origin/main`; **histórico reescrito localmente; force-push pendente** (ver §2.4 e pendência 8).
+- **Último Checkpoint Git RVM**: commit "chore(policy): isolamento da integração externa e de sessões de navegador no repositório público (2026-11-07)" — `main` = `origin/main` (histórico reescrito e **enviado ao remoto por force-push em 2026-11-07 21:37**; ver §2.4 e pendência 8).
 
 ---
 
@@ -25,7 +25,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 4. **AXIOMA IRREVOGÁVEL (Multi-IDE e Sync Remoto)**:
    - Toda a memória de conversas (`/memories/session/`), estado atual (`_ESTADO-ATUAL.md`) e aprendizados correlatos (`/memories/`) DEVE subir para o repositório remoto Git (`git commit` + `git push`) ao final de cada bloco lógico ou sessão, e obrigatoriamente antes de trocar de agente ou IDE.
    - Qualquer agente iniciando conversa em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code) DEVE primeiro ler as memórias antes de agir.
-   - **Histórico reescrito em 2026-11-07 (local, `git filter-repo`)**: até o `git push --force` autorizado, NÃO fazer `git pull`/`merge` do remoto; depois, realinhar clones (`git fetch origin; git reset --hard origin/main`). Bundle de segurança em `docs-local/`.
+   - **Histórico reescrito em 2026-11-07 (`git filter-repo`) e já no remoto (force-push 21:37)**: clones antigos em outras IDEs DEVEM ser realinhados com `git fetch origin; git reset --hard origin/main` (ou reclonados) — nunca `git pull`/`merge`, que reintroduziria o histórico antigo. Bundle de segurança em `docs-local/`.
    - **Regra inflexível (Eliezer, 2026-11-07)**: o que estiver no `.gitignore` NUNCA sobe para o remoto — e **tudo** o que diz respeito à integração externa HG (código, scripts, documentação, memórias, dados, sessões de browser) DEVE estar no `.gitignore`. Memória sobre esse tema fica em arquivos locais: `docs-local/_ESTADO-LOCAL.md`, `README-HG-RVM.md` e memórias com `hg` no nome.
 5. **Motor de Designações**: Regras `2026-10-15.01` em `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `eligibilityService.ts`. Modelo de decisão lexicográfico por faixas (buckets).
    - **Blindagem Bidirecional de Gênero (Titular ↔ Ajudante)**: Duplas de demonstração de estudantes DEVEM ser do mesmo sexo (irmão+irmão ou irmã+irmã), tanto quando o ajudante é designado tendo o titular definido, quanto quando o titular é designado/substituído tendo o ajudante já definido.
@@ -50,7 +50,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Tranca de `logDispatch` vs aposentadoria do Chatbot para S-89.
 6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais para os Responsáveis pelo Quadro.
 7. **Integração externa (local)**: pendências mantidas em `docs-local/_ESTADO-LOCAL.md` → seção "Pendências".
-8. **Force-push do histórico reescrito** (aguarda autorização expressa de Eliezer): `git push --force origin main` + `git push --force --tags`; apagar a branch remota `copilot/research-accessibility-analysis` (reescrita, sem commits exclusivos); `gh-pages` não muda. Depois: `git fetch --prune origin` + `git gc --prune=now`, realinhar clones de outras IDEs e **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública.
+8. **Pós-reescrita do histórico** (force-push de `main` + tags e exclusão da branch remota `copilot/research-accessibility-analysis` **executados em 2026-11-07 21:37**; `gh-pages` inalterada; `fetch --prune` + `gc` locais feitos): (a) realinhar clones de outras IDEs (`git fetch origin; git reset --hard origin/main`); (b) Eliezer **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública; (c) opcional — purga de commits órfãos antigos via GitHub Support (repo sem PRs/forks).
 
 ---
 
