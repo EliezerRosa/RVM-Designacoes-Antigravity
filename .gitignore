@@ -82,23 +82,34 @@ __pycache__/
 # Documentação de trabalho mantida só localmente (decisão 2026-10-09)
 docs-local/
 
-# ========================
-# HG AUTOMATION & SESSIONS (LOCAL ONLY)
-# ========================
-HG_session/
-HG_*.txt
-HG_*.html
-HG_*.json
+# Sessões de navegador de robôs (WhatsApp Web etc.) — NUNCA versionar (cookies, login data, IndexedDB)
+whatsapp_session_data/
+
+# ==========================================================================
+# HG — REGRA INFLEXÍVEL (Eliezer, 2026-11-07): NADA da integração externa HG
+# vai para o remoto (repositório público). Código, scripts, docs, memórias,
+# dados e sessões ficam só neste disco. Convenção: todo arquivo ou pasta
+# sobre o HG leva "hg" no nome (ou vive numa pasta já ignorada:
+# _hg-local/, docs-local/, scratch/, .tmp/).
+# ==========================================================================
+# Módulo HG-Sync inteiro (código em repositório PRIVADO próprio desde 2026-11-07)
+hg-sync/
+
+# Artefatos legados da raiz (sessões de navegador, planilhas, dumps)
+_hg-local/
+scratch/
 tela*.png
 tela*.html
 learn_dom.cjs
 participations_out.json
-scratch/
 
-# HG-Sync Decoupled Module local state
-hg-sync/data/
-hg-sync/node_modules/
-hg-sync/.env
+# Documentação e memórias do projeto HG-RVM (locais)
+README-HG-RVM.md
+memories/**/*hg*
+memories/**/*HG*
+
+# Scripts legados de automação HG retirados de scripts/ (2026-11-07)
+scripts/_hg-legacy/
 
 # Área temporária do verificador Jev (patches propostos)
 .tmp/

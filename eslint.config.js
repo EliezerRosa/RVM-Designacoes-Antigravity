@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'hg-sync/**']),
+  // '*-sync/**': módulos locais não versionados (ignorados pelo git), com tsconfig próprio
+  globalIgnores(['dist', '*-sync/**']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

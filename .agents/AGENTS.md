@@ -8,7 +8,7 @@
 1. **Leitura no Início**: Todo agente em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code) DEVE ler as memórias (`/memories/repo/_ESTADO-ATUAL.md`, `_ESTADO-ATUAL.md`, `/memories/` e `/memories/session/`) antes de qualquer ação.
 2. **Registro Contínuo**: Registrar notas em `/memories/session/<assunto>.md` e atualizar `_ESTADO-ATUAL.md` in-place a cada marco.
 3. **Commit e Push Obrigatório**: Ao final de blocos ou antes de trocar de agente/IDE, salvar e commitar/pushar para `origin/main`.
-4. **Isolamento**: Respeitar estritamente o `.gitignore` (material confidencial de HG em `docs-local/`, dumps de DOM, sessões de browser, segredos).
+4. **Isolamento — regra inflexível (2026-11-07)**: Respeitar estritamente o `.gitignore` (dumps de DOM, sessões de browser, segredos) — e **tudo** o que diz respeito à integração externa HG (código, scripts, docs, memórias, dados) DEVE estar no `.gitignore` (bloco "HG"); memória sobre o tema só em arquivos locais (`docs-local/_ESTADO-LOCAL.md`, `README-HG-RVM.md`, memórias com `hg` no nome).
 
 ## Política de Acesso e Visibilidade (CONDIÇÃO TEMPORÁRIA)
 
