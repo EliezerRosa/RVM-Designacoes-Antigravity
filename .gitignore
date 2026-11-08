@@ -85,6 +85,19 @@ docs-local/
 # Sessões de navegador de robôs (WhatsApp Web etc.) — NUNCA versionar (cookies, login data, IndexedDB)
 whatsapp_session_data/
 
+# Dumps, seeds, evidências e saídas de scripts com DADOS DE PUBLICADORES (nomes,
+# telefones, e-mails, congregação) — NUNCA versionar: repositório público (LGPD).
+# Os geradores continuam gravando nestes caminhos; os arquivos ficam só no disco.
+_backups-local/
+backup_rvm_*.json
+backup-pre-cleanup-*/
+comparison_result.txt
+scripts/_rm_seed.sql
+scripts/test_lifecycle_evidence.json
+scripts/test_lifecycle_log.txt
+scripts/week_check_output.txt
+scripts/_archived/*.txt
+
 # ==========================================================================
 # HG — REGRA INFLEXÍVEL (Eliezer, 2026-11-07): NADA da integração externa HG
 # vai para o remoto (repositório público). Código, scripts, docs, memórias,

@@ -35,7 +35,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
      - Pares de sexos opostos sem parentesco comprovado são sumariamente bloqueados (`eligible: false`), impedindo reincidências tanto no robô automático de reatribuição quanto na seleção manual.
      - **BD Intocado**: Registros do banco de dados não são alterados retroativamente sem autorização expressa.
 6. **Publicação S-89**: Apenas o SRVM publica via botão manual; Crons D-7 e D-2 exigem registro prévio `PUBLICACAO_S89` com `SUCCESS`.
-7. **Isolamento de Segurança**: Pasta `docs-local/`, diretórios de sessão de navegador/WhatsApp (`whatsapp_session_data/` — esteve rastreado por engano de 2026-08-03 a 2026-11-07; retirado do índice e do histórico) e credenciais nunca sobem para repositórios públicos.
+7. **Isolamento de Segurança**: Pasta `docs-local/`, diretórios de sessão de navegador/WhatsApp (`whatsapp_session_data/` — esteve rastreado por engano de 2026-08-03 a 2026-11-07; retirado do índice e do histórico), **dumps/seeds/evidências com dados de publicadores** (`_backups-local/`, `backup_rvm_*.json`, `backup-pre-cleanup-*/`, `scripts/_rm_seed.sql`, `scripts/test_lifecycle_*`, `scripts/_archived/*.txt`, saídas de scripts — retirados do índice e do histórico em 2026-11-07) e credenciais nunca sobem para repositórios públicos. Documentos públicos (incl. este estado) não citam e-mail/telefone de publicador — só papel e `publisher_id`.
 8. **Faturamento BYOK**: Modelo Google com API Key própria consome créditos da Conta RVM Pro (`017DC8-83643E-7F9157`) do Google Developer Program Premium (~R$ 58/mês), preservando a cota do Copilot Pro+/Max.
 
 ---
