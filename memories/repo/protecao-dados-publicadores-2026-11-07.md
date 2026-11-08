@@ -33,4 +33,4 @@ git status --short --ignored | Select-String 'backup|_rm_seed|lifecycle|_archive
 - Enumerar também os **caminhos históricos antigos** dos arquivos (antes de renomes/moves) e usar `--path-glob` para variações de nome.
 - Arquivo de `--replace-text` deve ser UTF-8 **sem BOM**; substituir **linhas inteiras literais** quando o dado está num documento, nunca nomes soltos que também existem em código.
 - Depois do force-push: `git fetch --prune`, `reflog expire --expire=now --all`, `gc --prune=now`; clones em outras IDEs realinham com `git fetch origin; git reset --hard origin/main` (nunca `pull`).
-- Commits antigos seguem acessíveis por SHA no GitHub até o GC deles → não citar SHAs antigos em arquivos públicos; purga garantida só via GitHub Support.
+- Commits antigos seguem acessíveis por SHA no GitHub até o GC deles → não citar SHAs antigos em arquivos públicos; purga garantida só via GitHub Support — **pedido enviado em 2026-11-08 (ticket #4972265)**; um 404 isolado por SHA é transitório, só a confirmação do Suporte vale.
