@@ -1,7 +1,7 @@
 # Estado Atual do Workspace — Antigravity / RVM Designações
 
 > **Fonte Canônica Principal de RVM**: `_ESTADO-ATUAL.md` (na raiz do repositório `rvm-designacoes-unified/`, prevalece para regras, motor, histórico e pendências de RVM)  
-> **Última Atualização**: 2026-11-07 21:45 (BRT)  
+> **Última Atualização**: 2026-11-07 22:40 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-15.01` com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** (`docs-local/_ESTADO-LOCAL.md`; regra inflexível de 2026-11-07). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.
 
@@ -13,7 +13,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 - **Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Vercel CLI autenticado com `VERCEL_TOKEN`).
 - **GitHub Pages**: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/` (`npm run deploy`).
 - **Supabase**: Projeto `pevstuyzlewvjidjkmea`.
-- **Último Checkpoint Git RVM**: commit "chore(policy): isolamento da integração externa e de sessões de navegador no repositório público (2026-11-07)" — `main` = `origin/main` (histórico reescrito e **enviado ao remoto por force-push em 2026-11-07 21:37**; ver §2.4 e pendência 8).
+- **Último Checkpoint Git RVM**: commit "docs(estado): registra isolamento de dados de publicadores e realinhamento do remoto (2026-11-07)" — `main` = `origin/main` (histórico reescrito **3×** e **enviado ao remoto por force-push em 2026-11-07, 21:37, 22:12 e 22:3x**; 1.616 commits, 30 tags; ver §2.4, §2.7 e pendência 8).
 
 ---
 
@@ -25,7 +25,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 4. **AXIOMA IRREVOGÁVEL (Multi-IDE e Sync Remoto)**:
    - Toda a memória de conversas (`/memories/session/`), estado atual (`_ESTADO-ATUAL.md`) e aprendizados correlatos (`/memories/`) DEVE subir para o repositório remoto Git (`git commit` + `git push`) ao final de cada bloco lógico ou sessão, e obrigatoriamente antes de trocar de agente ou IDE.
    - Qualquer agente iniciando conversa em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code) DEVE primeiro ler as memórias antes de agir.
-   - **Histórico reescrito em 2026-11-07 (`git filter-repo`) e já no remoto (force-push 21:37)**: clones antigos em outras IDEs DEVEM ser realinhados com `git fetch origin; git reset --hard origin/main` (ou reclonados) — nunca `git pull`/`merge`, que reintroduziria o histórico antigo. Bundle de segurança em `docs-local/`.
+   - **Histórico reescrito 3× em 2026-11-07 (`git filter-repo`; force-push 21:37, 22:12 e 22:3x)**: clones antigos em outras IDEs DEVEM ser realinhados **uma vez, após a 3ª reescrita**, com `git fetch origin; git reset --hard origin/main` (ou reclonados) — nunca `git pull`/`merge`, que reintroduziria o histórico antigo. Bundles de segurança em `docs-local/`.
    - **Regra inflexível (Eliezer, 2026-11-07)**: o que estiver no `.gitignore` NUNCA sobe para o remoto — e **tudo** o que diz respeito à integração externa HG (código, scripts, documentação, memórias, dados, sessões de browser) DEVE estar no `.gitignore`. Memória sobre esse tema fica em arquivos locais: `docs-local/_ESTADO-LOCAL.md`, `README-HG-RVM.md` e memórias com `hg` no nome.
 5. **Motor de Designações**: Regras `2026-10-15.01` em `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `eligibilityService.ts`. Modelo de decisão lexicográfico por faixas (buckets).
    - **Blindagem Bidirecional de Gênero (Titular ↔ Ajudante)**: Duplas de demonstração de estudantes DEVEM ser do mesmo sexo (irmão+irmão ou irmã+irmã), tanto quando o ajudante é designado tendo o titular definido, quanto quando o titular é designado/substituído tendo o ajudante já definido.
@@ -50,7 +50,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Tranca de `logDispatch` vs aposentadoria do Chatbot para S-89.
 6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais para os Responsáveis pelo Quadro.
 7. **Integração externa (local)**: pendências mantidas em `docs-local/_ESTADO-LOCAL.md` → seção "Pendências".
-8. **Pós-reescrita do histórico** (force-push de `main` + tags e exclusão da branch remota `copilot/research-accessibility-analysis` **executados em 2026-11-07 21:37**; `gh-pages` inalterada; `fetch --prune` + `gc` locais feitos): (a) realinhar clones de outras IDEs (`git fetch origin; git reset --hard origin/main`); (b) Eliezer **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública; (c) opcional — purga de commits órfãos antigos via GitHub Support (repo sem PRs/forks).
+8. **Pós-reescrita do histórico** (3 reescritas + force-push de `main` + tags **executados em 2026-11-07, 21:37, 22:12 e 22:3x**; branch remota `copilot/research-accessibility-analysis` excluída; `gh-pages` inalterada; `fetch --prune` + `gc` locais feitos; backups com dados de publicadores movidos para `_backups-local/`): (a) realinhar clones de outras IDEs **uma vez, após a 3ª reescrita** (`git fetch origin; git reset --hard origin/main`); (b) Eliezer **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública; (c) recomendado — purga de commits órfãos antigos via GitHub Support (repo sem PRs/forks; texto pronto em `docs-local/`); (d) **decisão separada pendente**: nomes/telefones de publicadores escritos em código (`src/services/*`, `scripts/test_*.ts`) — não tocados (exigiria alterar `src/`). Decidido (Eliezer, 2026-11-07): nomes dos titulares de papéis em documentos públicos **permanecem**. Regra e checagem: `memories/repo/protecao-dados-publicadores-2026-11-07.md`.
 
 ---
 
