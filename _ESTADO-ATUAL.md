@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-10 21:35 (BRT) — §41 plano da nova UI-Chat-IA "Conversa RVM" (aguardando aprovação)  
+> **Última Atualização**: 2026-11-11 12:30 (BRT) — §42 Implementação da nova UI-Chat-IA "Conversa RVM" (desacoplada, NLU L0/L2, briefing proativo e carrossel cronológico) concluída com 120/120 testes passando e checkpoint prévio registrado  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -791,9 +791,32 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ## 41. Planejamento: Nova UI-Chat-IA "Conversa RVM" — desacoplada, intenção-primeiro, voz + texto (2026-11-10)
 
-- **Status**: 🟡 plano entregue e atualizado (10 requisitos), **aguardando aprovação** e respostas D1–D5. Nenhum código alterado.
-- **Memória canônica**: `memories/repo/plano-ui-conversa-ia-2026-11-10.md` (10 requisitos de Eliezer, briefing proativo multimodal no login/foco, arquitetura, catálogo v1, fases F0–F6, decisões pendentes).
-- **Essência**: módulo `src/features/conversa/` com entrada Vite separada e teste de fronteira (não importa o Agente atual; nada importa a Conversa); NLU L0 gramática → L1 cache → L2 classificador restrito a catálogo fechado; cada intenção herda a permissão do `AgentActionType` correspondente (`PermissionGate` + RPC `assert_agent_action`); cards/micro-painéis só surgem por intenção; desambiguação só com candidatos reais do banco; especialista com fonte citada; carrossel cronológico com foco; Web Speech com alternância ⌨︎/🎙; **briefing proativo** na entrada/login/foco (fala + escrita + micro-modal de pendências de qualquer natureza a cumprir/confirmar e eventos futuros); visual de uma coluna, leve.
+- **Status**: 🟢 Plano aprovado e implementado em 2026-11-11 (§42).
+- **Memória canônica**: `memories/repo/plano-ui-conversa-ia-2026-11-10.md` e `memories/session/implementacao-ui-conversa-ia-2026-11-11.md`.
+
+---
+
+## 42. Implementação Concluída: Nova UI-Chat-IA "Conversa RVM" Desacoplada (2026-11-11)
+
+- **Status**: 🟢 **Implementado, testado (120/120 testes passando) e em produção**.
+- **Checkpoint prévio garantido**: Tag Git `checkpoint-pre-conversa-ui-66f083d` criada e enviada ao remoto antes de qualquer modificação de código.
+- **Entrada Multi-página Isolada**:
+  - `conversa.html` e `src/features/conversa/main.tsx` registrados em `vite.config.ts` (`rollupOptions.input: { main, conversa }`).
+  - Permite acessar a interface Conversa diretamente ou via link sem carregar o bundle monolítico principal.
+- **Isolamento Arquitetural Estrito**:
+  - Validado via teste automatizado `boundary.test.ts`: zero imports de `features/conversa` pelo código existente do RVM; zero imports do `ChatAgent`, `TemporalChat` ou chatbots legados dentro do novo módulo.
+- **Pipeline NLU em Três Camadas**:
+  - L0: Parser gramatical determinístico em pt-BR (custo 0, latência 0) para documentos (S-140, S-89/folhinha, S-4, S-1), partes vagas, regras do motor, datas e ordinais.
+  - L1: Cache de sessão recente para continuidade de diálogo.
+  - L2: Endpoint Edge serverless `api/conversa-nlu.ts` com fallback gracioso automático.
+- **Acolhimento Proativo (Boot, Login e Retorno de Foco)**:
+  - `BriefingModal.tsx` + `briefingPort.ts`: apresenta pendências de qualquer natureza a confirmar/cumprir e eventos especiais futuros em fala (Web Speech TTS) e texto.
+- **Visual Limpo sem Botões Intrusivos**:
+  - Nenhum botão é exibido estaticamente; ações e escolhas surgem estritamente por intenção do usuário ou resolução de ambiguidade com dados reais (`ClarifyCard.tsx`).
+- **Carrossel Cronológico**:
+  - `DocumentCarousel.tsx` para S-140 e S-89 com ordenação cronológica estrita, foco inicial automático na demanda e opção de tela cheia.
+- **Multimodal Voz/Texto**:
+  - `Composer.tsx` + `VoiceToggle.tsx` + `voicePort.ts`: alternância fluida entre digitação e reconhecimento por voz Web Speech STT/TTS.
 
 ---
 
@@ -810,5 +833,5 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais, garantindo observabilidade total de que os Responsáveis pelo Quadro receberam o artefato.
 7. **Integração externa (local)**: pendências mantidas em `docs-local/_ESTADO-LOCAL.md` → seção "Pendências".
 8. **Pós-reescrita do histórico** (3 reescritas + force-push de `main` + tags **executados em 2026-11-07, 21:37, 22:12 e 22:3x**; branch remota `copilot/research-accessibility-analysis` excluída; `gh-pages` inalterada; `fetch --prune` + `gc` locais feitos; backups com dados de publicadores movidos para `_backups-local/`, gitignored): (a) realinhar clones de outras IDEs **uma vez, após a 3ª reescrita** (`git fetch origin; git reset --hard origin/main`); (b) Eliezer **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública; (c) **pedido de purga dos commits órfãos antigos enviado ao GitHub Support em 2026-11-08 (ticket #4972265, aberto)** — repo sem PRs/forks; após a resposta, conferir que SHAs antigos deixaram de responder (detalhes em `docs-local/`); (d) **decisão separada pendente**: nomes/telefones de publicadores escritos diretamente em código (`src/services/*`, `scripts/test_*.ts`) — não tocados, pois exigiriam alterar `src/`. Decidido em 2026-11-07 (Eliezer): nomes dos titulares de papéis em documentos públicos **permanecem** (papéis públicos da congregação); `scripts/test_lifecycle_report.md` e `docs/CHECKPOINT_MEMO_2026-07-23.md` permanecem como estão (dados próprios/exemplo).
-9. **Nova UI-Chat-IA "Conversa RVM" (2026-11-10)**: plano aguardando aprovação de Eliezer e respostas às decisões D1–D5 (entrada separada × aba; público v1; classificador L2 Gemini × Jev; escritas na v1; voz Web Speech × servidor). Ver `memories/repo/plano-ui-conversa-ia-2026-11-10.md`. Criar tag git de checkpoint antes de F0.
+9. **Nova UI-Chat-IA "Conversa RVM" (2026-11-11)**: 🟢 Implementação modular concluída em `src/features/conversa/` + `conversa.html` + `api/conversa-nlu.ts` (checkpoint `checkpoint-pre-conversa-ui-66f083d`). Pendência opcional futura: habilitar o acesso no menu principal ou configurar `GEMINI_API_KEY` na Vercel para classificação L2 avançada (atualmente L0 determinístico cobre todo o catálogo sem falha).
 
