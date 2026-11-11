@@ -54,13 +54,14 @@
   - `src/features/conversa/__tests__/conversaUi.test.tsx` (testes React+JSDOM para `BriefingModal`, `MicroPanel`, `DocumentCarousel` e `ConversaShell`).
 - **Suíte completa**: `132/132` testes passando (`npm test`, sendo 21 subtestes em `src/features/conversa/__tests__`).
 - **Build de produção**: `npm run build` (`vite build`) compilado com sucesso gerando `dist/conversa.html` e `dist/index.html`.
-- **Playwright headless Chromium**: verificado em `vite preview` (estado não autenticado com `ConversaAuthGate` + fluxo autenticado simulado com `BriefingModal`, explicação `"como funciona o rodízio"`, `"minhas designações"` e prévia `"vou viajar de 10/12 a 12/12"`, sem erros de página).
+- **Playwright headless Chromium (`vite preview` + dev server live em `http://127.0.0.1:5173/conversa.html`)**: verificado estado não autenticado com `ConversaAuthGate` e fluxo autenticado simulado com `BriefingModal`, explicação `"como funciona o rodízio"`, `"minhas designações"`, prévia `"vou viajar de 10/12 a 12/12"` e `DocumentCarousel` S-140, sem erros de página; 4 capturas PNG inspecionadas e registradas no artefato `execucao_browser_conversa.md` (conversa `1adbcb0f-f57c-441c-9b0c-b194af095093`).
 - **Como executar localmente**:
   - Desenvolvimento: `npm run dev` -> `http://localhost:5173/conversa.html`
   - Preview de produção local: `npm run build` e `npm run preview` -> `http://localhost:4173/conversa.html`
   - Observação de deploy Vercel: `vercel.json` do RVM não foi alterado (possui rewrite `/(.*) -> /index.html`).
 
 ## 3. Estado Git & Prontidão
-- Alterações restritas exclusivamente a `src/features/conversa/**`, `api/conversa-nlu.ts` e documentos de memória/estado; RVM legado intacto.
+- Alterações de código restritas exclusivamente a `src/features/conversa/**`, `api/conversa-nlu.ts` e documentos de memória/estado; RVM legado intacto.
+- Checkpoint pré-implementação: tag `checkpoint-pre-conversa-ui-66f083d`; implementação e viabilização end-to-end consolidadas nos commits `a95f67d` e `62ca187`.
 - Commitado e sincronizado com `origin/main`, com árvore de trabalho limpa para transição de agente ou IDE.
 

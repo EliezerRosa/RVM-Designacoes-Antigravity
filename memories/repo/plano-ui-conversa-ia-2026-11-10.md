@@ -1,6 +1,7 @@
 # Plano — Nova UI-Chat-IA "Conversa RVM" (2026-11-10)
 
-> **Status**: 🟡 Planejado, **aguardando aprovação** de Eliezer e respostas às decisões D1–D5. **Nenhum código alterado.**
+> **Status**: 🟢 **Aprovado e implementado end-to-end** (checkpoint `checkpoint-pre-conversa-ui-66f083d`; commits `a95f67d` e `62ca187`). Ver registro completo em [implementacao-ui-conversa-ia-2026-11-11.md](../session/implementacao-ui-conversa-ia-2026-11-11.md).
+> **RVM legado intocado**: implementado exclusivamente em `src/features/conversa/**` e `api/conversa-nlu.ts`, sem alterações em `src/App.tsx`, `AuthContext`, `vite.config.ts`, `vercel.json` ou `index.html`.
 > **Plano completo** (artefato da conversa Antigravity `1adbcb0f-f57c-441c-9b0c-b194af095093`): `C:\Users\Eliez\.gemini\antigravity\brain\1adbcb0f-f57c-441c-9b0c-b194af095093\plano_ui_conversa_ia.md`
 > Qualquer agente/IDE que retomar este tema DEVE ler esta memória antes de agir.
 

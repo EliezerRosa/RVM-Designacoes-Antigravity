@@ -43,3 +43,5 @@
 5. **Atualização do Plano (2026-11-11) — Requisito 10 (Briefing Proativo Multimodal)**:
    - Adicionado ao plano o comportamento proativo de entrada/login/retorno de foco (`visibilitychange`/`focus` com debounce de 15 min): o Chat-IA escreve mensagem contextual, sintetiza fala em áudio e exibe micro-modal (`BriefingModal.tsx` + `briefingPort.ts`) com pendências de qualquer natureza a cumprir/confirmar (com botões de ação imediata) e eventos futuros (assembleias, congressos, visita do SC, Celebração). Se tudo em dia, exibe apenas saudação cordial leve.
 
+> **Continuação (2026-11-11)**: Plano aprovado e implementado end-to-end (checkpoint `checkpoint-pre-conversa-ui-66f083d`; commits `a95f67d` e `62ca187`), mantendo o RVM legado intacto. Ver [implementacao-ui-conversa-ia-2026-11-11.md](./implementacao-ui-conversa-ia-2026-11-11.md).
+
