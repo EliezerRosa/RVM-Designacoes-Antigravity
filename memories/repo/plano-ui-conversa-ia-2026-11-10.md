@@ -15,11 +15,13 @@
 7. Todo output (S-n, PDFs, relatórios) em **carrossel**, focando a página inicial ou o formulário em foco na demanda, listando os **pares em ordem de tempo**.
 8. **Visual simples, agradável, não poluído, leve.**
 9. Mesmo em texto, **alternar voz/texto facilmente**.
+10. **Briefing proativo na entrada inicial / login / retorno de foco**: Chat-IA fala, escreve e exibe **micro-modal** com pendências do usuário (designações de qualquer natureza a cumprir/confirmar) e eventos futuros (assembleias, etc.).
 
 ## 2. Decisões de projeto propostas
 
 - **Módulo novo** `src/features/conversa/` (camadas `ui → core → ports → serviços existentes`). Nada existente importa a Conversa; a Conversa **não importa** `ChatAgent`, `TemporalChat`, `PowerfulAgentTab`, `AgentModalHost`, `agentService`, `agentActionService`, `semanticAgentService`, `contextBuilder`, `api/chat.ts`. Garantido por **lint + teste de fronteira** automatizado.
 - **Entrada separada** no Vite (`conversa.html` → `src/features/conversa/main.tsx`); único arquivo existente tocado: `vite.config.ts`. Feature flag `app_settings.conversa_enabled`.
+- **Briefing Proativo Multimodal (`BriefingModal.tsx` + `briefingPort.ts`)**: acionado no boot, login ou retorno de foco da janela (`visibilitychange`/`focus` com debounce de 15 min). Escreve cordialidade na conversa, fala resumo conciso em áudio (se habilitado) e exibe micro-modal listando designações de qualquer natureza (a cumprir/confirmar com botões rápidos `[Confirmar]` / `[Não poderei]`) e eventos futuros (visita SC, assembleias, etc.).
 - **NLU em camadas**: L0 gramática determinística pt-BR → L1 cache de intenção → L2 classificador restrito (endpoint novo `api/conversa-nlu.ts`, saída JSON validada por schema, enum de intenções, temperature 0, prompt **sem dados pessoais**). Limiares: escrita ≥ 0,90; leitura ≥ 0,75. Meta: ≥ 70 % das falas em L0/L1.
 - **Catálogo fechado de intenções**; cada intenção declara o **`AgentActionType` governante** → herda a mesma matriz de permissões (`PermissionGate.canAgentAction`, `dataAccessLevel`, `canSeeSensitiveData`, `ADMIN_ONLY_ACTIONS`) e a RPC servidor `assert_agent_action` (fail-closed) em toda escrita. **Zero política nova.**
 - **Anti-alucinação**: toda opção exibida (nomes, semanas, partes) vem de consulta ao banco; ambiguidade → `ClarifyCard` com ≤ 4 candidatos reais + "nenhum destes"; fora do catálogo → "não entendi" + reformulações do catálogo; explicação sem fonte → "não sei" + humano. No máximo 1 "próximo passo" ligado à intenção atual.
@@ -39,7 +41,7 @@
 
 ## 4. Fases
 
-F0 fundação (pasta, entrada, flag, policyGuard, fronteira) → F1 conversa texto/leitura (golden set ≥ 150 frases, ≥ 95 %) → F2 carrossel → F3 voz → F4 especialista → F5 micro-ações de escrita (começando por ausência por intervalo) → F6 refino (promoção cache→L0, custo, acessibilidade). **Tag git de checkpoint antes de F0 e a cada fase.** Suíte existente (`npm test`, `type-check`) verde em toda fase.
+F0 fundação (pasta, entrada, flag, policyGuard, fronteira) → F1 conversa texto/leitura & briefing proativo (golden set ≥ 150 frases, ≥ 95 %; `BriefingModal` login/foco com fala + escrita + modal de pendências/eventos) → F2 carrossel → F3 voz → F4 especialista → F5 micro-ações de escrita (começando por ausência por intervalo) → F6 refino (promoção cache→L0, custo, acessibilidade). **Tag git de checkpoint antes de F0 e a cada fase.** Suíte existente (`npm test`, `type-check`) verde em toda fase.
 
 ## 5. Decisões pendentes (com recomendação)
 

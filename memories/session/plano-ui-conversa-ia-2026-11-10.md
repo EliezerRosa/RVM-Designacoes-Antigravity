@@ -40,3 +40,6 @@
    - `memories/repo/_ESTADO-ATUAL.md` sincronizado.
    - `docs-local/_ESTADO-LOCAL.md` atualizado com a seção 40.
 
+5. **Atualização do Plano (2026-11-11) — Requisito 10 (Briefing Proativo Multimodal)**:
+   - Adicionado ao plano o comportamento proativo de entrada/login/retorno de foco (`visibilitychange`/`focus` com debounce de 15 min): o Chat-IA escreve mensagem contextual, sintetiza fala em áudio e exibe micro-modal (`BriefingModal.tsx` + `briefingPort.ts`) com pendências de qualquer natureza a cumprir/confirmar (com botões de ação imediata) e eventos futuros (assembleias, congressos, visita do SC, Celebração). Se tudo em dia, exibe apenas saudação cordial leve.
+

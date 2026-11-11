@@ -791,9 +791,9 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ## 41. Planejamento: Nova UI-Chat-IA "Conversa RVM" — desacoplada, intenção-primeiro, voz + texto (2026-11-10)
 
-- **Status**: 🟡 plano entregue, **aguardando aprovação** e respostas D1–D5. Nenhum código alterado.
-- **Memória canônica**: `memories/repo/plano-ui-conversa-ia-2026-11-10.md` (9 requisitos de Eliezer, arquitetura, catálogo v1, fases F0–F6, decisões pendentes).
-- **Essência**: módulo `src/features/conversa/` com entrada Vite separada e teste de fronteira (não importa o Agente atual; nada importa a Conversa); NLU L0 gramática → L1 cache → L2 classificador restrito a catálogo fechado; cada intenção herda a permissão do `AgentActionType` correspondente (`PermissionGate` + RPC `assert_agent_action`); cards/micro-painéis só surgem por intenção; desambiguação só com candidatos reais do banco; especialista com fonte citada; carrossel cronológico com foco; Web Speech com alternância ⌨︎/🎙; visual de uma coluna, leve.
+- **Status**: 🟡 plano entregue e atualizado (10 requisitos), **aguardando aprovação** e respostas D1–D5. Nenhum código alterado.
+- **Memória canônica**: `memories/repo/plano-ui-conversa-ia-2026-11-10.md` (10 requisitos de Eliezer, briefing proativo multimodal no login/foco, arquitetura, catálogo v1, fases F0–F6, decisões pendentes).
+- **Essência**: módulo `src/features/conversa/` com entrada Vite separada e teste de fronteira (não importa o Agente atual; nada importa a Conversa); NLU L0 gramática → L1 cache → L2 classificador restrito a catálogo fechado; cada intenção herda a permissão do `AgentActionType` correspondente (`PermissionGate` + RPC `assert_agent_action`); cards/micro-painéis só surgem por intenção; desambiguação só com candidatos reais do banco; especialista com fonte citada; carrossel cronológico com foco; Web Speech com alternância ⌨︎/🎙; **briefing proativo** na entrada/login/foco (fala + escrita + micro-modal de pendências de qualquer natureza a cumprir/confirmar e eventos futuros); visual de uma coluna, leve.
 
 ---
 
