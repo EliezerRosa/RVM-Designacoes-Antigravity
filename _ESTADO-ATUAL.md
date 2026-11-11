@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-11 12:30 (BRT) — §42 Implementação da nova UI-Chat-IA "Conversa RVM" (desacoplada, NLU L0/L2, briefing proativo e carrossel cronológico) concluída com 120/120 testes passando e checkpoint prévio registrado  
+> **Última Atualização**: 2026-11-11 14:25 (BRT) — §42 Viabilização end-to-end da UI-Chat-IA "Conversa RVM" (Auth Gate próprio mantendo `/conversa.html`, alinhamento real ao schema Postgres, ações reais, isolamento CSS e correção de acentos/choiceIndex) concluída sem alterar o RVM (132/132 testes passando + build Vite + verificação Playwright em Chromium)  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -796,27 +796,25 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ---
 
-## 42. Implementação Concluída: Nova UI-Chat-IA "Conversa RVM" Desacoplada (2026-11-11)
+## 42. Viabilização End-to-End: Nova UI-Chat-IA "Conversa RVM" Desacoplada (2026-11-11)
 
-- **Status**: 🟢 **Implementado, testado (120/120 testes passando) e em produção**.
+- **Status**: 🟢 **Viabilizado, testado (132/132 testes em `npm test`), compilado (`vite build`) e verificado em Chromium (Playwright)**, sem alterar nenhum arquivo do RVM legado (`index.html`, `src/App.tsx`, `AuthContext.tsx`, `services/*`, `vercel.json`, `vite.config.ts`).
 - **Checkpoint prévio garantido**: Tag Git `checkpoint-pre-conversa-ui-66f083d` criada e enviada ao remoto antes de qualquer modificação de código.
-- **Entrada Multi-página Isolada**:
-  - `conversa.html` e `src/features/conversa/main.tsx` registrados em `vite.config.ts` (`rollupOptions.input: { main, conversa }`).
-  - Permite acessar a interface Conversa diretamente ou via link sem carregar o bundle monolítico principal.
-- **Isolamento Arquitetural Estrito**:
-  - Validado via teste automatizado `boundary.test.ts`: zero imports de `features/conversa` pelo código existente do RVM; zero imports do `ChatAgent`, `TemporalChat` ou chatbots legados dentro do novo módulo.
-- **Pipeline NLU em Três Camadas**:
-  - L0: Parser gramatical determinístico em pt-BR (custo 0, latência 0) para documentos (S-140, S-89/folhinha, S-4, S-1), partes vagas, regras do motor, datas e ordinais.
-  - L1: Cache de sessão recente para continuidade de diálogo.
-  - L2: Endpoint Edge serverless `api/conversa-nlu.ts` com fallback gracioso automático.
-- **Acolhimento Proativo (Boot, Login e Retorno de Foco)**:
-  - `BriefingModal.tsx` + `briefingPort.ts`: apresenta pendências de qualquer natureza a confirmar/cumprir e eventos especiais futuros em fala (Web Speech TTS) e texto.
-- **Visual Limpo sem Botões Intrusivos**:
-  - Nenhum botão é exibido estaticamente; ações e escolhas surgem estritamente por intenção do usuário ou resolução de ambiguidade com dados reais (`ClarifyCard.tsx`).
-- **Carrossel Cronológico**:
-  - `DocumentCarousel.tsx` para S-140 e S-89 com ordenação cronológica estrita, foco inicial automático na demanda e opção de tela cheia.
-- **Multimodal Voz/Texto**:
-  - `Composer.tsx` + `VoiceToggle.tsx` + `voicePort.ts`: alternância fluida entre digitação e reconhecimento por voz Web Speech STT/TTS.
+- **Entrada Multi-página Isolada & CSS Próprio**:
+  - `conversa.html` + `src/features/conversa/main.tsx`: carrega exclusivamente `./ui/conversa.css` (sem `../../index.css`) e configura `pdfjsLib.GlobalWorkerOptions.workerSrc = resolveAppUrl('pdf.worker.min.mjs')`.
+- **Autenticação Própria em `ConversaAuthGate.tsx`**:
+  - Espelha o fluxo de segurança do RVM (`isLoading`, Biometria/PIN, Google OAuth mantendo `redirectTo` na própria rota `/conversa.html`, 2FA WhatsApp, `<AppLockScreen />` e botão `Sair` no cabeçalho).
+- **Portas Alinhadas ao Schema Real Postgres**:
+  - `queryPort.ts`, `briefingPort.ts`, `documentPort.ts` e `actionPort.ts` operam com `resolved_publisher_id`, `seq`, `mapDbToWorkbookPart`, RPCs `get_my_workbook_parts` / `get_portal_responses_for_week` / `submit_confirmation_portal_response`, `special_events.week` e `availability.exceptionDates`.
+- **Pipeline NLU & Orquestrador End-to-End**:
+  - `api/conversa-nlu.ts` <-> `l2Classifier.ts`: contrato `{ utterance, text }` alinhado com sanitização de slots `'null'`/`'undefined'` e fallback determinístico L0.
+  - `cardPlanner.ts`: corrige desambiguação 0-based (`choiceIndex`), executa ações reais (`registerAbsence`, `approveWeekProposal`), prioriza auto-referência (`"minhas..."`) e cobre `query-pending-weeks` e `query-last-participation`.
+  - `rvmRulesKnowledge.ts`: normaliza acentuação em `findKnowledge` (`rodízio`, `gênero`, `critério`, etc.).
+- **Ações Inline no Briefing & Cards**:
+  - `BriefingModal.tsx` confirma ou solicita motivo inline de recusa; `MicroPanel.tsx` trata estados `success`/`error` e `pending-weeks-list`; `DocumentCarousel.tsx` inclui `.cv-carousel-fullscreen` e proteção de índice.
+- **Nota Operacional de Execução**:
+  - Local dev: `npm run dev` -> `http://localhost:5173/conversa.html`; Build local: `npm run build` + `npm run preview` -> `http://localhost:4173/conversa.html`.
+  - Em produção na Vercel, `vercel.json` permanece intacto com `"source": "/(.*)" -> "destination": "/index.html"` (por conta da restrição de não alterar arquivos do RVM); se futuramente desejar publicar `/conversa.html` direto na Vercel, será necessário excluir `/conversa.html` e `/api/` do rewrite catch-all em `vercel.json`.
 
 ---
 

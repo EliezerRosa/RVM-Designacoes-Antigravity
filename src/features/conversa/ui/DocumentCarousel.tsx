@@ -14,7 +14,10 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
-    if (!items.length) return;
+    if (!items.length) {
+      setCurrentIndex(0);
+      return;
+    }
     if (initialFocusId) {
       const idx = items.findIndex((item) => item.id === initialFocusId);
       if (idx >= 0) {
@@ -23,9 +26,7 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
       }
     }
     const defaultFocus = items.findIndex((item) => item.isInitialFocus);
-    if (defaultFocus >= 0) {
-      setCurrentIndex(defaultFocus);
-    }
+    setCurrentIndex(defaultFocus >= 0 ? defaultFocus : 0);
   }, [items, initialFocusId]);
 
   if (!items.length) {
@@ -38,7 +39,8 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
     );
   }
 
-  const current = items[currentIndex];
+  const safeIndex = Math.min(currentIndex, items.length - 1);
+  const current = items[safeIndex];
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
@@ -123,7 +125,7 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
           ◀
         </button>
         <div style={{ fontSize: '14px', fontWeight: 500 }}>
-          {currentIndex + 1} de {items.length} · {current.dateStr}
+          {safeIndex + 1} de {items.length} · {current.dateStr}
         </div>
         <button
           type="button"
@@ -138,3 +140,4 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
     </div>
   );
 };
+

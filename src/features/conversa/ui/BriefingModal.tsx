@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { UserBriefingData } from '../ports/briefingPort';
 
 interface BriefingModalProps {
   briefing: UserBriefingData;
   onClose: () => void;
-  onConfirmAssignment?: (partId: string) => void;
-  onRefuseAssignment?: (partId: string) => void;
+  onConfirmAssignment?: (partId: string) => void | Promise<void>;
+  onRefuseAssignment?: (partId: string, reason: string) => void | Promise<void>;
 }
 
 export const BriefingModal: React.FC<BriefingModalProps> = ({
@@ -14,6 +14,40 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
   onConfirmAssignment,
   onRefuseAssignment,
 }) => {
+  const [busyPartId, setBusyPartId] = useState<string | null>(null);
+  const [refusingPartId, setRefusingPartId] = useState<string | null>(null);
+  const [refusalReason, setRefusalReason] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const handleConfirm = async (partId: string) => {
+    if (!onConfirmAssignment) return;
+    setBusyPartId(partId);
+    setActionError(null);
+    try {
+      await onConfirmAssignment(partId);
+    } catch (e: any) {
+      setActionError(e?.message || 'Não foi possível confirmar a designação.');
+    } finally {
+      setBusyPartId(null);
+    }
+  };
+
+  const handleConfirmRefusal = async (partId: string) => {
+    if (!onRefuseAssignment) return;
+    const cleanReason = refusalReason.trim() || 'Indisponibilidade informada pelo publicador';
+    setBusyPartId(partId);
+    setActionError(null);
+    try {
+      await onRefuseAssignment(partId, cleanReason);
+      setRefusingPartId(null);
+      setRefusalReason('');
+    } catch (e: any) {
+      setActionError(e?.message || 'Não foi possível registrar a recusa.');
+    } finally {
+      setBusyPartId(null);
+    }
+  };
+
   return (
     <div className="cv-modal-backdrop" onClick={onClose}>
       <div className="cv-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -34,6 +68,8 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
           {briefing.writtenGreeting}
         </p>
 
+        {actionError && <div className="cv-inline-error">{actionError}</div>}
+
         {/* 1. Designações a Confirmar */}
         {briefing.assignmentsToConfirm.length > 0 && (
           <div style={{ marginBottom: '18px' }}>
@@ -41,34 +77,100 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
               ⏳ AGUARDANDO SUA CONFIRMAÇÃO:
             </div>
             <div className="cv-list">
-              {briefing.assignmentsToConfirm.map((item) => (
-                <div key={item.partId} className="cv-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                  <div>
-                    <strong>{item.dateStr}</strong> — {item.tipoParte}
-                    {item.partnerName && (
-                      <span style={{ fontSize: '13px', opacity: 0.75 }}> (com {item.partnerName})</span>
+              {briefing.assignmentsToConfirm.map((item) => {
+                const isBusy = busyPartId === item.partId;
+                const isRefusingThis = refusingPartId === item.partId;
+
+                return (
+                  <div
+                    key={item.partId}
+                    className="cv-list-item"
+                    style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}
+                  >
+                    <div>
+                      <strong>{item.dateStr}</strong> — {item.tipoParte}
+                      {item.partnerName && (
+                        <span style={{ fontSize: '13px', opacity: 0.75 }}> (com {item.partnerName})</span>
+                      )}
+                    </div>
+
+                    {isRefusingThis ? (
+                      <div className="cv-refuse-box">
+                        <input
+                          type="text"
+                          className="cv-refuse-input"
+                          placeholder="Motivo da recusa (ex: viagem, compromisso)"
+                          value={refusalReason}
+                          onChange={(e) => setRefusalReason(e.target.value)}
+                          disabled={isBusy}
+                          autoFocus
+                        />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            className="cv-send-btn"
+                            disabled={isBusy}
+                            style={{
+                              fontSize: '14px',
+                              height: '36px',
+                              borderRadius: '6px',
+                              padding: '0 14px',
+                              width: 'auto',
+                              backgroundColor: 'var(--cv-danger)',
+                            }}
+                            onClick={() => void handleConfirmRefusal(item.partId)}
+                          >
+                            {isBusy ? 'Enviando...' : 'Enviar recusa'}
+                          </button>
+                          <button
+                            type="button"
+                            className="cv-choice-btn"
+                            disabled={isBusy}
+                            style={{ fontSize: '14px', padding: '6px 12px', borderRadius: '6px' }}
+                            onClick={() => {
+                              setRefusingPartId(null);
+                              setRefusalReason('');
+                            }}
+                          >
+                            Voltar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                        <button
+                          type="button"
+                          className="cv-send-btn"
+                          disabled={isBusy}
+                          style={{
+                            fontSize: '14px',
+                            height: '36px',
+                            borderRadius: '6px',
+                            padding: '0 14px',
+                            width: 'auto',
+                          }}
+                          onClick={() => void handleConfirm(item.partId)}
+                        >
+                          {isBusy ? 'Confirmando...' : 'Confirmar'}
+                        </button>
+                        <button
+                          type="button"
+                          className="cv-choice-btn"
+                          disabled={isBusy}
+                          style={{ fontSize: '14px', padding: '6px 12px', borderRadius: '6px' }}
+                          onClick={() => {
+                            setRefusingPartId(item.partId);
+                            setRefusalReason('');
+                            setActionError(null);
+                          }}
+                        >
+                          Não poderei
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                    <button
-                      type="button"
-                      className="cv-send-btn"
-                      style={{ fontSize: '14px', height: '36px', borderRadius: '6px', padding: '0 14px', width: 'auto' }}
-                      onClick={() => onConfirmAssignment && onConfirmAssignment(item.partId)}
-                    >
-                      Confirmar
-                    </button>
-                    <button
-                      type="button"
-                      className="cv-choice-btn"
-                      style={{ fontSize: '14px', padding: '6px 12px', borderRadius: '6px' }}
-                      onClick={() => onRefuseAssignment && onRefuseAssignment(item.partId)}
-                    >
-                      Não poderei
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -125,3 +227,4 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
     </div>
   );
 };
+

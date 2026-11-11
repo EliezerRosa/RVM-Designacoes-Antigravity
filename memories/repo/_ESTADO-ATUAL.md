@@ -1,7 +1,7 @@
 # Estado Atual do Workspace — Antigravity / RVM Designações
 
 > **Fonte Canônica Principal de RVM**: `_ESTADO-ATUAL.md` (na raiz do repositório `rvm-designacoes-unified/`, prevalece para regras, motor, histórico e pendências de RVM)  
-> **Última Atualização**: 2026-11-11 12:30 (BRT)  
+> **Última Atualização**: 2026-11-11 14:25 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-15.01` com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** (`docs-local/_ESTADO-LOCAL.md`; regra inflexível de 2026-11-07). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.
 
@@ -52,7 +52,7 @@ O repositório unificado reside em `rvm-designacoes-unified/`:
 6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais para os Responsáveis pelo Quadro.
 7. **Integração externa (local)**: pendências mantidas em `docs-local/_ESTADO-LOCAL.md` → seção "Pendências".
 8. **Pós-reescrita do histórico** (3 reescritas + force-push de `main` + tags **executados em 2026-11-07, 21:37, 22:12 e 22:3x**; branch remota `copilot/research-accessibility-analysis` excluída; `gh-pages` inalterada; `fetch --prune` + `gc` locais feitos; backups com dados de publicadores movidos para `_backups-local/`): (a) realinhar clones de outras IDEs **uma vez, após a 3ª reescrita** (`git fetch origin; git reset --hard origin/main`); (b) Eliezer **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública; (c) **pedido de purga dos commits órfãos antigos enviado ao GitHub Support em 2026-11-08 (ticket #4972265, aberto)** — repo sem PRs/forks; após a resposta, conferir que SHAs antigos deixaram de responder (detalhes em `docs-local/`); (d) **decisão separada pendente**: nomes/telefones de publicadores escritos em código (`src/services/*`, `scripts/test_*.ts`) — não tocados (exigiria alterar `src/`). Decidido (Eliezer, 2026-11-07): nomes dos titulares de papéis em documentos públicos **permanecem**. Regra e checagem: `memories/repo/protecao-dados-publicadores-2026-11-07.md`.
-9. **Nova UI-Chat-IA "Conversa RVM" (2026-11-11)**: 🟢 **Implementação concluída** em `src/features/conversa/`, `conversa.html` e `api/conversa-nlu.ts`, com checkpoint prévio `checkpoint-pre-conversa-ui-66f083d`, isolamento estrito garantido por `boundary.test.ts` e 120/120 testes passando (`npm test`). Ver `memories/session/implementacao-ui-conversa-ia-2026-11-11.md`.
+9. **Nova UI-Chat-IA "Conversa RVM" (2026-11-11)**: 🟢 **Viabilizada end-to-end sem alterar o RVM** em `src/features/conversa/` e `api/conversa-nlu.ts` (Auth Gate próprio `ConversaAuthGate`, schema Postgres real, ações reais, `conversa.css` isolado, `findKnowledge` normalizado para acentos e desambiguação 0-based), com 132/132 testes passando (`npm test`), build Vite limpo (`dist/conversa.html`) e verificação Playwright em Chromium. Em `vercel.json` (intocado), o rewrite `/(.*) -> /index.html` permanece sem exceção para `/conversa.html`. Ver `memories/session/implementacao-ui-conversa-ia-2026-11-11.md`.
 
 ---
 

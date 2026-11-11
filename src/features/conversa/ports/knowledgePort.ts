@@ -43,3 +43,4 @@ export const knowledgePort = {
     return RVM_KNOWLEDGE_BASE;
   },
 };
+

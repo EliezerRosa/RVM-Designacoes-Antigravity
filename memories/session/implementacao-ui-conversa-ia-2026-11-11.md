@@ -34,34 +34,33 @@
 - `ports/actionPort.ts`: Execução de micro-ações seguras com prévia e confirmação.
 
 ### D. Interface do Usuário (`src/features/conversa/ui/`)
-- `conversa.css`: Estilização isolada com tokens CSS independentes, tipografia 18px, design system leve, responsivo e dark mode elegante.
-- `ConversaApp.tsx`: Aplicação top-level com suporte a autenticação, permissões, acolhimento de login/retorno de foco e briefing.
-- `ConversaShell.tsx`: Container limpo com timeline vertical, cards derivados e composer fixo.
-- `Composer.tsx`: Campo de entrada de texto com alternador instantâneo teclado/microfone e feedback de transcrição.
-- `VoiceToggle.tsx`: Botão de alternância e estado de escuta por voz.
-- `BriefingModal.tsx`: Micro-modal proativo de pendências e eventos especiais.
-- `DocumentCarousel.tsx`: Carrossel cronológico com navegação prev/next, foco inicial e visualização em tela cheia.
-- `ClarifyCard.tsx`: Grid de opções numeradas para desambiguação de entidades ambíguas.
-- `ExplainAnswer.tsx`: Card de resposta explicativa com badge de fonte e citação de documento oficial.
-- `MicroPanel.tsx`: Micro-painéis de listagem de partes, vagas e prévia de ações.
+- `conversa.css`: Estilização isolada com tokens CSS independentes, tipografia 18px, modo claro/escuro, `.cv-carousel-fullscreen`, `.cv-badge-danger`, estilos de recusa inline e layout do Auth Gate (sem carregar `src/index.css`).
+- `ConversaAuthGate.tsx`: Guarda de autenticação próprio em `/conversa.html` (Google OAuth mantendo `redirectTo` para `/conversa.html`, Biometria/PIN, 2FA WhatsApp, `AppLockScreen` e tela de vínculo pendente).
+- `ConversaApp.tsx`: Aplicação top-level com carregamento escopado pelo `PermissionGate`, briefing proativo, contexto do usuário conectado (`selfPublisherId`), envio de mensagens e ações diretas de confirmação/recusa no briefing.
+- `ConversaShell.tsx`: Cabeçalho com chip do usuário, sino de pendências, lixeira, botão `Sair`, timeline vertical, cards derivados e composer fixo.
+- `Composer.tsx`, `VoiceToggle.tsx`, `ClarifyCard.tsx`, `ExplainAnswer.tsx`: Entrada multimodal voz/texto, escolhas de desambiguação e respostas explicativas com fonte oficial (`findKnowledge` normalizando acentos pt-BR).
+- `BriefingModal.tsx`: Micro-modal proativo com confirmação direta e campo inline de motivo de recusa.
+- `DocumentCarousel.tsx`: Carrossel cronológico com navegação prev/next, foco inicial, proteção de índice e tela cheia.
+- `MicroPanel.tsx`: Micro-painéis de partes, semanas pendentes (`pending-weeks-list`), vagas, prévia de ações e feedback `success`/`error`.
 
 ### E. Entrypoint Multi-página e Serverless Edge
 - `conversa.html`: Entrypoint HTML dedicado e isolado.
-- `src/features/conversa/main.tsx`: Montagem React independente sob `StrictMode`, `ErrorBoundary` e `AuthProvider`.
-- `vite.config.ts`: Configurado `rollupOptions.input` com `{ main, conversa }`, compilando bundles separados sem inchaço.
-- `api/conversa-nlu.ts`: Endpoint Edge serverless para classificação L2 via LLM estruturada com fallback sem falha se offline.
+- `src/features/conversa/main.tsx`: Montagem React independente sob `StrictMode`, `ErrorBoundary`, `AuthProvider` e `ConversaAuthGate`, configurando `./ui/conversa.css` e `pdf.worker.min.mjs`.
+- `api/conversa-nlu.ts` + `l2Classifier.ts`: Contrato `{ utterance, text }` compatível dos dois lados e sanitização de slots.
 
-### F. Qualidade e Testes Automatizados
-- `src/features/conversa/__tests__/boundary.test.ts`:
-  - Garante que nenhum arquivo externo importe nada de `features/conversa`.
-  - Garante que `features/conversa` não importe o agente legado nem o chat temporal.
-- `src/features/conversa/__tests__/l0Grammar.test.ts`:
-  - 100% de cobertura dos casos determinísticos de gramática pt-BR.
-- `src/features/conversa/__tests__/briefing.test.ts`:
-  - Validação do cálculo de pendências e eventos com síntese falada e escrita.
-- **Suite completa**: 120/120 testes passando (`npm test`).
-- **Build de produção**: `vite build` executado com sucesso em 26s gerando `dist/conversa.html`.
+### F. Qualidade, Verificação e Execução
+- **Novos testes adicionados**:
+  - `src/features/conversa/__tests__/conversaFlow.test.ts` (fluxos de `cardPlanner`, `choiceIndex` 0-based, execução real de `registerAbsence`/`approveWeekProposal`, acentuação em `knowledgePort`, `expandAbsenceDateRange` e contrato L2).
+  - `src/features/conversa/__tests__/conversaUi.test.tsx` (testes React+JSDOM para `BriefingModal`, `MicroPanel`, `DocumentCarousel` e `ConversaShell`).
+- **Suíte completa**: `132/132` testes passando (`npm test`, sendo 21 subtestes em `src/features/conversa/__tests__`).
+- **Build de produção**: `npm run build` (`vite build`) compilado com sucesso gerando `dist/conversa.html` e `dist/index.html`.
+- **Playwright headless Chromium**: verificado em `vite preview` (estado não autenticado com `ConversaAuthGate` + fluxo autenticado simulado com `BriefingModal`, explicação `"como funciona o rodízio"`, `"minhas designações"` e prévia `"vou viajar de 10/12 a 12/12"`, sem erros de página).
+- **Como executar localmente**:
+  - Desenvolvimento: `npm run dev` -> `http://localhost:5173/conversa.html`
+  - Preview de produção local: `npm run build` e `npm run preview` -> `http://localhost:4173/conversa.html`
+  - Observação de deploy Vercel: `vercel.json` do RVM não foi alterado (possui rewrite `/(.*) -> /index.html`).
 
 ## 3. Estado Git & Prontidão
-- Todas as alterações commitadas e sincronizadas com `origin/main`.
-- Axioma Absoluto cumprido: ambiente 100% documentado, limpo e pronto para qualquer IDE ou agente.
+- Alterações restritas exclusivamente a `src/features/conversa/**`, `api/conversa-nlu.ts` e documentos de memória/estado; RVM legado intacto.
+- Commitado e sincronizado com `origin/main`, com árvore de trabalho limpa para transição de agente ou IDE.
+

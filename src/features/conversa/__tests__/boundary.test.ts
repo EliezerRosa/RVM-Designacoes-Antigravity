@@ -61,3 +61,4 @@ test('Boundary Isolation: Conversa does not import legacy ChatAgent or TemporalC
     `Conversa UI imported legacy agent files:\n${forbiddenImports.join('\n')}`,
   );
 });
+

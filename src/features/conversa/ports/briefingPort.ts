@@ -1,15 +1,15 @@
 /**
- * BriefingPort — Adaptador de Pendências e Eventos Futuros (Requisito 10)
+ * BriefingPort — Adaptador de Pendências e Eventos Futuros
  *
  * Coleta:
- * 1. Designações do usuário a cumprir e a confirmar (de qualquer natureza).
- * 2. Eventos especiais futuros da congregação (Assembleias, Congressos, Visita SC, Celebração).
- * 3. Prepara síntese falada em áudio (Speech) e texto para o micro-modal.
+ * 1. Designações reais do usuário a confirmar e a cumprir (usando status RVM + respostas do portal).
+ * 2. Eventos especiais futuros via `specialEventService.getFutureEvents()` (`week` canônico).
+ * 3. Prepara síntese falada em áudio (Speech) e texto para o micro-modal proativo.
  */
 
-import { supabase } from '../../../lib/supabase';
 import type { UpcomingAssignmentView } from './queryPort';
 import { queryPort } from './queryPort';
+import { specialEventService } from '../../../services/specialEventService';
 
 export interface ConversaSpecialEvent {
   id: string;
@@ -83,44 +83,43 @@ export const briefingPort = {
     publisherId?: string | null,
     userName: string = 'Irmão'
   ): Promise<UserBriefingData> {
-    const today = new Date().toISOString().split('T')[0];
-
-    // 1. Buscar designações do publicador
     let assignmentsToConfirm: UpcomingAssignmentView[] = [];
     let assignmentsToFulfill: UpcomingAssignmentView[] = [];
 
     if (publisherId) {
-      const allUpcoming = await queryPort.getPublisherAssignments(publisherId);
-      assignmentsToConfirm = allUpcoming.filter((a) =>
-        ['proposta', 'pendente', 'aguardando'].includes((a.status || '').toLowerCase())
-      );
-      assignmentsToFulfill = allUpcoming.filter((a) =>
-        ['designada', 'confirmada', 'aprovada'].includes((a.status || '').toLowerCase())
-      );
+      const allUpcoming = await queryPort.getPublisherAssignments(publisherId, userName, true);
+      assignmentsToConfirm = allUpcoming.filter((a) => {
+        if (a.portalResponse === 'confirmed' || a.portalResponse === 'refused') return false;
+        const st = (a.status || '').toLowerCase();
+        return ['proposta', 'pendente', 'aguardando'].includes(st);
+      });
+
+      assignmentsToFulfill = allUpcoming.filter((a) => {
+        if (a.portalResponse === 'refused') return false;
+        if (a.portalResponse === 'confirmed') return true;
+        const st = (a.status || '').toLowerCase();
+        return ['designada', 'confirmada', 'aprovada'].includes(st);
+      });
     }
 
-    // 2. Buscar eventos futuros próximos (próximos 60 dias)
     let upcomingEvents: ConversaSpecialEvent[] = [];
     try {
-      const { data, error } = await supabase
-        .from('special_events')
-        .select('*')
-        .gte('start_date', today)
-        .order('start_date', { ascending: true })
-        .limit(3);
-
-      if (!error && data) {
-        upcomingEvents = data.map((row: any) => ({
-          id: row.id,
-          name: row.name || row.title || row.theme || 'Evento Especial',
-          startDate: row.start_date || row.startDate || row.week || '',
-          endDate: row.end_date || row.endDate,
-          type: row.type || 'special_event',
-          description: row.description || row.observation,
-        }));
-      }
+      const futureEvents = await specialEventService.getFutureEvents();
+      upcomingEvents = futureEvents
+        .filter((ev) => ev.approvalStatus !== 'REJECTED' && ev.approvalStatus !== 'REVOKED')
+        .slice(0, 4)
+        .map((ev) => {
+          const template = specialEventService.getTemplateById(ev.templateId);
+          return {
+            id: ev.id,
+            name: ev.theme || template?.name || 'Evento Especial',
+            startDate: ev.week || '',
+            type: ev.templateId,
+            description: ev.observations || ev.observation,
+          };
+        });
     } catch (e) {
-      console.warn('[BriefingPort] Erro ao carregar eventos especiais:', e);
+      console.warn('[BriefingPort] Falha ao carregar eventos futuros:', e);
     }
 
     return buildBriefingData(userName, assignmentsToConfirm, assignmentsToFulfill, upcomingEvents);

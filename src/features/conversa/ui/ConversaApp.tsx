@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { usePermissions } from '../../../hooks/usePermissions';
 import type { Publisher } from '../../../types';
@@ -8,6 +8,7 @@ import { resolveIntent } from '../core/nlu/l2Classifier';
 import { planTurn } from '../core/cardPlanner';
 import { queryPort } from '../ports/queryPort';
 import { briefingPort, type UserBriefingData } from '../ports/briefingPort';
+import { actionPort } from '../ports/actionPort';
 import { voicePort } from '../ports/voicePort';
 import type { DisambiguationCandidate } from '../core/entityResolver';
 import { ConversaShell } from './ConversaShell';
@@ -15,7 +16,7 @@ import { ConversaShell } from './ConversaShell';
 const BRIEFING_DEBOUNCE_MS = 15 * 60 * 1000; // 15 minutos
 
 export const ConversaApp: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin, signOut } = useAuth();
   const { permissions: gate, isLoading: isPermsLoading } = usePermissions(profile);
 
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
@@ -29,38 +30,53 @@ export const ConversaApp: React.FC = () => {
   const [isBriefingOpen, setIsBriefingOpen] = useState(false);
   const lastBriefingTimeRef = useRef<number>(0);
 
-  // 1. Carga inicial de publicadores e semanas
+  const selfPublisherId = useMemo(() => {
+    if (profile?.publisher_id) return profile.publisher_id;
+    const email = user?.email?.toLowerCase();
+    if (!email) return null;
+    return allPublishers.find((p) => p.email?.toLowerCase() === email)?.id || null;
+  }, [profile?.publisher_id, user?.email, allPublishers]);
+
+  const userDisplayName = useMemo(() => {
+    return profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Irmão';
+  }, [profile?.full_name, user?.email]);
+
+  // 1. Carga inicial de publicadores e semanas respeitando escopo do usuário
   useEffect(() => {
+    if (isPermsLoading || !user) return;
     let active = true;
-    Promise.all([queryPort.getPublishers(), queryPort.getAvailableWeeks()]).then(
-      ([pubs, weeks]) => {
-        if (!active) return;
-        setAllPublishers(pubs);
-        setAvailableWeeks(weeks);
-      }
-    );
+    Promise.all([
+      queryPort.getPublishers(gate, profile?.publisher_id),
+      queryPort.getAvailableWeeks(),
+    ]).then(([pubs, weeks]) => {
+      if (!active) return;
+      setAllPublishers(pubs);
+      setAvailableWeeks(weeks);
+    });
     return () => {
       active = false;
     };
-  }, []);
+  }, [isPermsLoading, user, gate, profile?.publisher_id]);
 
   // 2. Disparo do Briefing Proativo (Boot, Login, Retorno de Foco)
   const triggerBriefing = useCallback(
     async (force: boolean = false) => {
+      if (!user) return;
       const now = Date.now();
       if (!force && now - lastBriefingTimeRef.current < BRIEFING_DEBOUNCE_MS) {
         return;
       }
       lastBriefingTimeRef.current = now;
 
-      const userName = profile?.full_name || user?.email?.split('@')[0] || 'Irmão';
-      const pubId = profile?.publisher_id || null;
-
       try {
-        const briefing = await briefingPort.getUserBriefing(user?.id || 'anon', pubId, userName);
+        const briefing = await briefingPort.getUserBriefing(
+          user.id,
+          selfPublisherId,
+          userDisplayName
+        );
         setBriefingData(briefing);
 
-        if (briefing.hasPendingItems) {
+        if (briefing.hasPendingItems && !force) {
           setIsBriefingOpen(true);
         }
 
@@ -80,20 +96,20 @@ export const ConversaApp: React.FC = () => {
         });
 
         // Fala o resumo se áudio estiver habilitado
-        if (briefing.hasPendingItems) {
+        if (briefing.hasPendingItems && !force) {
           voicePort.speak(briefing.spokenSummary);
         }
       } catch (e) {
         console.warn('[ConversaApp] Erro ao carregar briefing:', e);
       }
     },
-    [user, profile]
+    [user, selfPublisherId, userDisplayName]
   );
 
   // Executa no boot / quando usuário carrega
   useEffect(() => {
     if (!isPermsLoading && user) {
-      triggerBriefing(false);
+      void triggerBriefing(false);
     }
   }, [user, isPermsLoading, triggerBriefing]);
 
@@ -101,7 +117,7 @@ export const ConversaApp: React.FC = () => {
   useEffect(() => {
     const handleFocus = () => {
       if (document.visibilityState === 'visible' && user) {
-        triggerBriefing(false);
+        void triggerBriefing(false);
       }
     };
 
@@ -140,7 +156,12 @@ export const ConversaApp: React.FC = () => {
         contextState,
         gate,
         allPublishers,
-        availableWeeks
+        availableWeeks,
+        {
+          publisherId: selfPublisherId,
+          publisherName: userDisplayName,
+          isAdmin,
+        }
       );
 
       // 3. Fala a resposta sintetizada
@@ -164,17 +185,72 @@ export const ConversaApp: React.FC = () => {
     }
   };
 
-  // 4. Seleção de Candidato em Desambiguação
+  // 4. Confirmação / Recusa direta pelo Micro-Modal de Briefing
+  const handleConfirmAssignment = async (partId: string) => {
+    if (!selfPublisherId) {
+      throw new Error('Seu login ainda não está vinculado a um registro de publicador.');
+    }
+    const result = await actionPort.confirmAssignment(partId, selfPublisherId);
+    if (!result.success) {
+      throw new Error(result.message);
+    }
+    voicePort.speak(result.message);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `confirm_${Date.now()}`,
+        sender: 'assistant',
+        text: result.message,
+        timestamp: Date.now(),
+        cardType: 'micro-panel',
+        cardData: {
+          status: 'success',
+          title: 'Confirmação de Designação',
+          description: result.message,
+        },
+      },
+    ]);
+    await triggerBriefing(true);
+  };
+
+  const handleRefuseAssignment = async (partId: string, reason: string) => {
+    if (!selfPublisherId) {
+      throw new Error('Seu login ainda não está vinculado a um registro de publicador.');
+    }
+    const result = await actionPort.refuseAssignment(partId, selfPublisherId, reason);
+    if (!result.success) {
+      throw new Error(result.message);
+    }
+    voicePort.speak(result.message);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `refuse_${Date.now()}`,
+        sender: 'assistant',
+        text: result.message,
+        timestamp: Date.now(),
+        cardType: 'micro-panel',
+        cardData: {
+          status: 'success',
+          title: 'Recusa Registrada',
+          description: result.message,
+        },
+      },
+    ]);
+    await triggerBriefing(true);
+  };
+
+  // 5. Seleção de Candidato em Desambiguação
   const handleSelectCandidate = (_candidate: DisambiguationCandidate, index: number) => {
-    handleSendMessage(`${index + 1}`);
+    void handleSendMessage(`${index + 1}`);
   };
 
   const handleActionConfirm = () => {
-    handleSendMessage('sim');
+    void handleSendMessage('sim');
   };
 
   const handleActionCancel = () => {
-    handleSendMessage('não');
+    void handleSendMessage('não');
   };
 
   const handleClearHistory = () => {
@@ -189,13 +265,17 @@ export const ConversaApp: React.FC = () => {
       isProcessing={isProcessing}
       briefingData={briefingData}
       isBriefingOpen={isBriefingOpen}
+      userLabel={userDisplayName}
       onCloseBriefing={() => setIsBriefingOpen(false)}
       onOpenBriefing={() => setIsBriefingOpen(true)}
       onSendMessage={handleSendMessage}
       onSelectCandidate={handleSelectCandidate}
       onActionConfirm={handleActionConfirm}
       onActionCancel={handleActionCancel}
+      onConfirmAssignment={handleConfirmAssignment}
+      onRefuseAssignment={handleRefuseAssignment}
       onClearHistory={handleClearHistory}
+      onSignOut={() => void signOut()}
     />
   );
 };

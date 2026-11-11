@@ -14,13 +14,17 @@ interface ConversaShellProps {
   isProcessing: boolean;
   briefingData: UserBriefingData | null;
   isBriefingOpen: boolean;
+  userLabel?: string;
   onCloseBriefing: () => void;
   onOpenBriefing: () => void;
   onSendMessage: (text: string) => void;
   onSelectCandidate: (candidate: DisambiguationCandidate, index: number) => void;
   onActionConfirm?: () => void;
   onActionCancel?: () => void;
+  onConfirmAssignment?: (partId: string) => void | Promise<void>;
+  onRefuseAssignment?: (partId: string, reason: string) => void | Promise<void>;
   onClearHistory?: () => void;
+  onSignOut?: () => void;
 }
 
 export const ConversaShell: React.FC<ConversaShellProps> = ({
@@ -28,18 +32,22 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
   isProcessing,
   briefingData,
   isBriefingOpen,
+  userLabel,
   onCloseBriefing,
   onOpenBriefing,
   onSendMessage,
   onSelectCandidate,
   onActionConfirm,
   onActionCancel,
+  onConfirmAssignment,
+  onRefuseAssignment,
   onClearHistory,
+  onSignOut,
 }) => {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages.length, isProcessing]);
 
   return (
@@ -51,6 +59,11 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
           <span className="cv-brand-badge">IA</span>
         </div>
         <div className="cv-header-actions">
+          {userLabel && (
+            <span className="cv-user-chip" title={userLabel}>
+              {userLabel}
+            </span>
+          )}
           {briefingData && (
             <button
               type="button"
@@ -81,6 +94,16 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
               title="Limpar conversa"
             >
               🗑️
+            </button>
+          )}
+          {onSignOut && (
+            <button
+              type="button"
+              className="cv-logout-btn"
+              onClick={onSignOut}
+              title="Sair da conta"
+            >
+              Sair
             </button>
           )}
         </div>
@@ -151,6 +174,8 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
         <BriefingModal
           briefing={briefingData}
           onClose={onCloseBriefing}
+          onConfirmAssignment={onConfirmAssignment}
+          onRefuseAssignment={onRefuseAssignment}
         />
       )}
 
@@ -159,3 +184,4 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
     </div>
   );
 };
+

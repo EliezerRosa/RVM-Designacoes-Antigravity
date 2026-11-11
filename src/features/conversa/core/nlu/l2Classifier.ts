@@ -68,6 +68,7 @@ export async function resolveIntent(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        utterance: trimmed,
         text: trimmed,
         contextClass,
         allowedIntents: CONVERSA_INTENTS.map((i) => i.intentId),
@@ -77,13 +78,37 @@ export async function resolveIntent(
 
     if (response.ok) {
       const data = await response.json();
-      const contract = getIntentContract(data.intentId);
+      const contract =
+        data?.intentId && data.intentId !== 'fallback.unknown'
+          ? getIntentContract(data.intentId)
+          : undefined;
       if (contract) {
         const minThreshold = contract.risk === 'high' || contract.category === 'action' ? 0.9 : 0.75;
         if (typeof data.confidence === 'number' && data.confidence >= minThreshold) {
+          const edgeSlots = (data.slots && typeof data.slots === 'object' ? data.slots : {}) as Record<string, any>;
+          const cleanSlot = (val: unknown): string | undefined => {
+            if (typeof val !== 'string') return undefined;
+            const s = val.trim();
+            return s && s.toLowerCase() !== 'null' && s.toLowerCase() !== 'undefined' ? s : undefined;
+          };
+          const personNameSlot = cleanSlot(edgeSlots.personName) || cleanSlot(edgeSlots.publisherName);
+          const targetDateSlot = cleanSlot(edgeSlots.targetDate);
+          const weekIdSlot = cleanSlot(edgeSlots.weekId) || targetDateSlot;
+          const partTypeSlot = cleanSlot(edgeSlots.partTitle) || cleanSlot(edgeSlots.partType);
+          const ruleIdSlot = cleanSlot(edgeSlots.ruleId);
+
+          const mappedSlots: ParsedSlots = {
+            ...l0.slots,
+            ...(personNameSlot ? { personName: personNameSlot } : {}),
+            ...(targetDateSlot ? { targetDate: targetDateSlot } : {}),
+            ...(weekIdSlot ? { weekId: weekIdSlot } : {}),
+            ...(partTypeSlot ? { partType: partTypeSlot } : {}),
+            ...(ruleIdSlot ? { ruleId: ruleIdSlot } : {}),
+          };
+
           const l2Result: L0ParseResult = {
             intentId: contract.intentId as ConversaIntentId,
-            slots: { ...l0.slots, ...(data.slots || {}) },
+            slots: mappedSlots,
             confidence: data.confidence,
             resolvedBy: 'l0-grammar',
             rawText: trimmed,
@@ -123,3 +148,4 @@ export async function resolveIntent(
     rawText: trimmed,
   };
 }
+

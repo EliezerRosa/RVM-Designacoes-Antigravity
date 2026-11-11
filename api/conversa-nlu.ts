@@ -53,7 +53,13 @@ export default async function handler(req: Request) {
 
   try {
     const body = await req.json().catch(() => null);
-    const utterance = typeof body?.utterance === 'string' ? body.utterance.trim() : '';
+    const rawUtterance =
+      typeof body?.utterance === 'string'
+        ? body.utterance
+        : typeof body?.text === 'string'
+        ? body.text
+        : '';
+    const utterance = rawUtterance.trim();
 
     if (!utterance) {
       return new Response(

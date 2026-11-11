@@ -83,7 +83,10 @@ export const RVM_KNOWLEDGE_BASE: readonly KnowledgeEntry[] = [
 ];
 
 export function findKnowledge(query: string): KnowledgeEntry | undefined {
-  const norm = query.toLowerCase();
+  const norm = query
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
   if (norm.includes('rodizio') || norm.includes('motor') || norm.includes('ranking') || norm.includes('criterio')) {
     return RVM_KNOWLEDGE_BASE.find((k) => k.topicId === 'rodizio-e-motor');
   }
@@ -101,3 +104,4 @@ export function findKnowledge(query: string): KnowledgeEntry | undefined {
   }
   return undefined;
 }
+

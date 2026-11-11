@@ -1,14 +1,16 @@
 /**
  * DocumentPort — Adaptador de Documentos Oficiais para o Carrossel Cronológico
  *
- * Busca e prepara formulários oficiais (S-140, S-89, S-4, S-1 e PDFs)
- * ordenados rigorosamente pelo tempo, identificando o item de foco solicitado.
+ * Busca e prepara formulários oficiais (S-140 e S-89) ordenados cronologicamente,
+ * usando o schema real (`seq`, `resolved_publisher_id`, `mapDbToWorkbookPart`)
+ * e carregamento dinâmico dos geradores para evitar impacto em SSR/testes Node.
  */
 
 import { supabase } from '../../../lib/supabase';
-import type { Publisher, WorkbookPart } from '../../../types';
-import { prepareS140UnifiedData, generateS140UnifiedHTML } from '../../../services/s140GeneratorUnified';
-import { generateS89PngBase64 } from '../../../services/s89Generator';
+import { WorkbookStatus, type Publisher, type WorkbookPart } from '../../../types';
+import { mapDbToWorkbookPart } from '../../../services/workbookService';
+import { getTodayWeekIdLocal } from '../../../utils/dateUtils';
+import { isManuallyAssignable } from '../../../constants/s140Template';
 
 export interface DocumentCarouselItem {
   id: string;
@@ -21,6 +23,49 @@ export interface DocumentCarouselItem {
   isInitialFocus?: boolean;
 }
 
+function extractPartNumber(text: string): string | null {
+  const m = text.match(/^(\d+)/);
+  return m ? m[1] : null;
+}
+
+function resolveS89CardParams(part: WorkbookPart, weekParts: WorkbookPart[]) {
+  const isAjudante = part.funcao === 'Ajudante';
+  const currentNum = extractPartNumber(part.tituloParte || part.tipoParte || '');
+  let partForPdf: WorkbookPart = part;
+  let assistantName: string | undefined;
+
+  if (isAjudante) {
+    const titular = weekParts.find((p) => {
+      const pNum = extractPartNumber(p.tituloParte || p.tipoParte || '');
+      return (pNum && pNum === currentNum || p.tipoParte === part.tipoParte) && p.funcao === 'Titular' && p.id !== part.id;
+    });
+    if (titular) {
+      partForPdf = titular;
+      assistantName = part.resolvedPublisherName || part.rawPublisherName || undefined;
+    }
+  } else {
+    const assistant = weekParts.find((p) => {
+      const pNum = extractPartNumber(p.tituloParte || p.tipoParte || '');
+      return (pNum && pNum === currentNum || p.tipoParte === part.tipoParte) && p.funcao === 'Ajudante' && p.id !== part.id;
+    });
+    assistantName = assistant?.resolvedPublisherName || assistant?.rawPublisherName || undefined;
+  }
+
+  const pType = (part.tipoParte || '').toLowerCase();
+  const pSection = (part.section || '').toLowerCase();
+  const isStudent =
+    pSection.includes('ministério') ||
+    pSection.includes('ministerio') ||
+    pType.includes('leitura') ||
+    pType.includes('conversa') ||
+    pType.includes('revisita') ||
+    pType.includes('estudo') ||
+    pType.includes('discípulos') ||
+    pType.includes('crenças');
+
+  return { partForPdf, assistantName, isStudent };
+}
+
 export const documentPort = {
   /**
    * Prepara lista cronológica de programações S-140
@@ -30,38 +75,57 @@ export const documentPort = {
     allPublishers: Publisher[] = []
   ): Promise<DocumentCarouselItem[]> {
     try {
-      // Buscar semanas com partes importadas
-      const { data: partsData } = await supabase
+      const { data: rawData, error } = await supabase
         .from('workbook_parts')
         .select('*')
         .order('week_id', { ascending: true })
-        .order('order_index', { ascending: true });
+        .order('seq', { ascending: true });
 
-      if (!partsData || !partsData.length) return [];
-
-      // Agrupar por semana
-      const byWeek = new Map<string, WorkbookPart[]>();
-      for (const p of partsData) {
-        const wid = p.week_id;
-        if (!byWeek.has(wid)) byWeek.set(wid, []);
-        byWeek.get(wid)!.push(p as WorkbookPart);
+      let partsList: WorkbookPart[] = [];
+      if (!error && rawData && rawData.length > 0) {
+        partsList = rawData.map((row) => mapDbToWorkbookPart(row as Record<string, unknown>));
+      } else {
+        const { data: rpcData } = await supabase.rpc('get_my_workbook_parts');
+        if (Array.isArray(rpcData)) {
+          partsList = rpcData
+            .map((row) => mapDbToWorkbookPart(row as Record<string, unknown>))
+            .sort((a, b) => a.weekId.localeCompare(b.weekId) || (a.seq || 0) - (b.seq || 0));
+        }
       }
 
-      const weekIds = Array.from(byWeek.keys()).sort();
-      const today = new Date().toISOString().split('T')[0];
-      const effectiveFocus = targetWeekId || weekIds.find((w) => w >= today) || weekIds[0];
+      if (!partsList.length) return [];
+
+      const byWeek = new Map<string, WorkbookPart[]>();
+      for (const p of partsList) {
+        if (!p.weekId) continue;
+        if (!byWeek.has(p.weekId)) byWeek.set(p.weekId, []);
+        byWeek.get(p.weekId)!.push(p);
+      }
+
+      const todayMonday = getTodayWeekIdLocal();
+      const allWeekIds = Array.from(byWeek.keys()).sort();
+      // Prioriza horizonte atual/futuro se existir; mantém ao menos as últimas semanas caso só haja histórico
+      const futureWeeks = allWeekIds.filter((w) => w >= todayMonday);
+      const weekIds = futureWeeks.length > 0 ? futureWeeks : allWeekIds.slice(-6);
+
+      const effectiveFocus =
+        (targetWeekId && weekIds.includes(targetWeekId) ? targetWeekId : undefined) ||
+        weekIds.find((w) => w >= todayMonday) ||
+        weekIds[0];
+
+      const { prepareS140UnifiedData, renderS140ToElement } = await import('../../../services/s140GeneratorUnified');
 
       const items: DocumentCarouselItem[] = [];
-
       for (const wid of weekIds) {
         const weekParts = byWeek.get(wid)!;
         let html: string | undefined;
 
         try {
           const unifiedData = await prepareS140UnifiedData(weekParts, allPublishers);
-          html = generateS140UnifiedHTML(unifiedData);
-        } catch {
-          html = `<div style="padding: 20px; font-family: sans-serif;">Semana ${wid} — visualização simplificada</div>`;
+          html = renderS140ToElement(unifiedData).outerHTML;
+        } catch (err) {
+          console.warn(`[DocumentPort] Fallback de HTML S-140 para ${wid}:`, err);
+          html = `<div style="padding: 20px; font-family: sans-serif; color: #111827;">Semana ${wid} — visualização simplificada (${weekParts.length} partes)</div>`;
         }
 
         const dateParts = wid.split('-');
@@ -86,41 +150,85 @@ export const documentPort = {
   },
 
   /**
-   * Prepara lista cronológica de designações S-89 de um publicador
+   * Prepara lista cronológica de designações S-89
    */
   async getS89ChronologicalList(
     publisherId?: string,
-    targetWeekId?: string
+    targetWeekId?: string,
+    isSelf: boolean = false
   ): Promise<DocumentCarouselItem[]> {
     try {
-      let query = supabase.from('workbook_parts').select('*');
-      if (publisherId) {
-        query = query.or(`assignee_id.eq.${publisherId},assistant_id.eq.${publisherId}`);
+      const todayMonday = getTodayWeekIdLocal();
+      let allParts: WorkbookPart[] = [];
+
+      if (isSelf) {
+        const { data: rpcData } = await supabase.rpc('get_my_workbook_parts');
+        if (Array.isArray(rpcData)) {
+          allParts = rpcData.map((row) => mapDbToWorkbookPart(row as Record<string, unknown>));
+        }
       }
 
-      const { data, error } = await query.order('week_id', { ascending: true });
-      if (error || !data || !data.length) return [];
+      if (!allParts.length) {
+        let query = supabase
+          .from('workbook_parts')
+          .select('*')
+          .gte('week_id', todayMonday)
+          .neq('status', WorkbookStatus.CANCELADA)
+          .order('week_id', { ascending: true })
+          .order('seq', { ascending: true });
+
+        if (targetWeekId && !publisherId) {
+          query = query.eq('week_id', targetWeekId);
+        }
+
+        const { data, error } = await query;
+        if (!error && data) {
+          allParts = data.map((row) => mapDbToWorkbookPart(row as Record<string, unknown>));
+        }
+      }
+
+      const targetParts = allParts.filter((part) => {
+        if (part.weekId < todayMonday) return false;
+        if (part.status === WorkbookStatus.CANCELADA || part.isChairmanDerived) return false;
+        if (!isManuallyAssignable(part.tipoParte)) return false;
+        if (publisherId) return part.resolvedPublisherId === publisherId;
+        if (targetWeekId) return part.weekId === targetWeekId;
+        return Boolean(part.resolvedPublisherId || part.resolvedPublisherName);
+      });
+
+      if (!targetParts.length) return [];
+
+      const byWeek = new Map<string, WorkbookPart[]>();
+      for (const p of allParts) {
+        if (!byWeek.has(p.weekId)) byWeek.set(p.weekId, []);
+        byWeek.get(p.weekId)!.push(p);
+      }
+
+      const { generateS89PngBase64 } = await import('../../../services/s89Generator');
+      const sortedTargets = [...targetParts].sort(
+        (a, b) => a.weekId.localeCompare(b.weekId) || (a.seq || 0) - (b.seq || 0)
+      );
 
       const items: DocumentCarouselItem[] = [];
-
-      for (const part of data) {
-        const wid = part.week_id;
+      for (const part of sortedTargets.slice(0, 12)) {
+        const weekParts = byWeek.get(part.weekId) || [];
+        const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part, weekParts);
         let imgBase64: string | undefined;
 
         try {
-          imgBase64 = (await generateS89PngBase64(part as WorkbookPart)) || undefined;
-        } catch {
-          // Fallback se não conseguir renderizar imagem
+          imgBase64 = (await generateS89PngBase64(partForPdf, assistantName, undefined, isStudent)) || undefined;
+        } catch (err) {
+          console.warn(`[DocumentPort] Falha ao renderizar PNG S-89 de ${part.id}:`, err);
         }
 
         items.push({
           id: `s89-${part.id}`,
           docType: 's89',
-          title: `S-89 · ${part.tipo_parte || part.tipoParte || 'Parte de Estudante'}`,
-          subtitle: `${part.assignee_name || 'Designado'} · ${wid}`,
-          dateStr: wid,
+          title: `S-89 · ${part.tipoParte || 'Designação'}`,
+          subtitle: `${part.resolvedPublisherName || part.rawPublisherName || 'Designado'} (${part.funcao}) · ${part.weekId}`,
+          dateStr: part.weekId,
           imageBase64: imgBase64,
-          isInitialFocus: wid === targetWeekId,
+          isInitialFocus: targetWeekId ? part.weekId === targetWeekId : items.length === 0,
         });
       }
 

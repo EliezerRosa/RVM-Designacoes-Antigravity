@@ -47,3 +47,4 @@ export const ClarifyCard: React.FC<ClarifyCardProps> = ({
     </div>
   );
 };
+

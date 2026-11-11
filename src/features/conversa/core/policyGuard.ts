@@ -39,3 +39,4 @@ export function checkIntentPermission(intentId: string, gate: PermissionGate): P
     actionType: contract.actionType,
   };
 }
+

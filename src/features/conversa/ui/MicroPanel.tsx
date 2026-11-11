@@ -62,8 +62,14 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
               </div>
               <span
                 className={`cv-badge ${
-                  item.status === 'confirmada' || item.status === 'aprovada'
+                  ['confirmada', 'aprovada', 'designada', 'confirmed', 'concluida'].includes(
+                    String(item.status || '').toLowerCase()
+                  )
                     ? 'cv-badge-success'
+                    : ['recusada', 'cancelada', 'refused'].includes(
+                        String(item.status || '').toLowerCase()
+                      )
+                    ? 'cv-badge-danger'
                     : 'cv-badge-warning'
                 }`}
               >
@@ -124,10 +130,50 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
     );
   }
 
+  // 5. Semanas Pendentes
+  if (cardData.type === 'pending-weeks-list') {
+    const items: Array<{ weekId: string }> = cardData.items || [];
+    return (
+      <div className="cv-card">
+        <div className="cv-card-title">🗓️ {cardData.title}</div>
+        <div className="cv-list">
+          {items.map((item) => (
+            <div key={item.weekId} className="cv-list-item">
+              <div>
+                <strong>Semana de {item.weekId}</strong>
+              </div>
+              <span className="cv-badge cv-badge-warning">Pendente</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // 6. Resultado de Execução de Ação
+  if (cardData.status === 'success' || cardData.status === 'error') {
+    const isSuccess = cardData.status === 'success';
+    return (
+      <div
+        className="cv-card"
+        style={{
+          borderColor: isSuccess ? 'var(--cv-success)' : 'var(--cv-danger)',
+        }}
+      >
+        <div className="cv-card-title">
+          {isSuccess ? '✅' : '❌'} {cardData.title || (isSuccess ? 'Concluído' : 'Erro')}
+        </div>
+        <p style={{ margin: '6px 0 0 0', fontSize: '15px' }}>{cardData.description}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="cv-card">
       <div className="cv-card-title">{cardData.title || 'Informações'}</div>
-      <p>{cardData.description || JSON.stringify(cardData)}</p>
+      <p style={{ margin: '6px 0 0 0', fontSize: '15px' }}>
+        {cardData.description || JSON.stringify(cardData)}
+      </p>
     </div>
   );
 };
