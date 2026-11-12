@@ -25,6 +25,14 @@ export function checkIntentPermission(intentId: string, gate: PermissionGate): P
     };
   }
 
+  if (intentId === 'view-s1-consolidation' && !gate.canViewTab('monthly-reports') && !gate.isFullAdmin()) {
+    return {
+      allowed: false,
+      actionType: contract.actionType,
+      reason: 'A consolidação mensal S-1 é restrita aos responsáveis pelos Relatórios Mensais.',
+    };
+  }
+
   const allowed = gate.canAgentAction(contract.actionType);
   if (!allowed) {
     return {

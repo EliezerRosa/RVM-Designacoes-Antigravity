@@ -315,14 +315,13 @@ export const CONVERSA_INTENTS: readonly IntentContract[] = [
   },
   {
     intentId: 'query-sync-status',
-    title: 'Status da sincronização HG-Sync',
+    title: 'Status da sincronização externa',
     category: 'query',
     actionType: 'FETCH_DATA',
     slots: [],
     cardType: 'micro-panel',
     risk: 'low',
     examplePhrases: [
-      'status do hg',
       'como está a sincronização',
       'status da sincronização',
     ],

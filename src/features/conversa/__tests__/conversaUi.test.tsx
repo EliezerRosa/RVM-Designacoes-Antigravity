@@ -1,10 +1,15 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { JSDOM } from 'jsdom';
 import type { UserBriefingData } from '../ports/briefingPort';
 
 let bootstrapDom: JSDOM | null = null;
+
+after(() => {
+  bootstrapDom?.window.close();
+  bootstrapDom = null;
+});
 
 async function withDomTesting<T>(
   fn: (deps: {
@@ -136,8 +141,8 @@ test('MicroPanel: renders pending-weeks-list, success/error states, and status b
       })
     );
 
-    assert.ok(view.getByText(/Semana de 2026-11-16/));
-    assert.ok(view.getByText(/Semana de 2026-11-23/));
+    assert.ok(view.getByText(/Semana de 16\/11\/2026/));
+    assert.ok(view.getByText(/Semana de 23\/11\/2026/));
 
     view.rerender(
       React.createElement(MicroPanel, {
@@ -210,11 +215,26 @@ test('DocumentCarousel: navigates chronologically and toggles fullscreen safely'
     );
 
     assert.ok(view.getByText('S-140 Semana 1'));
+    assert.ok(view.getByText(/1 de 2 · 16\/11\/2026/));
+    assert.equal(view.container.innerHTML.includes('overflow: auto'), false);
+    assert.ok(view.container.querySelector('.cv-form-frame'));
+    assert.ok(view.container.querySelector('.cv-form-canvas'));
+
     fireEvent.click(view.getByTitle('Próxima semana / Documento'));
     assert.ok(view.getByText('S-140 Semana 2'));
+    assert.ok(view.getByText(/2 de 2 · 23\/11\/2026/));
 
+    // Swipe horizontal (esquerda -> volta ou avança)
+    const track = view.container.querySelector('.cv-carousel-track')!;
+    fireEvent.touchStart(track, { touches: [{ clientX: 220, clientY: 100 }] });
+    fireEvent.touchEnd(track, { changedTouches: [{ clientX: 90, clientY: 102 }] });
+    assert.ok(view.getByText('S-140 Semana 1'));
+
+    // Tela cheia + Escape para sair
     fireEvent.click(view.getByTitle('Expandir tela cheia'));
     assert.ok(view.container.querySelector('.cv-carousel-fullscreen'));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    assert.equal(view.container.querySelector('.cv-carousel-fullscreen'), null);
 
     view.rerender(
       React.createElement(DocumentCarousel, {
@@ -231,6 +251,89 @@ test('DocumentCarousel: navigates chronologically and toggles fullscreen safely'
       })
     );
     assert.ok(view.getByText('S-140 Unica'));
+    const nextBtn = view.getByTitle('Próxima semana / Documento') as HTMLButtonElement;
+    assert.equal(nextBtn.disabled, true);
+  });
+});
+
+test('DocumentCarousel: scales forms proportionally to fit mobile and desktop viewports', async () => {
+  await withDomTesting(({ rtl: { render, fireEvent }, DocumentCarousel }) => {
+    const origClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+    const origScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
+    const origScrollWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth');
+    const origInnerW = window.innerWidth;
+    const origInnerH = window.innerHeight;
+
+    let mockTrackWidth = 320; // Celular estreito
+
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).classList?.contains('cv-carousel-track') ? mockTrackWidth : 0;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).classList?.contains('cv-form-canvas') ? 1000 : 0;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        return (this as HTMLElement).classList?.contains('cv-form-canvas') ? 800 : 0;
+      },
+    });
+
+    try {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 360 });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 780 });
+
+      const view = render(
+        React.createElement(DocumentCarousel, {
+          items: [
+            {
+              id: 's140-fit',
+              docType: 's140',
+              title: 'S-140 Mobile',
+              subtitle: '12 partes',
+              dateStr: '16/11/2026',
+              naturalWidth: 800,
+              htmlContent: '<div>Folha S-140</div>',
+              isInitialFocus: true,
+            },
+          ],
+        })
+      );
+
+      fireEvent(window, new Event('resize'));
+
+      const frame = view.container.querySelector('.cv-form-frame') as HTMLElement;
+      const canvas = view.container.querySelector('.cv-form-canvas') as HTMLElement;
+      assert.equal(frame.style.width, '320px');
+      assert.equal(frame.style.height, '400px');
+      assert.equal(canvas.style.width, '800px');
+      assert.match(canvas.style.transform, /scale\(0\.4\)/);
+
+      // Simula redimensionamento para desktop
+      mockTrackWidth = 640;
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1366 });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+      fireEvent(window, new Event('resize'));
+
+      // Em laptop 1366x768, availH = min(768 - 230, 660) = 538 -> scale limitado pela altura (0.538)
+      assert.equal(frame.style.height, '538px');
+      assert.equal(frame.style.width, '430px');
+    } finally {
+      if (origClientWidth) Object.defineProperty(HTMLElement.prototype, 'clientWidth', origClientWidth);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
+      if (origScrollHeight) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', origScrollHeight);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollHeight');
+      if (origScrollWidth) Object.defineProperty(HTMLElement.prototype, 'scrollWidth', origScrollWidth);
+      else Reflect.deleteProperty(HTMLElement.prototype, 'scrollWidth');
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: origInnerW });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: origInnerH });
+    }
   });
 });
 

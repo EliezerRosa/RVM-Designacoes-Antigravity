@@ -422,3 +422,101 @@ test('knowledgePort: matches Portuguese queries containing accents (rodízio, g�
   assert.match(expl.title, /Rodízio/i);
 });
 
+test('cardPlanner: renders S-4 and S-1 forms in document-carousel and restricts S-1 to RM-authorized profiles', async () => {
+  const ports: CardPlannerPorts = {
+    documents: {
+      getS140ChronologicalList: async () => [],
+      getS89ChronologicalList: async () => [],
+      getS4ChronologicalList: async (name) => [
+        {
+          id: 's4-1',
+          docType: 's4',
+          title: 'Cartão S-4 · Outubro de 2026',
+          subtitle: name || 'João Santos',
+          dateStr: '10/2026',
+          naturalWidth: 480,
+          htmlContent: '<div>S-4-T</div>',
+          isInitialFocus: true,
+        },
+      ],
+      getS1ChronologicalList: async () => [
+        {
+          id: 's1-2026-10',
+          docType: 's1',
+          title: 'Consolidação S-1 · Outubro de 2026',
+          subtitle: '120 relatórios computados',
+          dateStr: '10/2026',
+          naturalWidth: 800,
+          htmlContent: '<div>S-1-T</div>',
+          isInitialFocus: true,
+        },
+      ],
+    },
+  };
+
+  const s4Turn = await planTurn(
+    {
+      intentId: 'view-s4',
+      slots: { month: 'outubro' },
+      confidence: 0.95,
+      layer: 'l0-grammar',
+      rawText: 'meu s-4 de outubro',
+    },
+    createInitialContext(),
+    fullGate,
+    [],
+    [],
+    { publisherId: 'pub-1', publisherName: 'João Santos' },
+    ports
+  );
+
+  assert.equal(s4Turn.message.cardType, 'document-carousel');
+  assert.equal(s4Turn.message.cardData?.items.length, 1);
+  assert.equal(s4Turn.message.cardData?.items[0].docType, 's4');
+
+  const s1Allowed = await planTurn(
+    {
+      intentId: 'view-s1-consolidation',
+      slots: { month: 'outubro' },
+      confidence: 0.95,
+      layer: 'l0-grammar',
+      rawText: 'ver s-1 de outubro',
+    },
+    createInitialContext(),
+    fullGate,
+    [],
+    [],
+    { isAdmin: true },
+    ports
+  );
+
+  assert.equal(s1Allowed.message.cardType, 'document-carousel');
+  assert.equal(s1Allowed.message.cardData?.items[0].docType, 's1');
+
+  const publisherGate: PermissionGate = {
+    ...fullGate,
+    canViewTab: () => false,
+    isFullAdmin: () => false,
+  };
+
+  const s1Blocked = await planTurn(
+    {
+      intentId: 'view-s1-consolidation',
+      slots: {},
+      confidence: 0.95,
+      layer: 'l0-grammar',
+      rawText: 'ver s-1',
+    },
+    createInitialContext(),
+    publisherGate,
+    [],
+    [],
+    { isAdmin: false },
+    ports
+  );
+
+  assert.equal(s1Blocked.message.cardType, undefined);
+  assert.match(s1Blocked.message.text, /restrita/i);
+});
+
+

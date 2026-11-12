@@ -1,9 +1,11 @@
 import React from 'react';
 import type { UpcomingAssignmentView } from '../ports/queryPort';
+import type { ConversaCardData } from '../core/conversationState';
+import { formatDateBr } from '../core/dateFormat';
 import type { WorkbookPart } from '../../../types';
 
 interface MicroPanelProps {
-  cardData: any;
+  cardData?: ConversaCardData;
   onActionConfirm?: () => void;
   onActionCancel?: () => void;
 }
@@ -45,7 +47,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
 
   // 2. Lista de Designações de um Publicador
   if (cardData.type === 'assignments-list') {
-    const items: UpcomingAssignmentView[] = cardData.items || [];
+    const items = (cardData.items || []) as UpcomingAssignmentView[];
     return (
       <div className="cv-card">
         <div className="cv-card-title">📅 {cardData.title}</div>
@@ -53,7 +55,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
           {items.map((item) => (
             <div key={item.partId} className="cv-list-item">
               <div>
-                <strong>{item.dateStr}</strong> — {item.tipoParte}
+                <strong>{formatDateBr(item.dateStr)}</strong> — {item.tipoParte}
                 {item.partnerName && (
                   <div style={{ fontSize: '13px', opacity: 0.75 }}>
                     Com: {item.partnerName} ({item.role})
@@ -84,7 +86,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
 
   // 3. Lista de Partes de uma Semana
   if (cardData.type === 'week-parts-list') {
-    const items: WorkbookPart[] = cardData.items || [];
+    const items = (cardData.items || []) as WorkbookPart[];
     return (
       <div className="cv-card">
         <div className="cv-card-title">📖 {cardData.title}</div>
@@ -109,7 +111,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
 
   // 4. Partes Vagas / Pendentes
   if (cardData.type === 'vacant-parts-list') {
-    const items: WorkbookPart[] = cardData.items || [];
+    const items = (cardData.items || []) as WorkbookPart[];
     return (
       <div className="cv-card">
         <div className="cv-card-title">⏳ {cardData.title}</div>
@@ -117,7 +119,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
           {items.map((part) => (
             <div key={part.id} className="cv-list-item">
               <div>
-                <div><strong>Semana {part.weekId}</strong> — {part.tipoParte}</div>
+                <div><strong>Semana {formatDateBr(part.weekId)}</strong> — {part.tipoParte}</div>
                 {part.tituloParte && (
                   <div style={{ fontSize: '13px', opacity: 0.75 }}>{part.tituloParte}</div>
                 )}
@@ -132,7 +134,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
 
   // 5. Semanas Pendentes
   if (cardData.type === 'pending-weeks-list') {
-    const items: Array<{ weekId: string }> = cardData.items || [];
+    const items = (cardData.items || []) as Array<{ weekId: string }>;
     return (
       <div className="cv-card">
         <div className="cv-card-title">🗓️ {cardData.title}</div>
@@ -140,7 +142,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
           {items.map((item) => (
             <div key={item.weekId} className="cv-list-item">
               <div>
-                <strong>Semana de {item.weekId}</strong>
+                <strong>Semana de {formatDateBr(item.weekId)}</strong>
               </div>
               <span className="cv-badge cv-badge-warning">Pendente</span>
             </div>

@@ -5,15 +5,46 @@
  * Degradação suave: se o navegador não suportar, opera normalmente em modo texto.
  */
 
-// Declaração de tipos para SpeechRecognition
+interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternativeLike;
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
+interface SpeechRecognitionInstance {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
 declare global {
   interface Window {
-    SpeechRecognition?: any;
-    webkitSpeechRecognition?: any;
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
 }
 
-let activeRecognition: any = null;
+let activeRecognition: SpeechRecognitionInstance | null = null;
 
 export const voicePort = {
   /**
@@ -48,17 +79,23 @@ export const voicePort = {
       if (activeRecognition) {
         try {
           activeRecognition.stop();
-        } catch {}
+        } catch {
+          // Ignora parada de instância anterior já encerrada
+        }
       }
 
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        onError('Reconhecimento de voz não suportado neste navegador.');
+        return () => {};
+      }
       const rec = new SpeechRec();
       rec.lang = 'pt-BR';
       rec.continuous = false;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
 
-      rec.onresult = (event: any) => {
+      rec.onresult = (event: SpeechRecognitionEventLike) => {
         let interim = '';
         let final = '';
 
@@ -78,7 +115,7 @@ export const voicePort = {
         }
       };
 
-      rec.onerror = (event: any) => {
+      rec.onerror = (event: SpeechRecognitionErrorEventLike) => {
         console.warn('[VoicePort] Erro de reconhecimento:', event.error);
         if (event.error !== 'no-speech' && event.error !== 'aborted') {
           onError(`Erro de microfone: ${event.error}`);
@@ -95,11 +132,14 @@ export const voicePort = {
       return () => {
         try {
           rec.stop();
-        } catch {}
+        } catch {
+          // Ignora encerramento repetido
+        }
         activeRecognition = null;
       };
-    } catch (e: any) {
-      onError(`Falha ao iniciar escuta: ${e.message || e}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      onError(`Falha ao iniciar escuta: ${msg}`);
       return () => {};
     }
   },
@@ -111,7 +151,9 @@ export const voicePort = {
     if (activeRecognition) {
       try {
         activeRecognition.stop();
-      } catch {}
+      } catch {
+        // Ignora encerramento repetido
+      }
       activeRecognition = null;
     }
   },
@@ -160,7 +202,9 @@ export const voicePort = {
     if (this.isSynthesisSupported()) {
       try {
         window.speechSynthesis.cancel();
-      } catch {}
+      } catch {
+        // Ignora erro de síntese inativa
+      }
     }
   },
 };

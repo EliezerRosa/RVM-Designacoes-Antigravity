@@ -13,7 +13,7 @@ import type { ChatMessageItem, ConversaContextState } from './conversationState'
 import { checkIntentPermission } from './policyGuard';
 import { resolvePublisher, resolveWeek } from './entityResolver';
 import { queryPort } from '../ports/queryPort';
-import { documentPort } from '../ports/documentPort';
+import { documentPort, formatDateBr } from '../ports/documentPort';
 import { knowledgePort } from '../ports/knowledgePort';
 import {
   actionPort,
@@ -39,7 +39,8 @@ export interface CardPlannerPorts {
     typeof queryPort,
     'getPublisherAssignments' | 'getWeekParts' | 'getVacantParts' | 'getLastParticipation' | 'getPendingWeeks'
   >;
-  documents?: Pick<typeof documentPort, 'getS140ChronologicalList' | 'getS89ChronologicalList'>;
+  documents?: Pick<typeof documentPort, 'getS140ChronologicalList' | 'getS89ChronologicalList'> &
+    Partial<Pick<typeof documentPort, 'getS4ChronologicalList' | 'getS1ChronologicalList'>>;
 }
 
 type InternalSlots = ParsedSlots & { chosenPublisherId?: string };
@@ -408,22 +409,55 @@ export async function planTurn(
     };
   }
 
-  if (nlu.intentId === 'view-s4' || nlu.intentId === 'view-s1-consolidation') {
-    const isS4 = nlu.intentId === 'view-s4';
+  if (nlu.intentId === 'view-s4') {
+    const target = resolveTargetPerson(resolvedPerson, nlu.rawText, context, userContext);
+    const targetName = resolvedPerson?.name || target.name || userContext.publisherName || undefined;
+    const loader = documents.getS4ChronologicalList || documentPort.getS4ChronologicalList;
+    const items = await loader(targetName, nlu.slots.month);
+
     return {
       message: {
         id: messageId,
         sender: 'assistant',
-        text: isS4
-          ? 'Os cartões individuais S-4 (Relatório de Campo) são gerenciados em segurança na aba de Relatórios Mensais ou via HG-Sync. Você pode consultar suas designações de reunião ou abrir o S-140/S-89 aqui.'
-          : 'A consolidação mensal S-1 da congregação fica protegida sob permissões administrativas na aba de Relatórios Mensais.',
+        text: items.length
+          ? `Cartões S-4 de ${items[0].subtitle} em ordem cronológica:`
+          : `Nenhum cartão S-4 disponível para visualização com o seu perfil atual.`,
         timestamp: now,
         intentId: nlu.intentId,
+        cardType: items.length ? 'document-carousel' : undefined,
+        cardData: items.length
+          ? { items, initialFocusId: items.find((i) => i.isInitialFocus)?.id }
+          : undefined,
       },
       updatedContext,
-      spokenText: isS4
-        ? 'Consulte seus relatórios S-4 na aba de Relatórios Mensais.'
-        : 'O relatório consolidado S-1 fica na aba administrativa de relatórios.',
+      spokenText: items.length
+        ? 'Exibindo cartões S-4 no carrossel.'
+        : 'Nenhum cartão S-4 disponível no momento.',
+    };
+  }
+
+  if (nlu.intentId === 'view-s1-consolidation') {
+    const loader = documents.getS1ChronologicalList || documentPort.getS1ChronologicalList;
+    const items = await loader(nlu.slots.month);
+
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: items.length
+          ? `Relatórios mensais consolidados (S-1) em ordem cronológica:`
+          : `Nenhuma consolidação mensal S-1 encontrada para o período solicitado.`,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: items.length ? 'document-carousel' : undefined,
+        cardData: items.length
+          ? { items, initialFocusId: items.find((i) => i.isInitialFocus)?.id }
+          : undefined,
+      },
+      updatedContext,
+      spokenText: items.length
+        ? 'Exibindo consolidação mensal S-1 no carrossel.'
+        : 'Nenhuma consolidação S-1 encontrada.',
     };
   }
 
@@ -462,12 +496,12 @@ export async function planTurn(
       message: {
         id: messageId,
         sender: 'assistant',
-        text: 'A sincronização de relatórios mensais com o Hourglass (HG-Sync) roda localmente em módulo isolado na porta 4610 quando iniciada.',
+        text: 'A sincronização externa local opera de modo independente na estação do operador quando iniciada.',
         timestamp: now,
         intentId: nlu.intentId,
       },
       updatedContext,
-      spokenText: 'O módulo HG Sync roda localmente na porta 4610 quando ativo.',
+      spokenText: 'O serviço de sincronização local opera na estação do operador quando ativo.',
     };
   }
 
@@ -553,7 +587,7 @@ export async function planTurn(
       },
       updatedContext,
       spokenText: history.length
-        ? `${pubName} participou por último na semana ${history[0].weekId}.`
+        ? `${pubName} participou por último na semana de ${formatDateBr(history[0].weekId)}.`
         : `Sem participações anteriores registradas para ${pubName}.`,
     };
   }
@@ -575,28 +609,29 @@ export async function planTurn(
     }
 
     const parts = await queries.getWeekParts(weekId);
+    const weekBr = formatDateBr(weekId);
     return {
       message: {
         id: messageId,
         sender: 'assistant',
         text: parts.length
-          ? `Designações da semana de ${weekId}:`
-          : `Nenhuma parte encontrada para a semana de ${weekId}.`,
+          ? `Designações da semana de ${weekBr}:`
+          : `Nenhuma parte encontrada para a semana de ${weekBr}.`,
         timestamp: now,
         intentId: nlu.intentId,
         cardType: parts.length ? 'micro-panel' : undefined,
         cardData: parts.length
           ? {
             type: 'week-parts-list',
-            title: `Semana de ${weekId}`,
+            title: `Semana de ${weekBr}`,
             items: parts,
           }
           : undefined,
       },
       updatedContext,
       spokenText: parts.length
-        ? `Exibindo ${parts.length} partes da semana de ${weekId}.`
-        : `Nenhuma parte encontrada para ${weekId}.`,
+        ? `Exibindo ${parts.length} partes da semana de ${weekBr}.`
+        : `Nenhuma parte encontrada para ${weekBr}.`,
     };
   }
 
@@ -687,19 +722,22 @@ export async function planTurn(
     }
 
     const personName = target.name || 'Você';
-    const rangeLabel = endDate && endDate !== startDate ? `${startDate} a ${endDate}` : startDate;
+    const startBr = formatDateBr(startDate);
+    const endBr = endDate ? formatDateBr(endDate) : undefined;
+    const rangeLabel = endBr && endBr !== startBr ? `${startBr} a ${endBr}` : startBr;
+    const expandedBr = expandedDates.map(formatDateBr);
 
     return {
       message: {
         id: messageId,
         sender: 'assistant',
-        text: `Deseja registrar indisponibilidade para ${personName} (${expandedDates.length} data(s): ${expandedDates.join(', ')})?`,
+        text: `Deseja registrar indisponibilidade para ${personName} (${expandedBr.length} data(s): ${expandedBr.join(', ')})?`,
         timestamp: now,
         intentId: nlu.intentId,
         cardType: 'action-preview',
         cardData: {
           title: 'Confirmar Registro de Ausência',
-          description: `Período: ${rangeLabel} (${expandedDates.length} dia(s)) para ${personName}.`,
+          description: `Período: ${rangeLabel} (${expandedBr.length} dia(s)) para ${personName}.`,
           requiresConfirmation: true,
           actionType: 'UPDATE_AVAILABILITY',
         },
@@ -739,17 +777,18 @@ export async function planTurn(
       };
     }
 
+    const weekBr = formatDateBr(weekId);
     return {
       message: {
         id: messageId,
         sender: 'assistant',
-        text: `Deseja aprovar as propostas pendentes da semana de ${weekId}?`,
+        text: `Deseja aprovar as propostas pendentes da semana de ${weekBr}?`,
         timestamp: now,
         intentId: nlu.intentId,
         cardType: 'action-preview',
         cardData: {
           title: 'Aprovar Proposta da Semana',
-          description: `As partes em PROPOSTA na semana ${weekId} passarão para DESIGNADA.`,
+          description: `As partes em PROPOSTA na semana de ${weekBr} passarão para DESIGNADA.`,
           requiresConfirmation: true,
           actionType: 'APPROVE_PROPOSAL',
         },
@@ -758,13 +797,13 @@ export async function planTurn(
         ...updatedContext,
         pendingAction: {
           intentId: nlu.intentId,
-          title: `Aprovar Semana ${weekId}`,
-          description: `Propostas da semana ${weekId} -> DESIGNADA`,
+          title: `Aprovar Semana ${weekBr}`,
+          description: `Propostas da semana de ${weekBr} -> DESIGNADA`,
           params: { weekId },
           requiresConfirmation: true,
         },
       },
-      spokenText: `Confirmar aprovação da semana de ${weekId}?`,
+      spokenText: `Confirmar aprovação da semana de ${weekBr}?`,
     };
   }
 

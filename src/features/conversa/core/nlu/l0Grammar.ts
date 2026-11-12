@@ -36,7 +36,7 @@ export function normalizeText(text: string): string {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // remove acentos
-    .replace(/[^\w\s\-\/]/g, ' ')   // remove pontuação exceto hífen e barra
+    .replace(/[^\w\s\-/]/g, ' ') // remove pontuação exceto hífen e barra
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -421,8 +421,8 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 15. Status de sincronização
-  if (/\b(sincronizacao|sync|status\s+do\s+hg|como\s+esta\s+a\s+sincronizacao)\b/.test(norm)) {
+  // 15. Status de sincronização externa
+  if (/\b(sincronizacao|sync|como\s+esta\s+a\s+sincronizacao|status\s+da\s+sincronizacao)\b/.test(norm)) {
     return {
       intentId: 'query-sync-status',
       slots,

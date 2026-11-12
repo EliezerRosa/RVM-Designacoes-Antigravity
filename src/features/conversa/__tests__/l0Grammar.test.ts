@@ -72,6 +72,6 @@ test('L0 Grammar: detects briefing and sync status', () => {
   const r1 = parseL0Grammar('quais minhas pendências?');
   assert.equal(r1.intentId, 'proactive-briefing');
 
-  const r2 = parseL0Grammar('como está a sincronização com o hg?');
+  const r2 = parseL0Grammar('como está a sincronização?');
   assert.equal(r2.intentId, 'query-sync-status');
 });

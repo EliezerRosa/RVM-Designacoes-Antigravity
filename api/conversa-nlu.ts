@@ -110,7 +110,7 @@ Intenções permitidas:
 - undo-last-action (ex: "desfazer", "desfaz última alteração")
 - proactive-briefing (ex: "quais minhas pendências?", "o que tenho que fazer?", "briefing")
 - clarify-ambiguity (ex: "opção 1", "o primeiro", "sim", "não")
-- query-sync-status (ex: "status do hg", "como está a sincronização?")
+- query-sync-status (ex: "como está a sincronização?", "status da sincronização")
 - fallback.unknown (qualquer outra coisa fora do escopo)
 
 Responda SOMENTE um objeto JSON com formato:

@@ -16,12 +16,17 @@ import { api } from '../../../services/api';
 import { publisherAvailabilityService } from '../../../services/publisherAvailabilityService';
 import { withAvailabilityAuthor } from '../../../services/availabilityAuthor';
 import { toLocalISODate } from '../../../utils/dateUtils';
+import { formatDateBr } from './documentPort';
 
 export interface ActionExecutionResult {
   success: boolean;
   message: string;
   actionType: AgentActionType | 'CONFIRM_ASSIGNMENT' | 'REFUSE_ASSIGNMENT';
-  details?: any;
+  details?: Record<string, unknown>;
+}
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 const MAX_ABSENCE_SPAN_DAYS = 90;
@@ -120,8 +125,8 @@ export const actionPort = {
       return denied
         ? `Operação "${actionType}" negada pelo servidor para o seu perfil.`
         : `Erro ao validar permissão no servidor: ${error.message}`;
-    } catch (e: any) {
-      return `Falha de conexão ao validar ação no servidor: ${e.message || e}`;
+    } catch (e: unknown) {
+      return `Falha de conexão ao validar ação no servidor: ${getErrorMessage(e)}`;
     }
   },
 
@@ -184,11 +189,11 @@ export const actionPort = {
         message: 'Designação confirmada com sucesso!',
         details: { partId, publisherId },
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       return {
         success: false,
         actionType: 'CONFIRM_ASSIGNMENT',
-        message: `Erro ao confirmar designação: ${e?.message || e}`,
+        message: `Erro ao confirmar designação: ${getErrorMessage(e)}`,
       };
     }
   },
@@ -264,11 +269,11 @@ export const actionPort = {
         message: 'Recusa registrada. Os responsáveis pelo quadro serão notificados para providenciar substituição.',
         details: { partId, publisherId, reason: cleanReason },
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
       return {
         success: false,
         actionType: 'REFUSE_ASSIGNMENT',
-        message: `Erro ao registrar recusa: ${e?.message || e}`,
+        message: `Erro ao registrar recusa: ${getErrorMessage(e)}`,
       };
     }
   },
@@ -280,9 +285,10 @@ export const actionPort = {
     publisherId: string,
     startDate: string,
     endDate?: string,
-    _reason: string = 'Ausência informada via Conversa',
+    reason: string = 'Ausência informada via Conversa',
     actorLabel: string = 'Conversa IA'
   ): Promise<ActionExecutionResult> {
+    void reason;
     const actionType: AgentActionType = 'UPDATE_AVAILABILITY';
     const permError = await this.assertServerPermission(actionType);
     if (permError) {
@@ -309,14 +315,15 @@ export const actionPort = {
         () => publisherAvailabilityService.updateAvailability(pub, datesToBlock)
       );
 
+      const formattedDates = datesToBlock.map(formatDateBr);
       return {
         success: true,
-        message: `Indisponibilidade registrada para ${pub.name} em ${datesToBlock.length} data(s): ${datesToBlock.join(', ')}.`,
+        message: `Indisponibilidade registrada para ${pub.name} em ${formattedDates.length} data(s): ${formattedDates.join(', ')}.`,
         actionType,
         details: { publisherId, dates: datesToBlock, totalBlockedDates: result.totalBlockedDates },
       };
-    } catch (e: any) {
-      return { success: false, message: `Falha ao registrar ausência: ${e.message || e}`, actionType };
+    } catch (e: unknown) {
+      return { success: false, message: `Falha ao registrar ausência: ${getErrorMessage(e)}`, actionType };
     }
   },
 
@@ -351,17 +358,18 @@ export const actionPort = {
       }
 
       const count = Array.isArray(data) ? data.length : 0;
+      const weekBr = formatDateBr(weekId);
       return {
         success: true,
         message:
           count > 0
-            ? `Semana ${weekId} aprovada! ${count} parte(s) confirmadas para designação.`
-            : `Nenhuma parte estava com status PROPOSTA na semana ${weekId}.`,
+            ? `Semana de ${weekBr} aprovada! ${count} parte(s) confirmadas para designação.`
+            : `Nenhuma parte estava com status PROPOSTA na semana de ${weekBr}.`,
         actionType,
         details: { weekId, approvedCount: count },
       };
-    } catch (e: any) {
-      return { success: false, message: `Falha na aprovação: ${e.message || e}`, actionType };
+    } catch (e: unknown) {
+      return { success: false, message: `Falha na aprovação: ${getErrorMessage(e)}`, actionType };
     }
   },
 };

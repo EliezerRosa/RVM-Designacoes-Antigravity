@@ -140,7 +140,9 @@ export const queryPort = {
         .order('week_id', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        const distinct = Array.from(new Set(data.map((r: any) => r.week_id as string))).filter(Boolean);
+        const distinct = Array.from(
+          new Set((data as Array<{ week_id?: string }>).map((r) => r.week_id || ''))
+        ).filter(Boolean);
         if (distinct.length > 0) return distinct.sort();
       }
 
@@ -334,8 +336,8 @@ export const queryPort = {
       if (error || !rows) {
         const { data: rpcData } = await supabase.rpc('get_my_workbook_parts');
         rows = Array.isArray(rpcData)
-          ? rpcData.filter((r: any) => {
-              const p = mapDbToWorkbookPart(r as Record<string, unknown>);
+          ? (rpcData as Array<Record<string, unknown>>).filter((r) => {
+              const p = mapDbToWorkbookPart(r);
               return (
                 p.weekId < todayWeekId &&
                 p.status !== WorkbookStatus.CANCELADA &&

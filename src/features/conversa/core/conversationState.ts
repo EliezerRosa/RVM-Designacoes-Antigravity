@@ -8,12 +8,15 @@
 import type { ConversaIntentId } from './intentCatalog';
 import type { DisambiguationCandidate } from './entityResolver';
 import type { ParsedSlots } from './nlu/l0Grammar';
+import type { DocumentCarouselItem } from '../ports/documentPort';
+import type { UpcomingAssignmentView } from '../ports/queryPort';
+import type { WorkbookPart } from '../../../types';
 
 export interface ActionPreviewState {
   intentId: ConversaIntentId;
   title: string;
   description: string;
-  params: Record<string, any>;
+  params: Record<string, unknown>;
   requiresConfirmation: boolean;
 }
 
@@ -24,6 +27,22 @@ export interface DisambiguationState {
   pendingSlots: ParsedSlots;
 }
 
+export interface ConversaCardData {
+  title?: string;
+  description?: string;
+  requiresConfirmation?: boolean;
+  actionType?: string;
+  status?: 'success' | 'error';
+  type?: 'assignments-list' | 'week-parts-list' | 'vacant-parts-list' | 'pending-weeks-list';
+  items?: Array<UpcomingAssignmentView | WorkbookPart | DocumentCarouselItem | { weekId: string }>;
+  initialFocusId?: string;
+  candidates?: DisambiguationCandidate[];
+  found?: boolean;
+  summary?: string;
+  details?: string[];
+  officialSource?: string;
+}
+
 export interface ChatMessageItem {
   id: string;
   sender: 'user' | 'assistant';
@@ -31,7 +50,7 @@ export interface ChatMessageItem {
   timestamp: number;
   intentId?: string;
   cardType?: 'micro-panel' | 'document-carousel' | 'explain' | 'action-preview' | 'clarify';
-  cardData?: any;
+  cardData?: ConversaCardData;
 }
 
 export interface ConversaContextState {

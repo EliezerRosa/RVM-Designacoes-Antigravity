@@ -85,7 +85,7 @@ export async function resolveIntent(
       if (contract) {
         const minThreshold = contract.risk === 'high' || contract.category === 'action' ? 0.9 : 0.75;
         if (typeof data.confidence === 'number' && data.confidence >= minThreshold) {
-          const edgeSlots = (data.slots && typeof data.slots === 'object' ? data.slots : {}) as Record<string, any>;
+          const edgeSlots = (data.slots && typeof data.slots === 'object' ? data.slots : {}) as Record<string, unknown>;
           const cleanSlot = (val: unknown): string | undefined => {
             if (typeof val !== 'string') return undefined;
             const s = val.trim();

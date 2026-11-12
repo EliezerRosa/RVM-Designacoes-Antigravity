@@ -62,6 +62,16 @@
 
 ## 3. Estado Git & Prontidão
 - Alterações de código restritas exclusivamente a `src/features/conversa/**`, `api/conversa-nlu.ts` e documentos de memória/estado; RVM legado intacto.
-- Checkpoint pré-implementação: tag `checkpoint-pre-conversa-ui-66f083d`; implementação e viabilização end-to-end consolidadas nos commits `a95f67d` e `62ca187`.
-- Commitado e sincronizado com `origin/main`, com árvore de trabalho limpa para transição de agente ou IDE.
+## 4. Refinamento Noturno (2026-11-11 20:30 BRT) — Carrossel Sem Barras de Rolagem & Auto-Ajuste por Dispositivo
+- **Carrossel Documental (`DocumentCarousel.tsx` + `conversa.css`)**:
+  - Removido completamente `overflow: auto` / `maxHeight: 450px` e `min-height: 380px` fixo; zero barras de rolagem horizontais ou verticais em qualquer resolução.
+  - Implementado cálculo dinâmico de escala (`ResizeObserver` + `window.visualViewport` + `orientationchange`) que mede `naturalWidth` × `naturalHeight` reais de cada folha e aplica `transform: scale(s)` dentro de um `.cv-form-frame` com dimensões exatas `scaledW` × `scaledH` para celular retrato (`375×667`), celular paisagem (`844×390`), laptop (`1366×768`) e tela cheia (`100dvh`).
+  - Liberada 100% da largura da coluna para cards/carrossel do assistente e removidas as margens laterais ociosas do S-140 via escopo CSS `.cv-form-canvas .s140-wrapper .container`.
+  - Adicionados navegação por gesto *swipe* horizontal no toque, atalhos de teclado (`ArrowLeft`, `ArrowRight`, `Escape` em tela cheia) e desativação limpa das setas quando há item único.
+- **Formulários Completos no Carrossel (`documentPort.ts` + `cardPlanner.ts` + `policyGuard.ts`)**:
+  - Adicionada renderização cronológica oficial para **S-4** (`S-4-T 11/23`, `480px`) e **S-1** (`S-1-T 11/23`, `800px`, restrito por `policyGuard` a perfis com acesso a Relatórios Mensais), além de fallback HTML fiel para **S-89** (`460px`).
+- **Padronização & Qualidade**:
+  - Datas padronizadas em `DD/MM/AAAA` via módulo puro `core/dateFormat.ts` (evitando side-effect de `autoRefreshToken` do cliente Supabase em testes JSDOM).
+  - Eliminados todos os 32 apontamentos de ESLint em `src/features/conversa/` (`0` erros, `0` `any`), neutralizadas menções a sincronização externa e suíte ampliada para **`134/134` testes passando** (`npm test`) + validação real em Microsoft Edge Headless (Playwright).
+
 

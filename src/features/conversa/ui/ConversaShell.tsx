@@ -130,19 +130,28 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
               {/* Renderização de Cards Especializados */}
               {msg.cardType === 'clarify' && msg.cardData?.candidates && (
                 <ClarifyCard
-                  title={msg.cardData.title}
+                  title={msg.cardData.title || 'Escolha uma opção'}
                   candidates={msg.cardData.candidates}
                   onSelectCandidate={onSelectCandidate}
+                  onCancel={onActionCancel}
                 />
               )}
 
               {msg.cardType === 'explain' && msg.cardData && (
-                <ExplainAnswer data={msg.cardData} />
+                <ExplainAnswer
+                  data={{
+                    found: Boolean(msg.cardData.found),
+                    title: msg.cardData.title || 'Explicação',
+                    summary: msg.cardData.summary || msg.text,
+                    details: msg.cardData.details || [],
+                    officialSource: msg.cardData.officialSource,
+                  }}
+                />
               )}
 
               {msg.cardType === 'document-carousel' && msg.cardData?.items && (
                 <DocumentCarousel
-                  items={msg.cardData.items}
+                  items={msg.cardData.items as import('../ports/documentPort').DocumentCarouselItem[]}
                   initialFocusId={msg.cardData.initialFocusId}
                 />
               )}

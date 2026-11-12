@@ -1,35 +1,212 @@
-import React, { useState, useEffect } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from 'react';
 import type { DocumentCarouselItem } from '../ports/documentPort';
+import { formatDateBr } from '../core/dateFormat';
 
 interface DocumentCarouselProps {
   items: DocumentCarouselItem[];
   initialFocusId?: string;
 }
 
+interface StageFitMetrics {
+  availW: number;
+  availH: number;
+  scale: number;
+  scaledW: number;
+  scaledH: number;
+}
+
+function getDefaultFormWidth(docType: DocumentCarouselItem['docType']): number {
+  switch (docType) {
+    case 's140':
+    case 's1':
+      return 800;
+    case 's4':
+      return 480;
+    case 's89':
+      return 460;
+    default:
+      return 680;
+  }
+}
+
+function resolveInitialIndex(items: DocumentCarouselItem[], initialFocusId?: string): number {
+  if (!items.length) return 0;
+  if (initialFocusId) {
+    const idx = items.findIndex((item) => item.id === initialFocusId);
+    if (idx >= 0) return idx;
+  }
+  const defaultFocus = items.findIndex((item) => item.isInitialFocus);
+  return defaultFocus >= 0 ? defaultFocus : 0;
+}
+
 export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
   items,
   initialFocusId,
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const itemsSignature = `${initialFocusId || ''}|${items.map((i) => i.id).join(',')}`;
+  const [selection, setSelection] = useState<{ sig: string; index: number }>(() => ({
+    sig: itemsSignature,
+    index: resolveInitialIndex(items, initialFocusId),
+  }));
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [imgMeta, setImgMeta] = useState<{ id: string; w: number; h: number } | null>(null);
+  const [fit, setFit] = useState<StageFitMetrics>({
+    availW: 640,
+    availH: 520,
+    scale: 1,
+    scaledW: 0,
+    scaledH: 0,
+  });
 
-  useEffect(() => {
-    if (!items.length) {
-      setCurrentIndex(0);
-      return;
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const activeIndex =
+    selection.sig === itemsSignature
+      ? selection.index
+      : resolveInitialIndex(items, initialFocusId);
+
+  const safeIndex = items.length ? Math.min(activeIndex, items.length - 1) : 0;
+  const current = items[safeIndex];
+  const hasMultiple = items.length > 1;
+  const imgNatural = imgMeta && current && imgMeta.id === current.id ? imgMeta : null;
+
+  const handlePrev = useCallback(() => {
+    if (items.length <= 1) return;
+    setSelection((prev) => {
+      const cur = prev.sig === itemsSignature ? prev.index : resolveInitialIndex(items, initialFocusId);
+      const next = cur > 0 ? cur - 1 : items.length - 1;
+      return { sig: itemsSignature, index: next };
+    });
+  }, [items, initialFocusId, itemsSignature]);
+
+  const handleNext = useCallback(() => {
+    if (items.length <= 1) return;
+    setSelection((prev) => {
+      const cur = prev.sig === itemsSignature ? prev.index : resolveInitialIndex(items, initialFocusId);
+      const next = cur < items.length - 1 ? cur + 1 : 0;
+      return { sig: itemsSignature, index: next };
+    });
+  }, [items, initialFocusId, itemsSignature]);
+
+  const recomputeFit = useCallback(() => {
+    if (typeof window === 'undefined' || !current) return;
+
+    const vw = window.visualViewport?.width || window.innerWidth || 720;
+    const vh = window.visualViewport?.height || window.innerHeight || 800;
+
+    let availW = Math.min(vw - 36, 660);
+    let availH: number;
+
+    const trackEl = trackRef.current;
+    if (trackEl) {
+      const cs = window.getComputedStyle(trackEl);
+      const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      const measuredW = trackEl.clientWidth - padX;
+      if (measuredW > 20) {
+        availW = measuredW;
+      }
+      if (isFullscreen) {
+        const measuredH = trackEl.clientHeight - padY;
+        availH = measuredH > 60 ? measuredH : Math.max(220, vh - 120);
+      } else if (vh <= 480) {
+        // Celular em paisagem
+        availH = Math.max(180, vh - 155);
+      } else if (vw <= 640) {
+        // Celular em retrato
+        availH = Math.max(260, Math.min(vh - 185, 620));
+      } else {
+        // Tablet / Desktop inline
+        availH = Math.max(300, Math.min(vh - 230, 660));
+      }
+    } else {
+      availH = isFullscreen ? Math.max(240, vh - 120) : Math.max(280, Math.min(vh - 220, 620));
     }
-    if (initialFocusId) {
-      const idx = items.findIndex((item) => item.id === initialFocusId);
-      if (idx >= 0) {
-        setCurrentIndex(idx);
+
+    const baseWidth = current.naturalWidth || getDefaultFormWidth(current.docType);
+    const canvasEl = canvasRef.current;
+
+    if (canvasEl && !current.imageBase64) {
+      const naturalH = canvasEl.scrollHeight;
+      const naturalW = Math.max(baseWidth, canvasEl.scrollWidth || baseWidth);
+
+      if (naturalH > 0 && availW > 0) {
+        const maxScale = isFullscreen ? 1.35 : 1.0;
+        const nextScale = Math.min(availW / naturalW, availH / naturalH, maxScale);
+        const scaledW = Math.max(1, Math.round(naturalW * nextScale));
+        const scaledH = Math.max(1, Math.round(naturalH * nextScale));
+
+        setFit((prev) =>
+          prev.availW === availW &&
+          prev.availH === availH &&
+          Math.abs(prev.scale - nextScale) < 0.002 &&
+          prev.scaledW === scaledW &&
+          prev.scaledH === scaledH
+            ? prev
+            : { availW, availH, scale: nextScale, scaledW, scaledH }
+        );
         return;
       }
     }
-    const defaultFocus = items.findIndex((item) => item.isInitialFocus);
-    setCurrentIndex(defaultFocus >= 0 ? defaultFocus : 0);
-  }, [items, initialFocusId]);
 
-  if (!items.length) {
+    setFit((prev) =>
+      prev.availW === availW && prev.availH === availH && prev.scaledH === 0
+        ? prev
+        : { availW, availH, scale: 1, scaledW: 0, scaledH: 0 }
+    );
+  }, [current, isFullscreen]);
+
+  useLayoutEffect(() => {
+    recomputeFit();
+  }, [recomputeFit, current?.id, current?.htmlContent, isFullscreen]);
+
+  useEffect(() => {
+    recomputeFit();
+
+    const onViewportChange = () => recomputeFit();
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('orientationchange', onViewportChange);
+    window.visualViewport?.addEventListener('resize', onViewportChange);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => recomputeFit());
+      if (trackRef.current) ro.observe(trackRef.current);
+      if (canvasRef.current) ro.observe(canvasRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('orientationchange', onViewportChange);
+      window.visualViewport?.removeEventListener('resize', onViewportChange);
+      ro?.disconnect();
+    };
+  }, [recomputeFit, current?.id]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false);
+      } else if (e.key === 'ArrowLeft') {
+        handlePrev();
+      } else if (e.key === 'ArrowRight') {
+        handleNext();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isFullscreen, handlePrev, handleNext]);
+
+  if (!items.length || !current) {
     return (
       <div className="cv-card">
         <p style={{ margin: 0, color: 'var(--cv-text-muted)' }}>
@@ -39,75 +216,142 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
     );
   }
 
-  const safeIndex = Math.min(currentIndex, items.length - 1);
-  const current = items[safeIndex];
+  const baseFormWidth = current.naturalWidth || getDefaultFormWidth(current.docType);
 
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
+  const computedImageStyle = (): React.CSSProperties => {
+    if (imgNatural && imgNatural.w > 0 && imgNatural.h > 0 && fit.availW > 0 && fit.availH > 0) {
+      const maxScale = isFullscreen ? 1.35 : 1.0;
+      const s = Math.min(fit.availW / imgNatural.w, fit.availH / imgNatural.h, maxScale);
+      return {
+        width: `${Math.max(1, Math.round(imgNatural.w * s))}px`,
+        height: `${Math.max(1, Math.round(imgNatural.h * s))}px`,
+        maxWidth: `${fit.availW}px`,
+        maxHeight: `${fit.availH}px`,
+      };
+    }
+    return {
+      maxWidth: `${fit.availW}px`,
+      maxHeight: `${fit.availH}px`,
+    };
   };
 
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!hasMultiple || !touchStartRef.current || e.changedTouches.length === 0) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    if (Math.abs(dx) >= 42 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      if (dx < 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
+    }
+  };
+
+  const handleContainerKeyDown = (e: React.KeyboardEvent) => {
+    if (isFullscreen) return;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      handlePrev();
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      handleNext();
+    }
   };
 
   return (
-    <div className={`cv-carousel ${isFullscreen ? 'cv-carousel-fullscreen' : ''}`}>
-      {/* Barra Superior do Carrossel */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '10px 14px',
-          background: 'var(--cv-surface)',
-          borderBottom: '1px solid var(--cv-border)',
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 600, fontSize: '15px' }}>{current.title}</div>
-          <div style={{ fontSize: '13px', color: 'var(--cv-text-muted)' }}>
-            {current.subtitle}
+    <div
+      className={`cv-carousel ${isFullscreen ? 'cv-carousel-fullscreen' : ''}`}
+      tabIndex={0}
+      onKeyDown={handleContainerKeyDown}
+      aria-label={current.title}
+    >
+      {/* Barra Superior Limpa */}
+      <div className="cv-carousel-header">
+        <div className="cv-carousel-meta">
+          <div className="cv-carousel-title" title={current.title}>
+            {current.title}
           </div>
+          {current.subtitle && (
+            <div className="cv-carousel-subtitle" title={current.subtitle}>
+              {current.subtitle}
+            </div>
+          )}
         </div>
         <button
           type="button"
           className="cv-icon-btn"
           onClick={() => setIsFullscreen(!isFullscreen)}
           title={isFullscreen ? 'Sair da tela cheia' : 'Expandir tela cheia'}
+          aria-label={isFullscreen ? 'Sair da tela cheia' : 'Expandir tela cheia'}
         >
           {isFullscreen ? '✕' : '⛶'}
         </button>
       </div>
 
-      {/* Área Central de Visualização */}
-      <div className="cv-carousel-track">
+      {/* Palco Auto-Ajustado ao Dispositivo (zero barras de rolagem) */}
+      <div
+        ref={trackRef}
+        className="cv-carousel-track"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {current.imageBase64 ? (
           <img
             src={`data:image/png;base64,${current.imageBase64}`}
             alt={current.title}
-            style={{
-              maxWidth: '100%',
-              maxHeight: isFullscreen ? '85vh' : '450px',
-              objectFit: 'contain',
-              borderRadius: '6px',
-              boxShadow: 'var(--cv-shadow-sm)',
+            className="cv-form-image"
+            style={computedImageStyle()}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                setImgMeta({ id: current.id, w: img.naturalWidth, h: img.naturalHeight });
+              }
             }}
           />
         ) : current.htmlContent ? (
           <div
-            style={{
-              width: '100%',
-              maxHeight: isFullscreen ? '85vh' : '450px',
-              overflow: 'auto',
-              background: '#ffffff',
-              color: '#000000',
-              padding: '12px',
-              borderRadius: '6px',
-            }}
-            dangerouslySetInnerHTML={{ __html: current.htmlContent }}
-          />
+            className="cv-form-frame"
+            style={
+              fit.scaledH > 0
+                ? {
+                    width: `${fit.scaledW}px`,
+                    height: `${fit.scaledH}px`,
+                  }
+                : {
+                    width: '100%',
+                    height: 'auto',
+                  }
+            }
+          >
+            <div
+              ref={canvasRef}
+              className="cv-form-canvas"
+              style={
+                fit.scaledH > 0
+                  ? {
+                      width: `${baseFormWidth}px`,
+                      transform: `scale(${fit.scale})`,
+                    }
+                  : {
+                      width: '100%',
+                    }
+              }
+              dangerouslySetInnerHTML={{ __html: current.htmlContent }}
+            />
+          </div>
         ) : (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--cv-text-muted)' }}>
+          <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--cv-text-muted)' }}>
             Visualização prévia não disponível.
           </div>
         )}
@@ -119,20 +363,24 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
           type="button"
           className="cv-icon-btn"
           onClick={handlePrev}
+          disabled={!hasMultiple}
           title="Semana / Documento anterior"
-          style={{ fontSize: '18px' }}
+          aria-label="Semana ou documento anterior"
+          style={{ fontSize: '17px' }}
         >
           ◀
         </button>
-        <div style={{ fontSize: '14px', fontWeight: 500 }}>
-          {safeIndex + 1} de {items.length} · {current.dateStr}
+        <div className="cv-carousel-counter">
+          {safeIndex + 1} de {items.length} · {formatDateBr(current.dateStr)}
         </div>
         <button
           type="button"
           className="cv-icon-btn"
           onClick={handleNext}
+          disabled={!hasMultiple}
           title="Próxima semana / Documento"
-          style={{ fontSize: '18px' }}
+          aria-label="Próxima semana ou documento"
+          style={{ fontSize: '17px' }}
         >
           ▶
         </button>

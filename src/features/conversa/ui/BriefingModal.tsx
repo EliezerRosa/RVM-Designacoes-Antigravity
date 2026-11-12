@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { UserBriefingData } from '../ports/briefingPort';
+import { formatDateBr } from '../core/dateFormat';
 
 interface BriefingModalProps {
   briefing: UserBriefingData;
@@ -25,8 +26,8 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
     setActionError(null);
     try {
       await onConfirmAssignment(partId);
-    } catch (e: any) {
-      setActionError(e?.message || 'Não foi possível confirmar a designação.');
+    } catch (e: unknown) {
+      setActionError(e instanceof Error ? e.message : 'Não foi possível confirmar a designação.');
     } finally {
       setBusyPartId(null);
     }
@@ -41,8 +42,8 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
       await onRefuseAssignment(partId, cleanReason);
       setRefusingPartId(null);
       setRefusalReason('');
-    } catch (e: any) {
-      setActionError(e?.message || 'Não foi possível registrar a recusa.');
+    } catch (e: unknown) {
+      setActionError(e instanceof Error ? e.message : 'Não foi possível registrar a recusa.');
     } finally {
       setBusyPartId(null);
     }
@@ -88,7 +89,7 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
                     style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}
                   >
                     <div>
-                      <strong>{item.dateStr}</strong> — {item.tipoParte}
+                      <strong>{formatDateBr(item.dateStr)}</strong> — {item.tipoParte}
                       {item.partnerName && (
                         <span style={{ fontSize: '13px', opacity: 0.75 }}> (com {item.partnerName})</span>
                       )}
@@ -185,7 +186,7 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
               {briefing.assignmentsToFulfill.map((item) => (
                 <div key={item.partId} className="cv-list-item">
                   <div>
-                    <strong>{item.dateStr}</strong> — {item.tipoParte}
+                    <strong>{formatDateBr(item.dateStr)}</strong> — {item.tipoParte}
                   </div>
                   <span className="cv-badge cv-badge-success">Confirmada</span>
                 </div>
@@ -207,7 +208,7 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({
                     <strong>{ev.name}</strong>
                   </div>
                   <span style={{ fontSize: '13px', opacity: 0.8 }}>
-                    {ev.startDate}
+                    {formatDateBr(ev.startDate)}
                   </span>
                 </div>
               ))}

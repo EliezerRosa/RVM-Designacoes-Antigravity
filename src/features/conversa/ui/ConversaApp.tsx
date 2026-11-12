@@ -171,7 +171,7 @@ export const ConversaApp: React.FC = () => {
 
       setMessages((prev) => [...prev, planned.message]);
       setContextState(planned.updatedContext);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[ConversaApp] Erro no processamento:', e);
       const errMsg: ChatMessageItem = {
         id: `err_${Date.now()}`,
