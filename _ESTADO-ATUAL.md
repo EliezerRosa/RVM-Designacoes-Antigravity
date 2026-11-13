@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-11 20:30 (BRT) — §42 Refinamento da UI-Chat-IA "Conversa RVM": carrossel documental 100% limpo, sem barras de rolagem, com auto-ajuste proporcional por dispositivo (`ResizeObserver` + `visualViewport` em mobile retrato/paisagem, desktop e tela cheia), formulários oficiais S-140/S-89/S-4/S-1, swipe touch + teclado, datas padronizadas `DD/MM/AAAA` e lint estrito zero-erros (134/134 testes passando)  
+> **Última Atualização**: 2026-11-13 18:15 (BRT) — §43 Checkpoint estável pós-entrega da UI-Chat-IA "Conversa RVM" (`checkpoint-conversa-ui-2026-11-13`, baseline de código `27aaafc`, pré-revisão do plano); `npm test` (134/134), `eslint` de `conversa` (0 erros) e `vite build` aprovados; ajuste pontual em BD na semana `2026-11-30` (`seq 18`, `Evento Especial` → `publisher_id = '19'`)  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -43,11 +43,11 @@
 - **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy de produção Vercel e GitHub Pages atualizados).
 - **Frontend GitHub Pages**: Ativo (`https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/`), sincronizado via `npm run deploy`.
 - **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas). Edge functions `send-whatsapp`, `zapi-smart-webhook` e `cron-whatsapp-reminders` atualizadas e redeployadas.
-- **Último Commit Estável / Checkpoint**: `7fedb03` (Tag: `v2.6.0-checkpoint-s140-monitor`)
-  - `20fa331`: fix(automation): resolver apontamentos da auditoria de fluxos P1-P8
-  - `f831850`: feat(s140): automação de envio de S-140 via Z-API, CRUD de funções congregacionais e permissões
-  - `94cc17a`: fix(reassignment): resetar needs_reassignment ao atribuir publicador e blindar cron contra partes resolvidas
-  - `7fedb03`: feat(cron): detalhar semana, parte e publicador no alerta de substituicoes pendentes
+- **Último Commit Estável / Checkpoint**: `27aaafc` (Tag pós-entrega Conversa RVM: `checkpoint-conversa-ui-2026-11-13`; tag pré-Conversa: `checkpoint-pre-conversa-ui-66f083d`; checkpoint legado S-140: `7fedb03` / Tag `v2.6.0-checkpoint-s140-monitor`)
+  - `27aaafc`: feat(conversa): refina carrossel sem barras de rolagem e auto-ajuste responsivo de forms
+  - `62ca187`: feat(conversa): viabiliza UI Conversa RVM end-to-end sem alterar RVM
+  - `a95f67d`: feat(conversa): implementa UI Conversa IA desacoplada com NLU L0/L2, briefing proativo e carrossel
+  - `66f083d`: docs(plano): adiciona briefing proativo multimodal ao plano da UI Conversa IA
 - **Edge Functions Supabase Ativas (`pevstuyzlewvjidjkmea` em Produção)**:
   - `cron-whatsapp-reminders`: Atualizada com suporte a publisherId e acionamento desacoplado do resumo de próximas partes nos lembretes de falta de confirmação (COBRANCA_72H e LEMBRETE_D9).
   - `trigger-github-workflow`: v2 ativa para orquestração de disparos.
@@ -826,6 +826,20 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 
 ---
 
+## 43. Checkpoint Pós-Entrega Conversa RVM & Ajuste Pontual em BD (2026-11-13)
+
+- **Tag Git de Checkpoint**: `checkpoint-conversa-ui-2026-11-13` (sobre o baseline de código `27aaafc`, antes de iniciar a revisão de `memories/repo/plano-ui-conversa-ia-2026-11-10.md`).
+- **Portões verificados em `2026-11-13`**:
+  - `npm test`: **134/134** aprovados (`0` falhas).
+  - `npx eslint src/features/conversa api/conversa-nlu.ts`: **Exit 0** (`0` erros/warnings).
+  - `npm run build` (`vite build`): **Exit 0** (`dist/index.html` e `dist/conversa.html` gerados).
+  - `npm run type-check` (`tsc -b`): **Exit 2** (erros estritos pré-existentes no legado + 4 checagens de estreitamento em `src/features/conversa/__tests__/conversaFlow.test.ts`; nenhum código editado neste checkpoint).
+- **Ajuste direto pontual no Supabase (sem alterações em arquivo do repositório)**:
+  - `workbook_parts`, semana `2026-11-30`, registro `id = 58369c96-f099-4e49-a0f3-3ee2b7ddb15a` (`seq = 18`, `Evento Especial`, `status = 'DESIGNADA'` preservado): `resolved_publisher_id` alterado de `'21'` para `'19'` (única linha modificada dentre as 23 da semana; `special_events` inalterado).
+- **Memória da sessão**: [`memories/session/checkpoint-conversa-ui-2026-11-13.md`](memories/session/checkpoint-conversa-ui-2026-11-13.md).
+
+---
+
 ## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
 
 
@@ -839,5 +853,5 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
 6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais, garantindo observabilidade total de que os Responsáveis pelo Quadro receberam o artefato.
 7. **Integração externa (local)**: pendências mantidas em `docs-local/_ESTADO-LOCAL.md` → seção "Pendências".
 8. **Pós-reescrita do histórico** (3 reescritas + force-push de `main` + tags **executados em 2026-11-07, 21:37, 22:12 e 22:3x**; branch remota `copilot/research-accessibility-analysis` excluída; `gh-pages` inalterada; `fetch --prune` + `gc` locais feitos; backups com dados de publicadores movidos para `_backups-local/`, gitignored): (a) realinhar clones de outras IDEs **uma vez, após a 3ª reescrita** (`git fetch origin; git reset --hard origin/main`); (b) Eliezer **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública; (c) **pedido de purga dos commits órfãos antigos enviado ao GitHub Support em 2026-11-08 (ticket #4972265, aberto)** — repo sem PRs/forks; após a resposta, conferir que SHAs antigos deixaram de responder (detalhes em `docs-local/`); (d) **decisão separada pendente**: nomes/telefones de publicadores escritos diretamente em código (`src/services/*`, `scripts/test_*.ts`) — não tocados, pois exigiriam alterar `src/`. Decidido em 2026-11-07 (Eliezer): nomes dos titulares de papéis em documentos públicos **permanecem** (papéis públicos da congregação); `scripts/test_lifecycle_report.md` e `docs/CHECKPOINT_MEMO_2026-07-23.md` permanecem como estão (dados próprios/exemplo).
-9. **Nova UI-Chat-IA "Conversa RVM" (2026-11-11)**: 🟢 Implementação modular concluída em `src/features/conversa/` + `conversa.html` + `api/conversa-nlu.ts` (checkpoint `checkpoint-pre-conversa-ui-66f083d`). Pendência opcional futura: habilitar o acesso no menu principal ou configurar `GEMINI_API_KEY` na Vercel para classificação L2 avançada (atualmente L0 determinístico cobre todo o catálogo sem falha).
+9. **Nova UI-Chat-IA "Conversa RVM" (2026-11-11 / Checkpoint 2026-11-13)**: 🟢 Implementação modular concluída em `src/features/conversa/` + `conversa.html` + `api/conversa-nlu.ts` (checkpoints `checkpoint-pre-conversa-ui-66f083d` e `checkpoint-conversa-ui-2026-11-13` sobre `27aaafc`). Revisão do plano solicitada pelo usuário aguardando continuação; pendência opcional futura: habilitar o acesso no menu principal ou configurar `GEMINI_API_KEY` na Vercel para classificação L2 avançada (atualmente L0 determinístico cobre todo o catálogo sem falha).
 
