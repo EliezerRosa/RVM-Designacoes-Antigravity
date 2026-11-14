@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UpcomingAssignmentView } from '../ports/queryPort';
-import type { ConversaCardData } from '../core/conversationState';
+import type { ConversaCardData, InfoListItem } from '../core/conversationState';
 import { formatDateBr } from '../core/dateFormat';
 import type { WorkbookPart } from '../../../types';
 
@@ -145,6 +145,35 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
                 <strong>Semana de {formatDateBr(item.weekId)}</strong>
               </div>
               <span className="cv-badge cv-badge-warning">Pendente</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // 5b. Painel Estruturado (Elegibilidade, Ranking, Perfil, Lista, Analytics)
+  if (cardData.type === 'info-list') {
+    const items = (cardData.items || []) as InfoListItem[];
+    return (
+      <div className="cv-card">
+        <div className="cv-card-title">📌 {cardData.title}</div>
+        {cardData.description && (
+          <p style={{ margin: '4px 0 10px 0', fontSize: '14px', color: '#475569', lineHeight: 1.45 }}>
+            {cardData.description}
+          </p>
+        )}
+        <div className="cv-list">
+          {items.map((item, idx) => (
+            <div key={`${item.label}-${idx}`} className="cv-list-item">
+              <div style={{ flex: 1 }}>
+                <strong>{item.label}</strong>
+                {item.detail && <div style={{ fontSize: '13px', color: '#64748b', marginTop: 2 }}>{item.detail}</div>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{item.value}</span>
+                {item.badge && <span className="cv-badge cv-badge-success">{item.badge}</span>}
+              </div>
             </div>
           ))}
         </div>

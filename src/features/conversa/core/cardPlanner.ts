@@ -34,13 +34,46 @@ export interface PlanUserContext {
 }
 
 export interface CardPlannerPorts {
-  actions?: Pick<typeof actionPort, 'registerAbsence' | 'approveWeekProposal'>;
+  actions?: Pick<typeof actionPort, 'registerAbsence' | 'approveWeekProposal'> &
+    Partial<
+      Pick<
+        typeof actionPort,
+        | 'confirmAssignment'
+        | 'refuseAssignment'
+        | 'assignOrReplacePart'
+        | 'rejectPartProposal'
+        | 'generateWeekDesignations'
+        | 'clearWeekDesignations'
+        | 'completeWeekOrPart'
+        | 'undoLastAction'
+        | 'addLocalNeedToQueue'
+      >
+    >;
   queries?: Pick<
     typeof queryPort,
     'getPublisherAssignments' | 'getWeekParts' | 'getVacantParts' | 'getLastParticipation' | 'getPendingWeeks'
-  >;
+  > &
+    Partial<
+      Pick<
+        typeof queryPort,
+        | 'checkPublisherEligibility'
+        | 'explainPartRanking'
+        | 'getPublisherProfileSummary'
+        | 'getPublisherListSummary'
+        | 'getAnalyticsSummary'
+      >
+    >;
   documents?: Pick<typeof documentPort, 'getS140ChronologicalList' | 'getS89ChronologicalList'> &
     Partial<Pick<typeof documentPort, 'getS4ChronologicalList' | 'getS1ChronologicalList'>>;
+}
+
+function normText(value?: string | null): string {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 type InternalSlots = ParsedSlots & { chosenPublisherId?: string };
@@ -192,6 +225,66 @@ export async function planTurn(
             userContext.publisherId || userContext.publisherName || 'conversa-ia'
           );
         }
+      } else if (action.intentId === 'confirm-my-assignment') {
+        const fn = actions.confirmAssignment || actionPort.confirmAssignment;
+        execResult = await fn(String(action.params.partId || ''), String(action.params.publisherId || ''));
+      } else if (action.intentId === 'refuse-my-assignment') {
+        const fn = actions.refuseAssignment || actionPort.refuseAssignment;
+        execResult = await fn(
+          String(action.params.partId || ''),
+          String(action.params.publisherId || ''),
+          action.params.reason ? String(action.params.reason) : undefined
+        );
+      } else if (action.intentId === 'reassign-part-assignee') {
+        const fn = actions.assignOrReplacePart || actionPort.assignOrReplacePart;
+        const newPubId = String(action.params.newPublisherId || '');
+        const newPub = allPublishers.find((p) => p.id === newPubId);
+        if (!newPub) {
+          execResult = {
+            success: false,
+            actionType: 'ASSIGN_PART',
+            message: 'Publicador substituto não encontrado no cadastro.',
+          };
+        } else {
+          execResult = await fn(
+            String(action.params.weekId || ''),
+            action.params.partHint ? String(action.params.partHint) : undefined,
+            newPub,
+            allPublishers,
+            action.params.currentAssignee ? String(action.params.currentAssignee) : undefined,
+            true
+          );
+        }
+      } else if (action.intentId === 'reject-part-proposal') {
+        const fn = actions.rejectPartProposal || actionPort.rejectPartProposal;
+        execResult = await fn(
+          String(action.params.weekId || ''),
+          action.params.partHint ? String(action.params.partHint) : undefined,
+          action.params.currentAssignee ? String(action.params.currentAssignee) : undefined,
+          action.params.reason ? String(action.params.reason) : undefined
+        );
+      } else if (action.intentId === 'generate-week') {
+        const fn = actions.generateWeekDesignations || actionPort.generateWeekDesignations;
+        execResult = await fn(String(action.params.weekId || ''), allPublishers);
+      } else if (action.intentId === 'clear-week') {
+        const fn = actions.clearWeekDesignations || actionPort.clearWeekDesignations;
+        execResult = await fn(String(action.params.weekId || ''));
+      } else if (action.intentId === 'complete-part') {
+        const fn = actions.completeWeekOrPart || actionPort.completeWeekOrPart;
+        execResult = await fn(
+          String(action.params.weekId || ''),
+          action.params.partHint ? String(action.params.partHint) : undefined
+        );
+      } else if (action.intentId === 'undo-last-action') {
+        const fn = actions.undoLastAction || actionPort.undoLastAction;
+        execResult = await fn();
+      } else if (action.intentId === 'manage-local-needs') {
+        const fn = actions.addLocalNeedToQueue || actionPort.addLocalNeedToQueue;
+        execResult = await fn(
+          String(action.params.theme || ''),
+          String(action.params.assigneeName || 'A definir'),
+          action.params.weekId ? String(action.params.weekId) : null
+        );
       }
 
       if (!execResult) {
@@ -341,8 +434,9 @@ export async function planTurn(
   // 6. Roteamento por Categoria de Intenção
 
   // A. EXPLICAÇÕES
-  if (nlu.intentId === 'explain-engine-rules' || nlu.intentId === 'explain-ranking') {
-    const expl = knowledgePort.getExplanation(nlu.rawText);
+  if (nlu.intentId === 'explain-engine-rules') {
+    const queryHint = nlu.slots.ruleId || nlu.slots.ruleName || nlu.rawText;
+    const expl = knowledgePort.getExplanation(queryHint);
     return {
       message: {
         id: messageId,
@@ -355,6 +449,48 @@ export async function planTurn(
       },
       updatedContext,
       spokenText: expl.summary,
+    };
+  }
+
+  if (nlu.intentId === 'explain-ranking') {
+    if (availableWeeks.length === 0 && !ports.queries?.explainPartRanking) {
+      const expl = knowledgePort.getExplanation(nlu.rawText);
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: expl.summary,
+          timestamp: now,
+          intentId: nlu.intentId,
+          cardType: 'explain',
+          cardData: expl,
+        },
+        updatedContext,
+        spokenText: expl.summary,
+      };
+    }
+
+    const rankingFn = queries.explainPartRanking || queryPort.explainPartRanking.bind(queryPort);
+    const res = await rankingFn(explicitWeekId || targetWeekId || availableWeeks[0], nlu.slots.partType, resolvedPerson, allPublishers);
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: res.summary,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: res.items.length ? 'micro-panel' : undefined,
+        cardData: res.items.length
+          ? {
+            type: 'info-list',
+            title: res.title,
+            description: res.summary,
+            items: res.items,
+          }
+          : undefined,
+      },
+      updatedContext,
+      spokenText: res.summary,
     };
   }
 
@@ -538,14 +674,19 @@ export async function planTurn(
     }
 
     const pubName = target.name || 'Publicador';
-    const assignments = await queries.getPublisherAssignments(target.id, pubName, target.isSelf);
+    const allAssignments = await queries.getPublisherAssignments(target.id, pubName, target.isSelf);
+    const partFilter = nlu.slots.partType ? normText(nlu.slots.partType) : '';
+    const assignments = partFilter
+      ? allAssignments.filter((a) => normText(`${a.tipoParte} ${a.tituloParte || ''}`).includes(partFilter))
+      : allAssignments;
+
     return {
       message: {
         id: messageId,
         sender: 'assistant',
         text: assignments.length
-          ? `Encontrei ${assignments.length} designação(ões) para ${pubName}:`
-          : `${pubName} não possui designações futuras registradas no momento.`,
+          ? `Encontrei ${assignments.length} designação(ões)${nlu.slots.partType ? ` (${nlu.slots.partType})` : ''} para ${pubName}:`
+          : `${pubName} não possui designações futuras${nlu.slots.partType ? ` para "${nlu.slots.partType}"` : ''} registradas no momento.`,
         timestamp: now,
         intentId: nlu.intentId,
         cardType: assignments.length ? 'micro-panel' : undefined,
@@ -623,7 +764,12 @@ export async function planTurn(
       };
     }
 
-    const parts = await queries.getWeekParts(weekId);
+    const allParts = await queries.getWeekParts(weekId);
+    const partFilter = nlu.slots.partType ? normText(nlu.slots.partType) : '';
+    const filteredParts = partFilter
+      ? allParts.filter((p) => normText(`${p.tipoParte} ${p.tituloParte || ''} ${p.modalidade || ''}`).includes(partFilter))
+      : allParts;
+    const parts = filteredParts.length ? filteredParts : allParts;
     const weekBr = formatDateBr(weekId);
     return {
       message: {
@@ -647,6 +793,133 @@ export async function planTurn(
       spokenText: parts.length
         ? `Exibindo ${parts.length} partes da semana de ${weekBr}.`
         : `Nenhuma parte encontrada para ${weekBr}.`,
+    };
+  }
+
+  if (nlu.intentId === 'query-eligibility') {
+    const target = resolveTargetPerson(resolvedPerson, nlu.rawText, context, userContext);
+    const pub = target.id ? allPublishers.find((p) => p.id === target.id) : undefined;
+    if (!pub) {
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: 'Informe de qual publicador você deseja verificar a elegibilidade (ex: "o irmão Carlos pode fazer leitura?").',
+          timestamp: now,
+          intentId: nlu.intentId,
+        },
+        updatedContext,
+        spokenText: 'De qual publicador você deseja verificar a elegibilidade?',
+      };
+    }
+
+    const eligFn = queries.checkPublisherEligibility || queryPort.checkPublisherEligibility.bind(queryPort);
+    const res = await eligFn(pub, nlu.slots.partType, explicitWeekId || availableWeeks[0], allPublishers);
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: res.summary,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'micro-panel',
+        cardData: {
+          type: 'info-list',
+          title: res.title,
+          description: res.summary,
+          items: res.items,
+        },
+      },
+      updatedContext,
+      spokenText: res.summary,
+    };
+  }
+
+  if (nlu.intentId === 'query-publisher-profile') {
+    const target = resolveTargetPerson(resolvedPerson, nlu.rawText, context, userContext);
+    const pub = target.id ? allPublishers.find((p) => p.id === target.id) : undefined;
+    if (!pub) {
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: 'Informe o nome do publicador ou vincule seu perfil para consultar os privilégios e dados cadastrais.',
+          timestamp: now,
+          intentId: nlu.intentId,
+        },
+        updatedContext,
+        spokenText: 'De qual publicador você deseja consultar o perfil?',
+      };
+    }
+
+    const scope = typeof gate.getPublisherScope === 'function' ? gate.getPublisherScope() : undefined;
+    const canSeeSensitive = Boolean(userContext.isAdmin || target.isSelf || scope?.canSeeSensitiveData);
+    const profileFn = queries.getPublisherProfileSummary || queryPort.getPublisherProfileSummary.bind(queryPort);
+    const res = profileFn(pub, canSeeSensitive);
+
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: res.summary,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'micro-panel',
+        cardData: {
+          type: 'info-list',
+          title: res.title,
+          description: res.summary,
+          items: res.items,
+        },
+      },
+      updatedContext,
+      spokenText: res.summary,
+    };
+  }
+
+  if (nlu.intentId === 'query-publisher-list') {
+    const listFn = queries.getPublisherListSummary || queryPort.getPublisherListSummary.bind(queryPort);
+    const res = listFn(allPublishers, nlu.slots.filter);
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: res.summary,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'micro-panel',
+        cardData: {
+          type: 'info-list',
+          title: res.title,
+          description: res.summary,
+          items: res.items,
+        },
+      },
+      updatedContext,
+      spokenText: res.summary,
+    };
+  }
+
+  if (nlu.intentId === 'query-analytics') {
+    const analyticsFn = queries.getAnalyticsSummary || queryPort.getAnalyticsSummary.bind(queryPort);
+    const res = await analyticsFn(allPublishers, nlu.rawText);
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: res.summary,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'micro-panel',
+        cardData: {
+          type: 'info-list',
+          title: res.title,
+          description: res.summary,
+          items: res.items,
+        },
+      },
+      updatedContext,
+      spokenText: res.summary,
     };
   }
 
@@ -819,6 +1092,321 @@ export async function planTurn(
         },
       },
       spokenText: `Confirmar aprovação da semana de ${weekBr}?`,
+    };
+  }
+
+  if (nlu.intentId === 'confirm-my-assignment' || nlu.intentId === 'refuse-my-assignment') {
+    const isConfirm = nlu.intentId === 'confirm-my-assignment';
+    if (!userContext.publisherId) {
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: 'Vincule seu perfil de publicador no portal para confirmar ou recusar suas próprias designações.',
+          timestamp: now,
+          intentId: nlu.intentId,
+        },
+        updatedContext,
+        spokenText: 'Vincule seu perfil de publicador primeiro.',
+      };
+    }
+
+    const upcoming = await queries.getPublisherAssignments(userContext.publisherId, userContext.publisherName || 'Publicador', true);
+    const partHint = nlu.slots.partType ? normText(nlu.slots.partType) : '';
+    const candidate =
+      upcoming.find(
+        (a) =>
+          (!explicitWeekId || a.weekId === explicitWeekId) &&
+          (!partHint || normText(`${a.tipoParte} ${a.tituloParte || ''}`).includes(partHint)) &&
+          (!isConfirm || a.portalResponse !== 'confirmed')
+      ) || upcoming[0];
+
+    if (!candidate) {
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: isConfirm
+            ? 'Você não possui designações pendentes de confirmação no momento.'
+            : 'Você não possui designações futuras ativas para recusar.',
+          timestamp: now,
+          intentId: nlu.intentId,
+        },
+        updatedContext,
+        spokenText: 'Nenhuma designação aplicável encontrada.',
+      };
+    }
+
+    const label = `${candidate.tipoParte} (${formatDateBr(candidate.weekId)})`;
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: isConfirm
+          ? `Deseja confirmar sua designação em ${label}?`
+          : `Deseja recusar sua designação em ${label}?`,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'action-preview',
+        cardData: {
+          title: isConfirm ? 'Confirmar Designação (S-89)' : 'Recusar Designação (S-89)',
+          description: `${candidate.tituloParte || candidate.tipoParte} — Semana de ${formatDateBr(candidate.weekId)}. O mesmo webhook do Z-API será notificado.`,
+          requiresConfirmation: true,
+        },
+      },
+      updatedContext: {
+        ...updatedContext,
+        pendingAction: {
+          intentId: nlu.intentId,
+          title: isConfirm ? 'Confirmação de Designação' : 'Recusa de Designação',
+          description: label,
+          params: {
+            partId: candidate.partId,
+            publisherId: userContext.publisherId,
+            reason: nlu.slots.reason,
+          },
+          requiresConfirmation: true,
+        },
+      },
+      spokenText: isConfirm ? `Confirmar ${label}?` : `Recusar ${label}?`,
+    };
+  }
+
+  if (nlu.intentId === 'reassign-part-assignee') {
+    const weekId = targetWeekId || availableWeeks[0];
+    const targetCandidateName = nlu.slots.newAssignee || nlu.slots.personName;
+    const newPubRes = targetCandidateName ? resolvePublisher(targetCandidateName, allPublishers) : undefined;
+    const newPub = resolvedPerson || newPubRes?.person;
+
+    if (!weekId || !newPub || (!nlu.slots.partType && !nlu.slots.currentAssignee)) {
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: 'Informe a semana, a parte (ou atual designado) e o novo publicador (ex: "trocar João por Pedro na leitura da próxima semana").',
+          timestamp: now,
+          intentId: nlu.intentId,
+        },
+        updatedContext,
+        spokenText: 'Informe a parte, o novo publicador e a semana para reatribuição.',
+      };
+    }
+
+    const weekBr = formatDateBr(weekId);
+    const partLabel = nlu.slots.partType || `parte de ${nlu.slots.currentAssignee}`;
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: `Deseja designar ${newPub.name} para ${partLabel} na semana de ${weekBr}?`,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'action-preview',
+        cardData: {
+          title: 'Designar / Substituir Parte',
+          description: `${newPub.name} em ${partLabel} — Semana de ${weekBr} (com checagem S-38/gênero).`,
+          requiresConfirmation: true,
+          actionType: 'ASSIGN_PART',
+        },
+      },
+      updatedContext: {
+        ...updatedContext,
+        pendingAction: {
+          intentId: nlu.intentId,
+          title: 'Reatribuição de Parte',
+          description: `${newPub.name} (${partLabel})`,
+          params: {
+            weekId,
+            partHint: nlu.slots.partType,
+            newPublisherId: newPub.id,
+            currentAssignee: nlu.slots.currentAssignee,
+          },
+          requiresConfirmation: true,
+        },
+      },
+      spokenText: `Confirmar substituição para ${newPub.name}?`,
+    };
+  }
+
+  if (nlu.intentId === 'reject-part-proposal') {
+    const weekId = targetWeekId || availableWeeks[0];
+    const partHint = nlu.slots.partType;
+    const currentAssignee = resolvedPerson?.name || nlu.slots.currentAssignee;
+    if (!weekId || (!partHint && !currentAssignee)) {
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: 'Informe qual parte ou designado você deseja remover/rejeitar e a semana correspondente.',
+          timestamp: now,
+          intentId: nlu.intentId,
+        },
+        updatedContext,
+        spokenText: 'Informe a parte e a semana.',
+      };
+    }
+
+    const weekBr = formatDateBr(weekId);
+    const targetLabel = partHint || currentAssignee || 'parte';
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: `Deseja rejeitar/remover a designação de "${targetLabel}" na semana de ${weekBr}?`,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'action-preview',
+        cardData: {
+          title: 'Rejeitar Proposta / Remover Designado',
+          description: `${targetLabel} retornará para o status PENDENTE na semana de ${weekBr}.`,
+          requiresConfirmation: true,
+          actionType: 'REJECT_PROPOSAL',
+        },
+      },
+      updatedContext: {
+        ...updatedContext,
+        pendingAction: {
+          intentId: nlu.intentId,
+          title: 'Rejeitar Proposta',
+          description: `${targetLabel} (${weekBr})`,
+          params: { weekId, partHint, currentAssignee, reason: nlu.slots.reason },
+          requiresConfirmation: true,
+        },
+      },
+      spokenText: `Confirmar remoção de ${targetLabel}?`,
+    };
+  }
+
+  if (nlu.intentId === 'generate-week' || nlu.intentId === 'clear-week' || nlu.intentId === 'complete-part') {
+    const weekId = targetWeekId || availableWeeks[0];
+    if (!weekId) {
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: 'Não encontrei uma semana alvo na apostila. Informe a data da semana.',
+          timestamp: now,
+          intentId: nlu.intentId,
+        },
+        updatedContext,
+        spokenText: 'Informe a semana alvo.',
+      };
+    }
+
+    const weekBr = formatDateBr(weekId);
+    const meta =
+      nlu.intentId === 'generate-week'
+        ? {
+          title: `Gerar Designações — ${weekBr}`,
+          description: `O motor S-38 preencherá partes vagas da semana de ${weekBr} como PROPOSTA.`,
+          actionType: 'GENERATE_WEEK' as const,
+        }
+        : nlu.intentId === 'clear-week'
+          ? {
+            title: `Limpar Semana — ${weekBr}`,
+            description: `Todas as designações da semana de ${weekBr} voltarão para PENDENTE.`,
+            actionType: 'CLEAR_WEEK' as const,
+          }
+          : {
+            title: `Concluir Semana/Parte — ${weekBr}`,
+            description: `As partes${nlu.slots.partType ? ` (${nlu.slots.partType})` : ''} da semana de ${weekBr} serão marcadas como CONCLUÍDA.`,
+            actionType: 'COMPLETE_PART' as const,
+          };
+
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: `Deseja executar: ${meta.title}?`,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'action-preview',
+        cardData: {
+          title: meta.title,
+          description: meta.description,
+          requiresConfirmation: true,
+          actionType: meta.actionType,
+        },
+      },
+      updatedContext: {
+        ...updatedContext,
+        pendingAction: {
+          intentId: nlu.intentId,
+          title: meta.title,
+          description: meta.description,
+          params: { weekId, partHint: nlu.slots.partType },
+          requiresConfirmation: true,
+        },
+      },
+      spokenText: `Confirmar ${meta.title}?`,
+    };
+  }
+
+  if (nlu.intentId === 'undo-last-action') {
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: 'Deseja desfazer a última alteração realizada nesta sessão do Conversa RVM?',
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'action-preview',
+        cardData: {
+          title: 'Desfazer Última Ação',
+          description: 'Restaura o estado anterior dos registros modificados na última operação.',
+          requiresConfirmation: true,
+          actionType: 'UNDO_LAST',
+        },
+      },
+      updatedContext: {
+        ...updatedContext,
+        pendingAction: {
+          intentId: nlu.intentId,
+          title: 'Desfazer Última Ação',
+          description: 'Restauração do snapshot anterior',
+          params: {},
+          requiresConfirmation: true,
+        },
+      },
+      spokenText: 'Confirmar desfazer a última ação?',
+    };
+  }
+
+  if (nlu.intentId === 'manage-local-needs') {
+    const themeMatch = nlu.rawText.match(/(?:tema|sobre|titulo)\s+["']?([^"']+?)["']?(?:\s+(?:para|com|na\s+fila|na\s+semana)\b|$)/i);
+    const extractedTheme = themeMatch?.[1]?.trim() || nlu.rawText.replace(/^(?:adicionar|incluir|inserir|cadastrar|colocar)\s+/i, '').trim();
+    const assigneeName = resolvedPerson?.name || 'A definir';
+
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text: `Deseja adicionar "${extractedTheme}" (Orador: ${assigneeName}) à Fila de Necessidades Locais?`,
+        timestamp: now,
+        intentId: nlu.intentId,
+        cardType: 'action-preview',
+        cardData: {
+          title: 'Adicionar à Fila de Necessidades Locais',
+          description: `Tema: ${extractedTheme} · Orador: ${assigneeName}${explicitWeekId ? ` · Semana: ${formatDateBr(explicitWeekId)}` : ''}`,
+          requiresConfirmation: true,
+          actionType: 'MANAGE_LOCAL_NEEDS',
+        },
+      },
+      updatedContext: {
+        ...updatedContext,
+        pendingAction: {
+          intentId: nlu.intentId,
+          title: 'Fila de Necessidades Locais',
+          description: `${extractedTheme} (${assigneeName})`,
+          params: {
+            theme: extractedTheme,
+            assigneeName,
+            weekId: explicitWeekId,
+          },
+          requiresConfirmation: true,
+        },
+      },
+      spokenText: 'Confirmar inclusão na Fila de Necessidades Locais?',
     };
   }
 

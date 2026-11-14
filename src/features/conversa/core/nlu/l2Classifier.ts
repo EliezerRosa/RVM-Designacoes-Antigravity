@@ -64,7 +64,12 @@ export async function resolveIntent(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000); // 4s max
 
-    const response = await fetch('/api/conversa-nlu', {
+    const apiEndpoint =
+      typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
+        ? 'https://rvm-designacoes-antigravity.vercel.app/api/conversa-nlu'
+        : '/api/conversa-nlu';
+
+    const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -96,6 +101,10 @@ export async function resolveIntent(
           const weekIdSlot = cleanSlot(edgeSlots.weekId) || targetDateSlot;
           const partTypeSlot = cleanSlot(edgeSlots.partTitle) || cleanSlot(edgeSlots.partType);
           const ruleIdSlot = cleanSlot(edgeSlots.ruleId);
+          const filterSlot = cleanSlot(edgeSlots.filter);
+          const newAssigneeSlot = cleanSlot(edgeSlots.newAssignee);
+          const currentAssigneeSlot = cleanSlot(edgeSlots.currentAssignee);
+          const reasonSlot = cleanSlot(edgeSlots.reason);
 
           const mappedSlots: ParsedSlots = {
             ...l0.slots,
@@ -104,6 +113,10 @@ export async function resolveIntent(
             ...(weekIdSlot ? { weekId: weekIdSlot } : {}),
             ...(partTypeSlot ? { partType: partTypeSlot } : {}),
             ...(ruleIdSlot ? { ruleId: ruleIdSlot } : {}),
+            ...(filterSlot ? { filter: filterSlot } : {}),
+            ...(newAssigneeSlot ? { newAssignee: newAssigneeSlot } : {}),
+            ...(currentAssigneeSlot ? { currentAssignee: currentAssigneeSlot } : {}),
+            ...(reasonSlot ? { reason: reasonSlot } : {}),
           };
 
           const l2Result: L0ParseResult = {

@@ -27,14 +27,29 @@ export interface DisambiguationState {
   pendingSlots: ParsedSlots;
 }
 
+export interface InfoListItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  badgeTone?: 'primary' | 'success' | 'warning' | 'danger';
+}
+
 export interface ConversaCardData {
   title?: string;
   description?: string;
   requiresConfirmation?: boolean;
   actionType?: string;
   status?: 'success' | 'error';
-  type?: 'assignments-list' | 'week-parts-list' | 'vacant-parts-list' | 'pending-weeks-list';
-  items?: Array<UpcomingAssignmentView | WorkbookPart | DocumentCarouselItem | { weekId: string }>;
+  type?:
+    | 'assignments-list'
+    | 'week-parts-list'
+    | 'vacant-parts-list'
+    | 'pending-weeks-list'
+    | 'info-list';
+  items?: Array<
+    UpcomingAssignmentView | WorkbookPart | DocumentCarouselItem | { weekId: string } | InfoListItem
+  >;
   initialFocusId?: string;
   candidates?: DisambiguationCandidate[];
   found?: boolean;

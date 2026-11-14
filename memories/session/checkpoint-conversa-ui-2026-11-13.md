@@ -56,3 +56,8 @@ git checkout checkpoint-conversa-ui-2026-11-13
 
 
 
+6. **Skill Especialista RVM Designações & Correções de UI/NLU (2026-11-14 16:13 BRT)**:
+   - `rvmRulesKnowledge.ts` & `knowledgePort.ts`: ampliado para 16 tópicos canônicos (objetivo, `M-0..M-12`, `I-0..I-7`, `S-38-T`, `S-140/S-89/S-4/S-1`, Z-API/6 Invariantes, Aquiescência Tácita, Governança CCA/CS).
+   - `intentCatalog.ts`, `l0Grammar.ts`, `l2Classifier.ts`, `api/conversa-nlu.ts`: 29 intenções catalogadas, correção de `"Quantas designações eu tenho"` para `query-my-assignments` e roteamento L2 do GitHub Pages para `https://rvm-designacoes-antigravity.vercel.app/api/conversa-nlu`.
+   - `queryPort.ts`, `actionPort.ts`, `cardPlanner.ts`, `MicroPanel.tsx`: consultas vivas (`query-eligibility`, `explain-ranking`, `query-publisher-profile`, `query-publisher-list`, `query-analytics`) e micro-ações governadas (`confirm-my-assignment`, `refuse-my-assignment`, `reassign-part-assignee`, `reject-part-proposal`, `generate-week`, `clear-week`, `complete-part`, `manage-local-needs`, `undo-last-action`) sem importar/copiar `agentService` ou `agentActionService` em runtime.
+   - `ConversaShell.tsx`: removida bolha `.cv-bubble` duplicada acima de cards de confirmação/erro/`info-list`, mantendo intacto o carrossel flutuante e os botões S-89. Validado com ESLint Exit 0, `npm test` (**139/139**), `npm run build` Exit 0 e `npm run deploy:conversa` em `https://eliezerrosa.github.io/conversa-rvm/`.

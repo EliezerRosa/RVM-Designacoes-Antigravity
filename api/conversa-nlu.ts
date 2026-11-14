@@ -23,15 +23,25 @@ const ALLOWED_INTENTS = [
   'query-last-participation',
   'query-eligibility',
   'query-pending-weeks',
+  'query-publisher-profile',
+  'query-publisher-list',
+  'query-analytics',
   'view-s140',
   'view-s89',
   'view-s4',
   'view-s1-consolidation',
   'explain-ranking',
   'explain-engine-rules',
+  'confirm-my-assignment',
+  'refuse-my-assignment',
   'register-absence',
   'approve-week-proposal',
   'reassign-part-assignee',
+  'generate-week',
+  'clear-week',
+  'reject-part-proposal',
+  'complete-part',
+  'manage-local-needs',
   'undo-last-action',
   'proactive-briefing',
   'clarify-ambiguity',
@@ -92,21 +102,31 @@ Sua função ÚNICA é classificar o texto do usuário no catálogo fechado de i
 NUNCA invente intenções fora da lista permitida.
 
 Intenções permitidas:
-- query-my-assignments (ex: "o que eu tenho para fazer", "minhas designações")
+- query-my-assignments (ex: "o que eu tenho para fazer", "minhas designações", "quantas designações eu tenho")
 - query-week-assignments (ex: "quem faz a leitura dia 20", "quem está escalado", "o que tem na reunião")
 - query-vacant-parts (ex: "quais partes estão vagas?", "tem vaga?", "o que falta preencher")
 - query-last-participation (ex: "quando o João participou por último?")
 - query-eligibility (ex: "o Pedro pode fazer joias?", "a irmã Ana pode ser ajudante?")
 - query-pending-weeks (ex: "quais semanas ainda não foram publicadas?", "semanas em rascunho")
+- query-publisher-profile (ex: "qual o perfil do irmão Carlos?", "meus privilégios", "dados da irmã Maria")
+- query-publisher-list (ex: "listar anciãos", "quantos servos ministeriais?", "quais irmãs disponíveis?")
+- query-analytics (ex: "estatísticas de participação", "fila de necessidades locais", "eventos especiais")
 - view-s140 (ex: "mostrar s-140", "ver programa s140")
 - view-s89 (ex: "mostrar s-89", "ver folhinha", "meu s89")
 - view-s4 (ex: "mostrar s-4", "cartão de relatório")
 - view-s1-consolidation (ex: "mostrar s-1", "fechamento do mês")
-- explain-ranking (ex: "por que o Paulo foi escolhido?", "como foi calculada a nota?")
-- explain-engine-rules (ex: "por que não posso designar?", "qual a regra de oração?", "regras do s-38")
+- explain-ranking (ex: "por que o Paulo foi escolhido?", "como foi calculada a nota?", "melhores candidatos para leitura")
+- explain-engine-rules (ex: "por que não posso designar?", "qual a regra de oração?", "regras do s-38", "objetivo do RVM", "botões do z-api")
+- confirm-my-assignment (ex: "confirmar minha designação", "confirmo minha parte", "aceitar s-89")
+- refuse-my-assignment (ex: "recusar minha designação", "não poderei fazer minha parte")
 - register-absence (ex: "vou viajar de 18 a 25", "estarei fora dia 20")
 - approve-week-proposal (ex: "aprovar semana 47", "aprovar rascunho")
-- reassign-part-assignee (ex: "troque o Pedro pelo Tiago na oração", "mudar leitor")
+- reassign-part-assignee (ex: "troque o Pedro pelo Tiago na oração", "mudar leitor", "designar Lucas para leitura")
+- generate-week (ex: "gerar designações da semana", "sortear semana")
+- clear-week (ex: "limpar designações da semana", "zerar semana")
+- reject-part-proposal (ex: "rejeitar proposta da leitura", "remover designação do presidente")
+- complete-part (ex: "concluir semana", "marcar semana como concluída")
+- manage-local-needs (ex: "adicionar tema à fila de necessidades locais", "incluir necessidade local")
 - undo-last-action (ex: "desfazer", "desfaz última alteração")
 - proactive-briefing (ex: "quais minhas pendências?", "o que tenho que fazer?", "briefing")
 - clarify-ambiguity (ex: "opção 1", "o primeiro", "sim", "não")
@@ -121,7 +141,11 @@ Responda SOMENTE um objeto JSON com formato:
     "publisherName": "string ou null",
     "partTitle": "string ou null",
     "formType": "string ou null",
-    "ruleId": "string ou null"
+    "ruleId": "string ou null",
+    "filter": "string ou null",
+    "newAssignee": "string ou null",
+    "currentAssignee": "string ou null",
+    "reason": "string ou null"
   },
   "confidence": 0.0 a 1.0
 }`;

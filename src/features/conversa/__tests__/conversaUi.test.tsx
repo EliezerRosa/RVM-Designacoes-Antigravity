@@ -488,3 +488,67 @@ test('ConversaShell: wires header actions, clarify card selection, and composer 
     assert.equal(sentText, 'ver S-140');
   });
 });
+
+test('ConversaShell & MicroPanel: renders info-list and does NOT duplicate text bubble above confirmation MicroPanel', async () => {
+  await withDomTesting(({ rtl: { render }, ConversaShell, MicroPanel }) => {
+    const confirmedMsg = 'Designação confirmada com sucesso!';
+
+    const shellView = render(
+      React.createElement(ConversaShell, {
+        userLabel: 'Eliezer Rosa',
+        isProcessing: false,
+        isBriefingOpen: false,
+        briefingData: {
+          userName: 'Eliezer Rosa',
+          writtenGreeting: 'Tudo em dia.',
+          spokenSummary: 'Tudo em dia.',
+          hasPendingItems: false,
+          assignmentsToConfirm: [],
+          assignmentsToFulfill: [],
+          upcomingEvents: [],
+        },
+        messages: [
+          {
+            id: 'conf-1',
+            sender: 'assistant',
+            text: confirmedMsg,
+            timestamp: 1000,
+            cardType: 'micro-panel',
+            cardData: {
+              status: 'success',
+              title: 'Confirmação de Designação',
+              description: confirmedMsg,
+            },
+          },
+        ],
+        onCloseBriefing: () => undefined,
+        onOpenBriefing: () => undefined,
+        onSendMessage: () => undefined,
+        onClearHistory: () => undefined,
+        onSignOut: () => undefined,
+      })
+    );
+
+    // Deve aparecer apenas uma vez (dentro do card MicroPanel) e NÃO duplicado no .cv-bubble
+    assert.equal(shellView.getAllByText(confirmedMsg).length, 1);
+    assert.equal(shellView.container.querySelector('.cv-bubble') === null, true);
+
+    const panelView = render(
+      React.createElement(MicroPanel, {
+        cardData: {
+          type: 'info-list',
+          title: 'Elegibilidade Geral',
+          description: 'Resumo de modalidades habilitadas.',
+          items: [
+            { label: 'Presidente', value: 'Elegível', badge: 'OK', detail: 'Ancião ativo' },
+          ],
+        },
+      })
+    );
+
+    assert.ok(panelView.getByText(/Elegibilidade Geral/));
+    assert.ok(panelView.getByText('Presidente'));
+    assert.ok(panelView.getByText('Elegível'));
+    assert.ok(panelView.getByText('OK'));
+  });
+});

@@ -21,6 +21,9 @@ export interface ParsedSlots {
   ruleId?: string;
   choiceIndex?: number;
   confirmation?: 'yes' | 'no';
+  filter?: string;
+  newAssignee?: string;
+  currentAssignee?: string;
 }
 
 export interface L0ParseResult {
@@ -140,7 +143,7 @@ function extractDateInfo(norm: string): { weekId?: string; month?: string; start
  */
 function extractPotentialPersonName(norm: string): string | undefined {
   // Padrões: da maria, do joao, de renato oliveira, pelo carlos, irmao pedro, irma ana
-  const nameMatch = norm.match(/\b(?:d[aeo]|pel[ao]|irm[ao]|com|para)\s+([a-z]+(?:\s+[a-z]+)?)\b/);
+  const nameMatch = norm.match(/\b(?:d[aeo]|pel[ao]|irm[ao]|com|para|por)\s+([a-z]+(?:\s+[a-z]+)?)\b/);
   if (nameMatch) {
     const candidate = nameMatch[1].trim();
     // Excluir falsos positivos conhecidos
@@ -156,11 +159,14 @@ function extractPotentialPersonName(norm: string): string | undefined {
       'campo',
       'relatorio',
       'parte',
+      'partes',
       'designacao',
+      'designacoes',
       's89',
       's140',
       's4',
       's1',
+      's38',
       'meio',
       'servico',
       'vida',
@@ -183,12 +189,75 @@ function extractPotentialPersonName(norm: string): string | undefined {
       'outubro',
       'novembro',
       'dezembro',
+      'rvm',
+      'sistema',
+      'motor',
+      'rodizio',
+      'regra',
+      'regras',
+      'invariantes',
+      'aquiescencia',
+      'zapi',
+      'whatsapp',
+      'anciaos',
+      'anciao',
+      'servos',
+      'servo',
+      'pioneiros',
+      'pioneiro',
+      'irmas',
+      'irmaos',
+      'publicadores',
+      'inativos',
+      'elegiveis',
+      'necessidades',
+      'locais',
+      'eventos',
+      'estatisticas',
+      'ranking',
+      'elegibilidade',
+      'oracao',
+      'presidente',
+      'genero',
+      'recusa',
+      'ebc',
+      'fila',
     ];
     if (!stopWords.includes(candidate) && !stopWords.some((sw) => candidate.startsWith(sw + ' '))) {
       return candidate;
     }
   }
   return undefined;
+}
+
+function extractFilterCategory(norm: string): string | undefined {
+  const match = norm.match(/\b(anciaos?|servos?(?:\s+ministeriais?)?|pioneiros?(?:\s+regulares?)?|irmas?|irmaos?|inativos?|elegiveis?|publicadores?)\b/);
+  return match ? match[1] : undefined;
+}
+
+function extractReassignmentSlots(norm: string): { currentAssignee?: string; newAssignee?: string } {
+  const result: { currentAssignee?: string; newAssignee?: string } = {};
+  const partTokens = ['presidente', 'leitor', 'leitura', 'oracao', 'ebc', 'joias', 'tesouros', 'discurso', 'estudo', 'parte', 'designacao'];
+  const dualMatch = norm.match(/\b(?:trocar|substituir|mudar)\s+(?:o|a|irmao|irma)?\s*([a-z]+(?:\s+[a-z]+)?)\s+(?:por|para)\s+(?:o|a|irmao|irma)?\s*([a-z]+(?:\s+[a-z]+)?)\b/);
+  if (dualMatch) {
+    const left = dualMatch[1].trim();
+    const right = dualMatch[2].trim();
+    if (!partTokens.some((tok) => left === tok || left.startsWith(tok + ' '))) {
+      result.currentAssignee = left;
+    }
+    if (right) {
+      result.newAssignee = right;
+    }
+    return result;
+  }
+  const targetOnlyMatch = norm.match(/\b(?:designar|escalar|trocar.*(?:por|para)|substituir.*(?:por|para))\s+(?:o|a|irmao|irma)?\s*([a-z]+(?:\s+[a-z]+)?)\b/);
+  if (targetOnlyMatch) {
+    const candidate = targetOnlyMatch[1].trim();
+    if (!partTokens.includes(candidate)) {
+      result.newAssignee = candidate;
+    }
+  }
+  return result;
 }
 
 /**
@@ -272,10 +341,81 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 2. Registro de Ausência
+  // 2. Confirmar / Recusar própria designação (antes de Ausência para frases específicas de parte/designação)
+  if (/\b(confirmar|confirmo|aceitar|aceito)\b.*\b(minha\s+)?(designac(?:ao|oes)|parte|s\s*-?\s*89|escalacao)\b/.test(norm)) {
+    return {
+      intentId: 'confirm-my-assignment',
+      slots,
+      confidence: 0.95,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+  if (
+    /\b(recusar|recuso|declinar)\b.*\b(minha\s+)?(designac(?:ao|oes)|parte|s\s*-?\s*89)\b/.test(norm) ||
+    (/\b(nao\s+poderei|nao\s+vou\s+poder)\s+(?:fazer|assumir|cumprir)\b/.test(norm) && !slots.startDate && !/\b(viajar|viagem|ausente|fora)\b/.test(norm))
+  ) {
+    return {
+      intentId: 'refuse-my-assignment',
+      slots,
+      confidence: 0.95,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+
+  // 2b. Registro de Ausência
   if (/\b(vou\s+viajar|viajarei|estarei\s+fora|ausente|ausencia|nao\s+poderei|nao\s+vou\s+poder)\b/.test(norm) && (slots.startDate || slots.weekId || slots.month)) {
     return {
       intentId: 'register-absence',
+      slots,
+      confidence: 0.95,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+
+  // 2c. Perguntas conceituais explícitas sobre o RVM, regras ou invariantes (antes de formulários S-140/S-89/S-4/S-1)
+  const isConceptualQuestion =
+    /\b(o\s+que\s+e|o\s+que\s+faz|para\s+que\s+serve|como\s+funciona(?:m)?|quais\s+(?:sao\s+)?(?:as\s+)?regras?|quais\s+(?:sao\s+)?(?:as\s+)?invariantes?|objetivo\s+d[eo]|proposito\s+d[eo]|explique|invariante\s+[mi]\s*-?\s*\d+|regra\s+[mi]\s*-?\s*\d+|s\s*-?\s*38|aquiescencia|z\s*-?\s*api|webhook|botoes?\s+(?:do\s+)?(?:z\s*-?\s*api|whatsapp)|o\s+que\s+voce\s+(?:sabe\s+)?faz(?:er)?|quais\s+suas?\s+capacidades?)\b/.test(
+      norm
+    );
+
+  if (isConceptualQuestion && !/\b(quem\s+faz|quem\s+esta|quero\s+ver|mostrar|abrir|gerar|aprovar)\b/.test(norm)) {
+    let ruleName = slots.ruleName;
+    let ruleId: string | undefined;
+    if (/\boracao\b/.test(norm)) {
+      ruleName = 'oracao';
+      ruleId = 'oracao';
+    } else if (/\bpresidente\b/.test(norm)) {
+      ruleName = 'presidente';
+      ruleId = 'presidente';
+    } else if (/\bintervalo\b/.test(norm)) {
+      ruleName = 'intervalo';
+      ruleId = 'intervalo';
+    } else if (/\bgenero|irmao|irma|demonstrac/.test(norm)) {
+      ruleName = 'genero';
+      ruleId = 'genero';
+    } else if (/\bz\s*-?\s*api|whatsapp|webhook|botoes\b/.test(norm)) {
+      ruleId = 'mensageria-zapi-e-botoes';
+      ruleName = 'zapi';
+    } else if (/\baquiescencia\b/.test(norm)) {
+      ruleId = 'aquiescencia-tacita';
+      ruleName = 'aquiescencia';
+    } else if (/\bs\s*-?\s*4|s\s*-?\s*1|relatorio\s+mensal|i\s*-?\s*\d+\b/.test(norm)) {
+      ruleId = 'relatorios-mensais-s4-s1';
+      ruleName = 'relatorios';
+    } else if (/\bcca|permiss|governanca|papel|papeis|perfil|cs\b/.test(norm)) {
+      ruleId = 'governanca-permissoes-e-papeis';
+      ruleName = 'governanca';
+    } else if (/\bobjetivo|proposito|o\s+que\s+e\s+o\s+rvm|o\s+que\s+voce\b/.test(norm)) {
+      ruleId = 'objetivo-sistema-rvm';
+      ruleName = 'objetivo';
+    }
+    slots.ruleName = ruleName;
+    slots.ruleId = ruleId;
+    return {
+      intentId: 'explain-engine-rules',
       slots,
       confidence: 0.95,
       resolvedBy: 'l0-grammar',
@@ -321,8 +461,14 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 4. Minhas designações
-  if (/\b(minhas?\s+designac(?:ao|oes)|minhas?\s+partes?|o\s+que\s+eu\s+tenho|minha\s+proxima\s+parte)\b/.test(norm)) {
+  // 4. Minhas designações / de um publicador específico
+  if (
+    /\b(minhas?\s+designac(?:ao|oes)|minhas?\s+partes?|o\s+que\s+eu\s+tenho|minha\s+proxima\s+parte)\b/.test(norm) ||
+    /\b((?:quantas?|quais?)\s+(?:designac(?:ao|oes)|partes?)\s+(?:eu\s+)?tenho|tenho\s+(?:alguma\s+)?(?:designac(?:ao|oes)|parte)|estou\s+escalad[ao]|estou\s+designad[ao]|fui\s+designad[ao]|minha\s+agenda|minha\s+escala)\b/.test(
+      norm
+    ) ||
+    (/\bdesignac(?:ao|oes)\s+(?:do|da|de)\s+/.test(norm) && Boolean(slots.personName) && !/\bsemana\b/.test(norm))
+  ) {
     return {
       intentId: 'query-my-assignments',
       slots,
@@ -343,7 +489,89 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 6. Última participação
+  // 5b. Micro-ações administrativas (gerar, limpar, aprovar, rejeitar, concluir, fila NL, substituir)
+  if (/\b(gerar|sortear|montar|preencher)\s+(?:a\s+)?(?:semana|designac(?:ao|oes)|pauta|partes)\b/.test(norm)) {
+    return {
+      intentId: 'generate-week',
+      slots,
+      confidence: 0.92,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+  if (/\b(limpar|apagar|zerar|resetar)\s+(?:a\s+|todas?\s+as?\s+)?(?:semana|designac(?:ao|oes))\b/.test(norm)) {
+    return {
+      intentId: 'clear-week',
+      slots,
+      confidence: 0.92,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+  if (/\b(rejeitar|reprovar|remover|tirar|desatribuir)\s+(?:a\s+|o\s+)?(?:proposta|designacao|parte)\b/.test(norm)) {
+    return {
+      intentId: 'reject-part-proposal',
+      slots,
+      confidence: 0.9,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+  if (/\b(concluir|finalizar|marcar\s+como\s+concluid[ao]|dar\s+baixa)\b.*\b(semana|parte|designac(?:ao|oes)|reuniao)\b/.test(norm)) {
+    return {
+      intentId: 'complete-part',
+      slots,
+      confidence: 0.9,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+  if (/\b(adicionar|incluir|inserir|cadastrar|colocar)\b.*\b(necessidades?\s+locais?|fila\s+nl|tema\s+local)\b/.test(norm)) {
+    return {
+      intentId: 'manage-local-needs',
+      slots,
+      confidence: 0.9,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+
+  // 6. Perfil, Lista de Publicadores & Estatísticas
+  if (/\b(perfil|privilegios?|capacidades?|dados|ficha|informacoes|cadastro)\s+(?:do|da|de)\b/.test(norm) || /\b(meu\s+perfil|meus?\s+privilegios?)\b/.test(norm)) {
+    return {
+      intentId: 'query-publisher-profile',
+      slots,
+      confidence: 0.9,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+  if (
+    /\b(listar|lista\s+de|quantos|quais\s+sao\s+os)\b.*\b(anciaos?|servos?(?:\s+ministeriais?)?|pioneiros?|irmas?|irmaos?|inativos?|elegiveis?|publicadores?)\b/.test(
+      norm
+    ) ||
+    /\bquantos\s+publicadores\b/.test(norm)
+  ) {
+    slots.filter = extractFilterCategory(norm);
+    return {
+      intentId: 'query-publisher-list',
+      slots,
+      confidence: 0.9,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+  if (/\b(estatisticas?|analytics?|metricas?|carga\s+de\s+participac(?:ao|oes)|distribuic(?:ao|oes)|fila\s+(?:de\s+)?necessidades?\s+locais?|fila\s+nl|eventos?\s+especia(?:l|is))\b/.test(norm)) {
+    return {
+      intentId: 'query-analytics',
+      slots,
+      confidence: 0.9,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+
+  // 7. Última participação
   if (/\b(quando\s+.*participou|ultima\s+vez|quando\s+foi\s+a\s+ultima)\b/.test(norm)) {
     return {
       intentId: 'query-last-participation',
@@ -354,8 +582,8 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 7. Elegibilidade
-  if (/\b(pode\s+fazer|e\s+elegivel|esta\s+apto|qualificad[ao])\b/.test(norm)) {
+  // 8. Elegibilidade
+  if (/\b(pode\s+fazer|e\s+elegivel|esta\s+apto|qualificad[ao]|tem\s+elegibilidade|posso\s+fazer)\b/.test(norm)) {
     return {
       intentId: 'query-eligibility',
       slots,
@@ -365,7 +593,7 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 8. Semanas pendentes
+  // 9. Semanas pendentes
   if (/\b(semanas?\s+pendentes?|nao\s+foram\s+publicadas?|rascunhos?|semanas?\s+abertas?)\b/.test(norm)) {
     return {
       intentId: 'query-pending-weeks',
@@ -376,8 +604,8 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 9. Explicação de ranking / desempate
-  if (/\b(por\s*que\s+.*escolhido|como\s+foi\s+calculad[ao]|criterio\s+de\s+desempate|por\s*que\s+nao\s+o)\b/.test(norm)) {
+  // 10. Explicação de ranking / desempate
+  if (/\b(por\s*que\s+.*escolhid[ao]|por\s*que\s+.*nao\s+foi|como\s+foi\s+calculad[ao]|criterio\s+de\s+desempate|por\s*que\s+nao\s+o|ranking|quem\s+seria\s+(?:o\s+)?melhor|melhores?\s+candidat[ao]s?)\b/.test(norm)) {
     return {
       intentId: 'explain-ranking',
       slots,
@@ -387,8 +615,8 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 10. Regras teocráticas / motor
-  if (/\b(regra|regras|como\s+funciona\s+o\s+rodizio|o\s+que\s+diz\s+o\s+s\s*-\s*38|aquiescencia\s+tacita|intervalo\s+entre\s+partes|por\s*que\s+nao\s+posso\s+designar)\b/.test(norm)) {
+  // 11. Regras teocráticas / motor (match amplo)
+  if (/\b(regra|regras|invariante|rodizio|motor|escassez|aquiescencia|intervalo\s+entre\s+partes|por\s*que\s+nao\s+posso\s+designar|s\s*-\s*38|garantia|irmas\s+na\s+demonstracao|recusa|z\s*-?\s*api)\b/.test(norm)) {
     let ruleName = slots.ruleName;
     let ruleId: string | undefined = undefined;
     if (/\boracao\b/.test(norm)) {
@@ -416,8 +644,14 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 11. Substituição / Reatribuição
-  if (/\b(troca\s+o|trocar|substituir|mudar\s+designad[ao])\b/.test(norm)) {
+  // 12. Substituição / Reatribuição
+  if (/\b(troca\s+o|trocar|substituir|mudar\s+designad[ao]|designar\s+.*\s+para|escalar\s+.*\s+para)\b/.test(norm)) {
+    const reassignSlots = extractReassignmentSlots(norm);
+    if (reassignSlots.currentAssignee) slots.currentAssignee = reassignSlots.currentAssignee;
+    if (reassignSlots.newAssignee) {
+      slots.newAssignee = reassignSlots.newAssignee;
+      if (!slots.personName) slots.personName = reassignSlots.newAssignee;
+    }
     return {
       intentId: 'reassign-part-assignee',
       slots,
@@ -427,8 +661,8 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 12. Aprovar semana
-  if (/\b(aprova\s+a\s+semana|aprovar\s+semana|aprovar\s+rascunho)\b/.test(norm)) {
+  // 13. Aprovar semana
+  if (/\b(aprova\s+a\s+semana|aprovar\s+semana|aprovar\s+rascunho|publicar\s+semana)\b/.test(norm)) {
     return {
       intentId: 'approve-week-proposal',
       slots,

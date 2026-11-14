@@ -75,3 +75,35 @@ test('L0 Grammar: detects briefing and sync status', () => {
   const r2 = parseL0Grammar('como está a sincronização?');
   assert.equal(r2.intentId, 'query-sync-status');
 });
+
+test('L0 Grammar: detects specialist RVM intents (quantas designacoes, z-api, generate/clear, lists, confirm/refuse)', () => {
+  const rCount = parseL0Grammar('Quantas designações eu tenho');
+  assert.equal(rCount.intentId, 'query-my-assignments');
+
+  const rAny = parseL0Grammar('Tenho alguma parte esta semana?');
+  assert.equal(rAny.intentId, 'query-my-assignments');
+
+  const rZapi = parseL0Grammar('Quais são os botões do Z-API?');
+  assert.equal(rZapi.intentId, 'explain-engine-rules');
+  assert.equal(rZapi.slots.ruleId, 'mensageria-zapi-e-botoes');
+
+  const rGoal = parseL0Grammar('Qual o objetivo do sistema RVM?');
+  assert.equal(rGoal.intentId, 'explain-engine-rules');
+  assert.equal(rGoal.slots.ruleId, 'objetivo-sistema-rvm');
+
+  const rGen = parseL0Grammar('Gerar designações da semana');
+  assert.equal(rGen.intentId, 'generate-week');
+
+  const rClear = parseL0Grammar('Limpar semana');
+  assert.equal(rClear.intentId, 'clear-week');
+
+  const rList = parseL0Grammar('Listar anciãos');
+  assert.equal(rList.intentId, 'query-publisher-list');
+  assert.match(rList.slots.filter || '', /anciao/i);
+
+  const rConf = parseL0Grammar('Confirmar minha designação');
+  assert.equal(rConf.intentId, 'confirm-my-assignment');
+
+  const rRef = parseL0Grammar('Recusar minha parte');
+  assert.equal(rRef.intentId, 'refuse-my-assignment');
+});

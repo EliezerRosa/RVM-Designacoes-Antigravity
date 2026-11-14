@@ -122,55 +122,65 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
             </p>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`cv-msg ${msg.sender === 'user' ? 'cv-msg-user' : 'cv-msg-assistant'}`}
-            >
-              <div className="cv-bubble">{msg.text}</div>
+          messages.map((msg) => {
+            const hideDuplicateBubble =
+              msg.sender === 'assistant' &&
+              msg.cardType === 'micro-panel' &&
+              (msg.cardData?.status === 'success' ||
+                msg.cardData?.status === 'error' ||
+                msg.cardData?.type === 'info-list') &&
+              msg.cardData?.description === msg.text;
 
-              {/* Renderização de Cards Especializados */}
-              {msg.cardType === 'clarify' && msg.cardData?.candidates && (
-                <ClarifyCard
-                  title={msg.cardData.title || 'Escolha uma opção'}
-                  candidates={msg.cardData.candidates}
-                  onSelectCandidate={onSelectCandidate}
-                  onCancel={onActionCancel}
-                />
-              )}
+            return (
+              <div
+                key={msg.id}
+                className={`cv-msg ${msg.sender === 'user' ? 'cv-msg-user' : 'cv-msg-assistant'}`}
+              >
+                {!hideDuplicateBubble && <div className="cv-bubble">{msg.text}</div>}
 
-              {msg.cardType === 'explain' && msg.cardData && (
-                <ExplainAnswer
-                  data={{
-                    found: Boolean(msg.cardData.found),
-                    title: msg.cardData.title || 'Explicação',
-                    summary: msg.cardData.summary || msg.text,
-                    details: msg.cardData.details || [],
-                    officialSource: msg.cardData.officialSource,
-                  }}
-                />
-              )}
+                {/* Renderização de Cards Especializados */}
+                {msg.cardType === 'clarify' && msg.cardData?.candidates && (
+                  <ClarifyCard
+                    title={msg.cardData.title || 'Escolha uma opção'}
+                    candidates={msg.cardData.candidates}
+                    onSelectCandidate={onSelectCandidate}
+                    onCancel={onActionCancel}
+                  />
+                )}
 
-              {msg.cardType === 'document-carousel' && msg.cardData?.items && (
-                <DocumentCarousel
-                  items={msg.cardData.items as import('../ports/documentPort').DocumentCarouselItem[]}
-                  initialFocusId={msg.cardData.initialFocusId}
-                  selfPublisherId={selfPublisherId}
-                  selfPublisherName={userLabel}
-                  onConfirmAssignment={onConfirmAssignment}
-                  onRefuseAssignment={onRefuseAssignment}
-                />
-              )}
+                {msg.cardType === 'explain' && msg.cardData && (
+                  <ExplainAnswer
+                    data={{
+                      found: Boolean(msg.cardData.found),
+                      title: msg.cardData.title || 'Explicação',
+                      summary: msg.cardData.summary || msg.text,
+                      details: msg.cardData.details || [],
+                      officialSource: msg.cardData.officialSource,
+                    }}
+                  />
+                )}
 
-              {(msg.cardType === 'micro-panel' || msg.cardType === 'action-preview') && (
-                <MicroPanel
-                  cardData={msg.cardData}
-                  onActionConfirm={onActionConfirm}
-                  onActionCancel={onActionCancel}
-                />
-              )}
-            </div>
-          ))
+                {msg.cardType === 'document-carousel' && msg.cardData?.items && (
+                  <DocumentCarousel
+                    items={msg.cardData.items as import('../ports/documentPort').DocumentCarouselItem[]}
+                    initialFocusId={msg.cardData.initialFocusId}
+                    selfPublisherId={selfPublisherId}
+                    selfPublisherName={userLabel}
+                    onConfirmAssignment={onConfirmAssignment}
+                    onRefuseAssignment={onRefuseAssignment}
+                  />
+                )}
+
+                {(msg.cardType === 'micro-panel' || msg.cardType === 'action-preview') && (
+                  <MicroPanel
+                    cardData={msg.cardData}
+                    onActionConfirm={onActionConfirm}
+                    onActionCancel={onActionCancel}
+                  />
+                )}
+              </div>
+            );
+          })
         )}
 
         {isProcessing && (

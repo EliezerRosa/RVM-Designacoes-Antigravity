@@ -353,7 +353,7 @@ test('cardPlanner: handles query-pending-weeks and honest fallback', async () =>
   assert.equal(pendingTurn.message.cardData?.type, 'pending-weeks-list');
   assert.equal(pendingTurn.message.cardData?.items?.length, 2);
 
-  const unsupportedTurn = await planTurn(
+  const noPubEligibility = await planTurn(
     {
       intentId: 'query-eligibility',
       slots: {},
@@ -369,8 +369,8 @@ test('cardPlanner: handles query-pending-weeks and honest fallback', async () =>
     ports
   );
 
-  assert.doesNotMatch(unsupportedTurn.message.text, /Comando processado com sucesso/);
-  assert.match(unsupportedTurn.message.text, /não possui execução direta/i);
+  assert.doesNotMatch(noPubEligibility.message.text, /Comando processado com sucesso/);
+  assert.match(noPubEligibility.message.text, /publicador/i);
 });
 
 test('actionPort expandAbsenceDateRange expands range safely', () => {
@@ -520,6 +520,206 @@ test('cardPlanner: renders S-4 and S-1 forms in document-carousel and restricts 
 
   assert.equal(s1Blocked.message.cardType, undefined);
   assert.match(s1Blocked.message.text, /restrita/i);
+});
+
+test('knowledgePort: covers all canonical RVM topics (goal, M-0..M-12, S-4/S-1, Z-API, governance)', async () => {
+  const { knowledgePort } = await import('../ports/knowledgePort');
+
+  const obj = knowledgePort.getExplanation('Qual o objetivo do sistema RVM Designações?');
+  assert.equal(obj.found, true);
+  assert.match(obj.summary, /Vida e Ministério Cristão/i);
+
+  const zapi = knowledgePort.getExplanation('Como funcionam os botões do Z-API e WhatsApp?');
+  assert.equal(zapi.found, true);
+  assert.match(`${zapi.summary} ${zapi.details.join(' ')}`, /Confirmar|Não Poderei|recusa/i);
+
+  const s4 = knowledgePort.getExplanation('Quais as invariantes do relatório mensal S-4 e S-1?');
+  assert.equal(s4.found, true);
+  assert.match(`${s4.summary} ${s4.details.join(' ')}`, /Pioneir|I-[0-7]|S-4/i);
+
+  const cca = knowledgePort.getExplanation('O que é a invariante CCA e governança de papéis?');
+  assert.equal(cca.found, true);
+  assert.match(`${cca.summary} ${cca.details.join(' ')}`, /CCA|Coordenador/i);
+
+  const m12 = knowledgePort.getExplanation('Como funciona a memória de recusa M-12?');
+  assert.equal(m12.found, true);
+  assert.match(`${m12.summary} ${m12.details.join(' ')}`, /recus|substitu/i);
+});
+
+test('cardPlanner: specialist queries (quantas designacoes, eligibility, profile, list, analytics) & micro-actions with RBAC', async () => {
+  const pubs: Publisher[] = [
+    { ...makePublisher('pub-1', 'Eliezer Rosa'), condition: 'Ancião', privileges: { ...makePublisher('p', 'x').privileges, canPreside: true, canGiveTalks: true } },
+    { ...makePublisher('pub-2', 'Maria Clara'), gender: 'sister', condition: 'Publicador' },
+  ];
+
+  const generatedWeeks: string[] = [];
+  const clearedWeeks: string[] = [];
+  let undoCalled = false;
+
+  const ports: CardPlannerPorts = {
+    actions: {
+      registerAbsence: async () => ({ success: true, actionType: 'UPDATE_AVAILABILITY', message: 'ok' }),
+      approveWeekProposal: async () => ({ success: true, actionType: 'APPROVE_PROPOSAL', message: 'ok' }),
+      generateWeekDesignations: async (weekId) => {
+        generatedWeeks.push(weekId);
+        return { success: true, actionType: 'GENERATE_WEEK', message: `Semana ${weekId} gerada.` };
+      },
+      clearWeekDesignations: async (weekId) => {
+        clearedWeeks.push(weekId);
+        return { success: true, actionType: 'CLEAR_WEEK', message: `Semana ${weekId} limpa.` };
+      },
+      undoLastAction: async () => {
+        undoCalled = true;
+        return { success: true, actionType: 'UNDO_LAST', message: 'Ação desfeita.' };
+      },
+    },
+    queries: {
+      getPublisherAssignments: async (publisherId) =>
+        publisherId === 'pub-1'
+          ? [{ partId: 'p1', weekId: '2026-11-16', tipoParte: 'Presidente', role: 'titular', status: 'DESIGNADA', dateStr: '2026-11-16' }]
+          : [],
+      getWeekParts: async () => [],
+      getVacantParts: async () => [],
+      getLastParticipation: async () => [],
+      getPendingWeeks: async () => [],
+      checkPublisherEligibility: async (pub, partType) => ({
+        title: `Elegibilidade — ${pub.name}`,
+        summary: `${pub.name} elegível para ${partType || 'Presidência'}.`,
+        items: [{ label: 'Presidência', value: 'Elegível', badge: 'OK' }],
+      }),
+      getPublisherProfileSummary: (pub) => ({
+        title: `Perfil — ${pub.name}`,
+        summary: `${pub.name}: ${pub.condition}`,
+        items: [{ label: 'Condição', value: pub.condition }],
+      }),
+      getPublisherListSummary: (list, filter) => ({
+        title: `Lista (${filter || 'Todos'})`,
+        summary: `Total filtrado: ${list.filter((p) => (filter?.includes('anciao') ? p.condition.toLowerCase().includes('anci') : true)).length}`,
+        items: [{ label: 'Eliezer Rosa', value: 'Ancião' }],
+      }),
+      getAnalyticsSummary: async () => ({
+        title: 'Resumo RVM',
+        summary: '2 publicadores ativos',
+        items: [{ label: 'Ativos', value: '2' }],
+      }),
+    },
+  };
+
+  // 1. "Quantas designações eu tenho" -> L0 + cardPlanner -> 1 designação
+  const l0Count = parseL0Grammar('Quantas designações eu tenho');
+  assert.equal(l0Count.intentId, 'query-my-assignments');
+  const myTurn = await planTurn(
+    { ...l0Count, layer: 'l0-grammar' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-16'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true },
+    ports
+  );
+  assert.equal(myTurn.message.cardType, 'micro-panel');
+  assert.match(myTurn.message.text, /1 designação/);
+
+  // 2. Profile & List & Analytics
+  const profileTurn = await planTurn(
+    { intentId: 'query-publisher-profile', slots: { personName: 'Eliezer Rosa' }, confidence: 0.9, layer: 'l0-grammar', rawText: 'perfil de Eliezer Rosa' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-16'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true },
+    ports
+  );
+  assert.equal(profileTurn.message.cardData?.type, 'info-list');
+  assert.match(profileTurn.message.text, /Eliezer Rosa/);
+
+  const listTurn = await planTurn(
+    { intentId: 'query-publisher-list', slots: { filter: 'anciaos' }, confidence: 0.9, layer: 'l0-grammar', rawText: 'listar anciãos' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-16'],
+    { publisherId: 'pub-1', isAdmin: true },
+    ports
+  );
+  assert.equal(listTurn.message.cardData?.type, 'info-list');
+  assert.match(listTurn.message.text, /1/);
+
+  const analyticsTurn = await planTurn(
+    { intentId: 'query-analytics', slots: {}, confidence: 0.9, layer: 'l0-grammar', rawText: 'estatisticas gerais' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-16'],
+    { isAdmin: true },
+    ports
+  );
+  assert.equal(analyticsTurn.message.cardData?.type, 'info-list');
+
+  // 3. Micro-action generate-week (preview + confirm) and RBAC denial for non-admin
+  const genPreview = await planTurn(
+    { intentId: 'generate-week', slots: {}, confidence: 0.92, layer: 'l0-grammar', rawText: 'gerar semana' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-16'],
+    { isAdmin: true },
+    ports
+  );
+  assert.equal(genPreview.message.cardType, 'action-preview');
+
+  const genConfirmed = await planTurn(
+    { intentId: 'clarify-ambiguity', slots: { confirmation: 'yes' }, confidence: 1, layer: 'l0-grammar', rawText: 'sim' },
+    genPreview.updatedContext,
+    fullGate,
+    pubs,
+    ['2026-11-16'],
+    { isAdmin: true },
+    ports
+  );
+  assert.deepEqual(generatedWeeks, ['2026-11-16']);
+  assert.equal(genConfirmed.message.cardData?.status, 'success');
+
+  // Undo confirmation
+  const undoPreview = await planTurn(
+    { intentId: 'undo-last-action', slots: {}, confidence: 1, layer: 'l0-grammar', rawText: 'desfazer' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-16'],
+    { isAdmin: true },
+    ports
+  );
+  const undoConfirmed = await planTurn(
+    { intentId: 'clarify-ambiguity', slots: { confirmation: 'yes' }, confidence: 1, layer: 'l0-grammar', rawText: 'sim' },
+    undoPreview.updatedContext,
+    fullGate,
+    pubs,
+    ['2026-11-16'],
+    { isAdmin: true },
+    ports
+  );
+  assert.equal(undoCalled, true);
+  assert.equal(undoConfirmed.message.cardData?.status, 'success');
+
+  // Clear-week blocked for restricted profile
+  const restrictedGate: PermissionGate = {
+    ...fullGate,
+    canAgentAction: () => false,
+    isFullAdmin: () => false,
+  };
+  const blockedClear = await planTurn(
+    { intentId: 'clear-week', slots: {}, confidence: 0.92, layer: 'l0-grammar', rawText: 'limpar semana' },
+    createInitialContext(),
+    restrictedGate,
+    pubs,
+    ['2026-11-16'],
+    { isAdmin: false },
+    ports
+  );
+  assert.equal(blockedClear.message.cardType, undefined);
+  assert.match(blockedClear.message.text, /permiss|restrita|bloquead/i);
+  assert.equal(clearedWeeks.length, 0);
 });
 
 
