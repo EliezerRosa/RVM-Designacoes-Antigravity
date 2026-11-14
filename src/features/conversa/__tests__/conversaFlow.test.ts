@@ -816,4 +816,90 @@ test('cardPlanner & knowledgePort: contextual reasoning for funcionalidades, per
   assert.match(eligTurn.message.text, /Eliezer Rosa/);
 });
 
+test('queryPort.getPublisherAssignments: faz fallback para workbook_parts quando get_my_workbook_parts retorna vazio (perfil Admin sem publisher_id no BD)', async () => {
+  const { queryPort } = await import('../ports/queryPort');
+  const { supabase } = await import('../../../lib/supabase');
+
+  const originalRpc = supabase.rpc;
+  const originalFrom = supabase.from;
+
+  try {
+    (supabase as unknown as { rpc: (...args: unknown[]) => Promise<{ data: unknown[]; error: null }> }).rpc = async (fnName: unknown) => {
+      if (fnName === 'get_my_workbook_parts') {
+        return { data: [], error: null };
+      }
+      return { data: [], error: null };
+    };
+
+    const fakeRows = [
+      {
+        id: 'part-je',
+        week_id: '2099-11-23',
+        week_display: '23-29 Novembro',
+        date: '2099-11-23',
+        section: 'Tesouros da Palavra de Deus',
+        tipo_parte: 'Joias Espirituais',
+        part_title: '2. Joias espirituais',
+        seq: 2,
+        funcao: 'Titular',
+        status: 'DESIGNADA',
+        resolved_publisher_id: '3',
+        resolved_publisher_name: 'Eliezer Rosa',
+        is_chairman_derived: false,
+      },
+      {
+        id: 'part-pres',
+        week_id: '2099-12-07',
+        week_display: '07-13 Dezembro',
+        date: '2099-12-07',
+        section: 'Início da Reunião',
+        tipo_parte: 'Presidente',
+        part_title: '',
+        seq: 1,
+        funcao: 'Titular',
+        status: 'DESIGNADA',
+        resolved_publisher_id: '3',
+        resolved_publisher_name: 'Eliezer Rosa',
+        is_chairman_derived: false,
+      },
+    ];
+
+    const builder: Record<string, unknown> = {
+      select: () => builder,
+      gte: () => builder,
+      in: () => builder,
+      order: () => builder,
+      or: () => builder,
+      eq: () => builder,
+      then: (resolve: (val: { data: unknown[]; error: null }) => void) =>
+        resolve({ data: fakeRows, error: null }),
+    };
+
+    (supabase as unknown as { from: () => unknown }).from = () => builder;
+
+    const list = await queryPort.getPublisherAssignments('3', 'Eliezer Rosa', true);
+    assert.equal(list.length, 2);
+    assert.equal(list[0].tipoParte, 'Joias Espirituais');
+    assert.equal(list[1].tipoParte, 'Presidente');
+
+    const pubs: Publisher[] = [
+      { ...makePublisher('3', 'Eliezer Rosa'), condition: 'Ancião' },
+    ];
+    const turn = await planTurn(
+      { intentId: 'query-my-assignments', slots: {}, confidence: 0.95, layer: 'l0-grammar', rawText: 'Minhas designações' },
+      createInitialContext(),
+      fullGate,
+      pubs,
+      ['2099-11-23', '2099-12-07'],
+      { publisherId: '3', publisherName: 'Eliezer Rosa', isAdmin: true }
+    );
+    assert.equal(turn.message.cardType, 'micro-panel');
+    assert.equal(turn.message.cardData?.type, 'assignments-list');
+    assert.equal((turn.message.cardData?.items || []).length, 2);
+  } finally {
+    (supabase as unknown as { rpc: typeof originalRpc }).rpc = originalRpc;
+    (supabase as unknown as { from: typeof originalFrom }).from = originalFrom;
+  }
+});
+
 

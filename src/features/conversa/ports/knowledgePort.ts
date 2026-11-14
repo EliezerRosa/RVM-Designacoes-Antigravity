@@ -127,10 +127,9 @@ function buildUserPermissionsExplanation(ctx: SpecialistContextInput): Explanati
     `Perfil e Escopo: ${userName} — ${roleLabel} | Escopo de dados: ${scopeDesc}.`,
     `Abas RVM liberadas (${visibleTabs.length}): ${visibleTabs.length ? visibleTabs.join(', ') : 'Acesso focado em portal próprio'}.`,
     `Consultas & Documentos permitidos aqui (${allowedQueries.length}): ${allowedQueries.slice(0, 8).join('; ')}${allowedQueries.length > 8 ? ` (+${allowedQueries.length - 8} consultas)` : ''}.`,
-    `Micro-ações autorizadas (${allowedActions.length}): ${
-      allowedActions.length
-        ? allowedActions.join('; ')
-        : 'Confirmar/recusar suas designações S-89 no carrossel e registrar suas ausências.'
+    `Micro-ações autorizadas (${allowedActions.length}): ${allowedActions.length
+      ? allowedActions.join('; ')
+      : 'Confirmar/recusar suas designações S-89 no carrossel e registrar suas ausências.'
     }.`,
   ];
 

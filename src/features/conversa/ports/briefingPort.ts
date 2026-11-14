@@ -10,6 +10,7 @@
 import type { UpcomingAssignmentView } from './queryPort';
 import { queryPort } from './queryPort';
 import { specialEventService } from '../../../services/specialEventService';
+import { formatDateBr } from '../core/dateFormat';
 
 export interface ConversaSpecialEvent {
   id: string;
@@ -44,14 +45,19 @@ export function buildBriefingData(
 
   if (assignmentsToConfirm.length > 0) {
     const plural = assignmentsToConfirm.length > 1;
-    writtenGreeting += `Você tem ${assignmentsToConfirm.length} designação${plural ? 'ões' : ''} aguardando confirmação. `;
-    spokenSummary += `Você tem ${assignmentsToConfirm.length} designação${plural ? 'ões' : ''} para confirmar. `;
+    const noun = plural ? 'designações' : 'designação';
+    writtenGreeting += `Você tem ${assignmentsToConfirm.length} ${noun} aguardando confirmação. `;
+    spokenSummary += `Você tem ${assignmentsToConfirm.length} ${noun} para confirmar. `;
   } else if (assignmentsToFulfill.length > 0) {
-    writtenGreeting += `Você tem ${assignmentsToFulfill.length} designação a cumprir nas próximas reuniões. `;
+    const plural = assignmentsToFulfill.length > 1;
+    const noun = plural ? 'designações' : 'designação';
+    const next = assignmentsToFulfill[0];
+    const nextLabel = `${next.tipoParte} em ${formatDateBr(next.dateStr)}`;
+    writtenGreeting += `Você tem ${assignmentsToFulfill.length} ${noun} a cumprir nas próximas reuniões (próxima: ${nextLabel}). `;
     spokenSummary += `Suas próximas designações estão em dia. `;
   } else {
-    writtenGreeting += `Tudo em dia com suas designações! Em que posso ajudar?`;
-    spokenSummary += `Tudo em dia com suas designações. Como posso ajudar?`;
+    writtenGreeting += `Tudo em dia com suas designações! Em que posso ajudar? `;
+    spokenSummary += `Tudo em dia com suas designações. Como posso ajudar? `;
   }
 
   if (upcomingEvents.length > 0) {

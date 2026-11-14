@@ -29,6 +29,7 @@ export const ConversaApp: React.FC = () => {
   const [briefingData, setBriefingData] = useState<UserBriefingData | null>(null);
   const [isBriefingOpen, setIsBriefingOpen] = useState(false);
   const lastBriefingTimeRef = useRef<number>(0);
+  const lastBriefedPublisherIdRef = useRef<string | null | undefined>(undefined);
 
   const selfPublisherId = useMemo(() => {
     if (profile?.publisher_id) return profile.publisher_id;
@@ -107,10 +108,12 @@ export const ConversaApp: React.FC = () => {
     async (force: boolean = false) => {
       if (!user) return;
       const now = Date.now();
-      if (!force && now - lastBriefingTimeRef.current < BRIEFING_DEBOUNCE_MS) {
+      const publisherChanged = selfPublisherId !== lastBriefedPublisherIdRef.current;
+      if (!force && !publisherChanged && now - lastBriefingTimeRef.current < BRIEFING_DEBOUNCE_MS) {
         return;
       }
       lastBriefingTimeRef.current = now;
+      lastBriefedPublisherIdRef.current = selfPublisherId;
 
       try {
         const briefing = await briefingPort.getUserBriefing(
@@ -124,7 +127,7 @@ export const ConversaApp: React.FC = () => {
           setIsBriefingOpen(true);
         }
 
-        // Escreve saudação se timeline estiver vazia
+        // Escreve saudação se timeline estiver vazia ou atualiza saudação inicial após resolver publicador
         setMessages((prev) => {
           if (prev.length === 0) {
             return [
@@ -133,6 +136,14 @@ export const ConversaApp: React.FC = () => {
                 sender: 'assistant',
                 text: briefing.writtenGreeting,
                 timestamp: now,
+              },
+            ];
+          }
+          if (prev.length === 1 && prev[0].id.startsWith('greeting_')) {
+            return [
+              {
+                ...prev[0],
+                text: briefing.writtenGreeting,
               },
             ];
           }

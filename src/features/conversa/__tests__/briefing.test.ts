@@ -55,3 +55,37 @@ test('Briefing Port: empty agenda produces clean zero-pending briefing', () => {
   assert.equal(briefing.upcomingEvents.length, 0);
   assert.match(briefing.spokenSummary, /em dia/i);
 });
+
+test('Briefing Port: preserves space before Lembre-se and pluralizes fulfillments with next part', () => {
+  const events: ConversaSpecialEvent[] = [
+    {
+      id: 'ev-1',
+      name: 'Assembleia de Circuito',
+      startDate: '2026-11-16',
+    },
+  ];
+  const noPartsBriefing = buildBriefingData('Eliezer Rosa', [], [], events);
+  assert.match(noPartsBriefing.writtenGreeting, /Em que posso ajudar\? Lembre-se: Assembleia de Circuito/);
+  assert.equal(noPartsBriefing.writtenGreeting.includes('ajudar?Lembre-se:'), false);
+
+  const mockFulfill: UpcomingAssignmentView[] = [
+    {
+      partId: 'a1',
+      weekId: '2026-11-23',
+      tipoParte: 'Joias Espirituais',
+      role: 'titular',
+      status: 'DESIGNADA',
+      dateStr: '2026-11-23',
+    },
+    {
+      partId: 'a2',
+      weekId: '2026-12-07',
+      tipoParte: 'Presidente',
+      role: 'titular',
+      status: 'DESIGNADA',
+      dateStr: '2026-12-07',
+    },
+  ];
+  const withPartsBriefing = buildBriefingData('Eliezer Rosa', [], mockFulfill, events);
+  assert.match(withPartsBriefing.writtenGreeting, /Você tem 2 designações a cumprir nas próximas reuniões \(próxima: Joias Espirituais em 23\/11\/2026\)\. Lembre-se: Assembleia de Circuito/);
+});

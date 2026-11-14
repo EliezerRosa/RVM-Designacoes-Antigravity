@@ -25,7 +25,8 @@ export function getAppBasePath(): string {
         return ensureLeadingSlash(import.meta.env.BASE_URL || '/');
     }
 
-    return normalizeDirectoryPath(window.location.pathname);
+    const dir = normalizeDirectoryPath(window.location.pathname);
+    return dir.replace(/\/conversa\/$/i, '/');
 }
 
 export function getAppBaseUrl(): string {

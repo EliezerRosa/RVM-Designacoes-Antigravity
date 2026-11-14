@@ -40,6 +40,21 @@ function normalizeName(value?: string | null): string {
     .trim();
 }
 
+function matchesTargetPublisher(
+  part: WorkbookPart,
+  publisherId: string,
+  normalizedTarget: string
+): boolean {
+  if (publisherId && part.resolvedPublisherId && part.resolvedPublisherId === publisherId) {
+    return true;
+  }
+  if (!normalizedTarget) return false;
+  return (
+    normalizeName(part.resolvedPublisherName) === normalizedTarget ||
+    normalizeName(part.rawPublisherName) === normalizedTarget
+  );
+}
+
 function findPartnerName(part: WorkbookPart, weekParts: WorkbookPart[]): string | undefined {
   const partNumMatch = (part.tituloParte || part.tipoParte || '').match(/^(\d+)/);
   const partNum = partNumMatch ? partNumMatch[1] : null;
@@ -212,9 +227,12 @@ export const queryPort = {
 
       if (preferSelfRpc) {
         const { data: rpcData, error: rpcErr } = await supabase.rpc('get_my_workbook_parts');
-        if (!rpcErr && Array.isArray(rpcData)) {
-          usedRpc = true;
-          parts = rpcData.map((row) => mapDbToWorkbookPart(row as Record<string, unknown>));
+        if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+          const mapped = rpcData.map((row) => mapDbToWorkbookPart(row as Record<string, unknown>));
+          if (mapped.some((p) => matchesTargetPublisher(p, publisherId, normalizedTarget))) {
+            usedRpc = true;
+            parts = mapped;
+          }
         }
       }
 
@@ -227,8 +245,11 @@ export const queryPort = {
           .order('week_id', { ascending: true })
           .order('seq', { ascending: true });
 
-        query = normalizedTarget
-          ? query.or(`resolved_publisher_id.eq.${publisherId},raw_publisher_name.ilike.%${publisherName!.trim()}%`)
+        const cleanName = publisherName?.trim();
+        query = normalizedTarget && cleanName
+          ? query.or(
+              `resolved_publisher_id.eq.${publisherId},resolved_publisher_name.ilike.%${cleanName}%,raw_publisher_name.ilike.%${cleanName}%`
+            )
           : query.eq('resolved_publisher_id', publisherId);
 
         const { data, error } = await query;
@@ -255,12 +276,7 @@ export const queryPort = {
         if (!activeStatuses.has(String(p.status || '').toUpperCase())) return false;
         if (!isRealUpcomingAssignment(p.tipoParte)) return false;
 
-        if (p.resolvedPublisherId) {
-          return p.resolvedPublisherId === publisherId;
-        }
-        return normalizedTarget
-          ? normalizeName(p.resolvedPublisherName || p.rawPublisherName) === normalizedTarget
-          : false;
+        return matchesTargetPublisher(p, publisherId, normalizedTarget);
       });
 
       if (!ownUpcoming.length) return [];
@@ -327,18 +343,28 @@ export const queryPort = {
   async getLastParticipation(publisherId: string, publisherName?: string): Promise<UpcomingAssignmentView[]> {
     try {
       const todayWeekId = getTodayWeekIdLocal();
-      const { data, error } = await supabase
+      const normalizedTarget = normalizeName(publisherName);
+      const cleanName = publisherName?.trim();
+
+      let query = supabase
         .from('workbook_parts')
         .select('*')
-        .eq('resolved_publisher_id', publisherId)
         .neq('status', WorkbookStatus.CANCELADA)
         .lt('week_id', todayWeekId)
         .order('week_id', { ascending: false })
         .order('seq', { ascending: false })
         .limit(8);
 
+      query = normalizedTarget && cleanName
+        ? query.or(
+            `resolved_publisher_id.eq.${publisherId},resolved_publisher_name.ilike.%${cleanName}%,raw_publisher_name.ilike.%${cleanName}%`
+          )
+        : query.eq('resolved_publisher_id', publisherId);
+
+      const { data, error } = await query;
+
       let rows = data;
-      if (error || !rows) {
+      if (error || !rows || rows.length === 0) {
         const { data: rpcData } = await supabase.rpc('get_my_workbook_parts');
         rows = Array.isArray(rpcData)
           ? (rpcData as Array<Record<string, unknown>>).filter((r) => {
@@ -346,8 +372,7 @@ export const queryPort = {
               return (
                 p.weekId < todayWeekId &&
                 p.status !== WorkbookStatus.CANCELADA &&
-                (p.resolvedPublisherId === publisherId ||
-                  (!!publisherName && normalizeName(p.resolvedPublisherName || p.rawPublisherName) === normalizeName(publisherName)))
+                matchesTargetPublisher(p, publisherId, normalizedTarget)
               );
             })
           : [];

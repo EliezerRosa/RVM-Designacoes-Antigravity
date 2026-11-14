@@ -56,6 +56,10 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
             <div key={item.partId} className="cv-list-item">
               <div>
                 <strong>{formatDateBr(item.dateStr)}</strong> — {item.tipoParte}
+                {item.tituloParte &&
+                  item.tituloParte.trim().toLowerCase() !== item.tipoParte.trim().toLowerCase() && (
+                    <div style={{ fontSize: '13px', opacity: 0.8 }}>{item.tituloParte}</div>
+                  )}
                 {item.partnerName && (
                   <div style={{ fontSize: '13px', opacity: 0.75 }}>
                     Com: {item.partnerName} ({item.role})

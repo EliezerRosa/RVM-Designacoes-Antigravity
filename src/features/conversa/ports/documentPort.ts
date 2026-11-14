@@ -101,8 +101,14 @@ function renderS89FallbackHtml(
   roomLabel: string,
   isStudent: boolean
 ): string {
+  const isSalaB = /sala\s*(auxiliar\s*)?b\b/i.test(roomLabel);
+  const isSalaC = /sala\s*c\b/i.test(roomLabel);
+  const isMainHall = !isSalaB && !isSalaC;
+  const checkbox = (checked: boolean) =>
+    `<span style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1.5px solid #111827;margin-right:7px;font-size:11px;font-weight:700;line-height:1;">${checked ? '✓' : ''}</span>`;
+
   return `
-    <div style="width:460px;padding:26px 28px 22px;background:#ffffff;color:#000000;font-family:Arial,Helvetica,sans-serif;border:2px solid #111827;box-sizing:border-box;line-height:1.45;">
+    <div style="width:460px;padding:28px 30px 24px;background:#ffffff;color:#000000;font-family:Arial,Helvetica,sans-serif;border:1.5px solid #cbd5e1;box-sizing:border-box;line-height:1.45;">
       <div style="text-align:center;font-weight:700;font-size:15px;letter-spacing:0.3px;margin-bottom:18px;">
         DESIGNAÇÃO PARA A REUNIÃO<br/>NOSSA VIDA E MINISTÉRIO CRISTÃO
       </div>
@@ -122,17 +128,24 @@ function renderS89FallbackHtml(
         <strong>Data:</strong>
         <span style="border-bottom:1px dotted #374151;padding:0 6px 1px;display:inline-block;min-width:295px;">${escapeHtml(dateBr)}</span>
       </div>
-      <div style="margin-bottom:12px;font-size:14px;">
-        <strong>Parte:</strong>
-        <span style="border-bottom:1px dotted #374151;padding:0 6px 1px;display:inline-block;min-width:292px;">${escapeHtml(partLabel)}</span>
+      <div style="margin-bottom:14px;font-size:14px;">
+        <strong>Número da parte:</strong>
+        <span style="border-bottom:1px dotted #374151;padding:0 6px 1px;display:inline-block;min-width:228px;">${escapeHtml(partLabel)}</span>
       </div>
-      <div style="margin-bottom:14px;font-size:13px;">
-        <strong>Local:</strong> ${escapeHtml(roomLabel)}
+      <div style="margin-bottom:16px;font-size:13.5px;">
+        <div style="font-weight:700;margin-bottom:5px;">Local:</div>
+        <div style="padding-left:14px;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;">${checkbox(isMainHall)}<span>Salão principal</span></div>
+          <div style="display:flex;align-items:center;">${checkbox(isSalaB)}<span>Sala B</span></div>
+          <div style="display:flex;align-items:center;">${checkbox(isSalaC)}<span>Sala C</span></div>
+        </div>
       </div>
-      <div style="font-size:11.5px;color:#374151;border-top:1px solid #d1d5db;padding-top:10px;">
-        <strong>Observação${isStudent ? ' para o estudante' : ''}:</strong> A fonte de matéria e a lição de estudo constam na Apostila da Reunião Vida e Ministério.
+      <div style="font-size:11.5px;color:#1f2937;padding-top:8px;">
+        <strong>Observação${isStudent ? ' para o estudante' : ''}:</strong> A lição e a fonte de matéria para a sua designação estão na <em>Apostila da Reunião Vida e Ministério</em>. Veja as instruções para a parte que estão nas <em>Instruções para a Reunião Nossa Vida e Ministério Cristão</em> (S-38).
       </div>
-      <div style="margin-top:12px;font-size:11px;color:#4b5563;">S-89-T</div>
+      <div style="margin-top:16px;font-size:11px;color:#374151;display:flex;gap:18px;">
+        <span>S-89-T</span><span>11/23</span>
+      </div>
     </div>
   `;
 }

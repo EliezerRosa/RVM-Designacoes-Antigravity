@@ -30,7 +30,7 @@ try {
       );
     }
 
-    for (const staticFile of ['vite.svg', 'pdf.worker.min.mjs']) {
+    for (const staticFile of ['vite.svg', 'pdf.worker.min.mjs', 'S-89_T.pdf']) {
       const src = path.join(distDir, staticFile);
       if (fs.existsSync(src)) {
         fs.copyFileSync(src, path.join(stageDir, staticFile));
