@@ -25,6 +25,15 @@ export interface DocumentCarouselItem {
   imageBase64?: string;
   naturalWidth?: number;
   isInitialFocus?: boolean;
+  /** Metadados do S-89 para ações interativas (Confirmar / Não Poderei) */
+  partId?: string;
+  publisherId?: string;
+  publisherName?: string;
+  partStatus?: string;
+  portalResponse?: 'confirmed' | 'refused';
+  isSelfAssignment?: boolean;
+  isConfirmed?: boolean;
+  isRefused?: boolean;
 }
 
 const MONTHS_PT = [
@@ -393,10 +402,14 @@ export const documentPort = {
   async getS89ChronologicalList(
     publisherId?: string,
     targetWeekId?: string,
-    isSelf: boolean = false
+    isSelf: boolean = false,
+    selfPublisherId?: string | null,
+    selfPublisherName?: string | null
   ): Promise<DocumentCarouselItem[]> {
     try {
       const todayMonday = getTodayWeekIdLocal();
+      const effectiveSelfId = selfPublisherId || (isSelf ? publisherId : undefined) || undefined;
+      const normSelfName = normalizeSearchName(selfPublisherName);
       let allParts: WorkbookPart[] = [];
 
       if (isSelf) {
@@ -429,7 +442,13 @@ export const documentPort = {
         if (part.weekId < todayMonday) return false;
         if (part.status === WorkbookStatus.CANCELADA || part.isChairmanDerived) return false;
         if (!isManuallyAssignable(part.tipoParte)) return false;
-        if (publisherId) return part.resolvedPublisherId === publisherId;
+        if (publisherId) {
+          if (part.resolvedPublisherId === publisherId) return true;
+          if (!part.resolvedPublisherId && isSelf && normSelfName) {
+            return normalizeSearchName(part.resolvedPublisherName || part.rawPublisherName) === normSelfName;
+          }
+          return false;
+        }
         if (targetWeekId) return part.weekId === targetWeekId;
         return Boolean(part.resolvedPublisherId || part.resolvedPublisherName);
       });
@@ -443,12 +462,32 @@ export const documentPort = {
       }
 
       const { generateS89PngBase64 } = await import('../../../services/s89Generator');
-      const sortedTargets = [...targetParts].sort(
-        (a, b) => a.weekId.localeCompare(b.weekId) || (a.seq || 0) - (b.seq || 0)
-      );
+      const sortedTargets = [...targetParts]
+        .sort((a, b) => a.weekId.localeCompare(b.weekId) || (a.seq || 0) - (b.seq || 0))
+        .slice(0, 12);
+
+      // Consultar status de confirmação/recusa do portal para as semanas alvo
+      const portalMap = new Map<string, 'confirmed' | 'refused'>();
+      const uniqueWeeks = Array.from(new Set(sortedTargets.map((p) => p.weekId).filter(Boolean)));
+      if (uniqueWeeks.length > 0 && typeof supabase.rpc === 'function') {
+        const weekResults = await Promise.all(
+          uniqueWeeks.map((wid) =>
+            Promise.resolve(supabase.rpc('get_portal_responses_for_week', { p_week_id: wid })).then(
+              (res) => (Array.isArray(res?.data) ? res.data : []),
+              () => []
+            )
+          )
+        );
+        for (const row of weekResults.flat() as Array<{ part_id?: string; response?: string }>) {
+          const resp = (row.response || '').toLowerCase();
+          if (row.part_id && (resp === 'confirmed' || resp === 'refused')) {
+            portalMap.set(row.part_id, resp);
+          }
+        }
+      }
 
       const items: DocumentCarouselItem[] = [];
-      for (const part of sortedTargets.slice(0, 12)) {
+      for (const part of sortedTargets) {
         const weekParts = byWeek.get(part.weekId) || [];
         const { partForPdf, assistantName, isStudent } = resolveS89CardParams(part, weekParts);
         const dateBr = formatDateBr(part.date || part.weekId);
@@ -474,6 +513,22 @@ export const documentPort = {
             )
           : undefined;
 
+        const portalResp = portalMap.get(part.id);
+        const rawStatus = String(part.status || '').toUpperCase();
+        const isConfirmed =
+          portalResp === 'confirmed' ||
+          rawStatus === 'CONFIRMADA' ||
+          rawStatus === 'CONCLUIDA';
+        const isRefused =
+          portalResp === 'refused' ||
+          rawStatus === 'REJEITADA' ||
+          rawStatus === 'CANCELADA';
+        const isOwnS89 = Boolean(
+          (effectiveSelfId && part.resolvedPublisherId && part.resolvedPublisherId === effectiveSelfId) ||
+          (normSelfName && normalizeSearchName(assigneeName) === normSelfName) ||
+          (isSelf && publisherId && part.resolvedPublisherId === publisherId)
+        );
+
         items.push({
           id: `s89-${part.id}`,
           docType: 's89',
@@ -484,6 +539,14 @@ export const documentPort = {
           htmlContent: fallbackHtml,
           naturalWidth: 460,
           isInitialFocus: targetWeekId ? part.weekId === targetWeekId : items.length === 0,
+          partId: part.id,
+          publisherId: part.resolvedPublisherId || undefined,
+          publisherName: assigneeName,
+          partStatus: part.status,
+          portalResponse: portalResp,
+          isSelfAssignment: isOwnS89,
+          isConfirmed,
+          isRefused,
         });
       }
 

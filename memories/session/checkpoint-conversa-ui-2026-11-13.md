@@ -46,6 +46,10 @@ git checkout checkpoint-conversa-ui-2026-11-13
    - Concluído o estreitamento de tipos em `src/features/conversa/__tests__/conversaFlow.test.ts` (zero erros TS e zero erros ESLint em `src/features/conversa/**`).
 4. **Repositório Dedicado GitHub Pages `EliezerRosa/conversa-rvm` (`npm run deploy:conversa`) & Ponte SSO Cross-Origin**:
    - Criado `scripts/deploy-conversa-pages.mjs` para publicar a UI Conversa RVM diretamente em `https://github.com/EliezerRosa/conversa-rvm` com GitHub Pages ativo em `https://eliezerrosa.github.io/conversa-rvm/` (`index.html`, `conversa.html` e `404.html` apontando para o bundle de Conversa, sem `sw.js` legado), além de blindar `.github/workflows/deploy.yml` (Node 22 + `/conversa/index.html`), `public/sw.js` (`rvm-pwa-v2`) e ponte SSO/OAuth cross-origin (`?oauth_return_to=...` / `#conversa_sso=...` entre `eliezerrosa.github.io` e `rvm-designacoes-antigravity.vercel.app`) em `conversa.html`, `index.html` e `ConversaAuthGate.tsx`.
+5. **Ergonomia do Carrossel Flutuante & Botões S-89 Z-API (2026-11-14 01:55 BRT)**:
+   - `DocumentCarousel.tsx` e `conversa.css`: carrossel exibido "solto" (`.cv-carousel-backdrop` + `.cv-carousel-floating`) por cima da conversa; ao tocar fora (backdrop/trilha livre/Esc/✕), para de exibir e deixa pílula compacta `📄 Exibir no carrossel (N)` para reabertura.
+   - `documentPort.ts`, `cardPlanner.ts`, `DocumentCarousel.tsx`, `ConversaShell.tsx` e `ConversaApp.tsx`: quando o cartão exibido no carrossel é um S-89 pertencente ao publicador logado (`isSelfAssignment` ou `publisherId === selfPublisherId`), exibe os botões `✅ Confirmar` (somente se ainda não confirmado) e `❌ Não Poderei`.
+   - `actionPort.ts`: `confirmAssignment` e `refuseAssignment` disparam a Edge Function `zapi-smart-webhook` com `buttonsResponseMessage.buttonId` (`CONFIRMAR:<partId>` e `RECUSAR:<partId>`), executando os mesmos fluxos do Z-API (atualização no banco, resposta WhatsApp e gatilho `trigger-auto-reassign` em caso de recusa) + fallback RPC seguro. Suíte em `135/135` testes passando (`npm test`).
 
 
 

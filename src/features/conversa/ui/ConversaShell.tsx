@@ -15,6 +15,7 @@ interface ConversaShellProps {
   briefingData: UserBriefingData | null;
   isBriefingOpen: boolean;
   userLabel?: string;
+  selfPublisherId?: string | null;
   onCloseBriefing: () => void;
   onOpenBriefing: () => void;
   onSendMessage: (text: string) => void;
@@ -33,6 +34,7 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
   briefingData,
   isBriefingOpen,
   userLabel,
+  selfPublisherId,
   onCloseBriefing,
   onOpenBriefing,
   onSendMessage,
@@ -153,6 +155,9 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
                 <DocumentCarousel
                   items={msg.cardData.items as import('../ports/documentPort').DocumentCarouselItem[]}
                   initialFocusId={msg.cardData.initialFocusId}
+                  selfPublisherId={selfPublisherId}
+                  onConfirmAssignment={onConfirmAssignment}
+                  onRefuseAssignment={onRefuseAssignment}
                 />
               )}
 

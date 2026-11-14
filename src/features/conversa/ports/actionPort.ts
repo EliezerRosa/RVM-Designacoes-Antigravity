@@ -131,7 +131,94 @@ export const actionPort = {
   },
 
   /**
-   * Confirma aceite de uma designação do próprio publicador via portal RPC
+   * Dispara o mesmo webhook da Z-API (`zapi-smart-webhook`) correspondente
+   * aos botões interativos do S-89 (`CONFIRMAR:<partId>` e `RECUSAR:<partId>`).
+   */
+  async triggerZApiSmartWebhook(
+    intent: 'CONFIRMAR' | 'RECUSAR',
+    partId: string,
+    publisherId: string,
+    reason?: string
+  ): Promise<{ invoked: boolean; success: boolean; hasPhone: boolean; error?: string }> {
+    try {
+      let phone = '';
+      try {
+        const pub = await api.loadPublisherById(publisherId);
+        phone = pub?.phone?.trim() || '';
+      } catch {
+        // fallback silencioso
+      }
+
+      if (!phone && typeof supabase.from === 'function') {
+        try {
+          const { data: pubRow } = await supabase
+            .from('publishers')
+            .select('data')
+            .eq('id', publisherId)
+            .maybeSingle();
+          const rawData = (pubRow as { data?: { phone?: string; contact_phone?: string } } | null)?.data;
+          phone = (rawData?.phone || rawData?.contact_phone || '').trim();
+        } catch {
+          // fallback silencioso
+        }
+      }
+
+      const buttonId = `${intent}:${partId}`;
+      const buttonLabel = intent === 'CONFIRMAR' ? '✅ Confirmar' : '❌ Não Poderei';
+      const textMessage = intent === 'RECUSAR' && reason?.trim() ? reason.trim() : buttonLabel;
+      const messageId = `conversa-s89-${intent.toLowerCase()}-${partId}-${Date.now()}`;
+
+      const payload = {
+        phone,
+        senderPhone: phone,
+        fromMe: false,
+        isGroup: false,
+        messageId,
+        buttonsResponseMessage: {
+          buttonId,
+          message: buttonLabel,
+        },
+        text: {
+          message: textMessage,
+        },
+        message: textMessage,
+      };
+
+      if (!supabase.functions || typeof supabase.functions.invoke !== 'function') {
+        return { invoked: false, success: false, hasPhone: Boolean(phone), error: 'Edge Functions indisponíveis.' };
+      }
+
+      const { data, error } = await supabase.functions.invoke('zapi-smart-webhook', {
+        body: payload,
+      });
+
+      if (error) {
+        return { invoked: true, success: false, hasPhone: Boolean(phone), error: error.message };
+      }
+
+      const resObj = (data && typeof data === 'object' ? data : {}) as {
+        success?: boolean;
+        error?: string;
+      };
+      return {
+        invoked: true,
+        success: Boolean(phone) && resObj.success !== false,
+        hasPhone: Boolean(phone),
+        error: resObj.error,
+      };
+    } catch (e: unknown) {
+      return {
+        invoked: true,
+        success: false,
+        hasPhone: false,
+        error: getErrorMessage(e),
+      };
+    }
+  },
+
+  /**
+   * Confirma aceite de uma designação do próprio publicador disparando o webhook Z-API
+   * (`CONFIRMAR:<partId>`) e sincronizando com o portal RPC.
    */
   async confirmAssignment(partId: string, publisherId: string): Promise<ActionExecutionResult> {
     if (!partId || !publisherId) {
@@ -141,6 +228,8 @@ export const actionPort = {
         message: 'Identificador da parte ou do publicador ausente para confirmação.',
       };
     }
+
+    const webhookRes = await this.triggerZApiSmartWebhook('CONFIRMAR', partId, publisherId);
 
     try {
       const { data: tokenData, error: tokenError } = await supabase.rpc('create_confirmation_portal_token', {
@@ -155,6 +244,14 @@ export const actionPort = {
         error?: string;
       };
       if (!tokenResult.success || !tokenResult.token) {
+        if (webhookRes.success) {
+          return {
+            success: true,
+            actionType: 'CONFIRM_ASSIGNMENT',
+            message: 'Designação confirmada com sucesso!',
+            details: { partId, publisherId, webhookTriggered: true },
+          };
+        }
         return {
           success: false,
           actionType: 'CONFIRM_ASSIGNMENT',
@@ -175,7 +272,7 @@ export const actionPort = {
         success?: boolean;
         error?: string;
       };
-      if (!submitResult.success) {
+      if (!submitResult.success && !webhookRes.success) {
         return {
           success: false,
           actionType: 'CONFIRM_ASSIGNMENT',
@@ -187,9 +284,17 @@ export const actionPort = {
         success: true,
         actionType: 'CONFIRM_ASSIGNMENT',
         message: 'Designação confirmada com sucesso!',
-        details: { partId, publisherId },
+        details: { partId, publisherId, webhookTriggered: webhookRes.invoked },
       };
     } catch (e: unknown) {
+      if (webhookRes.success) {
+        return {
+          success: true,
+          actionType: 'CONFIRM_ASSIGNMENT',
+          message: 'Designação confirmada com sucesso!',
+          details: { partId, publisherId, webhookTriggered: true },
+        };
+      }
       return {
         success: false,
         actionType: 'CONFIRM_ASSIGNMENT',
@@ -199,14 +304,15 @@ export const actionPort = {
   },
 
   /**
-   * Registra recusa de uma designação via portal RPC com motivo explícito
+   * Registra recusa de uma designação disparando o webhook Z-API (`RECUSAR:<partId>`)
+   * e garantindo fallback via portal RPC.
    */
   async refuseAssignment(
     partId: string,
     publisherId: string,
-    reason: string
+    reason?: string
   ): Promise<ActionExecutionResult> {
-    const cleanReason = (reason || '').trim();
+    const cleanReason = (reason || '').trim() || 'Não poderei realizar a designação (informado via S-89).';
     if (!partId || !publisherId) {
       return {
         success: false,
@@ -214,11 +320,14 @@ export const actionPort = {
         message: 'Identificador da parte ou do publicador ausente para recusa.',
       };
     }
-    if (!cleanReason) {
+
+    const webhookRes = await this.triggerZApiSmartWebhook('RECUSAR', partId, publisherId, cleanReason);
+    if (webhookRes.success && webhookRes.hasPhone) {
       return {
-        success: false,
+        success: true,
         actionType: 'REFUSE_ASSIGNMENT',
-        message: 'Por favor, informe brevemente o motivo de não poder participar.',
+        message: 'Recusa registrada. Os responsáveis pelo quadro serão notificados para providenciar substituição.',
+        details: { partId, publisherId, reason: cleanReason, webhookTriggered: true },
       };
     }
 
@@ -267,7 +376,7 @@ export const actionPort = {
         success: true,
         actionType: 'REFUSE_ASSIGNMENT',
         message: 'Recusa registrada. Os responsáveis pelo quadro serão notificados para providenciar substituição.',
-        details: { partId, publisherId, reason: cleanReason },
+        details: { partId, publisherId, reason: cleanReason, webhookTriggered: webhookRes.invoked },
       };
     } catch (e: unknown) {
       return {

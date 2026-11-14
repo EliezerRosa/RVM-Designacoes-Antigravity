@@ -33,9 +33,28 @@ export const ConversaApp: React.FC = () => {
   const selfPublisherId = useMemo(() => {
     if (profile?.publisher_id) return profile.publisher_id;
     const email = user?.email?.toLowerCase();
-    if (!email) return null;
-    return allPublishers.find((p) => p.email?.toLowerCase() === email)?.id || null;
-  }, [profile?.publisher_id, user?.email, allPublishers]);
+    if (email) {
+      const byEmail = allPublishers.find((p) => p.email?.toLowerCase() === email);
+      if (byEmail) return byEmail.id;
+    }
+    const fullName = profile?.full_name
+      ?.trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (fullName) {
+      const byName = allPublishers.find(
+        (p) =>
+          p.name
+            ?.trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') === fullName
+      );
+      if (byName) return byName.id;
+    }
+    return null;
+  }, [profile?.publisher_id, profile?.full_name, user?.email, allPublishers]);
 
   const userDisplayName = useMemo(() => {
     return profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Irmão';
@@ -185,7 +204,39 @@ export const ConversaApp: React.FC = () => {
     }
   };
 
-  // 4. Confirmação / Recusa direta pelo Micro-Modal de Briefing
+  // 4. Confirmação / Recusa direta pelo Micro-Modal de Briefing ou Carrossel S-89
+  const syncS89StatusInMessages = useCallback(
+    (partId: string, newStatus: 'confirmed' | 'refused') => {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.cardType !== 'document-carousel' || !Array.isArray(m.cardData?.items)) {
+            return m;
+          }
+          const updatedItems = m.cardData.items.map((rawItem) => {
+            const item = rawItem as import('../ports/documentPort').DocumentCarouselItem;
+            if (item.docType === 's89' && (item.partId === partId || item.id === `s89-${partId}`)) {
+              return {
+                ...item,
+                portalResponse: newStatus,
+                isConfirmed: newStatus === 'confirmed',
+                isRefused: newStatus === 'refused',
+              };
+            }
+            return rawItem;
+          });
+          return {
+            ...m,
+            cardData: {
+              ...m.cardData,
+              items: updatedItems,
+            },
+          };
+        })
+      );
+    },
+    []
+  );
+
   const handleConfirmAssignment = async (partId: string) => {
     if (!selfPublisherId) {
       throw new Error('Seu login ainda não está vinculado a um registro de publicador.');
@@ -194,6 +245,7 @@ export const ConversaApp: React.FC = () => {
     if (!result.success) {
       throw new Error(result.message);
     }
+    syncS89StatusInMessages(partId, 'confirmed');
     voicePort.speak(result.message);
     setMessages((prev) => [
       ...prev,
@@ -213,7 +265,7 @@ export const ConversaApp: React.FC = () => {
     await triggerBriefing(true);
   };
 
-  const handleRefuseAssignment = async (partId: string, reason: string) => {
+  const handleRefuseAssignment = async (partId: string, reason: string = 'Não poderei realizar a designação.') => {
     if (!selfPublisherId) {
       throw new Error('Seu login ainda não está vinculado a um registro de publicador.');
     }
@@ -221,6 +273,7 @@ export const ConversaApp: React.FC = () => {
     if (!result.success) {
       throw new Error(result.message);
     }
+    syncS89StatusInMessages(partId, 'refused');
     voicePort.speak(result.message);
     setMessages((prev) => [
       ...prev,
@@ -266,6 +319,7 @@ export const ConversaApp: React.FC = () => {
       briefingData={briefingData}
       isBriefingOpen={isBriefingOpen}
       userLabel={userDisplayName}
+      selfPublisherId={selfPublisherId}
       onCloseBriefing={() => setIsBriefingOpen(false)}
       onOpenBriefing={() => setIsBriefingOpen(true)}
       onSendMessage={handleSendMessage}

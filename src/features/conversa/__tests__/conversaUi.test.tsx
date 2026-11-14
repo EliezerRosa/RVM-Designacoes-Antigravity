@@ -256,6 +256,88 @@ test('DocumentCarousel: navigates chronologically and toggles fullscreen safely'
   });
 });
 
+test('DocumentCarousel: floats over conversation, dismisses on outside tap, and renders S-89 buttons only for logged-in publisher', async () => {
+  await withDomTesting(async ({ rtl: { render, fireEvent, waitFor }, DocumentCarousel }) => {
+    const confirmedParts: string[] = [];
+    const refusedParts: string[] = [];
+
+    const view = render(
+      React.createElement(DocumentCarousel, {
+        selfPublisherId: 'pub-logged',
+        onConfirmAssignment: async (partId: string) => {
+          confirmedParts.push(partId);
+        },
+        onRefuseAssignment: async (partId: string) => {
+          refusedParts.push(partId);
+        },
+        items: [
+          {
+            id: 's89-part-own',
+            partId: 'part-own',
+            publisherId: 'pub-logged',
+            isSelfAssignment: true,
+            isConfirmed: false,
+            docType: 's89',
+            title: 'S-89 · 4. Iniciando conversas',
+            subtitle: 'João Silva · Semana 2026-11-16',
+            dateStr: '2026-11-16',
+            htmlContent: '<div>Cartao S-89 Proprio</div>',
+            isInitialFocus: true,
+          },
+          {
+            id: 's89-part-other',
+            partId: 'part-other',
+            publisherId: 'pub-other',
+            isSelfAssignment: false,
+            isConfirmed: false,
+            docType: 's89',
+            title: 'S-89 · 3. Leitura da Bíblia',
+            subtitle: 'Pedro Santos · Semana 2026-11-23',
+            dateStr: '2026-11-23',
+            htmlContent: '<div>Cartao S-89 Outro</div>',
+          },
+        ],
+      })
+    );
+
+    // 1. Renderizado solto (floating) por cima da conversa
+    const backdrop = view.getByTestId('carousel-backdrop');
+    assert.ok(backdrop);
+    assert.ok(view.container.querySelector('.cv-carousel-floating'));
+
+    // 2. S-89 do próprio publicador logado: exibe "✅ Confirmar" e "❌ Não Poderei"
+    const confirmBtn = view.getByTestId('s89-confirm-btn');
+    const refuseBtn = view.getByTestId('s89-refuse-btn');
+    assert.ok(confirmBtn);
+    assert.ok(refuseBtn);
+
+    // Ao clicar em "✅ Confirmar", dispara o callback de webhook e oculta o botão Confirmar
+    fireEvent.click(confirmBtn);
+    await waitFor(() => {
+      assert.deepEqual(confirmedParts, ['part-own']);
+      assert.equal(view.queryByTestId('s89-confirm-btn') === null, true);
+      assert.ok(view.getByText(/Confirmado/));
+      assert.ok(view.getByTestId('s89-refuse-btn'));
+    });
+
+    // 3. Ao avançar para S-89 de outro publicador, NÃO exibe botões de ação
+    fireEvent.click(view.getByTitle('Próxima semana / Documento'));
+    assert.ok(view.getByText('S-89 · 3. Leitura da Bíblia'));
+    assert.equal(view.queryByTestId('s89-confirm-btn') === null, true);
+    assert.equal(view.queryByTestId('s89-refuse-btn') === null, true);
+
+    // 4. Ao tocar fora (no backdrop), para de exibir o carrossel e mostra pílula de reabertura
+    fireEvent.click(backdrop);
+    assert.equal(view.queryByTestId('carousel-backdrop') === null, true);
+    const reopenBtn = view.getByText(/Exibir no carrossel/);
+    assert.ok(reopenBtn);
+
+    // Reabre ao clicar na pílula
+    fireEvent.click(reopenBtn);
+    assert.ok(view.getByTestId('carousel-backdrop'));
+  });
+});
+
 test('DocumentCarousel: scales forms proportionally to fit mobile and desktop viewports', async () => {
   await withDomTesting(({ rtl: { render, fireEvent }, DocumentCarousel }) => {
     const origClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');

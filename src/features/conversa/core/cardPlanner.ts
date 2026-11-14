@@ -390,7 +390,9 @@ export async function planTurn(
     const items = await documents.getS89ChronologicalList(
       resolvedPerson?.id || (mentionsSelf(nlu.rawText) ? target.id : userContext.isAdmin ? undefined : target.id),
       targetWeekId,
-      target.isSelf
+      target.isSelf,
+      userContext.publisherId,
+      userContext.publisherName
     );
     return {
       message: {

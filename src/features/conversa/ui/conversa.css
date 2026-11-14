@@ -328,7 +328,27 @@ body,
   font-weight: 600;
 }
 
-/* Carrossel Documental — Limpo, sem barras de rolagem e auto-ajustado ao dispositivo */
+/* Carrossel Documental — Flutuante ("solto") sobre a conversa, fecha ao tocar fora */
+.cv-carousel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 115;
+  background: rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  animation: cvBackdropFadeIn 0.18s ease-out;
+}
+
+@keyframes cvBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .cv-carousel {
   position: relative;
   width: 100%;
@@ -343,6 +363,60 @@ body,
   outline: none;
 }
 
+.cv-carousel-floating {
+  max-width: min(680px, calc(100vw - 24px));
+  max-height: calc(100dvh - 28px);
+  margin: 0;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.36), 0 4px 16px rgba(15, 23, 42, 0.16);
+  display: flex;
+  flex-direction: column;
+  animation: cvCarouselFloatIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cv-carousel-compact {
+  max-width: min(510px, calc(100vw - 24px));
+}
+
+@keyframes cvCarouselFloatIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cv-carousel-reopen-bar {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.cv-carousel-reopen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cv-border);
+  background: var(--cv-surface);
+  color: var(--cv-primary);
+  font-family: var(--cv-font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--cv-shadow-sm);
+  transition: background-color 0.15s, border-color 0.15s, transform 0.12s;
+}
+
+.cv-carousel-reopen-btn:hover {
+  background: var(--cv-primary-light);
+  border-color: var(--cv-primary);
+}
+
 .cv-carousel-header {
   display: flex;
   justify-content: space-between;
@@ -351,6 +425,107 @@ body,
   padding: 10px 14px;
   background: var(--cv-surface);
   border-bottom: 1px solid var(--cv-border);
+}
+
+.cv-carousel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Barra de Ações Z-API no Cartão S-89 do Publicador Logado */
+.cv-carousel-s89-actions {
+  padding: 10px 14px;
+  background: var(--cv-surface);
+  border-top: 1px solid var(--cv-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cv-carousel-s89-btn-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cv-s89-btn {
+  flex: 1;
+  min-width: 135px;
+  min-height: 42px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-family: var(--cv-font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.cv-s89-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cv-s89-btn-confirm {
+  background: var(--cv-success);
+  color: #ffffff;
+  border: 1.5px solid var(--cv-success);
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.22);
+}
+
+.cv-s89-btn-confirm:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.cv-s89-btn-refuse {
+  background: var(--cv-surface);
+  color: var(--cv-danger);
+  border: 1.5px solid var(--cv-danger);
+}
+
+.cv-s89-btn-refuse:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.cv-carousel-s89-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cv-carousel-s89-status-confirmed {
+  background: var(--cv-success-light);
+  color: var(--cv-success);
+  flex: 1;
+}
+
+.cv-carousel-s89-status-refused {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--cv-danger);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cv-carousel-s89-error {
+  font-size: 13px;
+  color: var(--cv-danger);
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid var(--cv-danger);
+  border-radius: 8px;
+  padding: 6px 10px;
+  text-align: center;
 }
 
 .cv-carousel-meta {
