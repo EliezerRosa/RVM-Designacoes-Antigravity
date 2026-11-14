@@ -24,14 +24,17 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: |
+          npm run build
+          mkdir -p dist/conversa
+          cp dist/conversa.html dist/conversa/index.html
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}

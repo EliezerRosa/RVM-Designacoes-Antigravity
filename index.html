@@ -20,6 +20,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="RVM Designações" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <script>
+    (function () {
+      try {
+        var ret = localStorage.getItem('rvm_conversa_oauth_return');
+        var ts = Number(localStorage.getItem('rvm_conversa_oauth_ts') || '0');
+        if (ret && Date.now() - ts < 300000 && !window.location.pathname.endsWith('conversa.html')) {
+          localStorage.removeItem('rvm_conversa_oauth_return');
+          localStorage.removeItem('rvm_conversa_oauth_ts');
+          window.location.replace(ret + (window.location.hash || ''));
+        }
+      } catch (e) {}
+    })();
+  </script>
   <script src="./registerSW.js" defer></script>
   
   <title>RVM Designações</title>

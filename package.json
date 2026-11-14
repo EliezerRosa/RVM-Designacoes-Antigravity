@@ -18,6 +18,7 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
+    "deploy:conversa": "node scripts/deploy-conversa-pages.mjs",
     "robot:whatsapp": "node scripts/whatsapp-robot.js",
     "s38-sync": "node --import tsx scripts/s38-sync-bot.ts",
     "glide": "node --import tsx scripts/glide-sync-bot.ts"

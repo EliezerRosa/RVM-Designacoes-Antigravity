@@ -129,8 +129,16 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     define: {
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY),
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
+        env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://pevstuyzlewvjidjkmea.supabase.co'
+      ),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
+        (
+          env.VITE_SUPABASE_ANON_KEY ||
+          process.env.VITE_SUPABASE_ANON_KEY ||
+          'sb_publishable_SObnBXFPKyoPO7-b4ldeqg_i2gpKOrv'
+        ).trim()
+      ),
     },
     plugins: [react(), conversaLocalDevAuthPlugin(env)],
     build: {

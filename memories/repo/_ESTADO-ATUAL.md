@@ -1,7 +1,7 @@
 # Estado Atual do Workspace — Antigravity / RVM Designações
 
 > **Fonte Canônica Principal de RVM**: `_ESTADO-ATUAL.md` (na raiz do repositório `rvm-designacoes-unified/`, prevalece para regras, motor, histórico e pendências de RVM)  
-> **Última Atualização**: 2026-11-13 23:30 (BRT)  
+> **Última Atualização**: 2026-11-14 00:35 (BRT)  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-15.01` com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** (`docs-local/_ESTADO-LOCAL.md`; regra inflexível de 2026-11-07). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.
 
@@ -11,7 +11,7 @@
 
 O repositório unificado reside em `rvm-designacoes-unified/`:
 - **Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Vercel CLI autenticado com `VERCEL_TOKEN`).
-- **GitHub Pages**: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/` (`npm run deploy`).
+- **GitHub Pages**: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/` (`npm run deploy`) e repositório dedicado **Conversa RVM** em `https://eliezerrosa.github.io/conversa-rvm/` (`npm run deploy:conversa` -> `EliezerRosa/conversa-rvm`).
 - **Supabase**: Projeto `pevstuyzlewvjidjkmea`.
 - **Último Checkpoint Git RVM**: Tag `checkpoint-conversa-ui-2026-11-13` (sobre baseline de código `27aaafc`, pós-Conversa RVM e pré-revisão do plano; tag pré-Conversa: `checkpoint-pre-conversa-ui-66f083d`). Nota histórica: o histórico anterior foi reescrito **3×** e enviado ao remoto por force-push em 2026-11-07 (21:37, 22:12 e 22:3x; ver §2.4, §2.7 e pendência 8).
 

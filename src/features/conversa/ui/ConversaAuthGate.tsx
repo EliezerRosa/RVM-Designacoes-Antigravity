@@ -81,6 +81,12 @@ export const ConversaAuthGate: React.FC<ConversaAuthGateProps> = ({ children }) 
   }, [isLoading, isAuthenticated, tryLocalDevLogin]);
 
   useEffect(() => {
+    try {
+      localStorage.removeItem('rvm_conversa_oauth_return');
+      localStorage.removeItem('rvm_conversa_oauth_ts');
+    } catch {
+      // ignore
+    }
     const params = new URLSearchParams(window.location.search);
     const errorDesc = params.get('error_description');
     if (errorDesc) {
@@ -105,6 +111,12 @@ export const ConversaAuthGate: React.FC<ConversaAuthGateProps> = ({ children }) 
         return;
       }
       const redirectTo = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+      try {
+        localStorage.setItem('rvm_conversa_oauth_return', redirectTo);
+        localStorage.setItem('rvm_conversa_oauth_ts', String(Date.now()));
+      } catch {
+        // ignore
+      }
       const { error: oauthErr } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

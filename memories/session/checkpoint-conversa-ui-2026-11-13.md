@@ -44,5 +44,8 @@ git checkout checkpoint-conversa-ui-2026-11-13
 3. **Rotas `/conversa` e `/conversa.html` em `vercel.json` & Tipagem em `conversaFlow.test.ts`**:
    - Adicionados rewrites explícitos para `/conversa` e `/conversa.html` antes de `/(.*) -> /index.html` em `vercel.json`.
    - Concluído o estreitamento de tipos em `src/features/conversa/__tests__/conversaFlow.test.ts` (zero erros TS e zero erros ESLint em `src/features/conversa/**`).
+4. **Repositório Dedicado GitHub Pages `EliezerRosa/conversa-rvm` (`npm run deploy:conversa`)**:
+   - Criado `scripts/deploy-conversa-pages.mjs` para publicar a UI Conversa RVM diretamente em `https://github.com/EliezerRosa/conversa-rvm` com GitHub Pages ativo em `https://eliezerrosa.github.io/conversa-rvm/` (`index.html`, `conversa.html` e `404.html` apontando para o bundle de Conversa, sem `sw.js` legado), além de blindar `.github/workflows/deploy.yml` (Node 22 + `/conversa/index.html`), `public/sw.js` e retorno OAuth (`rvm_conversa_oauth_return` em `index.html`).
+
 
 
