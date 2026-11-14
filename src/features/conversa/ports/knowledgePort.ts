@@ -18,6 +18,10 @@ import {
   RVM_KNOWLEDGE_BASE,
   searchKnowledgeEntries,
 } from '../knowledge/rvmRulesKnowledge';
+import {
+  findVocabularyEntries,
+  translateTechnicalTermsForLayperson,
+} from '../knowledge/rvmVocabularyDictionary';
 
 export interface ExplanationResult {
   found: boolean;
@@ -187,8 +191,32 @@ export const knowledgePort = {
       return buildCapabilitiesExplanation(ctx);
     }
 
+    const vocabMatches = findVocabularyEntries(query);
     const primary = findKnowledge(query);
     if (!primary) {
+      if (vocabMatches.length > 0) {
+        const top = vocabMatches[0];
+        const details: string[] = [
+          `💡 Em palavras simples: ${top.simpleTranslation}`,
+          top.detailedExplanation,
+        ];
+        if (vocabMatches.length > 1) {
+          for (const extra of vocabMatches.slice(1)) {
+            details.push(`📖 ${extra.term}: ${extra.simpleTranslation}`);
+          }
+        }
+        const liveLine = buildLiveCongregationLine(ctx);
+        if (liveLine) details.push(liveLine);
+
+        return {
+          found: true,
+          title: top.term,
+          summary: `${top.simpleTranslation} (${top.detailedExplanation})`,
+          details,
+          officialSource: top.officialSource,
+        };
+      }
+
       return {
         found: false,
         title: 'Especialista RVM Designações',
@@ -204,10 +232,13 @@ export const knowledgePort = {
     const related = searchKnowledgeEntries(query, 4).filter(
       (entry) => entry.topicId !== primary.topicId
     );
-    const details = [...primary.details];
+    const details = primary.details.map((d) => translateTechnicalTermsForLayperson(d));
+    if (vocabMatches.length > 0) {
+      details.unshift(`💡 Em palavras simples: ${vocabMatches[0].simpleTranslation}`);
+    }
     if (related.length > 0) {
       for (const rel of related.slice(0, 2)) {
-        details.push(`${rel.title}: ${rel.summary}`);
+        details.push(`${rel.title}: ${translateTechnicalTermsForLayperson(rel.summary)}`);
       }
     }
 
@@ -216,10 +247,14 @@ export const knowledgePort = {
       details.push(liveLine);
     }
 
+    const humanizedSummary = translateTechnicalTermsForLayperson(primary.summary);
+
     return {
       found: true,
       title: primary.title,
-      summary: primary.summary,
+      summary: vocabMatches.length > 0 && !humanizedSummary.includes(vocabMatches[0].simpleTranslation)
+        ? `${vocabMatches[0].simpleTranslation} ${humanizedSummary}`
+        : humanizedSummary,
       details,
       officialSource: primary.officialSource,
     };

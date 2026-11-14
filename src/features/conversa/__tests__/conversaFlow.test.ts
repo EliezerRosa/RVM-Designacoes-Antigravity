@@ -903,3 +903,165 @@ test('queryPort.getPublisherAssignments: faz fallback para workbook_parts quando
 });
 
 
+
+test('Conversa Skill (§43.7): elipses sem substantivos, noção temporal (passado/presente/futuro), dicionário leigo S-38/Organizados/WOL e controle voz/texto', async () => {
+  const pubs: Publisher[] = [
+    makePublisher('pub-1', 'Eliezer Rosa'),
+    makePublisher('pub-2', 'João Silva'),
+  ];
+
+  const ports: Partial<CardPlannerPorts> = {
+    queries: {
+      getPublisherAssignments: async (publisherId: string) => {
+        if (publisherId === 'pub-1') {
+          return [
+            {
+              partId: 'fut-1',
+              weekId: '2099-11-23',
+              weekDisplay: '23-29 Novembro',
+              date: '2099-11-23',
+              tipoParte: 'spiritual_gems',
+              tituloParte: '2. Joias espirituais',
+              funcao: 'Titular',
+              status: 'DESIGNADA',
+            },
+          ];
+        }
+        return [
+          {
+            partId: 'fut-2',
+            weekId: '2099-11-30',
+            weekDisplay: '30 Novembro - 6 Dezembro',
+            date: '2099-11-30',
+            tipoParte: 'bible_reading',
+            tituloParte: '3. Leitura da Bíblia',
+            funcao: 'Titular',
+            status: 'DESIGNADA',
+          },
+        ];
+      },
+      getLastParticipation: async (publisherId: string) => [
+        {
+          partId: `past-${publisherId}`,
+          weekId: '2025-10-06',
+          weekDisplay: '06-12 Outubro',
+          date: '2025-10-06',
+          tipoParte: 'prayer',
+          tituloParte: 'Oração Final',
+          funcao: 'Titular',
+          status: 'CONCLUIDA',
+        },
+      ],
+      getWeekParts: async () => [],
+      getVacantParts: async () => [],
+      getPublisherProfileSummary: async () => '',
+      listPublishersByFilter: async () => pubs,
+      getPublisherStats: async () => ({
+        totalAssignments: 1,
+        completedAssignments: 1,
+        upcomingAssignments: 1,
+      }),
+      getCongregationAnalytics: async () => ({
+        totalPublishers: 2,
+        eldersCount: 1,
+        servantsCount: 0,
+        publishersCount: 1,
+        activeWeeksCount: 1,
+        vacantPartsCount: 0,
+      }),
+    },
+  };
+
+  // Turno 1: Consulta inicial explícita
+  const t1L0 = parseL0Grammar('Minhas designações');
+  const t1 = await planTurn(
+    { ...t1L0, layer: 'l0-grammar' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2099-11-23', '2099-11-30'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true },
+    ports
+  );
+  assert.equal(t1.message.intentId, 'query-my-assignments');
+  assert.match(t1.message.text, /Eliezer Rosa/);
+
+  // Turno 2: Elipse sem substantivo nem verbo ("e o João?") herdando query-my-assignments
+  const t2L0 = parseL0Grammar('e o João?');
+  const t2 = await planTurn(
+    { ...t2L0, layer: 'fallback' },
+    t1.updatedContext,
+    fullGate,
+    pubs,
+    ['2099-11-23', '2099-11-30'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true },
+    ports
+  );
+  assert.equal(t2.message.intentId, 'query-my-assignments');
+  assert.match(t2.message.text, /João Silva/);
+  assert.equal(t2.updatedContext.lastPersonName, 'João Silva');
+
+  // Turno 3: Elipse + pronome anafórico + tempo verbal passado ("e ele no passado?")
+  const t3L0 = parseL0Grammar('e ele no passado?');
+  const t3 = await planTurn(
+    { ...t3L0, layer: 'fallback' },
+    t2.updatedContext,
+    fullGate,
+    pubs,
+    ['2099-11-23', '2099-11-30'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true },
+    ports
+  );
+  assert.equal(t3.message.intentId, 'query-last-participation');
+  assert.match(t3.message.text, /No passado.*João Silva/);
+
+  // Turno 4: Banco de dicionário S-38 / Livro Organizados / WOL traduzido em palavras simples
+  const t4L0 = parseL0Grammar('O que significa superintendente da reunião no S-38 e Organizados?');
+  const t4 = await planTurn(
+    { ...t4L0, layer: 'l0-grammar' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2099-11-23'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true },
+    ports
+  );
+  assert.equal(t4.message.cardType, 'explain');
+  assert.equal(t4.message.cardData?.found, true);
+  assert.match(
+    `${t4.message.text} ${(t4.message.cardData?.details || []).join(' ')}`,
+    /palavras simples|organizar a reunião|S-38|Organizados/i
+  );
+
+  // Turno 5: Controle de voz <-> texto (pausar e retomar sem TTS ao silenciar)
+  const pauseL0 = parseL0Grammar('modo texto');
+  const pauseTurn = await planTurn(
+    { ...pauseL0, layer: 'l0-grammar' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2099-11-23'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true },
+    ports
+  );
+  assert.equal(pauseTurn.message.intentId, 'control-voice-mode');
+  assert.equal(pauseTurn.updatedContext.voiceActive, false);
+  assert.equal(pauseTurn.updatedContext.ttsEnabled, false);
+  assert.equal(pauseTurn.updatedContext.sttEnabled, false);
+  assert.equal(pauseTurn.spokenText, undefined);
+
+  const resumeL0 = parseL0Grammar('ativar a voz');
+  const resumeTurn = await planTurn(
+    { ...resumeL0, layer: 'l0-grammar' },
+    pauseTurn.updatedContext,
+    fullGate,
+    pubs,
+    ['2099-11-23'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true },
+    ports
+  );
+  assert.equal(resumeTurn.updatedContext.voiceActive, true);
+  assert.equal(resumeTurn.updatedContext.ttsEnabled, true);
+  assert.equal(resumeTurn.updatedContext.sttEnabled, true);
+  assert.ok(resumeTurn.spokenText);
+});

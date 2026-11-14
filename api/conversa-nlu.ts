@@ -46,6 +46,7 @@ const ALLOWED_INTENTS = [
   'proactive-briefing',
   'clarify-ambiguity',
   'query-sync-status',
+  'control-voice-mode',
   'fallback.unknown',
 ] as const;
 
@@ -131,6 +132,7 @@ Intenções permitidas:
 - proactive-briefing (ex: "quais minhas pendências?", "o que tenho que fazer?", "briefing")
 - clarify-ambiguity (ex: "opção 1", "o primeiro", "sim", "não")
 - query-sync-status (ex: "como está a sincronização?", "status da sincronização")
+- control-voice-mode (ex: "pausar voz", "parar de ouvir", "parar de falar", "modo texto", "ativar voz", "voltar a ouvir", "voltar a falar")
 - fallback.unknown (qualquer outra coisa fora do escopo)
 
 Responda SOMENTE um objeto JSON com formato:
@@ -145,7 +147,9 @@ Responda SOMENTE um objeto JSON com formato:
     "filter": "string ou null",
     "newAssignee": "string ou null",
     "currentAssignee": "string ou null",
-    "reason": "string ou null"
+    "reason": "string ou null",
+    "tense": "past | present | future | null",
+    "voiceCommand": "pause-all | resume-all | pause-speaking | pause-listening | resume-speaking | resume-listening | null"
   },
   "confidence": 0.0 a 1.0
 }`;

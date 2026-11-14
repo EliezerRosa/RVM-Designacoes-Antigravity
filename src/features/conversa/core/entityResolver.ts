@@ -76,6 +76,21 @@ export function resolvePublisher(
   return { resolved: false };
 }
 
+function getTodayLocalIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function getCurrentWeekMondayIso(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+}
+
+export { getTodayLocalIso, getCurrentWeekMondayIso };
+
 /**
  * Resolve data/semana contra a lista de semanas reais importadas
  */
@@ -86,16 +101,16 @@ export function resolveWeek(
   if (!availableWeeks.length) return { resolved: false };
 
   const sorted = [...availableWeeks].sort();
-  const today = new Date().toISOString().split('T')[0];
+  const currentMonday = getCurrentWeekMondayIso();
+  const currentIndex = sorted.findIndex((w) => w >= currentMonday);
 
   if (!weekQuery || weekQuery === 'current-week') {
     // Acha a semana corrente (ou mais próxima no futuro)
-    const current = sorted.find((w) => w >= today) || sorted[sorted.length - 1];
+    const current = sorted.find((w) => w >= currentMonday) || sorted[sorted.length - 1];
     return { resolved: true, weekId: current, mondayDate: current };
   }
 
   if (weekQuery === 'next-week') {
-    const currentIndex = sorted.findIndex((w) => w >= today);
     if (currentIndex >= 0 && currentIndex + 1 < sorted.length) {
       const next = sorted[currentIndex + 1];
       return { resolved: true, weekId: next, mondayDate: next };
@@ -104,11 +119,36 @@ export function resolveWeek(
     return { resolved: true, weekId: fallback, mondayDate: fallback };
   }
 
+  if (weekQuery === 'in-two-weeks') {
+    if (currentIndex >= 0 && currentIndex + 2 < sorted.length) {
+      const target = sorted[currentIndex + 2];
+      return { resolved: true, weekId: target, mondayDate: target };
+    }
+    const fallback = sorted[sorted.length - 1];
+    return { resolved: true, weekId: fallback, mondayDate: fallback };
+  }
+
   if (weekQuery === 'previous-week') {
-    const currentIndex = sorted.findIndex((w) => w >= today);
+    const pastWeeks = sorted.filter((w) => w < currentMonday);
+    if (pastWeeks.length > 0) {
+      const prev = pastWeeks[pastWeeks.length - 1];
+      return { resolved: true, weekId: prev, mondayDate: prev };
+    }
     if (currentIndex > 0) {
       const prev = sorted[currentIndex - 1];
       return { resolved: true, weekId: prev, mondayDate: prev };
+    }
+    return { resolved: true, weekId: sorted[0], mondayDate: sorted[0] };
+  }
+
+  if (weekQuery === 'two-weeks-ago') {
+    const pastWeeks = sorted.filter((w) => w < currentMonday);
+    if (pastWeeks.length >= 2) {
+      const prev2 = pastWeeks[pastWeeks.length - 2];
+      return { resolved: true, weekId: prev2, mondayDate: prev2 };
+    }
+    if (pastWeeks.length === 1) {
+      return { resolved: true, weekId: pastWeeks[0], mondayDate: pastWeeks[0] };
     }
     return { resolved: true, weekId: sorted[0], mondayDate: sorted[0] };
   }

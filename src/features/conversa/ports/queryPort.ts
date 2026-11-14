@@ -910,14 +910,39 @@ export const queryPort = {
 };
 
 function resolveModalidadeFromHint(normHint: string): string {
-  if (normHint.includes('president')) return EnumModalidade.PRESIDENCIA;
-  if (normHint.includes('oracao')) return EnumModalidade.ORACAO;
-  if (normHint.includes('leitor') && (normHint.includes('ebc') || normHint.includes('estudo'))) return EnumModalidade.LEITOR_EBC;
-  if (normHint.includes('dirigente') || normHint.includes('ebc') || normHint.includes('estudo biblico')) return EnumModalidade.DIRIGENTE_EBC;
-  if (normHint.includes('leitura')) return EnumModalidade.LEITURA_ESTUDANTE;
-  if (normHint.includes('joias') || normHint.includes('tesouros') || normHint.includes('discurso')) return EnumModalidade.DISCURSO_ENSINO;
-  if (normHint.includes('necessidades')) return EnumModalidade.NECESSIDADES_LOCAIS;
-  if (normHint.includes('ajudante') || normHint.includes('demonstrac') || normHint.includes('iniciando') || normHint.includes('cultivando') || normHint.includes('fazendo')) {
+  if (normHint.includes('president') || normHint === 'chairman') return EnumModalidade.PRESIDENCIA;
+  if (normHint.includes('oracao') || normHint === 'prayer') return EnumModalidade.ORACAO;
+  if (normHint === 'cbs_reader' || (normHint.includes('leitor') && (normHint.includes('ebc') || normHint.includes('estudo')))) {
+    return EnumModalidade.LEITOR_EBC;
+  }
+  if (normHint === 'cbs' || normHint.includes('dirigente') || normHint.includes('ebc') || normHint.includes('estudo biblico')) {
+    return EnumModalidade.DIRIGENTE_EBC;
+  }
+  if (normHint === 'bible_reading' || normHint.includes('leitura')) return EnumModalidade.LEITURA_ESTUDANTE;
+  if (
+    normHint === 'spiritual_gems' ||
+    normHint === 'treasures_talk' ||
+    normHint === 'student_talk' ||
+    normHint === 'living_part' ||
+    normHint.includes('joias') ||
+    normHint.includes('tesouros') ||
+    normHint.includes('discurso')
+  ) {
+    return EnumModalidade.DISCURSO_ENSINO;
+  }
+  if (normHint === 'local_needs' || normHint.includes('necessidades')) return EnumModalidade.NECESSIDADES_LOCAIS;
+  if (
+    normHint === 'student_demo' ||
+    normHint === 'starting_conversations' ||
+    normHint === 'following_up' ||
+    normHint === 'making_disciples' ||
+    normHint === 'explaining_beliefs' ||
+    normHint.includes('ajudante') ||
+    normHint.includes('demonstrac') ||
+    normHint.includes('iniciando') ||
+    normHint.includes('cultivando') ||
+    normHint.includes('fazendo')
+  ) {
     return EnumModalidade.DEMONSTRACAO;
   }
   return getModalidadeFromTipo(normHint, '') || EnumModalidade.DEMONSTRACAO;

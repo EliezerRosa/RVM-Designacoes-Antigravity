@@ -14,11 +14,14 @@ interface ConversaShellProps {
   isProcessing: boolean;
   briefingData: UserBriefingData | null;
   isBriefingOpen: boolean;
+  voiceActive?: boolean;
   userLabel?: string;
   selfPublisherId?: string | null;
   onCloseBriefing: () => void;
   onOpenBriefing: () => void;
   onSendMessage: (text: string) => void;
+  onPreferTextMode?: () => void;
+  onVoiceModeChange?: (voiceEnabled: boolean) => void;
   onSelectCandidate: (candidate: DisambiguationCandidate, index: number) => void;
   onActionConfirm?: () => void;
   onActionCancel?: () => void;
@@ -33,11 +36,14 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
   isProcessing,
   briefingData,
   isBriefingOpen,
+  voiceActive = true,
   userLabel,
   selfPublisherId,
   onCloseBriefing,
   onOpenBriefing,
   onSendMessage,
+  onPreferTextMode,
+  onVoiceModeChange,
   onSelectCandidate,
   onActionConfirm,
   onActionCancel,
@@ -206,7 +212,13 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
       )}
 
       {/* Compositor Fixo */}
-      <Composer onSendMessage={onSendMessage} isProcessing={isProcessing} />
+      <Composer
+        onSendMessage={onSendMessage}
+        isProcessing={isProcessing}
+        voiceActive={voiceActive}
+        onPreferTextMode={onPreferTextMode}
+        onVoiceModeChange={onVoiceModeChange}
+      />
     </div>
   );
 };

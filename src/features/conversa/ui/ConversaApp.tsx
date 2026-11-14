@@ -21,6 +21,9 @@ export const ConversaApp: React.FC = () => {
 
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [contextState, setContextState] = useState<ConversaContextState>(createInitialContext);
+  const voiceOutputEnabledRef = useRef<boolean>(true);
+  voiceOutputEnabledRef.current =
+    contextState.voiceActive !== false && contextState.ttsEnabled !== false;
   const [isProcessing, setIsProcessing] = useState(false);
   const [allPublishers, setAllPublishers] = useState<Publisher[]>([]);
   const [availableWeeks, setAvailableWeeks] = useState<string[]>([]);
@@ -151,7 +154,7 @@ export const ConversaApp: React.FC = () => {
         });
 
         // Fala o resumo se áudio estiver habilitado
-        if (briefing.hasPendingItems && !force) {
+        if (briefing.hasPendingItems && !force && voiceOutputEnabledRef.current) {
           voicePort.speak(briefing.spokenSummary);
         }
       } catch (e) {
@@ -219,9 +222,14 @@ export const ConversaApp: React.FC = () => {
         }
       );
 
-      // 3. Fala a resposta sintetizada
-      if (planned.spokenText) {
+      // 3. Fala a resposta sintetizada (respeitando modo voz/fala)
+      const shouldSpeakAfterTurn =
+        planned.updatedContext.voiceActive !== false &&
+        planned.updatedContext.ttsEnabled !== false;
+      if (planned.spokenText && shouldSpeakAfterTurn) {
         voicePort.speak(planned.spokenText);
+      } else if (!shouldSpeakAfterTurn) {
+        voicePort.stopSpeaking();
       }
 
       setMessages((prev) => [...prev, planned.message]);
@@ -282,7 +290,9 @@ export const ConversaApp: React.FC = () => {
       throw new Error(result.message);
     }
     syncS89StatusInMessages(partId, 'confirmed');
-    voicePort.speak(result.message);
+    if (voiceOutputEnabledRef.current) {
+      voicePort.speak(result.message);
+    }
     setMessages((prev) => [
       ...prev,
       {
@@ -310,7 +320,9 @@ export const ConversaApp: React.FC = () => {
       throw new Error(result.message);
     }
     syncS89StatusInMessages(partId, 'refused');
-    voicePort.speak(result.message);
+    if (voiceOutputEnabledRef.current) {
+      voicePort.speak(result.message);
+    }
     setMessages((prev) => [
       ...prev,
       {
@@ -342,6 +354,28 @@ export const ConversaApp: React.FC = () => {
     void handleSendMessage('não');
   };
 
+  const handlePreferTextMode = () => {
+    voicePort.stopSpeaking();
+    setContextState((prev) => ({
+      ...prev,
+      voiceActive: false,
+      ttsEnabled: false,
+      sttEnabled: false,
+    }));
+  };
+
+  const handleVoiceModeChange = (voiceEnabled: boolean) => {
+    if (!voiceEnabled) {
+      voicePort.stopSpeaking();
+    }
+    setContextState((prev) => ({
+      ...prev,
+      voiceActive: voiceEnabled,
+      ttsEnabled: voiceEnabled,
+      sttEnabled: voiceEnabled,
+    }));
+  };
+
   const handleClearHistory = () => {
     voicePort.stopSpeaking();
     setMessages([]);
@@ -354,11 +388,14 @@ export const ConversaApp: React.FC = () => {
       isProcessing={isProcessing}
       briefingData={briefingData}
       isBriefingOpen={isBriefingOpen}
+      voiceActive={contextState.voiceActive}
       userLabel={userDisplayName}
       selfPublisherId={selfPublisherId}
       onCloseBriefing={() => setIsBriefingOpen(false)}
       onOpenBriefing={() => setIsBriefingOpen(true)}
       onSendMessage={handleSendMessage}
+      onPreferTextMode={handlePreferTextMode}
+      onVoiceModeChange={handleVoiceModeChange}
       onSelectCandidate={handleSelectCandidate}
       onActionConfirm={handleActionConfirm}
       onActionCancel={handleActionCancel}

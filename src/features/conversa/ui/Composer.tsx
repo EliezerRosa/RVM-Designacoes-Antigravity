@@ -5,31 +5,74 @@ import { voicePort } from '../ports/voicePort';
 interface ComposerProps {
   onSendMessage: (text: string) => void;
   isProcessing?: boolean;
+  voiceActive?: boolean;
+  onPreferTextMode?: () => void;
+  onVoiceModeChange?: (voiceEnabled: boolean) => void;
 }
 
 export const Composer: React.FC<ComposerProps> = ({
   onSendMessage,
   isProcessing = false,
+  voiceActive = true,
+  onPreferTextMode,
+  onVoiceModeChange,
 }) => {
   const [text, setText] = useState('');
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(voiceActive);
+  const [prevVoiceActive, setPrevVoiceActive] = useState(voiceActive);
   const [isListening, setIsListening] = useState(false);
   const stopListeningRef = useRef<(() => void) | null>(null);
 
-  // Alterna entre modo texto e modo voz
+  if (voiceActive !== prevVoiceActive) {
+    setPrevVoiceActive(voiceActive);
+    setIsVoiceMode(voiceActive);
+    if (!voiceActive && isListening) {
+      setIsListening(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!voiceActive && stopListeningRef.current) {
+      stopListeningRef.current();
+      stopListeningRef.current = null;
+    }
+  }, [voiceActive]);
+
+  // Alterna entre modo voz (prioritário) e modo texto
   const handleToggleMode = () => {
     if (isListening) {
-      if (stopListeningRef.current) stopListeningRef.current();
+      if (stopListeningRef.current) {
+        stopListeningRef.current();
+        stopListeningRef.current = null;
+      }
       setIsListening(false);
+      setIsVoiceMode(false);
+      onVoiceModeChange?.(false);
       return;
     }
 
     const nextMode = !isVoiceMode;
     setIsVoiceMode(nextMode);
+    onVoiceModeChange?.(nextMode);
 
     if (nextMode) {
       startVoiceListening();
     }
+  };
+
+  // Ao tocar na caixa de texto, prioriza modo texto imediatamente
+  const handleTextInputTouch = () => {
+    if (stopListeningRef.current) {
+      stopListeningRef.current();
+      stopListeningRef.current = null;
+    }
+    if (isListening) {
+      setIsListening(false);
+    }
+    if (isVoiceMode) {
+      setIsVoiceMode(false);
+    }
+    onPreferTextMode?.();
   };
 
   const startVoiceListening = () => {
@@ -57,6 +100,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
     if (isListening && stopListeningRef.current) {
       stopListeningRef.current();
+      stopListeningRef.current = null;
       setIsListening(false);
     }
 
@@ -84,15 +128,16 @@ export const Composer: React.FC<ComposerProps> = ({
           className="cv-input"
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onClick={handleTextInputTouch}
+          onFocus={handleTextInputTouch}
           placeholder={
             isListening
-              ? 'Ouvindo... Fale agora'
+              ? 'Ouvindo... Escreva ou fale sua pergunta'
               : isVoiceMode
-              ? 'Fale ou digite sua solicitação...'
+              ? 'Escreva ou fale sua pergunta (voz ativa)...'
               : 'Escreva ou fale sua pergunta...'
           }
           disabled={isProcessing}
-          autoFocus
         />
       </div>
 

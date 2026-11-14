@@ -466,6 +466,24 @@ export const CONVERSA_INTENTS: readonly IntentContract[] = [
       'status da sincronização',
     ],
   },
+  {
+    intentId: 'control-voice-mode',
+    title: 'Controlar modo de voz (ouvir e falar) ou texto',
+    category: 'explain',
+    actionType: 'GET_ENGINE_RULES',
+    slots: ['voiceCommand'],
+    cardType: 'explain',
+    risk: 'low',
+    examplePhrases: [
+      'pausar voz',
+      'parar de ouvir',
+      'parar de falar',
+      'modo texto',
+      'ativar voz',
+      'voltar a ouvir',
+      'voltar a falar',
+    ],
+  },
 ] as const;
 
 export type ConversaIntentId = (typeof CONVERSA_INTENTS)[number]['intentId'];

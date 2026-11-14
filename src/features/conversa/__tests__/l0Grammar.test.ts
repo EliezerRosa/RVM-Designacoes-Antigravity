@@ -116,3 +116,48 @@ test('L0 Grammar: detects specialist RVM intents (quantas designacoes, z-api, ge
   const rTabs = parseL0Grammar('Quais são as abas do RVM?');
   assert.equal(rTabs.intentId, 'explain-engine-rules');
 });
+
+test('L0 Grammar: reconhece tempo verbal (passado/presente/futuro), sinonimos populares (S-38/Organizados/WOL) e comandos de voz/texto', () => {
+  const pastSelf = parseL0Grammar('O que eu fiz na semana passada?');
+  assert.equal(pastSelf.intentId, 'query-last-participation');
+  assert.equal(pastSelf.slots.tense, 'past');
+  assert.equal(pastSelf.slots.weekId, 'previous-week');
+
+  const pastWeek = parseL0Grammar('Quem presidiu a reunião na semana retrasada?');
+  assert.equal(pastWeek.intentId, 'query-week-assignments');
+  assert.equal(pastWeek.slots.tense, 'past');
+  assert.equal(pastWeek.slots.weekId, 'two-weeks-ago');
+  assert.equal(pastWeek.slots.partType, 'chairman');
+
+  const futureSelf = parseL0Grammar('Tenho parte na semana que vem?');
+  assert.equal(futureSelf.slots.tense, 'future');
+  assert.equal(futureSelf.slots.weekId, 'next-week');
+
+  const papelzinho = parseL0Grammar('Cadê o meu papelzinho da parte?');
+  assert.equal(papelzinho.intentId, 'view-s89');
+
+  const mural = parseL0Grammar('Mostra o quadro de anúncios');
+  assert.equal(mural.intentId, 'view-s140');
+
+  const dictQuery = parseL0Grammar('O que significa S-38 segundo o livro Organizados e o wol?');
+  assert.equal(dictQuery.intentId, 'explain-engine-rules');
+
+  const helper = parseL0Grammar('Quem vai ser o morador com a Maria?');
+  assert.equal(helper.slots.partType, 'ajudante');
+
+  const pauseAll = parseL0Grammar('pausar a voz');
+  assert.equal(pauseAll.intentId, 'control-voice-mode');
+  assert.equal(pauseAll.slots.voiceCommand, 'pause-all');
+
+  const pauseListen = parseL0Grammar('parar de ouvir');
+  assert.equal(pauseListen.intentId, 'control-voice-mode');
+  assert.equal(pauseListen.slots.voiceCommand, 'pause-listening');
+
+  const pauseSpeak = parseL0Grammar('parar de falar');
+  assert.equal(pauseSpeak.intentId, 'control-voice-mode');
+  assert.equal(pauseSpeak.slots.voiceCommand, 'pause-speaking');
+
+  const resumeAll = parseL0Grammar('ativar a voz');
+  assert.equal(resumeAll.intentId, 'control-voice-mode');
+  assert.equal(resumeAll.slots.voiceCommand, 'resume-all');
+});

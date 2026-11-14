@@ -490,7 +490,7 @@ test('ConversaShell: wires header actions, clarify card selection, and composer 
 });
 
 test('ConversaShell & MicroPanel: renders info-list and does NOT duplicate text bubble above confirmation MicroPanel', async () => {
-  await withDomTesting(({ rtl: { render }, ConversaShell, MicroPanel }) => {
+  await withDomTesting(({ rtl: { render, fireEvent, cleanup, within }, ConversaShell, MicroPanel }) => {
     const confirmedMsg = 'Designação confirmada com sucesso!';
 
     const shellView = render(
@@ -591,5 +591,68 @@ test('ConversaShell & MicroPanel: renders info-list and does NOT duplicate text 
 
     assert.equal(explainShell.getAllByText(explainText).length, 1);
     assert.equal(explainShell.container.querySelector('.cv-bubble') === null, true);
+
+    // Verifica humanização de terminologia técnica em MicroPanel (leigos/idosos)
+    const humanizedPanel = render(
+      React.createElement(MicroPanel, {
+        cardData: {
+          title: 'Designações de Maria',
+          type: 'assignments-list',
+          items: [
+            {
+              partId: 'p-hum-1',
+              weekId: '2099-11-23',
+              dateStr: '2099-11-23',
+              tipoParte: 'spiritual_gems',
+              tituloParte: '2. Joias espirituais',
+              partnerName: 'Maria Silva',
+              role: 'Ajudante',
+              status: 'CONCLUIDA',
+            },
+          ],
+        },
+      })
+    );
+    assert.ok(humanizedPanel.getByText(/Joias Espirituais/i));
+    assert.ok(humanizedPanel.getByText(/Ajudante \(acompanha na cena\)/i));
+    assert.ok(humanizedPanel.getByText(/Já realizada na reunião/i));
+
+    // Verifica prioridade fala/ouvir por padrão e alternância automática ao tocar na caixa de texto
+    cleanup();
+    const preferTextCalls: number[] = [];
+    const voiceToggleCalls: boolean[] = [];
+    const voiceShell = render(
+      React.createElement(ConversaShell, {
+        userLabel: 'Eliezer Rosa',
+        isProcessing: false,
+        isBriefingOpen: false,
+        briefingData: null,
+        messages: [],
+        voiceActive: true,
+        onPreferTextMode: () => {
+          preferTextCalls.push(1);
+        },
+        onVoiceModeChange: (enabled: boolean) => {
+          voiceToggleCalls.push(enabled);
+        },
+        onCloseBriefing: () => undefined,
+        onOpenBriefing: () => undefined,
+        onSendMessage: () => undefined,
+        onClearHistory: () => undefined,
+        onSignOut: () => undefined,
+      })
+    );
+    const voiceScoped = within(voiceShell.container);
+
+    // Inicia priorizando voz (botão pronto para alternar para teclado)
+    assert.ok(voiceScoped.getByRole('button', { name: /Alternar para Teclado/i }));
+
+    // Tocar/focar na caixa de texto alterna prioridade para modo texto
+    const composerInput = voiceScoped.getByPlaceholderText(/Escreva ou fale sua pergunta/i);
+    fireEvent.focus(composerInput);
+    assert.equal(preferTextCalls.length, 1);
+    const toMicBtn = voiceScoped.getByRole('button', { name: /Alternar para Microfone/i });
+    fireEvent.click(toMicBtn);
+    assert.deepEqual(voiceToggleCalls, [true]);
   });
 });

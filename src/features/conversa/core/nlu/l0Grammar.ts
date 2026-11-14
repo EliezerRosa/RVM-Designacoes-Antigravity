@@ -24,6 +24,14 @@ export interface ParsedSlots {
   filter?: string;
   newAssignee?: string;
   currentAssignee?: string;
+  tense?: 'past' | 'present' | 'future';
+  voiceCommand?:
+    | 'pause-all'
+    | 'resume-all'
+    | 'pause-speaking'
+    | 'pause-listening'
+    | 'resume-speaking'
+    | 'resume-listening';
 }
 
 export interface L0ParseResult {
@@ -63,19 +71,99 @@ const PART_PATTERNS: Array<{ pattern: RegExp; partType: string }> = [
   { pattern: /\b(leitor(\s+do\s+ebc)?)\b/, partType: 'cbs_reader' },
   { pattern: /\b(leitor\s+de\s+a\s+sentinela|leitor\s+sentinela)\b/, partType: 'watchtower_reader' },
   { pattern: /\b(dirigente\s+de\s+a\s+sentinela|dirigente\s+sentinela)\b/, partType: 'watchtower_conductor' },
-  { pattern: /\b(presidente|presidencia)\b/, partType: 'chairman' },
-  { pattern: /\b(oracao(\s+inicial|\s+final)?)\b/, partType: 'prayer' },
+  { pattern: /\b(presidente|presidencia|presidiu|presidir|presidira)\b/, partType: 'chairman' },
+  { pattern: /\b(oracao(\s+inicial|\s+final)?|orou|orara|orar)\b/, partType: 'prayer' },
   { pattern: /\b(indicador|indicadores)\b/, partType: 'attendant' },
   { pattern: /\b(audio|video|a\/v|microfone|som)\b/, partType: 'av_audio' },
+  { pattern: /\b(ajudante|morador|fazer\s+par|companheir[ao])\b/, partType: 'ajudante' },
 ];
 
 /**
- * Detecta formulários oficiais S-n
+ * Detecta tempo verbal / orientação temporal na frase (passado, presente, futuro)
+ */
+export function extractTemporalSense(norm: string): 'past' | 'present' | 'future' | undefined {
+  if (
+    /\b(futur[ao]s?|proxim[ao]s?|semana\s+que\s+vem|mes\s+que\s+vem|amanha|daqui\s+a|farei|fara|vou\s+fazer|vai\s+fazer|terei|tera|presidira)\b/.test(
+      norm
+    )
+  ) {
+    return 'future';
+  }
+  if (
+    /\b(passad[ao]s?|anterior(?:es)?|ontem|anteontem|retrasad[ao]|ultima\s+(?:semana|reuniao|vez|parte)|reuniao\s+passada|ja\s+(?:fiz|fez|participei|participou|apresentei|apresentou)|historico|fiz|fez|fizeram|presidiu|leu|orou|dirigiu|teve\s+na\s+reuniao)\b/.test(
+      norm
+    )
+  ) {
+    return 'past';
+  }
+  if (
+    /\b(hoje|agora|neste\s+momento|esta\s+semana|essa\s+semana|semana\s+atual|nesta\s+reuniao|reuniao\s+de\s+hoje|este\s+mes|mes\s+atual|desta\s+semana|nesta\s+semana)\b/.test(
+      norm
+    )
+  ) {
+    return 'present';
+  }
+  return undefined;
+}
+
+/**
+ * Detecta comandos de controle de voz / áudio (pausar ou retomar falar/ouvir)
+ */
+export function extractVoiceControlCommand(
+  norm: string
+): ParsedSlots['voiceCommand'] | undefined {
+  if (
+    /\b(pausar\s+(?:a\s+)?voz|parar\s+(?:a\s+)?voz|desativar\s+(?:a\s+)?voz|desligar\s+(?:a\s+)?voz|modo\s+texto|apenas\s+texto|so\s+texto|somente\s+texto|parar\s+de\s+ouvir\s+e\s+falar|pausar\s+ouvir\s+e\s+falar|silenciar\s+tudo|ficar\s+em\s+silencio|modo\s+silencioso)\b/.test(
+      norm
+    )
+  ) {
+    return 'pause-all';
+  }
+  if (
+    /\b(pausar\s+(?:de\s+)?ouvir|parar\s+de\s+ouvir|parar\s+escuta|pausar\s+escuta|desligar\s+(?:o\s+)?microfone|desativar\s+(?:o\s+)?microfone|pausar\s+(?:o\s+)?microfone|nao\s+me\s+ouca)\b/.test(
+      norm
+    )
+  ) {
+    return 'pause-listening';
+  }
+  if (
+    /\b(pausar\s+(?:a\s+)?fala|pausar\s+falar|parar\s+de\s+falar|nao\s+fale|silenciar\s+(?:a\s+)?voz|sem\s+audio|mutar\s+(?:a\s+)?voz|tirar\s+(?:a\s+)?voz)\b/.test(
+      norm
+    )
+  ) {
+    return 'pause-speaking';
+  }
+  if (
+    /\b(ativar\s+(?:a\s+)?voz|ligar\s+(?:a\s+)?voz|modo\s+voz|voltar\s+a\s+ouvir\s+e\s+falar|falar\s+e\s+ouvir|ouvir\s+e\s+falar|retomar\s+(?:a\s+)?voz|reativar\s+(?:a\s+)?voz|priorizar\s+(?:a\s+)?voz|pode\s+falar\s+e\s+ouvir)\b/.test(
+      norm
+    )
+  ) {
+    return 'resume-all';
+  }
+  if (
+    /\b(voltar\s+a\s+ouvir|continuar\s+ouvindo|ativar\s+escuta|ligar\s+(?:o\s+)?microfone|ativar\s+(?:o\s+)?microfone|pode\s+ouvir|voltar\s+a\s+escutar)\b/.test(
+      norm
+    )
+  ) {
+    return 'resume-listening';
+  }
+  if (
+    /\b(voltar\s+a\s+falar|continuar\s+falando|ativar\s+fala|ligar\s+(?:o\s+)?audio|ativar\s+(?:o\s+)?audio|reativar\s+(?:o\s+)?audio)\b/.test(
+      norm
+    )
+  ) {
+    return 'resume-speaking';
+  }
+  return undefined;
+}
+
+/**
+ * Detecta formulários oficiais S-n (incluindo sinônimos populares/leigos)
  */
 function extractFormType(norm: string): 's140' | 's89' | 's4' | 's1' | null {
-  if (/\b(s\s*-\s*140|s140|programacao(\s+da\s+reuniao)?)\b/.test(norm)) return 's140';
-  if (/\b(s\s*-\s*89|s89|folhinha|designacao(\s+de\s+estudante)?)\b/.test(norm)) return 's89';
-  if (/\b(s\s*-\s*4|s4|relatorio(\s+de\s+campo|\s+mensal\s+pessoal)?)\b/.test(norm)) return 's4';
+  if (/\b(s\s*-\s*140|s140|programacao(\s+da\s+reuniao)?|quadro(\s+de\s+anuncios)?|mural|folha\s+da\s+reuniao|escala\s+semanal)\b/.test(norm)) return 's140';
+  if (/\b(s\s*-\s*89|s89|folhinha|papelzinho|convite\s+da\s+parte|meu\s+convite|designacao(\s+de\s+estudante)?)\b/.test(norm)) return 's89';
+  if (/\b(s\s*-\s*4|s4|relatorio(\s+de\s+campo|\s+mensal\s+pessoal)?|papel\s+de\s+horas|entregar\s+(?:as\s+)?horas|meu\s+campo)\b/.test(norm)) return 's4';
   if (/\b(s\s*-\s*1|s1|fechamento(\s+mensal)?|consolidacao)\b/.test(norm)) return 's1';
   return null;
 }
@@ -117,11 +205,15 @@ function extractDateInfo(norm: string): { weekId?: string; month?: string; start
   }
 
   // Padrões relativos de semana
-  if (/\b(esta\s+semana|essa\s+semana|semana\s+atual)\b/.test(norm)) {
+  if (/\b(esta\s+semana|essa\s+semana|semana\s+atual|desta\s+semana|nesta\s+semana|hoje|nesta\s+reuniao|reuniao\s+de\s+hoje)\b/.test(norm)) {
     result.weekId = 'current-week';
-  } else if (/\b(proxima\s+semana|semana\s+que\s+vem)\b/.test(norm)) {
+  } else if (/\b(daqui\s+a?\s*(?:duas|2)\s+semanas)\b/.test(norm)) {
+    result.weekId = 'in-two-weeks';
+  } else if (/\b(proxima\s+semana|semana\s+que\s+vem|na\s+proxima\b|reuniao\s+que\s+vem)\b/.test(norm)) {
     result.weekId = 'next-week';
-  } else if (/\b(semana\s+passada)\b/.test(norm)) {
+  } else if (/\b(semana\s+retrasada|ha\s+(?:duas|2)\s+semanas)\b/.test(norm)) {
+    result.weekId = 'two-weeks-ago';
+  } else if (/\b(semana\s+passada|ultima\s+semana|reuniao\s+passada|ultima\s+reuniao|ontem|na\s+passada\b)\b/.test(norm)) {
     result.weekId = 'previous-week';
   }
 
@@ -133,6 +225,8 @@ function extractDateInfo(norm: string): { weekId?: string; month?: string; start
     result.month = 'current-month';
   } else if (/\b(proximo\s+mes|mes\s+que\s+vem)\b/.test(norm)) {
     result.month = 'next-month';
+  } else if (/\b(mes\s+passado|ultimo\s+mes)\b/.test(norm)) {
+    result.month = 'previous-month';
   }
 
   return result;
@@ -227,6 +321,21 @@ function extractPotentialPersonName(norm: string): string | undefined {
       return candidate;
     }
   }
+
+  // Pergunta elíptica curta com nome explícito: "e o João?", "e a Maria?", "e do Carlos?"
+  const ellipticalMatch = norm.match(/^(?:e\s+)(?:o|a|do|da|para\s+o|para\s+a)\s+([a-z]{3,}(?:\s+[a-z]{2,})?)$/);
+  if (ellipticalMatch) {
+    const candidate = ellipticalMatch[1].trim();
+    const ellipticalStop = [
+      'semana', 'proxima', 'passada', 'mes', 'dia', 'leitura', 'oracao', 'presidente',
+      'joias', 'tesouros', 'ebc', 'voce', 'eu', 'meu', 'minha', 'folhinha', 'quadro',
+      'mural', 'papelzinho', 'voz', 'texto', 'ajudante', 'titular', 'hoje', 'ontem',
+    ];
+    if (!ellipticalStop.includes(candidate) && !ellipticalStop.some((sw) => candidate.startsWith(sw + ' '))) {
+      return candidate;
+    }
+  }
+
   return undefined;
 }
 
@@ -268,7 +377,9 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
   const slots: ParsedSlots = {};
 
   // Resposta rápida numérica de clarificação ("1", "2", "3", "opcao 1", "o segundo", etc.)
-  const ordinalMatch = norm.match(/\b(?:opcao\s+(\d+)|(primeiro|segundo|terceiro|quarto|quinto)|^([1-9])$)\b/);
+  const ordinalMatch = norm.match(
+    /^(?:(?:eu\s+)?(?:escolho|quero)\s+)?(?:[oa]\s+)?(?:opcao\s+(\d+)|(primeiro|segundo|terceiro|quarto|quinto)|([1-9]))(?:\s+por\s+favor)?$/
+  );
   if (ordinalMatch) {
     let index = 0;
     if (ordinalMatch[1]) {
@@ -323,9 +434,11 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     }
   }
 
-  // Extrair datas e formulários
+  // Extrair datas, noção temporal e formulários
   const dateInfo = extractDateInfo(norm);
   Object.assign(slots, dateInfo);
+  const tense = extractTemporalSense(norm);
+  if (tense) slots.tense = tense;
   const form = extractFormType(norm);
   const person = extractPotentialPersonName(norm);
   if (person) slots.personName = person;
@@ -336,6 +449,19 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
       intentId: 'undo-last-action',
       slots,
       confidence: 1.0,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+
+  // 1b. Controle de Voz / Áudio (prioridade fala/ouvir <-> modo texto)
+  const voiceCmd = extractVoiceControlCommand(norm);
+  if (voiceCmd) {
+    slots.voiceCommand = voiceCmd;
+    return {
+      intentId: 'control-voice-mode',
+      slots,
+      confidence: 0.98,
       resolvedBy: 'l0-grammar',
       rawText,
     };
@@ -375,13 +501,13 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 2c. Perguntas conceituais explícitas sobre o RVM, funcionalidades, permissões, regras ou invariantes (antes de S-140/S-89/S-4/S-1)
+  // 2c. Perguntas conceituais explícitas sobre o RVM, vocabulário S-38/Organizados/WOL, funcionalidades, permissões, regras ou invariantes (antes de S-140/S-89/S-4/S-1)
   const isConceptualQuestion =
-    /\b(o\s+que\s+e|o\s+que\s+faz|para\s+que\s+serve|como\s+(?:funciona(?:m)?|usar)|quais\s+(?:sao\s+)?(?:as\s+)?(?:regras?|invariantes?|abas?|telas?|modulos?)|quais\s+(?:sao\s+)?(?:as\s+)?(?:suas\s+)?(?:funcionalidades?|capacidades?|funcoes|opcoes|comandos|recursos|habilidades)|o\s+que\s+(?:e\s+que\s+)?(?:e\s+)?permitid[ao]|o\s+que\s+(?:eu\s+)?posso\s+(?:fazer|executar|consultar|ver|editar)|minhas\s+permissoes|meu\s+acesso|visao\s+geral|panorama|ajuda|objetivo\s+d[eo]|proposito\s+d[eo]|explique|me\s+explique|invariante\s+[mi]\s*-?\s*\d+|regra\s+[mi]\s*-?\s*\d+|s\s*-?\s*38|aquiescencia|z\s*-?\s*api|webhook|botoes?\s+(?:do\s+)?(?:z\s*-?\s*api|whatsapp)|o\s+que\s+voce\s+(?:sabe\s+)?faz(?:er)?|engine_config|territorios?|backup)\b/.test(
+    /\b(o\s+que\s+e|o\s+que\s+significa|significado\s+d[eo]|o\s+que\s+faz|para\s+que\s+serve|traduz(?:a|ir)?|em\s+palavras\s+simples|como\s+(?:funciona(?:m)?|usar)|quais\s+(?:sao\s+)?(?:as\s+)?(?:regras?|invariantes?|abas?|telas?|modulos?)|quais\s+(?:sao\s+)?(?:as\s+)?(?:suas\s+)?(?:funcionalidades?|capacidades?|funcoes|opcoes|comandos|recursos|habilidades)|o\s+que\s+(?:e\s+que\s+)?(?:e\s+)?permitid[ao]|o\s+que\s+(?:eu\s+)?posso\s+(?:fazer|executar|consultar|ver|editar)|minhas\s+permissoes|meu\s+acesso|visao\s+geral|panorama|ajuda|objetivo\s+d[eo]|proposito\s+d[eo]|explique|me\s+explique|invariante\s+[mi]\s*-?\s*\d+|regra\s+[mi]\s*-?\s*\d+|s\s*-?\s*38|organizados|wol\.?jw\.?org|biblioteca\s+on\s*-?\s*line|aquiescencia|z\s*-?\s*api|webhook|botoes?\s+(?:do\s+)?(?:z\s*-?\s*api|whatsapp)|o\s+que\s+voce\s+(?:sabe\s+)?faz(?:er)?|engine_config|territorios?|backup)\b/.test(
       norm
     );
 
-  if (isConceptualQuestion && !/\b(quem\s+faz|quem\s+esta|quero\s+ver|mostrar|abrir|gerar|aprovar)\b/.test(norm)) {
+  if (isConceptualQuestion && !/\b(quem\s+faz|quem\s+esta|quero\s+ver|mostrar|abrir|gerar|aprovar|minhas?\s+(?:designac|partes))\b/.test(norm)) {
     let ruleName = slots.ruleName;
     let ruleId: string | undefined;
     if (/\boracao\b/.test(norm)) {
@@ -464,14 +590,24 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 4. Minhas designações / de um publicador específico
+  // 4. Minhas designações / de um publicador específico (com noção de passado -> histórico)
   if (
-    /\b(minhas?\s+designac(?:ao|oes)|minhas?\s+partes?|o\s+que\s+eu\s+tenho|minha\s+proxima\s+parte)\b/.test(norm) ||
+    /\b(minhas?\s+designac(?:ao|oes)|minhas?\s+partes?|o\s+que\s+eu\s+tenho|o\s+que\s+eu\s+fiz|quais?\s+partes?\s+(?:eu\s+)?(?:ja\s+)?fiz|minha\s+proxima\s+parte)\b/.test(norm) ||
     /\b((?:quantas?|quais?)\s+(?:designac(?:ao|oes)|partes?)\s+(?:eu\s+)?tenho|tenho\s+(?:alguma\s+)?(?:designac(?:ao|oes)|parte)|estou\s+escalad[ao]|estou\s+designad[ao]|fui\s+designad[ao]|minha\s+agenda|minha\s+escala)\b/.test(
       norm
     ) ||
+    (/\b(?:designac(?:ao|oes)|partes?)\s+(?:passad[ao]s?|anteriores?)\s+(?:do|da|de)\s+/.test(norm) && Boolean(slots.personName)) ||
     (/\bdesignac(?:ao|oes)\s+(?:do|da|de)\s+/.test(norm) && Boolean(slots.personName) && !/\bsemana\b/.test(norm))
   ) {
+    if (slots.tense === 'past') {
+      return {
+        intentId: 'query-last-participation',
+        slots,
+        confidence: 0.93,
+        resolvedBy: 'l0-grammar',
+        rawText,
+      };
+    }
     return {
       intentId: 'query-my-assignments',
       slots,
@@ -574,8 +710,13 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 7. Última participação
-  if (/\b(quando\s+.*participou|ultima\s+vez|quando\s+foi\s+a\s+ultima)\b/.test(norm)) {
+  // 7. Última participação / histórico passado
+  if (
+    /\b(quando\s+.*participou|ultima\s+vez|quando\s+foi\s+a\s+ultima|historico\s+(?:de\s+partes|recente)|ja\s+(?:fez|participou|apresentou)|partes?\s+(?:passad[ao]s?|anteriores))\b/.test(
+      norm
+    )
+  ) {
+    if (!slots.tense) slots.tense = 'past';
     return {
       intentId: 'query-last-participation',
       slots,
@@ -675,8 +816,12 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 13. Designações da semana / programa da reunião
-  if (/\b(quem\s+faz|quem\s+esta\s+escalad[ao]|quem\s+e\s+o|designac(?:ao|oes)\s+da\s+semana|o\s+que\s+tem\s+(na\s+reuniao|hoje|essa\s+semana|no\s+programa)|quais\s+(as\s+)?partes(\s+da\s+reuniao|\s+do\s+programa)?|programa\s+da\s+reuniao|o\s+que\s+tem\s+dia)\b/.test(norm)) {
+  // 13. Designações da semana / programa da reunião (presente, passado ou futuro)
+  if (
+    /\b(quem\s+(?:faz|fez|fara|vai\s+fazer|esta\s+escalad[ao]|estava\s+escalad[ao]|foi\s+o|sera\s+o|presidiu|presidira|leu|orou|dirigiu)|designac(?:ao|oes)\s+da\s+semana|o\s+que\s+(?:tem|teve|tera|vai\s+ter)\s+(?:na\s+reuniao|hoje|ontem|essa\s+semana|esta\s+semana|semana\s+passada|semana\s+que\s+vem|no\s+programa)|quais\s+(as\s+)?partes(\s+da\s+reuniao|\s+do\s+programa)?|programa\s+da\s+reuniao|o\s+que\s+(?:tem|teve)\s+dia)\b/.test(
+      norm
+    )
+  ) {
     return {
       intentId: 'query-week-assignments',
       slots,

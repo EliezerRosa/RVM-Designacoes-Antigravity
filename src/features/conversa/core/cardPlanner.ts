@@ -11,10 +11,11 @@ import type { ParsedSlots } from './nlu/l0Grammar';
 import type { NLUResolution } from './nlu/l2Classifier';
 import type { ChatMessageItem, ConversaContextState } from './conversationState';
 import { checkIntentPermission } from './policyGuard';
-import { resolvePublisher, resolveWeek } from './entityResolver';
+import { getCurrentWeekMondayIso, resolvePublisher, resolveWeek } from './entityResolver';
 import { queryPort } from '../ports/queryPort';
 import { documentPort, formatDateBr } from '../ports/documentPort';
 import { knowledgePort, type SpecialistContextInput } from '../ports/knowledgePort';
+import { humanizePartTypeForLayperson } from '../knowledge/rvmVocabularyDictionary';
 import {
   actionPort,
   expandAbsenceDateRange,
@@ -116,8 +117,172 @@ function resolveTargetPerson(
   };
 }
 
+const PART_TYPE_SYNONYMS: Record<string, string[]> = {
+  bible_reading: ['leitura da biblia', 'leitura biblica', 'leitura'],
+  spiritual_gems: ['joias espirituais', 'joias'],
+  treasures_talk: ['tesouros da palavra', 'tesouros'],
+  starting_conversations: ['iniciando conversas', 'primeira conversa', 'iniciando'],
+  following_up: ['cultivando o interesse', 'revisita', 'cultivando'],
+  making_disciples: ['fazendo discipulos', 'discipulos'],
+  explaining_beliefs: ['explicando suas crencas', 'explicando crencas', 'crencas'],
+  student_demo: ['demonstracao', 'iniciando', 'cultivando', 'discipulos'],
+  student_talk: ['discurso de estudante', 'discurso'],
+  living_part: ['nossa vida crista', 'vida crista'],
+  local_needs: ['necessidades locais', 'necessidades'],
+  cbs: ['estudo biblico de congregacao', 'estudo biblico', 'ebc', 'dirigente'],
+  cbs_reader: ['leitor do ebc', 'leitor'],
+  watchtower_reader: ['leitor de a sentinela', 'sentinela'],
+  watchtower_conductor: ['dirigente de a sentinela', 'sentinela'],
+  chairman: ['presidente', 'presidencia'],
+  prayer: ['oracao'],
+  attendant: ['indicador', 'indicadores'],
+  av_audio: ['audio', 'video', 'som', 'microfone'],
+  ajudante: ['ajudante'],
+};
+
+function matchesPartFilter(partText: string, partType: string): boolean {
+  const hay = normText(partText);
+  const key = normText(partType);
+  if (!key) return true;
+  if (hay.includes(key)) return true;
+  const aliases = PART_TYPE_SYNONYMS[key];
+  if (!aliases) return false;
+  return aliases.some((alias) => hay.includes(alias));
+}
+
+const MONTH_NAME_TO_NUM: Record<string, string> = {
+  janeiro: '01',
+  fevereiro: '02',
+  marco: '03',
+  abril: '04',
+  maio: '05',
+  junho: '06',
+  julho: '07',
+  agosto: '08',
+  setembro: '09',
+  outubro: '10',
+  novembro: '11',
+  dezembro: '12',
+};
+
+function matchesMonthFilter(dateStr: string, monthSlot?: string): boolean {
+  if (!monthSlot) return true;
+  const now = new Date();
+  let targetMm = MONTH_NAME_TO_NUM[normText(monthSlot)];
+  let targetYear: number | undefined;
+
+  if (monthSlot === 'current-month') {
+    targetMm = String(now.getMonth() + 1).padStart(2, '0');
+    targetYear = now.getFullYear();
+  } else if (monthSlot === 'next-month') {
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    targetMm = String(next.getMonth() + 1).padStart(2, '0');
+    targetYear = next.getFullYear();
+  } else if (monthSlot === 'previous-month') {
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    targetMm = String(prev.getMonth() + 1).padStart(2, '0');
+    targetYear = prev.getFullYear();
+  }
+
+  if (!targetMm) return true;
+  if (targetYear !== undefined) {
+    return dateStr.startsWith(`${targetYear}-${targetMm}-`);
+  }
+  return dateStr.includes(`-${targetMm}-`);
+}
+
+function isFollowUpEllipsis(rawText: string, slots: ParsedSlots): boolean {
+  const norm = normText(rawText);
+  if (!norm) return false;
+  if (
+    Boolean(slots.weekId || slots.month || slots.tense || slots.personName || slots.partType) &&
+    !/\b(o que e|o que significa|como funciona|regra|invariante|organizados|wol)\b/.test(norm)
+  ) {
+    return true;
+  }
+  if (/^e\s+/.test(norm) && norm.length <= 48) {
+    return true;
+  }
+  return false;
+}
+
+function resolveConversationalEllipsis(
+  rawNlu: NLUResolution,
+  context: ConversaContextState
+): NLUResolution {
+  const norm = normText(rawNlu.rawText);
+  const slots: ParsedSlots = { ...rawNlu.slots };
+
+  // 1. Resolução anafórica de pronomes de 3ª pessoa ("ele", "ela", "dele", "dela")
+  if (
+    !slots.personName &&
+    context.lastPersonName &&
+    /\b(ele|ela|dele|dela|nele|nela|desse irmao|dessa irma)\b/.test(norm)
+  ) {
+    slots.personName = context.lastPersonName;
+  }
+
+  // 2. Pergunta anafórica sobre o tema/documento/parte anterior ("o que é isso?", "explica melhor")
+  if (
+    !rawNlu.intentId &&
+    /\b(o que e isso|como funciona isso|explica(?:r)? isso|o que significa isso|explica melhor)\b/.test(norm)
+  ) {
+    const topicHint = context.lastPartType || context.lastDocumentKind;
+    if (topicHint) {
+      return {
+        ...rawNlu,
+        intentId: 'explain-engine-rules',
+        slots: { ...slots, ruleId: topicHint },
+        confidence: 0.85,
+        rawText: `${rawNlu.rawText} (${humanizePartTypeForLayperson(topicHint)})`,
+      };
+    }
+  }
+
+  // 3. Subentender ausência de substantivos / continuação implícita do turno anterior
+  if (!rawNlu.intentId && context.lastIntentId && isFollowUpEllipsis(rawNlu.rawText, slots)) {
+    let inheritedIntent = context.lastIntentId;
+
+    // Alternância automática passado <-> futuro sobre partes/designações
+    if (inheritedIntent === 'query-my-assignments' && slots.tense === 'past') {
+      inheritedIntent = 'query-last-participation';
+    } else if (
+      inheritedIntent === 'query-last-participation' &&
+      (slots.tense === 'future' ||
+        slots.tense === 'present' ||
+        slots.weekId === 'next-week' ||
+        slots.weekId === 'current-week')
+    ) {
+      inheritedIntent = 'query-my-assignments';
+    }
+
+    // Subentender parte se usuário mudou apenas a pessoa ou a semana ("e o João?", "e na próxima?")
+    if (
+      !slots.partType &&
+      context.lastPartType &&
+      ['query-my-assignments', 'query-week-assignments', 'query-last-participation', 'query-eligibility'].includes(
+        inheritedIntent
+      )
+    ) {
+      slots.partType = context.lastPartType;
+    }
+
+    return {
+      ...rawNlu,
+      intentId: inheritedIntent,
+      slots,
+      confidence: Math.max(rawNlu.confidence, 0.82),
+    };
+  }
+
+  return {
+    ...rawNlu,
+    slots,
+  };
+}
+
 export async function planTurn(
-  nlu: NLUResolution,
+  rawNlu: NLUResolution,
   context: ConversaContextState,
   gate: PermissionGate,
   allPublishers: Publisher[],
@@ -130,6 +295,10 @@ export async function planTurn(
   const actions = ports.actions || actionPort;
   const queries = ports.queries || queryPort;
   const documents = ports.documents || documentPort;
+  const nlu =
+    !context.activeDisambiguation && !context.pendingAction
+      ? resolveConversationalEllipsis(rawNlu, context)
+      : rawNlu;
 
   // 1. Resposta a Clarificação Numérica Ativa (0-based via L0 ou clique no card)
   if (context.activeDisambiguation && nlu.slots.choiceIndex !== undefined) {
@@ -421,12 +590,32 @@ export async function planTurn(
   const explicitWeekId = nlu.slots.weekId ? weekRes.weekId : undefined;
   const targetWeekId = weekRes.weekId || context.lastWeekId;
 
-  // Atualizar contexto
+  const isSelfUtterance = mentionsSelf(nlu.rawText);
+
+  // Atualizar contexto conversacional contínuo (suporta elipses, tempo verbal e pronomes)
   const updatedContext: ConversaContextState = {
     ...context,
-    lastPersonId: resolvedPerson?.id || context.lastPersonId,
-    lastPersonName: resolvedPerson?.name || context.lastPersonName,
+    lastPersonId:
+      resolvedPerson?.id ||
+      (isSelfUtterance ? userContext.publisherId || undefined : context.lastPersonId),
+    lastPersonName:
+      resolvedPerson?.name ||
+      (isSelfUtterance ? userContext.publisherName || undefined : context.lastPersonName),
     lastWeekId: targetWeekId,
+    lastMonth: nlu.slots.month || context.lastMonth,
+    lastIntentId: nlu.intentId || context.lastIntentId,
+    lastPartType: nlu.slots.partType || context.lastPartType,
+    lastTimeFrame: nlu.slots.tense || context.lastTimeFrame,
+    lastDocumentKind:
+      nlu.intentId === 'view-s89'
+        ? 's89'
+        : nlu.intentId === 'view-s140'
+        ? 's140'
+        : nlu.intentId === 'view-s4'
+        ? 's4'
+        : nlu.intentId === 'view-s1-consolidation'
+        ? 's1'
+        : context.lastDocumentKind,
     activeDisambiguation: undefined,
   };
 
@@ -455,6 +644,78 @@ export async function planTurn(
     lastWeekId: targetWeekId,
     lastPersonName: resolvedPerson?.name || context.lastPersonName,
   };
+
+  if (nlu.intentId === 'control-voice-mode') {
+    const cmd = nlu.slots.voiceCommand || 'resume-all';
+    let nextVoiceActive = context.voiceActive;
+    let nextTts = context.ttsEnabled ?? context.voiceActive;
+    let nextStt = context.sttEnabled ?? context.voiceActive;
+    let text = '';
+    let spokenText: string | undefined;
+
+    switch (cmd) {
+      case 'pause-all':
+        nextVoiceActive = false;
+        nextTts = false;
+        nextStt = false;
+        text =
+          'Modo texto ativado: pausei o microfone e a leitura em voz alta. Quando quiser voltar a falar e ouvir, diga ou escreva "ativar voz" ou toque no microfone.';
+        spokenText = undefined;
+        break;
+      case 'pause-listening':
+        nextStt = false;
+        nextVoiceActive = nextTts;
+        text =
+          'Escuta por voz (microfone) pausada. Você pode digitar normalmente; para eu voltar a te ouvir, diga ou escreva "voltar a ouvir".';
+        spokenText = nextTts ? 'Microfone pausado.' : undefined;
+        break;
+      case 'pause-speaking':
+        nextTts = false;
+        nextVoiceActive = nextStt;
+        text =
+          'Leitura em voz alta pausada. Continuo respondendo por texto e ouvindo se o microfone estiver ativo. Para voltar o áudio, diga ou escreva "voltar a falar".';
+        spokenText = undefined;
+        break;
+      case 'resume-listening':
+        nextStt = true;
+        nextVoiceActive = true;
+        text = 'Microfone ativado novamente. Pode falar sua pergunta.';
+        spokenText = nextTts ? 'Microfone ativado. Pode falar.' : undefined;
+        break;
+      case 'resume-speaking':
+        nextTts = true;
+        nextVoiceActive = true;
+        text = 'Leitura em voz alta ativada novamente.';
+        spokenText = 'Leitura em voz alta ativada novamente.';
+        break;
+      case 'resume-all':
+      default:
+        nextVoiceActive = true;
+        nextTts = true;
+        nextStt = true;
+        text =
+          'Modo voz ativado! Estou priorizando falar e ouvir. Se tocar na caixa de texto, alterno automaticamente para digitação.';
+        spokenText = 'Modo voz ativado! Pode falar.';
+        break;
+    }
+
+    return {
+      message: {
+        id: messageId,
+        sender: 'assistant',
+        text,
+        timestamp: now,
+        intentId: nlu.intentId,
+      },
+      updatedContext: {
+        ...updatedContext,
+        voiceActive: nextVoiceActive,
+        ttsEnabled: nextTts,
+        sttEnabled: nextStt,
+      },
+      spokenText,
+    };
+  }
 
   if (nlu.intentId === 'explain-engine-rules') {
     const isNarrowRule = ['oracao', 'presidente', 'intervalo', 'genero'].includes(nlu.slots.ruleId || '');
@@ -697,19 +958,100 @@ export async function planTurn(
     }
 
     const pubName = target.name || 'Publicador';
+    const partLabel = nlu.slots.partType
+      ? humanizePartTypeForLayperson(nlu.slots.partType)
+      : '';
+
+    // Se a intenção chegou como query-my-assignments mas com tempo verbal PASSADO, redirecionar para histórico
+    if (nlu.slots.tense === 'past') {
+      const allHistory = await queries.getLastParticipation(target.id, pubName);
+      const partHistory = nlu.slots.partType
+        ? allHistory.filter((h) =>
+            matchesPartFilter(`${h.tipoParte} ${h.tituloParte || ''}`, nlu.slots.partType!)
+          )
+        : allHistory;
+      const periodHistory = partHistory.filter(
+        (h) =>
+          (!explicitWeekId || h.weekId === explicitWeekId) &&
+          matchesMonthFilter(h.weekId, nlu.slots.month)
+      );
+      const historyItems =
+        periodHistory.length > 0
+          ? periodHistory
+          : (explicitWeekId || nlu.slots.month) && partHistory.length > 0
+          ? partHistory
+          : periodHistory;
+      const pastFallbackUsed =
+        (Boolean(explicitWeekId) || Boolean(nlu.slots.month)) &&
+        periodHistory.length === 0 &&
+        partHistory.length > 0;
+
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: pastFallbackUsed
+            ? `Não encontrei designação passada de ${pubName} exatamente nesse período, mas estas foram as últimas ${historyItems.length} participação(ões) registrada(s):`
+            : historyItems.length
+            ? `No passado, encontrei ${historyItems.length} participação(ões) registrada(s) de ${pubName}${partLabel ? ` (${partLabel})` : ''}:`
+            : `Não encontrei participações anteriores registradas para ${pubName}${partLabel ? ` em ${partLabel}` : ''}.`,
+          timestamp: now,
+          intentId: nlu.intentId,
+          cardType: historyItems.length ? 'micro-panel' : undefined,
+          cardData: historyItems.length
+            ? {
+                type: 'assignments-list',
+                title: `Histórico passado de ${pubName}`,
+                items: historyItems,
+              }
+            : undefined,
+        },
+        updatedContext: {
+          ...updatedContext,
+          lastIntentId: 'query-last-participation',
+          lastTimeFrame: 'past',
+        },
+        spokenText: historyItems.length
+          ? `${pubName} participou por último na semana de ${formatDateBr(historyItems[0].weekId)}.`
+          : `Sem participações anteriores registradas para ${pubName}.`,
+      };
+    }
+
     const allAssignments = await queries.getPublisherAssignments(target.id, pubName, target.isSelf);
-    const partFilter = nlu.slots.partType ? normText(nlu.slots.partType) : '';
-    const assignments = partFilter
-      ? allAssignments.filter((a) => normText(`${a.tipoParte} ${a.tituloParte || ''}`).includes(partFilter))
+    const partMatched = nlu.slots.partType
+      ? allAssignments.filter((a) =>
+          matchesPartFilter(`${a.tipoParte} ${a.tituloParte || ''}`, nlu.slots.partType!)
+        )
       : allAssignments;
+    const weekMatched = explicitWeekId
+      ? partMatched.filter((a) => a.weekId === explicitWeekId)
+      : partMatched;
+    const monthMatched = nlu.slots.month
+      ? weekMatched.filter((a) => matchesMonthFilter(a.weekId, nlu.slots.month))
+      : weekMatched;
+
+    const requestedWeekEmptyFallback =
+      Boolean(explicitWeekId) && monthMatched.length === 0 && partMatched.length > 0;
+    const requestedMonthEmptyFallback =
+      !explicitWeekId && Boolean(nlu.slots.month) && monthMatched.length === 0 && partMatched.length > 0;
+    const assignments =
+      monthMatched.length > 0
+        ? monthMatched
+        : requestedWeekEmptyFallback || requestedMonthEmptyFallback
+        ? partMatched
+        : monthMatched;
 
     return {
       message: {
         id: messageId,
         sender: 'assistant',
-        text: assignments.length
-          ? `Encontrei ${assignments.length} designação(ões)${nlu.slots.partType ? ` (${nlu.slots.partType})` : ''} para ${pubName}:`
-          : `${pubName} não possui designações futuras${nlu.slots.partType ? ` para "${nlu.slots.partType}"` : ''} registradas no momento.`,
+        text: requestedWeekEmptyFallback
+          ? `${pubName} não tem designação na semana de ${formatDateBr(explicitWeekId!)}${partLabel ? ` para ${partLabel}` : ''}, mas encontrei ${assignments.length} designação(ões) futura(s):`
+          : requestedMonthEmptyFallback
+          ? `${pubName} não tem designação no mês informado${partLabel ? ` para ${partLabel}` : ''}, mas encontrei ${assignments.length} designação(ões) futura(s):`
+          : assignments.length
+          ? `Encontrei ${assignments.length} designação(ões)${partLabel ? ` (${partLabel})` : ''} para ${pubName}:`
+          : `${pubName} não possui designações futuras${partLabel ? ` para "${partLabel}"` : ''} registradas no momento.`,
         timestamp: now,
         intentId: nlu.intentId,
         cardType: assignments.length ? 'micro-panel' : undefined,
@@ -722,7 +1064,9 @@ export async function planTurn(
           : undefined,
       },
       updatedContext,
-      spokenText: assignments.length
+      spokenText: requestedWeekEmptyFallback
+        ? `${pubName} não tem parte na semana de ${formatDateBr(explicitWeekId!)}, mas tem ${assignments.length} em semanas próximas.`
+        : assignments.length
         ? `${pubName} tem ${assignments.length} designações futuras.`
         : `${pubName} não tem designações futuras no momento.`,
     };
@@ -745,14 +1089,35 @@ export async function planTurn(
     }
 
     const pubName = target.name || 'Publicador';
-    const history = await queries.getLastParticipation(target.id, pubName);
+    const partLabel = nlu.slots.partType
+      ? humanizePartTypeForLayperson(nlu.slots.partType)
+      : '';
+    const allHistory = await queries.getLastParticipation(target.id, pubName);
+    const partFiltered = nlu.slots.partType
+      ? allHistory.filter((h) =>
+          matchesPartFilter(`${h.tipoParte} ${h.tituloParte || ''}`, nlu.slots.partType!)
+        )
+      : allHistory;
+    const periodFiltered = partFiltered.filter(
+      (h) =>
+        (!explicitWeekId || h.weekId === explicitWeekId) &&
+        matchesMonthFilter(h.weekId, nlu.slots.month)
+    );
+    const fallbackToRecent =
+      (Boolean(explicitWeekId) || Boolean(nlu.slots.month)) &&
+      periodFiltered.length === 0 &&
+      partFiltered.length > 0;
+    const history = periodFiltered.length > 0 ? periodFiltered : fallbackToRecent ? partFiltered : periodFiltered;
+
     return {
       message: {
         id: messageId,
         sender: 'assistant',
-        text: history.length
-          ? `Última(s) ${history.length} participação(ões) registrada(s) de ${pubName}:`
-          : `Não encontrei participações anteriores registradas para ${pubName}.`,
+        text: fallbackToRecent
+          ? `Não encontrei participação de ${pubName} nesse período específico, mas estas foram as últimas ${history.length} registrada(s):`
+          : history.length
+          ? `No passado, última(s) ${history.length} participação(ões) registrada(s) de ${pubName}${partLabel ? ` (${partLabel})` : ''}:`
+          : `Não encontrei participações anteriores registradas para ${pubName}${partLabel ? ` em ${partLabel}` : ''}.`,
         timestamp: now,
         intentId: nlu.intentId,
         cardType: history.length ? 'micro-panel' : undefined,
@@ -778,19 +1143,31 @@ export async function planTurn(
         message: {
           id: messageId,
           sender: 'assistant',
-          text: 'Nenhuma semana futura cadastrada foi encontrada para consulta.',
+          text: 'Nenhuma semana cadastrada foi encontrada para consulta.',
           timestamp: now,
           intentId: nlu.intentId,
         },
         updatedContext,
-        spokenText: 'Nenhuma semana futura disponível.',
+        spokenText: 'Nenhuma semana disponível para consulta.',
       };
     }
 
+    const currentMonday = getCurrentWeekMondayIso();
+    const weekTenseLabel =
+      weekId < currentMonday
+        ? 'semana passada'
+        : weekId === currentMonday
+        ? 'esta semana'
+        : 'semana futura';
+
     const allParts = await queries.getWeekParts(weekId);
-    const partFilter = nlu.slots.partType ? normText(nlu.slots.partType) : '';
-    const filteredParts = partFilter
-      ? allParts.filter((p) => normText(`${p.tipoParte} ${p.tituloParte || ''} ${p.modalidade || ''}`).includes(partFilter))
+    const partLabel = nlu.slots.partType
+      ? humanizePartTypeForLayperson(nlu.slots.partType)
+      : '';
+    const filteredParts = nlu.slots.partType
+      ? allParts.filter((p) =>
+          matchesPartFilter(`${p.tipoParte} ${p.tituloParte || ''} ${p.modalidade || ''}`, nlu.slots.partType!)
+        )
       : allParts;
     const parts = filteredParts.length ? filteredParts : allParts;
     const weekBr = formatDateBr(weekId);
@@ -799,22 +1176,22 @@ export async function planTurn(
         id: messageId,
         sender: 'assistant',
         text: parts.length
-          ? `Designações da semana de ${weekBr}:`
-          : `Nenhuma parte encontrada para a semana de ${weekBr}.`,
+          ? `Designações da semana de ${weekBr} (${weekTenseLabel}${partLabel ? ` • ${partLabel}` : ''}):`
+          : `Nenhuma parte encontrada para a semana de ${weekBr} (${weekTenseLabel}).`,
         timestamp: now,
         intentId: nlu.intentId,
         cardType: parts.length ? 'micro-panel' : undefined,
         cardData: parts.length
           ? {
             type: 'week-parts-list',
-            title: `Semana de ${weekBr}`,
+            title: `Semana de ${weekBr} (${weekTenseLabel})`,
             items: parts,
           }
           : undefined,
       },
       updatedContext,
       spokenText: parts.length
-        ? `Exibindo ${parts.length} partes da semana de ${weekBr}.`
+        ? `Exibindo ${parts.length} partes de ${weekTenseLabel}, semana de ${weekBr}.`
         : `Nenhuma parte encontrada para ${weekBr}.`,
     };
   }

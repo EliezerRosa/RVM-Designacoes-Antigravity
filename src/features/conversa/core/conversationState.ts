@@ -73,14 +73,22 @@ export interface ConversaContextState {
   lastPersonName?: string;
   lastWeekId?: string;
   lastMonth?: string;
+  lastIntentId?: string;
+  lastPartType?: string;
+  lastTimeFrame?: 'past' | 'present' | 'future';
+  lastDocumentKind?: 's140' | 's89' | 's4' | 's1';
   activeDisambiguation?: DisambiguationState;
   pendingAction?: ActionPreviewState;
   voiceActive: boolean;
+  ttsEnabled?: boolean;
+  sttEnabled?: boolean;
 }
 
 export function createInitialContext(): ConversaContextState {
   return {
-    voiceActive: false,
+    voiceActive: true,
+    ttsEnabled: true,
+    sttEnabled: true,
   };
 }
 

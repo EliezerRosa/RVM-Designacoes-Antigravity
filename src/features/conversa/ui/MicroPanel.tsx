@@ -3,6 +3,11 @@ import type { UpcomingAssignmentView } from '../ports/queryPort';
 import type { ConversaCardData, InfoListItem } from '../core/conversationState';
 import { formatDateBr } from '../core/dateFormat';
 import type { WorkbookPart } from '../../../types';
+import {
+  humanizePartTypeForLayperson,
+  humanizeRoleForLayperson,
+  humanizeStatusForLayperson,
+} from '../knowledge/rvmVocabularyDictionary';
 
 interface MicroPanelProps {
   cardData?: ConversaCardData;
@@ -55,14 +60,14 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
           {items.map((item) => (
             <div key={item.partId} className="cv-list-item">
               <div>
-                <strong>{formatDateBr(item.dateStr)}</strong> — {item.tipoParte}
+                <strong>{formatDateBr(item.dateStr)}</strong> — {humanizePartTypeForLayperson(item.tipoParte)}
                 {item.tituloParte &&
                   item.tituloParte.trim().toLowerCase() !== item.tipoParte.trim().toLowerCase() && (
                     <div style={{ fontSize: '13px', opacity: 0.8 }}>{item.tituloParte}</div>
                   )}
                 {item.partnerName && (
                   <div style={{ fontSize: '13px', opacity: 0.75 }}>
-                    Com: {item.partnerName} ({item.role})
+                    Com: {item.partnerName} ({humanizeRoleForLayperson(item.role)})
                   </div>
                 )}
               </div>
@@ -79,7 +84,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
                     : 'cv-badge-warning'
                 }`}
               >
-                {item.status}
+                {humanizeStatusForLayperson(item.status)}
               </span>
             </div>
           ))}
@@ -104,7 +109,7 @@ export const MicroPanel: React.FC<MicroPanelProps> = ({
                 </div>
               </div>
               <span className="cv-badge cv-badge-primary">
-                {part.status || 'pendente'}
+                {humanizeStatusForLayperson(part.status || 'pendente')}
               </span>
             </div>
           ))}
