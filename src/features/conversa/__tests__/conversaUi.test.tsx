@@ -550,5 +550,46 @@ test('ConversaShell & MicroPanel: renders info-list and does NOT duplicate text 
     assert.ok(panelView.getByText('Presidente'));
     assert.ok(panelView.getByText('Elegível'));
     assert.ok(panelView.getByText('OK'));
+
+    const explainText = 'Resumo único do card explicativo.';
+    const explainShell = render(
+      React.createElement(ConversaShell, {
+        userLabel: 'Eliezer Rosa',
+        isProcessing: false,
+        isBriefingOpen: false,
+        briefingData: {
+          userName: 'Eliezer Rosa',
+          writtenGreeting: 'Tudo em dia.',
+          spokenSummary: 'Tudo em dia.',
+          hasPendingItems: false,
+          assignmentsToConfirm: [],
+          assignmentsToFulfill: [],
+          upcomingEvents: [],
+        },
+        messages: [
+          {
+            id: 'exp-1',
+            sender: 'assistant',
+            text: explainText,
+            timestamp: 2000,
+            cardType: 'explain',
+            cardData: {
+              found: true,
+              title: 'Permissões',
+              summary: explainText,
+              details: ['Detalhe 1'],
+            },
+          },
+        ],
+        onCloseBriefing: () => undefined,
+        onOpenBriefing: () => undefined,
+        onSendMessage: () => undefined,
+        onClearHistory: () => undefined,
+        onSignOut: () => undefined,
+      })
+    );
+
+    assert.equal(explainShell.getAllByText(explainText).length, 1);
+    assert.equal(explainShell.container.querySelector('.cv-bubble') === null, true);
   });
 });

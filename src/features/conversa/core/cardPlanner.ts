@@ -14,7 +14,7 @@ import { checkIntentPermission } from './policyGuard';
 import { resolvePublisher, resolveWeek } from './entityResolver';
 import { queryPort } from '../ports/queryPort';
 import { documentPort, formatDateBr } from '../ports/documentPort';
-import { knowledgePort } from '../ports/knowledgePort';
+import { knowledgePort, type SpecialistContextInput } from '../ports/knowledgePort';
 import {
   actionPort,
   expandAbsenceDateRange,
@@ -332,17 +332,30 @@ export async function planTurn(
     }
   }
 
-  // 3. Intenção não reconhecida
+  const baseSpecialistCtx: SpecialistContextInput = {
+    userContext,
+    gate,
+    allPublishers,
+    availableWeeks,
+    lastWeekId: context.lastWeekId,
+    lastPersonName: context.lastPersonName,
+  };
+
+  // 3. Intenção não reconhecida -> Raciocínio contextual e resposta especialista assistida
   if (!nlu.intentId) {
+    const expl = knowledgePort.getExplanation(nlu.rawText, baseSpecialistCtx);
     return {
       message: {
         id: messageId,
         sender: 'assistant',
-        text: 'Não consegui identificar a intenção com clareza. Você pode perguntar sobre suas designações, ver a programação da semana (S-140), o cartão S-89 ou consultar regras teocráticas.',
+        text: expl.summary,
         timestamp: now,
+        intentId: expl.found ? 'explain-engine-rules' : undefined,
+        cardType: 'explain',
+        cardData: expl,
       },
       updatedContext: context,
-      spokenText: 'Não entendi com clareza. Em que posso ajudar?',
+      spokenText: expl.summary,
     };
   }
 
@@ -434,9 +447,19 @@ export async function planTurn(
   // 6. Roteamento por Categoria de Intenção
 
   // A. EXPLICAÇÕES
+  const turnSpecialistCtx: SpecialistContextInput = {
+    userContext,
+    gate,
+    allPublishers,
+    availableWeeks,
+    lastWeekId: targetWeekId,
+    lastPersonName: resolvedPerson?.name || context.lastPersonName,
+  };
+
   if (nlu.intentId === 'explain-engine-rules') {
-    const queryHint = nlu.slots.ruleId || nlu.slots.ruleName || nlu.rawText;
-    const expl = knowledgePort.getExplanation(queryHint);
+    const isNarrowRule = ['oracao', 'presidente', 'intervalo', 'genero'].includes(nlu.slots.ruleId || '');
+    const queryHint = isNarrowRule ? nlu.slots.ruleId! : nlu.rawText || nlu.slots.ruleId || nlu.slots.ruleName || '';
+    const expl = knowledgePort.getExplanation(queryHint, turnSpecialistCtx);
     return {
       message: {
         id: messageId,
@@ -454,7 +477,7 @@ export async function planTurn(
 
   if (nlu.intentId === 'explain-ranking') {
     if (availableWeeks.length === 0 && !ports.queries?.explainPartRanking) {
-      const expl = knowledgePort.getExplanation(nlu.rawText);
+      const expl = knowledgePort.getExplanation(nlu.rawText, turnSpecialistCtx);
       return {
         message: {
           id: messageId,

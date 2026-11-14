@@ -106,4 +106,13 @@ test('L0 Grammar: detects specialist RVM intents (quantas designacoes, z-api, ge
 
   const rRef = parseL0Grammar('Recusar minha parte');
   assert.equal(rRef.intentId, 'refuse-my-assignment');
+
+  const rFunc = parseL0Grammar('Quais são suas funcionalidades?');
+  assert.equal(rFunc.intentId, 'explain-engine-rules');
+
+  const rPerm = parseL0Grammar('O que é que é permitido eu fazer?');
+  assert.equal(rPerm.intentId, 'explain-engine-rules');
+
+  const rTabs = parseL0Grammar('Quais são as abas do RVM?');
+  assert.equal(rTabs.intentId, 'explain-engine-rules');
 });

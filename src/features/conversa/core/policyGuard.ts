@@ -33,6 +33,15 @@ export function checkIntentPermission(intentId: string, gate: PermissionGate): P
     };
   }
 
+  // Consultas sobre regras teocráticas, funcionalidades do sistema e permissões próprias
+  // são sempre permitidas para qualquer usuário autenticado (leitura conceitual segura).
+  if (intentId === 'explain-engine-rules') {
+    return {
+      allowed: true,
+      actionType: contract.actionType,
+    };
+  }
+
   const allowed = gate.canAgentAction(contract.actionType);
   if (!allowed) {
     return {

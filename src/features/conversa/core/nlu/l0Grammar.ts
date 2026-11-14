@@ -375,9 +375,9 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
-  // 2c. Perguntas conceituais explícitas sobre o RVM, regras ou invariantes (antes de formulários S-140/S-89/S-4/S-1)
+  // 2c. Perguntas conceituais explícitas sobre o RVM, funcionalidades, permissões, regras ou invariantes (antes de S-140/S-89/S-4/S-1)
   const isConceptualQuestion =
-    /\b(o\s+que\s+e|o\s+que\s+faz|para\s+que\s+serve|como\s+funciona(?:m)?|quais\s+(?:sao\s+)?(?:as\s+)?regras?|quais\s+(?:sao\s+)?(?:as\s+)?invariantes?|objetivo\s+d[eo]|proposito\s+d[eo]|explique|invariante\s+[mi]\s*-?\s*\d+|regra\s+[mi]\s*-?\s*\d+|s\s*-?\s*38|aquiescencia|z\s*-?\s*api|webhook|botoes?\s+(?:do\s+)?(?:z\s*-?\s*api|whatsapp)|o\s+que\s+voce\s+(?:sabe\s+)?faz(?:er)?|quais\s+suas?\s+capacidades?)\b/.test(
+    /\b(o\s+que\s+e|o\s+que\s+faz|para\s+que\s+serve|como\s+(?:funciona(?:m)?|usar)|quais\s+(?:sao\s+)?(?:as\s+)?(?:regras?|invariantes?|abas?|telas?|modulos?)|quais\s+(?:sao\s+)?(?:as\s+)?(?:suas\s+)?(?:funcionalidades?|capacidades?|funcoes|opcoes|comandos|recursos|habilidades)|o\s+que\s+(?:e\s+que\s+)?(?:e\s+)?permitid[ao]|o\s+que\s+(?:eu\s+)?posso\s+(?:fazer|executar|consultar|ver|editar)|minhas\s+permissoes|meu\s+acesso|visao\s+geral|panorama|ajuda|objetivo\s+d[eo]|proposito\s+d[eo]|explique|me\s+explique|invariante\s+[mi]\s*-?\s*\d+|regra\s+[mi]\s*-?\s*\d+|s\s*-?\s*38|aquiescencia|z\s*-?\s*api|webhook|botoes?\s+(?:do\s+)?(?:z\s*-?\s*api|whatsapp)|o\s+que\s+voce\s+(?:sabe\s+)?faz(?:er)?|engine_config|territorios?|backup)\b/.test(
       norm
     );
 
@@ -405,10 +405,13 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     } else if (/\bs\s*-?\s*4|s\s*-?\s*1|relatorio\s+mensal|i\s*-?\s*\d+\b/.test(norm)) {
       ruleId = 'relatorios-mensais-s4-s1';
       ruleName = 'relatorios';
-    } else if (/\bcca|permiss|governanca|papel|papeis|perfil|cs\b/.test(norm)) {
+    } else if (/\bcca|permitid|permiss|governanca|papel|papeis|cs|meu\s+acesso|o\s+que\s+(?:eu\s+)?posso\b/.test(norm)) {
       ruleId = 'governanca-permissoes-e-papeis';
       ruleName = 'governanca';
-    } else if (/\bobjetivo|proposito|o\s+que\s+e\s+o\s+rvm|o\s+que\s+voce\b/.test(norm)) {
+    } else if (/\babas?|telas?|modulos?|visao\s+geral|panorama\b/.test(norm)) {
+      ruleId = 'arquitetura-abas-rvm';
+      ruleName = 'arquitetura';
+    } else if (/\bobjetivo|proposito|o\s+que\s+e\s+o\s+rvm|o\s+que\s+voce|funcionalidad|capacidad|recursos|comandos|ajuda\b/.test(norm)) {
       ruleId = 'objetivo-sistema-rvm';
       ruleName = 'objetivo';
     }

@@ -277,7 +277,7 @@ export const actionPort = {
       };
     }
 
-    const webhookRes = await this.triggerZApiSmartWebhook('CONFIRMAR', partId, publisherId);
+    const webhookRes = await actionPort.triggerZApiSmartWebhook('CONFIRMAR', partId, publisherId);
 
     try {
       const { data: tokenData, error: tokenError } = await supabase.rpc('create_confirmation_portal_token', {
@@ -369,7 +369,7 @@ export const actionPort = {
       };
     }
 
-    const webhookRes = await this.triggerZApiSmartWebhook('RECUSAR', partId, publisherId, cleanReason);
+    const webhookRes = await actionPort.triggerZApiSmartWebhook('RECUSAR', partId, publisherId, cleanReason);
     if (webhookRes.success && webhookRes.hasPhone) {
       return {
         success: true,
@@ -447,7 +447,7 @@ export const actionPort = {
   ): Promise<ActionExecutionResult> {
     void reason;
     const actionType: AgentActionType = 'UPDATE_AVAILABILITY';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }
@@ -489,7 +489,7 @@ export const actionPort = {
    */
   async approveWeekProposal(weekId: string, approvedById?: string): Promise<ActionExecutionResult> {
     const actionType: AgentActionType = 'APPROVE_PROPOSAL';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }
@@ -542,7 +542,7 @@ export const actionPort = {
     isSubstitution = true
   ): Promise<ActionExecutionResult> {
     const actionType: AgentActionType = 'ASSIGN_PART';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }
@@ -653,7 +653,7 @@ export const actionPort = {
     reason?: string
   ): Promise<ActionExecutionResult> {
     const actionType: AgentActionType = 'REJECT_PROPOSAL';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }
@@ -728,7 +728,7 @@ export const actionPort = {
    */
   async generateWeekDesignations(weekId: string, allPublishers: Publisher[]): Promise<ActionExecutionResult> {
     const actionType: AgentActionType = 'GENERATE_WEEK';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }
@@ -862,7 +862,7 @@ export const actionPort = {
    */
   async clearWeekDesignations(weekId: string): Promise<ActionExecutionResult> {
     const actionType: AgentActionType = 'CLEAR_WEEK';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }
@@ -932,7 +932,7 @@ export const actionPort = {
    */
   async completeWeekOrPart(weekId: string, partHint?: string): Promise<ActionExecutionResult> {
     const actionType: AgentActionType = 'COMPLETE_PART';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }
@@ -1002,7 +1002,7 @@ export const actionPort = {
    */
   async undoLastAction(): Promise<ActionExecutionResult> {
     const actionType: AgentActionType = 'UNDO_LAST';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }
@@ -1056,7 +1056,7 @@ export const actionPort = {
    */
   async addLocalNeedToQueue(theme: string, assigneeName: string, targetWeek?: string | null): Promise<ActionExecutionResult> {
     const actionType: AgentActionType = 'MANAGE_LOCAL_NEEDS';
-    const permError = await this.assertServerPermission(actionType);
+    const permError = await actionPort.assertServerPermission(actionType);
     if (permError) {
       return { success: false, message: permError, actionType };
     }

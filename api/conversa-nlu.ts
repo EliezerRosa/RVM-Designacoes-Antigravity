@@ -116,7 +116,7 @@ Intenções permitidas:
 - view-s4 (ex: "mostrar s-4", "cartão de relatório")
 - view-s1-consolidation (ex: "mostrar s-1", "fechamento do mês")
 - explain-ranking (ex: "por que o Paulo foi escolhido?", "como foi calculada a nota?", "melhores candidatos para leitura")
-- explain-engine-rules (ex: "por que não posso designar?", "qual a regra de oração?", "regras do s-38", "objetivo do RVM", "botões do z-api")
+- explain-engine-rules (ex: "por que não posso designar?", "qual a regra de oração?", "regras do s-38", "objetivo do RVM", "botões do z-api", "quais são suas funcionalidades?", "o que é permitido eu fazer?", "quais são as abas do RVM?")
 - confirm-my-assignment (ex: "confirmar minha designação", "confirmo minha parte", "aceitar s-89")
 - refuse-my-assignment (ex: "recusar minha designação", "não poderei fazer minha parte")
 - register-absence (ex: "vou viajar de 18 a 25", "estarei fora dia 20")

@@ -461,41 +461,271 @@ export const RVM_KNOWLEDGE_BASE: readonly KnowledgeEntry[] = [
       'acesso',
       'seguranca',
       'token',
+      'permitido',
+      'autorizado',
+    ],
+  },
+  {
+    topicId: 'arquitetura-abas-rvm',
+    title: 'Abas, Módulos e Ações Operacionais do RVM Designações',
+    category: 'sistema',
+    summary:
+      'O sistema unificado organiza a congregação em 9 áreas principais: Apostila (Planejamento, Relatórios e Análises), Publicadores, Territórios, Backup, Comunicação Z-API, Relatório Mensal (S-4/S-1), Admin, S-38 e UI-Chat Conversa RVM.',
+    details: [
+      'Aba Apostila (`workbook`): reúne os sub-painéis Planejamento (grade semanal, `Carregar Excel`, `Gerar`, `Fila NL`, `Eventos`, `Reset Período`, `Publicar`/`Despublicar`), Relatórios (`S-140`, `S-89`, `Pacote PDF`, `Disparo Status PDF`) e Análises.',
+      'Botões de Fluxo Rápido no Planejamento: `Eventos`, `Fila NL`, `S-140 Pacote`, `Disparo Status PDF`, `Minhas Designações` e `Solicitar Liberação CS` (Comissão de Serviço).',
+      'Aba Publicadores (`publishers`): cadastro completo, condição, função congregacional, gênero/parentesco, privilégios, seções habilitadas, pausas e datas de disponibilidade.',
+      'Aba Comunicação (`communication`): disparos S-89 via WhatsApp Z-API, acompanhamento de confirmações/recusas e lembretes D-7/D-2.',
+      'Aba Relatório Mensal (`monthly-reports`): cartões individuais S-4 e consolidação S-1 conforme invariantes I-0 a I-7.',
+      'Aba S-38 (`s38-profiles`), Admin (`admin`), Territórios (`territories`) e Backup (`backup`): perfis sintéticos/critérios do motor, política RBAC por papel, gestão de territórios e exportação/restauração de cópia de segurança.',
+    ],
+    officialSource: 'Arquitetura Canônica RVM (`App.tsx` / `permissionService.ts`)',
+    keywords: [
+      'aba',
+      'abas',
+      'tela',
+      'telas',
+      'modulo',
+      'modulos',
+      'planejamento',
+      'apostila',
+      'menu',
+      'botoes',
+      'carregar excel',
+      'pacote pdf',
+      'reset periodo',
+      'visao geral',
+      'panorama',
+      'funcionalidades',
+      'sistema completo',
+    ],
+  },
+  {
+    topicId: 'configuracao-motor-engine-config',
+    title: 'Parâmetros Configuráveis do Motor Lexicográfico (`engine_config`)',
+    category: 'motor',
+    summary:
+      'O motor determinístico aceita 8 parâmetros calibráveis em `engine_config` (`supabase`) que ajustam janelas de rotação, garantia de estudante, alternância FSM e presidência cíclica.',
+    details: [
+      '`MAX_LOOKBACK_WEEKS` (padrão 52): janela histórica máxima de frescor e carga total considerada pelo motor.',
+      '`HEAVY_ROLE_RADIUS` (padrão 4): raio em semanas (passado + futuro) para proximidade e cooldown de mesma parte (`M-5`/`M-7`).',
+      '`ROLE_ALTERNATION_WINDOW_WEEKS` (padrão 4): janela para alternar Titular ↔ Ajudante em partes de estudante (FSM).',
+      '`PAIR_REPETITION_WINDOW_WEEKS` (padrão 4): janela para evitar repetir exatamente a mesma dupla Titular + Ajudante (com bypass para parentesco direto).',
+      '`ENABLE_SECTION_ROTATION_GATE` (padrão true): habilita o soft gate de rotação intra-seção (`M-7`) em Tesouros e Vida Cristã.',
+      '`PRESIDENCY_CYCLE_WINDOW_WEEKS` (padrão 52): janela da fila cíclica de Presidência (`M-1`).',
+      '`STUDENT_PART_GUARANTEE_WEEKS` (padrão 13) e `STUDENT_GUARANTEE_MAX_PER_WEEK` (padrão 2): garantem até 2 anciãos/SMs em jejum de estudante por semana no Balde 0 (`M-3`).',
+    ],
+    officialSource: 'EngineConfig (`src/types.ts` / `engine_config`)',
+    keywords: [
+      'engine_config',
+      'parametro',
+      'parametros',
+      'configuracao do motor',
+      'janela',
+      'lookback',
+      'heavy_role_radius',
+      'alternancia fsm',
+      'garantia 13',
+      'presidencia ciclica',
+    ],
+  },
+  {
+    topicId: 'fluxo-importacao-e-publicacao',
+    title: 'Ciclo de Vida da Semana: Apostila → Proposta → Aprovação → Publicação S-89',
+    category: 'organizacao',
+    summary:
+      'Cada semana da Apostila segue uma máquina de estados rígida: importação (Excel/JW.org) → `PENDENTE` → geração automática/manual em `PROPOSTA` → aprovação para `DESIGNADA` → publicação manual do S-89 pelo SRVM → `CONCLUIDA`.',
+    details: [
+      '1. Importação (`PENDENTE`): carrega a grade da semana da Apostila Vida e Ministério (`workbook_parts`) com sequência, seção, tipo de parte e duração.',
+      '2. Geração (`PROPOSTA`): o motor (`M-0` a `M-12`) preenche as partes designáveis sem deixar conflitos semanais nem desrespeitar M-12 (recusas).',
+      '3. Revisão e Aprovação (`DESIGNADA`): o SRVM/Admin revisa, pode trocar designados manualmente (mantendo blindagem S-38/gênero) e aprova a semana.',
+      '4. Publicação (`Publicar S-89` / `Pacote S-140`): somente a publicação manual dispara S-89 via WhatsApp (Z-API) e libera o status nos portais e na Conversa RVM.',
+      '5. Conclusão (`CONCLUIDA`): após a reunião, as partes realizadas são baixadas e alimentam o histórico do rodízio.',
+    ],
+    officialSource: 'Ciclo de Vida do Workbook (`_ESTADO-ATUAL.md` / `workbookLifecycleService`)',
+    keywords: [
+      'ciclo',
+      'fluxo',
+      'publicar',
+      'despublicar',
+      'rascunho',
+      'proposta',
+      'aprovacao',
+      'aprovar semana',
+      'importar',
+      'excel',
+      'jw.org',
+      'concluir',
+      'limpar semana',
+      'reset periodo',
+    ],
+  },
+  {
+    topicId: 'comissao-de-servico-e-anuncios',
+    title: 'Comissão de Serviço (CS), Anúncios e Liberação Administrativa',
+    category: 'permissoes',
+    summary:
+      'Eventos especiais classificados como Anúncio ou Notificação passam pelo fluxo de aprovação da Comissão de Serviço (CCA, Secretário e SS) via links com First-Access Binding (Google Login).',
+    details: [
+      'Botão `Solicitar Liberação CS`: gera links individuais autenticados para os 3 membros da Comissão de Serviço aprovarem ou devolverem anúncios/notificações.',
+      'First-Access Binding (Fase 9): cada link grava `publisher_id` + `bound_email` no primeiro acesso autenticado e bloqueia acessos posteriores de outros e-mails.',
+      'Sem intervenção no motor: anúncios (`NO_IMPACT`) não alteram designações nem tempos das partes da reunião.',
+    ],
+    officialSource: 'Fluxo Comissão de Serviço (`_ESTADO-ATUAL.md` Fase 9)',
+    keywords: [
+      'comissao de servico',
+      'liberacao cs',
+      'cs',
+      'anuncio',
+      'anuncios',
+      'notificacao',
+      'first access binding',
+      'bound_email',
+      'no_impact',
+    ],
+  },
+  {
+    topicId: 'territorios-e-backup',
+    title: 'Gestão de Territórios, Backup e Proteção de Dados Sensíveis',
+    category: 'sistema',
+    summary:
+      'Além das designações da reunião, o RVM mantém o módulo de Territórios da congregação, rotinas de Backup/Restore de registros e políticas rígidas de privacidade de publicadores.',
+    details: [
+      'Territórios (`territories`): organização e acompanhamento de mapas/designações territoriais pelos irmãos autorizados.',
+      'Backup & Restore (`backup`): exportação e restauração segura de configurações e dados congregacionais para perfis autorizados.',
+      'Proteção de Dados: dados sensíveis (telefone, e-mail, ausências/motivos pastorais) são mascarados ou ocultados conforme o nível `all`, `filtered` ou `self` do usuário autenticado.',
+    ],
+    officialSource: 'Módulos Unificados RVM (`permissionService.ts` / `_ESTADO-ATUAL.md`)',
+    keywords: [
+      'territorio',
+      'territorios',
+      'backup',
+      'restore',
+      'restaurar',
+      'exportar',
+      'privacidade',
+      'dados sensiveis',
+      'seguranca de dados',
+    ],
+  },
+  {
+    topicId: 'disponibilidade-e-autoria',
+    title: 'Disponibilidade de Publicadores e Auditoria de Autoria',
+    category: 'organizacao',
+    summary:
+      'Cada publicador possui modo de disponibilidade (`always` com `exceptionDates` de ausência, ou `never` com `availableDates`), com registro automático de autor (`availabilityMeta`).',
+    details: [
+      'Indisponibilidade registrada: impede que o motor ou atribuição manual escalem o publicador para a semana da data bloqueada.',
+      'Autoria (`availabilityMeta` + `record_availability_change`): registra quem atualizou (`Admin`, `Agente` ou `Publicador (auto)` via Portal/Conversa RVM) e o carimbo temporal UTC.',
+      'Na Conversa RVM, dizer `"vou viajar de DD/MM a DD/MM"` ou `"não poderei estar dia DD/MM"` abre a prévia para registrar as datas com segurança.',
+    ],
+    officialSource: 'Modelo PublisherAvailability (`src/types.ts` / `publisherAvailabilityService`)',
+    keywords: [
+      'disponibilidade',
+      'ausencia',
+      'viajar',
+      'excecao',
+      'exceptiondates',
+      'autoria',
+      'availabilitymeta',
+      'indisponivel',
+      'ferias',
     ],
   },
 ];
+
+const QUERY_STOPWORDS = new Set([
+  'para',
+  'como',
+  'onde',
+  'qual',
+  'quais',
+  'quem',
+  'quando',
+  'sobre',
+  'fazer',
+  'esta',
+  'este',
+  'esse',
+  'essa',
+  'isso',
+  'tudo',
+  'aqui',
+  'pode',
+  'posso',
+  'tenho',
+  'minha',
+  'minhas',
+  'meu',
+  'meus',
+  'suas',
+  'seus',
+  'voce',
+  'dela',
+  'dele',
+  'pelo',
+  'pela',
+  'nosso',
+  'nossa',
+  'sistema',
+]);
 
 function normalizeQuery(query: string): string {
   return query
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[?!.,:;()"']/g, ' ')
+    .replace(/[?!.,:;()"'`]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+function tokenizeStems(norm: string): string[] {
+  return norm
+    .split(' ')
+    .filter((w) => w.length >= 4 && !QUERY_STOPWORDS.has(w))
+    .map((w) => (w.length >= 6 ? w.slice(0, 5) : w));
+}
+
 /**
- * Pesquisa entradas relevantes por pontuação de palavras-chave
+ * Pesquisa entradas relevantes por pontuação de palavras-chave exatas e radicais (stems)
  */
 export function searchKnowledgeEntries(query: string, limit: number = 3): KnowledgeEntry[] {
   const norm = normalizeQuery(query);
   if (!norm) return [];
 
+  const queryStems = tokenizeStems(norm);
+
   const scored = RVM_KNOWLEDGE_BASE.map((entry) => {
     let score = 0;
+    const titleNorm = normalizeQuery(entry.title);
+    const summaryNorm = normalizeQuery(entry.summary);
+
     for (const kw of entry.keywords) {
       const kwNorm = normalizeQuery(kw);
       if (norm === kwNorm) {
         score += 10;
       } else if (norm.includes(kwNorm)) {
-        score += kwNorm.includes(' ') ? 5 : 3;
+        score += kwNorm.includes(' ') ? 6 : 3;
       }
     }
-    // Bonus pequeno se o título ou topicId combinar diretamente
-    if (norm.includes(normalizeQuery(entry.title))) {
-      score += 4;
+
+    if (norm.includes(titleNorm)) {
+      score += 5;
     }
+
+    // Casamento por radical (stem) para variações morfológicas (ex: permitido -> permit, funcionalidades -> funcion)
+    if (queryStems.length > 0) {
+      const searchableCorpus = `${titleNorm} ${entry.keywords.map(normalizeQuery).join(' ')} ${summaryNorm}`;
+      const matchedStems = new Set<string>();
+      for (const stem of queryStems) {
+        if (searchableCorpus.includes(stem)) {
+          matchedStems.add(stem);
+        }
+      }
+      score += matchedStems.size * 2;
+    }
+
     return { entry, score };
   })
     .filter((item) => item.score > 0)

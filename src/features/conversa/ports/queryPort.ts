@@ -380,7 +380,7 @@ export const queryPort = {
       const todayWeekId = getTodayWeekIdLocal();
       const [publishedMap, availableWeeks, openRes] = await Promise.all([
         api.getSetting<Record<string, string>>('week_published', {}).catch(() => ({} as Record<string, string>)),
-        this.getAvailableWeeks(),
+        queryPort.getAvailableWeeks(),
         supabase
           .from('workbook_parts')
           .select('week_id')
@@ -414,12 +414,12 @@ export const queryPort = {
   ): Promise<{ title: string; summary: string; items: InfoListItem[]; eligible?: boolean }> {
     let targetWeek = weekId;
     if (targetWeek === 'current-week' || !targetWeek) {
-      const weeks = await this.getAvailableWeeks();
+      const weeks = await queryPort.getAvailableWeeks();
       const todayWeek = getTodayWeekIdLocal();
       targetWeek = weeks.find((w) => w >= todayWeek) || weeks[0] || todayWeek;
     }
 
-    const weekParts = targetWeek ? await this.getWeekParts(targetWeek).catch(() => [] as WorkbookPart[]) : [];
+    const weekParts = targetWeek ? await queryPort.getWeekParts(targetWeek).catch(() => [] as WorkbookPart[]) : [];
     const normPart = normalizeName(partType);
 
     if (normPart) {
@@ -539,7 +539,7 @@ export const queryPort = {
     targetPublisher: Publisher | undefined,
     allPublishers: Publisher[]
   ): Promise<{ title: string; summary: string; items: InfoListItem[] }> {
-    const weeks = await this.getAvailableWeeks();
+    const weeks = await queryPort.getAvailableWeeks();
     const todayWeek = getTodayWeekIdLocal();
     const resolvedWeek =
       !weekId || weekId === 'current-week'
@@ -548,7 +548,7 @@ export const queryPort = {
           ? weeks.filter((w) => w > todayWeek)[0] || weeks[0] || todayWeek
           : weekId;
 
-    const weekParts = await this.getWeekParts(resolvedWeek).catch(() => [] as WorkbookPart[]);
+    const weekParts = await queryPort.getWeekParts(resolvedWeek).catch(() => [] as WorkbookPart[]);
     if (!weekParts.length) {
       return {
         title: 'Explicação de Ranking',

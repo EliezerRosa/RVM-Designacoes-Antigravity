@@ -722,4 +722,98 @@ test('cardPlanner: specialist queries (quantas designacoes, eligibility, profile
   assert.equal(clearedWeeks.length, 0);
 });
 
+test('cardPlanner & knowledgePort: contextual reasoning for funcionalidades, permissoes do usuario, abas e fallback sem perda de this', async () => {
+  const pubs: Publisher[] = [
+    { ...makePublisher('pub-1', 'Eliezer Rosa'), condition: 'Ancião', funcao: 'Superintendente da Reunião Vida e Ministério', privileges: { ...makePublisher('p', 'x').privileges, canPreside: true, canGiveTalks: true } },
+    { ...makePublisher('pub-2', 'Maria Clara'), gender: 'sister', condition: 'Publicador' },
+  ];
+
+  // 1. "Quais são suas funcionalidades?" -> resposta especialista rica com contexto vivo
+  const funcL0 = parseL0Grammar('Quais são suas funcionalidades?');
+  const funcTurn = await planTurn(
+    { ...funcL0, layer: 'l0-grammar' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-30'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true }
+  );
+  assert.equal(funcTurn.message.cardType, 'explain');
+  assert.equal(funcTurn.message.cardData?.found, true);
+  assert.match(funcTurn.message.text, /Eliezer Rosa/i);
+  const funcDetails = (funcTurn.message.cardData?.details || []).join('\n');
+  assert.match(funcDetails, /2 publicador\(es\).*1 semana\(s\)/i);
+
+  // 2. "O que é que é permitido eu fazer?" -> adaptado dinamicamente ao PermissionGate (Admin vs Publicador restrito)
+  const permL0 = parseL0Grammar('O que é que é permitido eu fazer?');
+  const adminPermTurn = await planTurn(
+    { ...permL0, layer: 'l0-grammar' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-30'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true }
+  );
+  assert.equal(adminPermTurn.message.cardType, 'explain');
+  assert.equal(adminPermTurn.message.cardData?.found, true);
+  assert.match(adminPermTurn.message.text, /Administrador Geral|acesso integral/i);
+
+  const pubGate: PermissionGate = {
+    ...fullGate,
+    isFullAdmin: () => false,
+    canViewTab: (tab) => tab === 'workbook',
+    canAgentAction: (action) => action === 'QUERY_PUBLISHER_ASSIGNMENTS' || action === 'UPDATE_AVAILABILITY',
+    getPublisherScope: () => ({
+      isAdmin: false,
+      accessLevel: 'self',
+      selfPublisherId: 'pub-2',
+      canSeeSensitiveData: false,
+      filters: { accessLevel: 'self' },
+    }),
+  };
+  const pubPermTurn = await planTurn(
+    { ...permL0, layer: 'l0-grammar' },
+    createInitialContext(),
+    pubGate,
+    pubs,
+    ['2026-11-30'],
+    { publisherId: 'pub-2', publisherName: 'Maria Clara', isAdmin: false }
+  );
+  assert.equal(pubPermTurn.message.cardData?.found, true);
+  assert.match(pubPermTurn.message.text, /Maria Clara/i);
+  assert.match((pubPermTurn.message.cardData?.details || []).join('\n'), /Apenas seus próprios dados/i);
+
+  // 3. "Quais são as abas do RVM?"
+  const tabsL0 = parseL0Grammar('Quais são as abas do RVM?');
+  const tabsTurn = await planTurn(
+    { ...tabsL0, layer: 'l0-grammar' },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    ['2026-11-30'],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true }
+  );
+  assert.equal(tabsTurn.message.cardData?.found, true);
+  assert.match(`${tabsTurn.message.text} ${(tabsTurn.message.cardData?.details || []).join(' ')}`, /Territórios|Backup|Apostila/i);
+
+  // 4. Default queryPort sem mocks explícitos (ports = {}) não perde binding `this`
+  const eligTurn = await planTurn(
+    {
+      intentId: 'query-eligibility',
+      slots: { personName: 'Eliezer Rosa', partType: 'Presidente' },
+      confidence: 0.9,
+      layer: 'l0-grammar',
+      rawText: 'O irmão Eliezer Rosa pode fazer Presidente?',
+    },
+    createInitialContext(),
+    fullGate,
+    pubs,
+    [],
+    { publisherId: 'pub-1', publisherName: 'Eliezer Rosa', isAdmin: true }
+  );
+  assert.equal(eligTurn.message.cardType, 'micro-panel');
+  assert.equal(eligTurn.message.cardData?.type, 'info-list');
+  assert.match(eligTurn.message.text, /Eliezer Rosa/);
+});
+
 

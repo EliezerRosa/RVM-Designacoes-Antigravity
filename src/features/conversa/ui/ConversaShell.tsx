@@ -125,11 +125,12 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
           messages.map((msg) => {
             const hideDuplicateBubble =
               msg.sender === 'assistant' &&
-              msg.cardType === 'micro-panel' &&
-              (msg.cardData?.status === 'success' ||
-                msg.cardData?.status === 'error' ||
-                msg.cardData?.type === 'info-list') &&
-              msg.cardData?.description === msg.text;
+              ((msg.cardType === 'micro-panel' &&
+                (msg.cardData?.status === 'success' ||
+                  msg.cardData?.status === 'error' ||
+                  msg.cardData?.type === 'info-list') &&
+                msg.cardData?.description === msg.text) ||
+                (msg.cardType === 'explain' && (msg.cardData?.summary || msg.text) === msg.text));
 
             return (
               <div
