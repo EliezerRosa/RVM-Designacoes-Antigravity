@@ -1,6 +1,7 @@
 # Plano — Nova UI-Chat-IA "Conversa RVM" (2026-11-10)
 
 > **Status**: 🟢 **Aprovado e implementado end-to-end** (checkpoint `checkpoint-pre-conversa-ui-66f083d`; commits `a95f67d` e `62ca187`). Ver registro completo em [implementacao-ui-conversa-ia-2026-11-11.md](../session/implementacao-ui-conversa-ia-2026-11-11.md).
+> **Evolução Atual (§43.1 – §43.7, 2026-11-14)**: 🟢 Evoluído e publicado em `https://eliezerrosa.github.io/conversa-rvm/` (`58b99e7`, `144/144` testes aprovados). Ver detalhe técnico em [checkpoint-conversa-ui-2026-11-13.md](../session/checkpoint-conversa-ui-2026-11-13.md) e `_ESTADO-ATUAL.md`.
 > **RVM legado intocado**: implementado exclusivamente em `src/features/conversa/**` e `api/conversa-nlu.ts`, sem alterações em `src/App.tsx`, `AuthContext`, `vite.config.ts`, `vercel.json` ou `index.html`.
 > **Plano completo** (artefato da conversa Antigravity `1adbcb0f-f57c-441c-9b0c-b194af095093`): `C:\Users\Eliez\.gemini\antigravity\brain\1adbcb0f-f57c-441c-9b0c-b194af095093\plano_ui_conversa_ia.md`
 > Qualquer agente/IDE que retomar este tema DEVE ler esta memória antes de agir.
@@ -54,3 +55,16 @@ F0 fundação (pasta, entrada, flag, policyGuard, fronteira) → F1 conversa tex
 | D4 | Escritas na v1? | Só leitura até F4; escritas na F5 |
 | D5 | Voz: Web Speech ou STT de servidor desde já? | Web Speech com adaptador trocável |
 
+
+## 6. Evoluções Pós-Entrega Executadas (§43.1 – §43.7, 2026-11-14)
+
+- **§43.1 – §43.2 (Local Dev & Deploy Dedicado)**: abertura local 1-comando (`npm run conversa`), autenticação dev sem fricção (`/__conversa_dev_auth` + `/api/conversa-nlu`), rotas `/conversa` em `vercel.json`, deploy dedicado `npm run deploy:conversa` (`EliezerRosa/conversa-rvm`) em `https://eliezerrosa.github.io/conversa-rvm/` com ponte SSO cross-origin e sem `sw.js` legado.
+- **§43.3 (Carrossel Flutuante & Webhooks Z-API S-89)**: carrossel exibido "solto" sobre a conversa com fechamento ao tocar fora, priorização dos cartões S-89 do próprio publicador logado em `index 0` e botões exclusivos `Confirmar` / `Não Poderei` disparando `zapi-smart-webhook`.
+- **§43.4 – §43.6 (Skill Especialista Amplificada & Correções ao Vivo)**: **22 tópicos canônicos** cobrindo todo o RVM (`M-0..M-12`, `I-0..I-7`, abas, `engine_config`, CS, territórios, backup, Z-API, governança), micro-ações governadas por `PermissionGate` + `assert_agent_action` (sem importar `agentService`/`agentActionService`), fallback `get_my_workbook_parts` → `workbook_parts`, correção de binding `this`, supressão de `.cv-bubble` duplicada e template `S-89_T.pdf` incluído no `conversa-rvm`.
+- **§43.7 (LN Temporal, Elipse, Dicionário Oficial S-38/Organizados/WOL & Prioridade Fala/Ouvir — `58b99e7`)**:
+  1. Noção temporal (**passado / presente / futuro**) em `l0Grammar.ts`, `api/conversa-nlu.ts`, `entityResolver.ts` e `cardPlanner.ts`.
+  2. Elipse conversacional e resolução anafórica sem substantivos (`resolveConversationalEllipsis` + `isFollowUpEllipsis`).
+  3. Linguagem acessível para leigos/idosos aplicada em `knowledgePort.ts` e `MicroPanel.tsx`.
+  4. Banco de dicionários [`rvmVocabularyDictionary.ts`](../../src/features/conversa/knowledge/rvmVocabularyDictionary.ts) (**41 verbetes**: RVM, **S-38**, livro *Organizados (`od`)* e `wol.jw.org`).
+  5. Prioridade **fala/ouvir** por padrão (`voiceActive: true`) com alternância imediata para digitação ao tocar na caixa de texto e comandos `control-voice-mode` por voz ou texto.
+- **Portões verificados em `58b99e7`**: ESLint **Exit 0**, `npm test` **144/144 aprovados**, `npm run build` **Exit 0** e deploy publicado em `https://eliezerrosa.github.io/conversa-rvm/`.
