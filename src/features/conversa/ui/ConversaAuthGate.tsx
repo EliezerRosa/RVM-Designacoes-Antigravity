@@ -63,30 +63,102 @@ export const ConversaAuthGate: React.FC<ConversaAuthGateProps> = ({ children }) 
       isLoading ||
       isAuthenticated ||
       devAutoLoginAttemptedRef.current ||
-      !import.meta.env?.DEV ||
-      typeof window === 'undefined' ||
-      (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+      typeof window === 'undefined'
     ) {
       return;
     }
-    try {
-      if (sessionStorage.getItem('cv_manual_logout') === 'true') {
-        return;
+
+    // 1. Ambiente local (localhost / 127.0.0.1)
+    if (
+      import.meta.env?.DEV &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ) {
+      try {
+        if (sessionStorage.getItem('cv_manual_logout') === 'true') {
+          return;
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
+      devAutoLoginAttemptedRef.current = true;
+      void tryLocalDevLogin();
+      return;
     }
-    devAutoLoginAttemptedRef.current = true;
-    void tryLocalDevLogin();
+
+    // 2. Se estamos em eliezerrosa.github.io sem sessão, tenta SSO silencioso via vercel.app (1x por aba)
+    if (window.location.hostname.endsWith('github.io')) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (
+          sessionStorage.getItem('cv_manual_logout') === 'true' ||
+          sessionStorage.getItem('cv_sso_checked') === 'true' ||
+          params.get('sso_checked') === '1'
+        ) {
+          if (params.get('sso_checked') === '1') {
+            params.delete('sso_checked');
+            const qs = params.toString();
+            window.history.replaceState(
+              {},
+              document.title,
+              `${window.location.pathname}${qs ? `?${qs}` : ''}`
+            );
+          }
+          return;
+        }
+        sessionStorage.setItem('cv_sso_checked', 'true');
+        devAutoLoginAttemptedRef.current = true;
+        const cleanReturn = `${window.location.origin}${window.location.pathname}`;
+        window.location.replace(
+          `https://rvm-designacoes-antigravity.vercel.app/conversa.html?oauth_return_to=${encodeURIComponent(
+            cleanReturn
+          )}&sso_silent=1`
+        );
+        return;
+      } catch {
+        // ignore
+      }
+    }
+
+    // 3. Se estamos em vercel.app com ?oauth_start=1 vindo do GitHub Pages, dispara Google OAuth
+    if (window.location.hostname.endsWith('vercel.app')) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('oauth_start') === '1') {
+        devAutoLoginAttemptedRef.current = true;
+        void supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/conversa.html`,
+            queryParams: { prompt: 'select_account' },
+          },
+        });
+      }
+    }
   }, [isLoading, isAuthenticated, tryLocalDevLogin]);
 
+  // 4. Se autenticou na Vercel e havia rvm_conversa_oauth_return apontando para outra origem (GitHub Pages), devolve a sessão via #conversa_sso
   useEffect(() => {
+    if (!isAuthenticated || typeof window === 'undefined') return;
     try {
+      const ret = localStorage.getItem('rvm_conversa_oauth_return');
+      const ts = Number(localStorage.getItem('rvm_conversa_oauth_ts') || '0');
+      if (ret && Date.now() - ts < 300000 && !ret.startsWith(window.location.origin)) {
+        const rawAuth = localStorage.getItem('rvm-designacoes-auth');
+        localStorage.removeItem('rvm_conversa_oauth_return');
+        localStorage.removeItem('rvm_conversa_oauth_ts');
+        if (rawAuth) {
+          const encodedSso = encodeURIComponent(btoa(unescape(encodeURIComponent(rawAuth))));
+          window.location.replace(`${ret.split('#')[0]}#conversa_sso=${encodedSso}`);
+          return;
+        }
+      }
       localStorage.removeItem('rvm_conversa_oauth_return');
       localStorage.removeItem('rvm_conversa_oauth_ts');
     } catch {
       // ignore
     }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const errorDesc = params.get('error_description');
     if (errorDesc) {
@@ -110,6 +182,18 @@ export const ConversaAuthGate: React.FC<ConversaAuthGateProps> = ({ children }) 
         setIsLoggingIn(false);
         return;
       }
+
+      // Em GitHub Pages (github.io), roteia o OAuth pelo domínio canônico da Vercel (Site URL do Supabase)
+      // para que o callback volte para a Conversa RVM com a sessão autenticada
+      if (typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')) {
+        sessionStorage.removeItem('cv_manual_logout');
+        const cleanReturn = `${window.location.origin}${window.location.pathname}`;
+        window.location.href = `https://rvm-designacoes-antigravity.vercel.app/conversa.html?oauth_return_to=${encodeURIComponent(
+          cleanReturn
+        )}&oauth_start=1`;
+        return;
+      }
+
       const redirectTo = `${window.location.origin}${window.location.pathname}${window.location.search}`;
       try {
         localStorage.setItem('rvm_conversa_oauth_return', redirectTo);

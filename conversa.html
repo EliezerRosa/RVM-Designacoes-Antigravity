@@ -11,6 +11,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
   <title>RVM · Conversa IA</title>
+  <script>
+    (function () {
+      function isTrustedReturnUrl(u) {
+        if (!u) return false;
+        return (
+          u.indexOf('https://eliezerrosa.github.io/') === 0 ||
+          u.indexOf('https://rvm-designacoes-antigravity.vercel.app/') === 0 ||
+          u.indexOf('http://localhost:') === 0 ||
+          u.indexOf('http://127.0.0.1:') === 0
+        );
+      }
+
+      function hasValidStoredSession(raw) {
+        if (!raw) return false;
+        try {
+          var parsed = JSON.parse(raw);
+          var token = parsed && parsed.access_token;
+          if (!token) return false;
+          var exp = Number(parsed.expires_at || '0');
+          if (exp && exp * 1000 < Date.now() + 30000) return false;
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      try {
+        // 1. Se chegou com #conversa_sso=... ou #access_token=... na URL, prepara a sessão ANTES do Supabase iniciar
+        var hash = window.location.hash || '';
+        if (hash.indexOf('access_token=') >= 0) {
+          sessionStorage.setItem('rvm_unlocked', 'true');
+          sessionStorage.removeItem('cv_manual_logout');
+        }
+        if (hash.indexOf('#conversa_sso=') === 0) {
+          var b64 = decodeURIComponent(hash.slice('#conversa_sso='.length));
+          var jsonStr = decodeURIComponent(escape(atob(b64)));
+          if (hasValidStoredSession(jsonStr)) {
+            localStorage.setItem('rvm-designacoes-auth', jsonStr);
+            sessionStorage.setItem('rvm_unlocked', 'true');
+            sessionStorage.removeItem('cv_manual_logout');
+          }
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          return;
+        }
+
+        // 2. Se estamos no domínio canônico (vercel.app) recebendo ?oauth_return_to=... de outra origem (ex: GitHub Pages)
+        var params = new URLSearchParams(window.location.search);
+        var returnTo = params.get('oauth_return_to');
+        var ssoSilent = params.get('sso_silent') === '1';
+        if (returnTo && isTrustedReturnUrl(returnTo)) {
+          var existingAuth = localStorage.getItem('rvm-designacoes-auth');
+          if (hasValidStoredSession(existingAuth)) {
+            var encodedSso = encodeURIComponent(btoa(unescape(encodeURIComponent(existingAuth))));
+            var cleanReturn = returnTo.split('#')[0];
+            window.location.replace(cleanReturn + '#conversa_sso=' + encodedSso);
+            return;
+          }
+          if (ssoSilent) {
+            var sep = returnTo.indexOf('?') >= 0 ? '&' : '?';
+            window.location.replace(returnTo.split('#')[0] + sep + 'sso_checked=1');
+            return;
+          }
+          // Guarda o destino final no localStorage da Vercel antes de iniciar o Google OAuth
+          localStorage.setItem('rvm_conversa_oauth_return', returnTo.split('#')[0]);
+          localStorage.setItem('rvm_conversa_oauth_ts', String(Date.now()));
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body>

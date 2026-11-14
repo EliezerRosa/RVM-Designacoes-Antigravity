@@ -846,7 +846,7 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
   - **Qualidade**: estreitamento de tipos concluído em `src/features/conversa/__tests__/conversaFlow.test.ts` (zero erros TS/ESLint em `src/features/conversa/**`), `134/134` testes aprovados e `npm run build` limpo.
 - **§43.2 Repositório GitHub Pages Dedicado `EliezerRosa/conversa-rvm` & Blindagem GitHub Pages (2026-11-14 00:35 BRT)**:
   - **Repositório dedicado `EliezerRosa/conversa-rvm`**: publicado via `npm run deploy:conversa` (`scripts/deploy-conversa-pages.mjs`) em `https://eliezerrosa.github.io/conversa-rvm/` (servindo `conversa.html` tanto na raiz `index.html` quanto em `conversa.html` e `404.html`, sem o Service Worker legado do RVM).
-  - **GitHub Pages no repositório principal (`EliezerRosa/RVM-Designacoes-Antigravity`)**: atualizado `.github/workflows/deploy.yml` para Node 22 e geração de `dist/conversa/index.html` (além de `dist/conversa.html`), exclusão de rotas `conversa` no `public/sw.js` e redirecionamento instantâneo de retorno OAuth same-origin (`rvm_conversa_oauth_return`) em `index.html` + `ConversaAuthGate.tsx`.
+  - **GitHub Pages no repositório principal (`EliezerRosa/RVM-Designacoes-Antigravity`)**: atualizado `.github/workflows/deploy.yml` para Node 22 e geração de `dist/conversa/index.html` (além de `dist/conversa.html`), exclusão de rotas `conversa` no `public/sw.js` (`CACHE_NAME = 'rvm-pwa-v2'`) e ponte SSO/OAuth cross-origin (`?oauth_return_to=...` e `#conversa_sso=...` entre `eliezerrosa.github.io` e `rvm-designacoes-antigravity.vercel.app`) em `conversa.html`, `index.html` e `ConversaAuthGate.tsx`.
 
 ---
 
