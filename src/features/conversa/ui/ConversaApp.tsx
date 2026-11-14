@@ -37,28 +37,53 @@ export const ConversaApp: React.FC = () => {
       const byEmail = allPublishers.find((p) => p.email?.toLowerCase() === email);
       if (byEmail) return byEmail.id;
     }
-    const fullName = profile?.full_name
-      ?.trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
+    const norm = (s?: string | null) =>
+      (s || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    const fullName = norm(profile?.full_name);
     if (fullName) {
       const byName = allPublishers.find(
         (p) =>
-          p.name
-            ?.trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') === fullName
+          norm(p.name) === fullName ||
+          (Array.isArray(p.aliases) && p.aliases.some((a) => norm(a) === fullName))
       );
       if (byName) return byName.id;
     }
+    const cleanPhone = (s?: string | null) => String(s || '').replace(/\D/g, '').slice(-8);
+    const profPhone8 = cleanPhone(profile?.phone);
+    if (profPhone8.length === 8) {
+      const byPhone = allPublishers.find((p) => cleanPhone(p.phone) === profPhone8);
+      if (byPhone) return byPhone.id;
+    }
+    // Conta de Admin de Sistema (ex.: zico.josias@gmail.com -> titular Admin Eliezer Rosa, id '3')
+    if (isAdmin || profile?.role === 'admin') {
+      const adminPub =
+        allPublishers.find((p) => p.id === '3') ||
+        allPublishers.find((p) => norm(p.name).includes('eliezer rosa'));
+      return adminPub ? adminPub.id : '3';
+    }
     return null;
-  }, [profile?.publisher_id, profile?.full_name, user?.email, allPublishers]);
+  }, [
+    profile?.publisher_id,
+    profile?.full_name,
+    profile?.phone,
+    profile?.role,
+    isAdmin,
+    user?.email,
+    allPublishers,
+  ]);
 
   const userDisplayName = useMemo(() => {
+    if (selfPublisherId) {
+      const matchedPub = allPublishers.find((p) => p.id === selfPublisherId);
+      if (matchedPub?.name) return matchedPub.name.trim();
+      if (selfPublisherId === '3') return 'Eliezer Rosa';
+    }
     return profile?.full_name?.trim() || user?.email?.split('@')[0] || 'Irmão';
-  }, [profile?.full_name, user?.email]);
+  }, [selfPublisherId, allPublishers, profile?.full_name, user?.email]);
 
   // 1. Carga inicial de publicadores e semanas respeitando escopo do usuário
   useEffect(() => {

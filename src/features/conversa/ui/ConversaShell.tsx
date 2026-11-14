@@ -156,6 +156,7 @@ export const ConversaShell: React.FC<ConversaShellProps> = ({
                   items={msg.cardData.items as import('../ports/documentPort').DocumentCarouselItem[]}
                   initialFocusId={msg.cardData.initialFocusId}
                   selfPublisherId={selfPublisherId}
+                  selfPublisherName={userLabel}
                   onConfirmAssignment={onConfirmAssignment}
                   onRefuseAssignment={onRefuseAssignment}
                 />

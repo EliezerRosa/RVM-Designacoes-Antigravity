@@ -139,13 +139,52 @@ function extractDateInfo(norm: string): { weekId?: string; month?: string; start
  * Extrai possíveis nomes de pessoas após preposições comuns
  */
 function extractPotentialPersonName(norm: string): string | undefined {
-  // Padrões: da maria, do joao, pelo carlos, irmao pedro, irma ana
-  const nameMatch = norm.match(/\b(?:d[ao]|pel[ao]|irm[ao]|com)\s+([a-z]+(?:\s+[a-z]+)?)\b/);
+  // Padrões: da maria, do joao, de renato oliveira, pelo carlos, irmao pedro, irma ana
+  const nameMatch = norm.match(/\b(?:d[aeo]|pel[ao]|irm[ao]|com|para)\s+([a-z]+(?:\s+[a-z]+)?)\b/);
   if (nameMatch) {
     const candidate = nameMatch[1].trim();
     // Excluir falsos positivos conhecidos
-    const stopWords = ['semana', 'leitura', 'estudo', 'reuniao', 'mes', 'dia', 'joias', 'tesouros', 'campo', 'relatorio'];
-    if (!stopWords.includes(candidate)) {
+    const stopWords = [
+      'semana',
+      'leitura',
+      'estudo',
+      'reuniao',
+      'mes',
+      'dia',
+      'joias',
+      'tesouros',
+      'campo',
+      'relatorio',
+      'parte',
+      'designacao',
+      's89',
+      's140',
+      's4',
+      's1',
+      'meio',
+      'servico',
+      'vida',
+      'ministerio',
+      'hoje',
+      'amanha',
+      'palavra',
+      'biblia',
+      'todos',
+      'todas',
+      'janeiro',
+      'fevereiro',
+      'marco',
+      'abril',
+      'maio',
+      'junho',
+      'julho',
+      'agosto',
+      'setembro',
+      'outubro',
+      'novembro',
+      'dezembro',
+    ];
+    if (!stopWords.includes(candidate) && !stopWords.some((sw) => candidate.startsWith(sw + ' '))) {
       return candidate;
     }
   }

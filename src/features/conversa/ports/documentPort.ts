@@ -412,46 +412,75 @@ export const documentPort = {
       const normSelfName = normalizeSearchName(selfPublisherName);
       let allParts: WorkbookPart[] = [];
 
-      if (isSelf) {
+      let query = supabase
+        .from('workbook_parts')
+        .select('*')
+        .gte('week_id', todayMonday)
+        .neq('status', WorkbookStatus.CANCELADA)
+        .order('week_id', { ascending: true })
+        .order('seq', { ascending: true });
+
+      if (targetWeekId && !publisherId) {
+        query = query.eq('week_id', targetWeekId);
+      }
+
+      const { data, error } = await query;
+      if (!error && Array.isArray(data) && data.length > 0) {
+        allParts = data.map((row) => mapDbToWorkbookPart(row as Record<string, unknown>));
+      }
+
+      if (!allParts.length && isSelf && typeof supabase.rpc === 'function') {
         const { data: rpcData } = await supabase.rpc('get_my_workbook_parts');
         if (Array.isArray(rpcData)) {
           allParts = rpcData.map((row) => mapDbToWorkbookPart(row as Record<string, unknown>));
         }
       }
 
-      if (!allParts.length) {
-        let query = supabase
-          .from('workbook_parts')
-          .select('*')
-          .gte('week_id', todayMonday)
-          .neq('status', WorkbookStatus.CANCELADA)
-          .order('week_id', { ascending: true })
-          .order('seq', { ascending: true });
+      const isOwnPart = (part: WorkbookPart): boolean => {
+        const pName = normalizeSearchName(part.resolvedPublisherName || part.rawPublisherName);
+        return Boolean(
+          (effectiveSelfId && part.resolvedPublisherId && part.resolvedPublisherId === effectiveSelfId) ||
+          (normSelfName && pName && pName === normSelfName) ||
+          (isSelf && publisherId && part.resolvedPublisherId === publisherId)
+        );
+      };
 
-        if (targetWeekId && !publisherId) {
-          query = query.eq('week_id', targetWeekId);
-        }
-
-        const { data, error } = await query;
-        if (!error && data) {
-          allParts = data.map((row) => mapDbToWorkbookPart(row as Record<string, unknown>));
-        }
-      }
-
-      const targetParts = allParts.filter((part) => {
+      const isEligibleS89Part = (part: WorkbookPart): boolean => {
         if (part.weekId < todayMonday) return false;
-        if (part.status === WorkbookStatus.CANCELADA || part.isChairmanDerived) return false;
-        if (!isManuallyAssignable(part.tipoParte)) return false;
-        if (publisherId) {
-          if (part.resolvedPublisherId === publisherId) return true;
-          if (!part.resolvedPublisherId && isSelf && normSelfName) {
-            return normalizeSearchName(part.resolvedPublisherName || part.rawPublisherName) === normSelfName;
-          }
+        const st = String(part.status || '').toUpperCase();
+        if (
+          st === WorkbookStatus.CANCELADA ||
+          st === 'REJEITADA' ||
+          st === 'PENDENTE' ||
+          part.isChairmanDerived
+        ) {
           return false;
         }
-        if (targetWeekId) return part.weekId === targetWeekId;
+        if (st === WorkbookStatus.CONCLUIDA && targetWeekId !== part.weekId) {
+          return false;
+        }
+        if (!isManuallyAssignable(part.tipoParte)) return false;
         return Boolean(part.resolvedPublisherId || part.resolvedPublisherName);
+      };
+
+      let targetParts = allParts.filter((part) => {
+        if (!isEligibleS89Part(part)) return false;
+        if (targetWeekId && part.weekId !== targetWeekId) return false;
+        if (publisherId) {
+          if (part.resolvedPublisherId === publisherId) return true;
+          if (isSelf && isOwnPart(part)) return true;
+          return false;
+        }
+        return true;
       });
+
+      if (!targetParts.length && isSelf && publisherId) {
+        targetParts = allParts.filter((part) => {
+          if (!isEligibleS89Part(part)) return false;
+          if (targetWeekId && part.weekId !== targetWeekId) return false;
+          return true;
+        });
+      }
 
       if (!targetParts.length) return [];
 
@@ -463,8 +492,15 @@ export const documentPort = {
 
       const { generateS89PngBase64 } = await import('../../../services/s89Generator');
       const sortedTargets = [...targetParts]
-        .sort((a, b) => a.weekId.localeCompare(b.weekId) || (a.seq || 0) - (b.seq || 0))
-        .slice(0, 12);
+        .sort((a, b) => {
+          if (!publisherId) {
+            const aOwn = isOwnPart(a) ? 0 : 1;
+            const bOwn = isOwnPart(b) ? 0 : 1;
+            if (aOwn !== bOwn) return aOwn - bOwn;
+          }
+          return a.weekId.localeCompare(b.weekId) || (a.seq || 0) - (b.seq || 0);
+        })
+        .slice(0, 16);
 
       // Consultar status de confirmação/recusa do portal para as semanas alvo
       const portalMap = new Map<string, 'confirmed' | 'refused'>();

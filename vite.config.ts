@@ -76,11 +76,12 @@ function conversaLocalDevAuthPlugin(env: Record<string, string>): Plugin {
           });
           const { data: profiles } = await admin
             .from('profiles')
-            .select('email, role')
-            .eq('role', 'admin')
-            .limit(1);
+            .select('email, role, publisher_id')
+            .eq('role', 'admin');
 
-          const targetEmail = profiles?.[0]?.email;
+          const preferredProfile =
+            profiles?.find((p) => Boolean(p.publisher_id)) || profiles?.[0];
+          const targetEmail = preferredProfile?.email;
           if (!targetEmail) {
             res.statusCode = 404;
             res.setHeader('Content-Type', 'application/json');

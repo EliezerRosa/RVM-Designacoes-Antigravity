@@ -312,6 +312,7 @@ export async function planTurn(
   }
 
   const weekRes = resolveWeek(nlu.slots.weekId, availableWeeks);
+  const explicitWeekId = nlu.slots.weekId ? weekRes.weekId : undefined;
   const targetWeekId = weekRes.weekId || context.lastWeekId;
 
   // Atualizar contexto
@@ -359,7 +360,7 @@ export async function planTurn(
 
   // B. DOCUMENTOS (Carrossel Cronológico)
   if (nlu.intentId === 'view-s140') {
-    const items = await documents.getS140ChronologicalList(targetWeekId, allPublishers);
+    const items = await documents.getS140ChronologicalList(explicitWeekId, allPublishers);
     return {
       message: {
         id: messageId,
@@ -385,11 +386,23 @@ export async function planTurn(
     const hasExplicitTarget = Boolean(resolvedPerson || mentionsSelf(nlu.rawText));
     const target = hasExplicitTarget
       ? resolveTargetPerson(resolvedPerson, nlu.rawText, context, userContext)
-      : { id: userContext.publisherId || undefined, name: userContext.publisherName || undefined, isSelf: Boolean(userContext.publisherId) };
+      : {
+          id: userContext.publisherId || undefined,
+          name: userContext.publisherName || undefined,
+          isSelf: Boolean(userContext.publisherId || userContext.publisherName),
+        };
+
+    const filterPublisherId =
+      resolvedPerson?.id ||
+      (mentionsSelf(nlu.rawText)
+        ? target.id
+        : userContext.isAdmin
+          ? undefined
+          : target.id);
 
     const items = await documents.getS89ChronologicalList(
-      resolvedPerson?.id || (mentionsSelf(nlu.rawText) ? target.id : userContext.isAdmin ? undefined : target.id),
-      targetWeekId,
+      filterPublisherId,
+      explicitWeekId,
       target.isSelf,
       userContext.publisherId,
       userContext.publisherName

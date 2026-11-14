@@ -12,8 +12,17 @@ interface DocumentCarouselProps {
   items: DocumentCarouselItem[];
   initialFocusId?: string;
   selfPublisherId?: string | null;
+  selfPublisherName?: string | null;
   onConfirmAssignment?: (partId: string) => void | Promise<void>;
   onRefuseAssignment?: (partId: string, reason?: string) => void | Promise<void>;
+}
+
+function normalizeName(raw?: string | null): string {
+  return (raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 interface StageFitMetrics {
@@ -52,6 +61,7 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
   items,
   initialFocusId,
   selfPublisherId,
+  selfPublisherName,
   onConfirmAssignment,
   onRefuseAssignment,
 }) => {
@@ -151,6 +161,18 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
       availH = isFullscreen ? Math.max(240, vh - 120) : Math.max(280, Math.min(vh - 220, 620));
     }
 
+    if (
+      current.docType === 's89' &&
+      !isFullscreen &&
+      (current.isSelfAssignment ||
+        (selfPublisherId && current.publisherId === selfPublisherId) ||
+        (selfPublisherName &&
+          current.publisherName &&
+          normalizeName(current.publisherName) === normalizeName(selfPublisherName)))
+    ) {
+      availH = Math.max(180, availH - 56);
+    }
+
     const baseWidth = current.naturalWidth || getDefaultFormWidth(current.docType);
     const canvasEl = canvasRef.current;
 
@@ -182,7 +204,7 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
         ? prev
         : { availW, availH, scale: 1, scaledW: 0, scaledH: 0 }
     );
-  }, [current, isFullscreen, isOpen]);
+  }, [current, isFullscreen, isOpen, selfPublisherId, selfPublisherName]);
 
   useLayoutEffect(() => {
     recomputeFit();
@@ -261,7 +283,10 @@ export const DocumentCarousel: React.FC<DocumentCarouselProps> = ({
     current.docType === 's89' &&
     Boolean(
       current.isSelfAssignment ||
-        (selfPublisherId && current.publisherId && current.publisherId === selfPublisherId)
+        (selfPublisherId && current.publisherId && current.publisherId === selfPublisherId) ||
+        (selfPublisherName &&
+          current.publisherName &&
+          normalizeName(current.publisherName) === normalizeName(selfPublisherName))
     );
   const localResp = effectivePartId ? partResponses[effectivePartId] : undefined;
   const effectiveResp =

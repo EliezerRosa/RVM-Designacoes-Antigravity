@@ -425,6 +425,7 @@ body,
   padding: 10px 14px;
   background: var(--cv-surface);
   border-bottom: 1px solid var(--cv-border);
+  flex-shrink: 0;
 }
 
 .cv-carousel-header-actions {
@@ -441,6 +442,7 @@ body,
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .cv-carousel-s89-btn-row {
@@ -613,6 +615,7 @@ body,
   padding: 8px 12px;
   background: var(--cv-surface);
   border-top: 1px solid var(--cv-border);
+  flex-shrink: 0;
 }
 
 .cv-carousel-counter {
