@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "conversa": "node scripts/conversa-dev.mjs",
     "test": "node --import tsx --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
     "test:e2e": "playwright test",
     "type-check": "tsc -b",

@@ -4,6 +4,7 @@ import { createInitialContext } from '../core/conversationState';
 import { planTurn, type CardPlannerPorts } from '../core/cardPlanner';
 import { parseL0Grammar } from '../core/nlu/l0Grammar';
 import { expandAbsenceDateRange } from '../ports/actionPort';
+import type { DocumentCarouselItem } from '../ports/documentPort';
 import type { PermissionGate } from '../../../services/permissionService';
 import type { Publisher } from '../../../types';
 import { resolveIntent } from '../core/nlu/l2Classifier';
@@ -350,7 +351,7 @@ test('cardPlanner: handles query-pending-weeks and honest fallback', async () =>
 
   assert.equal(pendingTurn.message.cardType, 'micro-panel');
   assert.equal(pendingTurn.message.cardData?.type, 'pending-weeks-list');
-  assert.equal(pendingTurn.message.cardData?.items.length, 2);
+  assert.equal(pendingTurn.message.cardData?.items?.length, 2);
 
   const unsupportedTurn = await planTurn(
     {
@@ -471,8 +472,9 @@ test('cardPlanner: renders S-4 and S-1 forms in document-carousel and restricts 
   );
 
   assert.equal(s4Turn.message.cardType, 'document-carousel');
-  assert.equal(s4Turn.message.cardData?.items.length, 1);
-  assert.equal(s4Turn.message.cardData?.items[0].docType, 's4');
+  const s4Items = (s4Turn.message.cardData?.items ?? []) as DocumentCarouselItem[];
+  assert.equal(s4Items.length, 1);
+  assert.equal(s4Items[0].docType, 's4');
 
   const s1Allowed = await planTurn(
     {
@@ -491,7 +493,8 @@ test('cardPlanner: renders S-4 and S-1 forms in document-carousel and restricts 
   );
 
   assert.equal(s1Allowed.message.cardType, 'document-carousel');
-  assert.equal(s1Allowed.message.cardData?.items[0].docType, 's1');
+  const s1Items = (s1Allowed.message.cardData?.items ?? []) as DocumentCarouselItem[];
+  assert.equal(s1Items[0].docType, 's1');
 
   const publisherGate: PermissionGate = {
     ...fullGate,

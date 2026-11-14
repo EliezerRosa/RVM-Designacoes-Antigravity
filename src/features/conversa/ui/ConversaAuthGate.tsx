@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { AppLockScreen } from '../../../components/AppLockScreen';
@@ -29,6 +29,56 @@ export const ConversaAuthGate: React.FC<ConversaAuthGateProps> = ({ children }) 
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [showFallbackGoogleLogin, setShowFallbackGoogleLogin] = useState(false);
+  const devAutoLoginAttemptedRef = useRef(false);
+
+  const tryLocalDevLogin = useCallback(async (): Promise<boolean> => {
+    if (
+      !import.meta.env?.DEV ||
+      typeof window === 'undefined' ||
+      (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+    ) {
+      return false;
+    }
+    try {
+      const resp = await fetch('/__conversa_dev_auth', { method: 'POST' });
+      if (!resp.ok) return false;
+      const data = (await resp.json()) as { email?: string; hashed_token?: string };
+      if (!data?.hashed_token || !data?.email) return false;
+      sessionStorage.removeItem('cv_manual_logout');
+      sessionStorage.setItem('rvm_unlocked', 'true');
+      localStorage.setItem('rvm_last_device_user', data.email);
+      localStorage.setItem(`rvm_device_registered_${data.email}`, 'true');
+      const { error: otpErr } = await supabase.auth.verifyOtp({
+        token_hash: data.hashed_token,
+        type: 'magiclink',
+      });
+      return !otpErr;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      isLoading ||
+      isAuthenticated ||
+      devAutoLoginAttemptedRef.current ||
+      !import.meta.env?.DEV ||
+      typeof window === 'undefined' ||
+      (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+    ) {
+      return;
+    }
+    try {
+      if (sessionStorage.getItem('cv_manual_logout') === 'true') {
+        return;
+      }
+    } catch {
+      // ignore
+    }
+    devAutoLoginAttemptedRef.current = true;
+    void tryLocalDevLogin();
+  }, [isLoading, isAuthenticated, tryLocalDevLogin]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -49,6 +99,11 @@ export const ConversaAuthGate: React.FC<ConversaAuthGateProps> = ({ children }) 
     setIsLoggingIn(true);
     setError(null);
     try {
+      const loggedInLocally = await tryLocalDevLogin();
+      if (loggedInLocally) {
+        setIsLoggingIn(false);
+        return;
+      }
       const redirectTo = `${window.location.origin}${window.location.pathname}${window.location.search}`;
       const { error: oauthErr } = await supabase.auth.signInWithOAuth({
         provider: 'google',

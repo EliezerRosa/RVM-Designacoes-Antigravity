@@ -275,7 +275,14 @@ export const ConversaApp: React.FC = () => {
       onConfirmAssignment={handleConfirmAssignment}
       onRefuseAssignment={handleRefuseAssignment}
       onClearHistory={handleClearHistory}
-      onSignOut={() => void signOut()}
+      onSignOut={() => {
+        try {
+          sessionStorage.setItem('cv_manual_logout', 'true');
+        } catch {
+          // ignore
+        }
+        void signOut();
+      }}
     />
   );
 };

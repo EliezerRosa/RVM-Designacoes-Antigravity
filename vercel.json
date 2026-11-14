@@ -23,6 +23,15 @@
             ]
         },
         {
+            "source": "/conversa.html",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-cache, no-store, must-revalidate"
+                }
+            ]
+        },
+        {
             "source": "/",
             "headers": [
                 {
@@ -42,6 +51,14 @@
         }
     ],
     "rewrites": [
+        {
+            "source": "/conversa",
+            "destination": "/conversa.html"
+        },
+        {
+            "source": "/conversa.html",
+            "destination": "/conversa.html"
+        },
         {
             "source": "/(.*)",
             "destination": "/index.html"

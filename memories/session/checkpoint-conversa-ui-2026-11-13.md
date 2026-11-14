@@ -34,7 +34,15 @@ git fetch origin --tags
 git checkout checkpoint-conversa-ui-2026-11-13
 ```
 
-## 5. Próximos Passos ao Retomar
+## 5. Evolução Pós-Checkpoint (2026-11-13 23:30 BRT) — Abertura Local 1-Comando Sem Fricção
 
-1. Retomar a revisão solicitada para [`memories/repo/plano-ui-conversa-ia-2026-11-10.md`](../repo/plano-ui-conversa-ia-2026-11-10.md).
-2. Caso `src/features/conversa/` volte a ser editado, incluir o estreitamento de tipos em `src/features/conversa/__tests__/conversaFlow.test.ts` (linhas 353, 474, 475 e 494).
+1. **Comando único `npm run conversa`** (`scripts/conversa-dev.mjs` + `package.json`):
+   - Detecta se já há instância Vite ativa servindo `/conversa.html` com middleware local (`5173`/`5174`/`5175`) e abre `http://localhost:<port>/conversa.html` direto no navegador padrão sem abrir segunda porta; caso não haja, inicia `vite --open /conversa.html`.
+2. **Autenticação Local In-Place & NLU Local (`vite.config.ts`, `ConversaAuthGate.tsx`, `ConversaApp.tsx`)**:
+   - Em `vite.config.ts` (`apply: 'serve'`), o middleware `/__conversa_dev_auth` (restrito a loopback `127.0.0.1`/`::1`) gera `hashed_token` (`magiclink`) do perfil admin usando a `SUPABASE_SERVICE_ROLE_KEY` local, e `/api/conversa-nlu` executa `api/conversa-nlu.ts` diretamente no Vite (com `bypass` no proxy `/api`).
+   - Em `ConversaAuthGate.tsx`, acessos em `localhost`/`127.0.0.1` (`import.meta.env.DEV`) autenticam automaticamente na própria aba via `supabase.auth.verifyOtp`, eliminando o redirecionamento pós-OAuth para `https://rvm-designacoes-antigravity.vercel.app/#` (e respeitando logout explícito `cv_manual_logout` em `ConversaApp.tsx`).
+3. **Rotas `/conversa` e `/conversa.html` em `vercel.json` & Tipagem em `conversaFlow.test.ts`**:
+   - Adicionados rewrites explícitos para `/conversa` e `/conversa.html` antes de `/(.*) -> /index.html` em `vercel.json`.
+   - Concluído o estreitamento de tipos em `src/features/conversa/__tests__/conversaFlow.test.ts` (zero erros TS e zero erros ESLint em `src/features/conversa/**`).
+
+
