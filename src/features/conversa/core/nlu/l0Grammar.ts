@@ -853,6 +853,28 @@ export function parseL0Grammar(rawText: string): L0ParseResult {
     };
   }
 
+  // 16. Tentativa de manipulação / Prompt injection
+  if (/\b(ignore\s+(todas\s+as\s+regras|as\s+instrucoes|o\s+prompt)|me\s+d[eê]\s+permiss[aã]o\s+de\s+admin|system\s+prompt)\b/.test(norm)) {
+    return {
+      intentId: 'explain-engine-rules',
+      slots: { ...slots, ruleId: 'security-guard' },
+      confidence: 1.0,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+
+  // 17. Consulta de dados sensíveis / contato de publicador (proteção de privacidade/LGPD)
+  if (/\b(qual\s+(?:o\s+)?(?:telefone|endere[cç]o|celular|contato|whatsapp)|telefone\s+e\s+endere[cç]o)\b/.test(norm)) {
+    return {
+      intentId: 'query-publisher-profile',
+      slots: { ...slots, filter: 'contact_info' },
+      confidence: 0.95,
+      resolvedBy: 'l0-grammar',
+      rawText,
+    };
+  }
+
   // Se não foi possível mapear categoricamente em L0
   return {
     intentId: null,

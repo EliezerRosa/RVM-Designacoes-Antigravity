@@ -10,6 +10,7 @@
     "dev": "vite",
     "conversa": "node scripts/conversa-dev.mjs",
     "test": "node --import tsx --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
+    "test:benchmark": "node --import tsx scripts/run_bateria_benchmark.ts",
     "test:e2e": "playwright test",
     "type-check": "tsc -b",
     "build": "vite build",

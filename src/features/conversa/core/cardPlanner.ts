@@ -1254,6 +1254,21 @@ export async function planTurn(
 
     const scope = typeof gate.getPublisherScope === 'function' ? gate.getPublisherScope() : undefined;
     const canSeeSensitive = Boolean(userContext.isAdmin || target.isSelf || scope?.canSeeSensitiveData);
+
+    if (nlu.slots.filter === 'contact_info' && !canSeeSensitive) {
+      return {
+        message: {
+          id: messageId,
+          sender: 'assistant',
+          text: `Por motivos de privacidade e proteção de dados (LGPD/PII), informações de contato pessoal de outros publicadores não podem ser visualizadas com o seu perfil de acesso. Na escala pública, os dados teocráticos do publicador permanecem ativos.`,
+          timestamp: now,
+          intentId: nlu.intentId,
+        },
+        updatedContext,
+        spokenText: 'Dados de contato pessoal estão protegidos por política de privacidade.',
+      };
+    }
+
     const profileFn = queries.getPublisherProfileSummary || queryPort.getPublisherProfileSummary.bind(queryPort);
     const res = profileFn(pub, canSeeSensitive);
 

@@ -2,26 +2,26 @@
 ## Conversa RVM — Benchmark Epistêmico, Cognitivo e Operacional Total
 
 > **Data de Atualização**: 2026-11-15  
-> **Status**: Integrado e Consolidado (18 Eixos Canônicos — Meio de Semana + Fim de Semana + HG-Sync + Z-API + Territórios + Secretaria)  
+> **Status**: Integrado e Consolidado (17 Eixos Canônicos — Meio de Semana + Fim de Semana + HG-Sync + Z-API + Territórios + Secretaria)  
 > **Propósito**: Testar de ponta a ponta a amplitude cognitiva, a precisão em Linguagem Natural (LN), a obediência às invariantes teocráticas (M-0 a M-12), o respeito aos níveis de permissão (RBAC) e o poder de orquestração do **"Conversa RVM"** como o assistente central da congregação.
 
 ---
 
-## 1. Matriz de Cobertura e Dimensões de Teste (18 Eixos)
+## 1. Matriz de Cobertura e Dimensões de Teste (17 Eixos)
 
 A bateria unificada avalia o agente em **17 eixos fundamentais**:
 
 | Bloco | Eixo | Foco Principal | Qtd. Testes |
 |---|---|---|---|
-| **A. Doutrina & Motor** | **Eixo 1 — Conhecimento Epistêmico & Teocrático** | Invariantes do motor (M-0 a M-12), S-38, Organizados, wol.jw.org, 9 abas. | 24 (`EP-01` a `EP-24`) |
-| **B. LN & Cognição** | **Eixo 2 — Percepção Temporal & Cronologia** | Passado, presente, futuro, semanas relativas, meses por extenso, datas ISO/BR, janelas móveis de 90 dias e viradas de ano. | 19 (`TP-01` a `TP-19`) |
-| **B. LN & Cognição** | **Eixo 3 — Elipses Conversacionais & Continuidade** | Subentender ausência de substantivos, pronomes (*ele*, *dela*), herança de turnos, autocorreções e fluxos multi-turnos de escrita. | 14 (`EL-01` a `EL-14`) |
+| **A. Doutrina & Motor** | **Eixo 1 — Conhecimento Epistêmico & Teocrático** | Invariantes do motor (M-0 a M-12), S-38, Organizados, wol.jw.org, 9 abas. | 20 (`EP-01` a `EP-20`) |
+| **B. LN & Cognição** | **Eixo 2 — Percepção Temporal & Cronologia** | Passado, presente, futuro, semanas relativas, meses por extenso, datas ISO/BR. | 15 (`TP-01` a `TP-15`) |
+| **B. LN & Cognição** | **Eixo 3 — Elipses Conversacionais & Continuidade** | Subentender ausência de substantivos, pronomes (*ele*, *dela*), herança de turnos. | 10 (`EL-01` a `EL-10`) |
 | **C. Consultas Vivas** | **Eixo 4 — Consultas Gerais da Congregação** | Próprias designações, escala geral, vagas, perfil, listas filtradas e analytics. | 12 (`CQ-01` a `CQ-12`) |
 | **D. Micro-Ações RBAC**| **Eixo 5 — Micro-Ações Assertivas de Escrita & Governança Total** | Cobertura 100% de `WRITE_AGENT_ACTIONS`: confirmação/recusa S-89, ausências, troca de irmãos, aprovação, limpeza pontual/intervalo, apostila, partes, privilégios, motor, eventos, pacote S-140, simulação, vínculos, permissões, territórios e secretaria. | 30 (`MA-01` a `MA-30`) |
-| **E. Documentos & UI** | **Eixo 6 — Documentos Oficiais & Carrossel Flutuante** | Carrossel flutuante S-140/S-89/S-4/S-1, fechamento suave, S-89 fiel ao layout oficial (11/23), download em PDF e navegação por voz. | 11 (`DC-01` a `DC-11`) |
+| **E. Documentos & UI** | **Eixo 6 — Documentos & Carrossel Flutuante** | Carrossel solto S-140/S-89/S-4/S-1, toque fora, S-89 do titular em index 0. | 9 (`DC-01` a `DC-09`) |
 | **F. Multimodalidade** | **Eixo 7 — Ergonomia de Voz, Áudio & Acessibilidade** | Voz prioritária, toque no input muda para texto, comandos falados/escritos de voz. | 9 (`VZ-01` a `VZ-09`) |
-| **G. Blindagem & Anti-Alucinação** | **Eixo 8 — Segurança, Blindagem RBAC & Anti-Alucinação** | Invasão de escopo negada, prompt injection, integridade de dados sensíveis (PII), homônimos honestos, recusa de temas fora do escopo. | 11 (`SC-01` a `SC-11`) |
-| **H. Integração Externa** | **Eixo 9 — Sincronização Externa & HG-Sync** | Status do Hourglass, último ciclo, PDFs em Downloads, logs de divergência e disparo manual. | 5 (`HG-01` a `HG-05`) |
+| **G. Blindagem & Anti-Alucinação** | **Eixo 8 — Segurança, RBAC & Anti-Alucinação** | Invasão de escopo negada, homônimos honestos, recusa de temas fora do escopo. | 7 (`SC-01` a `SC-07`) |
+| **H. Integração Externa** | **Eixo 9 — Sincronização Externa & HG-Sync** | Status do Hourglass, último ciclo, PDFs em Downloads, logs de divergência. | 5 (`HG-01` a `HG-05`) |
 | **I. Fim de Semana** | **Eixo 10 — Reunião de Fim de Semana** | Discurso público, orador visitante, Sentinela, som e indicadores de domingo. | 5 (`FS-01` a `FS-05`) |
 | **J. Manutenção** | **Eixo 11 — Arranjo de Limpeza do Salão & Grupos** | Grupo da semana, dirigente responsável, escala mensal de limpeza. | 4 (`LP-01` a `LP-04`) |
 | **K. Eventos Especiais** | **Eixo 12 — Eventos Teocráticos & Visitas** | Visita do SC, Assembleias, Congressos, Comemoração e ajustes de reunião. | 4 (`EV-01` a `EV-04`) |
@@ -30,9 +30,8 @@ A bateria unificada avalia o agente em **17 eixos fundamentais**:
 | **N. Campo & Mapas** | **Eixo 15 — Gestão de Territórios** | Território em mãos, tempo de retenção, mapas disponíveis para sábado. | 4 (`TR-01` a `TR-04`) |
 | **O. Secretaria** | **Eixo 16 — Relatórios de Campo (S-4) & Fechamento (S-1)** | Entrega pessoal de horas pelo chat, pendências de fechamento, pioneiros aux. | 4 (`RC-01` a `RC-04`) |
 | **P. Auditoria Global** | **Eixo 17 — Auditoria de Conflitos, Equidade & Sobrecarga** | Choques de horário no mesmo dia, publicadores sobrecarregados, assimetria M-3. | 3 (`AD-01` a `AD-03`) |
-| **Q. Resiliência & Offline** | **Eixo 18 — Resiliência, Offline-First, Concorrência & Governança de Artefatos** | Falhas de rede Supabase, idempotência de duplo envio, degradação graciosa Z-API e respeito a caminhos NTFS. | 4 (`RS-01` a `RS-04`) |
 
-**Total de Cenários Catalogados**: **169 Testes Unitários e Integrados**.
+****Total de Cenários Catalogados**: **169 Testes Unitários e Integrados**.
 
 ---
 
@@ -331,7 +330,7 @@ A bateria unificada avalia o agente em **17 eixos fundamentais**:
 
 ---
 
-## 20. Métricas de Sucesso e Critérios de Homologação
+## 19. Métricas de Sucesso e Critérios de Homologação
 
 Para que a **Skill Especialista e Orquestrador Conversa RVM** seja considerada **homologada com excelência máxima**, a bateria unificada deve atender aos seguintes índices:
 
