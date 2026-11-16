@@ -28,6 +28,7 @@ import { S140MultiModal } from './S140MultiModal';
 import { WorkbookToolbar } from './WorkbookToolbar';
 import { publishWeek, unpublishWeek, isWeekPublished } from '../services/weekPublishService';
 import { WorkbookTable } from './WorkbookTable';
+import { WorkbookImportModal } from './WorkbookImportModal';
 import { PartEditModal } from './PartEditModal';
 import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
@@ -111,6 +112,9 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
 
     // Estado do Modal de Eventos Especiais
     const [isEventsModalOpen, setIsEventsModalOpen] = useState(false);
+
+    // Estado do Modal de Importação JW.ORG
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     // Estado do Modal de S-140 Multi-Semanas
     const [isS140MultiModalOpen, setIsS140MultiModalOpen] = useState(false);
@@ -1122,6 +1126,7 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                                 onShowHiddenPartsChange={setShowHiddenParts}
                                 onCurrentPageChange={setCurrentPage}
                                 onFileUpload={handleFileUpload}
+                                onOpenImportModal={() => setIsImportModalOpen(true)}
                                 onRefresh={() => loadPartsWithFilters()}
                                 onOpenGeneration={() => setIsGenerationModalOpen(true)}
                                 onOpenLocalNeeds={() => setIsLocalNeedsQueueOpen(true)}
@@ -1401,6 +1406,72 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                     }
                 }}
             />
+
+            {/* Modal de Importação JW.ORG */}
+            {isImportModalOpen && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999,
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        width: '100%',
+                        maxWidth: '900px',
+                        maxHeight: '90vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                        overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            padding: '16px 20px',
+                            borderBottom: '1px solid #E5E7EB',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            backgroundColor: '#F9FAFB'
+                        }}>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#111827' }}>
+                                📥 Importar Apostila do JW.ORG
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setIsImportModalOpen(false)}
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    fontSize: '20px',
+                                    cursor: 'pointer',
+                                    color: '#6B7280',
+                                    padding: '4px'
+                                }}
+                                title="Fechar"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div style={{ padding: '20px', overflowY: 'auto' }}>
+                            <WorkbookImportModal
+                                onClose={() => setIsImportModalOpen(false)}
+                                onDataChange={() => {
+                                    loadPartsWithFilters();
+                                    setIsImportModalOpen(false);
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {loading && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>

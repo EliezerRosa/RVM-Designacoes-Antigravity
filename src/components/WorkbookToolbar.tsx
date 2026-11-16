@@ -50,6 +50,7 @@ interface WorkbookToolbarProps {
 
     // Callbacks de ação
     onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onOpenImportModal?: () => void;
     onRefresh: () => void;
     onOpenGeneration: () => void;
     onOpenLocalNeeds: () => void;
@@ -67,7 +68,7 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
         filteredParts, parts, publishers, currentPage, uniqueWeeks, uniqueSections, uniqueTipos,
         onSearchTextChange, onFilterWeekChange, onFilterSectionChange, onFilterFuncaoChange,
         onFilterTipoChange, onFilterStatusChange, onShowHiddenPartsChange, onCurrentPageChange,
-        onFileUpload, onRefresh, onOpenGeneration, onOpenLocalNeeds, onOpenEvents,
+        onFileUpload, onOpenImportModal, onRefresh, onOpenGeneration, onOpenLocalNeeds, onOpenEvents,
         onOpenBulkReset, onOpenS140Multi, setLoading, setSuccessMessage,
     } = props;
 
@@ -96,32 +97,58 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
         }}>
             {/* Linha Superior: Upload e Ações Principais */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                {/* Upload Button Disfarçado */}
-                <div>
-                    <input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={onFileUpload}
-                        style={{ display: 'none' }}
-                        id="workbook-excel-upload"
-                    />
-                    <label
-                        htmlFor="workbook-excel-upload"
-                        style={{
-                            cursor: 'pointer',
-                            color: '#4F46E5',
-                            fontWeight: '600',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '12px',
-                            padding: '4px 8px',
-                            background: '#EEF2FF',
-                            borderRadius: '4px'
-                        }}
-                    >
-                        📊 Carregar Excel
-                    </label>
+                {/* Upload e Importação */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div>
+                        <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            onChange={onFileUpload}
+                            style={{ display: 'none' }}
+                            id="workbook-excel-upload"
+                        />
+                        <label
+                            htmlFor="workbook-excel-upload"
+                            style={{
+                                cursor: 'pointer',
+                                color: '#4F46E5',
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '12px',
+                                padding: '4px 8px',
+                                background: '#EEF2FF',
+                                borderRadius: '4px'
+                            }}
+                        >
+                            📊 Carregar Excel
+                        </label>
+                    </div>
+
+                    {onOpenImportModal && (
+                        <button
+                            type="button"
+                            onClick={onOpenImportModal}
+                            style={{
+                                cursor: 'pointer',
+                                color: '#059669',
+                                fontWeight: '600',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '12px',
+                                padding: '4px 8px',
+                                background: '#ECFDF5',
+                                border: '1px solid #A7F3D0',
+                                borderRadius: '4px',
+                                lineHeight: 'inherit'
+                            }}
+                            title="Importar semanas diretamente do JW.ORG"
+                        >
+                            📥 Importar JW.ORG
+                        </button>
+                    )}
                 </div>
 
                 {/* Paginação Central */}
