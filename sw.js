@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rvm-pwa-v1';
+const CACHE_NAME = 'rvm-pwa-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -39,8 +39,13 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Event - Network First with Cache Fallback for HTML/Assets
 self.addEventListener('fetch', (event) => {
-  // Ignora requisições de API Supabase ou rotas dinâmicas de POST
-  if (event.request.method !== 'GET' || event.request.url.includes('/rest/v1/') || event.request.url.includes('/auth/v1/')) {
+  // Ignora requisições de API Supabase, rotas dinâmicas de POST ou a UI isolada Conversa RVM
+  if (
+    event.request.method !== 'GET' ||
+    event.request.url.includes('/rest/v1/') ||
+    event.request.url.includes('/auth/v1/') ||
+    event.request.url.includes('conversa')
+  ) {
     return;
   }
 
