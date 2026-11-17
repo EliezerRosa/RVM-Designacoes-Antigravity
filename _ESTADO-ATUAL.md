@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-17 10:25 (BRT) — §43.12 Blindagem Canônica de Titularidade e Idempotência Composta no Inbound do `hg-sync` (Hourglass ➡️ RVM Aceitações/Recusas), Guarda Simétrica no Webhook Z-API e Restauração de Victor Correa (79/79 testes `hg-sync`, 144/144 testes RVM, serviço Windows `RVM-HG-Sync` ativo e homologado).  
+> **Última Atualização**: 2026-11-17 11:15 (BRT) — §43.13 Gatilho Automático "Enviar designações" no Hourglass (Sync RVM ➡️ HG Meio de Semana, Fim de Semana, Áudio/Vídeo, Limpeza e Reunião Pública) via REST PUT `/api/v0.2/scheduling/notifications/` (80/80 testes `hg-sync`, 144/144 testes RVM, serviço Windows `RVM-HG-Sync` ativo e homologado em produção com job IDs reais).  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -909,6 +909,22 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - 79/79 testes unitários aprovados no `hg-sync` (+2 novos testes cobrindo guarda de titularidade e chave composta).
     - 144/144 testes unitários aprovados no RVM principal.
     - Serviço Windows `RVM-HG-Sync` reiniciado e homologado em tempo real com ciclo limpo (`Tudo atualizado entre RVM, Downloads e Hourglass`).
+- **§43.13 Gatilho Automático "Enviar designações" no Hourglass no Sync RVM ➡️ HG e Escalas de Downloads (2026-11-17 11:15 BRT)**:
+  - **Motivação Teocrática & Operacional**: No Hourglass, qualquer ajuste gravado via REST API (`/core`, `/asmt`, `/wm/schedule`, `/av_attendant`, `/clean`) mantém a semana com status "Rascunho" (`need-send-assignments`), sem visibilidade nos aplicativos móveis dos publicadores até que o botão "Enviar designações" seja acionado (ícone de aviãozinho no topo do cartão semanal no Meio de Semana, ou opção no dropdown `≡ ▾` nos demais módulos).
+  - **Engenharia Reversa da REST API Nativa do Hourglass**:
+    - Endpoint: `PUT /api/v0.2/scheduling/notifications/{startDate}_{endDate}/{scheduleType}?lgroup={lgroup}`
+    - Tipos suportados pelo Hourglass: `'mm'` (Meio de Semana), `'wm'` (Fim de Semana), `'ava'` (Áudio/Vídeo e Indicadores), `'clean'` (Limpeza), `'pt'` (Reunião Pública).
+    - Descoberto via inspeção dos bundles estáticos `scheduling-B68q8tqW.js` e `states-CtaJRWzB.js`.
+  - **Implementação no `hg-sync`**:
+    - `src/hg/api.ts`: Método `sendNotifications(startDate, endDate, type)` realizando PUT com `lgroup` dinâmico e retornando `{ ok, jobId, status, error }`.
+    - `src/worker.ts` (Passo 6 - Meio de Semana): Rastreia semanas que sofreram alterações (`modifiedMidweekWeeks.add(weekId)`). Aciona `sendNotifications(weekId, weekId, 'mm')` para cada semana modificada, além de verificar se semanas alvo futuras publicadas estão sem notificações (Rascunho). Adicionada guarda estrita contra semanas passadas (`weekId < mondayOf(todayIso())`), prevenindo erros HTTP 400 em reuniões já realizadas.
+    - `src/hg/documents.ts` (`applyDocumentPlan`): Aciona `sendNotifications(range.startMonday, range.endSunday, notifType)` sempre que uma escala de Downloads (Fim de Semana `'wm'`, Áudio/Vídeo `'ava'`, Limpeza `'clean'`) for aplicada com sucesso via REST.
+    - `src/worker.ts` (Passo 7b - Reunião Pública): Aciona `sendNotifications` para `'wm'` e `'pt'` quando novos discursos públicos são sincronizados.
+    - `src/server.ts`: Exposta a rota `POST /api/scheduling/notifications/send` para acionamento pontual manual.
+  - **Testes & Homologação em Produção**:
+    - 80/80 testes unitários aprovados em `hg-sync` (+1 novo teste em `test/notifications.test.ts`).
+    - 144/144 testes unitários aprovados no RVM principal (zero regressões).
+    - Serviço Windows `RVM-HG-Sync` reiniciado; semana `2026-11-23` (Victor Correa) e `2026-12-07` enviadas com sucesso no Hourglass (Jobs `09e65235-27a1-49b8-9e93-cb2ce45e2c37` e `fe0d0716-ed5c-4a3a-9d9e-724477dc5f71`), retirando o status de "Rascunho" e concedendo visibilidade imediata aos participantes.
 
 ---
 
