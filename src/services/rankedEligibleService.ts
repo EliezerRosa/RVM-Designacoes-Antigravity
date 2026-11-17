@@ -1,7 +1,7 @@
 import { EnumFuncao, EnumModalidade, type HistoryRecord, type Publisher, type WorkbookPart } from '../types';
 import { getModalidadeFromTipo, isAutoAssignedToChairman } from '../constants/mappings';
 import { getBlockInfo, isBlocked, type CooldownInfo } from './cooldownService';
-import { buildEligibilityContext, checkEligibility, getCompatiblePartTypes, isElderOrMS } from './eligibilityService';
+import { buildEligibilityContext, checkEligibility, getCompatiblePartTypes, isElderOrMS, isElderCondition } from './eligibilityService';
 import { calculateScore, getMostRecentFSMRole, getRankedCandidates, getRotationConfig, type RotationScore, wasRecentlyPairedWith, calculateSectionDebt, isFSMHistoryRecord } from './unifiedRotationService';
 
 export interface RankedEligibleCandidate {
@@ -63,6 +63,9 @@ function normalizePartType(value: string): string {
 }
 
 function resolveScoringPartType(targetPart: WorkbookPart, modalidade: string): string {
+    if (modalidade === EnumModalidade.DISCURSO_ESTUDANTE) return 'Discurso de Estudante';
+    if (modalidade === EnumModalidade.LEITURA_ESTUDANTE) return 'Leitura da Bíblia';
+
     const compatible = getCompatiblePartTypes(modalidade as never);
     if (compatible.length === 0) return targetPart.tipoParte;
 
@@ -188,11 +191,16 @@ export function countPresidenciesInCycle(publisher: Publisher, history: HistoryR
 }
 
 /**
- * Garantia de parte de estudante (decisão Eliezer 2026-10-09): ancião/SM sem NENHUMA parte FSM
- * (titular ou ajudante) em ±STUDENT_PART_GUARANTEE_WEEKS está "em seca" → bucket 0 nas modalidades de estudante.
+ * Garantia de parte de estudante (decisão Eliezer 2026-10-09, atualizada 2026-11-17):
+ * Ancião/SM sem NENHUMA parte FSM (titular ou ajudante) em ±STUDENT_PART_GUARANTEE_WEEKS está "em seca" → bucket 0.
+ * REGRA ANCIÃO (2026-11-17): Ancião só é promovido à seca (bucket 0) se possuir explicitamente a flag
+ * elderCanDoStudentParts: true. Servos Ministeriais mantêm a promoção normal de seca.
  */
 export function isElderOrMSInStudentDrought(publisher: Publisher, history: HistoryRecord[], referenceDate: Date, windowWeeks: number): boolean {
     if (!isElderOrMS(publisher) || windowWeeks <= 0) return false;
+    if (isElderCondition(publisher.condition) && !publisher.privileges?.elderCanDoStudentParts) {
+        return false;
+    }
     return !recordsInSymmetricWindow(publisher, history, referenceDate, windowWeeks).some(isFSMHistoryRecord);
 }
 

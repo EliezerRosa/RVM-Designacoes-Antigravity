@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type { Publisher, WorkbookPart, HistoryRecord } from '../types';
 import { HistoryStatus } from '../types';
 import { getRankedEligibleForPart } from './rankedEligibleService';
+import { getModalidadeFromTipo } from '../constants/mappings';
 
 const mockElder: Publisher = {
     id: 'pub-elder-1',
@@ -172,7 +173,7 @@ test('allCandidates inclui elegíveis barrados por gate, fora de eligibleCandida
     assert.equal(result.allCandidates.length, 2);
 });
 
-test('GARANTIA DE ESTUDANTE: ancião sem parte FSM em 13 semanas vai ao bucket 0, antes da irmã', () => {
+test('GARANTIA DE ESTUDANTE: ancião sem flag elderCanDoStudentParts NÃO vai ao bucket 0', () => {
     const history = [
         h(mockElder, { id: 'h-t1', weekId: '2026-20', date: '2026-05-15', section: TESOUROS, tipoParte: 'Discurso Tesouros', modalidade: 'Discurso de Ensino' }),
     ];
@@ -182,36 +183,142 @@ test('GARANTIA DE ESTUDANTE: ancião sem parte FSM em 13 semanas vai ao bucket 0
     const sisterCand = result.allCandidates.find(c => c.publisher.id === mockSister.id);
 
     assert.equal(sisterCand?.priorityBucket, 1, 'Irmã fica no Bucket 1');
-    assert.equal(elderCand?.priorityBucket, 0, 'Ancião em seca vai ao Bucket 0');
-    assert.equal(result.eligibleCandidates[0]?.publisher.id, mockElder.id, 'Ancião em seca é o primeiro da fila');
+    assert.equal(elderCand?.priorityBucket, 4, 'Ancião sem a flag permanece no bucket normal 4');
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, mockSister.id, 'Irmã é a primeira da fila');
 });
 
-test('GARANTIA DE ESTUDANTE: ajudante conta — ancião que foi ajudante há 6 semanas NÃO está em seca', () => {
+test('GARANTIA DE ESTUDANTE: ancião COM flag elderCanDoStudentParts em seca vai ao bucket 0, antes da irmã', () => {
+    const elderWithStudentPrivilege: Publisher = {
+        ...mockElder,
+        privileges: { ...mockElder.privileges, elderCanDoStudentParts: true },
+    };
     const history = [
-        h(mockElder, { id: 'h-aj', weekId: '2026-26', date: '2026-06-29', section: 'Faça Seu Melhor no Ministério', tipoParte: 'Iniciando Conversas (Ajudante)', modalidade: 'Demonstração', funcao: 'Ajudante' }),
+        h(elderWithStudentPrivilege, { id: 'h-t1', weekId: '2026-20', date: '2026-05-15', section: TESOUROS, tipoParte: 'Discurso Tesouros', modalidade: 'Discurso de Ensino' }),
     ];
 
-    const result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [mockElder, mockSister], history);
-    const elderCand = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+    const result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [elderWithStudentPrivilege, mockSister], history);
+    const elderCand = result.allCandidates.find(c => c.publisher.id === elderWithStudentPrivilege.id);
+    const sisterCand = result.allCandidates.find(c => c.publisher.id === mockSister.id);
+
+    assert.equal(sisterCand?.priorityBucket, 1, 'Irmã fica no Bucket 1');
+    assert.equal(elderCand?.priorityBucket, 0, 'Ancião com flag em seca vai ao Bucket 0');
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, elderWithStudentPrivilege.id, 'Ancião em seca com flag é o primeiro da fila');
+});
+
+test('GARANTIA DE ESTUDANTE: Servo Ministerial em seca vai ao bucket 0 SEM precisar de flag', () => {
+    const mockMS: Publisher = {
+        ...mockElder,
+        id: 'pub-ms-1',
+        name: 'Servo Teste',
+        condition: 'Servo Ministerial',
+        privileges: { ...mockElder.privileges, elderCanDoStudentParts: false },
+    };
+    const history = [
+        h(mockMS, { id: 'h-ms1', weekId: '2026-20', date: '2026-05-15', section: TESOUROS, tipoParte: 'Leitor EBC', modalidade: 'Leitor EBC' }),
+    ];
+
+    const result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [mockMS, mockSister], history);
+    const msCand = result.allCandidates.find(c => c.publisher.id === mockMS.id);
+
+    assert.equal(msCand?.priorityBucket, 0, 'Servo Ministerial em seca vai ao Bucket 0');
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, mockMS.id, 'SM em seca é o primeiro da fila');
+});
+
+test('GARANTIA DE ESTUDANTE: ajudante conta — ancião com flag que foi ajudante há 6 semanas NÃO está em seca', () => {
+    const elderWithStudentPrivilege: Publisher = {
+        ...mockElder,
+        privileges: { ...mockElder.privileges, elderCanDoStudentParts: true },
+    };
+    const history = [
+        h(elderWithStudentPrivilege, { id: 'h-aj', weekId: '2026-26', date: '2026-06-29', section: 'Faça Seu Melhor no Ministério', tipoParte: 'Iniciando Conversas (Ajudante)', modalidade: 'Demonstração', funcao: 'Ajudante' }),
+    ];
+
+    const result = getRankedEligibleForPart(targetFSMPart, [targetFSMPart], [elderWithStudentPrivilege, mockSister], history);
+    const elderCand = result.allCandidates.find(c => c.publisher.id === elderWithStudentPrivilege.id);
 
     assert.equal(elderCand?.priorityBucket, 4, 'Fora da seca, ancião volta ao bucket 4 em demonstração');
     assert.equal(result.eligibleCandidates[0]?.publisher.id, mockSister.id);
 });
 
 test('GARANTIA DE ESTUDANTE: teto semanal — com 2 anciãos/SMs já em partes de estudante na semana, seca não promove', () => {
-    const elderB: Publisher = { ...mockElder, id: 'pub-elder-b', name: 'Ancião B' };
-    const elderC: Publisher = { ...mockElder, id: 'pub-elder-c', name: 'Ancião C' };
+    const elderWithFlag: Publisher = {
+        ...mockElder,
+        privileges: { ...mockElder.privileges, elderCanDoStudentParts: true },
+    };
+    const elderB: Publisher = { ...elderWithFlag, id: 'pub-elder-b', name: 'Ancião B' };
+    const elderC: Publisher = { ...elderWithFlag, id: 'pub-elder-c', name: 'Ancião C' };
     const weekParts: WorkbookPart[] = [
         targetFSMPart,
         { ...targetFSMPart, id: 'fsm-2', seq: 4, tipoParte: 'Cultivando o Interesse', resolvedPublisherId: elderB.id, resolvedPublisherName: elderB.name },
         { ...targetFSMPart, id: 'fsm-3', seq: 5, tipoParte: 'Leitura da Bíblia', modalidade: 'Leitura de Estudante', resolvedPublisherId: elderC.id, resolvedPublisherName: elderC.name },
     ];
 
-    const result = getRankedEligibleForPart(targetFSMPart, weekParts, [mockElder, mockSister, elderB, elderC], []);
-    const elderCand = result.allCandidates.find(c => c.publisher.id === mockElder.id);
+    const result = getRankedEligibleForPart(targetFSMPart, weekParts, [elderWithFlag, mockSister, elderB, elderC], []);
+    const elderCand = result.allCandidates.find(c => c.publisher.id === elderWithFlag.id);
 
     assert.equal(elderCand?.priorityBucket, 4, 'Teto atingido: ancião em seca fica no bucket normal');
     assert.equal(result.eligibleCandidates[0]?.publisher.id, mockSister.id);
+});
+
+test('BÔNUS DE INEDITISMO: candidato com 0 discursos de estudante no ano vence quem já tem discurso, mesmo com proximidade/carga de EBC', () => {
+    const pubZeroTalks: Publisher = {
+        ...mockElder,
+        id: 'pub-zero',
+        name: 'André Luiz',
+        condition: 'Publicador',
+        privileges: { ...mockElder.privileges, canGiveStudentTalks: true },
+    };
+    const pubOneTalk: Publisher = {
+        ...mockElder,
+        id: 'pub-one',
+        name: 'Irmão com Discurso',
+        condition: 'Publicador',
+        privileges: { ...mockElder.privileges, canGiveStudentTalks: true },
+    };
+
+    const targetStudentTalkPart: WorkbookPart = {
+        id: 'part-talk-1',
+        weekId: '2026-30',
+        date: '2026-07-27',
+        section: 'Faça Seu Melhor no Ministério',
+        tipoParte: 'Discurso de Estudante',
+        modalidade: 'Discurso de Estudante',
+        tituloParte: 'Discurso de Estudante',
+        funcao: 'Titular',
+        seq: 5,
+        duracao: '5',
+        status: 'PENDENTE',
+    };
+
+    const history = [
+        h(pubOneTalk, {
+            id: 'h-talk-1',
+            weekId: '2026-04',
+            date: '2026-01-26',
+            section: 'Faça Seu Melhor no Ministério',
+            tipoParte: 'Discurso de Estudante',
+            modalidade: 'Discurso de Estudante',
+            funcao: 'Titular',
+        }),
+        h(pubZeroTalks, {
+            id: 'h-ebc-1',
+            weekId: '2026-28',
+            date: '2026-07-13',
+            section: 'Nossa Vida Cristã',
+            tipoParte: 'Leitor EBC',
+            modalidade: 'Leitor EBC',
+            funcao: 'Titular',
+        }),
+    ];
+
+    const result = getRankedEligibleForPart(targetStudentTalkPart, [targetStudentTalkPart], [pubOneTalk, pubZeroTalks], history);
+    assert.equal(result.eligibleCandidates[0]?.publisher.id, pubZeroTalks.id, 'Candidato com 0 discursos no ano deve ser o 1º da fila pelo Bônus de Ineditismo');
+    assert.equal(result.eligibleCandidates[1]?.publisher.id, pubOneTalk.id, 'Candidato que já tem discurso no ano fica em 2º');
+});
+
+test('MAPEAMENTO S-38: "O que você diria?" mapeia como DISCURSO_ENSINO', () => {
+    assert.equal(getModalidadeFromTipo('O que você diria?'), 'Discurso de Ensino');
+    assert.equal(getModalidadeFromTipo('O que você diria'), 'Discurso de Ensino');
 });
 
 test('FILA DE PRESIDÊNCIA: bucket = nº de presidências na janela; quem presidiu menos vem antes', () => {

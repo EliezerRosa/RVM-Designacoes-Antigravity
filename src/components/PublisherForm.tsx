@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Funcao, Publisher, PublisherPrivileges, PublisherPrivilegesBySection } from '../types'
-import { getWeekMondayId, canDisplayPresidePrivilege, confirmPresidePrivilegeChange } from '../services/eligibilityService'
+import { getWeekMondayId, canDisplayPresidePrivilege, canDisplayElderStudentPartsPrivilege, confirmPresidePrivilegeChange } from '../services/eligibilityService'
 import { curatorKnowledgeBaseService, type CuratorProfile } from '../services/curatorKnowledgeBaseService'
 import { congregationRoleService, type CongregationRole } from '../services/congregationRoleService'
 import { RoleManagerModal } from './admin/RoleManagerModal'
@@ -19,6 +19,7 @@ const defaultPrivileges: PublisherPrivileges = {
     canReadCBS: false,
     canPray: false,
     canPreside: false,
+    elderCanDoStudentParts: false,
 }
 
 const defaultPrivilegesBySection: PublisherPrivilegesBySection = {
@@ -135,12 +136,14 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
         if (name === 'condition') {
             const nextCondition = value;
             const canPreside = canDisplayPresidePrivilege(nextCondition) ? formData.privileges.canPreside : false;
+            const elderCanDoStudentParts = canDisplayElderStudentPartsPrivilege(nextCondition) ? Boolean(formData.privileges.elderCanDoStudentParts) : false;
             setFormData(prev => ({
                 ...prev,
                 condition: nextCondition as any,
                 privileges: {
                     ...prev.privileges,
-                    canPreside
+                    canPreside,
+                    elderCanDoStudentParts
                 }
             }));
             return;
@@ -952,6 +955,22 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                             onChange={handleChange}
                                         />
                                         Presidir {formData.condition === 'Servo Ministerial' && <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 600 }}>⚠️ (SM)</span>}
+                                    </label>
+                                )}
+                                {canDisplayElderStudentPartsPrivilege(formData.condition) && (
+                                    <label className="checkbox-item" style={{
+                                        background: 'rgba(59, 130, 246, 0.08)',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        border: '1px dashed rgba(59, 130, 246, 0.3)'
+                                    }} title="Quando ativado, o ancião entra na regra de seca de 13 semanas (Faixa 0) para partes de estudante">
+                                        <input
+                                            type="checkbox"
+                                            name="privileges.elderCanDoStudentParts"
+                                            checked={Boolean(formData.privileges?.elderCanDoStudentParts)}
+                                            onChange={handleChange}
+                                        />
+                                        Partes de Estudante <span style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: 600 }}>🎓 (Seca / Faixa 0)</span>
                                     </label>
                                 )}
                                 <label className="checkbox-item">

@@ -45,7 +45,12 @@ export const TIPO_TO_MODALIDADE: Record<string, string> = {
     'Cultivando o Interesse': EnumModalidade.DEMONSTRACAO,
     'Fazendo Discípulos': EnumModalidade.DEMONSTRACAO,
     'Explicando Suas Crenças': EnumModalidade.DEMONSTRACAO,
+    'Parte de Estudante': EnumModalidade.DEMONSTRACAO,
     'Discurso de Estudante': EnumModalidade.DISCURSO_ESTUDANTE,
+    'O que você diria?': EnumModalidade.DISCURSO_ENSINO,
+    'O que você diria': EnumModalidade.DISCURSO_ENSINO,
+    'O Que Você Diria?': EnumModalidade.DISCURSO_ENSINO,
+    'O Que Você Diria': EnumModalidade.DISCURSO_ENSINO,
 
     // Nossa Vida Cristã
     'Necessidades Locais': EnumModalidade.NECESSIDADES_LOCAIS,
@@ -99,6 +104,7 @@ export function getModalidadeFromTipo(tipoParte: string, section?: string): stri
     if (normalized.includes('oração') || normalized.includes('oracao')) return EnumModalidade.ORACAO;
     if (normalized.includes('presidente')) return EnumModalidade.PRESIDENCIA;
     if (normalized.includes('necessidades locais')) return EnumModalidade.NECESSIDADES_LOCAIS;
+    if (normalized.includes('o que você diria') || normalized.includes('o que voce diria')) return EnumModalidade.DISCURSO_ENSINO;
 
     // FIX: Stronger check for Teaching Talks / Life and Ministry parts
     if (normalized.includes('vida cristã') || normalized.includes('vida crista') || normalized.includes('discurso de ensino')) {

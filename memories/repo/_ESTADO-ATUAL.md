@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-17 13:15 (BRT) — §43.14 Governança Cirúrgica da Flag "Presidir" em Publicadores & Trava Teocrática de Elegibilidade no Motor (150/150 testes RVM, zero regressões, build Vite validado, Vercel e GitHub Pages atualizados).  
+> **Última Atualização**: 2026-11-17 15:15 (BRT) — §43.15 Trava de Seca para Ancião (elderCanDoStudentParts), Bônus de Ineditismo Anual em Discurso de Estudante & Alinhamento S-38 para "O que você diria?" (154/154 testes RVM aprovados, zero regressões, build Vite validado, Vercel e GitHub Pages atualizados).  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -949,6 +949,34 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - Suite de testes RVM expandida para **150/150 testes aprovados** (`npm test`).
     - Build de produção (`vite build`) gerado com sucesso (Exit 0).
     - Deploy de produção na Vercel e GitHub Pages atualizados.
+- **§43.15 Trava de Seca para Ancião (elderCanDoStudentParts), Bônus de Ineditismo Anual em Discurso de Estudante & Alinhamento S-38 para "O que você diria?" (2026-11-17 15:15 BRT)**:
+  - **Diagnóstico do Caso André Luiz (Discurso de Estudante)**:
+    - O irmão André Luiz estava qualificado e liberado para Discurso de Estudante (`canGiveStudentTalks: true`), porém em 2026 acumulava 5× Leitor EBC, 4× Oração Final, 1× Leitura da Bíblia e 0× Discurso de Estudante, enquanto outros 15 irmãos já haviam realizado 1 discurso cada no ano.
+    - Raiz do problema no motor:
+      1. Nas semanas com Leitor EBC, como o ensino (Fase 2) roda antes dos discursos de estudante (Fase 3), André era selecionado para Leitor EBC em Fase 2, bloqueando-o para a Fase 3 (`Já tem designação nesta semana`).
+      2. Nas semanas em que estava livre, seus papéis recentes (Leitor EBC) geravam custo de proximidade MAIN (`proximityCost > 0`) e carga (`recentCount: 2..3`). Irmãos que não realizaram EBC nem oração tinham proximidade zero e venciam lexicograficamente na Camada 2 ("QUEM"), mesmo que já tivessem discursado no ano.
+      3. Qualquer Ancião ou SM sem parte FSM há 13 semanas era promovido ao Bucket 0 pela garantia de seca (M-3), furando a fila e ocupando as vagas remanescentes de estudante.
+  - **Regra 1: Trava de Seca para Ancião (`elderCanDoStudentParts`)**:
+    - Adicionado o campo `elderCanDoStudentParts?: boolean` em `PublisherPrivileges` (`src/types.ts`).
+    - Criada a guarda `canDisplayElderStudentPartsPrivilege(condition)` em `src/services/eligibilityService.ts` (exclusivo para condição Ancião).
+    - Em `PublisherForm.tsx` e `PublisherStatusForm.tsx`: controle visual (checkbox / toggle de coluna "Seca FSM (Ancião)") exibido estritamente para Anciãos (demais condições exibem `—`). Ao alterar condição para não-ancião, a flag é resetada para `false`.
+    - Em `src/services/rankedEligibleService.ts` (`isElderOrMSInStudentDrought`): Anciãos **só entram no Bucket 0** se possuírem `elderCanDoStudentParts: true`. Sem a flag, permanecem no bucket 3 (ou 4 para demo). Servos Ministeriais mantêm a promoção normal de seca sem necessidade da flag.
+  - **Regra 2: Bônus de Ineditismo Anual em Discurso de Estudante**:
+    - Criadas as funções `isStudentTalkPart`, `isStudentTalkHistoryRecord` e `countStudentTalksInYear` em `src/services/unifiedRotationService.ts`.
+    - No cálculo de pontuação (`calculateScore`): computa `studentTalksInYear` e anota no detalhamento e na explicação o `'Bônus Ineditismo (0 discursos no ano)'`.
+    - Na ordenação de candidatos (`getRankedCandidates`): candidatos com 0 discursos de estudante no ano civil da data de referência têm precedência máxima sobre candidatos que já discursaram no ano (`studentTalksInYear` ascendente). Dessa forma, nenhum publicador que já fez discurso no ano pode ultrapassar um publicador habilitado com 0 discursos, mesmo que este último tenha custo de proximidade ou carga proveniente de outras partes (EBC, oração).
+    - Ajustado `resolveScoringPartType` em `rankedEligibleService.ts` para retornar `'Discurso de Estudante'` preservando a modalidade e eliminando warnings legados de fallback.
+  - **Regra 3: Alinhamento Estrito ao S-38 para "O que você diria?"**:
+    - Conforme as diretrizes teocráticas da carta S-38 (§ 7-10), a parte *"O que você diria?"* na seção FSM não é demonstração de estudante; trata-se de uma consideração com a assistência conduzida da tribuna pelo Presidente, outro Ancião ou Servo Ministerial qualificado (sem ajudante).
+    - Em `src/constants/mappings.ts`: adicionadas as variações de *"O que você diria?"* mapeadas diretamente para `EnumModalidade.DISCURSO_ENSINO`. Na função `getModalidadeFromTipo`, adicionada correspondência textual normalizada explícita.
+    - Em `src/services/jwOrgService.ts` (`classifyPartType`): classificada explicitamente como `{ tipo: 'O que você diria?', needsHelper: false }`.
+  - **Sincronia Canônica de Versão de Regras**:
+    - Bump de versão para `2026-11-17.01` em `ELIGIBILITY_RULES_VERSION` (`src/services/eligibilityService.ts`) e `RULES_TEXT_VERSION` (`src/services/contextBuilder.ts`), mantendo paridade com `AdminDashboard.tsx`.
+    - Invariante M-3 atualizada em `.agents/workflows/motor-invariants.intent.md`.
+  - **Testes & Qualidade**:
+    - 4 novos testes unitários adicionados em `src/services/rankedEligibleService.test.ts` cobrindo a trava de seca para ancião com/sem flag, promoção de SM, bônus de ineditismo anual em discurso e mapeamento S-38.
+    - Total de **154/154 testes aprovados** (100% de sucesso).
+    - Compilação de produção Vite (`npm run build`) concluída com sucesso (Exit 0).
 
 ---
 

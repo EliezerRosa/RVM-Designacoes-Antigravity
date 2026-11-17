@@ -12,7 +12,7 @@ import { toLocalISODate } from '../utils/dateUtils';
 
 // Deve ser igual a ELIGIBILITY_RULES_VERSION sempre que o texto de regras lido pelo agente for atualizado
 // (AdminDashboard audita a sincronia). Bump manual = confirmação de que o prompt reflete o motor.
-export const RULES_TEXT_VERSION = '2026-10-15.01';
+export const RULES_TEXT_VERSION = '2026-11-17.01';
 
 // ===== Tipos =====
 
@@ -854,7 +854,7 @@ SISTEMA DE ROTAÇÃO (modelo lexicográfico — versão ${ELIGIBILITY_RULES_VERS
 - NÃO existe score aditivo decisório nem cooldown bloqueante. O "cooldown de 3 semanas" é só indicador visual.
 - Passo 1 — FAIXA (bucket; menor vem primeiro, vence qualquer outro critério):
   · Presidente: faixa = nº de presidências nas últimas ${ROTATION_CONFIG.PRESIDENCY_CYCLE_WINDOW_WEEKS} semanas (fila cíclica: ninguém preside pela k+1ª vez enquanto houver elegível disponível com k).
-  · Partes de estudante (leitura, demonstração, discurso de estudante): ancião/SM sem nenhuma parte de estudante (titular ou ajudante) em ±${ROTATION_CONFIG.STUDENT_PART_GUARANTEE_WEEKS} semanas → faixa 0 (antes das irmãs), no máximo ${ROTATION_CONFIG.STUDENT_GUARANTEE_MAX_PER_WEEK} por semana. Fora disso: demonstração irmãs 1 › irmãos 2 › SM 3 › anciãos 4; leitura/discurso publicador 1 › SM 2 › ancião 3.
+  · Partes de estudante (leitura, demonstração, discurso de estudante): ancião/SM sem nenhuma parte de estudante (titular ou ajudante) em ±${ROTATION_CONFIG.STUDENT_PART_GUARANTEE_WEEKS} semanas → faixa 0 (antes das irmãs), no máximo ${ROTATION_CONFIG.STUDENT_GUARANTEE_MAX_PER_WEEK} por semana (no caso de ancião, requer privilégio elderCanDoStudentParts ativo). Fora disso: demonstração irmãs 1 › irmãos 2 › SM 3 › anciãos 4; leitura/discurso publicador 1 › SM 2 › ancião 3. Em Discurso de Estudante, aplica-se o Bônus de Ineditismo Anual (candidatos com 0 discursos no ano civil vêm primeiro).
   · Leitor EBC: publicador 1 › SM 2 › ancião 3. Oração Final: sem outra parte na semana 1 › com parte 2; presidente nunca.
 - Passo 2 — dentro da faixa, ordem ESTRITA: (1) menor proximidade de qualquer parte MAIN em ±${ROTATION_CONFIG.HEAVY_ROLE_RADIUS} semanas (passado e futuro, graduada pela distância); (2) menor carga em ±12 semanas (partes passadas E já marcadas); (3) mais semanas desde a última vez NESTA parte; (4) há mais tempo sem qualquer parte; (5) menos participações no ano; (6) nome.
 - MAIN = toda parte designável exceto Oração Final, cânticos e derivadas do presidente. Ajudante conta como MAIN. Necessidades Locais conta.

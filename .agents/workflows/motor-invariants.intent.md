@@ -7,7 +7,7 @@ invariants:
   - "A ordem lexicográfica e as faixas (buckets) são a ÚNICA fonte de decisão; não reintroduzir score aditivo"
 ---
 
-# Motor de Designações — Invariantes (2026-10-09, versão de regras 2026-10-09.05)
+# Motor de Designações — Invariantes (2026-10-09, atualizado 2026-11-17, versão de regras 2026-11-17.01)
 
 > Documento canônico. Em caso de conflito, a regra aqui prevalece sobre o código.
 > Decisões registradas do Eliezer em 2026-10-09 (itens 3.1–3.7 do parecer do motor).
@@ -30,9 +30,11 @@ invariants:
 - F1 roda para TODAS as semanas do batch antes de F2/F3/F4. A presidência tem precedência sobre todo outro uso de anciãos.
 - Com M-1 em vigor, essa precedência não concentra presidências.
 
-## M-3. Garantia de parte de estudante para anciãos e SMs (decisão 2026-10-09)
+## M-3. Garantia de parte de estudante para anciãos e SMs (decisão 2026-10-09, atualizada 2026-11-17)
 - Ancião/SM sem NENHUMA parte de estudante (leitura, demonstração, discurso de estudante; **titular ou ajudante**)
   em ±`STUDENT_PART_GUARANTEE_WEEKS` (13) → faixa 0 (antes das irmãs) em qualquer modalidade de estudante elegível.
+- **Trava de Seca para Ancião (decisão 2026-11-17)**: O Ancião DEVE possuir a flag `elderCanDoStudentParts: true` em seus privilégios (padrão `false`). Se a flag estiver inativa ou ausente, o ancião NÃO entra na faixa 0 e permanece em sua faixa regular (faixa 3 em discurso/leitura, faixa 4 em demonstração). Servos Ministeriais mantêm a promoção normal de seca sem necessidade da flag.
+- **Bônus de Ineditismo em Discurso de Estudante (decisão 2026-11-17)**: Na ordenação de Discurso de Estudante (Camada 2/3), candidatos com 0 discursos de estudante no ano civil da data de referência vêm primeiro (`studentTalksInYear === 0`), garantindo que todos os irmãos habilitados tenham oportunidade de discursar antes de repetições.
 - Teto `STUDENT_GUARANTEE_MAX_PER_WEEK` (2) titulares ancião/SM por semana — equilíbrio com o ensino.
 - Fora da seca: demonstração irmãs 1 › irmãos 2 › SM 3 › anciãos 4; leitura/discurso de estudante publicador 1 › SM 2 › ancião 3.
 - Removida a antiga promoção condicionada a cobertura Tesouros+Vida Cristã.

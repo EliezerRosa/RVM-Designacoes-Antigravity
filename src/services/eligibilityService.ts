@@ -25,7 +25,7 @@ type TipoParte = typeof EnumTipoParte[keyof typeof EnumTipoParte];
 type Funcao = typeof EnumFuncao[keyof typeof EnumFuncao];
 
 // Bump obrigatório a cada mudança de regra em eligibility/ranked/unifiedRotation/generation — vai para o audit_log de cada geração.
-export const ELIGIBILITY_RULES_VERSION = '2026-10-15.01'; // .01: Blindagem bidirecional de gênero e parentesco (Titular ↔ Ajudante) no motor
+export const ELIGIBILITY_RULES_VERSION = '2026-11-17.01'; // .01: Trava de seca para ancião (elderCanDoStudentParts), bônus de ineditismo em discurso e mapeamento S-38
 
 export interface EligibilityContext {
     date?: string;           // Data da reunião (para verificar disponibilidade)
@@ -880,6 +880,14 @@ export function isMSCondition(condition?: string | null): boolean {
  */
 export function canDisplayPresidePrivilege(condition?: string | null): boolean {
     return isElderCondition(condition) || isMSCondition(condition);
+}
+
+/**
+ * Verifica se a condição permite visualização/atribuição da flag "Fazer partes de estudante"
+ * (Restrito estritamente a Anciãos, para controle da garantia de seca de 13 semanas / Faixa 0)
+ */
+export function canDisplayElderStudentPartsPrivilege(condition?: string | null): boolean {
+    return isElderCondition(condition);
 }
 
 /**

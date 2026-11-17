@@ -210,6 +210,8 @@ function classifyPartType(title: string, sectionKey: string, partNum: number): {
     if (lower.includes('iniciando')) return { tipo: 'Iniciando Conversas', needsHelper: true };
     if (lower.includes('cultivando')) return { tipo: 'Cultivando o Interesse', needsHelper: true };
     if (lower.includes('fazendo disc')) return { tipo: 'Fazendo Discípulos', needsHelper: true };
+    if (lower.includes('o que você diria') || lower.includes('o que voce diria'))
+        return { tipo: 'O que você diria?', needsHelper: false };
     if (lower.includes('explicando')) {
         // "Explicando Suas Crenças" pode ser demonstração ou discurso.
         // Se o título contém "discurso", é só titular (sem ajudante).

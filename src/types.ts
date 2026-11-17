@@ -25,7 +25,7 @@ export interface PublisherPrivileges {
     canReadCBS: boolean;
     canPray: boolean;
     canPreside: boolean;
-
+    elderCanDoStudentParts?: boolean;   // Ancião fará partes de estudante (Seca de 13 semanas / Faixa 0)
 }
 
 export interface PublisherPrivilegesBySection {

@@ -29,7 +29,7 @@ import {
     type ProfileHistoryRecord,
 } from '../services/publisherHistoryService';
 import { PublisherStatusHistoryTooltip } from './PublisherStatusHistoryTooltip';
-import { canDisplayPresidePrivilege, confirmPresidePrivilegeChange } from '../services/eligibilityService';
+import { canDisplayPresidePrivilege, canDisplayElderStudentPartsPrivilege, confirmPresidePrivilegeChange } from '../services/eligibilityService';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
 /**
@@ -942,6 +942,7 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                         <th style={thStyle}>Presidir</th>
                                         <th style={thStyle}>Disc. Ensino</th>
                                         <th style={thStyle}>Disc. Estudante</th>
+                                        <th style={thStyle} title="Permite que o ancião entre na regra de seca de 13 semanas (Faixa 0) para partes de estudante">Seca FSM (Ancião)</th>
                                         <th style={thStyle}>Oração</th>
                                         <th style={thStyle}>Leitor EBC</th>
                                         <th style={thStyle}>Dirigir EBC</th>
@@ -1128,6 +1129,18 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                                         activeColor="#6366F1"
                                                         disabled={!canEditPrivileges}
                                                     />
+                                                </td>
+                                                <td style={tdCenter}>
+                                                    {canDisplayElderStudentPartsPrivilege(eff.condition) ? (
+                                                        <Toggle
+                                                            value={!!eff.privileges?.elderCanDoStudentParts}
+                                                            onChange={v => setNested(pub.id, 'privileges', 'elderCanDoStudentParts', v)}
+                                                            activeColor="#2563EB"
+                                                            disabled={!canEditPrivileges}
+                                                        />
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }} title="Exclusivo para Anciãos (controle de seca de 13 semanas)">—</span>
+                                                    )}
                                                 </td>
                                                 <td style={tdCenter}>
                                                     <Toggle

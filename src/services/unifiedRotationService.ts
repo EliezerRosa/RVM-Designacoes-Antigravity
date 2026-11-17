@@ -7,7 +7,7 @@
  */
 
 import type { Publisher, HistoryRecord, EngineConfig } from '../types';
-import { DEFAULT_ENGINE_CONFIG } from '../types';
+import { DEFAULT_ENGINE_CONFIG, EnumModalidade } from '../types';
 import { isBlocked } from './cooldownService';
 import { toLocalISODate } from '../utils/dateUtils';
 import { isCleanablePart, isAutoAssignedToChairman, getModalidadeFromTipo } from '../constants/mappings';
@@ -115,6 +115,8 @@ export interface RotationScore {
     /** Semanas desde a última vez NESTA parte (3ª chave: frescor), cap MAX_LOOKBACK_WEEKS. */
     weeksSinceLast: number;
     isInCooldown: boolean;
+    /** Nº de discursos de estudante no ano civil (para Bônus de Ineditismo em Discurso de Estudante). */
+    studentTalksInYear?: number;
 }
 
 export interface RankedCandidate {
@@ -208,6 +210,52 @@ export function isFSMHistoryRecord(h: HistoryRecord): boolean {
     const m = (h.modalidade || '').toLowerCase();
     return t.includes('ministerio') || t.includes('demonstra') || t.includes('estudante') ||
            m.includes('demonstra') || m.includes('estudante') || m.includes('leitura');
+}
+
+/**
+ * Determina se a parte é Discurso de Estudante (solo, seção FSM).
+ */
+export function isStudentTalkPart(partType: string): boolean {
+    if (!partType) return false;
+    const norm = partType.toLowerCase();
+    if (norm.includes('tesouros') || norm.includes('vida cristã') || norm.includes('vida crista') || norm.includes('ebc')) return false;
+    if (norm.includes('discurso de estudante') || norm === 'discurso') return true;
+    const mod = getModalidadeFromTipo(partType);
+    return mod === EnumModalidade.DISCURSO_ESTUDANTE;
+}
+
+/**
+ * Determina se um registro histórico corresponde a um Discurso de Estudante (titular).
+ */
+export function isStudentTalkHistoryRecord(h: HistoryRecord): boolean {
+    if (h.funcao === 'Ajudante') return false;
+    const mod = h.modalidade || getModalidadeFromTipo(h.tipoParte || '', h.section);
+    if (mod === EnumModalidade.DISCURSO_ESTUDANTE) return true;
+    const t = (h.tipoParte || '').toLowerCase();
+    return (t.includes('discurso de estudante') || t === 'discurso') && !t.includes('tesouros') && !t.includes('vida');
+}
+
+/**
+ * Conta quantos discursos de estudante o publicador realizou no ano civil da data de referência.
+ */
+export function countStudentTalksInYear(
+    publisher: Publisher,
+    history: HistoryRecord[],
+    referenceDate: Date
+): number {
+    const targetYear = referenceDate.getFullYear();
+    const refMs = referenceDate.getTime();
+    return history.filter(h => {
+        if (!h.date) return false;
+        const isThisPublisher = h.resolvedPublisherId
+            ? h.resolvedPublisherId === publisher.id
+            : (h.resolvedPublisherName === publisher.name || h.rawPublisherName === publisher.name);
+        if (!isThisPublisher) return false;
+        const d = new Date(h.date.includes('T') ? h.date : h.date + 'T12:00:00');
+        if (d.getFullYear() !== targetYear) return false;
+        if (d.getTime() >= refMs) return false;
+        return isStudentTalkHistoryRecord(h);
+    }).length;
 }
 
 /**
@@ -452,12 +500,28 @@ export function calculateScore(
         details.specificAdjustments.push('Intervalo ativo (visual)');
     }
 
+    // 5. Bônus de Ineditismo em Discurso de Estudante
+    let studentTalksInYear: number | undefined;
+    if (isStudentTalkPart(partType)) {
+        studentTalksInYear = countStudentTalksInYear(publisher, history, referenceDate);
+        if (studentTalksInYear === 0) {
+            details.specificAdjustments.push('Bônus de Ineditismo: 0 discursos no ano civil');
+        }
+    }
+
     // Explicação pelas chaves que DECIDEM (ordem lexicográfica).
     const explanationParts = [
         `Proximidade MAIN ±${CURRENT_SCORING_CONFIG.HEAVY_ROLE_RADIUS}s: ${details.proximityCost.toFixed(2)}`,
         `Carga ±12s: ${details.recentCount}`,
         `Frescor nesta parte: ${weeksSinceLast >= CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS ? `≥${CURRENT_SCORING_CONFIG.MAX_LOOKBACK_WEEKS}` : weeksSinceLast} sem`,
     ];
+    if (studentTalksInYear !== undefined) {
+        if (studentTalksInYear === 0) {
+            explanationParts.unshift('Bônus Ineditismo (0 discursos no ano)');
+        } else {
+            explanationParts.push(`${studentTalksInYear} discurso(s) no ano`);
+        }
+    }
     if (details.samePartConflict) explanationParts.push(`Mesma parte em ${details.samePartConflictDate}`);
     if (blocked) explanationParts.push('Intervalo ativo');
 
@@ -468,7 +532,8 @@ export function calculateScore(
         explanation,
         lastDate: lastParticipation?.date,
         weeksSinceLast,
-        isInCooldown: blocked
+        isInCooldown: blocked,
+        studentTalksInYear,
     };
 }
 
@@ -526,6 +591,13 @@ export function getRankedCandidates(
     });
 
     return ranked.sort((a, b) => {
+        // Discurso de Estudante: Bônus de Ineditismo Anual (0 discursos no ano civil tem prioridade máxima)
+        if (isStudentTalkPart(partType)) {
+            const ya = a.scoreData.studentTalksInYear ?? 0;
+            const yb = b.scoreData.studentTalksInYear ?? 0;
+            if (ya !== yb) return ya - yb;
+        }
+
         // CAMADA 2 (QUEM) — lexicográfico puro:
         // 1) proximidade MAIN (ascending) — chave PRIMÁRIA: menos proximidade vem primeiro.
         const pa = a.scoreData.details.proximityCost ?? 0;
