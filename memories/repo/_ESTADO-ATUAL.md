@@ -1,7 +1,7 @@
 # Estado Atual do Workspace — Antigravity / RVM Designações
 
 > **Fonte Canônica Principal de RVM**: `_ESTADO-ATUAL.md` (na raiz do repositório `rvm-designacoes-unified/`, prevalece para regras, motor, histórico e pendências de RVM)  
-> **Última Atualização**: 2026-11-16 20:40 (BRT) — §43.9 Adição do botão nativo "📥 Importar JW.ORG" na barra de ferramentas da Aba Apostila (`WorkbookToolbar.tsx` e `WorkbookManager.tsx`), conectando diretamente o `WorkbookImportModal.tsx` com 1 clique sem depender de LLM/Agente; 144/144 testes unitários e build validados.  
+> **Última Atualização**: 2026-11-17 07:05 (BRT) — §43.10 Consolidação da Importação Nativa JW.ORG na Barra da Apostila (`WorkbookToolbar.tsx`), Importação Concluída da Semana de 14–20/12/2026 (22 partes `PENDENTE`), Reset de 21–27/12/2026 (24 partes `PENDENTE`), Homologação da Perspectiva dos Crons (D-30 Geração Antecipada via `headless-bot.yml` e Lembretes Supabase) e Sincronização Canônica de Memória Multi-IDE.  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-15.01` com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** (`docs-local/_ESTADO-LOCAL.md`; regra inflexível de 2026-11-07). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.
 
