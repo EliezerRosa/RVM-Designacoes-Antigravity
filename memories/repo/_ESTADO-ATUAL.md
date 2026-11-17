@@ -1,61 +1,913 @@
-# Estado Atual do Workspace — Antigravity / RVM Designações
+# Status Atual do Projeto — RVM Designações
 
-> **Fonte Canônica Principal de RVM**: `_ESTADO-ATUAL.md` (na raiz do repositório `rvm-designacoes-unified/`, prevalece para regras, motor, histórico e pendências de RVM)  
-> **Última Atualização**: 2026-11-17 07:05 (BRT) — §43.10 Consolidação da Importação Nativa JW.ORG na Barra da Apostila (`WorkbookToolbar.tsx`), Importação Concluída da Semana de 14–20/12/2026 (22 partes `PENDENTE`), Reset de 21–27/12/2026 (24 partes `PENDENTE`), Homologação da Perspectiva dos Crons (D-30 Geração Antecipada via `headless-bot.yml` e Lembretes Supabase) e Sincronização Canônica de Memória Multi-IDE.  
+> **Última Atualização**: 2026-11-17 09:12 (BRT) — §43.11 Implementação da Sincronização Reversa Inbound (Hourglass ➡️ RVM Aceitações e Recusas via Webhook Z-API no `hg-sync`), Homologada em Produção (75/75 testes `hg-sync`, 144/144 testes RVM, ciclo ativo no serviço Windows `RVM-HG-Sync`) e Sincronização Canônica de Memória Multi-IDE.  
 > **Responsável Epistêmico**: Eliezer Rosa  
-> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações `2026-10-15.01` com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** (`docs-local/_ESTADO-LOCAL.md`; regra inflexível de 2026-11-07). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.
+> **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
+> **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
+> **Axioma Absoluto e Irreversível**: Sempre deixe tudo pronto para qualquer transição de agente ou IDE. Toda memória (`/memories/`, `/memories/repo/`, `/memories/session/`, `_ESTADO-ATUAL.md`) é lida no início de qualquer sessão em qualquer IDE e commitada/enviada via `git push` ao final de cada bloco ou troca de agente, mantendo a árvore de trabalho 100% limpa.  
+> **⚠️ Histórico Git reescrito 3× e remoto realinhado (2026-11-07, 21:37, 22:12 e 22:3x BRT)**: a história de `main` foi reescrita com `git filter-repo` em três passadas — (1) remoção de conteúdo não publicável (bloco de isolamento do `.gitignore`) e da pasta de sessão de navegador `whatsapp_session_data/` (256 arquivos com cookies/login data, rastreada por engano desde 2026-08-03); (2) remoção de **dumps, seeds e saídas de scripts com dados de publicadores** (backup completo do banco, `backup-pre-cleanup-*/`, `scripts/_rm_seed.sql`, evidências de ciclo de vida, listas extraídas de EMR — nomes/telefones; ver bloco correspondente do `.gitignore` e `memories/repo/protecao-dados-publicadores-2026-11-07.md`) e anonimização das versões antigas deste arquivo; (3) remoção dos telefones que restavam nas versões antigas deste arquivo (§4 Invariante Z-API). Todos os `git push --force` (main + 30 tags) foram executados com autorização expressa de Eliezer e `origin/main` reflete o histórico final (1.616 commits). **Qualquer clone antigo (outras IDEs) DEVE ser realinhado UMA vez, após a 3ª reescrita, com `git fetch origin; git reset --hard origin/main` ou reclonado — nunca `git pull`/`merge`, que reintroduziria o histórico antigo.** Bundles de segurança locais em `docs-local/`.  
+> **Pendência Arquivada (Aguardando Execução)**: Criar gatilho de *Status S-140 Interativo em PDF com links de telefone* para o time de cobrança (SRVM, Ajd SRVM) sempre que o status de qualquer parte mudar. Sem envio para o Grupo/Presidente/Quadro.  
+
 
 ---
 
-## 1. Visão Geral do Workspace
+## 0.A Arquitetura de Armazenamento, Junções NTFS & OneDrive 1 TB (2026-11-05)
 
-O repositório unificado reside em `rvm-designacoes-unified/`:
-- **Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Vercel CLI autenticado com `VERCEL_TOKEN`).
-- **GitHub Pages**: `https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/` (`npm run deploy`) e repositório dedicado **Conversa RVM** em `https://eliezerrosa.github.io/conversa-rvm/` (`npm run deploy:conversa` -> `EliezerRosa/conversa-rvm`).
-- **Supabase**: Projeto `pevstuyzlewvjidjkmea`.
-- **Último Checkpoint Git RVM**: Tag `checkpoint-conversa-ui-2026-11-13` (sobre baseline de código `27aaafc`, pós-Conversa RVM e pré-revisão do plano; tag pré-Conversa: `checkpoint-pre-conversa-ui-66f083d`). Nota histórica: o histórico anterior foi reescrito **3×** e enviado ao remoto por force-push em 2026-11-07 (21:37, 22:12 e 22:3x; ver §2.4, §2.7 e pendência 8).
-
----
-
-## 2. Invariantes Canônicos
-
-1. **Estado Vivo**: Sempre consultar `_ESTADO-ATUAL.md` e manter este `/memories/repo/_ESTADO-ATUAL.md` atualizado in-place.
-2. **Resumo Desacoplado de Próximas Designações Z-API**: Se um publicador receber S-89 (manual/lote) OU lembrete de falta de confirmação (`COBRANCA_72H` ou `LEMBRETE_D9` para partes `PROPOSTA`), e possuir $\ge 2$ designações futuras já publicadas, recebe uma mensagem extra desacoplada com o resumo de todas as suas próximas partes reais (descartando partes secundárias/implícitas de presidente como Oração Inicial, Comentários e Conselhos, e cânticos), com status e botões de ação rápida nativos do WhatsApp (`send-button-actions` prioritários, limitados a 3 botões rápidos: confirmação/recusa para pendentes e recusa das datas mais próximas para confirmadas), link de portal permanente para contingência em web/PC, e debounce de 10 min.
-3. **6 Invariantes de Botões Z-API em Lembretes (Manual/Robô)**: Quando o destinatário ainda NÃO confirmou aceite (`PROPOSTA`), e SOMENTE neste caso, o botão "Confirmar" DEVE ser exibido sempre. Como a Meta/Z-API limita a 3 botões rápidos, omite-se "Ativar Notificações" dos botões (preservado no rodapé) para acomodar `Confirmar`, `Não Poderei` e `Disponibilidade`. Se já confirmado (`DESIGNADA`), o botão "Confirmar" é omitido, liberando vaga para o botão de push.
-4. **AXIOMA ABSOLUTO E IRREVERSÍVEL (Sempre Deixe Tudo Pronto para Qualquer Transição de Agente ou IDE)**:
-   - **Prontidão Imediata**: Antes de encerrar qualquer turno, bloco de trabalho ou sessão, ou antes de alternar de agente ou IDE, o agente DEVE deixar o ambiente 100% pronto, documentado, commitado e autossuficiente para que qualquer outro agente ou IDE possa assumir imediatamente sem perda de contexto ou ambiguidade.
-   - Toda a memória de conversas (`/memories/session/`), estado atual (`_ESTADO-ATUAL.md`) e aprendizados correlatos (`/memories/`) DEVE subir para o repositório remoto Git (`git commit` + `git push`) ao final de cada bloco lógico ou sessão, e obrigatoriamente antes de trocar de agente ou IDE.
-   - Qualquer agente iniciando conversa em qualquer IDE (VS Code, Cursor, Antigravity, Claude Code) DEVE primeiro ler as memórias antes de agir.
-   - **Histórico reescrito 3× em 2026-11-07 (`git filter-repo`; force-push 21:37, 22:12 e 22:3x)**: clones antigos em outras IDEs DEVEM ser realinhados **uma vez, após a 3ª reescrita**, com `git fetch origin; git reset --hard origin/main` (ou reclonados) — nunca `git pull`/`merge`, que reintroduziria o histórico antigo. Bundles de segurança em `docs-local/`.
-   - **Regra inflexível (Eliezer, 2026-11-07)**: o que estiver no `.gitignore` NUNCA sobe para o remoto — e **tudo** o que diz respeito à integração externa HG (código, scripts, documentação, memórias, dados, sessões de browser) DEVE estar no `.gitignore`. Memória sobre esse tema fica em arquivos locais: `docs-local/_ESTADO-LOCAL.md`, `README-HG-RVM.md` e memórias com `hg` no nome.
-5. **Motor de Designações**: Regras `2026-10-15.01` em `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `eligibilityService.ts`. Modelo de decisão lexicográfico por faixas (buckets).
-   - **Blindagem Bidirecional de Gênero (Titular ↔ Ajudante)**: Duplas de demonstração de estudantes DEVEM ser do mesmo sexo (irmão+irmão ou irmã+irmã), tanto quando o ajudante é designado tendo o titular definido, quanto quando o titular é designado/substituído tendo o ajudante já definido.
-   - **Exceções de Parentesco Preservadas Integralmente**:
-     - *Cônjuges*: Marido e esposa podem formar dupla independente do sexo (`spouseId` cruzado).
-     - *Pais e Filhos*: Pai/mãe com filho/filha podem formar dupla independente do sexo (`parentIds` / `childIds` bidirecionais).
-     - Pares de sexos opostos sem parentesco comprovado são sumariamente bloqueados (`eligible: false`), impedindo reincidências tanto no robô automático de reatribuição quanto na seleção manual.
-     - **BD Intocado**: Registros do banco de dados não são alterados retroativamente sem autorização expressa.
-6. **Publicação S-89**: Apenas o SRVM publica via botão manual; Crons D-7 e D-2 exigem registro prévio `PUBLICACAO_S89` com `SUCCESS`.
-7. **Isolamento de Segurança**: Pasta `docs-local/`, diretórios de sessão de navegador/WhatsApp (`whatsapp_session_data/` — esteve rastreado por engano de 2026-08-03 a 2026-11-07; retirado do índice e do histórico), **dumps/seeds/evidências com dados de publicadores** (`_backups-local/`, `backup_rvm_*.json`, `backup-pre-cleanup-*/`, `scripts/_rm_seed.sql`, `scripts/test_lifecycle_*`, `scripts/_archived/*.txt`, saídas de scripts — retirados do índice e do histórico em 2026-11-07) e credenciais nunca sobem para repositórios públicos. Documentos públicos (incl. este estado) não citam e-mail/telefone de publicador — só papel e `publisher_id`.
-8. **Faturamento BYOK**: Modelo Google com API Key própria consome créditos da Conta RVM Pro (`017DC8-83643E-7F9157`) do Google Developer Program Premium (~R$ 58/mês), preservando a cota do Copilot Pro+/Max.
+- **Memória Canônica Completa**: [`memories/repo/arquitetura-armazenamento-onedrive.md`](memories/repo/arquitetura-armazenamento-onedrive.md) (e espelhada globalmente em `C:\MAPA-PROJETOS-E-ONEDRIVE.md`, `C:\Users\Eliez\.gemini\GEMINI.md` e `C:\Users\Eliez\OneDrive\Artefatos_IDEs\README-ARQUITETURA-ONEDRIVE.md`).
+- **Os 3 Únicos Projetos Ativos em Curso no Disco `C:\`**:
+  1. **RVM Designações**: `C:\Antigravity - RVM Designações\rvm-designacoes-unified`
+  2. **idd-ide**: `C:\IDE IDD Claude-VS Code\idd-ide`
+  3. **IDD Refrigeração**: `C:\Antigravity - IDD Refrigeração`
+- **Mapeamento Transparente para a Nuvem (`mklink /J` + `attrib +U -P`)**:
+  - Todas as pastas de artefatos pesados dos 3 projetos (`paradigma`, `IDD Paradigma`, `producao_yt`, `motion_graphics_renderer`, `apresentacao`, `artefatos`, `_render_work` e legados `S-89`/`CRUD`/`Form RVM`) apontam via **Junção NTFS (`mklink /J`)** para `C:\Users\Eliez\OneDrive\Artefatos_IDEs\*`.
+  - Os ~50 projetos antigos/protótipos inativos foram limpos de `node_modules`/`.venv` e arquivados em `OneDrive\Artefatos_IDEs\Projetos_Arquivados_Raiz_C` e `Projetos_Arquivados_Usuario`.
+  - A tarefa agendada `\OneDrive-AutoDehydrate-Artefatos` roda a cada 15 min aplicando `attrib +U -P` para liberar automaticamente o espaço no SSD `C:\` assim que o OneDrive conclui o upload.
+- **Regras Invioláveis para Agentes**:
+  1. **Proibido** criar `node_modules` ou `.venv` dentro de pastas mapeadas para o OneDrive.
+  2. **Proibido** rodar `grep`/leitura de conteúdo recursiva sobre pastas de vídeo/mídia desidratadas (evita re-download desnecessário da nuvem).
+  3. Novos artefatos pesados (vídeos, áudios, renders, `.zip`) devem sempre ser salvos nas pastas com junção para o OneDrive.
 
 ---
 
-## 3. Pendências Ativas do Projeto
+## 0.B Integração externa — seção mantida apenas localmente
 
-0. **Destino dos arquivos não rastreados** (`scratch/`, `scripts/check_*.ts`): manter no `.gitignore` ou commitar seletivamente.
-1. **Alerta de Desconexão Z-API (P10)**: Implementar monitoramento ativo de webhooks (`on-disconnected`) para alertar SRVM caso o celular da congregação fique offline.
-2. **Monitor Canônico 2.0 (P2)**: Criar tabela `system_canonical_events` e consolidar observabilidade 360º.
-3. **Integração Sentry (P5)**: Instalar telemetria técnica de APM.
-4. **Evolução Cognitiva (A1-A6)**: Habilitar `pgvector` no Supabase e avançar para motor de perfis.
-5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Tranca de `logDispatch` vs aposentadoria do Chatbot para S-89.
-6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais para os Responsáveis pelo Quadro.
+- Conteúdo integral em `docs-local/_ESTADO-LOCAL.md` (§0.B). Regra inflexível (2026-11-07): nada dessa integração vai para o remoto.
+
+---
+
+## 1. Infraestrutura & Deploys
+
+- **Vercel CLI / Deploy**: 🟢 **Ativo & Autenticado**
+  - Autenticação permanente configurada via `VERCEL_TOKEN` nas variáveis de ambiente do sistema Windows.
+  - Deploys e automações via CLI/MCP acontecem 100% em segundo plano sem solicitações de login no navegador ou 2FA.
+- **Ambiente de Produção**: `https://rvm-designacoes-antigravity.vercel.app` (Deploy de produção Vercel e GitHub Pages atualizados).
+- **Frontend GitHub Pages**: Ativo (`https://eliezerrosa.github.io/RVM-Designacoes-Antigravity/`), sincronizado via `npm run deploy`.
+- **Banco de Dados (Supabase)**: Projeto `pevstuyzlewvjidjkmea` (Chave Publishable + Service Role ativas). Edge functions `send-whatsapp`, `zapi-smart-webhook` e `cron-whatsapp-reminders` atualizadas e redeployadas.
+- **Último Commit Estável / Checkpoint**: `27aaafc` (Tag pós-entrega Conversa RVM: `checkpoint-conversa-ui-2026-11-13`; tag pré-Conversa: `checkpoint-pre-conversa-ui-66f083d`; checkpoint legado S-140: `7fedb03` / Tag `v2.6.0-checkpoint-s140-monitor`)
+  - `27aaafc`: feat(conversa): refina carrossel sem barras de rolagem e auto-ajuste responsivo de forms
+  - `62ca187`: feat(conversa): viabiliza UI Conversa RVM end-to-end sem alterar RVM
+  - `a95f67d`: feat(conversa): implementa UI Conversa IA desacoplada com NLU L0/L2, briefing proativo e carrossel
+  - `66f083d`: docs(plano): adiciona briefing proativo multimodal ao plano da UI Conversa IA
+- **Edge Functions Supabase Ativas (`pevstuyzlewvjidjkmea` em Produção)**:
+  - `cron-whatsapp-reminders`: Atualizada com suporte a publisherId e acionamento desacoplado do resumo de próximas partes nos lembretes de falta de confirmação (COBRANCA_72H e LEMBRETE_D9).
+  - `trigger-github-workflow`: v2 ativa para orquestração de disparos.
+  - `zapi-smart-webhook`: v20 ativa com processamento assíncrono de botões nativos e de listas interativas (listResponseMessage.selectedRowId).
+  - `send-whatsapp`: Atualizada com action send-option-list para listas interativas Z-API.
+  - `cron-alert-notifications` e `cron-web-push`: operacionais.
+
+---
+
+## 2. Últimas Entregas: Fase 9 — Blindagem Total de Tokens da Comissão de Serviço (2026-09-05)
+
+### 📌 1. Banco de Dados e RPC `authorize_publisher_form_token`
+- **Novas Colunas em `publisher_form_tokens`**: `publisher_id text` e `bound_email text`.
+- **Amarracão Estrita de Destinatários**:
+  - Secretário (`SEC`): `publisher_id = '17'`, `bound_email` = e-mail pessoal do publicador (omitido neste documento público).
+  - Coordenador (`CCA`): `publisher_id = '21'`, `bound_email` = e-mail pessoal do publicador (omitido).
+  - Superintendente de Serviço (`SS`): `publisher_id = '22'`, `bound_email` = e-mail pessoal do publicador (omitido).
+  - Superintendente da RVM (`SRVM`): `publisher_id = '23'`, `bound_email = NULL` (First-Access Binding).
+- **Estratégia First-Access Binding**: Para publicadores sem e-mail cadastrado inicialmente, a RPC captura o e-mail do primeiro login Google realizado pelo link e amarra automaticamente no token e no cadastro do publicador (`publishers.data.email`).
+- **Resolução Forçada de Identidade**: A autoria teocrática e o log de uso são resolvidos exclusivamente a partir do `v_token.publisher_id` gravado no banco, tornando inócuas tentativas de adulteração de parâmetros da URL (`&u=`).
+- **Checagem de E-mail**: Bloqueio sumário com `reason: 'email_mismatch'` se a conta Google conectada não corresponder ao titular autorizado (com bypass para `is_admin()`).
+
+### 📌 2. Frontend do Formulário (`PublisherStatusForm.tsx`)
+- **Autenticação Google Obrigatória**: Links da Comissão de Serviço agora exibem card de login seguro com Google antes de validar permissões.
+- **Tratamento Elegante de Mismatch de Conta**: Tela explicativa detalhada exibindo o titular do link, a conta Google conectada e a conta esperada, com opções de "Trocar de Conta Google" e "Sair".
+- **Identificação no Header Sticky**: Exibição do e-mail do usuário logado e botão discreto de logoff.
+
+### 📌 3. Gerenciamento no Painel Admin (`PublisherFormLinkManager.tsx`)
+- Seletor para vincular novo link diretamente a um titular da Comissão / RVM (`csMembers`), preenchendo automaticamente cargo, `publisher_id` e `bound_email`.
+- Exibição de badge de status do vínculo seguro na listagem de tokens (`Conta Google: ...` ou `Aguardando 1º acesso Google`).
+
+### 📌 4. Padronização de Notificações Automáticas Z-API (`cron-whatsapp-reminders`)
+- **Destinatários de Notificações de Status e Publicadores Pausados**:
+  1. **Comissão de Serviço (CS)**: Coordenador do Corpo de Anciãos (Israel Vieira), Secretário (Marcos Rogério) e Superintendente de Serviço (Domingos Oliveira).
+  2. **Superintendente da Reunião Vida e Ministério (SRVM)**: Edmardo Queiroz.
+  3. **Admin de Sistema**: Administrador técnico (Eliezer Rosa).
+- **Invariante Teocrático Confirmado**: O CCA **NÃO tem** e **NÃO deve ter** status de Admin de sistema. Todas as rotulações genéricas ou derivadas de "Admin" foram removidas. Todos os irmãos são descritos fielmente pela sua **função cadastrada** no sistema.
+- **Substituição de Rota & Tokens Personalizados**: Removida a referência equivocada a "painel Admin" e a rota inexistente `?portal=publisher-status`. A notificação agora envia o link direto com token individualizado de cada irmão da tabela `publisher_form_tokens` (`?portal=publisher-form&token=...`), já protegido por autenticação Google.
+- **Deploy**: Edge function `cron-whatsapp-reminders` republicada com sucesso no Supabase.
+
+---
+
+## 3. Auditoria Canônica: Crons, Publicação S-89, Importação e Sync (2026-09-06)
+
+### 📌 1. Execução Real de Crons (pg_cron no Supabase)
+- **Job 1 (`zapi-daily-reminders` / `cron-whatsapp-reminders`)** (12:00 UTC / 09:00 BRT):
+  - **Auto-conclusão de reuniões passadas**: Varre `workbook_parts` e finaliza partes vencidas (`PROPOSTA`/`DESIGNADA` -> `CONCLUIDA`).
+  - **Ciclo Semanal de Sábado (`today.getDay() === 6`)**: Executado com sucesso aos sábados, notificando via WhatsApp os membros da CS, SRVM e Admin com links protegidos por tokens Google sobre publicadores pausados por tempo indeterminado (`isIndefinitelyPaused`).
+- **Job 2 (`cron-alert-notifications`)** (13:00 UTC / 10:00 BRT):
+  - Sentinela de leitura: monitora falhas de despacho Z-API (A1), importações pendentes (A2), pendências de publicação em D-15 (A3) e partes órfãs em semanas já publicadas (A4).
+- **Job 3 (`cron-web-push`)** (11:00 UTC / 08:00 BRT):
+  - Despacha notificações Web Push nativas pendentes no navegador a partir da RPC `get_pending_push_events`.
+
+### 📌 2. Invariantes de Publicação de Designações (S-89)
+- **Bloqueio Mestre do Cron**: O cron **NUNCA** envia lembretes (D-7 ou D-2) para partes que não possuam `PUBLICACAO_S89` com status `SUCCESS` na `zapi_dispatch_log`.
+- **Soberania do Botão Manual**: O envio oficial dos cartões S-89 **NÃO é automático pelo Cron**. Ele é disparado exclusivamente pelo SRVM via botão **"Publicar"** no painel da Apostila (`weekPublishService.ts`), que gera o cartão PNG Base64, o token do portal e o registro na `zapi_dispatch_log`.
+- **Sentinela D-15 (Alerta A3)**: O cron apenas alerta o SRVM quando a reunião está a $\le 15$ dias e ainda não teve os S-89 emitidos.
+
+### 📌 3. Gatilho Híbrido de Importação de Apostilas
+- **Cron Mensal (Dia 1º)**: O Bloco M1 calcula as semanas dos próximos 60 dias e, se faltarem semanas no banco, grava a flag `pending_auto_import` em `app_settings`.
+- **Execução Desacoplada no Frontend (`useAutoFlags.ts`)**: Ao abrir a aplicação, o hook consome a flag e baixa as semanas via `jwOrgService.ts`, alertando o SRVM no WhatsApp ao finalizar.
+- **Cobrança Diária**: Se a flag não for consumida, o `cron-alert-notifications` (Alerta A2) cobra o SRVM diariamente às 10:00 BRT.
+
+### 📌 4. Designações Automáticas: Cron vs Código Duro
+- **Cron**: **NÃO gera designações de partes sozinho em background** (evita decisões sem supervisão pastoral e sobrecarga de contexto).
+- **Código Duro do App (`generationService.ts`)**: Executa o motor rotacional determinístico em 3 fases com anti-fome (Presidência -> Ensino -> Estudantes), com auto-propagação do Presidente para Oração Inicial, Comentários e Elogios (`isAutoAssignedToChairman`), pareamento litúrgico de gênero e pareamento estrito de menores com os pais.
+
+### 📌 5. Auditoria de Sincronização Local x Remoto
+- **Git `main` e GitHub `origin/main`**: 100% sincronizados no commit estável `16024a4`.
+- **Vercel Produção**: 100% ativo no commit `16024a4` (`dpl_6hXPt84GbSaT9oTh4N7gcz88JbZR`).
+- **GitHub Pages**: Sincronizado via `npm run deploy` (`gh-pages`).
+- **Supabase**: Banco de produção ativo com todas as RPCs e tabelas.
+- **Projeto HVAC-R (Refrigeração)**: Preservado e isolado em `C:\Users\Eliez\.gemini\antigravity-ide\scratch\hvacr-apresentacao\`.
+
+---
+
+## 4. Entregas da Fase 8 — Auditoria Real, Invariante "Legado" e Blindagem de Autor
+
+### 📌 1. Sanitização Invariante de Autoria no Supabase
+- **Regra Invariante Aplicada**: Todo registro em `publisher_profile_history` sem identificação estrita de log (`token` e `author_id` nulos) foi atualizado para **`"legado"`** (122 registros).
+- **Preservação de Registros Reais**: Os 7 registros com token comprovado do Secretário (`373adba0…` - Marcos Rogério) foram preservados intactos.
+- **Sincronização em `publishers.data.profileMeta`**: 69 publicadores que possuíam carimbo derivado anterior (`CCA` ou `Admin`) foram limpos para `updatedBy = "legado"`.
+- **RPC `record_publisher_profile_change`**: Adicionado fallback rigoroso `v_effective_author := COALESCE(NULLIF(TRIM(p_author_label), ''), 'legado')`.
+
+### 📌 2. Restrição Estrita de Correção Manual ao Administrador
+- **Frontend (`PublisherStatusForm.tsx` & `PublisherStatusHistoryTooltip.tsx`)**:
+  - A permissão `canEditAuthor` foi travada exclusivamente para `isAdminAccess || role === 'admin'`.
+  - Para todos os demais usuários (acesso via links de WhatsApp com token de CCA, SEC, SRVM ou CS), os botões `✏️ Corrigir Autor` e `corrigir` são **completamente omitidos do DOM**.
+  - Abertura de histórico configurada para acionamento **exclusivamente sob clique**.
+- **Banco de Dados (`update_publisher_profile_history_author`)**:
+  - A RPC agora exige formalmente `public.is_admin()` ou role de `admin` em `profiles`. Tokens de portal não possuem privilégio de alterar o histórico de auditoria.
+
+---
+
+## 3. Próxima Fase: Blindagem Total de Tokens (Publisher ID + E-mail do Logado)
+- **Objetivo**: Atrelar cada token diretamente ao `publisher_id` e exigir que o usuário que abre o link esteja autenticado com o e-mail correspondente (`bound_email`).
+- **Checkpoint de Risco**: Criado plano formal de implementação (`implementation_plan.md`) para garantir que irmãos sem e-mail cadastrado (como Edmardo Queiroz) não sejam bloqueados acidentalmente.
+
+### 📌 1. Atribuição Real de Autoria Teocrática (CCA vs Admin)
+- **Correção Histórica no Supabase**: Todos os registros precedentes de inaptidão (`isNotQualified`) e pausas pastorais (como Gustavo Rangel, Larissa Queiroz, Brenda Cristine, Eugenio Longo, Gerusa Souza, Gabriel Henrique, etc.) foram corrigidos de `author_label = 'Admin'` para `author_label = 'CCA'`. O `profileMeta.updatedBy` nos JSONs de `publishers` foi igualmente sincronizado.
+- **Seletor de Autoria no Modo Admin (`PublisherStatusForm.tsx`)**: No topo do formulário, o operador admin conta com um seletor dinâmico com persistência em `localStorage`:
+  `👤 Registrar alterações como: [ 👑 CCA: Israel Vieira ▾ ]`
+  - Opções: CCA (Israel Vieira), SEC (Marcos Rogério), SRVM (Edmardo Queiroz), Comissão de Serviço, Admin (Ajuste Técnico).
+  - Novas gravações em lote recebem automaticamente a autoria do ancião/comissão responsável.
+- **Formatação Limpa de Autoria**: `formatAuthorShort` limpa prefixos redundantes (`SEC : SEC - Marcos Rogério` -> `SEC: Marcos Rogério`).
+
+### 📌 2. Eliminação de Falsos Positivos ("NÃO VERDADE;")
+- **Diff Semântico Inteligente**: Sanitização de registros com `isFieldActuallyChanged`, tratando `null vs false`, `null vs ""` e `null vs []` como equivalentes, impedindo que campos não alterados gerem histórico falso.
+- **Isolamento Estrito por Seção**: O popover e os badges filtram rigorosamente apenas os campos pertencentes à aba ativa (`Status de Participação`, `Privilégios`, `Por Seção`), evitando vazamento de dados pessoais (cônjuge, etc.) na área de status.
+
+### 📌 3. Status Invisíveis a Nível de Código Duro
+- Mapeamento e transparência de 6 regras rígidas de bloqueio do motor (`eligibilityService.ts`): Disponibilidade Temporal, Não Batizado, Restrições Litúrgicas de Gênero, Faixa Etária Infantil, Pareamento Estrito com Pais e Não Congregado.
+- Botão explicativo `🔍 Status Invisíveis (Código Duro)` disponível na barra de ferramentas.
+
+### 📌 4. Ergonomia e Plasticidade da Tela
+- Cabeçalho superior com barra de ações ancorada no topo (`position: sticky; top: 0; zIndex: 100`).
+- Cabeçalho das colunas da tabela (`<th>`) sticky com container de rolagem vertical independente (`max-height: calc(100vh - 195px); overflow: auto`), mantendo os títulos das colunas visíveis durante a navegação.
+
+---
+
+## 2. Últimas Entregas: Agente Curador IA & Base de Conhecimento (2026-09-03 / 2026-09-04)
+
+### 📌 1. Ergonomia do Botão Flutuante do Curador
+- **Posicionamento Canônico**: O botão do Curador IA (`SemanticDraggableGenerator`) é acoplado por padrão no **canto inferior esquerdo** do rodapé da tela ao entrar na semana.
+- **Comportamento Retrátil**: Permanece minimizado/retrátil exibindo apenas o badge com a contagem de regras/partes da semana; expande-se e abre o modal somente sob comando/clique do usuário.
+- **Arrasto Suave (Drag & Drop)**: O usuário pode arrastar o botão livremente para qualquer área da tela durante o trabalho; ao mudar ou reentrar na semana, o botão reseta suavemente para o rodapé esquerdo.
+
+### 📌 2. Integração com Elegíveis do Motor (Filtro de Desbloqueio / Clearance)
+- **Elegibilidade Garantida**: A seleção do Curador é restrita estritamente aos irmãos elegíveis que ficam visíveis quando o mecanismo de desbloqueio do motor é acionado.
+- **Preservação de Regras**: Todas as regras determinísticas (cooldown, gênero, privilégios, disponibilidade, restrições e exclusões) já chegam pré-aplicadas pela função `getRankedEligibleForPart()`.
+- **Foco Semanal e Individual**: A seleção do Curador opera exclusivamente entre os irmãos elencados na semana em foco, processando cada parte individualmente.
+
+### 📌 3. Agente Especialista de Lote (`curatorBatchSpecialistAgent`)
+- **Especialização Contínua**: Um agente dedicado entra em ação automaticamente após a importação de novos lotes de apostilas (via `WorkbookManager.tsx`) ou sob demanda pelo botão "Especializar Lote".
+- **Meta-Análise Contextual**: O modelo (Gemini Flash via proxy proxy-resiliente) varre o lote completo, identifica temas centrais (ex: o livro profético de Jeremias nos meses de Setembro e Outubro de 2026) e infere perfis necessários.
+- **Enriquecimento Dinâmico**: Ele cria novos perfis ou enriquece os perfis existentes adicionando insights práticos da congregação.
+
+### 📌 4. Base de Conhecimento Permanente de Perfis (Supabase)
+- **Tabela `curator_profiles`**: Armazena permanentemente os 16+ perfis típicos e seus metadados (`ideal_traits`, `avoid_traits`, `applicable_roles`, `keywords`, `insights`).
+- **Tabela `curator_batch_insights`**: Registra as análises de cada lote importado com temas centrais, livros bíblicos em foco e timestamp de análise.
+- **Serviço Central**: [`src/services/curatorKnowledgeBaseService.ts`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/src/services/curatorKnowledgeBaseService.ts).
+
+### 📌 5. Cadastro de Publicadores com Perfis Sintéticos Multi-Select (+1)
+- **Interface no Cadastro**: O formulário [`PublisherForm.tsx`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/src/components/PublisherForm.tsx) agora conta com um seletor interativo de tags alimentado dinamicamente pelos perfis da Base de Conhecimento.
+- **Seleção Múltipla (+1)**: Cada publicador pode receber um ou mais perfis aplicáveis (ex: "Conselheiro Amoroso", "Instrutor Bíblico Eloquente", "Acolhedor").
+- **Persistência Transparente**: O array de IDs de perfis é salvo no campo `syntheticProfiles?: string[]` dentro do payload JSONB do publicador no Supabase.
+
+### 📌 6. Curador Híbrido: Ponto de Partida Determinístico + Flexibilidade Contextual
+- **Ponto de Partida Determinístico**: Se um publicador possui em seu cadastro o perfil exato exigido para a parte, ele recebe um bônus determinístico expressivo (+300 pontos de afinidade) e o badge visual `💎 Perfil Atribuído no Cadastro`.
+- **Flexibilidade Total**: O Curador não restringe a lista apenas a quem possui o perfil pré-cadastrado. Todos os irmãos elegíveis da semana são ranqueados considerando histórico, tema da parte e compatibilidade contextual, permitindo ao secretário escolher qualquer elegível.
+- **Zero Interferência no Motor "Gerar"**: O motor principal de rotação automática (`unifiedRotationService.ts`, `generationService.ts`) permanece 100% isolado e inalterado. O Curador atua estritamente como assessor/consultor de casting em tempo de tela.
+
+---
+
+## 3. Estado do Banco de Dados & Módulo RM
+
+- **Publicadores Cadastrados**: 192 publicadores (129 `is_congregated=true`, 63 `false`).
+- **Perfis Sintéticos na Base de Conhecimento**: 16 perfis canônicos ativos + insights contextuais de Jeremias (Set/Out 2026).
+- **Relatórios Mensais (RM)**: 2.442+ relatórios no schema `rm.*` (set/2023–jun/2026).
+- **Status do Serviço de Campo**: Regras `rm_status_rules_v3` ativas (ATIVO=6/6, IRREGULAR=1-5/6, INATIVO=0/6, RECÉM-CONGREGADO).
+- **Invariante de Auth / Hash OAuth**: Higienização permanente em `src/lib/supabase.ts` ativa contra loops 429.
+
+---
+
+## 4. Consolidação Canônica de Migrations & Harmonização de Auth (2026-09-06)
+
+### 📌 1. Migrations Extraídas para `supabase/migrations/`
+1. `20260904000000_curator_knowledge_base.sql`:
+   - Tabelas `curator_profiles` e `curator_batch_insights` + índices e políticas RLS.
+2. `20260905000000_fase8_publisher_profile_history_and_semantic_diff.sql`:
+   - Tabelas `publisher_profile_history` e `publisher_profile_change_notifications`.
+   - RPC `record_publisher_profile_change` (diff semântico inteligente, fallback `'legado'`).
+   - RPC `get_publisher_profile_history_for_form` (leitura segura para formulário).
+   - RPC `dismiss_publisher_profile_notification` (dismiss admin).
+   - RPC `update_publisher_profile_history_author` (exclusividade estrita para `is_admin()`, eliminando sobrecarga legada).
+3. `20260905060000_expand_is_editor_for_cs.sql`:
+   - Harmonização da função PostgreSQL `public.is_editor()` para incluir `'Secretário'` e `'Superintendente de Serviço'`, destravando operações de RLS para todos os membros da CS.
+4. `20260905120000_fase9_publisher_tokens_first_access_binding.sql`:
+   - Colunas `publisher_id` e `bound_email` na tabela `publisher_form_tokens`.
+   - RPC `authorize_publisher_form_token` com resolução de nome antecipada, First-Access Binding e retorno explícito de `expected_email` e `expected_publisher_name` em caso de mismatch.
+
+### 📌 2. Auditoria e Resolução de Contradições de Auth
+1. **Desacoplamento de Google Auth x WhatsApp 2FA (`PublisherStatusForm.tsx`)**:
+   - Corrigido travamento onde membros da CS com conta Google válida ficavam presos na tela de login porque `isAuthenticated` exigia `whatsapp_verified: true`. A validação do token agora checa a sessão Google ativa (`!user`).
+2. **Eliminação de Sobrecarga Vulnerável**:
+   - A versão legada de 3 parâmetros de `update_publisher_profile_history_author` que aceitava tokens foi dropada no Supabase e expurgada das migrations.
+3. **RLS Unificada da CS**:
+   - `is_editor()` agora abrange Coordenador, Secretário, Superintendente de Serviço, SRVM e Ajudante de SRVM.
+
+---
+
+## 5. Robô Headless de Automação RVM: Geração Antecipada (D-30) e Publicação (D-21) (2026-09-06)
+
+### 📌 1. Arquitetura Operacional
+- **Opção B (GitHub Actions + Puppeteer)**:
+  - Workflow canônico: [`.github/workflows/headless-bot.yml`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/.github/workflows/headless-bot.yml) executado diariamente às **08:00 BRT (11:00 UTC)**, rodando 1 hora antes do cron de lembretes diários Z-API (09:00 BRT).
+  - Script executor: [`scripts/headless-bot.js`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/scripts/headless-bot.js) que inicializa Chromium headless com suporte pleno a Canvas/DOM.
+  - Componente Worker: [`src/components/AutomationWorker.tsx`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/src/components/AutomationWorker.tsx) na rota pública `/?portal=automation-worker&token=...`.
+
+### 📌 2. Invariante de Autenticação Segura (Supabase)
+- **Token no Banco**: Chave `automation_bot_token` registrada em `public.app_settings`.
+- **RPC `verify_automation_bot_token(p_token text)`**: Função `SECURITY DEFINER` que valida a credencial do bot sem expor tokens ou segredos no bundle compilado do frontend.
+- **Migration**: [`supabase/migrations/20260906160000_automation_bot_token_rpc.sql`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/supabase/migrations/20260906160000_automation_bot_token_rpc.sql).
+
+### 📌 3. Regras de Disparo D-30 e D-21
+1. **Geração Antecipada (D-30: Janela de 22 a 35 dias)**:
+   - Se uma semana futura estiver vazia (>50% das partes sem publicador), o motor `generationService.generateDesignations` preenche as partes com status `PROPOSTA`.
+   - As partes permanecem em rascunho por ~9 dias para conferência e ajustes da liderança da RVM antes da emissão de qualquer cartão.
+2. **Publicação Automática S-89 (D-21: Janela $\le 21$ dias)**:
+   - Para qualquer semana com reunião em $\le 21$ dias que já esteja designada e ainda não publicada (`!isWeekPublished`), o bot executa `publishWeek`.
+   - Renderiza os cartões S-89 via Canvas/PDF offscreen, despacha via Z-API para os irmãos, registra `week_published` e carimba `zapi_dispatch_log`.
+   - Recupera automaticamente semanas pendentes que já passaram de D-21 (como a semana de 21/set/2026 em D-15).
+
+### 📌 4. Invariante Estrito de Comunicação (Z-API)
+- Avisos de geração em lote (D-30) e relatórios de publicação (D-21) são enviados **EXCLUSIVAMENTE** para:
+  1. **Admin de Sistema**: Eliezer Rosa (telefone cadastrado em `publishers`; omitido neste documento público)
+  2. **Superintendente da RVM (SRVM)**: Edmardo Queiroz (telefone omitido)
+  3. **Ajudantes do SRVM**: Patrick de Oliveira (telefone omitido) e Eliezer Rosa
+- Membros da Comissão de Serviço (CCA, Secretário e SS) e grupos gerais de congregação **NÃO** recebem esses comunicados de rotação da RVM.
+
+### 📌 5. Idempotência e Auditoria
+- Cada ciclo registra em `public.automation_bot_log` com tipo `D-30_GENERATION` ou `D-21_PUBLICATION`. Registros com status `SUCCESS` no mesmo dia impedem disparos repetidos.
+
+---
+
+## 6. Próximos Passos Imediatos
+
+1. Acompanhar a primeira execução do workflow `headless-bot.yml` no GitHub Actions (ou disparo manual via `workflow_dispatch`).
+2. Monitorar a publicação automática da semana de 21/set/2026 e a geração em rascunho da semana de 05/out/2026.
+3. Concluir a flag de "Pausa por Tempo Indeterminado" com lembrete semanal via Cron no WhatsApp.
+
+---
+
+## 7. Checkpoint Arquitetural: Migração para Inteligência Nativa Permanente (Opção 3)
+
+- **Data do Checkpoint**: 2026-09-08
+- **Tag Git de Resguardo**: `checkpoint-pre-opcao3-permanente`
+- **Decisão Estratégica**:
+  1. **Adoção Definitiva da Opção 3**: A inteligência conversacional via Z-API passa a ser o motor padrão, permanente e nativo do RVM para comunicação de designações (sem toggle de desativação, sem arquitetura temporária).
+  2. **Extinção do Link Web no WhatsApp**: Os cartões S-89 e notificações deixam de carregar links para o portal web no navegador (`/?portal=confirm&token=...`), eliminando o atrito de abertura de navegadores e logins em celulares.
+  3. **Interação Híbrida Nativa**: A confirmação de partes passa a ser feita por:
+     - **Botões Nativos do WhatsApp**: `[✅ Confirmar]` e `[❌ Não Poderei]` com resposta determinística em 1 toque.
+     - **Leitura Conversacional Completa**: Processamento inteligente contínuo de respostas em texto livre, áudios e reações de emojis (👍, ❌).
+  4. **Invariante Absoluta de Notificações**: Recusas, justificativas e substituições comunicadas exclusivamente para:
+     - **O Superintendente (SRVM)**
+     - **Ajudante do SRVM**
+     - **Admins**
+     - *(A Comissão de Serviço - CS - permanece estritamente isolada dessa operação diária).*
+  5. **Simplificação e Limpeza**: Descontinuação do gatilho legado duplicado (`trg_webhook_whatsapp_orchestrator`) em favor da nova Edge Function unificada (`zapi-smart-webhook`).
+
+---
+
+## 8. Fase 10 — Implementação Definitiva S-89 via WhatsApp, Unificação DRY e Retrocompatibilidade (2026-09-10)
+
+### 📌 1. Arquitetura DRY Estrita e Eliminação de Redundâncias
+- **Fonte Única de Verdade**: `communicationService.prepareS89Message` é agora o **único** ponto de geração do corpo da mensagem S-89 em todo o sistema.
+- **Limpeza de Chamadas Residuais**: Removidos imports e chamadas não canônicas a `generateWhatsAppMessage` em `AgentModalHost.tsx`, `WorkbookManager.tsx` e `ReplacementPortal.tsx`. Todas as telas e serviços usam exclusivamente `prepareS89Message`.
+- **Assinatura Padronizada**: `prepareS89Message(part, publishers, allWeekParts, options)` retorna `{ content, phone, availabilityUrl, confirmationUrl }`.
+
+### 📌 2. Fluxo Nativo Z-API (`isZApiFlow = true`)
+- **Cartão Visual Limpo**: Envio da imagem PNG do cartão S-89 renderizada em alta fidelidade pelo Canvas/DOM sem sobrecarga ou poluição de legendas.
+- **Três Botões Nativos do WhatsApp**:
+  1. `[✅ Confirmar]`: Dispara callback determinístico (`confirm_<partId>`) que transiciona o status da designação para `CONFIRMADA` em 1 toque.
+  2. `[❌ Não Poderei]`: Abre o fluxo de justificativa/recusa (`decline_<partId>`) com alerta imediato para SRVM, Ajudante e Admin.
+  3. `[📅 Disponibilidade]`: Botão de link nativo de ação direcionando para o Portal de Disponibilidade do publicador (`https://.../?portal=availability&token=<token>`).
+- **Supressão de Links Crus**: No modo Z-API, o texto da mensagem não exibe URLs cruas de portal web (`/?portal=confirm&token=...`), proporcionando interface limpa e moderna.
+- **Sanitização Pré-Disparo**: Função `communicationService.sanitizeMessageForZApi(text)` limpa links de confirmação web inseridos manualmente pelo operador antes do despacho via Z-API.
+- **Invariante de Resposta**: Detecção de respostas em texto livre condicionada à prévia existência de disparo registrado em `zapi_dispatch_log` para aquela parte e telefone.
+
+### 📌 3. Fluxo Clássico / Sem Z-API / Fallback (`isZApiFlow = false`)
+- **Retrocompatibilidade Plena**: Suporte total e ininterrupto ao botão clássico `Zap 📤` do modal e a lembretes de partes não confirmadas.
+- **Inclusão Automática do Link Web**: Quando `isZApiFlow` é falso, `prepareS89Message` gera o token seguro via `communicationService.getOrCreateConfirmationToken` e embute explicitamente na mensagem:
+  `👉 *Portal Web:* https://.../?portal=confirm&token=<token>`
+- Garante que congregações ou momentos sem integração Z-API ativa continuem permitindo confirmação pelo navegador via WhatsApp Web.
+
+### 📌 4. Sincronização Dual-Table no Supabase (`settings` x `app_settings`)
+- **Resolução Unificada da RPC `authorize_availability_portal`**: A migration atualizada faz a busca canônica primeiro em `app_settings` com fallback em `settings`.
+- **Gravação Bidirecional**: `communicationService.getOrCreateAvailabilityLink` grava e atualiza os tokens em ambas as tabelas (`app_settings` e `settings`), eliminando erros de autorização decorrentes de divergências de schema.
+
+### 📌 5. Comparativo Operacional: S-89 vs S-140 vs Status Board
+
+| Funcionalidade | Com Z-API (`isZApiFlow: true`) | Sem Z-API / Manual (`Zap 📤` / Web) |
+| :--- | :--- | :--- |
+| **S-89 (Designação)** | Imagem PNG + Mensagem limpa + 3 botões nativos (`Confirmar`, `Não Poderei`, `Disponibilidade`). Sem URLs no texto. | Link explícito do portal web no texto (`/?portal=confirm&token=...`) + Abertura direta no WhatsApp Web. |
+| **S-140 (Programação Completa)** | Disparo automático via API da imagem PNG e legenda para SRVM, Ajudantes e Grupo cadastrados. | Imagem copiada para Área de Transferência (Clipboard) + Abertura da janela do WhatsApp Web com texto pré-preenchido. |
+| **Status Board (Quadro Geral)** | Disparo automático do relatório consolidado e imagem para destinatários cadastrados. | Cópia do texto/imagem para o Clipboard + Abertura manual do WhatsApp Web. |
+
+### 📌 6. Higienização Completa de Testes
+- **Banco de Dados Supabase (`pevstuyzlewvjidjkmea`)**: Excluídos todos os registros e logs da designação fictícia de teste da semana de 08/out/2026 (`fa000000-0000-4000-8000-000000000001` em `workbook_parts` e `zapi_dispatch_log`).
+- **Repositório**: Removidos artefatos de teste locais (`public/test_s89_generated.png`, `scripts/test_live_image.ts` e `scripts/test_render_s89_playwright.ts`).
+- **Validação de Tipagem**: `npx tsc --noEmit` executado com zero erros em 100% do projeto.
+
+---
+
+## 9. Auditoria Recente de Rotinas (Crons) e Status de Testes (2026-09-14)
+
+### 📌 1. Dívida Semântica na UI ("Agenda de Automação")
+Foi constatado no código-fonte (`supabase/functions`) que a interface do modal `AutomationScheduleModal.tsx` está defasada em relação às invariantes arquiteturais da Fase 10:
+- **O Mito do "D-9 (Cobrança)":** A interface rotula o D-9 como "Cobrança". Na realidade, o código implementa a **Cobrança Contínua a cada 72 Horas** para partes `PROPOSTA` (pendentes de confirmação), que reutiliza o S-89 via `COBRANCA_72H`. O "D-9" interno é apenas mais um lembrete idêntico ao D-7 e D-2.
+- **A Sentinela Real é o D-15:** O alerta que avisa o SRVM que a reunião está próxima e não foi publicada (Alerta A3) é engatilhado matematicamente em `diffDays <= 15`, e não no D-9. 
+- **Lembretes Pós-Confirmação:** Com a **Opção 3** ativa, a emissão do S-89 com botões nativos acontece automaticamente no **D-21** (Robô Headless). Portanto, os lembretes de **D-9, D-7 e D-2** não enviam mais a primeira notificação; eles são estritamente enviados para partes já `DESIGNADA` (confirmadas), servindo como meros lembretes de proximidade.
+- **Isolamento de Kill-Switch:** A chave "Automação Z-API Background" na UI desliga **apenas** os crons internos (Lembretes e Cobranças de 72h). O fluxo de Auto-Designação (D-30) e Auto-Publicação (D-21) não é afetado, pois reside no *GitHub Actions* (`headless-bot.yml`). A interface precisa ser atualizada para clarificar isso.
+
+### 📌 2. Status dos Testes Automatizados (Code-level)
+A suíte completa de testes de código foi executada e reportou o seguinte estado atual:
+- **Testes Unitários:** 🔴 **5 Falharam** | 🟢 **70 Passaram** | 75 Total
+  - 4 falhas oriundas de um erro de importação de `.css` da biblioteca `driver.js` no motor de testes nativo (`tsx`), afetando o `WorkbookManager.test.tsx`.
+  - 1 falha lógica no motor de rotação `unifiedRotationService.test.ts` (Assertion Error: *sem filtrar, weeksSinceLast vira 0 (loop)* — actual: 40, expected: 0).
+- **Testes End-to-End (Playwright):** 🟢 **5 Passaram** | 0 Falhas (100% sucesso)
+  - Todos os 5 fluxos visuais do `login.spec.ts` de resiliência e fallback biométrico e autorização RLS (Caso Patrick e Z-API 2FA) operaram sem falhas em ~25s.
+
+---
+
+## 10. Checkpoint Arquitetural: Log Canônico, Auto-Reparo e Web Push (Fase 11 - Planejamento)
+
+- **Data do Checkpoint**: 2026-09-15
+- **Objetivos Consolidados**:
+  1. **Log Canônico Unificado:** Criação da view `vw_canonical_communication_log` unindo `zapi_dispatch_log` (Outbound), `zapi_smart_interactions` (Inbound) e `push_dispatch_log` (Push PWA). O novo painel `CommunicationLogPanel.tsx` usará Supabase Realtime para notificar o Admin (Toasts) sem poluir abas de segurança.
+  2. **Transparência de Bloqueios:** O Log exibirá os motivos lógicos pelos quais mensagens foram ignoradas pelo cron (ex: "Falta de S-89 prévio", "Aquiescência Tácita").
+  3. **Auto-Reparo do Limbo Legado:** Modificação do `cron-whatsapp-reminders` para resgatar designações manuais antigas sem `PUBLICACAO_S89`. O cron enviará o D-7/D-2 direto para partes `DESIGNADA` e atirará o S-89 atrasado (resgate) para partes `PROPOSTA` presas há 72h.
+  4. **Alertas Operacionais do SRVM:** Novo resumo diário de pendências (Ghosting de publicadores, Recusas esquecidas, Buracos no D-23) entregue via Z-API/Push.
+  5. **Estratégia Rica de Web Push (PWA):** Notificações expansíveis com Deep Link (`wa.me/bot`) para furar fila de atenção.
+  6. **Onboarding Silencioso de Push:** Adição de um 4º botão (URL Button nativo do WhatsApp: `[ 🔔 Ativar Notificações ]`) apenas para usuários que não têm permissão PWA ativa, induzindo-os a ativar o Push pelo navegador.
+
+---
+
+## 11. Brainstorm e Planejamento: Automa��es Avan�adas Z-API e Invariantes de Substitui��o (2026-09-16)
+
+### ?? 1. Capacidades Inexploradas da Z-API Mapeadas
+- **Option-Lists (Menus Interativos)** limitados a 10 itens por gaveta (ideal para coleta de disponibilidade mensal ou pequenos fluxos de m�ltipla escolha).
+- **Jittering de Envio**: Necessidade de adicionar pequenos delays (2-5s) no envio de lotes do S-140 para evitar banimentos por burst rate e engasgos na fila.
+- **Queda de Sess�o**: Uso do webhook `on-disconnected` atrelado � nossa rec�m-criada Web Push Notification para alertar o Admin imediatamente em caso de queda do WhatsApp.
+
+### ?? 2. Blindagem Obrigat�ria: Idempot�ncia do Webhook
+- **O Problema:** A Z-API reenvia webhooks incessantemente se o servidor n�o responder HTTP 200 entre 3 a 5 segundos.
+- **A Solu��o:** Isolar o processamento real (consultas no Supabase, IA, disparo de Z-API) usando `EdgeRuntime.waitUntil()`, devolvendo imediatamente o `200 OK` logo na entrada da Edge Function.
+
+### ?? 3. Invariantes Absolutas (Cravadas na Pedra)
+- **Lideran�a no Controle:** Somente Admin, SRVM e Ajd podem eleger substitutos. Um publicador que clica em 'N�o poderei' encerra seu fluxo ali, sem op��es de sugerir substituto.
+- **Exclusividade Web do Curador IA:** O sistema de Intelig�ncia Artificial Curador atua �nica e exclusivamente sob acionamento manual na aba Apostila da aplica��o Web. Nunca ser� executado assincronamente pelo webhook do WhatsApp.
+
+### ?? 4. Evolu��o do Fluxo de Recusa (N�o Poderei)
+- Foi validado que o sistema j� possui a funcionalidade estrita de realocar o irm�o menos sobrecarregado atrav�s da fun��o `reassignParts` na aba Admin.
+- **A Dire��o Escolhida (Em Standby para Refinamento):** Automatizar o clique do 'N�o poderei' do WhatsApp conectando-o a essa mesma l�gica do Frontend. O sistema (seja via Headless Bot ou via Painel) ir� rodar a reatribui��o anti-fome, eleger o novo candidato e, **imediatamente**, engatilhar o fluxo completo da Troca Manual (gera��o do S-89 em PNG via html2canvas no browser e notifica��o de todos os envolvidos), reiniciando o ciclo organicamente.
+
+---
+
+## 12. Auditoria e Blindagem dos Fluxos P1 a P8 (2026-09-17)
+
+### 📌 1. Escopo da Auditoria
+Foi executada uma varredura exaustiva nos 8 fluxos críticos de automação e mensageria:
+- **P1 (Disparo D-21 S-89 via GitHub Actions)**: Validação do pipeline headless, integridade da geração do cartão S-89 via Chromium/Canvas e registro em `zapi_dispatch_log`.
+- **P2 (Lembretes Contínuos de 72h para `PROPOSTA`)**: Verificação da cobrança respeitosa a cada 72 horas para irmãos que ainda não clicaram no botão interativo.
+- **P3 (Lembretes de Proximidade D-7 e D-2 para `DESIGNADA`)**: Disparo condicionado exclusivamente a partes já confirmadas ou resgatadas.
+- **P4 (Processamento de Botão 'Confirmar')**: Transição imediata de `PROPOSTA` para `CONFIRMADA`/`DESIGNADA`, log em `zapi_smart_interactions` e feedback visual.
+- **P5 (Processamento de Botão 'Não Poderei')**: Notificação imediata e exclusiva ao SRVM, Ajudantes e Admin, impedindo que o publicador escolha substitutos e marcando a parte para intervenção.
+- **P6 (Botão de Disponibilidade)**: Encaminhamento via Link Action nativo do WhatsApp para o portal de disponibilidade seguro com token individual.
+- **P7 (Fallback para WhatsApp Web Clássico)**: Preservação de links web explícitos quando a Z-API estiver desligada ou no envio manual via modal.
+- **P8 (Kill-Switch e Configurações)**: Isolamento estrito entre a chave mestre de desligamento dos crons e os workflows do GitHub Actions.
+
+---
+
+## 13. Automação Operacional do S-140 e Gestão de Funções Congregacionais (2026-09-18)
+
+### 📌 1. Visão Geral da Entrega
+Implementação completa da automação de envio do **S-140 (Programa da Reunião Nossa Vida e Ministério Cristão)** via WhatsApp (Z-API), do **CRUD dinâmico de Funções Congregacionais** no cadastro de publicadores, e da integração com a matriz de **Permissões** da aba Admin.
+
+### 📌 2. Regras Operacionais e Invariantes dos Modos de Envio
+- **Automações Existentes 100% Intactas**: Notificações individuais de substituições (antigo, novo com S-89, parceiro e equipe RVM) continuam ocorrendo imediatamente no ato da troca. O módulo S-140 é puramente aditivo e desacoplado.
+- **Regra de Ouro do Presidente**: Cada Presidente de semana com ajuste recebe **sempre** sua mensagem dedicada de condução de reunião com a folha única S-140 da sua respectiva semana, mesmo se fizer parte da Equipe RVM ou do Grupo oficial.
+- **Modo 1 (Regular Semanal — Segunda-feira 08:00 BRT)**:
+  - Disparado se houver novidades: nova semana publicada recentemente (D-21) OU trocas acumuladas de partes.
+  - *Grupo de WhatsApp oficial (`120363425170091102-group`)*, *Equipe RVM (SRVM, Ajudantes, Admins)* e o *Responsável pelo Quadro de Anúncios* recebem o **Pacote Completo** (todas as semanas publicadas a partir da atual) com texto explicativo contextual.
+  - Cada Presidente de semana que teve ajuste recebe exclusivamente a folha única S-140 da sua semana.
+  - Sem alterações: **Silêncio total**.
+- **Modo 2 (Emergência na Semana em Curso — Pós-Segunda-feira)**:
+  - Se ocorrer qualquer substituição na semana ativa da reunião (`weekId === currentWeekId`):
+    - Grupo + Equipe RVM + Quadro recebem imediatamente o **Pacote Completo atualizado** com aviso de urgência.
+    - O Presidente da semana atual recebe imediatamente o **S-140 ÚNICO** da sua semana com a nova escala.
+- **Modo 3 (Incidental Manual)**:
+  - Botão *'📤 Despachar Pacote'* integrado à barra de ferramentas `WorkbookToolbar` para envio imediato sob demanda com confirmação do operador.
+
+### 📌 3. CRUD de Funções Congregacionais e Permissões
+- **Serviço Centralizado (`congregationRoleService.ts`)**: Gerencia funções customizadas em `app_settings.congregation_roles`.
+- **Modal de Gerenciamento (`RoleManagerModal.tsx`)**: Interface para adicionar, editar e excluir funções congregacionais com sincronização dual-table do `zapi_group_id`.
+- **Cadastro de Publicadores (`PublisherForm.tsx`)**: Campo 'Função' habilitado para todos os irmãos batizados (Ancião, Servo Ministerial e Publicador).
+- **Matriz de Permissões (`PermissionManager.tsx`)**: Permissões granulares configuráveis para qualquer função cadastrada (ex: Responsável pelo Quadro de Anúncios).
+
+---
+
+## 14. Saneamento de `needs_reassignment`, Falsos Alarmes e Refinamento do Cron Matinal (2026-09-19)
+
+### 📌 1. Diagnóstico do Falso Alarme das 09:00 BRT
+- **Sintoma**: No relatório diário das 09:00 BRT enviado ao SRVM e Admins, a rotina `checkRefusalsLapsing` apontava 2 'Substituições Pendentes' sem identificar quem ou quais partes eram.
+- **Identificação**: As partes eram da semana de 21/09/2026 (Presidente) e 28/09/2026 (Parte Vida Cristã). Ambas já haviam sido resolvidas manualmente com novos irmãos designados (Edmilson Monteiro e Renato Oliveira).
+- **Causa Raiz**: O campo `needs_reassignment` permanecia com valor `true` no banco de dados porque as funções de atribuição (`proposePublisher`, `approveProposal`, `directExecutePublisherUpdate` e `executeManualReplacement`) não realizavam o reset da flag para `false`.
+
+### 📌 2. Saneamento e Blindagem Definitiva
+1. **Saneamento do Banco de Dados**:
+   - Executado comando SQL saneador no Supabase para resetar `needs_reassignment = false` em todas as partes que já possuíam status ativo (`DESIGNADA`, `PRONTO`, `CONCLUIDA`) e publicador preenchido.
+2. **Correção nos Serviços (`replacementOrchestratorService.ts` e `workbookService.ts`)**:
+   - Inclusão explícita de `needs_reassignment: false` em todas as operações de atualização, substituição direta e aprovação de propostas.
+3. **Filtro Defensivo na Edge Function (`cron-whatsapp-reminders/index.ts`)**:
+   - A rotina `checkRefusalsLapsing` agora valida se a parte já possui publicador escalado e status ativo antes de contabilizá-la, blindando o sistema contra qualquer inconsistência residual.
+4. **Refinamento Informativo do Alerta**:
+   - O alerta matinal agora lista com precisão cirúrgica cada pendência real:
+     - **Semana e Data da Reunião**: ex: `Semana 21/09 (Quinta-feira, 24 de Setembro)`
+     - **A Parte / Tema**: ex: `*Presidente*`
+     - **O Publicador que Recusou**: lido com prioridade de `refusal_logs` e `rejected_reason`.
+   - Título da seção diária dinâmico: `🔍 *Acompanhamento Operacional:*` em dias normais, reservando `📋 *Ações mensais executadas:*` para o dia 1º do mês.
+
+---
+
+## 15. Triagem da Mensageria, Ponto Cego e Monitor Canônico 2.0 (2026-09-19)
+
+### 📌 1. Diagnóstico de Triagem: Logs Escapados e Redundâncias
+Foi realizada uma triagem completa no banco de dados e nos serviços de mensageria, revelando dois apontamentos arquiteturais cruciais:
+1. **Ponto Cego de Canais no Monitor Atual**:
+   - A view atual `vw_canonical_communication_log` monitora apenas `zapi_dispatch_log`, `zapi_smart_interactions` e `push_dispatch_log`.
+   - **291 confirmações e recusas** realizadas pelo Portal Web clássico (`confirmation_portal_responses`) e **19 alterações de disponibilidade** (`availability_history`) ocorrem em canais válidos, mas não apareciam no Monitor da aba Comunicações.
+2. **Duplicidade Sistemática de Webhooks Z-API**:
+   - A Z-API reenvia eventos em frações de segundo caso a resposta HTTP 200 demore microssegundos a mais.
+   - Como a tabela `zapi_smart_interactions` não possuía constraint de unicidade em `inbound_message_id`, mensagens idênticas foram inseridas em duplicidade (exemplo: as 16 mensagens registradas para Gerusa Souza correspondiam, na realidade, a 8 eventos reais duplicados).
+
+### 📌 2. Especificação Arquitetural: Monitor Canônico 2.0
+Para elevar o monitoramento ao mais alto padrão de usabilidade e governança teocrática, foi desenhada a nova arquitetura do **Monitor Canônico 2.0**:
+- **Hub Canônico de Eventos (`system_canonical_events`)**: Tabela unificada no Supabase capturando eventos de todos os canais:
+  - WhatsApp (Z-API) Outbound e Inbound
+  - Portal Web de Confirmação (`confirmation_portal_responses`)
+  - Portal Web de Disponibilidade (`availability_history`)
+  - Web Push PWA
+  - Ações Manuais de Operador / Modal
+- **Deduplicação Nativa por `inbound_message_id`**: Índice único e mecanismo de `UPSERT` / ignore no webhook, eliminando redundâncias na raiz.
+- **Síntese e KPIs no Topo do Monitor**:
+  - Cards de Taxa de Confirmação Global, Tempo Médio de Resposta, Falhas de Entrega Ativas e Substituições sem Desfecho.
+- **Filtros por 4 Perspectivas Chave**:
+  1. *Por Publicador*: Linha do tempo 360º de todas as interações de um irmão.
+  2. *Por Semana / Reunião*: Diagnóstico completo da escala de uma semana específica.
+  3. *Por Canal / Via*: WhatsApp Z-API vs Portal Web vs Web Push vs Manual.
+  4. *Auditoria de Operações Críticas*: Trocas manuais, recusas de partes e falhas de envio.
+
+### 📌 3. Solução Híbrida de Mercado & Análise de Custos
+- **Arquitetura Recomendada**:
+  - **Camada de Negócio e Governança**: Supabase Nativo (`system_canonical_events`) integrado com RLS e consumido diretamente no painel React da RVM.
+  - **Camada de Telemetria Técnica e Erros**: Sentry (Application Performance Monitoring) para rastrear erros de código em tempo real, stacktraces do frontend e falhas não capturadas de Edge Functions.
+- **Análise de Custos**:
+  - **Sentry Developer Tier (Free)**: R$ 0,00 (Cota de 10.000 erros/mês e 50.000 transações/mês, cobrindo com folga de 100x a demanda de uma congregação).
+  - **Supabase**: R$ 0,00 (Dentro do plano atual do projeto).
+  - **Custo Total**: **R$ 0,00 / mês**.
+
+---
+
+## 16. Engenharia de Auto-Cura, Blindagem de Idempotência e Auditoria de Disparos Manuais (2026-09-22)
+
+### 📌 1. Sweeper de 2h (Engenharia de Auto-Cura)
+- **O Desafio**: Perda de mensagens, webhooks com timeout ou instabilidades temporárias da Z-API poderiam deixar publicadores em um limbo sem o S-89 ou lembretes, forçando o operador a atuar manualmente.
+- **A Solução**: O Cron Principal (`cron-whatsapp-reminders`) foi evoluído de uma execução estática (1x ao dia) para um **Sweeper Contínuo** (`0 8-20/2 * * *`). Ele "varre" a base a cada 2 horas (das 08:00 às 20:00).
+- **Controle Antispam / Idempotência de Concreto**: 
+  - A varredura contínua foi implementada com **Strict Equality Idempotency** usando a tabela `zapi_dispatch_log` como Fonte Única de Verdade. Ele só envia o lembrete (D-9, D-7, etc.) ou auto-cura um S-89 se *não existir nenhum registro de sucesso* prévio.
+  - **Relatórios Gerenciais Silenciados**: Relatórios pesados de pendências ou estatísticas para a Comissão de Serviço e SRVM foram condicionados estruturalmente para dispararem *apenas no ciclo das 08:00h*, eliminando qualquer risco de "spam a cada 2 horas". (Deploy realizado).
+
+### 📌 2. Auditoria e Fix de Rotas Manuais (Log Canônico)
+- **Problema Encontrado**: O envio de cartões S-89 via WhatsApp Manual (usando o próprio celular com `wa.me`, no `S89SelectionModal.tsx`) estava passando argumentos com a tipagem e ordem equivocadas para a função `zapiOrchestrator.logDispatch`. Isso fazia com que o envio manual não gravasse o tipo `PUBLICACAO_S89` corretamente, cegando o Sweeper para os envios manuais.
+- **A Correção**: Fix aplicado no Frontend (`S89SelectionModal.tsx`), assegurando que envios via "Botão Zap Manual" insiram o registro perfeitamente no log canônico (`status = SUCCESS_MANUAL`). Agora, rotas automáticas (Z-API) e Manuais convergem para a mesma blindagem.
+
+### 📌 3. Identificação de Funcionalidade Legada
+- **Central de Comunicações (`CommunicationTab.tsx`)**: O fluxo onde o Agente IA (Chat) prepara rascunhos de S-89 e joga na "Caixa de Saída" para o usuário apertar "Enviar" foi identificado como Legado.
+- **A Brecha**: O botão `Enviar` dessa aba não implementa a chamada para o `logDispatch`.
+- **Decisão**: Foi documentado como legado. Recomenda-se inserir o Log Canônico nessa tela ou descontinuá-la, visto que a Fábrica (D-21) e o novo S89 Modal tornaram o fluxo de rascunhos via chat amplamente obsoleto para S-89.
+
+---
+
+## 17. Arquitetura Orientada a Eventos do Pacote S-140 (2026-09-26)
+
+### 📌 1. Transição de Agendamento Fixo para Event-Driven
+- **Modo 1 (Conceitual)**: A antiga lógica de "Envio Regular às Segundas-feiras (08:00 BRT)" foi envelopada. O motor de comparação de snapshot continua sendo o coração, mas sem gatilho de tempo fixo.
+- **Modo 2 (Emergência/Cirúrgico)**: Acionado *automaticamente* no exato instante em que uma substituição manual ou robótica (Auto-Healing) ocorre na semana corrente. Renderiza Imagens (PNG), alerta vermelho e inclui envio VIP direto ao Presidente da Reunião correspondente.
+- **Modo 3 (Sob Demanda / D-21)**: Acionado manualmente pelo botão ou **automaticamente** pelo robô D-21 (via GitHub Actions às 09:30 BRT) no instante em que as semanas atingem a janela de fechamento.
+
+### 📌 2. Atores no Gatilho
+- O gatilho de envio do Quadro de Anúncios e S-140 PDF foi mapeado para **apenas 3 atores**:
+  1. **Humano (Admin)**: Via botão manual ou aprovação de troca na semana.
+  2. **Robô Temporal (D-21)**: Varredura de calendário acionando Fechamento de Lote.
+  3. **Motor Auto-Healing (Reativo)**: Agente que auto-corrige e já notifica os envolvidos sem intervenção.
+- O Webhook da Z-API (`Não Poderei`) **não dispara o S-140**, atuando apenas como flag suja (`needs_reassignment=true`).
+
+---
+
+## 18. Correções S-140 / Status PDF, Reatribuição e Webhook Jev AI (2026-10-07)
+
+- **S-140 / Status PDF**: resolvida página em branco inicial e página final sobrando (`min-height` do wrapper); texto enganoso de "novas semanas" corrigido; memória de estado errada no despacho manual Modo 3 corrigida. Novo botão de despacho manual do *Status PDF Bot* na Apostila (`6e24429`).
+- **Reatribuição**: bugs cíclicos resolvidos; modal manual ganhou opção de pausar publicador (nome correto da propriedade de motivo de pausa).
+- **Webhook Z-API**: Roteador Cognitivo Jev AI para resolver múltiplas partes futuras no fallback de agenda; ações estritas de botões ignoram protocolo B e o roteador.
+- Scripts utilitários de query/teste do Jev AI commitados em `scripts/` (`77631ad`).
+
+---
+
+## 19. Reforma do Motor de Designações — regras `2026-10-09.05` (2026-10-09)
+
+15 commits (`0a4914a` → `9bc5524`). Decisões do Eliezer registradas nos itens 3.1–3.7 do parecer do motor e consolidadas em `.agents/workflows/motor-invariants.intent.md`.
+
+- **Modelo de decisão (M-0)**: score aditivo REMOVIDO. Escolha = faixa (bucket) + ordem lexicográfica estrita: proximidade MAIN ±4 › carga ±12 › frescor na parte › mais esquecido › menos partes no ano › nome. Gates relaxáveis em cascata (Q2/Q3 + mesma-parte + seção → … → nenhum); gates absolutos: elegibilidade estrutural, disponibilidade, 1 parte/semana (exceto Oração Final).
+- **Presidência (M-1/M-2)**: fila cíclica na janela ±52 sem; F1 roda para todas as semanas antes de F2–F4. Derivadas do presidente não contam como designação própria no `inWeekMap` (motor-fix-12).
+- **Garantia de parte de estudante (M-3)**: ancião/SM sem parte de estudante em ±13 sem → faixa 0; teto 2 titulares/semana. Irmãs têm faixa absoluta em demonstrações fora da seca (M-4).
+- **Ensino por escassez real (M-5)**: partes de ensino processadas da menor para a maior quantidade de candidatos (`countEligibleCandidates`).
+- **Participação (M-6)**: PROPOSTA/DESIGNADA/APROVADA/CONCLUIDA pesam igual; CANCELADA/REJEITADA não contam (`historyAdapter.DEAD_PARTICIPATION_STATUSES`).
+- **Gate de seção (M-7)**: só compara partes da mesma classe (caso Israel Vieira — Leitura da Bíblia e Leitor EBC fora da dívida de seção).
+- **Memória de Recusa semanal universal (M-12)**: quem recusou (`refusal_logs`) ou foi substituído (`substituted_publisher_name`) fica inelegível para qualquer parte da semana — motor, dropdown, painel, reatribuição e sugestão de substituto (`refusalMemoryService`, `getRankedEligibleForPart` como fonte única no `ActionControlPanel`).
+- **Fidelidade do histórico (M-10)**: sem ghost history na regeneração; sanity-check refaz designação inválida em vez de marcar CONCLUIDA vazia.
+- **UI/Agente**: badges de gate no dropdown (`PublisherSelect`), painel de regras honesto (`EngineRulesPanel`), prompt do agente com o modelo lexicográfico (`contextBuilder` RULES_TEXT_VERSION).
+- **Docs**: grafo interativo do ecossistema completo em `docs/motor-grafo-2026-10-09.html` (origem, motor, ranking, ciclo de vida, operação humana, comunicação, recusa, memória) — versão .05 com zoom.
+- **Regra de manutenção**: qualquer alteração em `eligibilityService`/`rankedEligibleService`/`unifiedRotationService`/`generationService` exige bump de `ELIGIBILITY_RULES_VERSION` + `RULES_TEXT_VERSION` + testes `node --test`.
+- **Estado ao encerrar (19:37)**: árvore limpa; não rastreados apenas `scratch/*_probe.ts`, `scripts/check_*.ts`, `participations_out.json`, `backups/`. Excalidraw MCP foi iniciado às 19:18–19:37 (possível intenção de desenhar o grafo) — sem artefato gerado.
+
+---
+
+## 20. ✅ Auditoria Agente (aba Chat) × Permissões × Micro-ações × Micro-modais × Modais de Relatório — 4 gaps resolvidos (2026-10-09 14:51 → 20:30)
+
+- **Pergunta de origem (14:51)**: *"Agente-chat(aba) X permissões (funcionalidades granulares) X micro-actions X micro-modais X modais-relatórios"*.
+- **Relatório (14:55)**: mapa source-only em 5 eixos + **adendo de resolução (20:30)** em `docs/auditoria-agente-permissoes-2026-10-09.md`.
+- **Interrupção 15:05–15:42**: erro **402 `additional_spend_limit_reached`** (teto de gasto adicional do Copilot, não saldo) — 4 "Prossiga" sem resposta. Contexto recuperado às 19:55 a partir do transcript do VS Code.
+- **Resolução dos gaps**:
+  1. 🔴→✅ `FETCH_DATA`/`QUERY_PUBLISHER_*` agora respeitam `dataAccessLevel` + `publisherFilters` e redigem campos pastorais: `permissionFilterCore.ts` (puro, 6 testes), `PermissionGate.getPublisherScope()`, `ResolvedPermissions.selfPublisherId`.
+  2. 🔴→✅ Revalidação **server-side** de TODAS as 21 ações de escrita do agente: RPCs `can_agent_action` / `assert_agent_action` (migration `20261009200000`, aplicada em prod), chamadas fail-closed em `executeAction` (`WRITE_AGENT_ACTIONS`).
+  3. 🟠→✅ Gate local em `TemporalChat.handleQuickEditPublisher` / `handlePreviewPublisherEdit` (único caminho que gravava sem passar por `executeAction`). Aprovar/rejeitar/bloquear data já passavam pelo gate.
+  4. 🟡→✅ (já estava) RLS `publishers`/`workbook_parts` verificado em `pg_policies`: todas as operações exigem `is_editor()` desde 05/08. Residual aceito: granularidade por ação depende do item 2 (RPC chamada pelo cliente).
+- **Regra nova**: ao adicionar `AgentActionType` que grava no banco, incluir em `WRITE_AGENT_ACTIONS`; ao mudar a resolução de permissões no cliente, espelhar em `can_agent_action` (SQL).
+- **Validação**: `tsc --noEmit` limpo; `npm test` 97/97.
+- **Deploy (20:20)**: Vercel produção `rvm-designacoes-antigravity-6wpdsemmq` ● Ready, alias `https://rvm-designacoes-antigravity.vercel.app`; GitHub Pages publicado via `npm run deploy`. Commit em produção: `a16efd0`.
+
+---
+
+## 21–26. Integração externa — seção mantida apenas localmente
+
+- Conteúdo integral em `docs-local/_ESTADO-LOCAL.md` (§21–26). Regra inflexível (2026-11-07): nada dessa integração vai para o remoto.
+
+---
+
+## 27. Integração externa — seção mantida apenas localmente
+
+- Conteúdo integral em `docs-local/_ESTADO-LOCAL.md` (§27). Regra inflexível (2026-11-07): nada dessa integração vai para o remoto.
+
+---
+
+## 28. Axioma Absoluto e Irreversível: Sempre Deixe Tudo Pronto para Qualquer Transição de Agente ou IDE (2026-10-13)
+
+- **Decisão Canônica**: Estabelecido protocolo universal de persistência para permitir transição transparente do usuário Eliezer entre múltiplos IDEs (VS Code, Cursor, Antigravity IDE, Claude Code).
+- **Estrutura Canônica no Git**:
+  - `/memories/repo/_ESTADO-ATUAL.md`: Estado vivo canônico resumido e alinhado com `_ESTADO-ATUAL.md`.
+  - `/memories/copilot-operacao.md`: Aprendizados operacionais e transversais (cotas, bypass de 402, modelos, BYOK, etc.).
+  - `/memories/session/<sessao>.md`: Histórico vivo de decisões e passos da conversa.
+- **Protocolo de Execução**:
+  1. **Entrada**: Todo agente, em qualquer IDE, inicia lendo as memórias antes de qualquer ação.
+  2. **Saída**: Todo agente, ao término de cada bloco ou antes de mudar de agente/IDE, salva as memórias e executa `git commit` + `git push origin main`.
+  3. **Segurança — regra inflexível (Eliezer, 2026-11-07)**: arquivos protegidos pelo `.gitignore` NUNCA sobem para o remoto — e **tudo** o que diz respeito à integração externa HG (código, scripts, documentação, memórias, dados, sessões de browser, tokens e credenciais) DEVE estar no `.gitignore` (bloco "HG" do `.gitignore`). Memória sobre esse tema fica apenas em arquivos locais (`docs-local/_ESTADO-LOCAL.md`, `README-HG-RVM.md`, memórias com `hg` no nome).
+- **Auditoria BYOK Google Developer Program Premium**:
+  - Confirmado via `gcloud` que a chave "Gemini GitHub API Key" pertence ao projeto "Antigravity Project" (`gen-lang-client-0179700161`), com faturamento ativo vinculado à "Conta RVM Pro" (`017DC8-83643E-7F9157`), debitando dos créditos do Google Developer Program Premium (~R$ 58/mês) e preservando a cota do GitHub Copilot.
+
+---
+
+## 29. Resumo Desacoplado de Próximas Designações Publicadas via Z-API (2026-10-13)
+
+- **Comportamento Implementado**:
+  - Para cada S-89 enviado (lote ou manual), se o publicador tiver $\ge 2$ designações futuras já publicadas no horizonte ativo ($\ge \text{hoje}$), ele recebe adicionalmente uma **mensagem única Z-API extra, separada e desacoplada**.
+  - A mensagem lista de forma cordial todas as suas próximas participações com: data por extenso, parte, função (Titular/Ajudante), dupla/parceiro(a), local (Salão Principal / Sala B) e status claro (`✅ Confirmada (Aceita)` vs `⏳ Resposta Pendente`).
+  - **Ações Rápidas Nativa do WhatsApp**:
+    - Se o total de ações for $\le 3$: envia botões de ação rápida nativos via `send-button-actions` (`[ ✅ Sim (DD/MM) ]`, `[ ❌ Não posso (DD/MM) ]`).
+    - Se o total de ações for $> 3$: envia menu interativo gaveta via `send-option-list` da Z-API (`[ 📋 Ver Ações / Responder ]`), contendo até 10 opções com título e descrição.
+  - **Paridade Funcional Total**: IDs de botão e lista usam o padrão canônico `CONFIRMAR:<partId>` e `RECUSAR:<partId>`, executados diretamente pelo `zapi-smart-webhook` com atualização no banco, registro em `confirmation_portal_responses`, alerta ao SRVM e aviso à dupla.
+  - **Segurança contra Tempestade**: Debounce automático de 10 minutos por publicador registrado em `zapi_dispatch_log` com tipo `RESUMO_DESIGNAGOES_FUTURAS`. No envio em lote (`publishWeek`), os destinatários são agrupados e notificados 1x ao final do lote.
+  - **Gatilho Cirúrgico em Lembretes de Confirmação Pendente (2026-10-14)**:
+    - Integrado no `cron-whatsapp-reminders` e `whatsapp-queue-consumer.ts`: sempre que um lembrete de falta de confirmação (`COBRANCA_72H` ou `LEMBRETE_D9` para partes com status `PROPOSTA`) é enviado com sucesso, o robô automaticamente aciona o `dispatchUpcomingAssignmentsSummary(publisherId, phone)`.
+    - Respeita o debounce de 10 minutos e a regra de $\ge 2$ partes futuras publicadas (se o irmão só tiver aquela parte pendente, nenhum resumo é disparado).
+- **Deploys Concluídos**:
+  - Edge Functions Supabase: `send-whatsapp`, `zapi-smart-webhook` e `cron-whatsapp-reminders` redeployadas no projeto `pevstuyzlewvjidjkmea`.
+  - Frontend: Vercel Produção e GitHub Pages atualizados.
+  - Testes: 98/98 testes automatizados aprovados (adicionado `publisherUpcomingAssignmentsService.test.ts`).
+
+---
+
+## 30. Refinamento de Redação Cordial, Formatação de Datas e Notificações Z-API (2026-10-14)
+
+- **Objetivo**: Humanizar e elevar o tom teocrático e cordial das comunicações via WhatsApp, assegurando formatação padronizada de datas no formato brasileiro (`DD/MM/AAAA`) e maior clareza em todas as etapas de notificação.
+- **Implementações e Refinamentos**:
+  1. **Formatação de Datas**: Introduzida a função `formatPartDateStr` no webhook e orquestrador para exibir `DD/MM/AAAA` consistentemente nas mensagens de WhatsApp em vez de formato ISO cru.
+  2. **Tom Cordial e Pastoral**:
+     - Mensagens de confirmação, recusa, duplicidade ("já constava confirmada") e pedidos de permuta ganharam tom mais caloroso e respeitoso ("Que Jeová abençoe sua preparação", referências litúrgicas adequadas, citação correta do Salmo 90:17 da TNM).
+     - Alertas à liderança e ao SRVM padronizados com estrutura visual limpa (ícones 🚨, 👤, 📖, 📅, 💬, 📌) e orientações claras de procedimento.
+     - Avisos de substituição e alteração de parceiro ajustados com instruções prévias de contato entre a dupla.
+  3. **Cartões S-89 e S-140**:
+     - Padronização do bloco de ações rápidas e do contato com o Superintendente da Reunião (`wa.me`).
+     - Legenda do pacote S-140 atualizada com redação fraterna e citação bíblica da Tradução do Novo Mundo (TNM).
+- **Arquivos Atualizados e Sincronizados**:
+  - `src/services/communicationService.ts`
+  - `src/services/publisherUpcomingAssignmentsService.ts`
+  - `src/services/s89Generator.ts`
+  - `src/services/weekPublishService.ts`
+  - `src/services/zapiOrchestrator.ts`
+  - `supabase/functions/cron-whatsapp-reminders/index.ts`
+  - `supabase/functions/zapi-smart-webhook/index.ts`
+- **Sincronização Git**: Commit `be2c7c7` enviado para `origin/main` (branch 100% atualizada).
+
+---
+
+## 31. Descarte de Partes Secundárias/Implícitas da Presidência e Blindagem de Botões Nativos Z-API (2026-10-14)
+
+- **Problema Identificado**:
+  - Ao ser designado Presidente da Reunião, o banco de dados atribui o presidente também às partes secundárias automáticas (`Oração Inicial`, `Comentários Iniciais`, `Elogios e Conselhos` [múltiplas ocorrências] e `Comentários Finais`).
+  - No resumo consolidado de próximas designações enviado via Z-API, todas essas 5 micro-partes apareciam na lista junto com a Presidência e demais partes (totalizando 7 itens no exemplo real).
+  - Com 7 partes confirmadas, o sistema gerava 7 botões de recusa. Como o total ultrapassava 3 botões, o robô chaveava para `/send-option-list` (Lista Interativa gaveta), que no WhatsApp Web/Desktop não renderiza botões nativos e no mobile esconde as ações em um menu, fazendo com que os botões planejados não aparecessem.
+- **Soluções Implementadas**:
+  1. **Filtro Canônico `isRealUpcomingAssignment` (`publisherUpcomingAssignmentsService.ts`)**:
+     - Descarta de forma cirúrgica e resiliente (com normalização unicode e semântica S-140) todas as atribuições secundárias/implícitas da presidência (`Oração Inicial`, `Comentários Iniciais`, `Elogios e Conselhos`, `Comentários Finais`) e Cânticos.
+     - Preserva rigorosamente a designação principal `Presidente` e todas as designações litúrgicas manuais (`Necessidades Locais`, `Discurso Tesouros`, `Joias Espirituais`, `Leitura da Bíblia`, demonstrações do ministério, `Dirigente/Leitor EBC` e `Oração Final`).
+  2. **Redução e Renderização de Botões Nativos WhatsApp (`send-button-actions`)**:
+     - No caso real (Presidente em 15/10 e Necessidades Locais em 29/10), a lista cai de 7 para 2 partes reais.
+     - A quantidade de botões cai para 2 (`[ ❌ Não posso (15/10) ]` e `[ ❌ Não posso (29/10) ]`), caindo perfeitamente dentro da cota de $\le 3$ botões nativos (`sendButtonActionsDirect` via `/send-button-actions` da Z-API).
+     - Priorização inteligente de até 3 botões: se houver partes pendentes, recebem prioridade máxima (`✅ Sim` e `❌ Não posso`); partes confirmadas recebem botão de recusa das datas mais próximas.
+     - Redação contextual: se todas as designações estiverem confirmadas, o texto adapta para: *"Todas as suas designações acima já estão confirmadas. Caso surja algum imprevisto e não possa realizar alguma delas, avise com antecedência tocando no botão abaixo:"*.
+     - Inclusão do link permanente do Portal de Disponibilidade / Designações no rodapé para contingência em computadores / WhatsApp Web.
+- **Validação Automatizada & Qualidade**:
+  - Suíte de testes expandida para **99 testes automatizados (99/99 aprovados, 0 falhas)**.
+  - Build de produção (`npm run build`) validado sem erros.
+
+---
+
+## 32. Análise e Planejamento: 6 Invariantes de Botões Z-API em Lembretes (2026-10-15)
+
+- **Contexto & Solicitação**:
+  - Ajuste na composição de botões interativos nativos do WhatsApp via Z-API (`send-button-actions`) nas mensagens de lembretes (manual e robô).
+  - Análise e planejamento rigorosos sem implementação de código imediata, reportando impactos prováveis.
+- **As 6 Invariantes Fixadas**:
+  1. *Quando destinatário ainda NÃO CONFIRMOU aceite* (`part.status === 'PROPOSTA'`).
+  2. *Neste caso (invariante 1), e somente neste caso* (se já confirmou, não exibe "Confirmar").
+  3. *O botão "Confirmar" DEVE ser exibido sempre* (quando sob a invariante 1).
+  4. *Se Z-API/Meta não permite 4 botões, no caso invariante 1, omitir "Ativar Notificações"* dos botões interativos rápidos.
+  5. *No caso de 4 botões permitidos, sob invariante 1-2, vale invariante 3 imperativo*.
+  6. *Senão (limite de $\le 3$ botões rápidos da Meta em vigor), vale invariante 4 imperativo*.
+- **Diagnóstico da Causa-Raiz**:
+  - `cron-whatsapp-reminders/index.ts` (D-9, D-7, D-2): Atualmente só enviava `RECUSAR`, `DISPONIBILIDADE` e `PUSH_ONBOARDING`. Nunca incluía `CONFIRMAR` para partes `PROPOSTA`.
+  - `zapiOrchestrator.ts` (`sendS89Direct`): Tentava empurrar 4 botões (`CONFIRMAR` + `RECUSAR` + `DISPONIBILIDADE` + `PUSH_ONBOARDING`), estourando a cota de 3 botões da Meta e gerando erro HTTP 400 com fallback indesejado.
+- **Matriz de Decisão Arquitetada**:
+  - Se `PROPOSTA` (Não confirmou): 1. `[ ✅ Confirmar ]`, 2. `[ ❌ Não Poderei ]`, 3. `[ 📅 Disponibilidade ]`. Push onboarding omitido dos botões (preservado no texto de rodapé).
+  - Se `DESIGNADA` (Já confirmou): 1. `[ ❌ Não Poderei ]`, 2. `[ 📅 Disponibilidade ]`, 3. `[ 🔔 Ativar Notificações ]` (se não tiver push ativo).
+- **Impactos Relatados**: Aumento das confirmações antecipadas em 1 toque, fim dos erros HTTP 400 na Meta, total compatibilidade com o webhook existente (`zapi-smart-webhook`) e preservação da oferta de push onboarding.
+- **Memória de Sessão**: Documentada em detalhes em [`memories/session/plano-ajuste-botoes-lembretes-zapi.md`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/memories/session/plano-ajuste-botoes-lembretes-zapi.md).
+
+---
+
+## 33. Entrega: Blindagem Bidirecional de Gênero e Parentesco no Motor (Regras `2026-10-15.01`) (2026-10-15)
+
+- **Contexto & Diagnóstico da Reincidência**:
+  - Em 15/10/2026 às 14:57 BRT, a irmã Raquel Rocha (Raquel Oliveira) recusou a parte de estudante *4. Iniciando conversas* na semana de 26/10/2026 via botão WhatsApp `RECUSAR`.
+  - O webhook acionou o GitHub Actions (`headless-auto-reassign.yml` run `38781608206`), chamando `executeAutoReassignment` com `applyEngineRules: true`.
+  - O motor de elegibilidade anterior (`2026-10-09.05`) possuía verificação de gênero assimétrica: checava o gênero do Titular apenas quando a vaga em aberto era de *Ajudante* (`funcao === 'Ajudante'`).
+  - Quando a vaga em aberto era de *Titular* e o *Ajudante* já estava definido (irmã Rosa), o motor não validava o gênero do ajudante preexistente. Como o irmão Felipe de Oliveira estava em seca de partes de estudante há >13 semanas (`isElderOrMSInStudentDrought` = Faixa 0), o motor o escolheu como titular, gerando uma dupla de sexos opostos não aparentados (Felipe e Rosa).
+- **Implementação da Blindagem Bidirecional (`eligibilityService.ts`)**:
+  1. **Detecção Simétrica do Ajudante (`buildEligibilityContext`)**:
+     - Quando `funcao === 'Titular'`, o contexto agora busca ativamente a parte de ajudante correspondente na semana (por `seq` compartilhado, número do título ex: `4.`, título base similar ou `seq + 1`).
+     - Se o ajudante tiver publicador definido, extrai: `assistantGender`, `assistantPublisherId`, `assistantSpouseId`, `assistantParentIds`, `assistantChildIds`.
+  2. **Bloqueio Inexorável de Gênero com Bypass de Família (`checkEligibility`)**:
+     - Sob `EnumModalidade.DEMONSTRACAO`:
+       - Se `context.assistantGender` estiver definido:
+         - **Bypass de Cônjuge**: Casados entre si (`spouseId` cruzado) podem formar dupla de demonstração independente do gênero.
+         - **Bypass Pai/Filho**: Pais e filhos (pai/mãe com filho/filha em ambos os sentidos) podem formar dupla independente do gênero.
+         - **Demais Casos**: `publisher.gender` DEVE ser estritamente igual a `context.assistantGender`. Caso contrário, bloqueio sumário com motivo: `BLOQUEADO: Irmão não pode ser titular com ajudante irmã` (ou vice-versa).
+  3. **Preservação de Invariantes & BD Intocado**:
+     - **Banco de Dados 100% Intocado**: Nenhuma alteração retroativa realizada no banco de dados; o pareamento atual no BD foi mantido intacto conforme restrição expressa.
+     - **Sincronia Total de Regras**: Versão das regras atualizada para `2026-10-15.01` em `eligibilityService.ts` e `RULES_TEXT_VERSION` em `contextBuilder.ts` (mantendo sincronia com `AdminDashboard.tsx`).
+     - **Prompt do Agente Atualizado**: Regra A em `contextBuilder.ts` documenta a blindagem bidirecional e bypass familiar.
+- **Validação Automatizada & Qualidade**:
+  - Testes unitários novos cobrindo varão com irmã (bloqueio), irmã com varão (bloqueio), varão com varão (ok), irmã com irmã (ok), bypass cônjuge (ok), bypass pai/filha (ok), bypass filho/mãe (ok), e resolução no `buildEligibilityContext`.
+  - Suíte completa expandida para **110 testes automatizados (110/110 aprovados, 0 falhas)**.
+  - Build de produção (`npm run build`) validado com 100% de sucesso.
+
+
+---
+
+## 34. Entrega: Governança Jev v2, Regras Canônicas de Intenção e FinOps de IA Multi-IDE (2026-10-17)
+
+- **Consolidação das Regras de Intenção (`memories/regras-intencao.md`)**:
+  - Formalizado documento canônico de 51 linhas definindo todas as diretrizes invioláveis do projeto:
+    * **Motor de Designações**: Decisão por faixas (buckets) lexicográficos (M-0), sem pontuação aditiva solta; gates de disponibilidade e cota de 1 parte por semana (exceto Oração Final).
+    * **Blindagem Bidirecional**: Titular e ajudante de sexos opostos apenas se cônjuges ou pai/mãe↔filho(a) em ambos os sentidos (`2026-10-15.01`).
+    * **Módulo RM (Relatório Mensal)**: Eixos ortogonais estritos entre `is_congregated` (membresia) e `field_service_status` (campo) (I-0); cálculo do ano de serviço iniciando em setembro (I-1).
+    * **Convenções e Qualidade**: TypeScript strict sem `any`/`@ts-ignore`, suite de testes obrigatória antes de commits.
+    * **Segurança e LGPD**: Isolamento absoluto de arquivos `.env*`, proibição de commits/push automáticos sem consentimento explícito.
+
+- **Calibração e Upgrade do Verificador Jev (`scripts/jev-check.mjs` Gate v2)**:
+  - **Diagnóstico da Fragilidade do v1**: O gate v1 dependia da métrica subjetiva `noul >= 0.8`, causando falsos positivos em diffs legítimos médios com `violacao=nenhuma`; ao mesmo tempo, `risco < 2` permitia que vazamentos de credenciais (`bad-2`) passassem com risco ~1.60.
+  - **Resultados da Calibração Empírica (`_jev_calibrate.mjs`)**:
+    * 6 fixtures de teste (3 bons: `ok-1..3`, 3 ruins: `bad-1..3`) avaliados em 5 rodadas consecutivas cada.
+    * Gate v2 atingiu **30/30 acertos (100% de separação estatística)**.
+    * Limiares calibrados: `LIMIAR_NENHUMA = 0.90` (gap de 0.88 para o pior bad) e `LIMIAR_RISCO = 1.0` (exige risco estritamente abaixo de Médio; gap de 0.57 para bad-2).
+    * Enriquecimento de saída: Exit 0 (Aprovado), Exit 1 (Reprovado por violação), Exit 2 (Erro de infraestrutura/HTTP 402/dados ausentes).
+  - **Regra para Agentes de IDE (`.roo/rules/10-jev-verificacao.md`)**: Documentado o fluxo obrigatório de pré-verificação antes de aplicar diffs no projeto.
+
+- **Blindagem de Segurança Multi-IDE (`.rooignore` e `.gitignore`)**:
+  - Auditoria revelou que enquanto `.gitignore` protege contra rastreamento no Git, extensões agênticas como o Roo Code conseguiam inspecionar arquivos locais caso instruídas.
+  - Criado e sincronizado `.rooignore` bloqueando terminantemente `.env`, `.env.*`, `supabase/.env` e pastas sensíveis tanto na raiz quanto dentro do workspace.
+  - Adicionada regra `.tmp/` no `.gitignore` para isolar rascunhos de patches do verificador Jev.
+
+- **Auditoria Forense de Custos de IA (OpenRouter) & Plano FinOps**:
+  - Mapeadas todas as chamadas no código duro:
+    1. `supabase/functions/zapi-smart-webhook/index.ts` (Protocolo B / Jev AI via OpenRouter).
+    2. `scripts/jev-check.mjs` (Decisions API `typesafe/jev-1.14`).
+    3. `scripts/s38-sync-bot.ts` (Scraping WOL via `anthropic/claude-sonnet-5.5`).
+    4. `src/components/S38ProfilesTab.tsx` (Catálogo de modelos).
+  - Diagnóstico do consumo diário de US$ 23,06 decorrente de loops de contexto pesado do Roo Code com Claude 3.5 Sonnet + calibrações repetidas.
+  - Identificado erro HTTP 402 (`limit_source: "openrouter_credits"`) indicando esgotamento da carteira pré-paga da conta.
+  - Proposta de Governança Inteligente: migração para tiering de custo ultrabaixo (`deepseek/deepseek-chat` e `google/gemini-2.0-flash-001` a frações de centavo), atalho heurístico no webhook e script de monitoramento `npm run ai:status`.
+
+- **Qualidade & Validação**:
+  - Suíte completa de 110 testes automatizados (`npm test`) executada com **110/110 aprovados (0 falhas)**.
+
+---
+
+## 35. Integração externa — seção mantida apenas localmente
+
+- Conteúdo integral em `docs-local/_ESTADO-LOCAL.md` (§35). Regra inflexível (2026-11-07): nada dessa integração vai para o remoto.
+
+---
+
+## 36. Integração externa — seção mantida apenas localmente
+
+- Conteúdo integral em `docs-local/_ESTADO-LOCAL.md` (§36). Regra inflexível (2026-11-07): nada dessa integração vai para o remoto.
+
+---
+
+## 37. Integração externa — seção mantida apenas localmente
+
+- Conteúdo integral em `docs-local/_ESTADO-LOCAL.md` (§37). Regra inflexível (2026-11-07): nada dessa integração vai para o remoto.
+
+---
+
+## 38–40. Integração externa — seções mantidas apenas localmente
+
+- Conteúdo integral em `docs-local/_ESTADO-LOCAL.md` (§38, §39, §40 — este último de 2026-11-10). Regra inflexível (2026-11-07): nada dessa integração vai para o remoto.
+
+---
+
+## 41. Planejamento: Nova UI-Chat-IA "Conversa RVM" — desacoplada, intenção-primeiro, voz + texto (2026-11-10)
+
+- **Status**: 🟢 Plano aprovado e implementado em 2026-11-11 (§42).
+- **Memória canônica**: `memories/repo/plano-ui-conversa-ia-2026-11-10.md` e `memories/session/implementacao-ui-conversa-ia-2026-11-11.md`.
+
+---
+
+## 42. Viabilização End-to-End & Refinamento Responsivo: Nova UI-Chat-IA "Conversa RVM" Desacoplada (2026-11-11)
+
+- **Status**: 🟢 **Viabilizado, refinado, testado (134/134 testes em `npm test`), ESLint estrito zero-erros em `conversa`, compilado (`vite build`) e verificado em Chromium real (Playwright Edge)**, sem alterar nenhum arquivo do RVM legado (`index.html`, `src/App.tsx`, `AuthContext.tsx`, `services/*`, `vercel.json`, `vite.config.ts`).
+- **Checkpoint prévio garantido**: Tag Git `checkpoint-pre-conversa-ui-66f083d` criada e enviada ao remoto antes de qualquer modificação de código.
+- **Carrossel Documental Limpo, Sem Barras de Rolagem & Auto-Ajustado por Dispositivo (`DocumentCarousel.tsx` + `conversa.css`)**:
+  - Eliminação total de barras de rolagem internas (`overflow: hidden` em `.cv-carousel`, `.cv-carousel-track`, `.cv-form-frame` e `.cv-form-canvas`).
+  - Motor de encaixe dinâmico (`ResizeObserver` + `window.visualViewport` / `orientationchange`): mede as dimensões intrínsecas de cada folha (`800px` para S-140/S-1, `480px` para S-4, `460px` / dimensões naturais de PNG para S-89) e calcula `scale = min(availW / naturalW, availH / naturalH, maxScale)` ajustando exatamente `width` × `height` ao dispositivo (celular retrato, celular paisagem, tablet/laptop e tela cheia `100dvh`).
+  - Largura integral da coluna liberada para cards/carrossel do assistente, remoção de margens mortas laterais do S-140 via escopo CSS isolado, suporte nativo a deslizar por toque (*swipe*) e navegação por teclado (`←`, `→`, `Esc`).
+  - Cobertura cronológica estendida em `documentPort.ts` e `cardPlanner.ts` para **S-140**, **S-89** (PNG oficial + fallback HTML fiel), **S-4** (`S-4-T 11/23`) e **S-1** (`S-1-T 11/23`, protegido por `policyGuard` para perfis autorizados em Relatórios Mensais).
+- **Padronização Canônica & Higiene**:
+  - Todas as datas exibidas ao usuário formatadas em `DD/MM/AAAA` via `core/dateFormat.ts` (módulo puro sem efeitos colaterais).
+  - Tipagem TypeScript/ESLint 100% estrita (`0` `any`, `0` warnings/errors em `npx eslint src/features/conversa api/conversa-nlu.ts`) e isolamento total de referências a integrações externas.
+- **Entrada Multi-página Isolada & CSS Próprio**:
+  - `conversa.html` (`viewport-fit=cover`, sem bloquear zoom de acessibilidade) + `src/features/conversa/main.tsx`: carrega exclusivamente `./ui/conversa.css` (sem `../../index.css`) e configura `pdfjsLib.GlobalWorkerOptions.workerSrc = resolveAppUrl('pdf.worker.min.mjs')`.
+- **Autenticação Própria em `ConversaAuthGate.tsx`**:
+  - Espelha o fluxo de segurança do RVM (`isLoading`, Biometria/PIN, Google OAuth mantendo `redirectTo` na própria rota `/conversa.html`, 2FA WhatsApp, `<AppLockScreen />` e botão `Sair` no cabeçalho).
+- **Portas Alinhadas ao Schema Real Postgres**:
+  - `queryPort.ts`, `briefingPort.ts`, `documentPort.ts` e `actionPort.ts` operam com `resolved_publisher_id`, `seq`, `mapDbToWorkbookPart`, RPCs `get_my_workbook_parts` / `get_portal_responses_for_week` / `submit_confirmation_portal_response`, `special_events.week`, `rm.*` e `availability.exceptionDates`.
+- **Pipeline NLU & Orquestrador End-to-End**:
+  - `api/conversa-nlu.ts` <-> `l2Classifier.ts`: contrato `{ utterance, text }` alinhado com sanitização de slots `'null'`/`'undefined'` e fallback determinístico L0.
+  - `cardPlanner.ts`: corrige desambiguação 0-based (`choiceIndex`), botão `"Nenhum destes"` ligado em `ClarifyCard`, executa ações reais (`registerAbsence`, `approveWeekProposal`), prioriza auto-referência (`"minhas..."`) e cobre `query-pending-weeks` e `query-last-participation`.
+  - `rvmRulesKnowledge.ts`: normaliza acentuação em `findKnowledge` (`rodízio`, `gênero`, `critério`, etc.).
+- **Ações Inline no Briefing & Cards**:
+  - `BriefingModal.tsx` confirma ou solicita motivo inline de recusa; `MicroPanel.tsx` trata estados `success`/`error` e `pending-weeks-list`; `DocumentCarousel.tsx` inclui `.cv-carousel-fullscreen` e proteção de índice.
+- **Nota Operacional de Execução**:
+  - Local dev: `npm run dev` -> `http://localhost:5173/conversa.html`; Build local: `npm run build` + `npm run preview` -> `http://localhost:4173/conversa.html`.
+  - Em produção na Vercel, `vercel.json` permanece intacto com `"source": "/(.*)" -> "destination": "/index.html"` (por conta da restrição de não alterar arquivos do RVM); se futuramente desejar publicar `/conversa.html` direto na Vercel, será necessário excluir `/conversa.html` e `/api/` do rewrite catch-all em `vercel.json`.
+
+---
+
+## 43. Checkpoint Pós-Entrega Conversa RVM & Ajuste Pontual em BD (2026-11-13)
+
+- **Tag Git de Checkpoint**: `checkpoint-conversa-ui-2026-11-13` (sobre o baseline de código `27aaafc`, antes de iniciar a revisão de `memories/repo/plano-ui-conversa-ia-2026-11-10.md`).
+- **Portões verificados em `2026-11-13`**:
+  - `npm test`: **134/134** aprovados (`0` falhas).
+  - `npx eslint src/features/conversa api/conversa-nlu.ts`: **Exit 0** (`0` erros/warnings).
+  - `npm run build` (`vite build`): **Exit 0** (`dist/index.html` e `dist/conversa.html` gerados).
+  - `npm run type-check` (`tsc -b`): **Exit 2** (erros estritos pré-existentes no legado + 4 checagens de estreitamento em `src/features/conversa/__tests__/conversaFlow.test.ts`; nenhum código editado neste checkpoint).
+- **Ajuste direto pontual no Supabase (sem alterações em arquivo do repositório)**:
+  - `workbook_parts`, semana `2026-11-30`, registro `id = 58369c96-f099-4e49-a0f3-3ee2b7ddb15a` (`seq = 18`, `Evento Especial`, `status = 'DESIGNADA'` preservado): `resolved_publisher_id` alterado de `'21'` para `'19'` (única linha modificada dentre as 23 da semana; `special_events` inalterado).
+- **Memória da sessão**: [`memories/session/checkpoint-conversa-ui-2026-11-13.md`](memories/session/checkpoint-conversa-ui-2026-11-13.md).
+- **§43.1 Abertura Local 1-Comando & Autenticação Dev Sem Fricção (2026-11-13 23:30 BRT)**:
+  - **`npm run conversa` (`scripts/conversa-dev.mjs` + `package.json`)**: detecta servidor Vite já ativo com middleware de auth local (`5173`/`5174`/`5175`) e abre `http://localhost:<port>/conversa.html` imediatamente no navegador padrão sem duplicar porta, ou inicia `vite --open /conversa.html` se nenhum servidor estiver ativo.
+  - **Bootstrap de Sessão Local & NLU em `vite.config.ts` + `ConversaAuthGate.tsx` + `ConversaApp.tsx`**:
+    - Plugin dev-only (`apply: 'serve'`) em `vite.config.ts` expõe `/__conversa_dev_auth` (restrito a loopback `127.0.0.1`/`::1`) para gerar token `magiclink` do perfil admin via `SUPABASE_SERVICE_ROLE_KEY` local, além de executar `api/conversa-nlu.ts` diretamente em `/api/conversa-nlu` (com `bypass` no proxy `/api`) sem depender de `localhost:8000`.
+    - `ConversaAuthGate.tsx` autentica automaticamente em `localhost`/`127.0.0.1` (`import.meta.env.DEV`) via `supabase.auth.verifyOtp` sem redirecionar o OAuth para `vercel.app` (respeitando logout explícito `cv_manual_logout` em `ConversaApp.tsx`).
+  - **Rotas de Produção em `vercel.json`**: adicionados cabeçalho `no-cache` e rewrites explícitos para `/conversa` e `/conversa.html` antes do fallback `/(.*) -> /index.html`.
+  - **Qualidade**: estreitamento de tipos concluído em `src/features/conversa/__tests__/conversaFlow.test.ts` (zero erros TS/ESLint em `src/features/conversa/**`), `134/134` testes aprovados e `npm run build` limpo.
+- **§43.2 Repositório GitHub Pages Dedicado `EliezerRosa/conversa-rvm` & Blindagem GitHub Pages (2026-11-14 00:35 BRT)**:
+  - **Repositório dedicado `EliezerRosa/conversa-rvm`**: publicado via `npm run deploy:conversa` (`scripts/deploy-conversa-pages.mjs`) em `https://eliezerrosa.github.io/conversa-rvm/` (servindo `conversa.html` tanto na raiz `index.html` quanto em `conversa.html` e `404.html`, sem o Service Worker legado do RVM).
+  - **GitHub Pages no repositório principal (`EliezerRosa/RVM-Designacoes-Antigravity`)**: atualizado `.github/workflows/deploy.yml` para Node 22 e geração de `dist/conversa/index.html` (além de `dist/conversa.html`), exclusão de rotas `conversa` no `public/sw.js` (`CACHE_NAME = 'rvm-pwa-v2'`) e ponte SSO/OAuth cross-origin (`?oauth_return_to=...` e `#conversa_sso=...` entre `eliezerrosa.github.io` e `rvm-designacoes-antigravity.vercel.app`) em `conversa.html`, `index.html` e `ConversaAuthGate.tsx`.
+- **§43.3 Ergonomia do Carrossel Flutuante & Botões S-89 com Disparo de Webhooks Z-API (2026-11-14 11:20 BRT)**:
+  - **Carrossel flutuante ("solto" sobre a conversa)**: `DocumentCarousel.tsx` e `conversa.css` renderizam o carrossel sobreposto à conversa dentro de `.cv-carousel-backdrop` + `.cv-carousel-floating` (compacto para S-89/S-4, com `flex-shrink: 0` nos cabeçalhos/rodapés e reserva de `56px` em `recomputeFit` quando os botões S-89 estão visíveis).
+  - **Fechamento suave ao tocar fora**: tocar/clicar fora do documento (no backdrop, na área livre da trilha, na tecla `Escape` ou no botão `✕`) fecha o carrossel flutuante e preserva a pílula compacta `📄 Exibir no carrossel (N)` na mensagem para reabertura quando desejado.
+  - **Botões S-89 exclusivos do publicador logado**: exibidos apenas quando `docType === 's89'` e a designação pertence ao publicador autenticado (`isSelfAssignment`, `publisherId === selfPublisherId` ou nome normalizado idêntico a `selfPublisherName`):
+    - `✅ Confirmar`: exibido somente quando a parte ainda não está confirmada (`!isConfirmed`); após confirmar, exibe o selo `✅ Confirmado`.
+    - `❌ Não Poderei`: exibido enquanto não recusada.
+  - **Resolução de Identidade Admin & Priorização das Próprias S-89 (`ConversaApp.tsx`, `cardPlanner.ts`, `documentPort.ts`, `l0Grammar.ts`)**:
+    - O perfil técnico de Admin sem `publisher_id` vinculado no Supabase (`0b7bac77-99de-4eea-b382-de3e73c17488`) é mapeado automaticamente ao cadastro do administrador (`publisher_id = '3'`, `Eliezer Rosa`), e o middleware dev `/__conversa_dev_auth` prioriza o perfil Admin com `publisher_id` preenchido.
+    - Consultas `view-s89` e `view-s140` sem semana explícita (`"ver s-89"`, `"meu s-89"`, `"s-89 de <nome>"`) usam `explicitWeekId = undefined` (em vez de prender a busca na semana corrente concluída/cancelada), e `getS89ChronologicalList` ordena as próprias designações do usuário logado em primeiro lugar no carrossel (`index 0`), exibindo imediatamente os botões `✅ Confirmar` e `❌ Não Poderei` nas folhas S-89 do próprio publicador e ocultando-os nas folhas de terceiros.
+  - **Disparo dos mesmos webhooks Z-API (`zapi-smart-webhook`)**: `actionPort.ts` (`triggerZApiSmartWebhook`) invoca a Edge Function `zapi-smart-webhook` com o payload idêntico aos botões do WhatsApp (`buttonsResponseMessage.buttonId = 'CONFIRMAR:<partId>'` ou `'RECUSAR:<partId>'`), acionando confirmação/recusa no banco, resposta WhatsApp e gatilho GitHub Action `trigger-auto-reassign`, com sincronização em tempo real nas mensagens (`ConversaApp.tsx`) e `135/135` testes aprovados (`npm test`).
+- **§43.4 Skill Especialista RVM Designações na "Conversa RVM" & Correções de Produção (2026-11-14 16:13 BRT)**:
+  - **Conhecimento Canônico Completo (`rvmRulesKnowledge.ts`, `knowledgePort.ts`)**: 16 tópicos canônicos com busca por palavras-chave e síntese multi-tópico cobrindo objetivo do sistema, motor lexicográfico `M-0..M-12`, presidência cíclica, garantia de estudante para Anciãos/SMs, prioridade de irmãs em demonstrações, ensino por escassez, partes especiais/oração, gênero/parentesco bidirecional (`2026-10-15.01`), memória semanal de recusa (`M-12`), Leitura/EBC, Necessidades Locais/Eventos, relatórios `S-4`/`S-1` (`I-0..I-7`), mensageria Z-API & 6 Invariantes de Botões, Aquiescência Tácita e Governança (`CCA`/`CS First-Access Binding`).
+  - **Catálogo NLU L0/L2 & Consultas Vivas (`intentCatalog.ts`, `l0Grammar.ts`, `l2Classifier.ts`, `api/conversa-nlu.ts`, `queryPort.ts`, `cardPlanner.ts`)**: catálogo expandido para 29 intenções; correção de `"Quantas designações eu tenho"` e similares para `query-my-assignments` (com filtro opcional de parte); endpoint L2 no `github.io` direcionado à API Vercel; consultas vivas com `PermissionGate` (`all`/`filtered`/`self`) para elegibilidade (`eligibilityService`), ranking determinístico (`rankedEligibleService`), perfil do publicador, lista filtrada de publicadores e analytics/Fila NL/Eventos Especiais (`info-list` no `MicroPanel.tsx`).
+  - **Micro-Ações Governadas e Isolamento Estrito (`actionPort.ts`, `cardPlanner.ts`)**: confirmação/recusa S-89 (`zapi-smart-webhook`), ausência, aprovar semana, gerar semana (`GENERATE_WEEK` usando `rankedEligibleService` + `refusal_logs`), designar/substituir parte (`ASSIGN_PART` com validação de elegibilidade/gênero via `eligibilityService`), rejeitar proposta (`REJECT_PROPOSAL`), limpar semana (`CLEAR_WEEK`), concluir semana/parte (`COMPLETE_PART`), incluir na Fila NL (`MANAGE_LOCAL_NEEDS`) e desfazer sessão (`UNDO_LAST`), sempre em 3 camadas (`PermissionGate` -> `action-preview` -> `assert_agent_action`) sem copiar ou invocar `agentService`/`agentActionService`.
+  - **Correção da Bolha Duplicada (`ConversaShell.tsx`) & Qualidade**: ocultada a bolha `.cv-bubble` repetida quando `MicroPanel` de confirmação/erro/lista já exibe o mesmo texto; preservado integralmente o carrossel flutuante com toque fora e botões S-89 exclusivos do publicador logado. Validações finais: `npx eslint src/features/conversa api/conversa-nlu.ts` (**Exit 0**), `npm test` (**139/139** aprovados), `npm run build` (**Exit 0**) e `npm run deploy:conversa` publicado em `https://eliezerrosa.github.io/conversa-rvm/`.
+- **§43.5 Ampliação da Visão de Contexto, Raciocínio Dinâmico & Correção de `this` na "Conversa RVM" (2026-11-14 16:43 BRT)**:
+  - **Correção de binding `this` (`queryPort.ts`, `actionPort.ts`)**: substituídas chamadas via `this.*` por referências explícitas `queryPort.*` (`getAvailableWeeks`, `getWeekParts`) e `actionPort.*` (`assertServerPermission`, `triggerZApiSmartWebhook`), eliminando `"Ocorreu uma falha momentânea ao processar sua solicitação"` quando métodos são referenciados fora do objeto.
+  - **Conhecimento Total do Sistema (`rvmRulesKnowledge.ts` & `knowledgePort.ts`)**: expandido de 16 para **22 tópicos canônicos** (`arquitetura-abas-rvm`, `configuracao-motor-engine-config`, `fluxo-importacao-e-publicacao`, `comissao-de-servico-e-anuncios`, `territorios-e-backup`, `disponibilidade-e-autoria`) e busca aprimorada com remoção de stopwords em português + casamento por radical (5 caracteres). Em `knowledgePort.ts`, `SpecialistContextInput` permite sintetizar funcionalidades gerais, combinar múltiplos tópicos, anexar panorama vivo da congregação (total de publicadores/semanas) e inspecionar dinamicamente `PermissionGate` (`canViewTab` + `canAgentAction` em `CONVERSA_INTENTS` + escopo `all`/`filtered`/`self`) para responder *"O que é que é permitido eu fazer?"*.
+  - **NLU, Política Segura & UI (`l0Grammar.ts`, `api/conversa-nlu.ts`, `cardPlanner.ts`, `policyGuard.ts`, `ConversaShell.tsx`)**: reconhecimento direto em L0/L2 de perguntas sobre funcionalidades, permissões do usuário, abas/módulos, `engine_config`, territórios e backup; preservação integral do texto no fallback conceitual de `cardPlanner.ts`; `policyGuard.ts` garante leitura conceitual de `explain-engine-rules` mesmo se uma política customizada omitir `GET_ENGINE_RULES`; `ConversaShell.tsx` suprime `.cv-bubble` duplicada quando `msg.cardType === 'explain'` traz o mesmo resumo do cartão.
+  - **Qualidade & Deploy**: `npx eslint src/features/conversa api/conversa-nlu.ts` (**Exit 0**), `npm test` (**140/140** aprovados), `npm run build` (**Exit 0**) e `npm run deploy:conversa` publicado em `https://eliezerrosa.github.io/conversa-rvm/`.
+- **§43.6 Correção de "Minhas designações", Briefing Proativo & `S-89_T.pdf` no `conversa-rvm` (2026-11-14 17:39 BRT)**:
+  - **Fallback RPC → `workbook_parts` (`queryPort.ts`)**: `getPublisherAssignments` agora só assume `usedRpc = true` quando `get_my_workbook_parts` retorna partes compatíveis com o `publisherId` / nome alvo; caso contrário (como contas Admin com `profiles.publisher_id = NULL` mapeadas no cliente, ex.: `id = '3'`, `Eliezer Rosa`), executa consulta direta em `workbook_parts` aceitando match por ID ou nome normalizado (`matchesTargetPublisher`), corrigindo também `getLastParticipation`. Verificado ao vivo no Supabase retornando as 2 designações futuras reais de Eliezer Rosa (`2026-11-23` Joias Espirituais e `2026-12-07` Presidente).
+  - **Saudação Proativa & `MicroPanel` (`briefingPort.ts`, `ConversaApp.tsx`, `MicroPanel.tsx`)**: corrigida pluralização (`designação` / `designações`), espaço antes de `Lembre-se:` e menção da próxima designação (`DD/MM/AAAA`); `ConversaApp.tsx` (`lastBriefedPublisherIdRef`) atualiza a saudação inicial assim que `selfPublisherId` é resolvido; `MicroPanel.tsx` exibe `item.tituloParte` abaixo de `tipoParte` em `assignments-list`.
+  - **Template Oficial `S-89_T.pdf` no GitHub Pages (`scripts/deploy-conversa-pages.mjs`, `src/utils/appUrl.ts`, `documentPort.ts`)**: incluído `S-89_T.pdf` na cópia de artefatos para `EliezerRosa/conversa-rvm`; `getAppBasePath()` remove sufixo `/conversa/` para resolver `S-89_T.pdf` e `pdf.worker.min.mjs` na raiz do app; `renderS89FallbackHtml` alinhado ao layout oficial `S-89-T 11/23`.
+  - **Qualidade & Deploy**: `npx eslint src/features/conversa api/conversa-nlu.ts src/utils/appUrl.ts` (**Exit 0**), `npm test` (**142/142** aprovados), `npm run build` (**Exit 0**) e `npm run deploy:conversa` publicado em `https://eliezerrosa.github.io/conversa-rvm/`.
+- **§43.7 Evolução da Skill "Conversa RVM": Tempo Verbal, Elipse LN, Linguagem para Leigos/Idosos, Dicionário S-38/Organizados/WOL & Prioridade Fala/Ouvir (2026-11-14 18:27 BRT)**:
+  - **Noção Temporal (Passado/Presente/Futuro)**: `l0Grammar.ts` (`extractTemporalSense`, flexões verbais em `PART_PATTERNS` e seções 4/7/13, âncora estrita em `ordinalMatch`), `api/conversa-nlu.ts` (slot `tense`), `entityResolver.ts` (`getTodayLocalIso`, `getCurrentWeekMondayIso`, `previous-week`, `two-weeks-ago`, `in-two-weeks`), `queryPort.ts` (`resolveModalidadeFromHint`) e `cardPlanner.ts` (redirecionamento para histórico quando `tense = 'past'`, filtros por semana/mês com fallback explicativo e indicação temporal explícita em `query-week-assignments`).
+  - **Elipse Conversacional & Anáfora em LN**: `conversationState.ts` (`lastIntentId`, `lastPartType`, `lastTimeFrame`, `lastDocumentKind`) e `cardPlanner.ts` (`resolveConversationalEllipsis` + `isFollowUpEllipsis` herdando intenção, parte e tema em perguntas curtas sem substantivos como `"e o João?"`, `"e na próxima?"`, `"e ele no passado?"` e `"o que é isso?"`).
+  - **Dicionário Oficial S-38 / Organizados / `wol.jw.org` & Linguagem Simples**: criado `src/features/conversa/knowledge/rvmVocabularyDictionary.ts` (**41 verbetes** e helpers de humanização `humanizeStatusForLayperson`, `humanizeRoleForLayperson`, `humanizePartTypeForLayperson`, `translateTechnicalTermsForLayperson`), integrado ao `knowledgePort.ts` (`"💡 Em palavras simples:"`) e aplicado aos rótulos visuais de `MicroPanel.tsx`.
+  - **Prioridade Fala/Ouvir (`fala/ouve`) com Alternância ao Tocar & Comandos de Voz/Texto**: `intentCatalog.ts` e `policyGuard.ts` adicionam `'control-voice-mode'` (`pause-*` / `resume-*`); `createInitialContext()` inicia com `voiceActive: true, ttsEnabled: true, sttEnabled: true`; `Composer.tsx`, `ConversaShell.tsx` e `ConversaApp.tsx` priorizam voz por padrão, alternam imediatamente para modo texto ao tocar/focar `<input className="cv-input" />`, sincronizam estado no render sem `set-state-in-effect` e respeitam silenciamento imediato no TTS/STT.
+  - **Qualidade & Deploy**: `npx eslint src/features/conversa api/conversa-nlu.ts` (**Exit 0**), `npm test` (**144/144** aprovados, `0` falhas), `npm run build` (**Exit 0**) e `npm run deploy:conversa` publicado em `https://eliezerrosa.github.io/conversa-rvm/`.
+- **§43.8 Consolidação da Bateria Exaustiva do Conversa RVM (18 Eixos Canônicos, 169 Cenários & 100% Micro-Ações) e Homologação Visual do S-89-T Oficial (2026-11-15 15:10 BRT)**:
+  - **Unificação Canônica da Bateria de Testes (`memories/repo/bateria-testes-capacidade-conversa-rvm.md`)**: Consolidação integral dos eixos cognitivos anteriores com as dimensões operacionais do ecossistema RVM (HG-Sync local, Reunião de Fim de Semana, Limpeza do Salão, Eventos Especiais, Contingência/Substituição Emergencial, Mensageria Z-API, Territórios, Secretaria S-4/S-1 e Resiliência/Offline-First). Total unificado: **18 eixos canônicos** e **169 cenários de teste**.
+  - **Cobertura 100% das Micro-Ações de Escrita (`WRITE_AGENT_ACTIONS`)**: reverse engineering minucioso de `src/services/agentActionService.ts` e dos módulos do RVM, expandindo de 12 para 30 micro-ações canônicas (`MA-01` a `MA-30`), incluindo importação de apostila JW.ORG, edição de partes/semanas, concessão de privilégios S-38, engine_config, eventos especiais, pacote S-140, simulação sombra, vínculo de login, permissões RBAC, checkout/devolução de territórios e fechamento S-1 da secretaria.
+  - **Homologação Visual do Cartão S-89-T Oficial (Revisão 11/23)**: Validada em produção e no carrossel flutuante a renderização fiel do layout impresso oficial do JW.ORG (`renderS89FallbackHtml` em `documentPort.ts`), contendo cabeçalho centralizado, linhas pontilhadas de preenchimento, checkboxes de local (Salão Principal, Sala B, Sala C), texto de observação citando S-38 e código oficial de rodapé `S-89-T 11/23`.
+  - **Execução Automatizada do Benchmark da Bateria Exaustiva (`scripts/run_bateria_benchmark.ts`, `npm run test:benchmark`)**: Suite completa executada contra os **169 cenários** em ambiente mockado (Congregação, Publicadores, Semanas, RBAC Admin/Publicador e Portas de CardPlanner). Resultado homologado: **87 PASS** (51.5% aprovação direta em L0), **82 PARTIAL** (48.5% cobertura de catálogo mapeada para conectores das abas), **0 FAIL (0% de falhas/vazamentos críticos)**, **100% de Taxa Operacional Global** e latência média de **0.77 ms/turno**. Relatório integral persistido em `memories/repo/relatorio-execucao-bateria-conversa-rvm.md`.
+  - **Verificação do Serviço HG-Sync**: Confirmada a operação do serviço em 2 camadas (Watchdog do Windows Task Scheduler a cada 2 min executando `ensure-hg-sync.ps1` e worker interno do Node a cada 5 min com `pollIntervalMinutes = 5`), ciclo ativo e monitoramento de PDFs em Downloads.
+  - **Eliminação de Duplicatas**: Removido arquivo redundante `memories/repo/bateria_exaustiva_de_testes_de_capacidade_conversa_rvm.md` após mesclagem de 100% dos seus cenários no arquivo master com hífens.
+- **§43.11 Implementação da Sincronização Reversa Inbound (Hourglass ➡️ RVM Aceitações e Recusas via Webhook Z-API) (2026-11-17 09:12 BRT)**:
+  - **Módulo Desacoplado em `hg-sync/src/inbound/`**:
+    - **Decodificador Cirúrgico de Flags Hourglass (`detector.ts`)**: Mapeamento determinístico de notificações REST (`/api/v0.2/scheduling/notifications/{range}/mm`) relacionando `flag` (`10=chairman`, `20=openprayer`, `30=seção titular`, `40=ajudante`, `50=leitor EBC`, `60=oração final`) e status (`complete=CONFIRMAR`, `declined=RECUSAR`, `pending=ignorado`) diretamente aos slots e `workbook_parts.id` correspondentes no RVM.
+    - **Disparador Webhook Z-API (`dispatcher.ts`)**: Invocação direta da Edge Function `zapi-smart-webhook` via simulação dos botões oficiais WhatsApp (`CONFIRMAR:<part_id>` e `RECUSAR:<part_id>`), disparando a esteira padrão de auditoria (`confirmation_portal_responses`, `refusal_logs`, `zapi_smart_interactions`) e reatribuição automática.
+    - **Ledger Local de Idempotência (`ledger.ts`, `data/inbound-ledger.json`)**: Persistência de registros processados prevenindo duplicação de disparos de webhook e respeitando guards de status do RVM (`PROPOSTA`/`ENVIADA`).
+    - **Integração no Ciclo Contínuo (`worker.ts`)**: Passo 6b integrado ao ciclo de 5 minutos do serviço Windows (`RVM-HG-Sync`).
+    - **Zero Alteração no RVM Principal**: Nenhuma linha de código foi modificada em `src/` do RVM Designações, preservando integridade 100%.
+    - **Qualidade & Homologação**: 75/75 testes unitários passando em `hg-sync` (+4 novos testes em `test/inbound.test.ts`), 144/144 testes passando no RVM principal, ciclo em produção executado com sucesso e 2 respostas refletidas em tempo real. Repositório `rvm-hg-sync` commitado e enviado ao GitHub (`origin/main`).
+
+---
+
+## 🛑 PENDÊNCIAS ATIVAS NO PROJETO
+
+
+0. **Decidir destino dos arquivos não rastreados** (`scratch/`, `scripts/check_*.ts`): mantidos no `.gitignore` ou commitados seletivamente.
+
+1. **Alerta de Desconexão Z-API (P10)**: Implementar monitoramento ativo de webhooks (`on-disconnected`) para alertar o SRVM caso o celular da congregação fique offline ou despareado.
+2. **Monitor Canônico 2.0 (P2)**: Criar a tabela `system_canonical_events` e consolidar todo o fluxo 360º de comunicação visual.
+3. **Integração Sentry (P5)**: Instalar a telemetria técnica de Application Performance Monitoring.
+4. **Evolução Cognitiva (A1-A6)**: Habilitar o `pgvector` no Supabase e avançar para o motor hiper-dimensional de perfis.
+5. **Vedação de Tela Legada (`CommunicationTab.tsx`)**: Decidir entre injetar a tranca do `logDispatch` na Central de Comunicações ou aposentar a rota do Chatbot para S-89 em favor da interface visual.
+6. **Log Canônico do Pacote S-140**: Implementar no `s140PackageService` o registro canônico estrito dos envios em lote (PDF) e emergenciais, garantindo observabilidade total de que os Responsáveis pelo Quadro receberam o artefato.
 7. **Integração externa (local)**: pendências mantidas em `docs-local/_ESTADO-LOCAL.md` → seção "Pendências".
-8. **Pós-reescrita do histórico** (3 reescritas + force-push de `main` + tags **executados em 2026-11-07, 21:37, 22:12 e 22:3x**; branch remota `copilot/research-accessibility-analysis` excluída; `gh-pages` inalterada; `fetch --prune` + `gc` locais feitos; backups com dados de publicadores movidos para `_backups-local/`): (a) realinhar clones de outras IDEs **uma vez, após a 3ª reescrita** (`git fetch origin; git reset --hard origin/main`); (b) Eliezer **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública; (c) **pedido de purga dos commits órfãos antigos enviado ao GitHub Support em 2026-11-08 (ticket #4972265, aberto)** — repo sem PRs/forks; após a resposta, conferir que SHAs antigos deixaram de responder (detalhes em `docs-local/`); (d) **decisão separada pendente**: nomes/telefones de publicadores escritos em código (`src/services/*`, `scripts/test_*.ts`) — não tocados (exigiria alterar `src/`). Decidido (Eliezer, 2026-11-07): nomes dos titulares de papéis em documentos públicos **permanecem**. Regra e checagem: `memories/repo/protecao-dados-publicadores-2026-11-07.md`.
-9. **Nova UI-Chat-IA "Conversa RVM" (2026-11-11 / Checkpoint 2026-11-13 / Atualizado 2026-11-15 §43.8)**: 🟢 **Skill Especialista RVM Designações evoluída para LN natural, temporalidade, acessibilidade leiga e voz prioritária** em `src/features/conversa/` e `api/conversa-nlu.ts`: **22 tópicos canônicos** + banco de dicionários [`rvmVocabularyDictionary.ts`](file:///c:/Antigravity%20-%20RVM%20Designa%C3%A7%C3%B5es/rvm-designacoes-unified/src/features/conversa/knowledge/rvmVocabularyDictionary.ts) (**41 verbetes** cobrindo RVM, **S-38**, livro ***Organizados (od)*** e ***wol.jw.org*** com tradução simples para leigos/idosos aplicada em `knowledgePort.ts` e `MicroPanel.tsx`); **noção temporal** (presente/passado/futuro com `extractTemporalSense`, flexões verbais, `two-weeks-ago`/`previous-week`/`in-two-weeks` e rótulo temporal em `cardPlanner.ts`); **elipse conversacional e anáfora** sem substantivos (`resolveConversationalEllipsis` + pronomes/temas anteriores); **prioridade fala/ouvir (`fala/ouve`)** por padrão com alternância instantânea para digitação ao tocar na caixa de texto (`Composer.tsx`/`ConversaShell.tsx`/`ConversaApp.tsx`) e comandos de voz/texto (`control-voice-mode`); **layout do S-89-T 11/23 homologado** no carrossel flutuante com linhas pontilhadas, checkboxes de local e código oficial; **bateria unificada de testes** com **18 eixos canônicos** e **169 cenários de teste** (`memories/repo/bateria-testes-capacidade-conversa-rvm.md`), cobrindo 100% das micro-ações de escrita do RVM (`MA-01` a `MA-30`); **benchmark automatizado de 169 cenários** executado via `npm run test:benchmark` com 100% de taxa operacional (0 FAIL, 87 PASS, 82 PARTIAL, latência 0.77 ms) registrado em `memories/repo/relatorio-execucao-bateria-conversa-rvm.md`. Portões verificados: ESLint **Exit 0**, **144/144** testes aprovados (`npm test`), `npm run build` **Exit 0** e deploy publicado em `https://eliezerrosa.github.io/conversa-rvm/`. Checkpoints: `checkpoint-pre-conversa-ui-66f083d` e `checkpoint-conversa-ui-2026-11-13`. Ver `memories/session/implementacao-ui-conversa-ia-2026-11-11.md`, `memories/session/checkpoint-conversa-ui-2026-11-13.md` e `memories/repo/bateria-testes-capacidade-conversa-rvm.md`.
+8. **Pós-reescrita do histórico** (3 reescritas + force-push de `main` + tags **executados em 2026-11-07, 21:37, 22:12 e 22:3x**; branch remota `copilot/research-accessibility-analysis` excluída; `gh-pages` inalterada; `fetch --prune` + `gc` locais feitos; backups com dados de publicadores movidos para `_backups-local/`, gitignored): (a) realinhar clones de outras IDEs **uma vez, após a 3ª reescrita** (`git fetch origin; git reset --hard origin/main`); (b) Eliezer **desconectar o dispositivo WhatsApp Web** cuja sessão esteve pública; (c) **pedido de purga dos commits órfãos antigos enviado ao GitHub Support em 2026-11-08 (ticket #4972265, aberto)** — repo sem PRs/forks; após a resposta, conferir que SHAs antigos deixaram de responder (detalhes em `docs-local/`); (d) **decisão separada pendente**: nomes/telefones de publicadores escritos diretamente em código (`src/services/*`, `scripts/test_*.ts`) — não tocados, pois exigiriam alterar `src/`. Decidido em 2026-11-07 (Eliezer): nomes dos titulares de papéis em documentos públicos **permanecem** (papéis públicos da congregação); `scripts/test_lifecycle_report.md` e `docs/CHECKPOINT_MEMO_2026-07-23.md` permanecem como estão (dados próprios/exemplo).
+9. **Nova UI-Chat-IA "Conversa RVM" (2026-11-11 / Checkpoint 2026-11-13)**: 🟢 Implementação modular concluída em `src/features/conversa/` + `conversa.html` + `api/conversa-nlu.ts` (checkpoints `checkpoint-pre-conversa-ui-66f083d` e `checkpoint-conversa-ui-2026-11-13` sobre `27aaafc`). Revisão do plano solicitada pelo usuário aguardando continuação; pendência opcional futura: habilitar o acesso no menu principal ou configurar `GEMINI_API_KEY` na Vercel para classificação L2 avançada (atualmente L0 determinístico cobre todo o catálogo sem falha).
 
----
-
-## 4. Integrações externas — mantido apenas localmente
-
-- Regra inflexível (2026-11-07): tudo o que diz respeito à integração externa HG fica fora do remoto. Posicionamento rápido, histórico e pendências em `docs-local/_ESTADO-LOCAL.md`; README do projeto em `README-HG-RVM.md` (raiz, não versionado).
