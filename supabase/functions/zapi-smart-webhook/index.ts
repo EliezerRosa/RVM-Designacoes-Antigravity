@@ -671,7 +671,8 @@ async function processWebhookPayload(body: any) {
           }
         }
 
-        if (pData.resolved_publisher_name) {
+        // Só sobrescreve pubName com resolved_publisher_name se a parte pertencer ao remetente identificado
+        if (pData.resolved_publisher_name && (!publisherData || String(pData.resolved_publisher_id) === String(publisherData.id))) {
           pubName = pData.resolved_publisher_name;
         }
       }
@@ -871,6 +872,11 @@ async function processWebhookPayload(body: any) {
           console.log(`[zapi-smart-webhook] Recusa ignorada (Duplo Clique): Parte já estava REJEITADA/EM_SUBSTITUICAO`);
           await dispatchTextMessage(replyPhone, outboundReply);
         }
+      } else if (targetPart.resolved_publisher_id && publisherData?.id && String(targetPart.resolved_publisher_id) !== String(publisherData.id)) {
+        actionTaken = "ALREADY_REASSIGNED";
+        outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. A designação de *${tipoParte}*${partDateStr} já foi repassada para outro irmão. Agradecemos por nos avisar! Que Jeová o(a) abençoe. 🙏`;
+        console.log(`[zapi-smart-webhook] Recusa cancelada: Parte já repassada para outro publicador (${targetPart.resolved_publisher_name}).`);
+        await dispatchTextMessage(replyPhone, outboundReply);
       } else {
         const reason = reasonExtracted || "Impossibilidade informada via WhatsApp.";
 

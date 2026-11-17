@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-17 09:12 (BRT) — §43.11 Implementação da Sincronização Reversa Inbound (Hourglass ➡️ RVM Aceitações e Recusas via Webhook Z-API no `hg-sync`), Homologada em Produção (75/75 testes `hg-sync`, 144/144 testes RVM, ciclo ativo no serviço Windows `RVM-HG-Sync`) e Sincronização Canônica de Memória Multi-IDE.  
+> **Última Atualização**: 2026-11-17 10:25 (BRT) — §43.12 Blindagem Canônica de Titularidade e Idempotência Composta no Inbound do `hg-sync` (Hourglass ➡️ RVM Aceitações/Recusas), Guarda Simétrica no Webhook Z-API e Restauração de Victor Correa (79/79 testes `hg-sync`, 144/144 testes RVM, serviço Windows `RVM-HG-Sync` ativo e homologado).  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -893,6 +893,22 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - **Integração no Ciclo Contínuo (`worker.ts`)**: Passo 6b integrado ao ciclo de 5 minutos do serviço Windows (`RVM-HG-Sync`).
     - **Zero Alteração no RVM Principal**: Nenhuma linha de código foi modificada em `src/` do RVM Designações, preservando integridade 100%.
     - **Qualidade & Homologação**: 75/75 testes unitários passando em `hg-sync` (+4 novos testes em `test/inbound.test.ts`), 144/144 testes passando no RVM principal, ciclo em produção executado com sucesso e 2 respostas refletidas em tempo real. Repositório `rvm-hg-sync` commitado e enviado ao GitHub (`origin/main`).
+- **§43.12 Blindagem Canônica de Titularidade e Idempotência Composta no Inbound do `hg-sync` (2026-11-17 10:25 BRT)**:
+  - **Diagnóstico do Incidente de Produção**:
+    - Em 16/11 17:53, Jairo Santos foi substituído manualmente por Victor Correa como Leitor do EBC (23/11). Victor confirmou via WhatsApp (21:05). No app Hourglass, Jairo ainda possuía uma notificação antiga pendente e clicou em "Recusar". No ciclo #1 matinal do HG-Sync, a notificação de recusa do Jairo foi detectada e incorretamente vinculada à parte física no RVM sem checar se Jairo ainda era o titular daquele slot. O webhook Z-API sobrescreveu o nome com o titular atual ("Victor Correa"), mandando mensagem cordial a Jairo com o nome de Victor e marcando a parte de Victor como rejeitada, acionando o robô de auto-substituição para Carlos Ramos.
+  - **Correção 1: Guarda Canônica de Titularidade (`hg-sync/src/inbound/detector.ts`)**:
+    - Implementada a invariante: `if (slot.assigneeHgId !== n.assignee) continue;`. Uma notificação do Hourglass só é aplicada se o irmão que respondeu no HG for exatamente o titular atualmente designado na parte do RVM. Respostas de ex-titulares são descartadas como obsoletas/caducas (stale).
+  - **Correção 2: Idempotência com Chave Composta (`hg-sync/src/inbound/ledger.ts`)**:
+    - Chave do ledger ajustada para `${partId}:${hgAssigneeId}:${response}`, blindando o sistema contra colisões quando uma mesma parte física é repassada entre diferentes publicadores ao longo do tempo.
+  - **Correção 3: Simetria de Guarda no Webhook Z-API (`supabase/functions/zapi-smart-webhook/index.ts`)**:
+    - No cenário de Recusa, adicionada verificação idêntica à Confirmação: se a parte já foi transferida (`targetPart.resolved_publisher_id !== publisherData.id`), aborta o cancelamento da parte, responde cordialmente informando que a parte já foi repassada e não aciona o GitHub Actions.
+    - `pubName` blindado para nunca adotar o nome de outro irmão caso o remetente não seja o titular da parte.
+  - **Restauração de Dados em Produção**:
+    - Parte `ece521b5-6c01-4c78-9b2c-44247af45388` (Leitor do EBC de 23/11) restaurada no Supabase para Victor Correa como titular confirmado (`DESIGNADA`, `needs_reassignment: false`, `had_refusal: false`).
+  - **Testes & Homologação**:
+    - 79/79 testes unitários aprovados no `hg-sync` (+2 novos testes cobrindo guarda de titularidade e chave composta).
+    - 144/144 testes unitários aprovados no RVM principal.
+    - Serviço Windows `RVM-HG-Sync` reiniciado e homologado em tempo real com ciclo limpo (`Tudo atualizado entre RVM, Downloads e Hourglass`).
 
 ---
 
