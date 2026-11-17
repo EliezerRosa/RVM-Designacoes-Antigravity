@@ -510,7 +510,10 @@ export function checkEligibility(
     // ===== REGRAS POR MODALIDADE =====
     switch (modalidade) {
         case EnumModalidade.PRESIDENCIA:
-            // Regra 4: Somente quem pode presidir
+            // Regra 4: Somente quem pode presidir (restrito a Ancião ou Servo Ministerial com canPreside)
+            if (!canDisplayPresidePrivilege(publisher.condition)) {
+                return { eligible: false, reason: 'Presidência restrita a Anciãos e Servos Ministeriais' };
+            }
             if (!publisher.privileges.canPreside) {
                 return { eligible: false, reason: 'Não tem privilégio de presidir' };
             }
@@ -853,6 +856,78 @@ export function isElderOrMS(publisher: Publisher): boolean {
     return publisher.condition === 'Ancião' ||
         publisher.condition === 'Anciao' ||
         publisher.condition === 'Servo Ministerial';
+}
+
+/**
+ * Normaliza e verifica se uma condição é de Ancião
+ */
+export function isElderCondition(condition?: string | null): boolean {
+    const c = (condition || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    return c === 'anciao';
+}
+
+/**
+ * Normaliza e verifica se uma condição é de Servo Ministerial
+ */
+export function isMSCondition(condition?: string | null): boolean {
+    const c = (condition || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    return c === 'servo ministerial';
+}
+
+/**
+ * Verifica se a condição permite visualização/atribuição do privilégio de Presidir
+ * (Restrito estritamente a Anciãos e Servos Ministeriais)
+ */
+export function canDisplayPresidePrivilege(condition?: string | null): boolean {
+    return isElderCondition(condition) || isMSCondition(condition);
+}
+
+/**
+ * Solicita confirmação governada para alteração da flag "Presidir".
+ * - Ancião: confirmação padrão.
+ * - Servo Ministerial: confirmação com DUPLA ATENÇÃO (2 etapas obrigatórias ao habilitar).
+ *
+ * @param publisherName Nome do publicador
+ * @param currentValue Valor atual de canPreside
+ * @param condition Condição teocrática ('Ancião', 'Servo Ministerial', etc.)
+ * @param confirmFn Injeção opcional de função de confirmação (padrão: window.confirm no browser)
+ */
+export function confirmPresidePrivilegeChange(
+    publisherName: string,
+    currentValue: boolean,
+    condition?: string | null,
+    confirmFn: (message: string) => boolean = (msg) => typeof window !== 'undefined' && typeof window.confirm === 'function' ? window.confirm(msg) : true
+): boolean {
+    const nextValue = !currentValue;
+    const actionText = nextValue ? 'habilitar' : 'desabilitar';
+    const isSM = isMSCondition(condition);
+
+    // Se for Servo Ministerial e estiver ATIVANDO o privilégio -> DUPLA ATENÇÃO (2 etapas)
+    if (isSM && nextValue) {
+        // Etapa 1: Alerta Teocrático de Excepcionalidade
+        const step1 = confirmFn(
+            `⚠️ ATENÇÃO TEOCRÁTICA RIGOROSA (Etapa 1 de 2):\n\n` +
+            `O irmão "${publisherName}" é SERVO MINISTERIAL e não Ancião.\n\n` +
+            `A designação de um Servo Ministerial para presidir a Reunião Vida e Ministério é uma circunstância EXCEPCIONAL que requer aprovação prévia do Corpo de Anciãos.\n\n` +
+            `Confirma que este Servo Ministerial possui aprovação formal do Corpo de Anciãos para presidir a reunião?`
+        );
+        if (!step1) return false;
+
+        // Etapa 2: Confirmação Operacional do Motor
+        const step2 = confirmFn(
+            `⚠️ CONFIRMAÇÃO FINAL DO MOTOR (Etapa 2 de 2):\n\n` +
+            `Ao habilitar "Presidir", o motor automático incluirá "${publisherName}" na rotação de Presidência e poderá designá-lo como Presidente, bem como atribuir-lhe Oração Inicial e Elogios/Conselhos.\n\n` +
+            `Tem certeza absoluta de que deseja conceder o privilégio de Presidência a este Servo Ministerial?`
+        );
+        return step2;
+    }
+
+    // Se for Servo Ministerial desativando ou Ancião (ativando ou desativando) -> Confirmação padrão
+    const roleLabel = isSM ? 'Servo Ministerial' : 'Ancião';
+    return confirmFn(
+        `Deseja ${actionText} o privilégio de Presidir para o irmão "${publisherName}" (${roleLabel})?\n\n` +
+        `Isso impactará a escala de Presidência da Reunião Meio de Semana no motor de designações.`
+    );
 }
 
 /**

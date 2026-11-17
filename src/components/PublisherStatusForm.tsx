@@ -29,6 +29,7 @@ import {
     type ProfileHistoryRecord,
 } from '../services/publisherHistoryService';
 import { PublisherStatusHistoryTooltip } from './PublisherStatusHistoryTooltip';
+import { canDisplayPresidePrivilege, confirmPresidePrivilegeChange } from '../services/eligibilityService';
 
 // ─── Token ─────────────────────────────────────────────────────────────────
 /**
@@ -1092,12 +1093,25 @@ export function PublisherStatusForm({ token, isAdminAccess = false, partsLoader,
                                             {/* ── Privilégios ────────────────────────────────── */}
                                             {section === 'privileges' && <>
                                                 <td style={tdCenter}>
-                                                    <Toggle
-                                                        value={!!eff.privileges?.canPreside}
-                                                        onChange={v => setNested(pub.id, 'privileges', 'canPreside', v)}
-                                                        activeColor="#4F46E5"
-                                                        disabled={!canEditPrivileges}
-                                                    />
+                                                    {canDisplayPresidePrivilege(eff.condition) ? (
+                                                        <Toggle
+                                                            value={!!eff.privileges?.canPreside}
+                                                            onChange={v => {
+                                                                const confirmed = confirmPresidePrivilegeChange(
+                                                                    pub.name || 'este publicador',
+                                                                    Boolean(eff.privileges?.canPreside),
+                                                                    eff.condition
+                                                                );
+                                                                if (confirmed) {
+                                                                    setNested(pub.id, 'privileges', 'canPreside', v);
+                                                                }
+                                                            }}
+                                                            activeColor={eff.condition === 'Servo Ministerial' ? '#D97706' : '#4F46E5'}
+                                                            disabled={!canEditPrivileges}
+                                                        />
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }} title="Presidir é restrito a Anciãos e Servos Ministeriais">—</span>
+                                                    )}
                                                 </td>
                                                 <td style={tdCenter}>
                                                     <Toggle

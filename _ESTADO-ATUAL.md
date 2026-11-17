@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-17 11:15 (BRT) — §43.13 Gatilho Automático "Enviar designações" no Hourglass (Sync RVM ➡️ HG Meio de Semana, Fim de Semana, Áudio/Vídeo, Limpeza e Reunião Pública) via REST PUT `/api/v0.2/scheduling/notifications/` (80/80 testes `hg-sync`, 144/144 testes RVM, serviço Windows `RVM-HG-Sync` ativo e homologado em produção com job IDs reais).  
+> **Última Atualização**: 2026-11-17 13:15 (BRT) — §43.14 Governança Cirúrgica da Flag "Presidir" em Publicadores & Trava Teocrática de Elegibilidade no Motor (150/150 testes RVM, zero regressões, build Vite validado, Vercel e GitHub Pages atualizados).  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -925,6 +925,30 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - 80/80 testes unitários aprovados em `hg-sync` (+1 novo teste em `test/notifications.test.ts`).
     - 144/144 testes unitários aprovados no RVM principal (zero regressões).
     - Serviço Windows `RVM-HG-Sync` reiniciado; semana `2026-11-23` (Victor Correa) e `2026-12-07` enviadas com sucesso no Hourglass (Jobs `09e65235-27a1-49b8-9e93-cb2ce45e2c37` e `fe0d0716-ed5c-4a3a-9d9e-724477dc5f71`), retirando o status de "Rascunho" e concedendo visibilidade imediata aos participantes.
+- **§43.14 Governança Cirúrgica da Flag "Presidir" em Publicadores & Trava Teocrática de Elegibilidade no Motor (2026-11-17 13:15 BRT)**:
+  - **Diagnóstico do Incidente de Presidência**:
+    - Na semana de 21/12/2026, um Servo Ministerial (Erick Segall) foi escalado pelo Motor para a Presidência da Reunião de Meio de Semana.
+    - Raiz do problema identificada no histórico (`publisher_profile_history` #174 de 2026-11-15): a flag `privileges.canPreside` foi salva como `true` durante a atualização para Servo Ministerial.
+    - Em `src/services/eligibilityService.ts`, o gate de elegibilidade para `EnumModalidade.PRESIDENCIA` verificava apenas `!publisher.privileges.canPreside`, sem travar estritamente que a presidência é exclusiva a Anciãos (ou SM em circunstâncias excepcionais aprovadas pelo Corpo de Anciãos). Com 0 presidências em 52 semanas, o ranking de starvation do motor selecionou o irmão como candidato #1.
+  - **Trava Canônica no Motor de Elegibilidade (`src/services/eligibilityService.ts`)**:
+    - Criados os utilitários `isElderCondition`, `isMSCondition` e `canDisplayPresidePrivilege`.
+    - No gate de `EnumModalidade.PRESIDENCIA`: bloqueio categoricamente mandatário para qualquer condição que não seja Ancião nem SM, mesmo que `privileges.canPreside` esteja marcado como `true` no banco.
+  - **Governança de UI & Confirmação Teocrática de Dupla Atenção**:
+    - Implementada a função de guarda `confirmPresidePrivilegeChange(publisherName, currentValue, condition, confirmFn)`.
+    - Se a condição for Ancião: exige 1 confirmação padrão antes de alterar o privilégio.
+    - Se a condição for Servo Ministerial: exige **dupla atenção teocrática** (2 passos sequenciais com avisos de governança teocrática sobre a excepcionalidade e necessidade de aprovação formal do Corpo de Anciãos).
+    - `src/components/PublisherForm.tsx`:
+      - Checkbox "Presidir" só é renderizada se a condição for Ancião ou SM (`canDisplayPresidePrivilege`). Oculta para publicadores comuns.
+      - Se a condição for alterada para não-Ancião/não-SM (ex: Publicador comum), a flag `canPreside` é automaticamente resetada para `false`.
+      - Alteração do checkbox aciona o fluxo de confirmação/dupla atenção.
+    - `src/components/PublisherStatusForm.tsx`:
+      - Coluna "Presidir" exibe o controle `Toggle` somente para Ancião e SM (com badge `⚠️ (SM)` quando aplicável); para os demais exibe `—`.
+      - Acionamento do toggle passa pela mesma guarda de confirmação.
+  - **Qualidade, Testes & Deploys**:
+    - 6 novos testes unitários adicionados em `src/services/eligibilityService.test.ts`.
+    - Suite de testes RVM expandida para **150/150 testes aprovados** (`npm test`).
+    - Build de produção (`vite build`) gerado com sucesso (Exit 0).
+    - Deploy de produção na Vercel e GitHub Pages atualizados.
 
 ---
 

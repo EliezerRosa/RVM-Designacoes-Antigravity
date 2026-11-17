@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Publisher } from '../types';
 import { EnumModalidade, EnumFuncao, EnumSecao } from '../types';
-import { checkEligibility } from './eligibilityService';
+import { checkEligibility, canDisplayPresidePrivilege, confirmPresidePrivilegeChange } from './eligibilityService';
 
 const elder: Publisher = {
     id: 'e1', name: 'Ancião Teste', gender: 'brother', condition: 'Ancião', funcao: null, phone: '',
@@ -214,5 +214,85 @@ test('BLINDAGEM BIDIRECIONAL (Sentido Ajudante com Bypass Pai/Filho): Ajudante f
     });
     assert.equal(result.eligible, true);
 });
+
+// ===== TESTES DA GOVERNANÇA DA FLAG "PRESIDIR" =====
+
+test('canDisplayPresidePrivilege: visível apenas para Ancião e Servo Ministerial', () => {
+    assert.equal(canDisplayPresidePrivilege('Ancião'), true);
+    assert.equal(canDisplayPresidePrivilege('Anciao'), true);
+    assert.equal(canDisplayPresidePrivilege('ancião'), true);
+    assert.equal(canDisplayPresidePrivilege('Servo Ministerial'), true);
+    assert.equal(canDisplayPresidePrivilege('servo ministerial'), true);
+    assert.equal(canDisplayPresidePrivilege('Publicador'), false);
+    assert.equal(canDisplayPresidePrivilege('Publicadora'), false);
+    assert.equal(canDisplayPresidePrivilege('Pioneiro Regular'), false);
+    assert.equal(canDisplayPresidePrivilege(null), false);
+    assert.equal(canDisplayPresidePrivilege(undefined), false);
+});
+
+test('checkEligibility para Presidência: rejeita publicador comum mesmo se tiver canPreside=true', () => {
+    const roguePub: Publisher = {
+        ...brother,
+        privileges: { ...brother.privileges, canPreside: true }
+    };
+    const res = checkEligibility(roguePub, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR);
+    assert.equal(res.eligible, false);
+    assert.match(res.reason || '', /Presidência restrita a Anciãos e Servos Ministeriais/);
+});
+
+test('checkEligibility para Presidência: aceita Ancião e SM com canPreside=true', () => {
+    const smWithPreside: Publisher = {
+        ...brother,
+        condition: 'Servo Ministerial',
+        privileges: { ...brother.privileges, canPreside: true }
+    };
+    const resSm = checkEligibility(smWithPreside, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR);
+    assert.equal(resSm.eligible, true);
+
+    const resElder = checkEligibility(elder, EnumModalidade.PRESIDENCIA, EnumFuncao.TITULAR);
+    assert.equal(resElder.eligible, true);
+});
+
+test('confirmPresidePrivilegeChange: Ancião exige 1 confirmação simples', () => {
+    const calls: string[] = [];
+    const mockConfirm = (msg: string) => {
+        calls.push(msg);
+        return true;
+    };
+    const res = confirmPresidePrivilegeChange('Irmão Ancião', false, 'Ancião', mockConfirm);
+    assert.equal(res, true);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0], /habilitar o privilégio de Presidir para o irmão "Irmão Ancião" \(Ancião\)/);
+});
+
+test('confirmPresidePrivilegeChange: SM ativando exige DUPLA ATENÇÃO (2 etapas obrigatórias)', () => {
+    const calls: string[] = [];
+    const mockConfirm = (msg: string) => {
+        calls.push(msg);
+        return true;
+    };
+    const res = confirmPresidePrivilegeChange('Irmão SM', false, 'Servo Ministerial', mockConfirm);
+    assert.equal(res, true);
+    assert.equal(calls.length, 2);
+    assert.match(calls[0], /Etapa 1 de 2/);
+    assert.match(calls[0], /SERVO MINISTERIAL e não Ancião/);
+    assert.match(calls[1], /Etapa 2 de 2/);
+    assert.match(calls[1], /CONFIRMAÇÃO FINAL DO MOTOR/);
+});
+
+test('confirmPresidePrivilegeChange: SM ativando aborta se qualquer etapa for cancelada', () => {
+    // Cancela etapa 1
+    const res1 = confirmPresidePrivilegeChange('Irmão SM', false, 'Servo Ministerial', () => false);
+    assert.equal(res1, false);
+
+    // Aceita etapa 1, cancela etapa 2
+    let step = 0;
+    const res2 = confirmPresidePrivilegeChange('Irmão SM', false, 'Servo Ministerial', () => {
+        step++;
+        return step === 1; // true no 1, false no 2
+    });
+    assert.equal(res2, false);
+});
+
 
 

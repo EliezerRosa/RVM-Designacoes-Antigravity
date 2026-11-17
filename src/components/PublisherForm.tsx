@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Funcao, Publisher, PublisherPrivileges, PublisherPrivilegesBySection } from '../types'
-import { getWeekMondayId } from '../services/eligibilityService'
+import { getWeekMondayId, canDisplayPresidePrivilege, confirmPresidePrivilegeChange } from '../services/eligibilityService'
 import { curatorKnowledgeBaseService, type CuratorProfile } from '../services/curatorKnowledgeBaseService'
 import { congregationRoleService, type CongregationRole } from '../services/congregationRoleService'
 import { RoleManagerModal } from './admin/RoleManagerModal'
@@ -129,6 +129,39 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                 }
             }))
             return
+        }
+
+        // Lógica específica para mudança de Condição (Ancião / SM / Publicador)
+        if (name === 'condition') {
+            const nextCondition = value;
+            const canPreside = canDisplayPresidePrivilege(nextCondition) ? formData.privileges.canPreside : false;
+            setFormData(prev => ({
+                ...prev,
+                condition: nextCondition as any,
+                privileges: {
+                    ...prev.privileges,
+                    canPreside
+                }
+            }));
+            return;
+        }
+
+        // Lógica específica para mudança de Privilégio "Presidir" (confirmação teocrática)
+        if (name === 'privileges.canPreside') {
+            const confirmed = confirmPresidePrivilegeChange(
+                formData.name || 'este publicador',
+                Boolean(formData.privileges.canPreside),
+                formData.condition
+            );
+            if (!confirmed) return;
+            setFormData(prev => ({
+                ...prev,
+                privileges: {
+                    ...prev.privileges,
+                    canPreside: checked ?? !prev.privileges.canPreside
+                }
+            }));
+            return;
         }
 
         if (name.startsWith('privileges.')) {
@@ -905,15 +938,22 @@ export default function PublisherForm({ publisher, publishers, onSave, onCancel 
                                     />
                                     Fazer Oração
                                 </label>
-                                <label className="checkbox-item">
-                                    <input
-                                        type="checkbox"
-                                        name="privileges.canPreside"
-                                        checked={formData.privileges.canPreside}
-                                        onChange={handleChange}
-                                    />
-                                    Presidir
-                                </label>
+                                {canDisplayPresidePrivilege(formData.condition) && (
+                                    <label className="checkbox-item" style={{
+                                        background: formData.condition === 'Servo Ministerial' ? 'rgba(245, 158, 11, 0.08)' : undefined,
+                                        padding: formData.condition === 'Servo Ministerial' ? '4px 8px' : undefined,
+                                        borderRadius: formData.condition === 'Servo Ministerial' ? '6px' : undefined,
+                                        border: formData.condition === 'Servo Ministerial' ? '1px dashed rgba(245, 158, 11, 0.3)' : undefined
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            name="privileges.canPreside"
+                                            checked={formData.privileges.canPreside}
+                                            onChange={handleChange}
+                                        />
+                                        Presidir {formData.condition === 'Servo Ministerial' && <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 600 }}>⚠️ (SM)</span>}
+                                    </label>
+                                )}
                                 <label className="checkbox-item">
                                     <input
                                         type="checkbox"
