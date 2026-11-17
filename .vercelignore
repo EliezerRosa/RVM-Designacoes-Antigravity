@@ -1,0 +1,15 @@
+# Vercel Ignore
+.git
+.github
+node_modules
+dist
+hg-sync
+_hg-local
+whatsapp_session_data
+_backups-local
+scratch
+docs-local
+.tmp
+*.xlsx
+*.pdf
+*.log
