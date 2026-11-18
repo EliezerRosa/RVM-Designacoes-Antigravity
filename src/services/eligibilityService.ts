@@ -796,13 +796,15 @@ function isAvailableOnDate(publisher: Publisher, date: string): boolean {
     const thursdayId = getThursdayFromDate(date);
 
     if (availability.mode === 'always') {
-        // Indisponível se a semana (ou o antigo ID quinta) estiver em exceptionDates
+        // Indisponível se a semana (ou o antigo ID quinta ou a data específica) estiver em exceptionDates
         return !availability.exceptionDates.includes(weekId) &&
-               !availability.exceptionDates.includes(thursdayId);
+               !availability.exceptionDates.includes(thursdayId) &&
+               !availability.exceptionDates.includes(date);
     } else {
-        // Disponível se a semana (ou o antigo ID quinta) estiver em availableDates
+        // Disponível se a semana (ou o antigo ID quinta ou a data específica) estiver em availableDates
         return availability.availableDates.includes(weekId) ||
-               availability.availableDates.includes(thursdayId);
+               availability.availableDates.includes(thursdayId) ||
+               availability.availableDates.includes(date);
     }
 }
 

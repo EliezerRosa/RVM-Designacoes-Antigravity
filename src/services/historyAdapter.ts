@@ -108,6 +108,49 @@ export async function loadCompletedParticipations(forceRefresh = false): Promise
 
     const records = data.map(row => workbookPartToHistoryRecord(mapDbToWorkbookPart(row)));
 
+    // Incorpora participações de fim de semana (Leitor de A Sentinela, Presidente FDS, Discurso Público)
+    // sincronizadas do Hourglass via app_settings.weekend_history
+    try {
+        const { data: weekendData } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'weekend_history')
+            .maybeSingle();
+
+        if (weekendData?.value?.records && Array.isArray(weekendData.value.records)) {
+            for (const r of weekendData.value.records) {
+                if (!r.date || r.date < dateStr) continue;
+                records.push({
+                    id: r.id || `hg-wm-${r.date}-${r.tipoParte}`,
+                    weekId: r.weekId || r.date,
+                    weekDisplay: r.weekDisplay || '',
+                    date: r.date,
+                    section: 'Fim de Semana',
+                    tipoParte: r.tipoParte || 'Leitor de A Sentinela',
+                    modalidade: r.modalidade || 'Discurso de Ensino',
+                    tituloParte: r.tituloParte || r.tipoParte || '',
+                    descricaoParte: '',
+                    detalhesParte: '',
+                    seq: 99,
+                    funcao: (r.funcao as 'Titular' | 'Ajudante') || 'Titular',
+                    duracao: 30,
+                    horaInicio: '',
+                    horaFim: '',
+                    rawPublisherName: r.publisherName || '',
+                    resolvedPublisherName: r.publisherName || '',
+                    resolvedPublisherId: r.publisherId || '',
+                    status: HistoryStatus.APPROVED,
+                    importSource: 'Hourglass',
+                    importBatchId: 'weekend-sync',
+                    createdAt: r.date,
+                    updatedAt: r.date
+                });
+            }
+        }
+    } catch (e) {
+        console.warn('[historyAdapter] Aviso ao carregar weekend_history (não crítico):', e);
+    }
+
     _historyCache = { data: records, ts: Date.now() };
     _historyPending = null;
     return records;

@@ -36,6 +36,7 @@ import { getModalidadeFromTipo } from '../constants/mappings';
 import { partsToHistoryRecords } from '../services/historyAdapter';
 import { loadRefusedNamesForWeek } from '../services/refusalMemoryService';
 import { formatWeekFromDate, toLocalISODate } from '../utils/dateUtils';
+import { loadAvSchedule, findAvAssignmentForPublisher, type AvAssignment } from '../services/avScheduleService';
 
 const getModalidade = (part: WorkbookPart): string => {
     if (part.modalidade) return part.modalidade;
@@ -59,6 +60,16 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
             .catch(() => { if (active) setRefusedThisWeek([]); });
         return () => { active = false; };
     }, [part.weekId]);
+
+    // Escala de Áudio/Vídeo e Indicadores do Hourglass (Fase 2)
+    const [avAssignments, setAvAssignments] = useState<AvAssignment[]>([]);
+    useEffect(() => {
+        let active = true;
+        loadAvSchedule()
+            .then(items => { if (active) setAvAssignments(items); })
+            .catch(() => { if (active) setAvAssignments([]); });
+        return () => { active = false; };
+    }, []);
 
     // CORRECTION O: Use target date for cooldown reference instead of today
     const referenceDate = useMemo(() => {
@@ -183,6 +194,11 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
         () => sortedOptions.find(o => o.publisher.id === effectiveValue),
         [sortedOptions, effectiveValue]
     );
+
+    const selectedAv = useMemo(() => {
+        if (!foundPublisher) return undefined;
+        return findAvAssignmentForPublisher(avAssignments, foundPublisher.id, foundPublisher.name, part.weekId, part.date);
+    }, [avAssignments, foundPublisher, part.weekId, part.date]);
 
     // Se não encontrou match mas tem displayName, vamos mostrar como opção especial
     const showUnmatchedName = displayName && !foundPublisher;
@@ -508,6 +524,22 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                         ))}
                     </div>
                 )}
+
+                {/* Alerta de Apoio HG (Áudio/Vídeo/Indicador) — informativo, não bloqueia manual */}
+                {selectedAv && (
+                    <div style={{
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid rgba(255,255,255,0.1)'
+                    }}>
+                        <div style={{ color: '#f59e0b', fontWeight: 'bold', marginBottom: '4px' }}>
+                            🎧 Apoio no Hourglass (Mesma Reunião)
+                        </div>
+                        <div style={{ fontSize: '0.85em', color: '#fef3c7' }}>
+                            Escalado como <strong>{selectedAv.label}</strong> nesta mesma data ({part.weekId}).
+                        </div>
+                    </div>
+                )}
             </div>
         );
     };
@@ -582,7 +614,10 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                 {visibleOptions.map(({ publisher: p, cooldownInfo, samePartBlocked, sectionBlocked, engineGateReason }) => {
                     // Marcadores de gate relaxável: o motor pularia enquanto houver alternativa; manual continua livre.
                     const gateIcon = samePartBlocked ? '🔁 ' : sectionBlocked ? '🧩 ' : engineGateReason ? '↔️ ' : '';
-                    const icon = `${gateIcon}${cooldownInfo?.isInCooldown ? '⏳ ' : ''}`;
+                    const candAv = findAvAssignmentForPublisher(avAssignments, p.id, p.name, part.weekId, part.date);
+                    const avIcon = candAv ? '🎧 ' : '';
+                    const icon = `${gateIcon}${avIcon}${cooldownInfo?.isInCooldown ? '⏳ ' : ''}`;
+                    const avTitle = candAv ? `🎧 Escalado em Áudio/Vídeo nesta reunião: ${candAv.label} (Hourglass)` : '';
                     const gateTitle = samePartBlocked ? '🔁 Fez esta mesma parte em ±4 sem. — motor evita repetir'
                         : sectionBlocked ? '🧩 Deve outras partes da seção — motor prefere rodar'
                         : engineGateReason ? `↔️ ${engineGateReason}` : '';
@@ -592,15 +627,15 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                             key={p.id}
                             value={p.id}
                             style={{
-                                color: gateIcon ? '#a16207' : 'inherit',
+                                color: gateIcon ? '#a16207' : (candAv ? '#b45309' : 'inherit'),
                                 fontStyle: 'normal',
                                 fontWeight: cooldownInfo?.isInCooldown ? 'bold' : 'normal'
                             }}
-                            title={[gateTitle, cooldownInfo?.isInCooldown
+                            title={[gateTitle, avTitle, cooldownInfo?.isInCooldown
                                 ? ((cooldownInfo.lastDate || '') <= toLocalISODate()
                                     ? `⏳ Participações Passadas: Fez ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `
                                     : `⏳ Designações Futuras: Designado para ${cooldownInfo.lastPartType} na ${cooldownInfo.weekDisplay || formatWeekFromDate(cooldownInfo.lastDate || '')} `)
-                                : (gateTitle ? '' : '✅ Elegível')].filter(Boolean).join(' · ')}
+                                : (gateTitle || avTitle ? '' : '✅ Elegível')].filter(Boolean).join(' · ')}
                         >
                             {icon}{p.name}
                         </option>

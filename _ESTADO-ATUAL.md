@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-17 21:05 (BRT) — §43.16 Fila Contextual de Conflitos de Disponibilidade na Semana — Fase 1 (157/157 testes RVM aprovados, 80/80 testes HG-Sync aprovados, zero regressões, build Vite validado com sucesso).  
+> **Última Atualização**: 2026-11-17 21:40 (BRT) — §43.17 Sincronização Completa HG ↔ RVM: Ausências & Conflitos Contextuais, Alertas de Áudio/Vídeo e Histórico de Fim de Semana (158/158 testes RVM aprovados, 85/85 testes HG-Sync aprovados, zero regressões, build Vite validado com sucesso).  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -994,6 +994,26 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - Suíte de testes do RVM expandida de 154 para **157/157 testes aprovados** (100% verde).
     - Suíte do HG-Sync validada com **80/80 testes aprovados** (100% verde).
     - Compilação de produção Vite (`npm run build`) validada com sucesso (Exit 0).
+- **§43.17 Sincronização Completa HG ↔ RVM: Ausências & Conflitos Contextuais, Alertas de Áudio/Vídeo e Histórico de Fim de Semana — Fases 1, 2 e 3 (2026-11-17 21:40 BRT)**:
+  - **Fase 1: Ingestão de Ausências e Enfileiramento de Conflitos**:
+    - `hg-sync/src/hg/api.ts`: Criada a interface `HgAbsence` e o método `getAbsences()` consultando a rota nativa `/api/v0.2/scheduling/absence?lgroup=...`.
+    - `hg-sync/src/rvm/reader.ts`: Implementado `syncPublisherAbsences(absences, rvmPublishers)`. Expande o intervalo `[start, end]` dia a dia e calcula as segundas-feiras (`weekId`) cujas reuniões de meio de semana caem no período (consultando `app_settings.s89_meeting_day_by_week`).
+    - Mesclagem não-destrutiva de datas via `Set` em `publishers.data.availability.exceptionDates` sem sobrescrever datas manuais já existentes.
+    - Detecção e marcação de conflitos em `workbook_parts` futuras ativas (`needs_reassignment: true`, `reassignment_reason: 'Ausência informada no HG (start..end: nota)'`), alimentando automaticamente a `WeekConflictQueueBanner` na Aba Apostila.
+    - `src/services/eligibilityService.ts`: `isAvailableOnDate` aprimorado para checar a data específica diretamente (`!exceptionDates.includes(date)`), além de `weekId` e compatibilidade com quinta-feira.
+  - **Fase 2: Alertas de Áudio/Vídeo e Indicadores**:
+    - `hg-sync/src/rvm/reader.ts`: Implementado `syncAvSchedule(items, rvmPublishers)` que ingesta `/api/v0.2/scheduling/av_attendant` em `app_settings` com a chave `'hg_av_schedule'`, mapeando nomes, IDs do RVM e rótulos amigáveis (`Áudio / Som`, `Vídeo`, `Microfones`, `Indicador`, etc.).
+    - `src/services/avScheduleService.ts`: Serviço leve no RVM com cache e helper `findAvAssignmentForPublisher`.
+    - `src/components/PublisherSelect.tsx`: Exibe badge `🎧 ` e tooltip explicativo nas opções do dropdown de publicadores e no card flutuante de detalhes do candidato caso ele esteja escalado no apoio daquela mesma reunião, prevenindo dupla escala sem bloquear intervenções manuais.
+  - **Fase 3: Histórico de Fim de Semana no Motor de Rotação**:
+    - `hg-sync/src/rvm/reader.ts`: Implementado `syncWeekendSchedule(weeks, rvmPublishers)` que ingesta `/api/v0.2/scheduling/wm/schedule` em `app_settings` com a chave `'weekend_history'`, capturando participações de Leitor de A Sentinela (`wm_reader`), Presidente FDS (`wm_chairman`) e oradores locais em Discursos Públicos.
+    - `src/services/historyAdapter.ts`: `loadCompletedParticipations` agora carrega e incorpora os registros de `weekend_history` como `HistoryRecord`s válidos.
+    - O motor de rotação (frequência, proximidade de papéis principais, frescor) agora reconhece automaticamente o trabalho realizado no fim de semana, evitando sobrecarregar irmãos que já desempenharam funções pesadas no domingo.
+  - **Qualidade, Testes & Homologação**:
+    - Testes unitários do RVM expandidos para **158/158 testes aprovados** (`npm test`).
+    - Testes unitários do HG-Sync expandidos para **85/85 testes aprovados** (`npm test --prefix hg-sync`).
+    - Compilação de produção Vite (`npm run build`) concluída com sucesso (Exit 0).
+    - Serviço Windows `RVM-HG-Sync` reiniciado e homologado em tempo real em produção: 54 atribuições de Áudio/Vídeo sincronizadas e 32 participações de fim de semana incorporadas ao Supabase com zero alterações de DDL (`0 CREATE TABLE`, `0 ALTER TABLE`).
 
 ---
 
