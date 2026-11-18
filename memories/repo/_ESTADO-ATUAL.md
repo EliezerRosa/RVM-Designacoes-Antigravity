@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-18 08:44 (BRT) — §43.18 Implantação do Graphify Knowledge Graph para Otimização FinOps de Tokens (`graphifyy 0.9.112` + `uv 0.13.9`, 10.903 nós / 23.044 arestas / 435 comunidades locais via AST + SQL sem gasto de tokens LLM; redução medida de 593,4× por consulta).  
+> **Última Atualização**: 2026-11-18 16:39 (BRT) — §43.19 Especificação Canônica de FinOps Multi-IDE (Graphify + Gate Jev v3: Síntese Opção A + Opção B persistida em `memories/repo/arquitetura-finops-graphify-jev-v3.md`).  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -1027,6 +1027,17 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
   - **Verificação, Benchmark & Git**:
     - Artefatos validados em `graphify-out/` (local, incluído no `.gitignore`): `graph.json` (`9.361.269` bytes), `GRAPH_REPORT.md` (`53.920` bytes) e visualização interativa agregada `graph.html` (`478.652` bytes).
     - Consultas `graphify god-nodes --top 10` (`Publisher`, `WorkbookPart`, `@supabase/supabase-js`, `ConfigNamespace`, etc.) e `graphify benchmark` validadas: redução média de **593,4× menos tokens por consulta** (~1.225 tokens vs ~726.866 tokens na leitura direta).
+- **§43.19 Especificação Canônica de FinOps Multi-IDE — Graphify + Gate Jev v3 (2026-11-18 16:39 BRT)**:
+  - **Memória Canônica Persistente**: Consolidada em [`memories/repo/arquitetura-finops-graphify-jev-v3.md`](memories/repo/arquitetura-finops-graphify-jev-v3.md), unindo as revisões arquiteturais **Opção A** e **Opção B** sobre o uso do **TypeSafe Jev (`typesafe/jev-1.14`, Decisions API)** como coadjuvante do **Graphify**.
+  - **Impacto FinOps Documentado**: Graphify entrega **45%–65%** de redução líquida em sessões Claude Code (`PreToolUse`), **40%–55%** no Antigravity Orchestrator/Argon e **35%–50%** em modelo único (**70%–85%** em auditorias); o Gate Jev v3 projeta **+10% a +20%** adicionais (total **~50%–75%**) ao proteger o Modelo Planejador contra retrabalho com custo próximo de zero (1 *forward pass*, 0 tokens gerados).
+  - **7 Pilares Homologados do Gate Jev v3** (prontos para implementação quando autorizada; `scripts/jev-check.mjs` permanece em v2 / suspenso em `.roo/rules/10-jev-verificacao.md` até decisão de ativação):
+    1. Trava determinística local pré-API (regras físicas de `regras-intencao.md`, bump de versão do motor, `any`/`@ts-ignore`, testes e segredos);
+    2. Injeção de *Blast Radius* extraído do `graphify-out/graph.json` (`<100 tokens`) no campo `state` enviado ao Jev;
+    3. Filtro pathspec Git `:(exclude)` para lockfiles, snapshots, generated e tipos + curto-circuito `Exit 0` em diffs apenas Markdown/docs;
+    4. Gatilho estrito no fechamento de lote (`npm run verify:jev`, `PreToolUse git commit`, `.git/hooks/pre-commit`) — **proibido** hook `Stop` genérico ou `PostToolUse` por arquivo;
+    5. Cache local `SHA-256(regras + diff + blast_radius)` em `.tmp/jev-cache.json` (`0ms` no `pre-commit` após `verify:jev`);
+    6. Degradação graciosa *fail-open* (`[JEV-WARN]` + `Exit 0`) em erros HTTP 402/5xx/timeout quando travas locais aprovarem;
+    7. Válvula auditável `JEV_BYPASS_REASON` (ou 2 reprovações probabilísticas idênticas consecutivas) registrada em `.tmp/jev-bypass.log`.
 
 ---
 
