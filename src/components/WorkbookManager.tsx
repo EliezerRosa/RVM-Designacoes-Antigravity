@@ -34,6 +34,7 @@ import { BulkResetModal } from './BulkResetModal';
 import { GenerationModal, type GenerationConfig, type GenerationResult } from './GenerationModal';
 import { MyAssignmentsModal } from './MyAssignmentsModal';
 import { ManualReplacementModal } from './admin/ManualReplacementModal';
+import { WeekConflictQueueBanner } from './admin/WeekConflictQueueBanner';
 import { CSClearanceModal } from './admin/CSClearanceModal';
 import { useAuth } from '../context/AuthContext';
 import { zapiOrchestrator } from '../services/zapiOrchestrator';
@@ -701,6 +702,25 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
         });
     }, [parts, filterWeek, filterSection, filterTipo, filterStatus, filterFuncao, searchText, showHiddenParts, focusPartId]);
 
+    // Fila Contextual de Conflitos de Disponibilidade na Semana (Fase 1)
+    const weekConflictParts = useMemo(() => {
+        if (!filterWeek) {
+            return filteredParts.filter(p => p.needsReassignment || (p as any).needs_reassignment);
+        }
+        return parts.filter(p => (p.weekId === filterWeek || p.date === filterWeek) && (p.needsReassignment || (p as any).needs_reassignment));
+    }, [parts, filteredParts, filterWeek]);
+
+    const handleDismissConflict = useCallback((partId: string) => {
+        setParts(prev => prev.map(p => {
+            if (p.id !== partId) return p;
+            return {
+                ...p,
+                needsReassignment: false,
+                needs_reassignment: false,
+            };
+        }));
+    }, []);
+
     // ========================================================================
     // Estilos inline
     // ========================================================================
@@ -753,9 +773,20 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
 
                 // Em substituições manuais, o status sempre volta para PROPOSTA (para confirmar) ou PENDENTE (se limpo)
                 updated.status = newName ? 'PROPOSTA' : 'PENDENTE';
-                (updated as any).needsReassignment = false;
+                updated.needsReassignment = false;
+                updated.needs_reassignment = false;
                 return updated;
             }));
+
+            // Limpa flag de conflito/reatribuição no Supabase se estava pendente
+            if (part.needsReassignment || (part as any).needs_reassignment) {
+                try {
+                    const { supabase } = await import('../lib/supabase');
+                    await supabase.rpc('clear_part_reassignment_flag', { p_part_id: partId });
+                } catch (clearErr) {
+                    console.warn('[WorkbookManager] Erro ao limpar flag de reatribuição via RPC:', clearErr);
+                }
+            }
 
             // =====================================================================
             // PASSO ESPECIAL: Se for Necessidades Locais, desvincular pré-designação anterior
@@ -1137,6 +1168,16 @@ export function WorkbookManager({ publishers, isActive, initialPartId, focusPart
                                 setSuccessMessage={setSuccessMessage}
                             />
                         )}
+
+                        {/* Fila Contextual de Conflitos na Semana (Fase 1) */}
+                        <WeekConflictQueueBanner
+                            weekId={filterWeek}
+                            conflictParts={weekConflictParts}
+                            publishers={publishers}
+                            allParts={parts}
+                            onPartsRefresh={() => loadPartsWithFilters()}
+                            onDismissConflict={handleDismissConflict}
+                        />
 
                         {/* Tabela */}
                         <WorkbookTable

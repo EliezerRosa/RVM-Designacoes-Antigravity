@@ -160,6 +160,13 @@ export function mapDbToWorkbookPart(row: Record<string, unknown>): WorkbookPart 
         substitutedPublisherName: (row.substituted_publisher_name as string) || undefined,
         // Substitui o sentinel legado 'AUTO_CHAIRMAN' em resolved_publisher_id
         isChairmanDerived: (row.is_chairman_derived as boolean) ?? false,
+        // Fila de conflitos de disponibilidade (Fase 1 - Detecção Contextual)
+        needsReassignment: (row.needs_reassignment as boolean) ?? false,
+        needs_reassignment: (row.needs_reassignment as boolean) ?? false,
+        reassignmentReason: (row.reassignment_reason as string) || undefined,
+        reassignment_reason: (row.reassignment_reason as string) || undefined,
+        reassignmentMarkedAt: (row.reassignment_marked_at as string) || undefined,
+        reassignment_marked_at: (row.reassignment_marked_at as string) || undefined,
     };
 }
 

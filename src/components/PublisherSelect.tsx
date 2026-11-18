@@ -575,8 +575,8 @@ export const PublisherSelect = ({ part, publishers, value, displayName, onChange
                     </option>
                 )}
                 {selectedIneligibleOption && (
-                    <option value={selectedIneligibleOption.publisher.id} disabled style={{ fontStyle: 'italic', color: '#9CA3AF' }}>
-                        ⚠️ {selectedIneligibleOption.publisher.name} (não elegível no contexto)
+                    <option value={selectedIneligibleOption.publisher.id} disabled style={{ fontStyle: 'italic', color: '#DC2626' }}>
+                        ⚠️ {selectedIneligibleOption.publisher.name} ({selectedIneligibleOption.reason || 'não elegível no contexto'})
                     </option>
                 )}
                 {visibleOptions.map(({ publisher: p, cooldownInfo, samePartBlocked, sectionBlocked, engineGateReason }) => {

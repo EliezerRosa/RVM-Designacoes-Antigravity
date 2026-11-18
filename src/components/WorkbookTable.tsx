@@ -210,8 +210,30 @@ export function WorkbookTable({
                                             allParts={filteredParts}
                                             history={historyRecords}
                                             ignoreEngineRules={unlockedParts.has(part.id)}
-                                            style={{ flex: 1, border: '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
+                                            style={{ flex: 1, border: (part.needsReassignment || part.needs_reassignment) ? '1px solid #F59E0B' : '1px solid #E5E7EB', borderRadius: '4px', padding: '4px', fontSize: '13px' }}
                                         />
+                                        {(part.needsReassignment || part.needs_reassignment) && (
+                                            <Tooltip content={part.reassignmentReason || part.reassignment_reason || 'Conflito de disponibilidade: publicador ausente nesta data'}>
+                                                <span
+                                                    style={{
+                                                        background: '#FEF3C7',
+                                                        color: '#92400E',
+                                                        border: '1px solid #FCD34D',
+                                                        borderRadius: '4px',
+                                                        padding: '2px 6px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        whiteSpace: 'nowrap',
+                                                        cursor: 'help',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '3px'
+                                                    }}
+                                                >
+                                                    ⚠️ Ausência
+                                                </span>
+                                            </Tooltip>
+                                        )}
                                             <Tooltip content={unlockedParts.has(part.id) ? "Restaurar regras estritas" : "Ignorar regras do motor e exibir todos"}>
                                                 <button
                                                     onClick={() => togglePartLock(part.id)}

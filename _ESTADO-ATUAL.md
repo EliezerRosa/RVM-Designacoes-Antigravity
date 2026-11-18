@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-17 15:15 (BRT) — §43.15 Trava de Seca para Ancião (elderCanDoStudentParts), Bônus de Ineditismo Anual em Discurso de Estudante & Alinhamento S-38 para "O que você diria?" (154/154 testes RVM aprovados, zero regressões, build Vite validado, Vercel e GitHub Pages atualizados).  
+> **Última Atualização**: 2026-11-17 21:05 (BRT) — §43.16 Fila Contextual de Conflitos de Disponibilidade na Semana — Fase 1 (157/157 testes RVM aprovados, 80/80 testes HG-Sync aprovados, zero regressões, build Vite validado com sucesso).  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -977,6 +977,23 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - 4 novos testes unitários adicionados em `src/services/rankedEligibleService.test.ts` cobrindo a trava de seca para ancião com/sem flag, promoção de SM, bônus de ineditismo anual em discurso e mapeamento S-38.
     - Total de **154/154 testes aprovados** (100% de sucesso).
     - Compilação de produção Vite (`npm run build`) concluída com sucesso (Exit 0).
+- **§43.16 Fila Contextual de Conflitos de Disponibilidade na Semana — Fase 1 (2026-11-17 21:05 BRT)**:
+  - **Motivação & Governança Anti-Desincronia**:
+    - Previne descompasso entre operações manuais do operador (editando a semana atual na Aba Apostila) e a sincronização em segundo plano (background sync/HG/portal).
+    - Princípio fundamental: a automação em background NUNCA reatribui partes silenciosamente; ela detecta e enfileira o conflito na semana afetada, respeitando a soberania humana (M-11).
+  - **Componentes e Arquitetura Entregues**:
+    - `src/types.ts`: Adicionados os campos `needsReassignment`, `reassignmentReason`, etc. à interface canônica `WorkbookPart`.
+    - `src/services/workbookService.ts`: Mapeamento automático dos campos `needs_reassignment` e `reassignment_reason` da tabela Supabase `workbook_parts` no método `mapDbToWorkbookPart`.
+    - `src/components/admin/WeekConflictQueueBanner.tsx`: Componente de alerta e fila contextual por semana. Exibe apenas os conflitos da semana sob foco (`filterWeek`), detalhando tipo de parte, função, publicador designado e motivo da ausência. Permite reatribuição com 1 clique (`reassignParts`) ou descarte/manutenção pelo operador humano.
+    - `src/components/WorkbookToolbar.tsx`: Seletor de semanas exibe contador visual de conflitos pendentes (ex.: `2026-11-23 ⚠️ (1 conflito)`).
+    - `src/components/WorkbookTable.tsx`: Linhas com designação conflitante recebem borda âmbar e chip visual `⚠️ Ausência` com tooltip explicativo.
+    - `src/components/WorkbookManager.tsx`: Banner contextual integrado no topo da grade de partes da semana. Na seleção manual de um novo publicador pelo dropdown (`executePublisherUpdate`), limpa `needsReassignment` no estado local e invoca a RPC `clear_part_reassignment_flag` no Supabase, garantindo que conflitos resolvidos manualmente pelo operador saiam da fila imediatamente.
+    - `src/components/PublisherSelect.tsx`: Exibe o motivo exato de ineligibilidade na opção desabilitada (ex.: `⚠️ Nome (Publicador indisponível nesta data)`).
+  - **Testes & Qualidade**:
+    - Criado `src/components/admin/WeekConflictQueueBanner.test.tsx` com 3 testes unitários para a fila contextual.
+    - Suíte de testes do RVM expandida de 154 para **157/157 testes aprovados** (100% verde).
+    - Suíte do HG-Sync validada com **80/80 testes aprovados** (100% verde).
+    - Compilação de produção Vite (`npm run build`) validada com sucesso (Exit 0).
 
 ---
 

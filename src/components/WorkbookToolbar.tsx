@@ -3,7 +3,7 @@
  * Extraído de WorkbookManager.tsx (Fase 5B da Auditoria)
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { type WorkbookPart, type Publisher } from '../types';
 import { downloadS140Unified } from '../services/s140GeneratorUnified';
 import { undoService } from '../services/undoService';
@@ -82,6 +82,17 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
     const s140SafePage = Math.min(Math.max(currentPage, 1), sortedWeeks.length || 1);
     const currentWeekId = sortedWeeks[s140SafePage - 1];
     const hasWeek = !!currentWeekId;
+
+    // Fila de conflitos contextuais por semana (Fase 1)
+    const conflictCountByWeek = useMemo(() => {
+        const counts: Record<string, number> = {};
+        for (const p of parts) {
+            if (p.needsReassignment || p.needs_reassignment) {
+                counts[p.weekId] = (counts[p.weekId] || 0) + 1;
+            }
+        }
+        return counts;
+    }, [parts]);
 
     return (
         <div style={{
@@ -313,9 +324,11 @@ export function WorkbookToolbar(props: WorkbookToolbarProps) {
                             const yearLabel = w.year && w.year > 0
                                 ? w.year
                                 : (w.weekId ? w.weekId.split('-')[0] : '');
+                            const conflicts = conflictCountByWeek[w.weekId] || 0;
+                            const conflictSuffix = conflicts > 0 ? ` ⚠️ (${conflicts} conflito${conflicts > 1 ? 's' : ''})` : '';
                             return (
                                 <option key={w.weekId} value={w.weekId}>
-                                    {yearLabel} | {cleanDisplay}
+                                    {yearLabel} | {cleanDisplay}{conflictSuffix}
                                 </option>
                             );
                         })}

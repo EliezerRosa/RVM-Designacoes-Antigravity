@@ -347,6 +347,14 @@ export interface WorkbookPart {
     // pelo motor (incluindo o próprio). Permite UI mostrar "alternativas equivalentes" e usuário
     // trocar sem viés alfabético. Campo derivado a cada geração; não é persistido isoladamente.
     tiedAlternatives?: string[];
+
+    // Fila de conflitos de disponibilidade (Fase 1 - Detecção Contextual)
+    needsReassignment?: boolean;
+    needs_reassignment?: boolean;
+    reassignmentReason?: string;
+    reassignment_reason?: string;
+    reassignmentMarkedAt?: string;
+    reassignment_marked_at?: string;
 }
 
 export interface WorkbookBatch {
