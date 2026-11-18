@@ -230,6 +230,11 @@ export const actionPort = {
           message: textMessage,
         },
         message: textMessage,
+        metadata: {
+          source: 'conversa-action-port',
+          publisher_id: publisherId,
+          reason: intent === 'RECUSAR' && reason?.trim() ? reason.trim() : undefined,
+        },
       };
 
       if (!supabase.functions || typeof supabase.functions.invoke !== 'function') {
@@ -250,7 +255,7 @@ export const actionPort = {
       };
       return {
         invoked: true,
-        success: Boolean(phone) && resObj.success !== false,
+        success: (Boolean(phone) || Boolean(publisherId)) && resObj.success !== false,
         hasPhone: Boolean(phone),
         error: resObj.error,
       };
@@ -275,6 +280,26 @@ export const actionPort = {
         actionType: 'CONFIRM_ASSIGNMENT',
         message: 'Identificador da parte ou do publicador ausente para confirmação.',
       };
+    }
+
+    if (typeof supabase.from === 'function') {
+      try {
+        const { data: partRow } = await supabase
+          .from('workbook_parts')
+          .select('id, resolved_publisher_id')
+          .eq('id', partId)
+          .maybeSingle();
+        const assignedId = (partRow as { resolved_publisher_id?: string | null } | null)?.resolved_publisher_id;
+        if (assignedId && String(assignedId) !== String(publisherId)) {
+          return {
+            success: false,
+            actionType: 'CONFIRM_ASSIGNMENT',
+            message: 'Esta designação já foi atribuída a outro publicador.',
+          };
+        }
+      } catch {
+        // fallback silencioso em ambiente de teste sem tabela mockada
+      }
     }
 
     const webhookRes = await actionPort.triggerZApiSmartWebhook('CONFIRMAR', partId, publisherId);
@@ -367,6 +392,26 @@ export const actionPort = {
         actionType: 'REFUSE_ASSIGNMENT',
         message: 'Identificador da parte ou do publicador ausente para recusa.',
       };
+    }
+
+    if (typeof supabase.from === 'function') {
+      try {
+        const { data: partRow } = await supabase
+          .from('workbook_parts')
+          .select('id, resolved_publisher_id')
+          .eq('id', partId)
+          .maybeSingle();
+        const assignedId = (partRow as { resolved_publisher_id?: string | null } | null)?.resolved_publisher_id;
+        if (assignedId && String(assignedId) !== String(publisherId)) {
+          return {
+            success: false,
+            actionType: 'REFUSE_ASSIGNMENT',
+            message: 'Esta designação já foi atribuída a outro publicador.',
+          };
+        }
+      } catch {
+        // fallback silencioso em ambiente de teste sem tabela mockada
+      }
     }
 
     const webhookRes = await actionPort.triggerZApiSmartWebhook('RECUSAR', partId, publisherId, cleanReason);

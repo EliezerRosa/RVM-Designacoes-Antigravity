@@ -398,21 +398,62 @@ async function processWebhookPayload(body: any) {
     }
 
     // --------------------------------------------------------------------------
-    // 1. Identificar possíveis Publicadores pelo Telefone (Casais/Famílias compartilham número)
+    // 1. Identificar possíveis Publicadores pelo Telefone (ou metadados autenticados Portal/HG-Sync)
     // --------------------------------------------------------------------------
-    if (senderPhone) {
-      const { data: allPubs } = await supabase.from("publishers").select("id, data");
-      if (allPubs && allPubs.length > 0) {
-        for (const p of allPubs) {
-          const pPhone = p.data?.phone || p.data?.contact_phone || "";
-          if (phoneMatches(senderPhone, pPhone)) {
-            possiblePublishers.push({
-              id: p.id,
-              name: p.data?.name || "Irmão(ã)",
-              gender: p.data?.gender || "brother",
-              phone: pPhone,
-            });
-          }
+    const { data: allPubs } = await supabase.from("publishers").select("id, hg_id, data");
+    if (senderPhone && allPubs && allPubs.length > 0) {
+      for (const p of allPubs) {
+        const pPhone = p.data?.phone || p.data?.contact_phone || "";
+        if (phoneMatches(senderPhone, pPhone)) {
+          possiblePublishers.push({
+            id: p.id,
+            name: p.data?.name || "Irmão(ã)",
+            gender: p.data?.gender || "brother",
+            phone: pPhone,
+          });
+        }
+      }
+    }
+
+    // Fallback seguro para Portal de Confirmação (token validado) ou HG-Sync/Conversa quando publicador não tem telefone
+    if (possiblePublishers.length === 0 && allPubs && allPubs.length > 0) {
+      const meta = (payload as any)?.metadata || {};
+      const metaPubId = meta.publisher_id ? String(meta.publisher_id).trim() : "";
+      const metaHgId = meta.hg_assignee ? Number(meta.hg_assignee) : 0;
+      const metaToken = meta.portal_token ? String(meta.portal_token).trim() : "";
+      const btnPartId = buttonId && String(buttonId).includes(":") ? String(buttonId).split(":")[1].trim() : "";
+
+      let allowMetadataLookup = false;
+      if (meta.source === "confirmation-portal" && metaToken && metaPubId && btnPartId) {
+        const { data: tokRow } = await supabase
+          .from("confirmation_portal_tokens")
+          .select("id")
+          .eq("part_id", btnPartId)
+          .eq("publisher_id", metaPubId)
+          .eq("token", metaToken)
+          .gt("expires_at", new Date().toISOString())
+          .limit(1)
+          .maybeSingle();
+        if (tokRow) {
+          allowMetadataLookup = true;
+        }
+      } else if (meta.source === "hg-sync-inbound" || meta.source === "conversa-action-port") {
+        allowMetadataLookup = Boolean(metaPubId || metaHgId);
+      }
+
+      if (allowMetadataLookup) {
+        const matchedPub = allPubs.find((p: any) =>
+          (metaPubId && String(p.id) === metaPubId) ||
+          (metaHgId > 0 && (Number(p.hg_id) === metaHgId || Number(p.data?.hg_id) === metaHgId))
+        );
+        if (matchedPub) {
+          const pPhone = matchedPub.data?.phone || matchedPub.data?.contact_phone || "";
+          possiblePublishers.push({
+            id: matchedPub.id,
+            name: matchedPub.data?.name || "Irmão(ã)",
+            gender: matchedPub.data?.gender || "brother",
+            phone: pPhone,
+          });
         }
       }
     }
@@ -872,13 +913,15 @@ async function processWebhookPayload(body: any) {
           console.log(`[zapi-smart-webhook] Recusa ignorada (Duplo Clique): Parte já estava REJEITADA/EM_SUBSTITUICAO`);
           await dispatchTextMessage(replyPhone, outboundReply);
         }
-      } else if (targetPart.resolved_publisher_id && publisherData?.id && String(targetPart.resolved_publisher_id) !== String(publisherData.id)) {
+      } else if (!targetPart.resolved_publisher_id || !publisherData?.id || String(targetPart.resolved_publisher_id) !== String(publisherData.id)) {
         actionTaken = "ALREADY_REASSIGNED";
         outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. A designação de *${tipoParte}*${partDateStr} já foi repassada para outro irmão. Agradecemos por nos avisar! Que Jeová o(a) abençoe. 🙏`;
-        console.log(`[zapi-smart-webhook] Recusa cancelada: Parte já repassada para outro publicador (${targetPart.resolved_publisher_name}).`);
+        console.log(`[zapi-smart-webhook] Recusa cancelada: Designado atual (${targetPart.resolved_publisher_name || "vazio"}) não corresponde ao solicitante (${pubName}).`);
         await dispatchTextMessage(replyPhone, outboundReply);
       } else {
-        const reason = reasonExtracted || "Impossibilidade informada via WhatsApp.";
+        const metaReason = (payload as any)?.metadata?.reason ? String((payload as any).metadata.reason).trim() : "";
+        const customTextReason = inboundText && !["Não Poderei", "❌ Não Poderei"].includes(inboundText.trim()) ? inboundText.trim() : "";
+        const reason = reasonExtracted || metaReason || customTextReason || "Impossibilidade informada.";
 
         // Ler a chave zapi_automation_active da app_settings (mesma da UI)
         const { data: settingsData } = await supabase
@@ -1067,6 +1110,9 @@ async function dispatchButtonActionUrl(phone: string, message: string, buttonLab
 
 /** Dispara mensagem de texto via Edge Function send-whatsapp */
 async function dispatchTextMessage(phone: string, message: string) {
+  if (!phone || String(phone).replace(/\D/g, "").length < 10) {
+    return false;
+  }
   try {
     const res = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
       method: "POST",

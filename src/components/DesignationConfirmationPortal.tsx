@@ -132,6 +132,10 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
     const handleSubmit = async () => {
         if (accept === null) return;
         if (alreadyResponded) return; // Proteção extra contra dupla submissão
+        if (part?.resolvedPublisherId && String(part.resolvedPublisherId) !== String(publisherId)) {
+            setError('Esta designação já foi atribuída a outro publicador.');
+            return;
+        }
         if (accept === false && !reason.trim()) {
             alert('Por favor, informe o motivo da recusa.');
             return;
@@ -139,6 +143,44 @@ export function DesignationConfirmationPortal({ partId, publisherId, token }: De
 
         setIsSubmitting(true);
         try {
+            // Aciona o pipeline de troca automática (zapi-smart-webhook -> GitHub Action headless-auto-reassign)
+            // antes que a RPC limpe resolved_publisher_id e consuma o token, garantindo correspondência estrita do designado.
+            if (accept === false && typeof supabase.functions?.invoke === 'function') {
+                try {
+                    const cleanReason = reason.trim();
+                    let pubPhone = '';
+                    try {
+                        const pub = await api.loadPublisherById(publisherId);
+                        pubPhone = pub?.phone?.trim() || '';
+                    } catch {
+                        // Em sessão token-only anônima, RLS em publishers retorna vazio; fallback usa metadata/hg-sync
+                    }
+                    await supabase.functions.invoke('zapi-smart-webhook', {
+                        body: {
+                            phone: pubPhone,
+                            senderPhone: pubPhone,
+                            fromMe: false,
+                            isGroup: false,
+                            messageId: `portal-s89-recusar-${partId}-${Date.now()}`,
+                            buttonsResponseMessage: {
+                                buttonId: `RECUSAR:${partId}`,
+                                message: '❌ Não Poderei',
+                            },
+                            text: { message: cleanReason },
+                            message: cleanReason,
+                            metadata: {
+                                source: 'confirmation-portal',
+                                publisher_id: publisherId,
+                                portal_token: token,
+                                reason: cleanReason,
+                            },
+                        },
+                    });
+                } catch (webhookErr) {
+                    console.warn('[Portal] Falha não-bloqueante ao acionar troca automática via webhook:', webhookErr);
+                }
+            }
+
             const { data, error: submitError } = await supabase.rpc('submit_confirmation_portal_response', {
                 p_part_id: partId,
                 p_publisher_id: publisherId,
