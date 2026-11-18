@@ -1,6 +1,6 @@
 # Status Atual do Projeto — RVM Designações
 
-> **Última Atualização**: 2026-11-17 21:40 (BRT) — §43.17 Sincronização Completa HG ↔ RVM: Ausências & Conflitos Contextuais, Alertas de Áudio/Vídeo e Histórico de Fim de Semana (158/158 testes RVM aprovados, 85/85 testes HG-Sync aprovados, zero regressões, build Vite validado com sucesso).  
+> **Última Atualização**: 2026-11-18 08:44 (BRT) — §43.18 Implantação do Graphify Knowledge Graph para Otimização FinOps de Tokens (`graphifyy 0.9.112` + `uv 0.13.9`, 10.903 nós / 23.044 arestas / 435 comunidades locais via AST + SQL sem gasto de tokens LLM; redução medida de 593,4× por consulta).  
 > **Responsável Epistêmico**: Eliezer Rosa  
 > **Status Geral**: 🟢 Sistema Estável em Produção. Motor de Designações reformulado (regras `2026-10-15.01`) com **Blindagem Bidirecional de Gênero e Parentesco** (Titular ↔ Ajudante) ativa. Integrações externas: estado mantido **apenas localmente** em `docs-local/_ESTADO-LOCAL.md` (regra inflexível de 2026-11-07 — ver bloco correspondente do `.gitignore`). **Arquitetura de Armazenamento, Junções NTFS & OneDrive (1 TB)** implantada e documentada em `memories/repo/arquitetura-armazenamento-onedrive.md` (consolidando os **3 únicos projetos ativos no disco C:**: **RVM Designações**, **idd-ide** e **IDD Refrigeração**, com artefatos pesados mapeados via `mklink /J` para `OneDrive\Artefatos_IDEs` e desidratação automática `+U -P` a cada 15 min). Resumo Desacoplado de Próximas Designações Z-API ativo nos envios de S-89 e em Lembretes de Falta de Confirmação (72h / D-9). Planejamento das 6 Invariantes de Botões Z-API de Lembretes (Manual/Robô) concluído. **Regras Canônicas de Intenção** consolidadas em `memories/regras-intencao.md` (uso do verificador Jev da TypeSafe reservado para quando a extensão do projeto **`idd-ide`** estiver operacional; suspenso por ora no RVM Designações). **Governança FinOps de IA Multi-IDE** mapeada e blindada via `.rooignore`. Textos e formatação de datas (DD/MM/AAAA) teocráticos e cordiais padronizados. Axioma Irrevogável de Memória Multi-IDE ativo e sincronizado.  
 > **Fonte canônica do motor**: `.agents/workflows/motor-invariants.intent.md` (M-0…M-12) e `memories/regras-intencao.md` — prevalecem sobre o código.  
@@ -1014,6 +1014,19 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - Testes unitários do HG-Sync expandidos para **85/85 testes aprovados** (`npm test --prefix hg-sync`).
     - Compilação de produção Vite (`npm run build`) concluída com sucesso (Exit 0).
     - Serviço Windows `RVM-HG-Sync` reiniciado e homologado em tempo real em produção: 54 atribuições de Áudio/Vídeo sincronizadas e 32 participações de fim de semana incorporadas ao Supabase com zero alterações de DDL (`0 CREATE TABLE`, `0 ALTER TABLE`).
+- **§43.18 Implantação do Graphify Knowledge Graph para Otimização FinOps de Tokens (2026-11-18 08:44 BRT)**:
+  - **Pré-requisitos & Ferramental**:
+    - Python `3.12.6` validado no ambiente e gerenciador `uv` (`0.13.9`) instalado via `winget` (`astral-sh.uv`), com `PATH` atualizado para o usuário (`~/.local/bin` e pasta `uv`).
+    - Pacote `graphifyy` (`0.9.112`) instalado em ambiente isolado via `uv tool install "graphifyy[sql]" --force` (incluindo `tree-sitter-sql==0.3.13` para indexação AST de migrações e schemas SQL).
+  - **Integração Multi-Assistente (Claude Code + Antigravity)**:
+    - Claude Code: executados `graphify claude install`, `graphify install` e `graphify install --project --platform claude`, registrando hooks portáveis em `.claude/settings.json` (`graphify hook-guard search/read/compact`), skill local em `.claude/skills/graphify/`, skill global em `~/.claude/` e bloco `## graphify` em `AGENTS.md`.
+    - Antigravity: executado `graphify antigravity install`, registrando `.agents/rules/graphify.md`, `.agents/workflows/graphify.md` e skill em `~/.gemini/config/skills/graphify/`.
+  - **Isolamento & Construção Local Sem Custo de Tokens**:
+    - Criado `.graphifyignore` excluindo `node_modules/`, `dist/`, `.venv/`, `hg-sync/`, `_hg-local/`, `docs-local/`, `_backups-local/`, `whatsapp_session_data/`, `public/territories/` e ativos pesados (`.pdf`, `.xlsx`, imagens) — protegendo privacidade LGPD, isolamento HG e evitando downloads do OneDrive.
+    - Construção executada via `GRAPHIFY_BACKEND=none` e `graphify . --code-only` + `graphify cluster-only . --no-label` sobre `rvm-designacoes-unified`: indexação AST determinística de **751 arquivos de código/SQL**, gerando **10.903 nós**, **23.044 arestas** e **435 comunidades** com custo de **0 tokens LLM**.
+  - **Verificação, Benchmark & Git**:
+    - Artefatos validados em `graphify-out/` (local, incluído no `.gitignore`): `graph.json` (`9.361.269` bytes), `GRAPH_REPORT.md` (`53.920` bytes) e visualização interativa agregada `graph.html` (`478.652` bytes).
+    - Consultas `graphify god-nodes --top 10` (`Publisher`, `WorkbookPart`, `@supabase/supabase-js`, `ConfigNamespace`, etc.) e `graphify benchmark` validadas: redução média de **593,4× menos tokens por consulta** (~1.225 tokens vs ~726.866 tokens na leitura direta).
 
 ---
 

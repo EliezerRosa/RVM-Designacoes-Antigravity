@@ -126,3 +126,7 @@ scripts/_hg-legacy/
 
 # Área temporária do verificador Jev (patches propostos)
 .tmp/
+
+# Artefatos locais do Graphify Knowledge Graph (gerados sob demanda via `graphify . --code-only`)
+graphify-out/
+
