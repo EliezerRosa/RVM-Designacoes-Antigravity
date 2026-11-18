@@ -230,3 +230,37 @@ Solicita-se que o **Claude Opus** avalie criticamente os 5 pontos abaixo antes d
    - Como o comando proposto inclui `scripts/` no `git diff --cached -- src/ supabase/ api/ scripts/`, alterações no próprio `jev-check.mjs` também passarão pelo gate. É desejável ou `scripts/` contém scripts pontuais ad-hoc demais (ex.: `scripts/test_*.ts` com `: any` legado) que deveriam ficar fora da regra rígida de `estilo`? *(Obs.: a regra em `regras-intencao.md` linha 30 restringe `any`/`@ts-ignore` especificamente "em `src/`", o que já está respeitado na Etapa 2b).*
 5. **Reaproveitamento entre `RVM Designações` e `idd-ide`**:
    - Há algo nesta especificação que conflite com a futura extensão de governança do projeto irmão `C:\IDE IDD Claude-VS Code\idd-ide`?
+
+---
+
+## 8. Parecer Técnico Homologado (Argon High — 2026-11-18)
+
+> **Veredito Geral**: **APROVADO COM 4 AJUSTES CIRÚRGICOS DE ENGENHARIA** (verificados contra os artefatos reais do repositório).
+
+### 8.1 Os 4 Ajustes Empíricos Incorporados
+
+1. **Ajuste 1 (Já Aplicado no `.graphifyignore`) — Poda de `public/pdf.worker.min.mjs` (3.378 nós) + `vercel_fetch.js` (2.840 nós)**:
+   - A auditoria de distribuição de nós em `graphify-out/graph.json` revelou que `public/pdf.worker.min.mjs` (3.378 nós) e `vercel_fetch.js` (2.840 nós) respondiam por **6.218 de 10.903 nós (57% do grafo)**.
+   - Com a adição de `public/pdf.worker.min.mjs`, `*.min.js`, `*.min.mjs`, `vercel_fetch.js` e `*_aa0414e*` ao `.graphifyignore` e re-execução local (`graphify . --code-only --force` + `graphify cluster-only . --no-label`), foram podados **6.276 nós espúrios**.
+   - **Novo Grafo Limpo**: **4.627 nós**, **9.766 arestas** e **308 comunidades** (745 arquivos de código/SQL). Como ficou abaixo do limite de 5.000 nós, o `graphify-out/graph.html` agora renderiza o **grafo completo em nível de nó individual**, e o Top 10 `god-nodes` reflete 100% o domínio real (`@supabase/supabase-js`, `Publisher`, `WorkbookPart`, `react`, `dotenv`, `supabase`, `profiles`, `HistoryRecord`, `ZApiOrchestrator`, `useAuth()`).
+
+2. **Ajuste 2 — Bloqueio Absoluto (Sem Bypass) para Segredos e `any`/`@ts-ignore` em `src/`**:
+   - As subetapas **2a (Segredos)** e **2b (`any` / `@ts-ignore` / `eslint-disable` em `src/`)** vão direto para **`Exit 1` sem aceitar `JEV_BYPASS_REASON`**.
+   - Apenas a subetapa **2c (bump de constante de versão do motor em refatorações puramente técnicas)** e a **Etapa 5 (reprovação probabilística do Jev)** aceitam `JEV_BYPASS_REASON` auditado em `.tmp/jev-bypass.log`.
+
+3. **Ajuste 3 — Regra 2c Calibrada pelo Caso Real do Commit `6a80ea8`**:
+   - Ao tocar `src/services/{eligibility,rankedEligible,unifiedRotation,generation}Service.ts`:
+     - Ausência de arquivo `*.test.ts(x)` no lote $\rightarrow$ **Bloqueio duro (`Exit 1`)**.
+     - Presença de `*.test.ts(x)` sem bump de `ELIGIBILITY_RULES_VERSION` / `RULES_TEXT_VERSION` $\rightarrow$ exige `JEV_BYPASS_REASON` auditado (para fixes técnicos/integração que não alteram versão de regra canônica) ou anexa alerta em `state` para julgamento do Jev.
+
+4. **Ajuste 4 — `core.autocrlf=true` e `.gitattributes` Obrigatório para Hooks no Windows**:
+   - Confirmado `core.autocrlf=true` e ausência de `.gitattributes` no repositório. Na ativação do hook, deve-se criar `.gitattributes` com `scripts/git-hooks/* text eol=lf` além de gravar `.git/hooks/pre-commit` com `\n` (`LF`).
+
+### 8.2 Respostas Homologadas aos 5 Pontos da Seção 7
+
+1. **Impacto na Calibração v2 (`0.90` / `1.0`)**: Em `.tmp/jev/results-v2.json`, os patches `ok-1..3` tiveram `pNenhuma ∈ [0.93, 0.98]` e `risco ∈ [0.01, 0.02]`, contra `pNenhuma <= 0.02` e `risco >= 1.57` nos `bad-1..3` (margem de `0.88`). Os limiares `0.90` e `1.0` permanecem válidos, devendo o campo no `state` chamar-se `contexto_dependentes_ast` (tom neutro, sem a palavra *"blast"*).
+2. **`tsc -b` no `pre-commit`**: Executar `npx tsc -b` dentro do `.git/hooks/pre-commit` somente quando `git diff --cached --name-only` contiver arquivos `.ts` ou `.tsx` (~1,5s–2s com cache incremental; `0ms` em commits de `.sql`/`.md`).
+3. **Diffs > 14–24 KB (Sem Truncamento de Hunks ao Meio)**: Nunca cortar um hunk ao meio. 1º degrau (>14 KB): omitir hunks completos de `*.test.ts(x)` substituindo pela lista de arquivos de teste validados; 2º degrau (>24 KB): manter apenas arquivos inteiros até o teto ou fazer *fail-open* com `[JEV-WARN]` após aprovação no Gate Local + `tsc -b`.
+4. **Exclusão de `scripts/` do Payload Semântico da Etapa 4**: `scripts/jev-check.mjs` contém literais de regex de segredos/estilo (`sk-or-v1-`, `@ts-ignore`, `VITE_`) que causariam auto-reprovação na Decisions API. Portanto, a Etapa 2a varre segredos em todo o commit (exceto `scripts/jev-check.mjs`), enquanto a Etapa 4 envia à API apenas `src/`, `supabase/` e `api/`.
+5. **Compatibilidade com `idd-ide`**: Confirmado isomorfismo total com `C:\IDE IDD Claude-VS Code\idd-ide` (`verificarCercaMutacao` em `mutationFence.ts` + `graphificarCodigo` em `astGraph.ts`).
+

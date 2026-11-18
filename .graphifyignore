@@ -24,3 +24,9 @@ public/territories/
 *.jpg
 *.jpeg
 *.webp
+public/pdf.worker.min.mjs
+*.min.js
+*.min.mjs
+vercel_fetch.js
+*_aa0414e*
+
