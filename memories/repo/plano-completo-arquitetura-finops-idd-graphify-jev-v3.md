@@ -1,14 +1,15 @@
-# Dossiê Arquitetural Completo — Governança Epistêmica, FinOps Multi-IDE e Pipeline Graphify + Gate Jev v3.1
+# Dossiê Arquitetural Completo — Governança Epistêmica, FinOps Multi-IDE e Pipeline Graphify + Gate Jev v3.2
 
 > **Documento Único Exaustivo para Parecer Técnico Final — Claude Fable 5.2**  
-> **Data de Consolidação**: `2026-11-18`  
+> **Data de Consolidação**: `2026-11-19` *(revisão profunda v3.2 sobre base v3.1 de 2026-11-18)*  
 > **Responsável Epistêmico**: `Eliezer Rosa`  
-> **Repositório Primário**: `rvm-designacoes-unified` (branch `main`, base `e5896b6`, suíte `158/158` testes passando)  
+> **Repositório Primário**: `rvm-designacoes-unified` (branch `main`, base `f0e1ade`, suíte `158/158` testes passando; `npm run build` limpo; **`npm run type-check` possui `155` erros TS pré-existentes** — ver §4.2.C)  
 > **Projeto Irmão Convergente**: `C:\IDE IDD Claude-VS Code\idd-ide`  
 > **Genealogia Consolidada neste Dossiê**:  
 > 1. Síntese Opção A + Opção B ([`memories/repo/arquitetura-finops-graphify-jev-v3.md`](arquitetura-finops-graphify-jev-v3.md));  
 > 2. Parecer Empírico Argon High (Seção 8 do documento v3: 4 ajustes empíricos);  
-> 3. Parecer Técnico Final Neon (5 refinamentos críticos verificados por medição real no workspace e inspeção direta do repositório `idd-ide`).  
+> 3. Parecer Técnico Neon (v3.1: 5 refinamentos críticos);  
+> 4. **Auditoria Profunda Neon Extra / XHigh (v3.2 — 2026-11-19)**: **8 achados empíricos adicionais** verificados diretamente via `tsc -b --verbose`, inspeção de `supabase/migrations/`, simulação do extrator *inbound* em 7 arquivos reais, medição dos 4 commits de código mais recentes e leitura integral de `idd-ide/cli/src/commands/verify.ts`.  
 > **Status Executável Atual**:  
 > - **Graphify (`graphifyy 0.9.112` + `tree-sitter-sql==0.3.13` via `uv 0.13.9`)**: 🟢 **Ativo e Higienizado localmente** em `graphify-out/` (ignorado via `.gitignore`, `4.628` nós, `9.766` arestas, `310` comunidades — redução de `-57,6%` de ruído frente aos `10.903` nós iniciais).  
 > - **Gate Jev (`scripts/jev-check.mjs`)**: ⏸️ **Em estado v2 suspenso** conforme [`.roo/rules/10-jev-verificacao.md`](../../.roo/rules/10-jev-verificacao.md) e [`memories/regras-intencao.md`](../regras-intencao.md). **Nenhuma linha de código ou hook do Git foi modificada**, aguardando o parecer do **Claude Fable 5.2** e autorização final do Responsável Epistêmico.
@@ -187,20 +188,21 @@ Todas as metodologias descritas nesta Parte III são **agnósticas às tecnologi
 
 ## 3.1 Metodologia de FinOps Agêntico Multi-IDE
 
-### Modelo Econômico de Custo de Sessão Agêntica
-Uma sessão típica de engenharia com agente autônomo executa $T$ turnos sequenciais (em média $T \in [8, 25]$ por tarefa média). Em arquiteturas de chat com histórico acumulado, o custo total $C_{\text{sessão}}$ comporta-se como:
+### Modelo Econômico de Custo de Sessão Agêntica (Com *Prompt Caching* Realista)
+Uma sessão típica de engenharia com agente autônomo executa $T$ turnos sequenciais (em média $T \in [8, 25]$ por tarefa média). Em APIs modernas com **Prompt Caching** (Anthropic, Gemini, OpenAI — onde leituras de prefixo em cache custam $\alpha \approx 0{,}10\text{–}0{,}25$ do preço de entrada e escritas em cache custam $\beta \approx 1{,}0\text{–}1{,}25$), o custo total $C_{\text{sessão}}$ comporta-se como:
 
-$$C_{\text{sessão}} = \sum_{t=1}^{T} \Big( (I_0 + \Delta I_t) \cdot p_{\text{in}}(m_t) + O_t \cdot p_{\text{out}}(m_t) \Big) + R_{\text{retrabalho}}$$
+$$C_{\text{sessão}} = \beta I_0 p_{\text{in}} + \sum_{t=1}^{T} \Big( \alpha (I_0 + C_{t-1}) p_{\text{in}}(m_t) + \Delta I_t^{\text{novo}} p_{\text{in}}(m_t) + O_t p_{\text{out}}(m_t) \Big) + R_{\text{retrabalho}}$$
 
 onde:
-- $I_0$: contexto base carregado no início (system prompt + docs canônicos + código lido na exploração);
-- $\Delta I_t$: crescimento acumulado por leituras extras e saídas de `grep`/testes até o turno $t$;
-- $p_{\text{in}}(m_t), p_{\text{out}}(m_t)$: preço por token do modelo ativo no turno $t$;
-- $R_{\text{retrabalho}}$: custo multiplicador quando um erro semântico ou de tipagem só é descoberto ao final e obriga reabrir uma nova sequência de turnos em modelo caro.
+- $I_0$: contexto base inicial (system prompt + docs canônicos + mapa inicial);
+- $C_{t-1}$: histórico acumulado até o turno anterior elegível a *cache hit* (desconto $\alpha \in [0{,}10, 0{,}25]$);
+- $\Delta I_t^{\text{novo}}$: tokens novos injetados no turno $t$ (saídas brutas de `grep`, arquivos lidos integralmente, logs de teste) — pagos a tarifa cheia ($1{,}0\times$) no turno em que entram e re-lidos em cache ($\alpha$) nos turnos seguintes;
+- $R_{\text{retrabalho}}$: custo multiplicador quando um erro semântico, de segurança ou de compactação precoce (`/compact` por estouro de janela) obriga reiniciar contexto ou reescalar para modelo frontier.
 
-**Conclusão matemática direta**:
-1. Cada `50 KB` (~12.500 tokens) economizados na exploração inicial ($I_0$) via consulta estrutural ao grafo em vez de leitura integral de arquivos grandes multiplica a economia por todos os $T$ turnos subsequentes (mesmo considerando *prompt caching*, leituras dispersas e reinjeções invalidam prefixos frequentemente).
-2. Cada violação de domínio interceptada antes de chegar à revisão humana ou ao planejador evita um ciclo inteiro de $R_{\text{retrabalho}}$.
+**Conclusão econômica rigorosa (mesmo sob Prompt Caching)**:
+1. **Corte em $\Delta I_t^{\text{novo}}$ (Graphify na Entrada)** gera economia dupla: elimina o pagamento cheio ($1{,}0\times$) da leitura exploratória cega de arquivos grandes **e** retarda/evita que a janela atinja o gatilho de compactação ou perca acurácia por diluição de atenção (*lost-in-the-middle*).
+2. **Corte em $R_{\text{retrabalho}}$ (Gate na Saída)** atua sobre a cauda cara da distribuição: evitar 1 único ciclo de retrabalho em modelo frontier paga centenas de chamadas de passo único (`< $0.002/chamada`).
+3. **Nota de Rigor Epistêmico**: Enquanto a compressão de busca na ponta de entrada é empiricamente medida (`593,4×` isolado), a faixa `+10% a +20%` atribuída ao Gate Jev na tabela abaixo deve ser tratada como **hipótese operacional a ser medida empiricamente na Fase 2 (Shadow Mode)** — pois seu retorno líquido depende da taxa real de defeitos que escapariam de `npm test` + `eslint` e seriam capturados na Etapa 4.
 
 ### Evidência Financeira Histórica do Projeto
 Conforme registrado em [`memories/session/governanca-jev-v2-regras-intencao-e-finops-ia.md`](../session/governanca-jev-v2-regras-intencao-e-finops-ia.md):
@@ -212,18 +214,18 @@ Conforme registrado em [`memories/session/governanca-jev-v2-regras-intencao-e-fi
 | Nível | Executor / Classe de Tarefa | Custo Marginal Típico | Quando Usar | Exemplo no Fluxo |
 | :-: | :--- | :---: | :--- | :--- |
 | **Nível 0 — Determinístico Local** | Parser AST, SQL Tree-Sitter, Regex, `tsc`, `node --test`, `eslint`, SHA-256 | **`$0.000`** (`0` tokens) | Toda tarefa decidível formalmente | Graphify (`--code-only`), Gate Etapa 2 (`2a–2d`), Cache SHA-256 |
-| **Nível 1 — Discriminativo Passo Único** | Classificador / Decisions API (`p` + `score`, 0 tokens de output) | **Frações de centavo** (`< $0.002/chamada`) | Julgamento de conformidade `{ regras, dependentes, diff }` no fechamento de lote | Gate Jev Etapa 4 (`typesafe/jev-1.14`) |
+| **Nível 1 — Discriminativo Passo Único** | Classificador / Decisions API (`p` + `score`, 0 tokens de output) | **Frações de centavo** (`< $0.002/chamada`) | Julgamento de conformidade `{ regras_semanticas, dependentes, diff }` no fechamento de lote | Gate Jev Etapa 4 (`typesafe/jev-1.14`) |
 | **Nível 2 — Modelo Rápido / Executor Econômico** | Modelos Flash / V3 / Execução guiada por plano fechado | **`$0.14–$0.30 / 1M` input** (~95% abaixo de frontier) | Execução de edições bem especificadas, triagens, automações e webhook | Modo Execution após Plan Mode; Gemini 2.0 Flash / DeepSeek V3 |
-| **Nível 3 — Modelo Frontier / Planejador** | Opus / Argon High / Neon Orchestrator / Fable | Alto (reservado) | Decisões arquiteturais, planejamento ambíguo, revisão crítica, impasses após 2 falhas | Modo Plan, RFCs, pareceres técnicos, redesign de invariantes |
+| **Nível 3 — Modelo Frontier / Planejador** | Opus / Argon High / Neon XHigh / Fable | Alto (reservado) | Decisões arquiteturais, planejamento ambíguo, revisão crítica, impasses após 2 falhas | Modo Plan, RFCs, pareceres técnicos, redesign de invariantes |
 
 ### Projeção de Economia Líquida em Sessões Completas (Premissas Explícitas)
-*(Premissa: uma sessão real continua pagando custos fixos inevitáveis de system prompt, leitura obrigatória de `_ESTADO-ATUAL.md`, execução de testes e build; por isso a economia líquida de sessão fica abaixo do `593,4×` observado em consultas isoladas ao grafo).*
+*(Premissa: uma sessão real continua pagando custos fixos inevitáveis de system prompt, leitura obrigatória de `_ESTADO-ATUAL.md`, execução de testes e build; além disso, sob Prompt Caching, a economia da ponta de entrada atua sobretudo sobre $\Delta I_t^{\text{novo}}$ e prevenção de compactações. A coluna do Gate Jev representa hipótese a validar na Fase 2).*
 
-| Perfil de Uso / IDE | Economia Real com **Ponta de Entrada (Grafo)** | Ganho Adicional com **Ponta de Saída (Gate Lote)** | Economia Líquida Combinada Esperada |
+| Perfil de Uso / IDE | Economia Empírica/Estimada na **Entrada (Grafo)** | Hipótese de Ganho Adicional na **Saída (Gate Lote)** | Faixa Combinada Projetada |
 | :--- | :---: | :---: | :---: |
-| **Claude Code (`PreToolUse` redirecionando `Grep`/`Read`)** | **45% a 65%** | **+10% a +20%** | **~55% a 75%** |
-| **Antigravity IDE (Orchestrator Plan-Execute: Planejador + Executor)** | **40% a 55%** | **+10% a +20%** | **~50% a 70%** |
-| **IDE em Modelo Único (VS Code / Cursor / Roo)** | **35% a 50%** | **+5% a +15%** | **~45% a 65%** |
+| **Claude Code (`PreToolUse` redirecionando `Grep`/`Read`)** | **45% a 65%** | **+10% a +20%** *(hipótese Fase 2)* | **~55% a 75%** |
+| **Antigravity IDE (Orchestrator Plan-Execute: Planejador + Executor)** | **40% a 55%** | **+10% a +20%** *(hipótese Fase 2)* | **~50% a 70%** |
+| **IDE em Modelo Único (VS Code / Cursor / Roo)** | **35% a 50%** | **+5% a +15%** *(hipótese Fase 2)* | **~45% a 65%** |
 | **Auditorias, RCA de Bugs e Análise de Impacto** | **70% a 85%** | *(foco em leitura)* | **~70% a 85%** |
 | **Alteração pontual em 1 arquivo já conhecido** | **5% a 15%** | **+0% a +5%** *(trava local gratuita)* | **~5% a 20%** |
 
@@ -314,7 +316,7 @@ Em vez de aguardar a conclusão integral da extensão VS Code do `idd-ide` para 
 | **TypeSafe Jev via OpenRouter** | `typesafe/jev-1.14` em `POST /api/alpha/decisions` | Julgamento semântico de domínio em *single forward-pass* | `30/30` em fixtures v2 (`ok 0.94–0.99`, `bad 0.00–0.02`, gap `0.88`, `< 2s`) | Endpoint `/api/alpha/decisions` alpha; sujeito a `HTTP 402/429/5xx` ou mudança de schema | Classificador OpenAI/Anthropic *structured outputs* (`logprobs`), Qwen/Llama local via Ollama, DeBERTa fine-tuned |
 | **Node.js 22+ ESM Nativo** | Node `>= 22`, zero deps externas (`node:fs`, `node:crypto`, `fetch`) | Motor de execução do Gate (`scripts/jev-check.mjs`), hashing e CLI/API programática | Boot `< 50ms`, zero impacto em `node_modules` nem em `npm ci` | Sem compilador AST próprio embutido (usa Regex em diff + leitura do JSON do Graphify) | Deno, Bun, ou módulo TypeScript dentro do pacote `@idd/core` |
 | **Git + `.gitattributes` + `.git/hooks/pre-commit`** | Git for Windows (`sh.exe`, `core.autocrlf=true`) | Interceptação universal Multi-IDE em fronteira de commit + pathspecs nativos | `-c core.quotepath=false` + `:(exclude)` preserva Unicode no Windows; hook `LF` evita `/bin/sh^M` | `core.hooksPath` quebraria `idd init`; `exec`/`exit 0` mataria blocos anexados após o hook | GitHub Actions PR gate obrigatório, Lefthook, Husky (em projetos Node puros) |
-| **TypeScript `5.9.3` (`tsc -b`) + `node --test` + `ESLint 9` + `Vite 7`** | `typescript ~5.9.3`, `tsx 4.21`, `eslint 9.39`, `vite 7.2` | Validação sintática, contratual de tipos, regressão comportamental e bundle | `npm test`: `158/158`; **`tsc -b` medido em `20,89s–24,42s`** (sem cache incremental real por `noEmit: true` sem `incremental`) | Lento demais para `pre-commit` síncrono e avalia worktree em vez de stage (*partial staging*) | `tsgo` (TypeScript nativo Go), SWC/oxc type-check futuro, `tsc --incremental` habilitado + cache CI |
+| **TypeScript `5.9.3` (`tsc -b`) + `node --test` + `ESLint 9` + `Vite 7`** | `typescript ~5.9.3`, `tsx 4.21`, `eslint 9.39`, `vite 7.2` | Validação sintática, contratual de tipos, regressão comportamental e bundle | `npm test`: `158/158`; `npm run build` limpo; **`tsc -b` falha hoje (`Exit 1`) com `155` erros TS pré-existentes (`17,7s–24,4s`)** | Bloquearia 100% dos commits se ligado em hook hoje + avalia worktree inteiro (*partial staging*) | Zerar dívida TS (`155` erros) em trilha dedicada; `tsgo` (TypeScript Go) / CI dedicado |
 | **Multi-IDE Hooks & Rules** | `.claude/settings.json`, `.agents/rules/*`, `.rooignore` | Proteção de leitura/busca em sessão e isolamento de privacidade entre IDEs | `.claude/settings.json` intercepta `Bash\|Grep` e `Read\|Glob`; `.rooignore` protege `.env*` e `.tmp/` | `.gitignore` não impede leitura por extensão IDE; exige `.rooignore` e `.graphifyignore` espelhados | Hooks MCP/LSP nativos da extensão VS Code `idd-ide` (`@idd/core`) |
 
 ---
@@ -361,40 +363,45 @@ Em vez de aguardar a conclusão integral da extensão VS Code do `idd-ide` para 
    - `bad-2.patch` (`console.log` com `SERVICE_ROLE_KEY` e `SECRET`): `pNenhuma = 0.02`, `risco ∈ [1.57, 1.67]`, `violacao = 'segredos'`.
    - `bad-3.patch` (remoção de filtro de elegibilidade): `pNenhuma ∈ [0.00, 0.01]`, `risco ∈ [1.79, 1.91]`, `violacao = 'dominio'`.
 
-### C. Medição Empírica Real de `tsc -b` no Workspace (`tsconfig.app.json` e `tsconfig.node.json`)
+### C. Diagnóstico Real de `tsc -b` via `--verbose` (`155` Erros Pré-Existentes!)
 
-A revisão inicial (Seção 8.2 #2) assumiu que rodar `npx tsc -b` dentro do `.git/hooks/pre-commit` custaria apenas `~1,5s–2s` com cache incremental. A medição direta executada neste repositório provou o oposto:
-- `npx tsc -b` (execução fria, 0 arquivos editados): **`20,89s`**;
-- `npx tsc -b` (execução quente imediata, 0 arquivos editados): **`24,42s`**;
-- `.\node_modules\.bin\tsc.cmd -b` (invocação direta sem overhead do `npx`): **`22,75s`**.
+A revisão inicial (Argon High §8.2 #2) assumiu que rodar `npx tsc -b` dentro do `.git/hooks/pre-commit` custaria apenas `~1,5s–2s` com cache incremental. A medição direta (v3.1) encontrou `20,89s–24,42s` — e a **auditoria profunda Neon XHigh com `tsc -b --verbose` (2026-11-19)** revelou a causa raiz real (corrigindo o diagnóstico equivocado da v3.1 sobre `incremental`):
 
-**Causa Raiz Verificada nos Configs Reais**:
-Tanto [`tsconfig.app.json`](../../tsconfig.app.json) quanto [`tsconfig.node.json`](../../tsconfig.node.json) definem `"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.*.tsbuildinfo"` combinado com **`"noEmit": true` sem `"incremental": true` e sem `"composite": true`**. Como consequência, os arquivos gravados em `node_modules/.tmp/` têm apenas `14.315 bytes` (`tsconfig.app.tsbuildinfo`) e `65 bytes` (`tsconfig.node.tsbuildinfo`), e o TypeScript `5.9.3` reexecuta verificação completa a cada chamada (`~22s`), além do problema estrutural de o `tsc -b` inspecionar o **working tree completo** enquanto um `pre-commit` deve aprovar ou reprovar apenas o **Git index (*staged*)**.
+- **`npm run type-check` (`tsc -b`) atualmente FALHA com `Exit 1` e `155` erros pré-existentes no repositório!** *(PowerShell `Measure-Command` engolia o código de saída `1` em testes sem `--verbose`.)*
+- Distribuição real dos `155` erros atuais: `TS6133` (`50` imports/variáveis não usadas), `TS2339` (`22` propriedades inexistentes, ex.: `contact_phone`, `active`), `TS2322` (`21` incompatibilidades de tipo, ex.: `historyAdapter.ts`), `TS2353` (`16` propriedades desconhecidas em literais), `TS2304` (`10` identificadores não encontrados, ex.: `rmSyncService.ts(323,39): _groupGid`), `TS7006` (`8` `any` implícitos), `TS2769` (`5`), `TS2345` (`4`), além de `5` erros em `api/conversa-nlu.ts` sob `tsconfig.node.json`.
+- **Causa real da lentidão (`17,66s–24,42s` por execução)**: impresso literalmente por `tsc -b --verbose`:
+  > `Project 'tsconfig.app.json' is out of date because buildinfo file 'node_modules/.tmp/tsconfig.app.tsbuildinfo' indicates that program needs to report errors.`
+  Em TypeScript, quando um projeto possui erros de tipo pendentes, o `tsbuildinfo` registra que há diagnósticos a reportar e obriga reconstrução completa do grafo de tipos em **toda** invocação!
+- **Impacto duplo imediato na Spec v3.2**:
+  1. Colocar `tsc -b` no `.git/hooks/pre-commit` teria **travado 100% dos commits do repositório no Dia 1**;
+  2. Mesmo o script `"verify:all": "npm test && npm run type-check && npm run build && npm run verify:jev"` proposto na v3.1 **quebraria antes de chegar ao `build` e ao `verify:jev`**! Portanto, `verify:all` deve ser `"npm test && npm run build && npm run verify:jev"` enquanto o saneamento dos `155` erros TS ocorre em trilha dedicada separada (pois `vite build` compila via esbuild sem depender de `tsc`).
 
-### D. Integração Real Observada no Projeto `idd-ide`
+### D. Integração Real Observada no Projeto `idd-ide` (Incluindo `verify.ts`)
 
-A inspeção direta de `C:\IDE IDD Claude-VS Code\idd-ide` confirmou os pontos exatos de interface entre os dois projetos:
+A inspeção direta de `C:\IDE IDD Claude-VS Code\idd-ide` confirmou 5 pontos concretos de interface e sinergia:
 1. [`project.intent.yaml`](file:///C:/IDE%20IDD%20Claude-VS%20Code/idd-ide/project.intent.yaml): organiza o sistema em 5 bounded contexts (`core` `@idd/core`, `cli`, `extension`, `ui-extension`, `pwa`), governa `lifecycle_status.phase` (`exploratory` / `consolidation` / `production`) com tetos de duração para waivers (`30 / 14 / 7` dias) e severidade progressiva (`warn` $\rightarrow$ `critical`).
 2. [`cli/src/lib/mutationFence.ts`](file:///C:/IDE%20IDD%20Claude-VS%20Code/idd-ide/cli/src/lib/mutationFence.ts): exporta `verificarCercaMutacao` usando o grafo AST de `cli/src/lib/fase0/astGraph.ts`.
 3. [`cli/src/lib/fase0/graphify.ts`](file:///C:/IDE%20IDD%20Claude-VS%20Code/idd-ide/cli/src/lib/fase0/graphify.ts): já foi renomeado e convertido em shim `@deprecated` apontando para `astGraph.ts` especificamente para **eliminar colisão de nomenclatura com a ferramenta externa `safishamsi-graphify`** (`graphifyy`).
 4. [`cli/src/commands/init.ts`](file:///C:/IDE%20IDD%20Claude-VS%20Code/idd-ide/cli/src/commands/init.ts) (`writeHook` linhas `130–155` e `275–284`): grava explicitamente no caminho fixo `.git/hooks/pre-commit` e, se o arquivo já existir sem a string `'IDD IDE'`, **anexa (`existing + '\n' + lines.join('\n')`)** os comandos de `idd verify --fail-on=critical` ao final do hook existente. Isso impõe duas restrições inegociáveis para o RVM: **nunca** desviar `core.hooksPath` do diretório `.git/hooks/` e **nunca** terminar o script de `pre-commit` com `exit 0` ou `exec ...`, sob pena de tornar os futuros checks do `idd-ide` código morto silencioso.
+5. [`cli/src/commands/verify.ts`](file:///C:/IDE%20IDD%20Claude-VS%20Code/idd-ide/cli/src/commands/verify.ts) (`verifySemantic` L153–201 e `cmdVerify` L205–320): o verificador atual do `idd-ide` roda checagens estáticas por padrão (`0` tokens) e só aciona análise semântica sob `--semantic`, chamando diretamente `POST https://api.anthropic.com/v1/messages` (`claude-sonnet-5`, `max_tokens: 512`, truncando o arquivo com `code.slice(0, 16000)`!) e esperando `{ score: 0-100, violations: string[], status: 'ok' | 'warn' | 'drift' | 'unknown' }`. **Sinergia direta**: o Gate Jev v3.2 supera duas limitações do `verify.ts` atual (substitui geração autoregressiva cara por *single forward-pass* e elimina `code.slice(0, 16000)`) e, ao retornar um campo `iddVerdict` com o contrato exato `{ status, score, violations }`, torna-se um **Semantic Provider *drop-in*** para o futuro `idd verify --semantic`!
 
 ---
 
 # Parte V — Consolidação das Auditorias e Resolução Definitiva dos 5 Pontos Críticos
 
-## 5.1 Evolução Completa das 3 Rodadas de Revisão (A+B → Argon High → Neon)
+## 5.1 Evolução Completa das 4 Rodadas de Revisão (A+B → Argon High → Neon v3.1 → Auditoria Profunda Neon XHigh v3.2)
 
-| Tópico Técnico | Proposta Inicial (Síntese A+B) | Revisão Empírica 1 (Argon High — Seção 8) | Revisão Empírica Final 2 (Neon — Spec v3.1) | Justificativa Final da Decisão |
+| Tópico Técnico | Proposta Inicial (A+B) | Argon High (§8) | Neon (v3.1) | **Auditoria Profunda Neon XHigh (v3.2 — Verificado no Repo)** |
 | :--- | :--- | :--- | :--- | :--- |
-| **Qualidade do Grafo Local** | `10.903` nós direto de `graphify .` | Poda de `pdf.worker.min.mjs`, `vercel_fetch.js`, `*.min.*`, `*_aa0414e*` $\rightarrow$ grafo `< 5.000` nós (**Já aplicado**) | Confirmado e mantido (`4.628` nós, `9.766` arestas, `310` comunidades) | Eliminou `57,6%` de ruído minificado sem custo de API |
-| **Direcionalidade do Blast Radius** | Percorrer `links` pegando qualquer `source_file` diferente do editado | Renomear campo para `contexto_dependentes_ast` (tom neutro, `< 100` tokens) | **Refinamento 1**: Filtrar **estritamente arestas inbound** (`target ∈ editado`, `source.file ∈ {src/, api/, supabase/}`, sem `scripts/` nem `*.test.*`) | Evita misturar dependências *outbound* (`src/types.ts`) ou scripts auxiliares ad-hoc com consumidores de produção afetados |
-| **`tsc -b` no Hook `pre-commit`** | Rodar `npm run type-check` no hook | Rodar `npx tsc -b` condicionalmente quando houver `.ts/.tsx` (~`1,5–2s` estimado) | **Refinamento 2 (Refutação empírica)**: **Remover `tsc -b` do `pre-commit`**; manter em `npm run verify:all` | Benchmark real deu **`20,89s–24,42s`** (sem `"incremental": true`), além de `tsc` checar worktree e quebrar *partial staging* |
-| **Trava 2a (Segredos)** | Apenas `.env*`, `sk-or-v1-` e `VITE_*` | Remover opção de bypass em `2a` e `2b` | **Refinamento 3a**: Ampliar `2a` para cobrir `bad-2.patch` (`console.log` de `SERVICE_ROLE`/`SECRET`), `sk-proj-`, `ghp_`, `github_pat_`, `AIzaSy`, JWT literal, usando marcador linha-a-linha `// jev-pattern-literal` em `jev-check.mjs` | A especificação anterior deixava passar `bad-2.patch` na Etapa 2a e isentava o arquivo `jev-check.mjs` inteiro em vez de apenas suas linhas de padrão |
-| **Trava 2c & 2d (Motor, Intenção, SQL)** | `2c` exigindo versão + teste com `JEV_BYPASS_REASON` | Ausência de `*.test.*` bloqueia duro (`Exit 1`); ausência só de versão exige bypass auditado | **Refinamento 3b**: Adicionar `2d` (editar `*.intent.md` exige `JEV_BYPASS_REASON`; `DROP TABLE\|DROP SCHEMA\|DROP FUNCTION\|TRUNCATE` em migrations exige `ROLLBACK_SQL` + `JEV_BYPASS_REASON`) | Cobre regras críticas de [`memories/regras-intencao.md`](../regras-intencao.md) L34 e L36 a custo `0` tokens |
-| **Compactação de Diffs Grandes** | Cortar diff em `16.000` chars | 2 degraus: `> 14 KB` resume testes; `> 24 KB` seleciona arquivos inteiros sem cortar hunks | Mantido e **refinado**: ordenar seleção do 2º degrau por criticidade de domínio; se 1 único arquivo crítico exceder `24 KB`, *fail-open* auditado (`Exit 0` + `[JEV-WARN]`) | Nunca envia hunk cortado ao meio (zero erro sintático artificial) |
-| **Válvula `streak >= 2` e Cache** | Destrava após 2 erros idênticos no mesmo arquivo+violação | Mantido com `.tmp/jev-bypass.log` | **Refinamento 4**: Exigir **`diffHash !== prevDiffHash`** + **TTL 15 min** para auto-destravamento de `streak >= 2`; adicionar `CACHE_SCHEMA_VERSION = 'v3'` e poda de 30 dias | Impede burla trivial por duplo `git commit` sem alterar o código |
-| **Compatibilidade com `idd-ide`** | Hook `scripts/git-hooks/pre-commit` + `LF` | `.gitattributes` `text eol=lf` (`core.autocrlf=true` verificado) | **Refinamento 5**: Instalar em `.git/hooks/pre-commit` (sem `core.hooksPath`), terminar sem `exit 0` nem `exec`, e exportar `runJevGate(options)` | Preserva compatibilidade total com `writeHook` (append) e futura integração com `idd verify` |
+| **Grafo Local & Direcionalidade** | `10.903` nós; links não-direcionados | Poda para `< 5.000` nós; campo neutro `contexto_dependentes_ast` | Apenas arestas *inbound* em `src/`, `api/`, `supabase/` (sem `scripts/`/`*.test.*`) | **Testado em 7 arquivos reais**: adicionar contagem total em hubs (`src/types.ts`: `117` consumidores, top 10 exibidos) e anotar `api/`/`supabase/functions/` com `0` inbound como *entrypoints HTTP/Edge Function* (chamados via rede, não `import` AST) |
+| **`tsc -b` no `pre-commit` e `verify:all`** | `type-check` no hook | `tsc -b` condicional (`~1,5–2s` estimado) | Retirado do `pre-commit` (`21–24s` medidos); mantido em `verify:all` | **Correção factual crítica (`--verbose`)**: `tsc -b` **falha hoje (`Exit 1`) com `155` erros TS pré-existentes** (`50` TS6133, `22` TS2339, `21` TS2322, etc.), o que força rebuild integral e **quebraria `verify:all` no Dia 1**. `verify:all` deve excluir `type-check` até saneamento da dívida TS |
+| **Trava `2a/2b` (Segredos & Estilo)** | `.env*`, `sk-or-v1-`, `VITE_*` | Zero bypass em `2a/2b` | Cobrir `bad-2.patch` (`console.log`) + `// jev-pattern-literal` | **Endurecimento `2b`**: parser com estado para ignorar comentários de bloco multilinha `/* ... */` (evitando falso positivo em linhas internas sem `*` inicial) |
+| **Trava `2c/2d` (Motor, `.intent.md`, SQL)** | `2c` versão + teste | `2c` teste obrigatório + versão com bypass | Adicionado `2d` (`*.intent.md` e `DROP`/`TRUNCATE` SQL) | **Bug real evitado em `20261009200000_agent_action_server_gate.sql`**: `2d` DEVE remover comentários SQL (`--` e `/* */`) antes de procurar `DROP` (senão `-- DROP FUNCTION` no bloco de rollback dispara falso positivo!) e aceitar `-- Rollback:` além de `-- ROLLBACK_SQL` (0/15 migrações recentes usam `ROLLBACK_SQL` literal) |
+| **Regra × Filtro no Payload da Etapa 4** | Envia `regras-intencao.md` integral (50 linhas) | Mantido integral | Mantido integral | **Contradição estrutural resolvida**: `regras-intencao.md` exige atualizar `.md` (L38), rodar `npm test` (L31) e bumpar versão (L11), mas o diff filtrado remove `.md` e testes (>14 KB) e pode ter bypass técnico em `2c` (`6a80ea8`). A Etapa 4 deve receber **subconjunto semântico puro** (`regras_semanticas_jev`, ~20 linhas) + nota `pre_checks_aprovados` |
+| **Validação Empírica de `14 KB / 24 KB`** | Corte bruto `16 KB` | 2 degraus `14 KB / 24 KB` sem cortar hunk | Prioridade de domínio + fail-open se 1 arquivo > `24 KB` | **Validado em 4/4 commits reais recentes**: `e5896b6` (`12.585` chars), `6a80ea8` (`14.358 → 12.526`), `04f2f3c` (`25.257 → 22.135`), e o maior commit do motor `a53eb44` (`32.978 → 22.998` sem testes — **100% intacto dentro de `24 KB`!**) |
+| **Escopo `--worktree` & *Partial Staging*** | `git diff HEAD` / `fs.readFileSync` | Não tratado | `tsc` fora por *partial staging* | **Ponto cego fechado**: `--worktree` inclui arquivos novos *untracked* (`git ls-files --others --exclude-standard`) na Etapa 2; `--staged` lê blob do índice (`git show :<path>`) na Etapa `2d` em vez do disco |
+| **Cache SHA-256 & `graphify update .`** | `SHA256(regras + diff + blast)` | Mantido | `CACHE_SCHEMA_VERSION` + poda 30d + `diffHash` no anti-loop | **Race de workflow fechada**: rodar `graphify update .` entre `verify:jev` e `git commit` alterava `contexto_dependentes_ast` e causava *Cache Miss*! Fixada ordem canônica: `Edit+Test+Build → graphify update . → git add → verify:jev → git commit` |
+| **Taxonomia HTTP & `idd-ide`** | Fail-open `402/429/5xx` | `.gitattributes` `LF` | Shim sem `core.hooksPath` nem `exit 0`; `runJevGate()` | **Fechada taxonomia completa**: `401/403/404/410` (endpoint alpha movido ou chave revogada) e `400/413` também fazem *fail-open* com alerta severo `[JEV-ERROR-CONFIG]` + `.tmp/jev-health.log`; `runJevGate()` retorna `iddVerdict` (`ok\|warn\|drift\|unknown`) compatível *drop-in* com `idd-ide/cli/src/commands/verify.ts` |
 
 ---
 
@@ -403,11 +410,11 @@ A inspeção direta de `C:\IDE IDD Claude-VS Code\idd-ide` confirmou os pontos e
 1. **Ponto 1 — Impacto de `state.contexto_dependentes_ast` na calibração v2 (`0.90` / `1.0`)**:
    Manter inicialmente `LIMIAR_NENHUMA = 0.90`, `LIMIAR_RISCO = 1.0` e o rótulo neutro `contexto_dependentes_ast` (sem o termo bélico *"blast"* que pode enviesar o modelo de risco). Contudo, porque a calibração v2 usou apenas 6 arquivos fictícios (`src/lib/fake/*.ts`) ausentes do grafo real e com comentários óbvios em `bad-3.patch`, **é obrigatório executar a Micro-Calibração Semântica da Fase 1 (5 diffs reais do `git log` + 2 mutações sutis reais em serviços reais com `contexto_dependentes_ast` populado)** antes de habilitar o modo bloqueante.
 
-2. **Ponto 2 — Estratégia de `tsc -b` no `pre-commit`**:
-   **Não incluir `tsc -b` no hook `pre-commit` síncrono.** Com medição real de `20,89s–24,42s` por invocação somada ao conflito de *partial staging*, `tsc -b` no hook penaliza todo commit de forma desproporcional e falha em estágios parciais. Manter `npm run type-check` no fechamento de lote (`npm run verify:all` / `build:full`) e deixar o `pre-commit` executar apenas `node scripts/jev-check.mjs --staged` (`< 50ms` em curto-circuito/cache hit, `~1,5s` quando chama Decisions API). Se futuramente `tsconfig.app.json`/`node.json` migrarem para `"incremental": true` e a latência cair para `< 3s` verificados em disco, reavaliar.
+2. **Ponto 2 — Estratégia de `tsc -b` no `pre-commit` e em `verify:all`**:
+   **Não incluir `tsc -b` nem no `pre-commit` síncrono nem no `verify:all` enquanto houver `155` erros TS pré-existentes.** A auditoria com `tsc -b --verbose` provou que o comando hoje sai com **`Exit 1` (`17,7s–24,4s`)** — logo, qualquer hook ou script encadeado com `&& npm run type-check` bloquearia 100% dos commits no Dia 1 (além do conflito de *partial staging*). Manter o `pre-commit` focado em `node scripts/jev-check.mjs --staged` (`< 50ms` em curto-circuito/cache hit, `~1,5s` na API), `verify:all` como `npm test && npm run build && npm run verify:jev`, e abrir trilha separada para zerar os `155` erros TS antes de reavaliar `tsc` em gates.
 
-3. **Ponto 3 — Truncamento inteligente vs. diffs `> 14–24 KB`**:
-   Adotar a compactação íntegra em 2 degraus sem jamais cortar um hunk ao meio:
+3. **Ponto 3 — Truncamento inteligente vs. diffs `> 14–24 KB` (Empiricamente Validado em 4/4 Commits Reais)**:
+   Adotar a compactação íntegra em 2 degraus sem jamais cortar um hunk ao meio — **empiricamente validada sobre os 4 últimos commits de código reais**: `e5896b6` (`12.585` chars), `6a80ea8` (`14.358 → 12.526` chars sem testes), `04f2f3c` (`25.257 → 22.135` chars sem testes) e `a53eb44` (maior commit do motor, 10 arquivos: `32.978 → 22.998` chars sem testes — **100% preservado dentro de `24 KB`**):
    - Degrau 1 (`> 14.000` chars): substitui o conteúdo completo de blocos `*.test.ts(x)` por `[Testes validados localmente no diff: <lista>]` (mantendo-os integralmente validados na Etapa 2);
    - Degrau 2 (`> 24.000` chars): ordena os hunks/arquivos restantes por prioridade arquitetural (`1º` motor e migrações SQL; `2º` demais `src/services/` e `supabase/functions/`; `3º` `src/components/` e `api/`) e inclui apenas **arquivos inteiros** que caibam em `24.000` chars; caso nem o primeiro arquivo crítico caiba, faz *fail-open* gracioso com `[JEV-WARN]` após aprovação da Etapa 2 determinística.
 
@@ -422,11 +429,11 @@ A inspeção direta de `C:\IDE IDD Claude-VS Code\idd-ide` confirmou os pontos e
 
 ---
 
-# Parte VI — Proposta Completa de Implementação (Spec Executável v3.1 + Justificativas)
+# Parte VI — Proposta Completa de Implementação (Spec Executável v3.2 + Justificativas)
 
 > **Nota de Status**: Esta especificação serve de contrato exato de implementação para o ciclo posterior ao parecer do **Claude Fable 5.2**. Nenhuma modificação foi gravada nos arquivos executáveis ainda.
 
-## 6.1 Fluxograma Definitivo do Pipeline Gate Jev v3.1
+## 6.1 Fluxograma Definitivo do Pipeline Gate Jev v3.2
 
 ```mermaid
 flowchart TD
@@ -454,23 +461,23 @@ flowchart TD
     D2c -- "Limpo ou Nao tocou" --> D2d{"2d. Editou *.intent.md ou DROP/TRUNCATE SQL?"}
     L2 --> D2d
 
-    D2d -- "DROP sem ROLLBACK_SQL ou sem JEV_BYPASS_REASON" --> X2
+    D2d -- "DROP fora comentarios sem -- Rollback:/ROLLBACK_SQL nem JEV_BYPASS_REASON" --> X2
     D2d -- "Ok" --> E0{"apiDiff vazio (so scripts/)?"}
     E0 -- "Sim" --> Z0
     E0 -- "Nao" --> E1["3a. extractInboundDependents(graphify-out/graph.json)
-    Estritamente INBOUND em src/, api/, supabase/ (<100 tokens, ~30ms)"]
+    Estritamente INBOUND em src/, api/, supabase/ + total N + entrypoint HTTP (<100 tokens, ~30ms)"]
 
     E1 --> E2["3b. buildBoundedPayload(apiDiff):
     <=14KB integral | >14KB omite corpo de testes | >24KB arquivos inteiros por prioridade"]
     E2 --> E2ov{"Unico arquivo critico > 24KB?"}
     E2ov -- "Sim" --> W0["Imprime [JEV-WARN] + Exit 0 (Fail-Open pos Gate Local)"]
-    E2ov -- "Nao" --> E3["3c. SHA256(CACHE_SCHEMA_VERSION + regras + diffCompactado + contexto_dependentes_ast)"]
+    E2ov -- "Nao" --> E3["3c. SHA256(CACHE_SCHEMA_VERSION + regras_semanticas_jev + diffCompactado + contexto_dependentes_ast)"]
 
     E3 --> E4{"HIT em .tmp/jev-cache.json?"}
     E4 -- "Sim (0ms / 0 tokens)" --> Z0
     E4 -- "Nao" --> F["4. POST /api/alpha/decisions (typesafe/jev-1.14, timeout 12s)"]
 
-    F -- "Sem API Key / HTTP 402 / 429 / 5xx / Timeout" --> W1["Imprime [JEV-WARN: Fail-Open Infra] + Exit 0"]
+    F -- "Sem API Key / 401/403/404/410 / 400/413 / 402/429/5xx / Timeout" --> W1["[JEV-WARN] ou [JEV-ERROR-CONFIG] + .tmp/jev-health.log + Exit 0"]
     F -- "pNenhuma >= 0.90 e risco < 1.0" --> S["Salva Cache SHA-256 + limpa streak + Exit 0"]
     F -- "Reprovado Semantico" --> Y0{"JEV_BYPASS_REASON presente?"}
 
@@ -482,7 +489,7 @@ flowchart TD
 
 ---
 
-## 6.2 Arquitetura Modular e Contratos de `scripts/jev-check.mjs` (v3.1)
+## 6.2 Arquitetura Modular e Contratos de `scripts/jev-check.mjs` (v3.2)
 
 O arquivo deve ser escrito em **Node.js 22+ ESM puro** (`node:fs`, `node:path`, `node:crypto`, `node:child_process`, `fetch` nativo) com separação nítida entre o núcleo testável (`export async function runJevGate(...)` + helpers puros exportados) e o wrapper CLI (`if (isMain) { ... process.exit(code); }`).
 
@@ -496,16 +503,17 @@ O arquivo deve ser escrito em **Node.js 22+ ESM puro** (`node:fs`, `node:path`, 
     - Usa `execFileSync('git', ['-c', 'core.quotepath=false', 'diff', ...], { maxBuffer: 25 * 1024 * 1024 })` para evitar truncamento de paths acentuados no Windows (ex.: `RVM Designações`, arquivos com cedilha/til) e proteger contra overflow de buffer.
     - Argumento base: `'--cached'` em `--staged` ou `'HEAD'` em `--worktree`.
     - Coleta `allChangedFiles`: `--name-only` sem filtro de pasta (necessário para detectar `.env*`, `*.intent.md` e migrações onde quer que estejam).
+    - **Cobertura de arquivos novos *untracked* em `--worktree`**: executa também `git -c core.quotepath=false ls-files --others --exclude-standard` para incluir arquivos recém-criados (ainda não adicionados ao Git) em `allChangedFiles` e sintetizar seus blocos `+` para a Etapa 2 (`2a/2b/2d`), fechando o ponto cego onde `git diff HEAD` ignoraria um novo arquivo contendo segredo ou `: any`.
     - Coleta `scanDiff` (`--unified=3 -- src/ supabase/ api/ scripts/` com pathspecs de exclusão `:(exclude)*.lock`, `:(exclude)*lock.json`, `:(exclude)*.snap`, `:(exclude)*generated*`, `:(exclude)*supabase_types.ts`, `:(exclude)*.md`).
     - Coleta `apiDiff` (mesmos pathspecs, mas **sem `scripts/`**).
-- **Justificativa**: Separa de forma limpa o escopo de auditoria física local (`allChangedFiles + scanDiff`) do escopo semântico de código de produto (`apiDiff`), resolvendo o Ponto 4.
+- **Justificativa**: Separa de forma limpa o escopo de auditoria física local (`allChangedFiles + scanDiff + untracked`) do escopo semântico de código de produto (`apiDiff`), resolvendo o Ponto 4 e o ponto cego do modo worktree.
 
-#### 2. `runDeterministicGate({ allChangedFiles, scanDiff, projectRoot, bypassReason })`
+#### 2. `runDeterministicGate({ mode, allChangedFiles, scanDiff, projectRoot, bypassReason })`
 Executa 4 verificações sequenciais a **0 tokens**:
 
 - **Subetapa `2a` — Segredos (Hard Fail — Zero Bypass)**:
   1. Bloqueia qualquer arquivo em `allChangedFiles` cujo caminho case com `/(^|\/)\.env(\.|$)/i` e **não** case com `/\.env\.example$/i`.
-  2. Analisa apenas linhas adicionadas (`+`, ignorando `+++`) em cada arquivo de `scanDiff`.
+  2. Analisa apenas linhas adicionadas (`+`, ignorando `+++`) em cada arquivo de `scanDiff` (e arquivos novos *untracked* no modo `--worktree`).
   3. Ignora uma linha **somente** se estiver dentro de `scripts/jev-check.mjs` **e** contiver explicitamente o comentário marcador `// jev-pattern-literal` (ou `scripts/jev-check.test.mjs`).
   4. Padrões bloqueados:
      - Prefixos reais de credenciais: `/\b(sk-or-v1-|sk-proj-|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIzaSy[A-Za-z0-9_-]{20,})/`
@@ -516,26 +524,29 @@ Executa 4 verificações sequenciais a **0 tokens**:
 
 - **Subetapa `2b` — Higiene TypeScript em `src/**` (Hard Fail — Zero Bypass)**:
   1. Escopo restrito a arquivos `^src/.*\.(ts|tsx)$`, **excluindo** arquivos de teste (`\.test\.tsx?$`) e arquivos `.d.ts`.
-  2. Para cada linha adicionada (`+`), descarta linhas puras de comentário (`^\s*(\/\/|\/\*|\*|\*\/)`).
+  2. Usa scanner simples com estado de comentário de bloco (`inBlockComment`) sobre os hunks de linhas `+`: descarta comentários de linha (`//...`) e blocos multilinha `/* ... */` (inclusive linhas internas sem `*` à esquerda).
   3. Detecta: `/@ts-ignore|@ts-expect-error|eslint-disable|:\s*any\b|\bas\s+any\b/`.
-  4. **Justificativa**: Espelha literalmente a convenção de `memories/regras-intencao.md` L29–30 mantendo os mesmos arquivos e regras sem falsos positivos em comentários explicativos ou testes legados.
+  4. **Justificativa**: Espelha literalmente a convenção de `memories/regras-intencao.md` L29–30 sem falsos positivos em JSDoc/comentários multilinha ou testes legados.
 
 - **Subetapa `2c` — Co-evolução do Motor de Designações**:
   1. Dispara se `allChangedFiles` tocar qualquer um dos 4 arquivos críticos:
-     - `src/services/eligibilityService.ts`
+     - `src/services/eligibilityService.ts` *(onde `ELIGIBILITY_RULES_VERSION` é definida na L28)*
      - `src/services/rankedEligibleService.ts`
      - `src/services/unifiedRotationService.ts`
      - `src/services/generationService.ts`
   2. Verifica presença de ao menos um arquivo `^src/.*\.test\.tsx?$` em `allChangedFiles`. Se ausente $\rightarrow$ `{ blocked: true, bypassable: false, stage: '2c-test' }` (**bloqueio duro, sem bypass**).
-  3. Verifica se há alteração nas constantes de versão (`ELIGIBILITY_RULES_VERSION` no diff do motor e `RULES_TEXT_VERSION` em `contextBuilder.ts` ou no diff). Se presente teste, porém ausente bump de versão $\rightarrow$ `{ blocked: true, bypassable: true, stage: '2c-version' }` (aceita `JEV_BYPASS_REASON` para fixes puramente técnicos/de tipo como ocorreu no commit `6a80ea8`, gravando auditoria em `.tmp/jev-bypass.log`).
+  3. Verifica se o `scanDiff` global (através de todos os arquivos do lote, já que `ELIGIBILITY_RULES_VERSION` fica em `eligibilityService.ts` e `RULES_TEXT_VERSION` em `contextBuilder.ts` L15) contém linhas `+` alterando `ELIGIBILITY_RULES_VERSION` **e** `RULES_TEXT_VERSION`. Se presente teste, porém ausente bump de versão $\rightarrow$ `{ blocked: true, bypassable: true, stage: '2c-version' }` (aceita `JEV_BYPASS_REASON` para fixes puramente técnicos como o commit `6a80ea8`, gravando auditoria em `.tmp/jev-bypass.log` e sinalizando `preChecksApproved.motorVersionBypass = true` para a Etapa 4).
 
 - **Subetapa `2d` — Governança de Contratos `.intent.md` & Segurança SQL Destrutiva**:
   1. Se `allChangedFiles` contiver `.agents/workflows/.*\.intent\.md$`: exige `JEV_BYPASS_REASON` declarando autorização explícita do Responsável Epistêmico (`memories/regras-intencao.md` L36).
-  2. Para todo arquivo `^supabase/migrations/.*\.sql$` adicionado/modificado: se suas linhas `+` contiverem `/\b(DROP\s+(TABLE|SCHEMA|FUNCTION|VIEW)|TRUNCATE)\b/i`, exige presença de comentário `--\s*ROLLBACK_SQL` no arquivo **e** `JEV_BYPASS_REASON`; ausência de `ROLLBACK_SQL` é bloqueio duro sem bypass (`memories/regras-intencao.md` L34–35).
+  2. Para todo arquivo `^supabase/migrations/.*\.sql$` adicionado/modificado:
+     - Em `--staged`, lê o conteúdo completo do **índice Git** (`git show :${file}`) e em `--worktree` lê do disco (evitando divergência em *partial staging*).
+     - **Remoção obrigatória de comentários SQL antes da análise**: remove comentários `--[^\n]*` e `\/\*[\s\S]*?\*\/` das linhas `+` antes de testar `/\b(DROP\s+(TABLE|SCHEMA|FUNCTION|VIEW)|TRUNCATE)\b/i` *(correção empiricamente provada por `20261009200000_agent_action_server_gate.sql` L25–27, onde `-- DROP FUNCTION` era documentação de rollback!)*.
+     - Quando houver DDL destrutivo real fora de comentários, exige presença de comentário de rollback (`--\s*(ROLLBACK_SQL|Rollback:)` no conteúdo do índice — compatível com o padrão real das migrações existentes) **e** `JEV_BYPASS_REASON`; ausência de documentação de rollback é bloqueio duro sem bypass.
 
 #### 3. `extractInboundDependents(graphPath, changedFiles, { maxDeps = 10 })`
 - **Responsabilidade**: Calcular deterministicamente em JavaScript puro os arquivos de produção impactados pelas mudanças.
-- **Algoritmo Exato**:
+- **Algoritmo Exato (Validado em 7 arquivos reais de `graphify-out/graph.json`)**:
   ```js
   // 1. Se graphPath não existir ou estiver ilegível -> retorna fallback gracioso sem quebrar o hook
   // 2. Carrega JSON uma única vez (~20-45ms para 4.628 nós / 9.766 links)
@@ -549,20 +560,24 @@ Executa 4 verificações sequenciais a **0 tokens**:
   //         && /^(src|api|supabase)\//.test(srcFile)
   //         && !/\.test\.tsx?$/.test(srcFile):
   //        incrementa contagem e registra tipo de relação (calls/imports_from/writes_to...)
-  // 7. Ordena decrescente por nº de arestas, toma top maxDeps=10 e formata linhas neutras (< 100 tokens)
+  // 7. Ordena deterministicamente: count DESC, depois path ASC (evita flutuação no hash SHA-256!)
+  // 8. Captura totalInboundFiles (ex.: 117 em src/types.ts!) e exibe top maxDeps=10 + "+N outros consumidores"
+  // 9. Se totalInboundFiles === 0 E algum arquivo alterado for ^(api/|supabase/functions/):
+  //    anota "(entrypoint HTTP/Edge Function — consumidores via chamada de rede, nao via import AST)"
   ```
 - **Formato exato da string `contexto_dependentes_ast`**:
   ```text
-  Consumidores estaticos (inbound AST) dos arquivos alterados:
+  Consumidores estaticos (inbound AST) — total 19 arquivos (top 10 exibidos):
   - src/services/rankedEligibleService.ts (14 refs: calls, imports_from)
   - src/components/ActionControlPanel.tsx (9 refs: calls, imports_from)
+  - src/components/PublisherForm.tsx (9 refs: calls, imports_from)
   - src/components/PublisherSelect.tsx (9 refs: calls, imports_from)
   ...
   ```
-- **Justificativa**: Tom neutro (sem palavras alarmistas), direção estritamente *inbound* (Ponto 1 e `P-6`), exclui ruído de `scripts/` e testes, e nunca quebra quando o arquivo alterado acabou de ser criado e ainda não consta no grafo.
+- **Justificativa**: Tom neutro (sem palavras alarmistas), direção estritamente *inbound* (`P-6`), preserva sinal de escala em hubs globais (`src/types.ts`: `117` consumidores) e nunca subestima entrypoints HTTP (`api/`, `supabase/functions/`) por ausência de `import` estático.
 
 #### 4. `buildBoundedPayload(apiDiff, { softCap = 14000, hardCap = 24000 })`
-- **Algoritmo**:
+- **Algoritmo (Empiricamente validado em `a53eb44`, `04f2f3c`, `6a80ea8`, `e5896b6`)**:
   1. Divide `apiDiff` em blocos por arquivo no padrão `/^diff --git /m` (preservando cada bloco intacto).
   2. Se `apiDiff.length <= softCap`: retorna `{ diffForApi: apiDiff, overflowFailOpen: false, strategy: 'full' }`.
   3. **Degrau 1 (`> 14.000` chars)**: Separa blocos de teste (`\.test\.tsx?$`) dos demais; substitui o corpo dos testes por um cabeçalho enxuto `[Testes unitarios modificados validados localmente: <lista de arquivos>]`. Se o resultado couber em `hardCap`, retorna `{ diffForApi: stage1, overflowFailOpen: false, strategy: 'tests-summarized' }`.
@@ -573,26 +588,22 @@ Executa 4 verificações sequenciais a **0 tokens**:
      Acumula **apenas arquivos inteiros** enquanto `accumulated.length + block.length <= hardCap`.
   5. **Salvaguarda de Integridade**: Se mesmo após resumir testes nenhum arquivo de código inteiro couber em `hardCap` (ex.: um arquivo crítico com diff > 24 KB), retorna `{ diffForApi: '', overflowFailOpen: true, strategy: 'overflow-fail-open' }`, acionando `[JEV-WARN]` + `Exit 0` em vez de enviar sintaxe mutilada.
 
-#### 5. `computeCacheKey`, `readCache`, `writeCache` (`.tmp/jev-cache.json`)
-- Constante explícita `const CACHE_SCHEMA_VERSION = 'v3.1';`.
-- `cacheKey = sha256([CACHE_SCHEMA_VERSION, regrasRaw, diffForApi, contextoDependentesAst].join('\n---JEV_SEP---\n'))`.
-- Estrutura JSON em `.tmp/jev-cache.json`:
-  ```json
-  {
-    "schemaVersion": "v3.1",
-    "entries": {
-      "<sha256>": { "aprovado": true, "ts": 1795046400000, "pNenhuma": 0.96, "risco": 0.01 }
-    },
-    "streaks": {
-      "<streakKey>": { "count": 1, "lastDiffHash": "<sha256_diff>", "lastTs": 1795046400000, "violacao": "dominio" }
-    }
-  }
-  ```
-- **Política de Higiene**: Antes de gravar, podar `entries` com idade `> 30` dias (ou mantendo as 500 mais recentes) e `streaks` com idade `> 15` minutos, evitando crescimento ilimitado do arquivo ao longo de meses.
+#### 5. `extractSemanticRulesSubset(regrasRaw, preChecksApproved)` + `computeCacheKey` (`.tmp/jev-cache.json`)
+- **Desacoplamento Regra × Filtro (Correção da Contradição Estrutural)**:
+  - Extrai de `memories/regras-intencao.md` **apenas as regras de domínio/segurança semântica avaliáveis em um diff filtrado de código** (seção `## Regras de negócio` exceto a regra L11–12 de versão/teste já verificada pela Etapa `2c`, + proibições semânticas de LGPD/PII e `service_role` no frontend — ~20 linhas, ~300 tokens), **excluindo** regras processuais invisíveis no diff (`npm test`, `git commit`, atualização de `_ESTADO-ATUAL.md` que foi removida por `:(exclude)*.md`).
+  - Quando a Etapa `2c` aprovou bypass técnico (`preChecksApproved.motorVersionBypass`) ou o Degrau 1 resumiu testes, injeta nota estruturada no `state` (`pre_verificacoes_locais: "Etapa 2 deterministica aprovada; testes locais verificados; bypass tecnico de versao autorizado quando aplicavel"`), impedindo dupla reprovação na Etapa 4.
+- **Cache Criptográfico**:
+  - Constante explícita `const CACHE_SCHEMA_VERSION = 'v3.2';`.
+  - `cacheKey = sha256([CACHE_SCHEMA_VERSION, regrasSemanticas, diffForApi, contextoDependentesAst].join('\n---JEV_SEP---\n'))`.
+  - Estrutura JSON em `.tmp/jev-cache.json` com poda automática antes de gravar: `entries` com idade `> 30` dias (ou excedendo `500` chaves) e `streaks` com idade `> 15` minutos.
+  - **Ordem Canônica Anti-Cache-Miss**: `.agents/rules/jev-gate.md` e `.agents/rules/graphify.md` fixam a sequência: `1. Edit + Test + Build → 2. graphify update . → 3. git add → 4. npm run verify:jev → 5. git commit` (garantindo `100%` *Cache Hit* no `pre-commit` sem invalidação acidental por `graphify update .` intermediário).
 
-#### 6. `callDecisionsApi` e `evaluateDecisionAndAntiLoop`
+#### 6. `callDecisionsApi` e `evaluateDecisionAndAntiLoop` (Taxonomia HTTP Completa)
 - Timeout estrito de `12.000ms` via `AbortController`.
-- `failOpenInfra` aciona imediatamente se `!apiKey`, `res.status === 402 || res.status === 429 || res.status >= 500`, `AbortError`/rede ou payload malformado $\rightarrow$ imprime `[JEV-WARN: Bypass gracioso da Etapa 4 (...) — Etapa 2 determinística aprovada]` e retorna `Exit 0`.
+- **Taxonomia Completa de Falhas HTTP/Rede na Etapa 4** (todas após Etapa 2 aprovada):
+  - `402 / 429 / >= 500 / AbortError / ECONNREFUSED / sem OPENROUTER_API_KEY` $\rightarrow$ `[JEV-WARN: Fail-Open Infra/Quota]` + `Exit 0`.
+  - `401 / 403 / 404 / 410` (chave revogada ou endpoint `/api/alpha/decisions` movido/deprecado) $\rightarrow$ `[JEV-ERROR-CONFIG: Endpoint alpha ou chave OpenRouter inválida — intervenção necessária]` + grava `.tmp/jev-health.log` + **Fail-Open (`Exit 0`)** (impede paralisia súbita dos commits locais enquanto alerta ruidosamente o operador).
+  - `400 / 413` ou JSON malformado $\rightarrow$ `[JEV-WARN: Payload rejeitado ou resposta inválida da API]` + grava diagnóstico de tamanho em `.tmp/jev-health.log` + **Fail-Open (`Exit 0`)**.
 - Quando a resposta da API reprova (`!(pNenhuma >= 0.90 && risco < 1.0)`):
   - `diffHash = sha256(diffForApi)`
   - `streakKey = sha256([...changedFiles].sort().join('|') + '::' + violacao)`
@@ -603,18 +614,23 @@ Executa 4 verificações sequenciais a **0 tokens**:
     - Se `nextCount >= 2` $\rightarrow$ grava `.tmp/jev-bypass.log` com `{ ts, stage: '4-anti-loop', files, violacao, prevDiffHash, diffHash }` e retorna `Exit 0`.
     - Caso contrário, salva `{ count: nextCount, lastDiffHash: diffHash, lastTs: now, violacao }` e retorna `Exit 1` (ou `Exit 0` se `warnOnly === true` no Shadow Mode).
 
-#### 7. Contrato Programático Exportado (`export async function runJevGate(options)`)
+#### 7. Contrato Programático Exportado (`export async function runJevGate(options)`) com Adaptador `idd-ide`
 ```js
 /**
- * Executa o pipeline Gate Jev v3.1 de forma programática.
- * Retorna objeto estruturado sem chamar process.exit(), permitindo reúso pelo idd-ide CLI/extensão.
+ * Executa o pipeline Gate Jev v3.2 de forma programática.
+ * Retorna objeto estruturado sem chamar process.exit(), incluindo `iddVerdict`
+ * compatível drop-in com `idd-ide/cli/src/commands/verify.ts` (`ok|warn|drift|unknown`).
  */
 export async function runJevGate(options = {}) {
   // options: { mode: 'staged'|'worktree'|'file', diffPath?, rulesPath?, projectRoot?,
   //            warnOnly?: boolean, bypassReason?: string, fetchImpl?: typeof fetch, logger? }
-  // returns: { exitCode: 0|1, approved: boolean, stage: string, cached?: boolean,
-  //            failOpen?: boolean, bypassLogged?: boolean, metrics?: { pNenhuma, risco, violacao, durationMs },
-  //            findings?: Array<{ stage, file, message }> }
+  // returns: {
+  //   exitCode: 0|1, approved: boolean, stage: string, cached?: boolean,
+  //   failOpen?: boolean, configError?: boolean, bypassLogged?: boolean,
+  //   metrics?: { pNenhuma, risco, violacao, durationMs },
+  //   findings?: Array<{ stage, file, message }>,
+  //   iddVerdict: { status: 'ok'|'warn'|'drift'|'unknown', score: number, violations: string[] }
+  // }
 }
 ```
 
@@ -646,34 +662,39 @@ node scripts/jev-check.mjs --staged
 "verify:jev": "node scripts/jev-check.mjs --staged",
 "verify:jev:shadow": "node scripts/jev-check.mjs --staged --warn-only",
 "verify:jev:worktree": "node scripts/jev-check.mjs --worktree",
-"verify:all": "npm test && npm run type-check && npm run build && npm run verify:jev",
+"verify:all": "npm test && npm run build && npm run verify:jev",
 "hooks:install": "node scripts/install-git-hooks.mjs"
 ```
+*(Nota: `npm run type-check` foi removido propositalmente de `verify:all` até que os `155` erros TS pré-existentes sejam sanados em trilha própria — caso contrário `verify:all` falharia no Dia 1 antes de atingir `build` e `verify:jev`.)*
 
 ### 5. Regras Multi-IDE (Somente na Fase 2/3 do Rollout)
-- Criar `.agents/rules/jev-gate.md` (`trigger: always_on`): instrui agentes Antigravity a encerrar lotes executando `npm run verify:jev` (aproveitando *Cache Hit* imediato no `git commit` subsequente) e explica o uso legítimo de `JEV_BYPASS_REASON`.
-- Atualizar `.roo/rules/10-jev-verificacao.md` e o aviso no topo de `memories/regras-intencao.md` substituindo "SUSPENSO" pela política v3.1 oficial.
+- Criar `.agents/rules/jev-gate.md` (`trigger: always_on`): documenta a ordem canônica anti-*cache-miss* (`1. Edit + Test + Build → 2. graphify update . → 3. git add → 4. npm run verify:jev → 5. git commit`) e o uso legítimo de `JEV_BYPASS_REASON`.
+- Atualizar `.roo/rules/10-jev-verificacao.md` e o aviso no topo de `memories/regras-intencao.md` substituindo "SUSPENSO" pela política v3.2 oficial.
 
 ---
 
 ## 6.4 Especificação da Suíte de Testes Unitários (`scripts/jev-check.test.mjs`)
 
-Todos os 14 testes devem rodar com `node --test scripts/jev-check.test.mjs` usando diretórios temporários isolados e `fetchImpl` mockado (**0 chamadas reais de rede**, tempo esperado `< 1s`):
+Todos os **18 testes** devem rodar com `node --test scripts/jev-check.test.mjs` usando diretórios temporários isolados e `fetchImpl` mockado (**0 chamadas reais de rede**, tempo esperado `< 1s`):
 
 1. **Curto-circuito Docs/Memórias**: diff contendo apenas `.md` e `memories/` retorna `exitCode: 0`, `stage: 'short-circuit'`, zero chamadas `fetchImpl`.
 2. **Etapa 2a (.env staged)**: arquivo `.env.local` em `allChangedFiles` retorna `exitCode: 1` e **ignora** mesmo se `JEV_BYPASS_REASON` for passado (zero bypass); `.env.example` passa.
 3. **Etapa 2a (`bad-2.patch` real)**: diff contendo `console.log('SUPABASE_SERVICE_ROLE_KEY =', key, 'SECRET =', secret)` retorna `exitCode: 1` localmente sem chamar `fetchImpl`.
 4. **Etapa 2a (`// jev-pattern-literal` e proteção de `jev-check.mjs`)**: linha em `scripts/jev-check.mjs` com `// jev-pattern-literal` passa; um token literal sem o marcador no mesmo arquivo falha com `exitCode: 1`.
-5. **Etapa 2b (Estilo TS)**: adição de `: any` / `@ts-ignore` em `src/services/foo.ts` retorna `exitCode: 1` (zero bypass); ocorrência dentro de comentário `//` ou em `src/services/foo.test.ts` passa.
-6. **Etapa 2c (Motor sem teste vs. Motor com teste sem versão)**: editar `src/services/eligibilityService.ts` sem arquivo `*.test.ts` falha duro (`exitCode: 1`) mesmo com bypass; editar com teste mas sem bump de `ELIGIBILITY_RULES_VERSION` falha sem `JEV_BYPASS_REASON` e passa registrando `.tmp/jev-bypass.log` quando `JEV_BYPASS_REASON` está preenchido.
-7. **Etapa 2d (`.intent.md` & `DROP` SQL)**: editar `.agents/workflows/motor-invariants.intent.md` exige `JEV_BYPASS_REASON`; adicionar `DROP TABLE` sem `-- ROLLBACK_SQL` falha duro.
-8. **Extrator *Inbound* em `graphify-out/graph.json`**: dado grafo fixture com `types.ts` (*outbound*), `scripts/foo.ts` (*inbound script*), `foo.test.ts` (*inbound test*) e `rankedEligibleService.ts` (*inbound prod*), retorna **exclusivamente** `rankedEligibleService.ts`.
-9. **Compactação Íntegra em 2 Degraus**: diff de `18 KB` com `10 KB` de testes resume os testes mantendo integral o código; diff de `30 KB` de múltiplos arquivos mantém apenas arquivos inteiros por ordem de prioridade dentro de `24 KB`, sem cortar nenhum hunk no meio; arquivo único crítico `> 24 KB` aciona `overflowFailOpen` (`exitCode: 0`).
-10. **Invalidação Quádrupla de Cache SHA-256**: 2ª execução idêntica dá `cached: true` (`fetchCalls === 1`); alterar `regras`, `diff` ou `contexto_dependentes_ast` força nova chamada (`fetchCalls === 2`).
-11. **Fail-Open Gracioso em Infra**: `fetchImpl` retornando HTTP `402`, `429`, `503` ou rejeitando por `AbortError` (timeout) retorna `exitCode: 0`, `failOpen: true`, após Etapa 2 aprovada.
-12. **Bloqueio de Duplo Commit Idêntico na Etapa 5**: 2 chamadas consecutivas com o mesmo `diffHash` retornam ambas `exitCode: 1` (não destrava `streak`).
-13. **Anti-Loop Legítimo na Etapa 5**: 2 chamadas consecutivas com `diffHash` distintos no mesmo arquivo + mesma violação dentro de `< 15 min` destravam na 2ª chamada (`exitCode: 0`, `bypassLogged: true`) e gravam `.tmp/jev-bypass.log`.
-14. **Modo Shadow (`--warn-only`)**: reprovação semântica na Etapa 4 loga `[JEV-SHADOW-FAIL]` e retorna `exitCode: 0`, enquanto Etapa 2a/2b continua retornando `exitCode: 1`.
+5. **Etapa 2b (Estilo TS e comentário multilinha)**: adição de `: any` / `@ts-ignore` em `src/services/foo.ts` retorna `exitCode: 1` (zero bypass); ocorrência dentro de comentário `//`, dentro de bloco multilinha `/* ... */` (mesmo sem `*` inicial) ou em `src/services/foo.test.ts` passa.
+6. **Etapa 2c (Motor sem teste vs. Motor com teste sem versão)**: editar `src/services/eligibilityService.ts` sem arquivo `*.test.ts` falha duro (`exitCode: 1`) mesmo com bypass; editar com teste mas sem bump de `ELIGIBILITY_RULES_VERSION` + `RULES_TEXT_VERSION` falha sem `JEV_BYPASS_REASON` e passa registrando `.tmp/jev-bypass.log` + sinalizando `preChecksApproved.motorVersionBypass` quando `JEV_BYPASS_REASON` está preenchido.
+7. **Etapa 2d (`.intent.md` & `DROP` SQL real)**: editar `.agents/workflows/motor-invariants.intent.md` exige `JEV_BYPASS_REASON`; adicionar `DROP TABLE` executável sem `-- Rollback:` / `-- ROLLBACK_SQL` falha duro.
+8. **Etapa 2d (Sem falso positivo em comentário SQL)**: migration contendo `CREATE OR REPLACE FUNCTION` com `-- Rollback:\n-- DROP FUNCTION IF EXISTS ...` (caso real `20261009200000_agent_action_server_gate.sql`) **passa** com `exitCode: 0` sem falso positivo.
+9. **Modo `--worktree` com arquivo novo *untracked***: arquivo novo ainda não adicionado ao Git (`src/services/novoLeak.ts`) contendo `sk-or-v1-...` ou `: any` é capturado pela Etapa 2 (`exitCode: 1`) em `--worktree`.
+10. **Extrator *Inbound* em `graphify-out/graph.json`**: dado grafo fixture com `types.ts` (*outbound*), `scripts/foo.ts` (*inbound script*), `foo.test.ts` (*inbound test*) e `rankedEligibleService.ts` (*inbound prod*), retorna **exclusivamente** `rankedEligibleService.ts`.
+11. **Extrator *Inbound* em hubs globais e entrypoints HTTP**: hub com `117` consumidores reporta total (`total 117 arquivos, top 10 exibidos`); `supabase/functions/**` e `api/**` com `0` imports estáticos emitem anotação de *entrypoint HTTP/Edge Function*.
+12. **Desacoplamento `regras_semanticas_jev`**: o payload enviado à Etapa 4 omite regras processuais (`.md`/`npm test`) e injeta `pre_verificacoes_locais` quando há bypass técnico de `2c` ou resumo de testes no Degrau 1.
+13. **Compactação Íntegra em 2 Degraus**: diff de `18 KB` com `10 KB` de testes resume os testes mantendo integral o código; diff de `30 KB` de múltiplos arquivos mantém apenas arquivos inteiros por ordem de prioridade dentro de `24 KB`, sem cortar nenhum hunk no meio; arquivo único crítico `> 24 KB` aciona `overflowFailOpen` (`exitCode: 0`).
+14. **Invalidação Quádrupla de Cache SHA-256**: 2ª execução idêntica dá `cached: true` (`fetchCalls === 1`); alterar `regras`, `diff` ou `contexto_dependentes_ast` força nova chamada (`fetchCalls === 2`).
+15. **Fail-Open Gracioso em Infra (`402/429/5xx/timeout`) e Config (`401/403/404/410/400/413`)**: todos retornam `exitCode: 0`, `failOpen: true`, após Etapa 2 aprovada; `401/404/410` grava alerta em `.tmp/jev-health.log` e seta `configError: true`.
+16. **Bloqueio de Duplo Commit Idêntico na Etapa 5**: 2 chamadas consecutivas com o mesmo `diffHash` retornam ambas `exitCode: 1` (não destrava `streak`).
+17. **Anti-Loop Legítimo na Etapa 5**: 2 chamadas consecutivas com `diffHash` distintos no mesmo arquivo + mesma violação dentro de `< 15 min` destravam na 2ª chamada (`exitCode: 0`, `bypassLogged: true`) e gravam `.tmp/jev-bypass.log`.
+18. **Modo Shadow (`--warn-only`) e Contrato `iddVerdict`**: reprovação semântica na Etapa 4 loga `[JEV-SHADOW-FAIL]`, retorna `exitCode: 0` e popula `iddVerdict: { status: 'drift', score, violations }`, enquanto Etapa 2a/2b continua retornando `exitCode: 1`.
 
 ---
 
@@ -681,58 +702,61 @@ Todos os 14 testes devem rodar com `node --test scripts/jev-check.test.mjs` usan
 
 | Fase | Escopo | Duração / Marcos | Critério Objetivo de Avanço |
 | :--- | :--- | :--- | :--- |
-| **Fase 0 — Implementação + Testes Locais** | Escrever `scripts/jev-check.mjs` v3.1, `scripts/jev-check.test.mjs`, `scripts/install-git-hooks.mjs`, `scripts/git-hooks/pre-commit`, `.gitattributes` e scripts `package.json`. **Sem instalar hook ainda.** | 1 bloco de trabalho | `14/14` testes em `jev-check.test.mjs` + `158/158` em `npm test` + `npm run build` passando; `.git/hooks/pre-commit` ainda inativo. |
-| **Fase 1 — Micro-Calibração Semântica Realista** | Rodar bateria Camada B (5 diffs reais do `git log` + 2 mutações sutis reais com `contexto_dependentes_ast` real do grafo), gravar `.tmp/jev/results-v3.json`. | 1 execução controlada (`< $0.01`) | `0%` de falso positivo nos 5 commits reais limpos; `100%` de detecção nas mutações sutis reais com `pNenhuma` distante de `0.90`. |
-| **Fase 2 — Shadow Mode em Commits Reais** | Instalar hook rodando `--warn-only` (`verify:jev:shadow`) + `.agents/rules/jev-gate.md`. Monitorar métricas em `.tmp/jev-metrics.log`. | 10 commits ou 7 dias corridos | Tempo mediano de hook `< 2s`; `0` quebras de workflow; análise confirmada de todos os avisos em modo sombra. |
-| **Fase 3 — Blocking Mode & Convergência `idd-ide`** | Alternar hook de `--warn-only` para padrão bloqueante, remover banner "SUSPENSO" de `.roo/rules/10-jev-verificacao.md` e conectar `runJevGate()` quando `idd-ide` estiver operacional. | Permanente | Taxa de escape de defeitos físicos `= 0%`; `idd init` compõe `.git/hooks/pre-commit` sem conflito. |
+| **Fase 0 — Implementação + Testes Locais** | Escrever `scripts/jev-check.mjs` v3.2, `scripts/jev-check.test.mjs`, `scripts/install-git-hooks.mjs`, `scripts/git-hooks/pre-commit`, `.gitattributes` e scripts `package.json`. **Sem instalar hook ainda.** | 1 bloco de trabalho | `18/18` testes em `jev-check.test.mjs` + `158/158` em `npm test` + `npm run build` passando; `.git/hooks/pre-commit` ainda inativo. |
+| **Fase 1 — Micro-Calibração Semântica Realista** | Rodar bateria Camada B (4–5 diffs reais do `git log`, incluindo `a53eb44`, `04f2f3c`, `6a80ea8`, `e5896b6`, + 2–3 mutações sutis reais com `contexto_dependentes_ast` real do grafo), gravar `.tmp/jev/results-v3.json`. | 1 execução controlada (`< $0.01`) | `0%` de falso positivo nos commits reais limpos; `100%` de detecção nas mutações sutis reais com `pNenhuma` distante de `0.90`. |
+| **Fase 2 — Shadow Mode em Commits Reais** | Instalar hook rodando `--warn-only` (`verify:jev:shadow`) + `.agents/rules/jev-gate.md`. Medir em `.tmp/jev-metrics.log` o ganho real (validando ou refutando a hipótese de `+10% a +20%`). | 10 commits ou 7 dias corridos | Tempo mediano de hook `< 2s`; `0` quebras de workflow; análise confirmada de todos os avisos em modo sombra. |
+| **Fase 3 — Blocking Mode & Convergência `idd-ide`** | Alternar hook de `--warn-only` para padrão bloqueante, remover banner "SUSPENSO" de `.roo/rules/10-jev-verificacao.md` e conectar `runJevGate().iddVerdict` quando `idd-ide` estiver operacional. | Permanente | Taxa de escape de defeitos físicos `= 0%`; `idd init` compõe `.git/hooks/pre-commit` sem conflito. |
 
 ---
 
 ## 6.6 Matriz de Riscos, Mitigações e Rollback Imediato
 
-| # | Risco Identificado | Probabilidade | Impacto | Mitigação Arquitetural Embutida na Spec v3.1 |
+| # | Risco Identificado | Probabilidade | Impacto | Mitigação Arquitetural Embutida na Spec v3.2 |
 | :-: | :--- | :---: | :---: | :--- |
-| 1 | Esgotamento de créditos OpenRouter (`HTTP 402`) ou queda da API alpha | Média | Crítico se bloqueasse commits | **Fail-Open seletivo (Etapa 4)**: após Etapa 2 passar, `402/429/5xx/timeout` emitem `[JEV-WARN]` e retornam `Exit 0`. |
-| 2 | `graphify-out/graph.json` ausente ou desatualizado após edição | Média | Baixo | Extrator retorna lista vazia/fallback neutro sem erro; `.agents/rules/graphify.md` lembra de rodar `graphify update .` ao fechar bloco. |
-| 3 | Falso positivo persistente travando agente em loop destrutivo | Média | Alto (gasto cota) | Válvula `JEV_BYPASS_REASON="..."` auditada + anti-loop seguro (`diffHash` alterado + TTL 15 min) em `.tmp/jev-bypass.log`. |
-| 4 | Burla silenciosa repetindo `git commit` duas vezes sem alterar código | Evitada | Crítico (furo de governança) | Anti-loop automático bloqueia se `diffHash === prevDiffHash` e exige correção real ou `JEV_BYPASS_REASON`. |
-| 5 | Quebra no Windows Git (`sh.exe` com `\r\n` por `core.autocrlf=true`) | Alta sem ajuste | Alto (commit trava) | `.gitattributes` força `eol=lf` em `scripts/git-hooks/*` e `install-git-hooks.mjs` escreve `\n` explícito. |
-| 6 | Diff `> 24 KB` cortado no meio provocando erro sintático na API | Evitada | Médio | Compactação por blocos completos ordenados por criticidade; se único arquivo `> 24 KB`, *fail-open* sem cortar hunk. |
-| 7 | Vazamento acidental de segredo dentro do próprio `scripts/jev-check.mjs` | Baixa | Crítico | Etapa 2a varre `scripts/` normalmente, isentando **apenas** linhas com `// jev-pattern-literal`. |
-| 8 | Hook conflitar com instalação futura do `idd init` (`idd-ide`) | Alta sem ajuste | Médio/Alto | Shim em `.git/hooks/pre-commit` sem `core.hooksPath` e sem `exit 0`/`exec` final permite append limpo pelo `idd init`. |
-| 9 | *Partial staging* quebrar hook com checagem do worktree (`tsc -b`) | Alta se tivesse `tsc` | Médio | `tsc -b` permanece fora do `pre-commit` síncrono (medido em `21–24s`) e roda em `npm run verify:all`. |
-| 10 | Crescimento indefinido de `.tmp/jev-cache.json` | Baixa | Baixo | Poda automática (`TTL 30 dias`, máx. `500` entradas para `entries`; `TTL 15 min` para `streaks`) a cada escrita. |
+| 1 | Esgotamento de créditos OpenRouter (`HTTP 402`), queda ou mudança do endpoint alpha (`401/404/410`) | Média | Crítico se bloqueasse commits | **Fail-Open seletivo (Etapa 4)**: após Etapa 2 passar, `402/429/5xx/timeout` emitem `[JEV-WARN]`; `401/403/404/410` emitem `[JEV-ERROR-CONFIG]` + `.tmp/jev-health.log` e retornam `Exit 0`. |
+| 2 | `graphify update .` executado entre `verify:jev` e `git commit` invalidar o cache SHA-256 | Alta sem ordem | Baixo (chamada dupla) | Ordem canônica explícita (`Edit+Test+Build → graphify update . → git add → verify:jev → git commit`) + ordenação determinística no extrator. |
+| 3 | Falso positivo por contradição entre `regras-intencao.md` (exigindo `.md`/versão) e diff filtrado | Alta sem filtro | Alto (gasto cota) | Etapa 4 recebe `regras_semanticas_jev` (apenas regras de domínio avaliáveis no diff) + nota `pre_verificacoes_locais`. |
+| 4 | Falso positivo de `2d` em comentários SQL de rollback (`-- DROP FUNCTION`) | Alta (comprovado) | Médio | `2d` remove comentários `--` e `/* */` antes de buscar `DROP`/`TRUNCATE` e aceita `-- Rollback:` além de `-- ROLLBACK_SQL`. |
+| 5 | Ponto cego de `--worktree` em arquivos novos *untracked* | Alta sem `ls-files` | Alto (escape local) | `--worktree` varre `git ls-files --others --exclude-standard` na Etapa 2; `--staged` usa `git show :path` na `2d`. |
+| 6 | Burla silenciosa repetindo `git commit` duas vezes sem alterar código | Evitada | Crítico (furo governança) | Anti-loop automático bloqueia se `diffHash === prevDiffHash` e exige correção real ou `JEV_BYPASS_REASON`. |
+| 7 | Quebra no Windows Git (`sh.exe` com `\r\n` por `core.autocrlf=true`) | Alta sem ajuste | Alto (commit trava) | `.gitattributes` força `eol=lf` em `scripts/git-hooks/*` e `install-git-hooks.mjs` escreve `\n` explícito. |
+| 8 | Hook conflitar com instalação futura do `idd init` (`idd-ide`) | Alta sem ajuste | Médio/Alto | Shim em `.git/hooks/pre-commit` sem `core.hooksPath` e sem `exit 0`/`exec` final + retorno `iddVerdict` compatível com `verify.ts`. |
+| 9 | `tsc -b` quebrar commits ou `verify:all` por `155` erros TS pré-existentes | `100%` hoje | Crítico | `tsc -b` fora do `pre-commit` e fora de `verify:all` até trilha dedicada zerar a dívida TS. |
+| 10 | Crescimento indefinido de `.tmp/jev-cache.json` ou vazamento de segredo no próprio `jev-check.mjs` | Baixa | Médio/Crítico | Poda automática (`30d` / máx. `500` chaves; `15 min` em streaks); Etapa `2a` varre `scripts/jev-check.mjs` isentando apenas linhas `// jev-pattern-literal`. |
 
 ### Procedimento de Rollback de Emergência (`< 5 segundos`)
 Em qualquer emergência operacional, o sistema retorna ao estado pré-ativação imediatamente sem afetar código de produção:
 1. **Desvio pontual de 1 commit**: `JEV_BYPASS_REASON="motivo operacional" git commit -m "..."` (ou `git commit --no-verify` em falha grave de script).
 2. **Desativação imediata do hook mantendo scripts**: remover `.git/hooks/pre-commit` (ou voltar à flag `--warn-only` no hook).
-3. **Rollback completo ao snapshot anterior**: `git checkout checkpoint-finops-graphify-jev-v3-2026-11-18` para restaurar referências documentais, mantendo intactas entregas funcionais posteriores via `git revert` seletivo dos commits da implementação v3.1.
+3. **Rollback completo ao snapshot anterior**: `git checkout checkpoint-finops-graphify-jev-v3-2026-11-18` para restaurar referências documentais, mantendo intactas entregas funcionais posteriores via `git revert` seletivo dos commits da implementação v3.2.
 
 ---
 
 # Parte VII — Questionário Arquitetural para Parecer Final do Claude Fable 5.2
 
-Solicita-se ao **Claude Fable 5.2** revisão crítica e veredito objetivo sobre os **6 pontos abaixo**, além de apontar qualquer brecha lógica ou de segurança não percebida nas rodadas anteriores:
+Solicita-se ao **Claude Fable 5.2** revisão crítica e veredito objetivo sobre os **7 pontos abaixo**, além de apontar qualquer brecha lógica, de segurança ou de economia ainda não detectada nas 4 rodadas anteriores:
 
 1. **Solidez da Separação em 4 Camadas**:
-   A distinção entre *Paradigma* (IDD), *Conceitos & Princípios* (12 conceitos + `P-1…P-10`), *Metodologias* (FinOps em Duas Pontas, Funil em 6 Estágios, Calibração Bi-Camada, Shadow $\rightarrow$ Blocking) e *Ferramentas* (`graphifyy`, `typesafe/jev-1.14`, `Node 22`, hooks) está livre de vazamentos ontológicos? Algum elemento classificado como "Metodologia" pertence na verdade a "Princípio" ou vice-versa?
+   A distinção entre *Paradigma* (IDD), *Conceitos & Princípios* (12 conceitos + `P-1…P-10`), *Metodologias* (FinOps em Duas Pontas sob Prompt Caching, Funil em 6 Estágios, Calibração Bi-Camada, Shadow $\rightarrow$ Blocking) e *Ferramentas* (`graphifyy`, `typesafe/jev-1.14`, `Node 22`, hooks) está livre de vazamentos ontológicos? Algum elemento classificado como "Metodologia" pertence a "Princípio" ou vice-versa?
 
 2. **Fronteira de Segurança no *Fail-Open* para Edições Críticas do Motor (`M-0…M-12`)**:
-   Na Spec v3.1, se a OpenRouter retornar `HTTP 402` ou timeout na Etapa 4, o gate faz *fail-open* (`Exit 0`) desde que a Etapa 2 determinística (`2a–2d`, incluindo presença obrigatória de teste e bump de versão nos 4 serviços do motor) tenha passado. Essa política deve continuar *fail-open* mesmo quando o diff toca um dos 4 arquivos do motor, ou commits no núcleo `eligibilityService` / `rankedEligibleService` deveriam exigir *strict mode* sob `HTTP 402`? Qual é o melhor equilíbrio entre segurança de domínio e prevenção de loops agênticos?
+   Na Spec v3.2, se a OpenRouter retornar `HTTP 402/404/5xx` ou timeout na Etapa 4, o gate faz *fail-open* (`Exit 0`) desde que a Etapa 2 determinística (`2a–2d`, incluindo teste obrigatório e guarda de versão nos 4 serviços do motor) tenha passado. Essa política deve permanecer *fail-open* mesmo quando o diff toca `eligibilityService.ts` / `rankedEligibleService.ts`, ou toques no núcleo do motor deveriam exigir *strict mode* sob `HTTP 402`?
 
-3. **Suficiência da Micro-Calibração Semântica Realista (Fase 1)**:
-   A combinação proposta de 5 commits reais históricos + 2 a 3 mutações sutis sem comentários óbvios em código real (com `contexto_dependentes_ast` preenchido a partir de `graphify-out/graph.json`) é estatisticamente suficiente para validar os limiares `pNenhuma >= 0.90` e `risco < 1.0`, ou recomenda adicionar casos específicos (ex.: falso positivo em refatorações multi-arquivo com alta contagem de dependentes *inbound*)?
+3. **Desacoplamento `regras_semanticas_jev` + Suficiência da Micro-Calibração Realista (Fase 1)**:
+   Extrair automaticamente (ou manter como seção demarcada) um subconjunto semântico puro (~20 linhas) de `memories/regras-intencao.md` para enviar à Etapa 4 elimina a contradição com diffs filtrados sem risco de *drift* documental? E a bateria da Fase 1 (os 4 commits reais `a53eb44`, `04f2f3c`, `6a80ea8`, `e5896b6` + 2–3 mutações sutis sem comentários reveladores, com `contexto_dependentes_ast` real) é suficiente para homologar os limiares `0.90` / `1.0`?
 
-4. **Política da Válvula Anti-Loop (`streak >= 2` com `diffHash !== prevDiffHash` e TTL 15 min)**:
-   Exigir que o diff tenha mudado desde a tentativa anterior (`diffHash !== prevDiffHash`) dentro de 15 min fecha a brecha do duplo `git commit` idêntico mantendo proteção automática contra loops de agente. Em alternativa, seria ainda mais limpo **abolir qualquer destravamento automático por `streak`** e exigir exclusivamente `JEV_BYPASS_REASON` humano/explícito quando um agente enfrentar 2 falsos positivos seguidos?
+4. **Política da Válvula Anti-Loop (`streak >= 2` com `diffHash !== prevDiffHash` e TTL 15 min vs. Abolição Total)**:
+   Exigir que o diff tenha mudado desde a tentativa anterior (`diffHash !== prevDiffHash`) dentro de 15 min fecha a brecha do duplo `git commit` idêntico mantendo proteção contra loops de agente. Em alternativa, seria arquiteturalmente mais limpo **abolir qualquer destravamento automático por `streak`** e exigir exclusivamente `JEV_BYPASS_REASON` explícito quando um agente enfrentar 2 falsos positivos seguidos?
 
-5. **Decisão sobre `tsc -b` fora do `pre-commit` (`20,89s–24,42s` medidos)**:
-   Diante da medição real de `21–24s` e do risco de *partial staging*, retirar `tsc -b` do `pre-commit` síncrono e mantê-lo em `npm run verify:all` é a melhor escolha, ou você recomenda habilitar `"incremental": true` em `tsconfig.app.json` / `tsconfig.node.json` (preservando `"noEmit": true`) para medir se um `tsc --noEmit --incremental` ou um workflow de fechamento pré-commit cobre melhor erros de tipo sem atrasar o commit?
+5. **Dívida Pré-Existente de `155` Erros no `tsc -b` e Estratégia de Tipagem Progressiva**:
+   Agora que `tsc -b --verbose` revelou `155` erros pré-existentes (`50` `TS6133`, `22` `TS2339`, `21` `TS2322`, `10` `TS2304`, etc.) que travariam qualquer `pre-commit` ou `verify:all` com `type-check`, qual é a melhor sequência recomendada: (a) manter `tsc -b` fora dos gates enquanto saneamos a dívida em PRs dedicados, ou (b) introduzir já na Etapa 2 um check de **não-regressão de erros TS apenas nos arquivos alterados** (diff-scoped type-check)?
 
-6. **Aderência para Convergência Futura com `idd-ide`**:
-   O desenho de `export async function runJevGate(options)` + instalador idempotente em `.git/hooks/pre-commit` com delimitadores e sem `exit 0`/`exec` resolve integralmente a composição com `idd-ide/cli/src/commands/init.ts`, ou há ajustes adicionais no contrato de retorno/erros para facilitar a integração futura no `@idd/core`?
+6. **Risco de Dependência em Endpoint Alpha (`/api/alpha/decisions`) e Custo/Benefício Real do Nível 1**:
+   Dado que `openrouter.ai/api/alpha/decisions` (`typesafe/jev-1.14`) está em estágio `alpha` e que a Etapa 2 determinística (0 tokens) já captura segredos, `any`/`@ts-ignore`, falta de teste no motor, `.intent.md` e `DROP` SQL, o ganho real da Etapa 4 probabilística justifica sua complexidade operacional (cache, anti-loop, calibração, shadow mode), ou você recomendaria um desenho ainda mais enxuto ou um adaptador alternativo desde o Dia 1?
+
+7. **Convergência Real com `idd-ide` (`verify.ts` + `init.ts`)**:
+   O contrato de retorno `iddVerdict: { status: 'ok'|'warn'|'drift'|'unknown', score, violations }` em `runJevGate()` somado ao instalador idempotente em `.git/hooks/pre-commit` (sem `core.hooksPath`, sem `exit 0`/`exec`) é suficiente para que `scripts/jev-check.mjs` v3.2 sirva como *Semantic Provider drop-in* para `idd-ide/cli/src/commands/verify.ts` (substituindo `code.slice(0, 16000)` + Claude Sonnet autoregressivo)?
 
 ---
 
-*Fim do Dossiê Técnico Único — Preparado para Parecer Final do Claude Fable 5.2.*
+*Fim do Dossiê Técnico Único (v3.2) — Preparado para Parecer Final do Claude Fable 5.2.*

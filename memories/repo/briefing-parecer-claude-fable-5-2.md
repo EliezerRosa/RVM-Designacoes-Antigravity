@@ -1,0 +1,71 @@
+# Material de Submissão & Rubrica de Parecer Técnico — Claude Fable 5.2
+
+> **Finalidade**: Este documento é o **pacote de entrada (briefing + prompt estruturado + rubrica adversarial)** para submeter o dossiê [`memories/repo/plano-completo-arquitetura-finops-idd-graphify-jev-v3.md`](plano-completo-arquitetura-finops-idd-graphify-jev-v3.md) (v3.2) à revisão final do **Claude Fable 5.2**.  
+> **Data**: `2026-11-19`  
+> **Origem**: Auditoria Profunda Neon Extra (XHigh) sobre a base `f0e1ade` de `rvm-designacoes-unified` + inspeção direta de `C:\IDE IDD Claude-VS Code\idd-ide`.
+
+---
+
+## 1. Prompt Pronto (Copiar e Colar para o Claude Fable 5.2)
+
+```markdown
+Claude Fable 5.2 — Parecer Técnico Adversarial Final
+
+Leia integralmente:
+1. `memories/repo/plano-completo-arquitetura-finops-idd-graphify-jev-v3.md` (Spec v3.2 — documento principal)
+2. Se quiser auditar diretamente a fonte no workspace, inspecione:
+   - `memories/regras-intencao.md`
+   - `scripts/jev-check.mjs` (Gate v2 atual, suspenso)
+   - `tsconfig.app.json` e `package.json`
+   - `C:\IDE IDD Claude-VS Code\idd-ide\cli\src\commands\verify.ts` e `init.ts`
+
+Contexto factual já verificado empiricamente no repositório (não assumir — já medido):
+- Graphify local (`graphify-out/graph.json`, 0 tokens API): 4.628 nós, 9.766 arestas (19 relações), 310 comunidades.
+- `npm test`: 158/158 passando; `npm run build` (`vite build`): limpo.
+- `npm run type-check` (`tsc -b --verbose`): FALHA hoje (`Exit 1`) com 155 erros TS pré-existentes (`50` TS6133, `22` TS2339, `21` TS2322, `16` TS2353, `10` TS2304, `8` TS7006 + 5 em `api/conversa-nlu.ts`), levando 17,7s–24,4s por execução.
+- Os 4 últimos commits de código reais (`a53eb44`, `04f2f3c`, `6a80ea8`, `e5896b6`) couberam 100% abaixo de 24 KB após o Degrau 1 (resumo de testes): o maior commit do motor (`a53eb44`, 10 arquivos) caiu de 32.978 para 22.998 chars.
+- `idd-ide/cli/src/commands/verify.ts` usa hoje `claude-sonnet-5` + `code.slice(0, 16000)` retornando `{ status: 'ok'|'warn'|'drift'|'unknown', score: 0-100, violations: string[] }`, e `init.ts` anexa (`append`) em `.git/hooks/pre-commit`.
+
+Sua missão (seja implacável — NÃO faça parecer de concordância automática):
+1. Audite a separação ontológica de 4 camadas (Paradigma vs. Conceitos/Princípios vs. Metodologias vs. Ferramentas) buscando vazamentos conceituais ou excesso de cerimônia.
+2. Responda objetivamente às 7 questões da Parte VII do dossiê (com posição firme: APROVAR / ALTERAR / CORTAR para cada uma).
+3. Aponte de 1 a 5 riscos, armadilhas de engenharia, falhas de segurança ou pontos de super-engenharia (YAGNI) que as 4 rodadas anteriores (A+B, Argon High, Neon v3.1, Neon XHigh v3.2) ainda NÃO viram.
+4. Emita um veredito final claro entre:
+   - `GO (Autorizar Fase 0 imediatamente como especificada na v3.2)`
+   - `GO COM AJUSTES (listar exatamente quais mudanças entram antes da Fase 0)`
+   - `NO-GO / REDESENHO (justificar qual pilar deve ser cortado ou redesenhado)`
+
+Formato de resposta esperado:
+- Veredito Geral (1 linha + justificativa curta)
+- Auditoria da Taxonomia de 4 Camadas
+- Resposta Direta às 7 Questões da Parte VII (tabela + justificativa técnica)
+- Achados Novos / Pontos Cegos / Riscos de Super-Engenharia (se houver)
+- Condições Exatas para Liberação da Fase 0
+```
+
+---
+
+## 2. Mapa de Evidências Empíricas Já Verificadas (Para Consulta Rápida do Revisor)
+
+| Fato Empírico | Artefato / Comando Verificado | Resultado Observado | Onde Foi Incorporado na Spec v3.2 |
+| :--- | :--- | :--- | :--- |
+| **`tsc -b` falha hoje (`Exit 1`)** | `.\node_modules\.bin\tsc.cmd -b --verbose` | `155` erros pré-existentes (`17,66s–24,42s`; `buildinfo indicates program needs to report errors`) | §4.1, §4.2.C, §5.1, §5.2 #2, §6.3 #4 (`verify:all` sem `type-check`) |
+| **Falso positivo SQL em `2d`** | `supabase/migrations/20261009200000_agent_action_server_gate.sql` L25–27 | `-- Rollback:` contém `-- DROP FUNCTION IF EXISTS ...`; `0/15` migrações recentes usam `ROLLBACK_SQL` literal | §5.1, §6.2 #2 (`2d` remove comentários `--`/`/* */` antes do match e aceita `-- Rollback:`) |
+| **Contradição Regra × Diff Filtrado** | `memories/regras-intencao.md` L11, L31, L33, L38 vs. `:(exclude)*.md` e Degrau 1 | Enviar o arquivo inteiro faz `jev-1.14` cobrar `.md`/versão/testes que o filtro ou bypass de `2c` removeu | §5.1, §6.2 #5 (`regras_semanticas_jev` + nota `pre_verificacoes_locais`) |
+| **Validação real de `14 KB / 24 KB`** | `git show` nos 4 últimos commits de código (`a53eb44`, `04f2f3c`, `6a80ea8`, `e5896b6`) | `4/4` couberam em `<= 24 KB` após Degrau 1 (`a53eb44`: `32.978 → 22.998` chars) | §5.1, §5.2 #3, §6.2 #4 |
+| **Hubs globais & Entrypoints HTTP no grafo** | Simulação JS em `graphify-out/graph.json` para 7 arquivos reais | `src/types.ts` tem `117` consumidores *inbound*; `api/conversa-nlu.ts` e `zapi-smart-webhook/index.ts` têm `0` imports estáticos | §5.1, §6.2 #3 (`total N arquivos, top 10` + anotação *entrypoint HTTP*) |
+| **Ponto cego `--worktree` + *partial staging*** | Semântica de `git diff HEAD` vs. `git ls-files --others` e `git show :path` | Arquivos novos *untracked* escapavam de `verify:jev:worktree`; `2d` lia disco em vez do índice | §5.1, §6.2 #1 e #2 (`2d`) |
+| **Race condition Cache × `graphify update .`** | `.agents/rules/graphify.md` L14 vs. `SHA256(..., contexto_dependentes_ast)` | Rodar `graphify update .` entre `verify:jev` e `git commit` invalidava o cache | §5.1, §6.2 #5, §6.3 #5 (ordem canônica fixa) |
+| **Taxonomia HTTP incompleta na Etapa 4** | Spec v3.1 listava só `402/429/5xx` | `401/403/404/410` (endpoint alpha movido/chave revogada) e `400/413` não tinham fallback definido | §5.1, §6.2 #6 (`[JEV-ERROR-CONFIG]` + `.tmp/jev-health.log` + fail-open) |
+| **Sinergia real com `idd-ide/verify.ts`** | `C:\IDE IDD Claude-VS Code\idd-ide\cli\src\commands\verify.ts` L153–320 | `verify.ts` hoje usa Claude Sonnet + `code.slice(0, 16000)` e contrato `{ status, score, violations }` | §4.2.D #5, §6.2 #7 (`iddVerdict` *drop-in*) |
+
+---
+
+## 3. Foco Adversarial Sugerido ao Revisor (Onde Ainda Pode Haver Debate Real)
+
+Mesmo após 4 rodadas de endurecimento empírico, permanecem **4 decisões genuínas de trade-off arquitetural** onde o parecer do **Claude Fable 5.2** terá valor decisivo:
+
+1. **Complexidade vs. Retorno da Etapa 4 (YAGNI Check)**: Depois de a Etapa 2 determinística (`2a–2d`, `0` tokens) ter absorvido segredos, `console.log`, `: any`, `@ts-ignore`, falta de teste no motor, bump de versão, `.intent.md` e `DROP` SQL, quanto valor residual líquido sobra para uma chamada remota a um endpoint `/api/alpha/decisions`? O Shadow Mode da Fase 2 consegue provar (ou refutar) esse ROI em 10 commits?
+2. **Abolir vs. Manter `streak >= 2` Automático**: Mesmo com `diffHash !== prevDiffHash` + TTL `15 min`, permitir qualquer bypass automático sem `JEV_BYPASS_REASON` ainda pode ser abusado por um agente que faça 2 micro-edições cosméticas para destravar o commit. Vale manter o anti-loop automático ou exigir `JEV_BYPASS_REASON` 100% explícito?
+3. **Fail-Open em Commits do Motor (`M-0…M-12`)**: Se a OpenRouter ficar fora (`HTTP 402`/`404`/`5xx`), commits comuns devem fazer *fail-open*, mas commits que tocam os 4 arquivos críticos do motor devem fazer *fail-open* igual ou exigir `JEV_BYPASS_REASON` explícito?
+4. **Dívida de `155` Erros no `tsc -b`**: Vale atacar a limpeza dos `155` erros TS antes ou em paralelo à Fase 0 do Gate Jev — ou introduzir um check de não-regressão TS escopado apenas aos arquivos tocados no diff?
