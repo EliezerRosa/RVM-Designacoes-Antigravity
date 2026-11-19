@@ -75,7 +75,7 @@ Formato de resposta esperado:
 Claude Fable 5.2 — Parecer Técnico Adversarial Final (MODO AGENTE)
 
 REGRAS DE OPERAÇÃO (obrigatórias):
-- Primeiro leia `AGENTS.md` (raiz do workspace pai), `_ESTADO-ATUAL.md` e `memories/repo/_ESTADO-ATUAL.md` (§43.21–§43.24).
+- Primeiro leia `AGENTS.md` (raiz do workspace pai), `_ESTADO-ATUAL.md` e `memories/repo/_ESTADO-ATUAL.md` (§43.21–§43.25).
 - Esta tarefa é SOMENTE LEITURA + 1 arquivo de saída. É PROIBIDO modificar código, hooks ou configs: `scripts/jev-check.mjs`, `.git/hooks/*`, `package.json`, `src/**`, `supabase/**`, `.roo/rules/10-jev-verificacao.md`, `memories/regras-intencao.md`.
 - Comandos permitidos apenas para verificação, sem efeito colateral (`git log`, `git show`, `git diff`, `npx tsc -b --verbose`, `npx eslint src --format json`, `node -e` só de leitura). Não instalar pacotes nem rodar `npm install`.
 - NÃO fazer grep/leitura recursiva em junções OneDrive (ex.: `idd-ide/paradigma`, `IDD Paradigma`): elas forçam download da nuvem.
@@ -91,7 +91,7 @@ MISSÃO: exatamente a da §1 do briefing (comparar v3.2 × Opção Z; julgar A1�
 
 SAÍDA:
 - Grave o parecer em `memories/repo/parecer-claude-fable-5-2.md` no formato da §1.
-- Acrescente a §43.25 (resumo do veredito + link) em `_ESTADO-ATUAL.md` E em `memories/repo/_ESTADO-ATUAL.md` (os dois arquivos precisam ficar idênticos) e atualize a linha "Última Atualização" dos dois.
+- Acrescente a §43.26 (resumo do veredito + link) em `_ESTADO-ATUAL.md` E em `memories/repo/_ESTADO-ATUAL.md` (os dois arquivos precisam ficar idênticos) e atualize a linha "Última Atualização" dos dois.
 - Faça commit SOMENTE desses 3 arquivos (`docs(finops): parecer Claude Fable 5.2`) e `git push origin main`. Confirme que `git status` ficou limpo.
 - NÃO implemente nada: a implementação depende de autorização explícita do Responsável Epistêmico.
 ``` Já Verificadas (Para Consulta Rápida do Revisor)
