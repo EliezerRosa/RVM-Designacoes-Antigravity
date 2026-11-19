@@ -67,7 +67,34 @@ Formato de resposta esperado:
 
 ---
 
-## 2. Mapa de Evidências Empíricas Já Verificadas (Para Consulta Rápida do Revisor)
+## 1-B. Variante para Modo Agente (VS Code Copilot Chat — GitHub Pro+)
+
+> Use esta variante quando o Claude Fable 5.2 rodar **como agente com acesso ao workspace**. Os anexos da §0 viram leitura direta do disco. **Antes de começar**: (1) abra a pasta `rvm-designacoes-unified` no VS Code; (2) para que ele leia `verify.ts`/`init.ts`, adicione `C:\IDE IDD Claude-VS Code\idd-ide\cli` ao workspace (*File → Add Folder to Workspace*) ou anexe os dois arquivos com `#file`; (3) se puder, deixe a aprovação de comandos de terminal em modo manual.
+
+```markdown
+Claude Fable 5.2 — Parecer Técnico Adversarial Final (MODO AGENTE)
+
+REGRAS DE OPERAÇÃO (obrigatórias):
+- Primeiro leia `AGENTS.md` (raiz do workspace pai), `_ESTADO-ATUAL.md` e `memories/repo/_ESTADO-ATUAL.md` (§43.21–§43.24).
+- Esta tarefa é SOMENTE LEITURA + 1 arquivo de saída. É PROIBIDO modificar código, hooks ou configs: `scripts/jev-check.mjs`, `.git/hooks/*`, `package.json`, `src/**`, `supabase/**`, `.roo/rules/10-jev-verificacao.md`, `memories/regras-intencao.md`.
+- Comandos permitidos apenas para verificação, sem efeito colateral (`git log`, `git show`, `git diff`, `npx tsc -b --verbose`, `npx eslint src --format json`, `node -e` só de leitura). Não instalar pacotes nem rodar `npm install`.
+- NÃO fazer grep/leitura recursiva em junções OneDrive (ex.: `idd-ide/paradigma`, `IDD Paradigma`): elas forçam download da nuvem.
+- NÃO citar, no arquivo de saída, nomes de integrações locais privadas, pastas ignoradas pelo `.gitignore`, segredos ou dados pessoais (o repositório é PÚBLICO).
+
+LEITURA:
+1. `memories/repo/plano-completo-arquitetura-finops-idd-graphify-jev-v3.md` (Spec v3.2)
+2. `memories/repo/parecer-claude-opus-pre-fable-5-2.md` (contraponto da 5ª rodada, NÃO incorporado à v3.2)
+3. `memories/repo/briefing-parecer-claude-fable-5-2.md` §1 (missão, Opção Z e formato) e §3 (trade-offs 1–6)
+4. Fontes: `memories/regras-intencao.md`, `scripts/jev-check.mjs`, `eslint.config.js`, `tsconfig.app.json`, `package.json`, `supabase/migrations/20261009200000_agent_action_server_gate.sql`, `.github/workflows/`, e (se acessíveis) `idd-ide/cli/src/commands/verify.ts` e `init.ts`.
+
+MISSÃO: exatamente a da §1 do briefing (comparar v3.2 × Opção Z; julgar A1–A8 do parecer Opus; responder às 7 questões da Parte VII; 1–5 pontos cegos novos; veredito GO / GO COM AJUSTES / GO OPÇÃO Z / NO-GO). Você TEM acesso ao repositório: re-verifique empiricamente pelo menos 3 afirmações numéricas (das rodadas anteriores ou do parecer Opus) e registre se foram confirmadas ou refutadas.
+
+SAÍDA:
+- Grave o parecer em `memories/repo/parecer-claude-fable-5-2.md` no formato da §1.
+- Acrescente a §43.25 (resumo do veredito + link) em `_ESTADO-ATUAL.md` E em `memories/repo/_ESTADO-ATUAL.md` (os dois arquivos precisam ficar idênticos) e atualize a linha "Última Atualização" dos dois.
+- Faça commit SOMENTE desses 3 arquivos (`docs(finops): parecer Claude Fable 5.2`) e `git push origin main`. Confirme que `git status` ficou limpo.
+- NÃO implemente nada: a implementação depende de autorização explícita do Responsável Epistêmico.
+``` Já Verificadas (Para Consulta Rápida do Revisor)
 
 | Fato Empírico | Artefato / Comando Verificado | Resultado Observado | Onde Foi Incorporado na Spec v3.2 |
 | :--- | :--- | :--- | :--- |
