@@ -57,11 +57,23 @@ async function run() {
 
         try {
             const page = await browser.newPage();
+            const pageErrors: string[] = [];
+            page.on('pageerror', err => pageErrors.push(`pageerror: ${err.message}`));
+            page.on('console', msg => {
+                if (msg.type() === 'error') pageErrors.push(`console.error: ${msg.text()}`);
+            });
+
             const url = `${baseUrl}/?portal=s89-print&partId=${part.id}&token=${printSecret}`;
-            console.log(`[AutoReassignBot] (s89Provider) Navegando para: ${url}`);
+            console.log(`[AutoReassignBot] (s89Provider) Navegando para: ${baseUrl}/?portal=s89-print&partId=${part.id}&token=***`);
             
             await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-            await page.waitForSelector('#s89-card-canvas', { timeout: 20000 });
+            try {
+                await page.waitForSelector('#s89-card-canvas', { timeout: 20000 });
+            } catch (waitErr: any) {
+                const bodyText = await page.evaluate(() => document.body?.innerText?.trim().slice(0, 300) || '').catch(() => '');
+                const diag = [bodyText ? `pageText="${bodyText}"` : '', pageErrors.length > 0 ? `errors=[${pageErrors.slice(0, 3).join('; ')}]` : ''].filter(Boolean).join(' | ');
+                throw new Error(`Falha ao renderizar #s89-card-canvas (${waitErr?.message || waitErr})${diag ? ` — ${diag}` : ''}`);
+            }
             
             const imgSrc = await page.$eval('#s89-card-canvas', el => el.getAttribute('src'));
             if (!imgSrc || !imgSrc.includes('base64,')) {

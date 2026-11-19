@@ -114,15 +114,15 @@ async function verifyIntentWithAI(
   // @ts-ignore
   const apiKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!apiKey) {
-    console.log("[zapi-smart-webhook] OPENROUTER_API_KEY não encontrada, pulando Protocolo B.");
+    console.warn("[zapi-smart-webhook] OPENROUTER_API_KEY ausente — Fail-Closed ativado para evitar falsos positivos em texto livre.");
     return {
-      id_designacao_identificada: upcomingPartsList.length > 0 ? String(upcomingPartsList[0].id) : null,
-      percentual_verdade: 100,
-      classificacao: "ALTA_PLAUSIBILIDADE",
-      fatores_convergentes: ["Bypass - API Key missing"],
-      fatores_divergentes: [],
-      analise_sintetica: "Fallback Heurístico de Segurança",
-      sugestao_acao: "APROVAR_AUTOMATICO"
+      id_designacao_identificada: null,
+      percentual_verdade: 0,
+      classificacao: "INCONSISTENTE",
+      fatores_convergentes: [],
+      fatores_divergentes: ["OPENROUTER_API_KEY ausente — revisão manual obrigatória"],
+      analise_sintetica: "Fallback Seguro (Fail-Closed): texto livre sem validação da IA bloqueado",
+      sugestao_acao: "NOTIFICAR_COORDENADOR"
     };
   }
 
@@ -153,20 +153,22 @@ async function verifyIntentWithAI(
     const SYSTEM_PROMPT = `Você atua como Jev AI, um motor determinístico de verificação de coerência factual e plausibilidade para o Protocolo B (System One).
 
 TAREFA: Leia a mensagem avulsa do publicador e cruze-a com a lista de "designacoesAgendadas".
+ZERO (CRÍTICO): Primeiro, verifique se a mensagem REALMENTE se refere a uma designação/parte da Reunião Vida e Ministério. Se for conversa pessoal, agendamento particular, cumprimento ou assunto paralelo sem relação explícita com a reunião (ex.: "Ok as 17h", "podemos fazer em particular", "bom dia amigo"), VETE IMEDIATAMENTE retornando id_designacao_identificada: null, percentual_verdade: 0, classificacao: "DIVERGENCIA_CRITICA", sugestao_acao: "NOTIFICAR_COORDENADOR".
 Primeiro: Identifique a qual designação (id) ele está se referindo com base em datas, meses ou tipo de parte mencionados no texto.
 Segundo: Calcule o percentual de plausibilidade e correspondência fática (0 a 100%) da mensagem em relação à designação identificada.
 
 REGRAS ESTRITAS:
 - Retorne EXCLUSIVAMENTE um objeto JSON estrito com os seguintes campos (tipos exatos):
-  - id_designacao_identificada (string do ID ou null se a mensagem fala de uma data inexistente na lista)
+  - id_designacao_identificada (string do ID ou null se a mensagem fala de uma data inexistente na lista ou conversa paralela)
   - percentual_verdade (number 0 a 100)
   - classificacao ("ALTA_PLAUSIBILIDADE" | "MEDIANA" | "INCONSISTENTE" | "DIVERGENCIA_CRITICA" | "FALSO_ALUCINACAO")
   - fatores_convergentes (array de strings curtas)
-  - fatores_divergentes (array de strings curtas indicando por que a data não bate ou se parece recado de terceiro)
+  - fatores_divergentes (array de strings curtas indicando por que a data não bate, se é conversa pessoal/paralela ou recado de terceiro)
   - analise_sintetica (string fria com max 20 palavras explicando a decisão)
   - sugestao_acao ("APROVAR_AUTOMATICO" | "NOTIFICAR_COORDENADOR" | "RECUSAR")
 
 DIRETRIZES DE PONTUAÇÃO:
+- Se a mensagem NÃO menciona explicitamente reunião, parte, designação, ajudante, discurso, leitura ou uma data/semana da lista e parece conversa pessoal do dia a dia, retorne id_designacao_identificada: null e percentual_verdade <= 15 (veto automático).
 - Se ele menciona uma data ou semana que não bate com NENHUMA das designações da lista, retorne id_designacao_identificada: null e percentual_verdade baixo (veto automático).
 - Analise se parece um repasse de terceiro (ex: "fulano pediu pra avisar que não vai", "meu marido não pode"). Isso reduz o percentual.
 - PROIBIDO incluir texto (markdown, backticks) antes ou depois do JSON.`;
@@ -210,15 +212,15 @@ DIRETRIZES DE PONTUAÇÃO:
     console.error("[zapi-smart-webhook] OpenRouter Error:", e);
   }
   
-  // Em caso de falha na IA, fail-open com flag de atenção
+  // Fail-Closed obrigatório: se a IA falhar, NUNCA aprovar recusa/confirmação automática de texto livre
   return { 
-    id_designacao_identificada: upcomingPartsList.length > 0 ? String(upcomingPartsList[0].id) : null,
-    percentual_verdade: 100, 
-    classificacao: "ALTA_PLAUSIBILIDADE", 
+    id_designacao_identificada: null,
+    percentual_verdade: 0, 
+    classificacao: "INCONSISTENTE", 
     fatores_convergentes: [], 
-    fatores_divergentes: ["Falha na API da IA"], 
-    analise_sintetica: "Fallback Heurístico de Resiliência", 
-    sugestao_acao: "APROVAR_AUTOMATICO" 
+    fatores_divergentes: ["Falha na API da IA — revisão manual obrigatória"], 
+    analise_sintetica: "Fallback Seguro (Fail-Closed): IA indisponível", 
+    sugestao_acao: "NOTIFICAR_COORDENADOR" 
   };
 }
 
@@ -641,8 +643,11 @@ async function processWebhookPayload(body: any) {
     
     // HEURÍSTICA DE FALLBACK (Busca na agenda do publicador)
     const lower = inboundText.toLowerCase();
-    const isConfirmKeyword = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower) || lower.includes("confirmar");
-    const isDeclineKeyword = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
+    // Sem disparo recente/interação explícita, exigir termos inequívocos (evita que "ok"/"sim"/"particular" em chat pessoal dispare ação!)
+    const isStrictConfirmKeyword = /\b(confirmo|confirmar|confirmado|estarei presente|vou fazer a parte|pode contar comigo)\b/i.test(lower) || lower.includes("confirmar");
+    const isCasualConfirmKeyword = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower) || lower.includes("confirmar");
+    const isConfirmKeyword = recentDispatch ? isCasualConfirmKeyword : isStrictConfirmKeyword;
+    const isDeclineKeyword = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|n[aã]o consigo|n[aã]o vou poder|imposs[ií]vel|recusar|rejeitar|estou doente|fiquei doente|com gripe|com dengue|com febre|estou viajando|vou viajar|de plant[aã]o|cirurgia|imprevisto)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
     const hasIntentKeyword = isConfirmKeyword || isDeclineKeyword;
 
     let upcomingPartsList: any[] = [];
@@ -746,8 +751,10 @@ async function processWebhookPayload(body: any) {
         const lower = inboundText.toLowerCase();
 
         // Regras heurísticas de alta precisão (usando word boundaries para evitar falsos positivos)
-        const isConfirm = /\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower) || lower.includes("confirmar");
-        const isDecline = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|doente|gripe|dengue|febre|viagem|viajando|plant[aã]o|imposs[ií]vel|recusar|rejeitar|motivo|particular|imprevisto|compromisso|sa[uú]de|m[eé]dic|cirurgia)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
+        const isConfirm = recentDispatch
+          ? (/\b(confirmo|confirmar|confirmado|estarei|vou fazer|fa[cç]o|pode contar|sim|ok|beleza|certo)\b/i.test(lower) || lower.includes("confirmar"))
+          : (/\b(confirmo|confirmar|confirmado|estarei presente|vou fazer a parte|pode contar comigo)\b/i.test(lower) || lower.includes("confirmar"));
+        const isDecline = /\b(n[aã]o posso|n[aã]o vou|n[aã]o poderei|n[aã]o consigo|n[aã]o vou poder|imposs[ií]vel|recusar|rejeitar|estou doente|fiquei doente|com gripe|com dengue|com febre|estou viajando|vou viajar|de plant[aã]o|cirurgia|imprevisto)\b/i.test(lower) || lower.includes("não poderei") || lower.includes("nao poderei") || lower.includes("recusar");
         const isAvailability = /\b(disponibilidade|agenda|f[eé]rias|datas|ausente|aus[eê]ncia)\b/i.test(lower);
         const isSwap = /\b(troca|trocar|permuta|permutar|passar para|substituir)\b/i.test(lower);
 
@@ -861,12 +868,21 @@ async function processWebhookPayload(body: any) {
         outboundReply = `⚠️ ${greeting}, ${honorific} *${pubName}*. A designação de *${tipoParte}*${partDateStr} já foi repassada para outro irmão. Agradecemos de coração a sua disposição e o seu espírito voluntário! Que Jeová o(a) abençoe. 🙏`;
         console.log(`[zapi-smart-webhook] Confirmação negada: Parte já repassada para outro publicador.`);
         await dispatchTextMessage(replyPhone, outboundReply);
+      } else if (
+        (payload as any)?.metadata?.source === "hg-sync-inbound" &&
+        (targetPart.status === "REJEITADA" || targetPart.status === "EM_SUBSTITUICAO")
+      ) {
+        actionTaken = "IGNORED_STALE_HG_CONFIRM_ON_REJECTED";
+        console.log(`[zapi-smart-webhook] Confirmação inbound do HG ignorada: parte ${targetPart.id} já está ${targetPart.status} no RVM.`);
       } else {
-        // Concorrência segura: assegura status DESIGNADA em workbook_parts
+        // Concorrência segura: assegura status DESIGNADA e limpa needs_reassignment para cancelar qualquer troca em voo
         await supabase
           .from("workbook_parts")
           .update({
             status: "DESIGNADA",
+            needs_reassignment: false,
+            reassignment_reason: null,
+            reassignment_marked_at: null,
             status_changed_at: new Date().toISOString(),
           })
           .eq("id", targetPart.id);

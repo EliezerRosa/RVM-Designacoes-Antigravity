@@ -11,5 +11,6 @@ scratch
 docs-local
 .tmp
 *.xlsx
-*.pdf
+/*.pdf
+docs/*.pdf
 *.log

@@ -21,6 +21,16 @@ export type S89Provider = (
     assistantNameForPdf?: string
 ) => Promise<string | null>;
 
+export interface NotificationDeliveryReport {
+    oldAttempted: boolean;
+    oldNotified: boolean;
+    newAttempted: boolean;
+    newNotified: boolean;
+    partnerAttempted: boolean;
+    partnerNotified: boolean;
+    errors: string[];
+}
+
 export const replacementOrchestratorService = {
     async executeAutoReassignment(
         partId: string,
@@ -31,11 +41,31 @@ export const replacementOrchestratorService = {
     ) {
         console.log(`[ReplacementOrchestrator] Iniciando troca automática para partId: ${partId}`);
 
-        // DB Fetch para evitar Race Conditions
-        const { data: freshPart } = await supabase.from('workbook_parts').select('needs_reassignment').eq('id', partId).single();
+        // DB Fetch para evitar Race Conditions (ex.: confirmação chegou antes do bot iniciar)
+        const { data: freshPart } = await supabase
+            .from('workbook_parts')
+            .select('needs_reassignment, status, status_changed_at, reassignment_marked_at')
+            .eq('id', partId)
+            .single();
+
         if (!freshPart || !freshPart.needs_reassignment) {
-            console.log(`[ReplacementOrchestrator] Abortando: A parte ${partId} não precisa mais de reatribuição (possível ajuste manual realizado).`);
+            console.log(`[ReplacementOrchestrator] Abortando: A parte ${partId} não precisa mais de reatribuição (possível ajuste manual ou confirmação realizada).`);
             return { success: false, reason: 'A parte não precisa mais de reatribuição.' };
+        }
+
+        if (freshPart.status === 'CONCLUIDA' || freshPart.status === 'CANCELADA') {
+            console.log(`[ReplacementOrchestrator] Abortando: A parte ${partId} está em status terminal (${freshPart.status}).`);
+            return { success: false, reason: `Parte em status ${freshPart.status}.` };
+        }
+
+        if (freshPart.status === 'DESIGNADA' && freshPart.status_changed_at && freshPart.reassignment_marked_at) {
+            const changedMs = new Date(freshPart.status_changed_at).getTime();
+            const markedMs = new Date(freshPart.reassignment_marked_at).getTime();
+            if (!Number.isNaN(changedMs) && !Number.isNaN(markedMs) && changedMs > markedMs) {
+                console.log(`[ReplacementOrchestrator] Abortando: A parte ${partId} foi confirmada (DESIGNADA) após a marcação de substituição.`);
+                await supabase.from('workbook_parts').update({ needs_reassignment: false }).eq('id', partId);
+                return { success: false, reason: 'Parte confirmada após a marcação de substituição.' };
+            }
         }
 
         // Sempre usa applyEngineRules: true (Conservadorismo absoluto - cadeado fechado)
@@ -69,8 +99,8 @@ export const replacementOrchestratorService = {
 
         const updatedPart: WorkbookPart = { ...part, resolvedPublisherId: newPubId, resolvedPublisherName: publishers.find(p => p.id === newPubId)?.name || '', isSubstitution: true, substitutedPublisherName: oldPublisherName || undefined };
 
-        // Agora executa o pipeline universal
-        await this.executeNotificationPipeline(
+        // Agora executa o pipeline universal e captura o relatório real de entregas
+        const deliveryReport = await this.executeNotificationPipeline(
             updatedPart,
             oldPublisherName,
             publishers,
@@ -79,13 +109,14 @@ export const replacementOrchestratorService = {
             s89Provider
         );
 
-        // Alertar liderança sobre o sucesso da automação
+        // Alertar liderança sobre o resultado real da automação (incluindo eventuais falhas de envio!)
         await this.alertLeadershipAboutReplacement(
             updatedPart,
             oldPublisherName,
             updatedPart.resolvedPublisherName || '',
             publishers,
-            false
+            false,
+            deliveryReport
         );
 
         // Gancho Aditivo S-140: se o ajuste for na semana em curso, aciona o Modo 2 (agora igual à troca manual)
@@ -140,8 +171,8 @@ export const replacementOrchestratorService = {
 
         const updatedPart = { ...part, resolvedPublisherId: newPublisherId, resolvedPublisherName: newPublisherName, isSubstitution: true, substitutedPublisherName: oldPublisherName };
 
-        // Executar o pipeline universal
-        await this.executeNotificationPipeline(
+        // Executar o pipeline universal e capturar o relatório real de entregas
+        const deliveryReport = await this.executeNotificationPipeline(
             updatedPart,
             oldPublisherName,
             publishers,
@@ -150,13 +181,14 @@ export const replacementOrchestratorService = {
             s89Provider
         );
 
-        // Alertar liderança sobre o sucesso da substituição manual
+        // Alertar liderança sobre o resultado real da substituição manual
         await this.alertLeadershipAboutReplacement(
             updatedPart,
             oldPublisherName,
             newPublisherName,
             publishers,
-            true
+            true,
+            deliveryReport
         );
 
         // Gancho Aditivo S-140: se o ajuste for na semana em curso, aciona o Modo 2
@@ -233,7 +265,8 @@ export const replacementOrchestratorService = {
         oldPublisherName: string,
         newPublisherName: string,
         publishers: Publisher[],
-        isManual: boolean
+        isManual: boolean,
+        delivery?: NotificationDeliveryReport
     ) {
         try {
             const targetPhones = new Set<string>(await zapiOrchestrator.getAdminPhones());
@@ -252,10 +285,38 @@ export const replacementOrchestratorService = {
                 }
             }
 
-            const header = isManual ? `👤 *RVM Gestão: Substituição Manual Realizada!*` : `🤖 *RVM Auto-Healing: Substituição Realizada!*`;
+            const hasFailures = Boolean(
+                delivery && (
+                    (delivery.oldAttempted && !delivery.oldNotified) ||
+                    (delivery.newAttempted && !delivery.newNotified) ||
+                    (delivery.partnerAttempted && !delivery.partnerNotified)
+                )
+            );
+
+            const header = hasFailures
+                ? (isManual ? `⚠️ *RVM Gestão: Substituição Manual com Falha de Notificação!*` : `⚠️ *RVM Auto-Healing: Substituição Realizada com Falha de Notificação!*`)
+                : (isManual ? `👤 *RVM Gestão: Substituição Manual Realizada!*` : `🤖 *RVM Auto-Healing: Substituição Realizada!*`);
             const adv = isManual ? 'manualmente' : 'automaticamente';
+
+            let notificationSummary = 'Ambos já foram notificados!';
+            if (delivery) {
+                if (hasFailures) {
+                    const lines: string[] = ['⚠️ *ATENÇÃO — Falha ao notificar via WhatsApp (notifique manualmente):*'];
+                    if (delivery.oldAttempted) lines.push(`${delivery.oldNotified ? '✅' : '❌'} Anterior (${oldPublisherName})`);
+                    if (delivery.newAttempted) lines.push(`${delivery.newNotified ? '✅' : '❌'} Novo designado (${newPublisherName})`);
+                    if (delivery.partnerAttempted) lines.push(`${delivery.partnerNotified ? '✅' : '❌'} Parceiro(a) da dupla`);
+                    if (delivery.errors.length > 0) {
+                        lines.push(`Motivo técnico: ${delivery.errors[0].slice(0, 160)}`);
+                    }
+                    notificationSummary = lines.join('\n');
+                } else if (!delivery.oldAttempted && !delivery.newAttempted && !delivery.partnerAttempted) {
+                    notificationSummary = 'Nenhuma notificação WhatsApp solicitada ou telefones ausentes.';
+                } else if (delivery.partnerAttempted && delivery.partnerNotified) {
+                    notificationSummary = 'Todos os envolvidos (anterior, novo e parceiro) já foram notificados!';
+                }
+            }
             
-            const successMsg = `${header}\n\nA parte de *${part.tituloParte || part.tipoParte}* (${part.date || part.weekId}) foi ${adv} transferida de *${oldPublisherName}* para *${newPublisherName}*.\n\nAmbos já foram notificados!`;
+            const successMsg = `${header}\n\nA parte de *${part.tituloParte || part.tipoParte}* (${part.date || part.weekId}) foi ${adv} transferida de *${oldPublisherName}* para *${newPublisherName}*.\n\n${notificationSummary}`;
             
             for (const phone of targetPhones) {
                 await zapiOrchestrator.sendTextDirect(phone, successMsg);
@@ -308,10 +369,20 @@ export const replacementOrchestratorService = {
         parts: WorkbookPart[],
         options: ReplacementOptions,
         s89Provider: S89Provider
-    ) {
+    ): Promise<NotificationDeliveryReport> {
+        const report: NotificationDeliveryReport = {
+            oldAttempted: false,
+            oldNotified: false,
+            newAttempted: false,
+            newNotified: false,
+            partnerAttempted: false,
+            partnerNotified: false,
+            errors: []
+        };
+
         if (!options.notifyOld && !options.notifyNew && !options.notifyPartner) {
             console.log('[ReplacementOrchestrator] Todas as opções de notificação são falsas. Abortando.');
-            return;
+            return report;
         }
 
         const oldPub = publishers.find(p => p.name === oldPublisherName || (part.substitutedPublisherName === p.name));
@@ -327,9 +398,10 @@ export const replacementOrchestratorService = {
 
         // A. Notificar o Antigo
         if (options.notifyOld && oldPub?.phone) {
+            report.oldAttempted = true;
             try {
                 console.log(`[ReplacementOrchestrator] Avisando antigo publicador: ${oldPub.phone}`);
-                await zapiOrchestrator.dispatchManualReplacementAlert(
+                const okOld = await zapiOrchestrator.dispatchManualReplacementAlert(
                     oldPub.phone,
                     oldPub.name,
                     part.tituloParte || part.tipoParte,
@@ -337,8 +409,11 @@ export const replacementOrchestratorService = {
                     part.id,
                     oldPub.id
                 );
-            } catch (errOld) {
+                report.oldNotified = Boolean(okOld);
+                if (!okOld) report.errors.push(`Falha ao avisar anterior (${oldPub.name})`);
+            } catch (errOld: any) {
                 console.error('[ReplacementOrchestrator] Erro antigo pub:', errOld);
+                report.errors.push(`Erro anterior (${oldPub.name}): ${errOld?.message || String(errOld)}`);
             }
         }
 
@@ -365,6 +440,7 @@ export const replacementOrchestratorService = {
 
         // B. Notificar o Novo (S-89 de Substituição)
         if (options.notifyNew && newPub?.phone) {
+            report.newAttempted = true;
             try {
                 console.log(`[ReplacementOrchestrator] Avisando novo publicador ${newPub.name}`);
                 const pdfBase64 = await s89Provider(part, publishers, isStudent, titularPartForPdf, assistantNameForPdf);
@@ -378,7 +454,7 @@ export const replacementOrchestratorService = {
 
                     const finalMsg = `⚠️ *AVISO IMPORTANTE: SUBSTITUIÇÃO DE DESIGNAÇÃO!*\n_Você foi designado(a) para cobrir a parte de outro publicador._\n\n` + baseMsg;
 
-                    await zapiOrchestrator.sendS89Direct(
+                    const sendRes = await zapiOrchestrator.sendS89Direct(
                         part.id,
                         newPub.phone,
                         finalMsg,
@@ -387,6 +463,10 @@ export const replacementOrchestratorService = {
                         availabilityUrl,
                         newPub.id
                     );
+                    report.newNotified = Boolean(sendRes?.success);
+                    if (!sendRes?.success) {
+                        report.errors.push(`Falha Z-API novo (${newPub.name}): ${sendRes?.error || 'erro desconhecido'}`);
+                    }
 
                     // Disparo desacoplado do resumo de próximas designações para o novo publicador
                     try {
@@ -394,14 +474,18 @@ export const replacementOrchestratorService = {
                     } catch (sumErr) {
                         console.warn('[ReplacementOrchestrator] Falha ao enviar resumo para novo pub:', sumErr);
                     }
+                } else {
+                    report.errors.push(`Cartão S-89 vazio/não gerado para novo (${newPub.name})`);
                 }
-            } catch (errNew) {
+            } catch (errNew: any) {
                 console.error('[ReplacementOrchestrator] Erro novo pub:', errNew);
+                report.errors.push(`Erro S-89 novo (${newPub.name}): ${errNew?.message || String(errNew)}`);
             }
         }
 
         // C. Notificar o Parceiro
         if (options.notifyPartner && partnerPub?.phone && newPub) {
+            report.partnerAttempted = true;
             try {
                 console.log(`[ReplacementOrchestrator] Avisando parceiro ${partnerPub.name}`);
                 const partnerPartObjForPdf = partnerPart || part;
@@ -418,7 +502,7 @@ export const replacementOrchestratorService = {
                     const rolePartnerChanged = isAjudante ? 'Ajudante' : 'Titular';
                     const finalMsgPartner = `⚠️ *AVISO IMPORTANTE: MUDANÇA DE PARCEIRO(A)!*\n_Houve uma substituição e o seu ${rolePartnerChanged} para esta parte mudou._\n\n` + baseMsgPartner;
 
-                    await zapiOrchestrator.sendS89Direct(
+                    const partnerRes = await zapiOrchestrator.sendS89Direct(
                         partnerPart?.id || part.id,
                         partnerPub.phone,
                         finalMsgPartner,
@@ -427,10 +511,19 @@ export const replacementOrchestratorService = {
                         partnerAvailabilityUrl,
                         partnerPub.id
                     );
+                    report.partnerNotified = Boolean(partnerRes?.success);
+                    if (!partnerRes?.success) {
+                        report.errors.push(`Falha Z-API parceiro (${partnerPub.name}): ${partnerRes?.error || 'erro desconhecido'}`);
+                    }
+                } else {
+                    report.errors.push(`Cartão S-89 vazio/não gerado para parceiro (${partnerPub.name})`);
                 }
-            } catch (errPart) {
+            } catch (errPart: any) {
                 console.error('[ReplacementOrchestrator] Erro parceiro:', errPart);
+                report.errors.push(`Erro S-89 parceiro (${partnerPub.name}): ${errPart?.message || String(errPart)}`);
             }
         }
+
+        return report;
     }
 };
