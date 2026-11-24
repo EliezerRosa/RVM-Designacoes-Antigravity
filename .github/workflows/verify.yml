@@ -1,0 +1,54 @@
+name: Deterministic Gate & Verify CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Gate Determinístico (Fase 0) + Testes + Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (com histórico para --range)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testar o Gate Determinístico (scripts/deterministic-gate.test.mjs)
+        run: npm run test:gate
+
+      - name: Executar Gate Determinístico no range do commit/PR (garantia server-side)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$PR_BASE_SHA" ]; then
+            RANGE="${PR_BASE_SHA}..HEAD"
+          elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="${BEFORE_SHA}..HEAD"
+          else
+            RANGE="HEAD~1..HEAD"
+          fi
+          echo "Verificando range: $RANGE"
+          node scripts/deterministic-gate.mjs --range "$RANGE"
+
+      - name: Suíte de Testes Unitários (npm test)
+        run: npm test
+
+      - name: Build de Produção (npm run build)
+        run: npm run build

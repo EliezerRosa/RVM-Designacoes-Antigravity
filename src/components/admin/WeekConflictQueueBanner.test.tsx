@@ -6,7 +6,7 @@ import { installDom } from '../../test/componentTestUtils';
 import { WeekConflictQueueBanner } from './WeekConflictQueueBanner';
 import { buildWorkbookPart } from '../../test/factories';
 import { WorkbookStatus } from '../../types';
-import * as reassignmentService from '../../services/reassignmentService';
+import { supabase } from '../../lib/supabase';
 void React;
 
 test('WeekConflictQueueBanner: retorna null quando lista de conflitos está vazia', () => {
@@ -51,34 +51,47 @@ test('WeekConflictQueueBanner: renderiza banner contextual com os dados do confl
 
 test('WeekConflictQueueBanner: dispensar chama callback onDismissConflict', async () => {
     installDom();
-    const part = buildWorkbookPart({
-        id: 'part-conf-2',
-        weekId: '2026-11-23',
-        tipoParte: 'Discurso de Estudante',
-        funcao: 'Titular',
-        resolvedPublisherName: 'João Santos',
-        needsReassignment: true,
-        reassignmentReason: 'Férias',
-        status: WorkbookStatus.DESIGNADA,
-    });
+    const originalRpc = supabase.rpc.bind(supabase);
+    let rpcCalledWith = '';
+    (supabase as unknown as { rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: null; error: null }> }).rpc =
+        async (fn, args) => {
+            rpcCalledWith = `${fn}:${String(args?.p_part_id ?? '')}`;
+            return { data: null, error: null };
+        };
 
-    let dismissedPartId = '';
-    const { getByText } = render(
-        <WeekConflictQueueBanner
-            weekId="2026-11-23"
-            conflictParts={[part]}
-            publishers={[]}
-            allParts={[part]}
-            onDismissConflict={(id) => {
-                dismissedPartId = id;
-            }}
-        />
-    );
+    try {
+        const part = buildWorkbookPart({
+            id: 'part-conf-2',
+            weekId: '2026-11-23',
+            tipoParte: 'Discurso de Estudante',
+            funcao: 'Titular',
+            resolvedPublisherName: 'João Santos',
+            needsReassignment: true,
+            reassignmentReason: 'Férias',
+            status: WorkbookStatus.DESIGNADA,
+        });
 
-    const dismissBtn = getByText('✕ Dispensar');
-    fireEvent.click(dismissBtn);
+        let dismissedPartId = '';
+        const { getByText } = render(
+            <WeekConflictQueueBanner
+                weekId="2026-11-23"
+                conflictParts={[part]}
+                publishers={[]}
+                allParts={[part]}
+                onDismissConflict={(id) => {
+                    dismissedPartId = id;
+                }}
+            />
+        );
 
-    await waitFor(() => {
-        assert.equal(dismissedPartId, 'part-conf-2');
-    });
+        const dismissBtn = getByText('✕ Dispensar');
+        fireEvent.click(dismissBtn);
+
+        await waitFor(() => {
+            assert.equal(dismissedPartId, 'part-conf-2');
+        });
+        assert.equal(rpcCalledWith, 'clear_part_reassignment_flag:part-conf-2');
+    } finally {
+        supabase.rpc = originalRpc;
+    }
 });

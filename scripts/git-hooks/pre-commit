@@ -1,0 +1,6 @@
+#!/bin/sh
+# >>> rvm-deterministic-gate >>>
+if [ -f "scripts/deterministic-gate.mjs" ]; then
+  node scripts/deterministic-gate.mjs --staged || exit 1
+fi
+# <<< rvm-deterministic-gate <<<
