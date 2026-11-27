@@ -157,10 +157,29 @@ export const s140PackageService = {
     },
 
     /**
+     * Resolve publisherId a partir de um telefone normalizado (ignora IDs de grupo WhatsApp).
+     */
+    resolvePublisherIdByPhone(phone: string, publishers: Publisher[]): string | undefined {
+        if (!phone || phone.includes('@g.us') || phone.includes('-group')) return undefined;
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length < 8) return undefined;
+        const needle = digits.length >= 10 ? digits.slice(-10) : digits.slice(-8);
+
+        const match = publishers.find(p => {
+            const pPhone = p.phone || '';
+            const pDigits = pPhone.replace(/\D/g, '');
+            if (pDigits.length < 8) return false;
+            const pTail = pDigits.length >= 10 ? pDigits.slice(-10) : pDigits.slice(-8);
+            return pTail === needle;
+        });
+        return match?.id;
+    },
+
+    /**
      * Identifica o Presidente da Reunião para uma determinada semana.
      * Se a parte de presidente foi substituída, retorna o publicador atualizado.
      */
-    resolveWeekPresident(weekParts: WorkbookPart[], publishers: Publisher[]): { name: string; phone?: string } | null {
+    resolveWeekPresident(weekParts: WorkbookPart[], publishers: Publisher[]): { id?: string; name: string; phone?: string } | null {
         const presidentPart = weekParts.find(p => {
             const t = (p.tipoParte || '').toLowerCase();
             const tit = (p.tituloParte || '').toLowerCase();
@@ -176,8 +195,9 @@ export const s140PackageService = {
         });
 
         return {
+            id: pub?.id || presidentPart.resolvedPublisherId || undefined,
             name: pub?.name || resolvedName || 'Presidente da Reunião',
-            phone: pub?.phone || (pub as any)?.data?.phone || undefined,
+            phone: pub?.phone || (pub as { data?: { phone?: string } } | undefined)?.data?.phone || undefined,
         };
     },
 
@@ -387,8 +407,15 @@ export const s140PackageService = {
             // 6. Despacha APENAS a semana afetada para Grupo, Equipe RVM e Quadro
             for (const recipient of fullPackageRecipients) {
                 if (currentWeekImage) {
-                    await zapiOrchestrator.sendImageDirect(recipient, currentWeekImage, packageCaption);
-                    await zapiOrchestrator.logDispatch(null, 'S140_PACOTE_EMERGENCIA', recipient, 'SUCCESS');
+                    const sendRes = await zapiOrchestrator.sendImageDirect(recipient, currentWeekImage, packageCaption);
+                    await zapiOrchestrator.logDispatch(
+                        null,
+                        'S140_PACOTE_EMERGENCIA',
+                        recipient,
+                        sendRes.success ? 'SUCCESS' : 'ERROR',
+                        sendRes.messageId,
+                        this.resolvePublisherIdByPhone(recipient, publishers)
+                    );
                     
                     // P9: Jittering para evitar bloqueios de spam na Z-API
                     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -398,8 +425,15 @@ export const s140PackageService = {
             // 7. Despacha S-140 ÚNICO para o Presidente da semana (Comportamento 2: sempre envia sua folha)
             if (currentPresident?.phone && currentWeekImage) {
                 console.log(`[s140PackageService] Enviando folha única ao Presidente da semana: ${currentPresident.name} (${currentPresident.phone})`);
-                await zapiOrchestrator.sendImageDirect(currentPresident.phone, currentWeekImage, presidentCaption);
-                await zapiOrchestrator.logDispatch(null, 'S140_PRESIDENTE_INDIVIDUAL', currentPresident.phone, 'SUCCESS');
+                const presRes = await zapiOrchestrator.sendImageDirect(currentPresident.phone, currentWeekImage, presidentCaption);
+                await zapiOrchestrator.logDispatch(
+                    null,
+                    'S140_PRESIDENTE_INDIVIDUAL',
+                    currentPresident.phone,
+                    presRes.success ? 'SUCCESS' : 'ERROR',
+                    presRes.messageId,
+                    currentPresident.id || this.resolvePublisherIdByPhone(currentPresident.phone, publishers)
+                );
             }
 
             // 8. Atualiza o snapshot para refletir a semana corrigida
@@ -551,8 +585,15 @@ export const s140PackageService = {
             const fileName = `S-140-Pacote_${weekRange}.pdf`;
             
             for (const recipient of fullPackageRecipients) {
-                await zapiOrchestrator.sendDocumentDirect(recipient, globalPdfBase64, 'pdf', fileName, packageCaption);
-                await zapiOrchestrator.logDispatch(null, 'S140_PACOTE_SEMANAL', recipient, 'SUCCESS');
+                const sendRes = await zapiOrchestrator.sendDocumentDirect(recipient, globalPdfBase64, 'pdf', fileName, packageCaption);
+                await zapiOrchestrator.logDispatch(
+                    null,
+                    'S140_PACOTE_SEMANAL',
+                    recipient,
+                    sendRes.success ? 'SUCCESS' : 'ERROR',
+                    sendRes.messageId,
+                    this.resolvePublisherIdByPhone(recipient, publishers)
+                );
                 
                 // P9: Jittering para evitar bloqueios de spam na Z-API
                 await new Promise(resolve => setTimeout(resolve, 3000));
@@ -594,8 +635,15 @@ export const s140PackageService = {
                         `Segue anexo o documento oficial *S-140 em PDF* exclusivo da sua semana.`;
 
                     console.log(`[s140PackageService] Enviando PDF único ao Presidente da semana ${wId}: ${pres.name}`);
-                    await zapiOrchestrator.sendDocumentDirect(pres.phone, presPdfBase64, 'pdf', `S-140_${wId}.pdf`, presCaption);
-                    await zapiOrchestrator.logDispatch(null, 'S140_PRESIDENTE_INDIVIDUAL', pres.phone, 'SUCCESS');
+                    const presRes = await zapiOrchestrator.sendDocumentDirect(pres.phone, presPdfBase64, 'pdf', `S-140_${wId}.pdf`, presCaption);
+                    await zapiOrchestrator.logDispatch(
+                        null,
+                        'S140_PRESIDENTE_INDIVIDUAL',
+                        pres.phone,
+                        presRes.success ? 'SUCCESS' : 'ERROR',
+                        presRes.messageId,
+                        pres.id || this.resolvePublisherIdByPhone(pres.phone, publishers)
+                    );
                 }
             }
         }

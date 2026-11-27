@@ -131,9 +131,9 @@ async function collectDispatchErrors(today: Date): Promise<Alert[]> {
 
     const { data, error } = await supabase
         .from('zapi_dispatch_log')
-        .select('part_id, dispatch_type, recipient_phone, created_at')
+        .select('part_id, dispatch_type, recipient_phone, dispatched_at')
         .eq('status', 'ERROR')
-        .gte('created_at', since.toISOString());
+        .gte('dispatched_at', since.toISOString());
 
     if (error || !data || data.length === 0) return [];
 

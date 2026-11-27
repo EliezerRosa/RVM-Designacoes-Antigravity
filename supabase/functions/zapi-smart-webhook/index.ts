@@ -261,7 +261,11 @@ async function processWebhookPayload(body: any) {
 
     // 1. Filtrar eventos puramente de status/presença que NÃO são mensagens nem ações de usuários
     const eventType = payload.type || (payload as any).event;
-    if (eventType && ["DeliveryCallback", "MessageStatusCallback", "PresenceChatCallback", "ConnectedCallback", "DisconnectedCallback"].includes(eventType)) {
+    if (eventType === "DisconnectedCallback" || eventType === "ConnectedCallback") {
+      await handleConnectionLifecycleEvent(eventType, payload);
+      return;
+    }
+    if (eventType && ["DeliveryCallback", "MessageStatusCallback", "PresenceChatCallback"].includes(eventType)) {
       return;
     }
 
@@ -1355,6 +1359,215 @@ async function dispatchGitHubAction(targetPart: any, pubName: string, reason: st
       `${reason} (Aviso do Sistema: Erro inesperado ao acionar automação. Ação manual necessária.)`
     );
     return false;
+  }
+}
+
+// ============================================================================
+// P10: Monitoramento Ativo de Desconexão / Reconexão Z-API (Cooldown + Web Push Lazy)
+// ============================================================================
+const ZAPI_CONNECTION_SETTING_KEY = "zapi_connection_status";
+const ZAPI_DISCONNECT_COOLDOWN_MS = 30 * 60 * 1000;
+
+interface ZApiConnectionStatusState {
+  connected?: boolean;
+  updatedAt?: string;
+  lastConnectedAt?: string | null;
+  lastDisconnectedAt?: string | null;
+  lastAlertAt?: string | null;
+  reason?: string | null;
+}
+
+interface PushSubscriptionRow {
+  id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  publisher_id: string | null;
+}
+
+interface PublisherMinimalRow {
+  id: string;
+  data?: {
+    role?: string;
+    funcao?: string;
+  } | null;
+}
+
+function readEnvVar(name: string): string {
+  const denoObj = (globalThis as unknown as {
+    Deno?: { env?: { get(key: string): string | undefined } };
+  }).Deno;
+  return denoObj?.env?.get(name) || "";
+}
+
+async function handleConnectionLifecycleEvent(
+  eventType: "DisconnectedCallback" | "ConnectedCallback",
+  payload: Record<string, unknown>
+): Promise<void> {
+  try {
+    const nowMs = Date.now();
+    const nowIso = new Date(nowMs).toISOString();
+
+    const { data: settingRow } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", ZAPI_CONNECTION_SETTING_KEY)
+      .maybeSingle();
+
+    const prev = (settingRow?.value && typeof settingRow.value === "object")
+      ? (settingRow.value as ZApiConnectionStatusState)
+      : null;
+
+    if (eventType === "ConnectedCallback") {
+      await supabase.from("app_settings").upsert(
+        {
+          key: ZAPI_CONNECTION_SETTING_KEY,
+          value: {
+            connected: true,
+            updatedAt: nowIso,
+            lastConnectedAt: nowIso,
+            lastDisconnectedAt: prev?.lastDisconnectedAt || null,
+            lastAlertAt: prev?.lastAlertAt || null,
+            reason: null,
+          },
+        },
+        { onConflict: "key" }
+      );
+
+      if (prev?.connected === false) {
+        await supabase.from("zapi_dispatch_log").insert({
+          part_id: null,
+          dispatch_type: "ZAPI_RECONNECTED",
+          recipient_phone: "SYSTEM",
+          status: "SUCCESS",
+          message_id: null,
+          publisher_id: null,
+        });
+        console.log("[P10] Instância Z-API reconectada — recuperação registrada no log canônico.");
+      }
+      return;
+    }
+
+    // DisconnectedCallback
+    const rawReason =
+      payload.error ||
+      payload.reason ||
+      payload.disconnectedReason ||
+      payload.status ||
+      "Instância desconectada";
+    const reason = String(rawReason).trim().slice(0, 160) || "Instância desconectada";
+
+    const lastAlertMs = prev?.lastAlertAt ? Date.parse(prev.lastAlertAt) : NaN;
+    const withinCooldown = Number.isFinite(lastAlertMs) && (nowMs - lastAlertMs) < ZAPI_DISCONNECT_COOLDOWN_MS;
+
+    await supabase.from("app_settings").upsert(
+      {
+        key: ZAPI_CONNECTION_SETTING_KEY,
+        value: {
+          connected: false,
+          updatedAt: nowIso,
+          lastConnectedAt: prev?.lastConnectedAt || null,
+          lastDisconnectedAt: nowIso,
+          lastAlertAt: withinCooldown ? (prev?.lastAlertAt || nowIso) : nowIso,
+          reason,
+        },
+      },
+      { onConflict: "key" }
+    );
+
+    if (withinCooldown) {
+      console.log(`[P10] Cooldown ativo (<30min) — alerta repetido de desconexão suprimido (${reason}).`);
+      return;
+    }
+
+    // 1. Registra no Log Canônico (renderizado como 🚨 SYSTEM_ERROR no CommunicationLogPanel)
+    const { error: logErr } = await supabase.from("zapi_dispatch_log").insert({
+      part_id: null,
+      dispatch_type: "SYSTEM_ERROR",
+      recipient_phone: "ZAPI_DISCONNECTED",
+      status: "ERROR",
+      message_id: null,
+      publisher_id: null,
+    });
+    if (logErr) {
+      console.error("[P10] Falha ao gravar SYSTEM_ERROR em zapi_dispatch_log:", logErr);
+    }
+
+    // 2. Dispara Web Push sob demanda (import lazy — 0ms de impacto no fluxo normal do WhatsApp)
+    const vapidPublicKey = readEnvVar("VAPID_PUBLIC_KEY");
+    const vapidPrivateKey = readEnvVar("VAPID_PRIVATE_KEY");
+    const vapidSubject = readEnvVar("VAPID_SUBJECT") || "mailto:suporte@rvm.com.br";
+
+    if (!vapidPublicKey || !vapidPrivateKey) {
+      console.warn("[P10] Chaves VAPID ausentes — alerta registrado apenas no log canônico.");
+      return;
+    }
+
+    const [{ data: subsRaw }, { data: pubsRaw }] = await Promise.all([
+      supabase.from("push_subscriptions").select("id, endpoint, p256dh, auth, publisher_id"),
+      supabase.from("publishers").select("id, data"),
+    ]);
+
+    const subs = (subsRaw || []) as PushSubscriptionRow[];
+    if (subs.length === 0) {
+      console.warn("[P10] Nenhuma assinatura Web Push ativa encontrada.");
+      return;
+    }
+
+    const leadershipIds = new Set<string>();
+    for (const pub of (pubsRaw || []) as PublisherMinimalRow[]) {
+      const role = String(pub.data?.role || "").toLowerCase();
+      const funcao = String(pub.data?.funcao || "").toLowerCase();
+      if (role === "admin" || funcao.includes("vida e minist")) {
+        leadershipIds.add(String(pub.id));
+      }
+    }
+
+    // Inclui assinaturas vinculadas à liderança (Admin/SRVM) + assinaturas administrativas legadas (publisher_id NULL)
+    const targetSubs = subs.filter(
+      (s) => s.publisher_id === null || leadershipIds.has(String(s.publisher_id))
+    );
+
+    if (targetSubs.length === 0) {
+      console.warn("[P10] Nenhuma assinatura Web Push elegível (Admin/SRVM ou legada).");
+      return;
+    }
+
+    const webPushModule = await import("https://esm.sh/web-push@3.6.7");
+    const webpush = webPushModule.default || webPushModule;
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+
+    const pushPayload = JSON.stringify({
+      title: "🚨 WhatsApp Z-API Desconectado",
+      body: `A instância do WhatsApp desconectou (${reason}). Reconecte o aparelho na Z-API para retomar os envios do RVM.`,
+      url: "/",
+      data: { url: "/" },
+    });
+
+    let sentCount = 0;
+    for (const sub of targetSubs) {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          pushPayload
+        );
+        sentCount++;
+      } catch (pushErr: unknown) {
+        const statusCode = (pushErr as { statusCode?: number } | null)?.statusCode;
+        if (statusCode === 404 || statusCode === 410) {
+          await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+        } else {
+          console.error(`[P10] Erro ao enviar Web Push para assinatura ${sub.id}:`, pushErr);
+        }
+      }
+    }
+
+    console.log(`[P10] Alerta de desconexão Z-API processado: SYSTEM_ERROR gravado + ${sentCount}/${targetSubs.length} Web Push enviados.`);
+  } catch (err) {
+    console.error("[P10] Erro inesperado no handler de conexão Z-API:", err);
   }
 }
 

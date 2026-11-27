@@ -138,6 +138,32 @@ async function ensureSupabaseSessionReady(): Promise<boolean> {
 
 export const communicationService = {
     /**
+     * Espelha envios efetivados (S-89 ou S-140) no Log Canônico (zapi_dispatch_log).
+     */
+    async mirrorSentNotificationToCanonicalLog(record: NotificationRecord): Promise<void> {
+        if (record.status !== 'SENT' || (record.type !== 'S89' && record.type !== 'S140')) {
+            return;
+        }
+
+        const dispatchType = record.type === 'S89' ? 'PUBLICACAO_S89' : 'PUBLICACAO_S140';
+        const messageIdRaw = record.metadata?.messageId ? String(record.metadata.messageId) : '';
+        const isManual = !messageIdRaw || messageIdRaw.startsWith('MANUAL');
+
+        try {
+            await supabase.from('zapi_dispatch_log').insert({
+                part_id: record.metadata?.partId || null,
+                dispatch_type: dispatchType,
+                recipient_phone: record.recipient_phone || '',
+                status: isManual ? 'SUCCESS_MANUAL' : 'SUCCESS',
+                message_id: messageIdRaw || 'MANUAL_WHATSAPP',
+                publisher_id: record.metadata?.publisherId || null,
+            });
+        } catch (syncErr) {
+            console.warn('[communicationService] Falha não impeditiva ao espelhar no log canônico:', syncErr);
+        }
+    },
+
+    /**
      * Registra uma nova mensagem no banco
      */
     async logNotification(record: NotificationRecord): Promise<NotificationRecord> {
@@ -154,24 +180,7 @@ export const communicationService = {
 
         // Sincronização Automática com o Log Canônico (zapi_dispatch_log)
         // Apenas para envios efetivados (status === 'SENT') de S-89 ou S-140.
-        if (record.status === 'SENT' && (record.type === 'S89' || record.type === 'S140')) {
-            const dispatchType = record.type === 'S89' ? 'PUBLICACAO_S89' : 'PUBLICACAO_S140';
-            // Se veio do Z-API terá um messageId válido longo, senão assumimos MANUAL
-            const isManual = !record.metadata?.messageId || String(record.metadata?.messageId).startsWith('MANUAL');
-            
-            try {
-                // Tentativa de gravar ou ignorar duplicatas baseadas no partId/messageId
-                await supabase.from('zapi_dispatch_log').insert({
-                    part_id: record.metadata?.partId || null,
-                    dispatch_type: dispatchType,
-                    recipient_phone: record.recipient_phone || '',
-                    status: isManual ? 'SUCCESS_MANUAL' : 'SUCCESS',
-                    message_id: record.metadata?.messageId || 'MANUAL_WHATSAPP'
-                });
-            } catch (syncErr) {
-                console.warn('[communicationService] Falha não impeditiva ao espelhar no log canônico:', syncErr);
-            }
-        }
+        await this.mirrorSentNotificationToCanonicalLog(record);
 
         // Logar também no feed de atividades
         await this.logActivity({
@@ -185,9 +194,25 @@ export const communicationService = {
     },
 
     /**
-     * Atualiza um registro existente
+     * Atualiza um registro existente.
+     * Quando transita para SENT (ex.: botão Enviar na CommunicationTab), espelha no
+     * log canônico (zapi_dispatch_log) de forma idempotente (evitando duplicidade em reenvio).
      */
     async updateNotification(id: string, updates: Partial<NotificationRecord>): Promise<NotificationRecord> {
+        let previousStatus: NotificationStatus | undefined;
+        if (updates.status === 'SENT') {
+            try {
+                const { data: existing } = await supabase
+                    .from('notifications')
+                    .select('status')
+                    .eq('id', id)
+                    .maybeSingle();
+                previousStatus = existing?.status as NotificationStatus | undefined;
+            } catch (readErr) {
+                console.warn('[communicationService] Não foi possível ler status prévio da notificação:', readErr);
+            }
+        }
+
         const { data, error } = await supabase
             .from('notifications')
             .update(updates)
@@ -198,6 +223,10 @@ export const communicationService = {
         if (error) {
             console.error('[communicationService] Erro ao atualizar notificação:', error);
             throw error;
+        }
+
+        if (updates.status === 'SENT' && previousStatus !== 'SENT' && data) {
+            await this.mirrorSentNotificationToCanonicalLog(data as NotificationRecord);
         }
 
         return data;
