@@ -3,6 +3,11 @@
 // Consolidado de: ALL RVM, CRUD RVM, Form RVM, S-89 RVM
 // ============================================================================
 
+import type {
+    ExternalIdentityLink,
+    PublisherCanonicalProfile,
+} from './contracts/canonicalPublisherContract';
+
 // ===== PUBLICADORES =====
 
 export type Gender = 'brother' | 'sister';
@@ -84,6 +89,9 @@ export interface Publisher {
     // Data origin tracking
     source?: 'manual' | 'import' | 'sync' | 'initial'; // Onde o registro foi criado
     createdAt?: string;  // ISO timestamp of creation
+    // Ponte canônica neutra (V-2 / V-6 — preparada 1:1 para futura promoção ao MER M0–M2)
+    canonicalProfile?: PublisherCanonicalProfile;
+    externalLinks?: ExternalIdentityLink[];
 }
 
 // ===== ENUMS RVM PRO 2.0 (Novo Modelo) =====
