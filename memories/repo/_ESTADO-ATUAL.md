@@ -1178,6 +1178,7 @@ Para elevar o monitoramento ao mais alto padrão de usabilidade e governança te
     - Catálogos canônicos neutros prontos 1:1 para futura promoção a M0–M2: `CANONICAL_PRIVILEGE_CATALOG` (36 privilégios com regra estrutural de gênero/condição/batismo), `CANONICAL_CONGREGATION_ROLES` (17 papéis congregacionais), `CANONICAL_CAPABILITY_CATALOG` (28 capabilities de domínio separando `governance.*`), `ExternalIdentityLink` e `PublisherCanonicalProfile`.
     - Funções puras testadas (`5` testes unitários): `isPrivilegeAllowedForPublisher`, `isTechnicalGovernanceCapability`, `filterNonGovernanceCapabilities`, `resolvePrimaryCanonicalFuncao`, `projectLegacyPrivilegesFromCanonical` (projeção retrocompatível para o motor atual `M-0…M-12` sem tocá-lo), `normalizeCanonicalProfile` e `upsertExternalLink`.
     - Extensão 100% opcional e aditiva em `Publisher` (`canonicalProfile?`, `externalLinks?`); `0` alterações de DDL e `0` alterações no motor de designações.
+    - **Verificação & Memória de Sessão**: `npm run test:gate` (**9/9**), `npm test` (**170/170**), `npm run build` (**Exit 0**), CI `verify.yml` (`#46097741595`) e `Deploy to GitHub Pages` (`#46097741590`) verdes em `edd105c`. Nota completa da sessão em `memories/session/visao-final-ponte-canonica-e-observabilidade-2026-11-27.md` (e plano local de ponte externa em `docs-local/_ESTADO-LOCAL.md` §43).
 
 ---
 
